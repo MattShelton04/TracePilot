@@ -41,7 +41,10 @@ defineProps<{
             v-for="col in columns"
             :key="col.key"
             class="px-5 py-2.5"
-            :class="col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''"
+            :class="[
+              col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : '',
+              col.class || '',
+            ]"
           >
             <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
               {{ row[col.key] ?? "" }}

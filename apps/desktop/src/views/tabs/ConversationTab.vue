@@ -11,7 +11,6 @@ import {
 const store = useSessionDetailStore();
 const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
-const viewMode = useToggleSet<string>(); // abuse toggle for view mode isn't ideal; use ref
 import { ref } from "vue";
 const activeView = ref<"chat" | "compact" | "timeline">("chat");
 

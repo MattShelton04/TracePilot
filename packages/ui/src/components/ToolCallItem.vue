@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
 import { formatDuration } from "../utils/formatters";
 import { toolIcon, toolCategory, categoryColor, formatArgsSummary } from "../utils/toolCall";
@@ -17,7 +18,7 @@ const emit = defineEmits<{
   toggle: [];
 }>();
 
-const summary = props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName);
+const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
 </script>
 
 <template>
