@@ -89,7 +89,6 @@ function formatArgsSummary(args: unknown, toolName: string): string {
   if (!args || typeof args !== 'object') return '';
   const a = args as Record<string, unknown>;
 
-  // Provide a useful one-line summary depending on the tool
   if (toolName === 'view' && a.path) return String(a.path);
   if (toolName === 'edit' && a.path) return String(a.path);
   if (toolName === 'create' && a.path) return String(a.path);
@@ -97,7 +96,7 @@ function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === 'glob' && a.pattern) return String(a.pattern);
   if (toolName === 'powershell' && a.command) {
     const cmd = String(a.command);
-    return cmd.length > 80 ? cmd.slice(0, 80) + '…' : cmd;
+    return cmd.length > 150 ? cmd.slice(0, 150) + '…' : cmd;
   }
   if (toolName === 'task' && a.description) return String(a.description);
   if (toolName === 'report_intent' && a.intent) return String(a.intent);
@@ -106,6 +105,22 @@ function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === 'web_fetch' && a.url) return String(a.url);
   if (toolName.startsWith('github-mcp-server') && a.method) return String(a.method);
   return '';
+}
+
+// Cache formatArgsSummary results per tool call to avoid repeated computation in templates
+const argsSummaryCache = computed(() => {
+  const cache = new Map<string, string>();
+  for (const turn of store.turns) {
+    for (let i = 0; i < turn.toolCalls.length; i++) {
+      const tc = turn.toolCalls[i];
+      cache.set(`${turn.turnIndex}-${i}`, formatArgsSummary(tc.arguments, tc.toolName));
+    }
+  }
+  return cache;
+});
+
+function getArgsSummary(turnIndex: number, tcIdx: number): string {
+  return argsSummaryCache.value.get(`${turnIndex}-${tcIdx}`) || '';
 }
 
 const totalToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.toolCalls.length, 0));
@@ -121,7 +136,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
         <span>{{ totalToolCalls }} tool call{{ totalToolCalls !== 1 ? 's' : '' }}</span>
         <span v-if="failedToolCalls > 0" class="text-[var(--color-danger-fg)]">{{ failedToolCalls }} failed</span>
       </div>
-      <div class="flex items-center rounded-md border border-[var(--color-border-default)] overflow-hidden">
+      <div role="group" aria-label="View mode" class="flex items-center rounded-md border border-[var(--color-border-default)] overflow-hidden">
         <button
           v-for="mode in (['chat', 'compact', 'timeline'] as const)"
           :key="mode"
@@ -129,6 +144,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
           :class="viewMode === mode
             ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent-fg)]'
             : 'bg-[var(--color-canvas-default)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-sidebar-hover)]'"
+          :aria-pressed="viewMode === mode"
           @click="viewMode = mode"
         >
           {{ mode }}
@@ -141,7 +157,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
     </div>
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
-    <div v-if="viewMode === 'chat'" class="space-y-6">
+    <div v-else-if="viewMode === 'chat'" class="space-y-6">
       <div v-for="turn in store.turns" :key="turn.turnIndex" class="space-y-4">
         <!-- User message bubble -->
         <div v-if="turn.userMessage" class="flex gap-3 items-start">
@@ -186,6 +202,8 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
         <div v-if="turn.toolCalls.length > 0" class="ml-11">
           <button
             class="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] py-1.5 px-2 rounded-md hover:bg-[var(--color-sidebar-hover)]"
+            :aria-expanded="expandedTools.has(turn.turnIndex)"
+            :aria-controls="`tools-${turn.turnIndex}`"
             @click="toggleToolCalls(turn.turnIndex)"
           >
             <svg
@@ -204,7 +222,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
             </span>
           </button>
 
-          <div v-if="expandedTools.has(turn.turnIndex)" class="mt-2 space-y-2">
+          <div v-if="expandedTools.has(turn.turnIndex)" :id="`tools-${turn.turnIndex}`" class="mt-2 space-y-2">
             <div
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"
@@ -219,6 +237,8 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
               <button
                 class="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--color-sidebar-hover)]"
                 :class="tc.success === false ? 'bg-[var(--color-danger-muted)]' : 'bg-[var(--color-canvas-subtle)]'"
+                :aria-expanded="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
+                :aria-controls="`tool-detail-${turn.turnIndex}-${tcIdx}`"
                 @click="toggleToolDetail(`${turn.turnIndex}-${tcIdx}`)"
               >
                 <span class="text-sm flex-shrink-0">{{ toolIcon(tc.toolName) }}</span>
@@ -229,11 +249,11 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
 
                 <!-- Arguments summary -->
                 <span
-                  v-if="formatArgsSummary(tc.arguments, tc.toolName)"
+                  v-if="getArgsSummary(turn.turnIndex, tcIdx)"
                   class="text-xs text-[var(--color-text-tertiary)] truncate max-w-[300px] font-mono"
-                  :title="formatArgsSummary(tc.arguments, tc.toolName)"
+                  :title="getArgsSummary(turn.turnIndex, tcIdx)"
                 >
-                  {{ formatArgsSummary(tc.arguments, tc.toolName) }}
+                  {{ getArgsSummary(turn.turnIndex, tcIdx) }}
                 </span>
 
                 <span v-if="tc.mcpServerName" class="text-xs text-[var(--color-text-tertiary)]">
@@ -266,11 +286,12 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
               <!-- Tool call details (expandable) -->
               <div
                 v-if="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
+                :id="`tool-detail-${turn.turnIndex}-${tcIdx}`"
                 class="border-t border-[var(--color-border-muted)] bg-[var(--color-canvas-inset)] px-4 py-3 space-y-2"
               >
                 <div v-if="tc.error" class="rounded-md bg-[var(--color-danger-muted)] border border-[var(--color-danger-fg)]/20 px-3 py-2">
                   <div class="text-[11px] font-semibold text-[var(--color-danger-fg)] mb-1">Error</div>
-                  <pre class="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap font-mono leading-relaxed">{{ tc.error }}</pre>
+                  <pre class="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap overflow-x-auto break-words font-mono leading-relaxed">{{ tc.error }}</pre>
                 </div>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
                   <div v-if="tc.toolCallId" class="flex gap-2">
@@ -295,7 +316,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
                 </div>
                 <div v-if="tc.arguments && Object.keys(tc.arguments as object).length > 0">
                   <div class="text-[11px] font-semibold text-[var(--color-text-tertiary)] mb-1">Arguments</div>
-                  <pre class="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap font-mono bg-[var(--color-canvas-default)] rounded-md border border-[var(--color-border-muted)] px-3 py-2 max-h-40 overflow-y-auto leading-relaxed">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
+                  <pre class="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap overflow-x-auto break-words font-mono bg-[var(--color-canvas-default)] rounded-md border border-[var(--color-border-muted)] px-3 py-2 max-h-40 overflow-y-auto leading-relaxed">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
                 </div>
               </div>
             </div>
@@ -305,7 +326,7 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
     </div>
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
-    <div v-if="viewMode === 'compact'" class="space-y-3">
+    <div v-else-if="viewMode === 'compact'" class="space-y-3">
       <div
         v-for="turn in store.turns"
         :key="turn.turnIndex"
@@ -335,33 +356,62 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
             {{ truncateMessage(msg, 300) }}
           </div>
 
-          <!-- Tool calls (inline pills) -->
+          <!-- Tool calls (interactive pills) -->
           <div v-if="turn.toolCalls.length > 0" class="flex flex-wrap gap-1.5">
-            <span
+            <button
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"
-              class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-mono"
+              class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-mono cursor-pointer transition-colors hover:ring-1 hover:ring-[var(--color-border-default)]"
               :class="tc.success === false
                 ? 'bg-[var(--color-danger-muted)] text-[var(--color-danger-fg)]'
                 : tc.success === true
                   ? 'bg-[var(--color-canvas-default)] border border-[var(--color-border-muted)] text-[var(--color-text-secondary)]'
                   : 'bg-[var(--color-neutral-muted)] text-[var(--color-text-tertiary)]'"
-              :title="formatArgsSummary(tc.arguments, tc.toolName) || tc.toolName"
+              :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)"
+              @click="toggleToolDetail(`compact-${turn.turnIndex}-${tcIdx}`)"
             >
               {{ toolIcon(tc.toolName) }} {{ tc.toolName }}
               <span v-if="tc.durationMs" class="text-[var(--color-text-tertiary)]">{{ formatDuration(tc.durationMs) }}</span>
-            </span>
+            </button>
+          </div>
+
+          <!-- Expanded tool detail in compact view -->
+          <div
+            v-for="(tc, tcIdx) in turn.toolCalls"
+            :key="`detail-${tcIdx}`"
+          >
+            <div
+              v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)"
+              class="rounded-md border border-[var(--color-border-muted)] bg-[var(--color-canvas-inset)] px-4 py-3 space-y-2 mt-2"
+            >
+              <div class="flex items-center gap-2 text-xs">
+                <span>{{ toolIcon(tc.toolName) }}</span>
+                <span class="font-semibold" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
+                <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="text-[var(--color-text-tertiary)] font-mono truncate">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
+              </div>
+              <div v-if="tc.error" class="rounded-md bg-[var(--color-danger-muted)] border border-[var(--color-danger-fg)]/20 px-3 py-2">
+                <div class="text-[11px] font-semibold text-[var(--color-danger-fg)] mb-1">Error</div>
+                <pre class="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap overflow-x-auto break-words font-mono leading-relaxed">{{ tc.error }}</pre>
+              </div>
+              <div v-if="tc.arguments && Object.keys(tc.arguments as object).length > 0">
+                <div class="text-[11px] font-semibold text-[var(--color-text-tertiary)] mb-1">Arguments</div>
+                <pre class="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap overflow-x-auto break-words font-mono bg-[var(--color-canvas-default)] rounded-md border border-[var(--color-border-muted)] px-3 py-2 max-h-32 overflow-y-auto leading-relaxed">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
-    <div v-if="viewMode === 'timeline'" class="relative pl-8">
-      <!-- Timeline line -->
-      <div class="absolute left-3.5 top-0 bottom-0 w-px bg-[var(--color-border-default)]" />
+    <div v-else-if="viewMode === 'timeline'" class="relative pl-8">
+      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" class="relative pb-8 last:pb-0">
+        <!-- Timeline line (stops before last item) -->
+        <div
+          v-if="turnIdx < store.turns.length - 1"
+          class="absolute left-[-16.5px] top-7 bottom-0 w-px bg-[var(--color-border-default)]"
+        />
 
-      <div v-for="turn in store.turns" :key="turn.turnIndex" class="relative pb-8 last:pb-0">
         <!-- Timeline dot -->
         <div class="absolute -left-8 top-1 h-7 w-7 rounded-full border-2 border-[var(--color-border-default)] bg-[var(--color-canvas-default)] flex items-center justify-center text-xs font-bold text-[var(--color-accent-fg)]">
           {{ turn.turnIndex }}
@@ -383,23 +433,62 @@ const failedToolCalls = computed(() => store.turns.reduce((sum, t) => sum + t.to
             <div class="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{{ truncateMessage(turn.userMessage, 500) }}</div>
           </div>
 
-          <!-- Tool calls (timeline nodes) -->
+          <!-- Tool calls (timeline nodes - clickable) -->
           <div v-if="turn.toolCalls.length > 0" class="space-y-1.5">
             <div
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"
-              class="flex items-center gap-2 rounded-md px-3 py-2 text-xs border border-[var(--color-border-muted)] bg-[var(--color-canvas-subtle)]"
+              class="overflow-hidden rounded-md border border-[var(--color-border-muted)]"
             >
-              <span>{{ toolIcon(tc.toolName) }}</span>
-              <span class="font-semibold" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
-              <span v-if="formatArgsSummary(tc.arguments, tc.toolName)" class="text-[var(--color-text-tertiary)] font-mono truncate max-w-[250px]">
-                {{ formatArgsSummary(tc.arguments, tc.toolName) }}
-              </span>
-              <span class="ml-auto flex items-center gap-2">
-                <span v-if="tc.durationMs" class="text-[var(--color-text-tertiary)]">{{ formatDuration(tc.durationMs) }}</span>
-                <span v-if="tc.success === true" class="text-[var(--color-success-fg)]">✓</span>
-                <span v-else-if="tc.success === false" class="text-[var(--color-danger-fg)]">✗</span>
-              </span>
+              <button
+                class="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--color-sidebar-hover)]"
+                :class="tc.success === false ? 'bg-[var(--color-danger-muted)]' : 'bg-[var(--color-canvas-subtle)]'"
+                :aria-expanded="expandedToolDetails.has(`tl-${turn.turnIndex}-${tcIdx}`)"
+                @click="toggleToolDetail(`tl-${turn.turnIndex}-${tcIdx}`)"
+              >
+                <span>{{ toolIcon(tc.toolName) }}</span>
+                <span class="font-semibold" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
+                <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="text-[var(--color-text-tertiary)] font-mono truncate max-w-[250px]">
+                  {{ getArgsSummary(turn.turnIndex, tcIdx) }}
+                </span>
+                <span class="ml-auto flex items-center gap-2 flex-shrink-0">
+                  <span v-if="tc.durationMs" class="text-[var(--color-text-tertiary)]">{{ formatDuration(tc.durationMs) }}</span>
+                  <span v-if="tc.success === true" class="text-[var(--color-success-fg)]">✓</span>
+                  <span v-else-if="tc.success === false" class="text-[var(--color-danger-fg)]">✗</span>
+                  <svg
+                    class="h-3 w-3 text-[var(--color-text-tertiary)] transition-transform duration-150"
+                    :class="expandedToolDetails.has(`tl-${turn.turnIndex}-${tcIdx}`) ? 'rotate-90' : ''"
+                    fill="currentColor" viewBox="0 0 16 16"
+                  >
+                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                </span>
+              </button>
+
+              <!-- Expanded detail in timeline -->
+              <div
+                v-if="expandedToolDetails.has(`tl-${turn.turnIndex}-${tcIdx}`)"
+                class="border-t border-[var(--color-border-muted)] bg-[var(--color-canvas-inset)] px-4 py-3 space-y-2"
+              >
+                <div v-if="tc.error" class="rounded-md bg-[var(--color-danger-muted)] border border-[var(--color-danger-fg)]/20 px-3 py-2">
+                  <div class="text-[11px] font-semibold text-[var(--color-danger-fg)] mb-1">Error</div>
+                  <pre class="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap overflow-x-auto break-words font-mono leading-relaxed">{{ tc.error }}</pre>
+                </div>
+                <div class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                  <div v-if="tc.toolCallId" class="flex gap-2">
+                    <span class="text-[var(--color-text-tertiary)]">Call ID:</span>
+                    <span class="font-mono text-[var(--color-text-secondary)] truncate">{{ tc.toolCallId }}</span>
+                  </div>
+                  <div v-if="tc.durationMs != null" class="flex gap-2">
+                    <span class="text-[var(--color-text-tertiary)]">Duration:</span>
+                    <span class="text-[var(--color-text-secondary)]">{{ formatDuration(tc.durationMs) }}</span>
+                  </div>
+                </div>
+                <div v-if="tc.arguments && Object.keys(tc.arguments as object).length > 0">
+                  <div class="text-[11px] font-semibold text-[var(--color-text-tertiary)] mb-1">Arguments</div>
+                  <pre class="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap overflow-x-auto break-words font-mono bg-[var(--color-canvas-default)] rounded-md border border-[var(--color-border-muted)] px-3 py-2 max-h-32 overflow-y-auto leading-relaxed">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
+                </div>
+              </div>
             </div>
           </div>
 
