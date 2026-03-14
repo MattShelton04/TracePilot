@@ -1,0 +1,15 @@
+[package]
+name = "tracepilot-indexer"
+description = "Incremental session indexing, FTS5 sync, and file watching"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracepilot-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rusqlite = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }

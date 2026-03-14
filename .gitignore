@@ -1,0 +1,45 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# pnpm
+.pnpm-store/
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/icons/*.png
+apps/desktop/src-tauri/icons/*.ico
+apps/desktop/src-tauri/icons/*.icns
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# TracePilot local data
+.tracepilot/
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib

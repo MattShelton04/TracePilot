@@ -1,0 +1,19 @@
+{
+  "name": "tracepilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",
+  "scripts": {
+    "dev": "pnpm --filter @tracepilot/desktop dev",
+    "build": "pnpm --filter @tracepilot/desktop build",
+    "build:cli": "pnpm --filter @tracepilot/cli build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
