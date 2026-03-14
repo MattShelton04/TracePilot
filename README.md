@@ -13,17 +13,19 @@ TracePilot reads the session data stored by GitHub Copilot CLI at `~/.copilot/se
 - 📝 **JSON Output** — machine-readable output for all commands (`--json`)
 
 #### Desktop App (Tauri)
-- 🖥️ **Session Explorer** — rich GUI with search, filters (repo/branch), and sorting
-- 💬 **Conversation Viewer** — beautiful turn-by-turn display with collapsible tool calls
-- 📊 **Metrics Dashboard** — model usage breakdown, token distribution, and cost estimates
+- 🖥️ **Session Explorer** — sidebar-driven GUI with search, filters (repo/branch), and sorting
+- 💬 **Conversation Viewer** — turn-by-turn display with collapsible tool calls
+- 📊 **Metrics Dashboard** — model usage breakdown, token distribution bars, and cost estimates
 - ⚡ **Events Browser** — raw event log with type filtering and pagination
-- ✅ **Todo Tracker** — visual progress bar and dependency graph display
+- ✅ **Todo Tracker** — visual progress bar and dependency display
 - 🔍 **Full-Text Search** — instant search across all sessions via SQLite FTS5 index
+- 🎨 **GitHub Primer Design** — dark + light themes, 40+ CSS variables, responsive from 375px to 4K
+- ♿ **Accessible** — ARIA attributes, keyboard navigation, screen reader support
 
 #### Shared Core
-- 📦 **UI Library** — reusable Vue 3 components (@tracepilot/ui)
+- 📦 **UI Library** — reusable Vue 3 components (@tracepilot/ui): Badge, SessionCard, TabNav, StatCard, SearchInput, FilterSelect, StatusIcon
 - 🦀 **Rust Core** — high-performance parsing, indexing, and analysis
-- 🧪 **Test Suite** — 39 Rust tests + 33 Vue component tests
+- 🧪 **Test Suite** — 39 Rust tests + 34 Vue component tests
 
 ### Planned (Phase 3-7)
 - 📊 **Analytics Dashboard** — visual metrics and usage patterns across time

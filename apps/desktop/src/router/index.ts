@@ -11,6 +11,7 @@ const router = createRouter({
     {
       path: "/session/:id",
       name: "session-detail",
+      redirect: { name: "session-overview" },
       component: () => import("@/views/SessionDetailView.vue"),
       children: [
         { path: "", name: "session-overview", component: () => import("@/views/tabs/OverviewTab.vue") },

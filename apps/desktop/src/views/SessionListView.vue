@@ -93,7 +93,7 @@ async function handleReindex() {
 }
 
 function onSelect(sessionId: string) {
-  router.push({ name: "session-detail", params: { id: sessionId } });
+  router.push({ name: "session-overview", params: { id: sessionId } });
 }
 
 onMounted(() => {

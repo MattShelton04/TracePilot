@@ -117,21 +117,29 @@ Each phase builds on the prior, with clear deliverables and testing gates.
 ### 2.4 — Shared UI Components (`packages/ui`) ✅
 - [x] `SessionCard` — summary card with repo/branch/model badges, event/turn counts, relative time
 - [x] `SessionList` — responsive 1/2/3-column grid with empty state
-- [x] `SearchInput` — search field with magnifying glass icon
-- [x] `Badge` — variant-based badge (accent/success/warning/error/purple)
-- [x] `TabNav` — route-aware tab navigation with optional counts
-- [x] `FilterSelect` — dropdown filter with "All" default
+- [x] `SearchInput` — search field with magnifying glass icon, clear button
+- [x] `Badge` — variant-based badge (accent/success/warning/danger/done/neutral)
+- [x] `TabNav` — route-aware navigation with count badges and aria-current
+- [x] `FilterSelect` — dropdown filter with "All" default, aria-label support
+- [x] `StatCard` — reusable metric display card with 5 color variants
+- [x] `StatusIcon` — SVG status icons replacing emoji (done/in_progress/blocked/pending)
 
 ### 2.5 — Styling & Theming ✅
 - [x] Tailwind CSS v4 setup with custom TracePilot design tokens (CSS variables)
-- [x] Dark theme (default, GitHub-inspired palette)
-- [x] Responsive layout (grid adapts from 1 to 3 columns)
-- [ ] Light theme option (deferred to Phase 3)
+- [x] GitHub Primer-inspired design system with 40+ CSS variables
+- [x] Dark theme (default) + Light theme with toggle
+- [x] Sidebar navigation layout with session count badge
+- [x] Responsive layout (1/2/3-column grid, sidebar collapse on mobile)
+- [x] Loading skeleton animations
+- [x] Theme persistence via localStorage (applied before Vue mount to prevent flash)
+- [x] Comprehensive design system documentation (`docs/design/design-system.md`)
 
 ### 2.6 — Testing Gate ✅
-- [x] 33 Vue component tests across 6 test files (`@vue/test-utils` + Vitest)
+- [x] 34 Vue component tests across 6 test files (`@vue/test-utils` + Vitest)
 - [x] 39 Rust tests (35 core + 4 indexer)
 - [x] Desktop Vite build passes with all tabs code-split
+- [x] Multi-model review: Opus 4.6, GPT 5.4, Gemini — 15+ findings consolidated and fixed
+- [x] Visual verification via Playwright at 375px, 768px, 1920px viewports + light/dark themes
 - [ ] Tauri command integration tests (deferred — requires Tauri test harness)
 - [ ] Visual regression testing (deferred to Phase 3)
 
