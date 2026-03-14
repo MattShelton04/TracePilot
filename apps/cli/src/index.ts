@@ -16,7 +16,11 @@ const program = new Command();
 program
   .name("tracepilot")
   .description("Visualize, audit, and inspect GitHub Copilot CLI sessions")
-  .version("0.1.0");
+  .version("0.1.0")
+  .action(() => {
+    // Default: show list when no subcommand given
+    program.commands.find((c) => c.name() === "list")?.parse([], { from: "user" });
+  });
 
 program
   .command("list")

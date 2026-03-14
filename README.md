@@ -48,11 +48,18 @@ tracepilot/
 # Install dependencies
 pnpm install
 
-# List your sessions
-pnpm --filter @tracepilot/cli dev -- list
+# List your sessions (default when no subcommand given)
+pnpm cli
+
+# List with options
+pnpm cli list --limit 5 --sort updated
 
 # Show a specific session (partial ID match)
-pnpm --filter @tracepilot/cli dev -- show c86fe369
+pnpm cli show c86fe369
+
+# Build the CLI for standalone use
+pnpm --filter @tracepilot/cli build
+node apps/cli/dist/index.js list
 ```
 
 ### Desktop App (requires Tauri prerequisites)
@@ -61,8 +68,11 @@ pnpm --filter @tracepilot/cli dev -- show c86fe369
 # Install dependencies
 pnpm install
 
-# Development mode
-pnpm --filter @tracepilot/desktop tauri dev
+# Development mode (opens Tauri window + Vite HMR)
+pnpm tauri dev
+
+# Or just the Vite frontend (mock data, no Rust backend)
+pnpm dev
 ```
 
 ### Rust Crates
