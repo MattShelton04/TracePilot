@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { TabNav, Badge } from "@tracepilot/ui";
+import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
 
 const route = useRoute();
 const router = useRouter();
@@ -60,20 +60,12 @@ onUnmounted(() => {
 
     <!-- Loading state -->
     <div v-if="store.loading" class="space-y-4">
-      <div class="h-7 bg-[var(--color-border-muted)] rounded w-1/2 animate-pulse" />
-      <div class="flex gap-2">
-        <div class="h-5 bg-[var(--color-border-muted)] rounded-full w-24 animate-pulse" />
-        <div class="h-5 bg-[var(--color-border-muted)] rounded-full w-20 animate-pulse" />
-      </div>
+      <SkeletonLoader variant="text" :count="1" />
+      <SkeletonLoader variant="badge" :count="2" />
     </div>
 
     <!-- Error state -->
-    <div
-      v-if="store.error"
-      class="rounded-lg border border-[var(--color-danger-fg)]/20 bg-[var(--color-danger-muted)] p-4 text-sm text-[var(--color-danger-fg)]"
-    >
-      {{ store.error }}
-    </div>
+    <ErrorAlert v-if="store.error" :message="store.error" />
 
     <!-- Tabs -->
     <TabNav v-if="store.detail" :tabs="tabs" />

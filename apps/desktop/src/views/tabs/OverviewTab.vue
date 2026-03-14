@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { StatCard, Badge } from "@tracepilot/ui";
+import { StatCard, Badge, SectionPanel, formatDate, formatDuration, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 
-watch(
+useSessionTabLoader(
   () => store.sessionId,
-  (id) => {
-    if (!id) return;
-    void store.loadCheckpoints();
-    void store.loadShutdownMetrics();
-  },
-  { immediate: true }
+  () => { store.loadCheckpoints(); store.loadShutdownMetrics(); }
 );
 
 // Retry loading when detail finishes (guards against race with loadDetail clearing loaded set)
@@ -27,21 +22,6 @@ watch(
 
 const detail = computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
-
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleString();
-}
-
-function formatDuration(ms?: number): string {
-  if (ms == null) return "—";
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
 </script>
 
 <template>
@@ -61,10 +41,7 @@ function formatDuration(ms?: number): string {
     <!-- Two-column layout -->
     <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <!-- Session Info -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
-        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
-          Session Info
-        </h3>
+      <SectionPanel title="Session Info">
         <dl class="space-y-2.5 text-sm">
           <div class="flex justify-between gap-4">
             <dt class="text-[var(--color-text-secondary)]">ID</dt>
@@ -97,13 +74,10 @@ function formatDuration(ms?: number): string {
             <dd class="text-[var(--color-text-secondary)]">{{ formatDate(detail?.updatedAt) }}</dd>
           </div>
         </dl>
-      </div>
+      </SectionPanel>
 
       <!-- Session Summary -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
-        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
-          Session Summary
-        </h3>
+      <SectionPanel title="Session Summary">
         <dl class="space-y-2.5 text-sm">
           <div class="flex justify-between">
             <dt class="text-[var(--color-text-secondary)]">API Duration</dt>
@@ -125,17 +99,14 @@ function formatDuration(ms?: number): string {
             </dd>
           </div>
         </dl>
-      </div>
+      </SectionPanel>
     </div>
 
     <!-- Checkpoints -->
-    <div
+    <SectionPanel
       v-if="store.checkpoints.length > 0"
-      class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5"
+      :title="`Checkpoints (${store.checkpoints.length})`"
     >
-      <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
-        Checkpoints ({{ store.checkpoints.length }})
-      </h3>
       <div class="space-y-2">
         <div
           v-for="cp in store.checkpoints"
@@ -153,6 +124,6 @@ function formatDuration(ms?: number): string {
           </div>
         </div>
       </div>
-    </div>
+    </SectionPanel>
   </div>
 </template>

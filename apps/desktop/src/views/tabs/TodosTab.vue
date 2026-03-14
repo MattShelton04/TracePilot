@@ -1,17 +1,13 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { StatusIcon } from "@tracepilot/ui";
+import { StatusIcon, EmptyState, SectionPanel, ProgressBar, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 
-watch(
+useSessionTabLoader(
   () => store.sessionId,
-  (id) => {
-    if (!id) return;
-    void store.loadTodos();
-  },
-  { immediate: true }
+  () => store.loadTodos()
 );
 
 const todos = computed(() => store.todos?.todos ?? []);
@@ -50,33 +46,22 @@ function getTodoTitle(id: string): string {
 
 <template>
   <div class="space-y-4">
-    <div v-if="todos.length === 0" class="py-12 text-center text-sm text-[var(--color-text-secondary)]">
-      No todos found in this session.
-    </div>
+    <EmptyState v-if="todos.length === 0" message="No todos found in this session." />
 
     <div v-else class="space-y-5">
       <!-- Progress bar -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-semibold text-[var(--color-text-primary)]">Progress</span>
+      <SectionPanel title="Progress">
+        <div class="flex items-center justify-end mb-3">
           <span class="text-xs text-[var(--color-text-secondary)]">
             {{ completedCount }}/{{ todos.length }} completed
           </span>
         </div>
-        <div
-          class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]"
-          role="progressbar"
-          :aria-valuenow="progressPercent"
-          aria-valuemin="0"
-          aria-valuemax="100"
+        <ProgressBar
+          :percent="progressPercent"
+          color="var(--color-success-emphasis)"
           :aria-label="`${completedCount} of ${todos.length} todos completed`"
-        >
-          <div
-            class="h-full bg-[var(--color-success-emphasis)] transition-all duration-300 rounded-full"
-            :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
-      </div>
+        />
+      </SectionPanel>
 
       <!-- Todo items -->
       <div

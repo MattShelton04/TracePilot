@@ -3,7 +3,7 @@ import { onMounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore } from "@/stores/sessions";
 import { searchSessions, reindexSessions } from "@tracepilot/client";
-import { SessionList, SearchInput, FilterSelect } from "@tracepilot/ui";
+import { SessionList, SearchInput, FilterSelect, ErrorAlert, SkeletonLoader, ActionButton } from "@tracepilot/ui";
 import type { SessionListItem } from "@tracepilot/types";
 
 const router = useRouter();
@@ -113,16 +113,12 @@ onMounted(() => {
           Browse and inspect your Copilot CLI sessions
         </p>
       </div>
-      <button
-        class="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors disabled:opacity-50"
-        :disabled="isReindexing"
-        @click="handleReindex"
-      >
+      <ActionButton :disabled="isReindexing" @click="handleReindex">
         <svg class="h-4 w-4" :class="{ 'animate-spin': isReindexing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
         {{ isReindexing ? 'Indexing...' : 'Reindex' }}
-      </button>
+      </ActionButton>
     </div>
 
     <!-- Search + filters bar -->
@@ -170,9 +166,7 @@ onMounted(() => {
     </div>
 
     <!-- Error state -->
-    <div v-if="store.error" class="rounded-lg bg-[var(--color-danger-muted)] border border-[var(--color-danger-fg)]/20 p-4 text-sm text-[var(--color-danger-fg)]">
-      {{ store.error }}
-    </div>
+    <ErrorAlert v-if="store.error" :message="store.error" />
 
     <!-- Session grid -->
     <SessionList
@@ -182,15 +176,6 @@ onMounted(() => {
     />
 
     <!-- Loading skeleton -->
-    <div v-if="store.loading" class="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="i in 6" :key="i" class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4 animate-pulse">
-        <div class="h-4 bg-[var(--color-border-muted)] rounded w-3/4 mb-3" />
-        <div class="flex gap-2 mb-3">
-          <div class="h-5 bg-[var(--color-border-muted)] rounded-full w-20" />
-          <div class="h-5 bg-[var(--color-border-muted)] rounded-full w-16" />
-        </div>
-        <div class="h-3 bg-[var(--color-border-muted)] rounded w-1/2" />
-      </div>
-    </div>
+    <SkeletonLoader v-if="store.loading" variant="card" :count="6" />
   </div>
 </template>
