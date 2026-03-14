@@ -1,17 +1,134 @@
 @import "tailwindcss";
 @source "../../packages/ui/src/**/*.vue";
 
-:root {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --border: #30363d;
-  --text: #e6edf3;
-  --text-muted: #8b949e;
-  --accent: #58a6ff;
-  --success: #3fb950;
-  --warning: #d29922;
-  --error: #f85149;
+/* ──────────────────────────────────────────────
+   TracePilot Design System — Color Tokens
+   GitHub Primer-inspired with TracePilot identity
+   ────────────────────────────────────────────── */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Canvas */
+  --color-canvas-default: #0d1117;
+  --color-canvas-subtle: #161b22;
+  --color-canvas-inset: #010409;
+  --color-canvas-overlay: #1c2128;
+
+  /* Borders */
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-border-subtle: #1b1f23;
+
+  /* Text */
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-tertiary: #6e7681;
+  --color-text-link: #58a6ff;
+
+  /* Accent (blue) */
+  --color-accent-fg: #58a6ff;
+  --color-accent-emphasis: #1f6feb;
+  --color-accent-muted: rgba(56, 139, 253, 0.15);
+  --color-accent-subtle: rgba(56, 139, 253, 0.10);
+
+  /* Success (green) */
+  --color-success-fg: #3fb950;
+  --color-success-emphasis: #238636;
+  --color-success-muted: rgba(63, 185, 80, 0.15);
+
+  /* Warning (amber) */
+  --color-warning-fg: #d29922;
+  --color-warning-emphasis: #9e6a03;
+  --color-warning-muted: rgba(210, 153, 34, 0.15);
+
+  /* Danger (red) */
+  --color-danger-fg: #f85149;
+  --color-danger-emphasis: #da3633;
+  --color-danger-muted: rgba(248, 81, 73, 0.10);
+
+  /* Done / purple (model names etc) */
+  --color-done-fg: #a371f7;
+  --color-done-emphasis: #8957e5;
+  --color-done-muted: rgba(163, 113, 247, 0.15);
+
+  /* Neutral */
+  --color-neutral-fg: #8b949e;
+  --color-neutral-emphasis: #6e7681;
+  --color-neutral-muted: rgba(110, 118, 129, 0.20);
+
+  /* Layout */
+  --color-header-bg: #161b22;
+  --color-header-border: #30363d;
+  --color-sidebar-bg: #0d1117;
+  --color-sidebar-border: #21262d;
+  --color-sidebar-active: rgba(56, 139, 253, 0.15);
+  --color-sidebar-hover: rgba(177, 186, 196, 0.08);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 0 rgba(27, 31, 35, 0.04);
+  --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-canvas-default: #ffffff;
+  --color-canvas-subtle: #f6f8fa;
+  --color-canvas-inset: #eff2f5;
+  --color-canvas-overlay: #ffffff;
+
+  --color-border-default: #d0d7de;
+  --color-border-muted: #d8dee4;
+  --color-border-subtle: #e8e8e8;
+
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #636c76;
+  --color-text-tertiary: #8c959f;
+  --color-text-link: #0969da;
+
+  --color-accent-fg: #0969da;
+  --color-accent-emphasis: #0550ae;
+  --color-accent-muted: rgba(9, 105, 218, 0.12);
+  --color-accent-subtle: rgba(9, 105, 218, 0.08);
+
+  --color-success-fg: #1a7f37;
+  --color-success-emphasis: #1a7f37;
+  --color-success-muted: rgba(26, 127, 55, 0.12);
+
+  --color-warning-fg: #9a6700;
+  --color-warning-emphasis: #7d4e00;
+  --color-warning-muted: rgba(154, 103, 0, 0.12);
+
+  --color-danger-fg: #d1242f;
+  --color-danger-emphasis: #cf222e;
+  --color-danger-muted: rgba(209, 36, 47, 0.10);
+
+  --color-done-fg: #8250df;
+  --color-done-emphasis: #6639ba;
+  --color-done-muted: rgba(130, 80, 223, 0.12);
+
+  --color-neutral-fg: #636c76;
+  --color-neutral-emphasis: #57606a;
+  --color-neutral-muted: rgba(99, 108, 118, 0.12);
+
+  --color-header-bg: #f6f8fa;
+  --color-header-border: #d0d7de;
+  --color-sidebar-bg: #ffffff;
+  --color-sidebar-border: #d0d7de;
+  --color-sidebar-active: rgba(9, 105, 218, 0.12);
+  --color-sidebar-hover: rgba(208, 215, 222, 0.32);
+
+  --shadow-sm: 0 1px 0 rgba(27, 31, 35, 0.04);
+  --shadow-md: 0 3px 6px rgba(140, 149, 159, 0.15);
+  --shadow-lg: 0 8px 24px rgba(140, 149, 159, 0.20);
+}
+
+/* ──────────────────────────────────────────────
+   Global Resets & Base
+   ────────────────────────────────────────────── */
 
 * {
   margin: 0;
@@ -20,95 +137,46 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  background: var(--color-canvas-default);
+  color: var(--color-text-primary);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-.app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-.app__header {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1rem;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.app__header h1 {
-  font-size: 1.75rem;
-  color: var(--accent);
+/* Scrollbar styling for dark theme */
+:root[data-theme="dark"] ::-webkit-scrollbar,
+:root:not([data-theme]) ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.app__subtitle {
-  color: var(--text-muted);
-  font-size: 0.875rem;
+:root[data-theme="dark"] ::-webkit-scrollbar-track,
+:root:not([data-theme]) ::-webkit-scrollbar-track {
+  background: var(--color-canvas-default);
 }
 
-.app__error {
-  color: var(--error);
-  padding: 1rem;
-  background: rgba(248, 81, 73, 0.1);
-  border-radius: 6px;
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb,
+:root:not([data-theme]) ::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 4px;
 }
 
-.session-list {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-}
-
-.session-list--empty {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: var(--text-muted);
-}
-
-.session-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.session-card:hover,
-.session-card:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-  outline: none;
-}
-
-.session-card__title {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.session-card__meta {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-}
-
-.session-card__repo {
-  color: var(--accent);
-}
-
-.session-card__branch {
-  color: var(--success);
-}
-
-.session-card__dates {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
+:root:not([data-theme]) ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }

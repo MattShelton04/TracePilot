@@ -16,18 +16,25 @@ function navigate(routeName: string) {
 }
 </script>
 <template>
-  <nav class="flex border-b border-[var(--border)] mb-4">
+  <nav class="flex gap-1 border-b border-[var(--color-border-default)]" role="tablist">
     <button
       v-for="tab in tabs"
       :key="tab.name"
-      class="px-4 py-2 text-sm font-medium transition-colors -mb-px"
+      role="tab"
+      :aria-selected="activeTab === tab.routeName"
+      class="relative px-3 py-2 text-sm font-medium transition-colors -mb-px rounded-t-md hover:bg-[var(--color-sidebar-hover)]"
       :class="activeTab === tab.routeName
-        ? 'border-b-2 border-[var(--accent)] text-[var(--accent)]'
-        : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+        ? 'text-[var(--color-text-primary)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--color-accent-fg)] after:rounded-full'
+        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
       @click="navigate(tab.routeName)"
     >
       {{ tab.label }}
-      <span v-if="tab.count != null" class="ml-1 text-xs opacity-60">({{ tab.count }})</span>
+      <span
+        v-if="tab.count != null"
+        class="ml-1.5 inline-flex items-center justify-center rounded-full bg-[var(--color-neutral-muted)] px-1.5 py-0 text-[11px] font-medium text-[var(--color-text-secondary)] min-w-[18px]"
+      >
+        {{ tab.count }}
+      </span>
     </button>
   </nav>
 </template>

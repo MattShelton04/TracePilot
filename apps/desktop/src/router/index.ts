@@ -20,11 +20,6 @@ const router = createRouter({
         { path: "metrics", name: "session-metrics", component: () => import("@/views/tabs/MetricsTab.vue") },
       ],
     },
-    {
-      path: "/search",
-      name: "search",
-      component: () => import("@/views/SearchView.vue"),
-    },
   ],
 });
 
