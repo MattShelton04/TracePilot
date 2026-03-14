@@ -1,0 +1,23 @@
+[package]
+name = "tracepilot-desktop"
+version = "0.1.0"
+description = "TracePilot desktop application"
+edition = "2024"
+default-run = "tracepilot-desktop"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tracepilot-core = { workspace = true }
+tracepilot-indexer = { workspace = true }
+tracepilot-export = { workspace = true }
+tracepilot-tauri-bindings = { path = "../../../crates/tracepilot-tauri-bindings" }
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[[bin]]
+name = "tracepilot-desktop"
+path = "src/main.rs"

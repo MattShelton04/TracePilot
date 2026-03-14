@@ -1,0 +1,14 @@
+[package]
+name = "tracepilot-tauri-bindings"
+description = "Tauri IPC command layer bridging the frontend to tracepilot-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracepilot-core = { workspace = true }
+tracepilot-indexer = { workspace = true }
+tracepilot-export = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { version = "2", features = [] }
+tokio = { workspace = true }

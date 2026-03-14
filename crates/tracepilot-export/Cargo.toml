@@ -1,0 +1,13 @@
+[package]
+name = "tracepilot-export"
+description = "Export sessions to Markdown, JSON, or CSV with optional secret redaction"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracepilot-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

@@ -1,0 +1,25 @@
+{
+  "name": "@tracepilot/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TracePilot CLI — inspect Copilot sessions from your terminal",
+  "type": "module",
+  "bin": {
+    "tracepilot": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "chalk": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}

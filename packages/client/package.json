@@ -1,0 +1,19 @@
+{
+  "name": "@tracepilot/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript client wrapper for TracePilot backend commands",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.5.0",
+    "@tracepilot/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
