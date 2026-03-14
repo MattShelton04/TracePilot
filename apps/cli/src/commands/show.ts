@@ -39,6 +39,23 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
   let currentTurn: TurnInfo | null = null;
   let pendingUserMessage: string | undefined;
   let lastAssignedUserMessage: string | undefined;
+  // Track pending tool calls by toolCallId so we can match names on completion
+  const pendingTools = new Map<string, string>(); // toolCallId → toolName
+
+  function ensureCurrentTurn(data: Record<string, unknown> | undefined, timestamp?: string): TurnInfo {
+    if (!currentTurn) {
+      currentTurn = {
+        turnId: (data?.turnId as string) ?? String(turns.length),
+        tools: [],
+        startTime: timestamp,
+        userMessage: pendingUserMessage !== lastAssignedUserMessage
+          ? pendingUserMessage
+          : undefined,
+      };
+      if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
+    }
+    return currentTurn;
+  }
 
   for await (const evt of streamEvents(eventsPath)) {
     const type = evt.type as string;
@@ -54,7 +71,6 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
     }
 
     if (type === "assistant.turn_start") {
-      // Only assign the user message to the first turn after it was sent
       const userMsg = pendingUserMessage !== lastAssignedUserMessage
         ? pendingUserMessage
         : undefined;
@@ -68,35 +84,50 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
       };
     }
 
-    if (type === "assistant.message" && currentTurn) {
+    if (type === "assistant.message") {
+      const turn = ensureCurrentTurn(data, timestamp);
       const content = data?.content as string | undefined;
-      if (content && content.length > 0 && !currentTurn.assistantSnippet) {
-        currentTurn.assistantSnippet = content.slice(0, 120);
-      }
-      // Extract model from tool results
-      const toolReqs = data?.toolRequests as Array<Record<string, unknown>> | undefined;
-      if (toolReqs?.length) {
-        currentTurn.model = currentTurn.model ?? undefined;
+      if (content && content.length > 0 && !turn.assistantSnippet) {
+        turn.assistantSnippet = content.slice(0, 120);
       }
     }
 
-    if (type === "tool.execution_complete" && currentTurn) {
-      const model = data?.model as string | undefined;
-      if (model && !currentTurn.model) currentTurn.model = model;
+    if (type === "tool.execution_start") {
+      const turn = ensureCurrentTurn(data, timestamp);
       const toolName = data?.toolName as string | undefined;
+      const toolCallId = data?.toolCallId as string | undefined;
+      const model = data?.model as string | undefined;
+      if (model && !turn.model) turn.model = model;
+      // Record the tool name keyed by toolCallId for later matching
+      if (toolName && toolCallId) {
+        pendingTools.set(toolCallId, toolName);
+      }
+      // Also add the tool entry now (will be updated on completion)
+      if (toolName && toolName !== "report_intent") {
+        turn.tools.push({ name: toolName, success: true });
+      }
+    }
+
+    if (type === "tool.execution_complete") {
+      const turn = ensureCurrentTurn(data, timestamp);
+      const model = data?.model as string | undefined;
+      if (model && !turn.model) turn.model = model;
+      const toolCallId = data?.toolCallId as string | undefined;
       const success = data?.success as boolean | undefined;
-      if (toolName && toolName !== "report_intent") {
-        currentTurn.tools.push({ name: toolName, success: success ?? true });
-      }
-    }
 
-    if (type === "tool.execution_start" && currentTurn) {
-      const toolName = data?.toolName as string | undefined;
-      const model = data?.model as string | undefined;
-      if (model && !currentTurn.model) currentTurn.model = model;
-      // We track completions for success status, but capture the name here too
-      if (toolName && toolName !== "report_intent") {
-        // will be matched by completion
+      // Find the matching tool entry and update its success status
+      if (toolCallId) {
+        const toolName = pendingTools.get(toolCallId);
+        if (toolName && toolName !== "report_intent") {
+          // Find the last tool entry with this name and update success
+          for (let j = turn.tools.length - 1; j >= 0; j--) {
+            if (turn.tools[j].name === toolName) {
+              if (success === false) turn.tools[j].success = false;
+              break;
+            }
+          }
+        }
+        pendingTools.delete(toolCallId);
       }
     }
 
@@ -185,12 +216,13 @@ interface ShutdownMetrics {
 }
 
 async function getShutdownMetrics(eventsPath: string): Promise<ShutdownMetrics | null> {
+  let last: ShutdownMetrics | null = null;
   for await (const evt of streamEvents(eventsPath)) {
     if ((evt.type as string) === "session.shutdown") {
-      return evt.data as ShutdownMetrics;
+      last = evt.data as ShutdownMetrics;
     }
   }
-  return null;
+  return last;
 }
 
 function displayMetrics(m: ShutdownMetrics) {
@@ -219,7 +251,7 @@ function displayMetrics(m: ShutdownMetrics) {
       const input = formatTokens(info.usage?.inputTokens ?? 0);
       const output = formatTokens(info.usage?.outputTokens ?? 0);
       console.log(
-        `      ${chalk.cyan(model.padEnd(24))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}`
+        `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}`
       );
     }
   }

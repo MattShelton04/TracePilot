@@ -71,16 +71,35 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
         };
 
         let file_path = checkpoints_dir.join(filename);
-        let file_content = if file_path.exists() {
-            Some(
-                std::fs::read_to_string(&file_path).map_err(|e| TracePilotError::ParseError {
-                    context: format!("Failed to read checkpoint {}", file_path.display()),
-                    source: Some(Box::new(e)),
-                })?,
-            )
-        } else {
-            None
+        // Prevent path traversal — ensure the resolved path stays under checkpoints/
+        let canonical_dir = match checkpoints_dir.canonicalize() {
+            Ok(p) => p,
+            Err(_) => continue,
         };
+        let canonical_file = match file_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => {
+                // File doesn't exist — skip silently
+                entries.push(CheckpointEntry {
+                    number,
+                    title: title.to_string(),
+                    filename: filename.to_string(),
+                    content: None,
+                });
+                continue;
+            }
+        };
+        if !canonical_file.starts_with(&canonical_dir) {
+            // Path escapes checkpoints directory — skip
+            continue;
+        }
+
+        let file_content = Some(
+            std::fs::read_to_string(&canonical_file).map_err(|e| TracePilotError::ParseError {
+                context: format!("Failed to read checkpoint {}", canonical_file.display()),
+                source: Some(Box::new(e)),
+            })?,
+        );
 
         entries.push(CheckpointEntry {
             number,

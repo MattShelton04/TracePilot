@@ -36,6 +36,11 @@ CREATE TRIGGER IF NOT EXISTS sessions_au AFTER UPDATE ON sessions BEGIN
     INSERT INTO sessions_fts(rowid, id, summary, repository, branch)
     VALUES (new.rowid, new.id, new.summary, new.repository, new.branch);
 END;
+
+CREATE TRIGGER IF NOT EXISTS sessions_ad AFTER DELETE ON sessions BEGIN
+    INSERT INTO sessions_fts(sessions_fts, rowid, id, summary, repository, branch)
+    VALUES ('delete', old.rowid, old.id, old.summary, old.repository, old.branch);
+END;
 "#;
 
 const MIGRATION_2: &str = r#"
@@ -114,13 +119,23 @@ impl IndexDb {
         let workspace_mtime = get_workspace_mtime(session_path);
 
         self.conn.execute(
-            "INSERT OR REPLACE INTO sessions (
+            "INSERT INTO sessions (
                 id, path, summary, repository, branch, cwd, host_type,
                 created_at, updated_at, event_count, turn_count,
                 has_plan, has_checkpoints, checkpoint_count,
                 shutdown_type, current_model, total_premium_requests, total_api_duration_ms,
                 workspace_mtime, indexed_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, datetime('now'))",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, datetime('now'))
+            ON CONFLICT(id) DO UPDATE SET
+                path=excluded.path, summary=excluded.summary, repository=excluded.repository,
+                branch=excluded.branch, cwd=excluded.cwd, host_type=excluded.host_type,
+                created_at=excluded.created_at, updated_at=excluded.updated_at,
+                event_count=excluded.event_count, turn_count=excluded.turn_count,
+                has_plan=excluded.has_plan, has_checkpoints=excluded.has_checkpoints,
+                checkpoint_count=excluded.checkpoint_count, shutdown_type=excluded.shutdown_type,
+                current_model=excluded.current_model, total_premium_requests=excluded.total_premium_requests,
+                total_api_duration_ms=excluded.total_api_duration_ms, workspace_mtime=excluded.workspace_mtime,
+                indexed_at=excluded.indexed_at",
             params![
                 summary.id,
                 session_path.to_string_lossy().to_string(),
@@ -304,8 +319,10 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         let version = (i + 1) as i64;
         if version > current_version {
             tracing::info!(version, name, "Running migration");
-            conn.execute_batch(sql)?;
-            conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [version])?;
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(sql)?;
+            tx.execute("INSERT INTO schema_version (version) VALUES (?1)", [version])?;
+            tx.commit()?;
         }
     }
 

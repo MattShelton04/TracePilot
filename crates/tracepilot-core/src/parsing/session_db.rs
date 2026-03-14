@@ -165,14 +165,15 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         });
     }
 
-    // Discover columns via PRAGMA
-    let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", table_name))?;
+    // Discover columns via PRAGMA — escape table name for safe SQL interpolation
+    let safe_name = table_name.replace('"', "\"\"");
+    let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_name))?;
     let columns: Vec<String> = pragma_stmt
         .query_map([], |row| row.get::<_, String>(1))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     // Read all rows
-    let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", table_name))?;
+    let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
     let col_count = columns.len();
     let mut rows = Vec::new();
 
