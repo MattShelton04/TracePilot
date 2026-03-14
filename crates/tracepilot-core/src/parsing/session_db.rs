@@ -55,9 +55,8 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
         return Ok(Vec::new());
     }
 
-    let mut stmt = conn.prepare(
-        "SELECT id, title, description, status, created_at, updated_at FROM todos",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT id, title, description, status, created_at, updated_at FROM todos")?;
 
     let todos = stmt
         .query_map([], |row| {
@@ -173,8 +172,7 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     // Read all rows
-    let mut select_stmt =
-        conn.prepare(&format!("SELECT * FROM \"{}\"", table_name))?;
+    let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", table_name))?;
     let col_count = columns.len();
     let mut rows = Vec::new();
 
@@ -206,9 +204,7 @@ fn sqlite_value_to_json(row: &rusqlite::Row<'_>, idx: usize) -> serde_json::Valu
         Ok(ValueRef::Real(f)) => serde_json::Number::from_f64(f)
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
-        Ok(ValueRef::Text(t)) => {
-            serde_json::Value::String(String::from_utf8_lossy(t).into_owned())
-        }
+        Ok(ValueRef::Text(t)) => serde_json::Value::String(String::from_utf8_lossy(t).into_owned()),
         Ok(ValueRef::Blob(_)) => serde_json::Value::Null, // skip blobs
         Err(_) => serde_json::Value::Null,
     }
@@ -278,8 +274,9 @@ mod tests {
             INSERT INTO metrics VALUES ('latency', 42.5, 100);
             INSERT INTO metrics VALUES ('throughput', 1000.0, 50);
             INSERT INTO metrics VALUES ('nullcheck', NULL, NULL);
-            "
-        ).unwrap();
+            ",
+        )
+        .unwrap();
         drop(conn);
 
         let info = read_custom_table(&db_path, "metrics").unwrap();
@@ -288,7 +285,10 @@ mod tests {
         assert_eq!(info.rows.len(), 3);
 
         // First row
-        assert_eq!(info.rows[0]["name"], serde_json::Value::String("latency".to_string()));
+        assert_eq!(
+            info.rows[0]["name"],
+            serde_json::Value::String("latency".to_string())
+        );
         assert_eq!(info.rows[0]["count"], serde_json::json!(100));
 
         // Check real value

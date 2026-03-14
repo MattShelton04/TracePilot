@@ -63,22 +63,22 @@ impl IndexDb {
     pub fn upsert_session(&self, session: &DiscoveredSession) -> Result<()> {
         // Read workspace.yaml if available
         let workspace_path = session.path.join("workspace.yaml");
-        let (summary, repository, branch, cwd, created_at, updated_at) =
-            if workspace_path.exists() {
-                match tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path) {
-                    Ok(meta) => (
-                        meta.summary,
-                        meta.repository,
-                        meta.branch,
-                        meta.cwd,
-                        meta.created_at.map(|d| d.to_rfc3339()),
-                        meta.updated_at.map(|d| d.to_rfc3339()),
-                    ),
-                    Err(_) => (None, None, None, None, None, None),
-                }
-            } else {
-                (None, None, None, None, None, None)
-            };
+        let (summary, repository, branch, cwd, created_at, updated_at) = if workspace_path.exists()
+        {
+            match tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path) {
+                Ok(meta) => (
+                    meta.summary,
+                    meta.repository,
+                    meta.branch,
+                    meta.cwd,
+                    meta.created_at.map(|d| d.to_rfc3339()),
+                    meta.updated_at.map(|d| d.to_rfc3339()),
+                ),
+                Err(_) => (None, None, None, None, None, None),
+            }
+        } else {
+            (None, None, None, None, None, None)
+        };
 
         self.conn.execute(
             "INSERT OR REPLACE INTO sessions (id, path, summary, repository, branch, cwd, created_at, updated_at)

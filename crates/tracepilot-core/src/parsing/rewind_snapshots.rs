@@ -28,9 +28,7 @@ pub struct RewindSnapshot {
 ///
 /// Returns `None` if the file doesn't exist.
 pub fn parse_rewind_index(session_dir: &Path) -> Result<Option<RewindIndex>> {
-    let index_path = session_dir
-        .join("rewind-snapshots")
-        .join("index.json");
+    let index_path = session_dir.join("rewind-snapshots").join("index.json");
 
     if !index_path.exists() {
         return Ok(None);
@@ -94,7 +92,10 @@ mod tests {
 
         assert_eq!(idx.snapshots[0].snapshot_id, "snap-001");
         assert_eq!(idx.snapshots[0].event_id.as_deref(), Some("evt-10"));
-        assert_eq!(idx.snapshots[0].user_message.as_deref(), Some("Add login page"));
+        assert_eq!(
+            idx.snapshots[0].user_message.as_deref(),
+            Some("Add login page")
+        );
         assert_eq!(idx.snapshots[0].file_count, Some(3));
         assert_eq!(idx.snapshots[0].git_commit.as_deref(), Some("abc123"));
 

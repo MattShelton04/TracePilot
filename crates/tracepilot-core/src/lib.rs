@@ -11,7 +11,9 @@ pub mod health;
 pub mod models;
 pub mod parsing;
 pub mod session;
+pub mod turns;
 
 pub use error::{Result, TracePilotError};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ToolTransaction};
 pub use session::discovery::discover_sessions;
+pub use turns::{TurnStats, reconstruct_turns, turn_stats};

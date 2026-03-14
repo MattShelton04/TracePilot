@@ -32,10 +32,11 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
         return Ok(None);
     }
 
-    let content = std::fs::read_to_string(&index_path).map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to read {}", index_path.display()),
-        source: Some(Box::new(e)),
-    })?;
+    let content =
+        std::fs::read_to_string(&index_path).map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to read {}", index_path.display()),
+            source: Some(Box::new(e)),
+        })?;
 
     let checkpoints_dir = session_dir.join("checkpoints");
     let mut entries = Vec::new();
@@ -47,10 +48,7 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
             continue;
         }
 
-        let cols: Vec<&str> = trimmed
-            .split('|')
-            .map(|s| s.trim())
-            .collect();
+        let cols: Vec<&str> = trimmed.split('|').map(|s| s.trim()).collect();
 
         // After splitting on '|', a line like "| a | b | c |" gives ["", "a", "b", "c", ""]
         // We need at least 5 parts (empty + 3 cols + empty)
@@ -74,10 +72,12 @@ pub fn parse_checkpoints(session_dir: &Path) -> Result<Option<CheckpointIndex>> 
 
         let file_path = checkpoints_dir.join(filename);
         let file_content = if file_path.exists() {
-            Some(std::fs::read_to_string(&file_path).map_err(|e| TracePilotError::ParseError {
-                context: format!("Failed to read checkpoint {}", file_path.display()),
-                source: Some(Box::new(e)),
-            })?)
+            Some(
+                std::fs::read_to_string(&file_path).map_err(|e| TracePilotError::ParseError {
+                    context: format!("Failed to read checkpoint {}", file_path.display()),
+                    source: Some(Box::new(e)),
+                })?,
+            )
         } else {
             None
         };
@@ -107,7 +107,11 @@ mod tests {
 
         let index = "| # | Title | File |\n| --- | --- | --- |\n| 1 | Initial setup | cp1.md |\n| 2 | Add auth | cp2.md |\n";
         std::fs::write(cp_dir.join("index.md"), index).unwrap();
-        std::fs::write(cp_dir.join("cp1.md"), "# Checkpoint 1\nInitial project scaffolding").unwrap();
+        std::fs::write(
+            cp_dir.join("cp1.md"),
+            "# Checkpoint 1\nInitial project scaffolding",
+        )
+        .unwrap();
         std::fs::write(cp_dir.join("cp2.md"), "# Checkpoint 2\nAdded auth module").unwrap();
 
         let result = parse_checkpoints(dir.path()).unwrap();
@@ -118,7 +122,13 @@ mod tests {
         assert_eq!(idx.checkpoints[0].number, 1);
         assert_eq!(idx.checkpoints[0].title, "Initial setup");
         assert_eq!(idx.checkpoints[0].filename, "cp1.md");
-        assert!(idx.checkpoints[0].content.as_ref().unwrap().contains("Initial project scaffolding"));
+        assert!(
+            idx.checkpoints[0]
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("Initial project scaffolding")
+        );
 
         assert_eq!(idx.checkpoints[1].number, 2);
         assert_eq!(idx.checkpoints[1].title, "Add auth");

@@ -3,8 +3,8 @@
 use anyhow::Result;
 use std::path::Path;
 
-pub mod markdown;
 pub mod json;
+pub mod markdown;
 
 /// Export format options.
 pub enum ExportFormat {
