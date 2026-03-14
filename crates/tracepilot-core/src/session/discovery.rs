@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use crate::error::{Result, TracePilotError};
 
 /// Default location for Copilot CLI session state.
 pub fn default_session_state_dir() -> PathBuf {
@@ -44,8 +44,10 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
         return Ok(sessions);
     }
 
-    let entries = std::fs::read_dir(base_dir)
-        .with_context(|| format!("Failed to read session-state dir: {}", base_dir.display()))?;
+    let entries = std::fs::read_dir(base_dir).map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to read session-state dir: {}", base_dir.display()),
+        source: Some(Box::new(e)),
+    })?;
 
     for entry in entries {
         let entry = entry?;

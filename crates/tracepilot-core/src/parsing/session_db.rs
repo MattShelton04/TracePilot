@@ -1,6 +1,6 @@
 //! Parser for `session.db` — the SQLite database containing todos and custom tables.
 
-use anyhow::{Context, Result};
+use crate::error::{Result, TracePilotError};
 use rusqlite::Connection;
 use std::path::Path;
 
@@ -28,7 +28,10 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
         db_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    .map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to open session db: {}", db_path.display()),
+        source: Some(Box::new(e)),
+    })?;
 
     // Check if todos table exists
     let table_exists: bool = conn
@@ -69,7 +72,10 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
         db_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    .map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to open session db: {}", db_path.display()),
+        source: Some(Box::new(e)),
+    })?;
 
     let table_exists: bool = conn
         .query_row(
@@ -102,7 +108,10 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
         db_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    .map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to open session db: {}", db_path.display()),
+        source: Some(Box::new(e)),
+    })?;
 
     let mut stmt =
         conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;

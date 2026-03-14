@@ -3,7 +3,7 @@
 //! Each line is a JSON object with at minimum: `{ type, data, id, timestamp }`.
 //! Events form a tree via `parentId` and are linked by `interactionId`, `toolCallId`, `turnId`.
 
-use anyhow::{Context, Result};
+use crate::error::{Result, TracePilotError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -25,13 +25,19 @@ pub struct RawEvent {
 /// Parse all events from an `events.jsonl` file.
 /// Uses streaming to handle large files without loading everything into memory.
 pub fn parse_events_jsonl(path: &Path) -> Result<Vec<RawEvent>> {
-    let file = std::fs::File::open(path)
-        .with_context(|| format!("Failed to open {}", path.display()))?;
+    let file =
+        std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to open {}", path.display()),
+            source: Some(Box::new(e)),
+        })?;
     let reader = BufReader::new(file);
     let mut events = Vec::new();
 
     for (line_num, line) in reader.lines().enumerate() {
-        let line = line.with_context(|| format!("Failed to read line {}", line_num + 1))?;
+        let line = line.map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to read line {}", line_num + 1),
+            source: Some(Box::new(e)),
+        })?;
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
@@ -49,8 +55,14 @@ pub fn parse_events_jsonl(path: &Path) -> Result<Vec<RawEvent>> {
 
 /// Count events without fully parsing them (fast scan).
 pub fn count_events(path: &Path) -> Result<usize> {
-    let file = std::fs::File::open(path)
-        .with_context(|| format!("Failed to open {}", path.display()))?;
+    let file =
+        std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to open {}", path.display()),
+            source: Some(Box::new(e)),
+        })?;
     let reader = BufReader::new(file);
-    Ok(reader.lines().filter(|l| l.as_ref().is_ok_and(|s| !s.trim().is_empty())).count())
+    Ok(reader
+        .lines()
+        .filter(|l| l.as_ref().is_ok_and(|s| !s.trim().is_empty()))
+        .count())
 }

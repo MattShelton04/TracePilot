@@ -6,10 +6,12 @@
 //! - Derived models: `SessionSummary`, `ConversationTurn`, `ToolTransaction`
 //! - Health scoring and anomaly detection
 
+pub mod error;
 pub mod health;
 pub mod models;
 pub mod parsing;
 pub mod session;
 
+pub use error::{Result, TracePilotError};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ToolTransaction};
 pub use session::discovery::discover_sessions;

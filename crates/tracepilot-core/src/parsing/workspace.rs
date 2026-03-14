@@ -1,6 +1,6 @@
 //! Parser for `workspace.yaml` — the metadata file present in every session.
 
-use anyhow::{Context, Result};
+use crate::error::{Result, TracePilotError};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use std::path::Path;
@@ -13,6 +13,7 @@ pub struct WorkspaceMetadata {
     pub git_root: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,
+    pub host_type: Option<String>,
     pub summary: Option<String>,
     pub summary_count: Option<u32>,
     pub created_at: Option<DateTime<Utc>>,
@@ -21,10 +22,15 @@ pub struct WorkspaceMetadata {
 
 /// Parse a `workspace.yaml` file from a session directory.
 pub fn parse_workspace_yaml(path: &Path) -> Result<WorkspaceMetadata> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
-    let metadata: WorkspaceMetadata = serde_yaml::from_str(&content)
-        .with_context(|| format!("Failed to parse {}", path.display()))?;
+    let content = std::fs::read_to_string(path).map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to read {}", path.display()),
+        source: Some(Box::new(e)),
+    })?;
+    let metadata: WorkspaceMetadata =
+        serde_yaml::from_str(&content).map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to parse {}", path.display()),
+            source: Some(Box::new(e)),
+        })?;
     Ok(metadata)
 }
 

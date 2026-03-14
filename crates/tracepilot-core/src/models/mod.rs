@@ -1,10 +1,12 @@
 //! Domain models derived from raw session data.
 
-pub mod session_summary;
 pub mod conversation;
+pub mod event_types;
+pub mod session_summary;
 pub mod tool_transaction;
 
 pub use conversation::ConversationTurn;
+pub use event_types::SessionEventType;
 pub use session_summary::SessionSummary;
 pub use tool_transaction::ToolTransaction;
 

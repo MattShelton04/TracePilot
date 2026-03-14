@@ -34,14 +34,14 @@ pub fn compute_health(
 ) -> SessionHealth {
     let mut flags = Vec::new();
 
-    if let Some(count) = event_count {
-        if count > 5000 {
-            flags.push(HealthFlag {
-                severity: HealthSeverity::Warning,
-                category: "size".to_string(),
-                message: format!("Large session with {} events", count),
-            });
-        }
+    if let Some(count) = event_count
+        && count > 5000
+    {
+        flags.push(HealthFlag {
+            severity: HealthSeverity::Warning,
+            category: "size".to_string(),
+            message: format!("Large session with {} events", count),
+        });
     }
 
     // TODO: Add more heuristics (high error rate, missing shutdown, token anomalies)
