@@ -30,7 +30,7 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
 
     let mut indexed = 0;
     for session in &sessions {
-        if let Err(e) = db.upsert_session(session) {
+        if let Err(e) = db.upsert_session(&session.path) {
             tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
         } else {
             indexed += 1;
@@ -38,4 +38,29 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
     }
 
     Ok(indexed)
+}
+
+/// Reindex only sessions whose workspace.yaml mtime changed.
+pub fn reindex_incremental(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+) -> Result<(usize, usize)> {
+    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let db = index_db::IndexDb::open_or_create(index_db_path)?;
+
+    let mut indexed = 0;
+    let mut skipped = 0;
+    for session in &sessions {
+        if db.needs_reindex(&session.id, &session.path) {
+            if let Err(e) = db.upsert_session(&session.path) {
+                tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+            } else {
+                indexed += 1;
+            }
+        } else {
+            skipped += 1;
+        }
+    }
+
+    Ok((indexed, skipped))
 }

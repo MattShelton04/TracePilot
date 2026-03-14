@@ -28,23 +28,20 @@ mod commands {
         let mut items = Vec::new();
         for session in sessions {
             let workspace_path = session.path.join("workspace.yaml");
-            let (summary, repository, branch, created_at, updated_at) =
-                if workspace_path.exists() {
-                    match tracepilot_core::parsing::workspace::parse_workspace_yaml(
-                        &workspace_path,
-                    ) {
-                        Ok(meta) => (
-                            meta.summary,
-                            meta.repository,
-                            meta.branch,
-                            meta.created_at.map(|d| d.to_rfc3339()),
-                            meta.updated_at.map(|d| d.to_rfc3339()),
-                        ),
-                        Err(_) => (None, None, None, None, None),
-                    }
-                } else {
-                    (None, None, None, None, None)
-                };
+            let (summary, repository, branch, created_at, updated_at) = if workspace_path.exists() {
+                match tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path) {
+                    Ok(meta) => (
+                        meta.summary,
+                        meta.repository,
+                        meta.branch,
+                        meta.created_at.map(|d| d.to_rfc3339()),
+                        meta.updated_at.map(|d| d.to_rfc3339()),
+                    ),
+                    Err(_) => (None, None, None, None, None),
+                }
+            } else {
+                (None, None, None, None, None)
+            };
 
             items.push(SessionListItem {
                 id: session.id,

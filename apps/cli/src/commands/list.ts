@@ -2,10 +2,10 @@
  * `tracepilot list` — enumerate sessions from ~/.copilot/session-state/
  */
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import chalk from "chalk";
+import { getSessionStateDir, parseWorkspace, fileExists } from "./utils.js";
 
 interface SessionInfo {
   id: string;
@@ -16,10 +16,6 @@ interface SessionInfo {
   updatedAt?: string;
   hasEvents: boolean;
   hasDb: boolean;
-}
-
-function getSessionStateDir(): string {
-  return join(homedir(), ".copilot", "session-state");
 }
 
 async function discoverSessions(): Promise<SessionInfo[]> {
@@ -39,28 +35,17 @@ async function discoverSessions(): Promise<SessionInfo[]> {
       hasDb: false,
     };
 
-    // Read workspace.yaml
     try {
-      const yaml = await readFile(join(sessionDir, "workspace.yaml"), "utf-8");
-      // Simple YAML parsing for known fields (avoid full yaml dep for now)
-      for (const line of yaml.split("\n")) {
-        const match = line.match(/^(\w+):\s*(.+)/);
-        if (!match) continue;
-        const [, key, value] = match;
-        const cleaned = value.replace(/^["']|["']$/g, "").trim();
-        switch (key) {
-          case "summary": info.summary = cleaned; break;
-          case "repository": info.repository = cleaned; break;
-          case "branch": info.branch = cleaned; break;
-          case "created_at": info.createdAt = cleaned; break;
-          case "updated_at": info.updatedAt = cleaned; break;
-        }
-      }
+      const ws = await parseWorkspace(sessionDir);
+      info.summary = ws.summary;
+      info.repository = ws.repository;
+      info.branch = ws.branch;
+      info.createdAt = ws.createdAt;
+      info.updatedAt = ws.updatedAt;
     } catch { /* no workspace.yaml */ }
 
-    // Check for events and db
-    try { await stat(join(sessionDir, "events.jsonl")); info.hasEvents = true; } catch {}
-    try { await stat(join(sessionDir, "session.db")); info.hasDb = true; } catch {}
+    info.hasEvents = await fileExists(join(sessionDir, "events.jsonl"));
+    info.hasDb = await fileExists(join(sessionDir, "session.db"));
 
     sessions.push(info);
   }
@@ -72,15 +57,31 @@ export async function listSessionsCommand(options: {
   limit: string;
   sort: string;
   json?: boolean;
+  repo?: string;
+  branch?: string;
 }) {
   try {
     let sessions = await discoverSessions();
+
+    // Filters
+    if (options.repo) {
+      const r = options.repo.toLowerCase();
+      sessions = sessions.filter(
+        (s) => s.repository?.toLowerCase().includes(r)
+      );
+    }
+    if (options.branch) {
+      const b = options.branch.toLowerCase();
+      sessions = sessions.filter(
+        (s) => s.branch?.toLowerCase().includes(b)
+      );
+    }
 
     // Sort
     sessions.sort((a, b) => {
       const dateA = a.updatedAt || a.createdAt || "";
       const dateB = b.updatedAt || b.createdAt || "";
-      return dateB.localeCompare(dateA);
+      return String(dateB).localeCompare(String(dateA));
     });
 
     // Limit

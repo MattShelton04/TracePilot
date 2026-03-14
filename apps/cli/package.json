@@ -14,10 +14,14 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "chalk": "^5.4.0",
     "commander": "^13.1.0",
-    "chalk": "^5.4.0"
+    "js-yaml": "^4.1.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"

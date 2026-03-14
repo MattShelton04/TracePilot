@@ -10,6 +10,9 @@
 import { Command } from "commander";
 import { listSessionsCommand } from "./commands/list.js";
 import { showSessionCommand } from "./commands/show.js";
+import { searchCommand } from "./commands/search.js";
+import { resumeCommand } from "./commands/resume.js";
+import { indexCommand } from "./commands/index-cmd.js";
 
 const program = new Command();
 
@@ -27,6 +30,8 @@ program
   .description("List all Copilot CLI sessions")
   .option("-n, --limit <count>", "Maximum sessions to display", "20")
   .option("--sort <field>", "Sort by: updated, created, name", "updated")
+  .option("--repo <name>", "Filter by repository name")
+  .option("--branch <name>", "Filter by branch name")
   .option("--json", "Output as JSON")
   .action(listSessionsCommand);
 
@@ -41,9 +46,19 @@ program
 
 program
   .command("search <query>")
-  .description("Search sessions by summary, repo, or branch")
-  .action((_query) => {
-    console.log("Search not yet implemented — coming in Phase 2");
-  });
+  .description("Search sessions by summary, repo, branch, or message content")
+  .option("--json", "Output as JSON")
+  .action(searchCommand);
+
+program
+  .command("resume <session-id>")
+  .description("Print the command to resume a Copilot CLI session")
+  .action(resumeCommand);
+
+program
+  .command("index")
+  .description("Rebuild the session search index")
+  .option("--full", "Full reindex (instead of incremental)")
+  .action(indexCommand);
 
 program.parse();
