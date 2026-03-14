@@ -6,6 +6,7 @@
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
     pub id: String,
     pub summary: Option<String>,

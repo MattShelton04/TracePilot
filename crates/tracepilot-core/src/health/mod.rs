@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Health assessment for a session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionHealth {
     pub score: f64, // 0.0 (unhealthy) to 1.0 (healthy)
     pub flags: Vec<HealthFlag>,
@@ -11,6 +12,7 @@ pub struct SessionHealth {
 
 /// Individual health flag / anomaly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HealthFlag {
     pub severity: HealthSeverity,
     pub category: String,
@@ -18,6 +20,7 @@ pub struct HealthFlag {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum HealthSeverity {
     Info,
     Warning,

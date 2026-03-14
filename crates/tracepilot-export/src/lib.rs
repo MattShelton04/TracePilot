@@ -20,6 +20,5 @@ pub fn export_session(
     _format: ExportFormat,
     _redact_secrets: bool,
 ) -> Result<()> {
-    // TODO: Implement export pipeline
-    todo!("Export implementation pending")
+    anyhow::bail!("Export is not yet implemented — coming in Phase 2")
 }

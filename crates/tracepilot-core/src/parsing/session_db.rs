@@ -22,10 +22,13 @@ pub struct TodoDep {
     pub depends_on: String,
 }
 
-/// Read all todo items from a session database.
+/// Read all todo items from a session database (opened read-only).
 pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
-    let conn = Connection::open(db_path)
-        .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    let conn = Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
 
     // Check if todos table exists
     let table_exists: bool = conn
@@ -60,10 +63,13 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
     Ok(todos)
 }
 
-/// Read all todo dependencies from a session database.
+/// Read all todo dependencies from a session database (opened read-only).
 pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
-    let conn = Connection::open(db_path)
-        .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    let conn = Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
 
     let table_exists: bool = conn
         .query_row(
@@ -90,10 +96,13 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
     Ok(deps)
 }
 
-/// List all table names in a session database (for discovering custom tables).
+/// List all table names in a session database (opened read-only).
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
-    let conn = Connection::open(db_path)
-        .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
+    let conn = Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .with_context(|| format!("Failed to open session db: {}", db_path.display()))?;
 
     let mut stmt =
         conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;

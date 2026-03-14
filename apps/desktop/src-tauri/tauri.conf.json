@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri/src-tauri/gen/schemas/desktop-schema.json",
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/config.schema.json",
   "productName": "TracePilot",
   "version": "0.1.0",
   "identifier": "dev.tracepilot.app",
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {

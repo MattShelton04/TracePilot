@@ -55,16 +55,16 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
             continue;
         }
 
-        let id = path
+        // Validate UUID format using the uuid crate
+        let id_str = path
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or_default()
-            .to_string();
+            .unwrap_or_default();
 
-        // UUID format check (loose: 8-4-4-4-12 hex chars)
-        if id.len() != 36 || id.chars().filter(|c| *c == '-').count() != 4 {
-            continue;
-        }
+        let id = match uuid::Uuid::parse_str(id_str) {
+            Ok(u) => u.to_string(),
+            Err(_) => continue,
+        };
 
         sessions.push(DiscoveredSession {
             id,

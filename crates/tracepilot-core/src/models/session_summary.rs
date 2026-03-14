@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// A fully derived session summary — the primary model for session lists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
     pub id: String,
     pub summary: Option<String>,
@@ -25,6 +26,7 @@ pub struct SessionSummary {
 
 /// Metrics extracted from `session.shutdown` events.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShutdownMetrics {
     pub total_premium_requests: Option<u64>,
     pub total_api_duration_ms: Option<u64>,
@@ -36,6 +38,7 @@ pub struct ShutdownMetrics {
 
 /// Per-model usage metrics from shutdown data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModelMetric {
     pub model: String,
     pub requests: Option<u64>,

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// A complete tool execution from `tool.execution_start` to `tool.execution_complete`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolTransaction {
     pub tool_name: String,
     pub tool_call_id: Option<String>,

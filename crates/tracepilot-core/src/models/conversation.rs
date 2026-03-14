@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// A single conversation turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConversationTurn {
     pub turn_index: usize,
     pub user_message: Option<String>,
@@ -19,6 +20,7 @@ pub struct ConversationTurn {
 
 /// A tool call within a conversation turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TurnToolCall {
     pub tool_name: String,
     pub status: Option<String>,
