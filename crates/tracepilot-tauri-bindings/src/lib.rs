@@ -94,6 +94,8 @@ mod commands {
         repo: Option<String>,
         branch: Option<String>,
     ) -> Result<Vec<SessionListItem>, String> {
+        // NOTE: Currently loads every session summary from disk. For 1000+ sessions,
+        // consider using the indexer DB for metadata queries (Phase 3 optimization).
         tokio::task::spawn_blocking(move || {
             let base_dir = tracepilot_core::session::discovery::default_session_state_dir();
             let sessions = tracepilot_core::session::discovery::discover_sessions(&base_dir)
@@ -173,6 +175,9 @@ mod commands {
         offset: Option<u32>,
         limit: Option<u32>,
     ) -> Result<EventsResponse, String> {
+        // NOTE: Currently parses the entire events.jsonl on every page request.
+        // For Phase 3, consider caching parsed events in Tauri managed state
+        // or implementing streaming/seek-based pagination.
         tokio::task::spawn_blocking(move || {
             let path = tracepilot_core::session::discovery::resolve_session_path(&session_id)
                 .map_err(|e| e.to_string())?;

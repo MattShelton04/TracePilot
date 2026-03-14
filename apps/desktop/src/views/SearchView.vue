@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { searchSessions } from "@tracepilot/client";
+import { searchSessions, reindexSessions } from "@tracepilot/client";
 import { SearchInput, SessionList } from "@tracepilot/ui";
 import type { SessionListItem } from "@tracepilot/types";
 
@@ -10,6 +10,7 @@ const query = ref("");
 const results = ref<SessionListItem[]>([]);
 const loading = ref(false);
 const hasSearched = ref(false);
+const isReindexing = ref(false);
 
 async function doSearch() {
   if (!query.value.trim()) return;
@@ -22,6 +23,16 @@ async function doSearch() {
     results.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+async function handleReindex() {
+  isReindexing.value = true;
+  try {
+    await reindexSessions();
+    if (query.value.trim()) await doSearch();
+  } finally {
+    isReindexing.value = false;
   }
 }
 
@@ -45,8 +56,18 @@ function onSelect(sessionId: string) {
         {{ loading ? 'Searching...' : 'Search' }}
       </button>
     </form>
-    <div v-if="hasSearched && !loading" class="text-xs text-[var(--text-muted)]">
-      {{ results.length }} result{{ results.length !== 1 ? 's' : '' }}
+    <div v-if="hasSearched && !loading" class="flex items-center gap-3">
+      <span class="text-xs text-[var(--text-muted)]">
+        {{ results.length }} result{{ results.length !== 1 ? 's' : '' }}
+      </span>
+      <button
+        v-if="results.length === 0"
+        class="text-xs text-[var(--accent)] hover:underline disabled:opacity-50"
+        :disabled="isReindexing"
+        @click="handleReindex"
+      >
+        {{ isReindexing ? 'Reindexing...' : 'No results — try reindexing?' }}
+      </button>
     </div>
     <SessionList v-if="hasSearched" :sessions="results" @select="onSelect" />
   </div>

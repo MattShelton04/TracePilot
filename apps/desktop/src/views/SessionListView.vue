@@ -12,13 +12,15 @@ const searchResults = ref<SessionListItem[] | null>(null);
 const isSearching = ref(false);
 const isReindexing = ref(false);
 const searchTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+let searchSequence = 0;
 
 const displayedSessions = computed(() => {
-  if (searchResults.value !== null) return searchResults.value;
+  let sessions = searchResults.value !== null
+    ? [...searchResults.value]
+    : [...store.filteredSessions];
 
-  let sessions = [...store.filteredSessions];
-
-  if (store.searchQuery && !searchResults.value) {
+  // Apply client-side text filter when not using indexed search
+  if (store.searchQuery && searchResults.value === null) {
     const q = store.searchQuery.toLowerCase();
     sessions = sessions.filter(s =>
       (s.summary?.toLowerCase().includes(q)) ||
@@ -26,6 +28,16 @@ const displayedSessions = computed(() => {
       (s.branch?.toLowerCase().includes(q)) ||
       s.id.toLowerCase().includes(q)
     );
+  }
+
+  // Apply repo/branch filters to search results too
+  if (searchResults.value !== null) {
+    if (store.filterRepo) {
+      sessions = sessions.filter(s => s.repository === store.filterRepo);
+    }
+    if (store.filterBranch) {
+      sessions = sessions.filter(s => s.branch === store.filterBranch);
+    }
   }
 
   sessions.sort((a, b) => {
@@ -53,14 +65,18 @@ function onSearchInput(query: string) {
     return;
   }
 
+  const seq = ++searchSequence;
   searchTimeout.value = setTimeout(async () => {
     isSearching.value = true;
     try {
-      searchResults.value = await searchSessions(query);
+      const results = await searchSessions(query);
+      if (seq !== searchSequence) return; // stale response
+      searchResults.value = results;
     } catch {
+      if (seq !== searchSequence) return;
       searchResults.value = null;
     } finally {
-      isSearching.value = false;
+      if (seq === searchSequence) isSearching.value = false;
     }
   }, 300);
 }

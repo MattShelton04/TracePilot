@@ -94,8 +94,12 @@ function eventTypeColor(type: string): string {
         <option v-for="type in eventTypes" :key="type" :value="type">{{ type }}</option>
       </select>
       <span class="text-xs text-[var(--text-muted)]">
-        {{ filteredEvents.length }} of {{ totalCount }} events
-        <span v-if="filterType"> (filtered)</span>
+        <template v-if="filterType">
+          {{ filteredEvents.length }} matching on this page · {{ totalCount }} total events
+        </template>
+        <template v-else>
+          {{ filteredEvents.length }} of {{ totalCount }} events
+        </template>
       </span>
     </div>
 
