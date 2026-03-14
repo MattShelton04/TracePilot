@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri": "set \"PATH=%USERPROFILE%\\\\.cargo\\\\bin;%PATH%\" && tauri",
     "typecheck": "vue-tsc --noEmit",
     "clean": "rimraf dist"
   },
