@@ -38,4 +38,71 @@ describe("SessionCard", () => {
     expect(wrapper.emitted("select")).toBeTruthy();
     expect(wrapper.emitted("select")![0]).toEqual(["test-id"]);
   });
+
+  it("shows event count and turn count", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: {
+          id: "test-id",
+          summary: "Test",
+          eventCount: 100,
+          turnCount: 5,
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("100 events");
+    expect(wrapper.text()).toContain("5 turns");
+  });
+
+  it("shows relative time for updatedAt", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: {
+          id: "test-id",
+          summary: "Test",
+          updatedAt: new Date(Date.now() - 3600000).toISOString(),
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("1h ago");
+  });
+
+  it("shows model badge when currentModel is present", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: {
+          id: "test-id",
+          summary: "Test",
+          currentModel: "claude-opus-4.6",
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("claude-opus-4.6");
+  });
+
+  it("shows repository and branch badges", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: {
+          id: "test-id",
+          summary: "Test",
+          repository: "user/repo",
+          branch: "feature-branch",
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("user/repo");
+    expect(wrapper.text()).toContain("feature-branch");
+  });
+
+  it("handles missing optional fields gracefully", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: { id: "test-id" },
+      },
+    });
+    expect(wrapper.text()).not.toContain("events");
+    expect(wrapper.text()).not.toContain("turns");
+    expect(wrapper.text()).toContain("Untitled Session");
+  });
 });
