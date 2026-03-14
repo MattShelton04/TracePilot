@@ -25,7 +25,7 @@ function toggleToolCalls(turnIndex: number) {
 }
 
 function formatDuration(ms?: number): string {
-  if (!ms) return "";
+  if (ms == null) return "";
   if (ms < 1000) return `${ms}ms`;
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;

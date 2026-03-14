@@ -58,12 +58,15 @@ function onSearchInput(query: string) {
 
   if (searchTimeout.value) clearTimeout(searchTimeout.value);
 
+  // Increment sequence on every change (including clear) to invalidate in-flight requests
+  const seq = ++searchSequence;
+
   if (!query.trim()) {
     searchResults.value = null;
+    isSearching.value = false;
     return;
   }
 
-  const seq = ++searchSequence;
   searchTimeout.value = setTimeout(async () => {
     isSearching.value = true;
     try {

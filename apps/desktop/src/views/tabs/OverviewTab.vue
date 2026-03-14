@@ -34,7 +34,7 @@ function formatDate(dateStr?: string): string {
 }
 
 function formatDuration(ms?: number): string {
-  if (!ms) return "—";
+  if (ms == null) return "—";
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);

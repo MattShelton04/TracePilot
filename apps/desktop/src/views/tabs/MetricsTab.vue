@@ -62,7 +62,7 @@ function formatCost(c: number): string {
       </div>
 
       <!-- Model table -->
-      <div v-if="modelEntries.length > 0" class="overflow-hidden rounded-lg border border-[var(--color-border-default)]">
+      <div v-if="modelEntries.length > 0" class="overflow-x-auto rounded-lg border border-[var(--color-border-default)]">
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-[var(--color-canvas-subtle)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
@@ -109,7 +109,14 @@ function formatCost(c: number): string {
                 <span class="text-[var(--color-text-tertiary)]">({{ totalTokens > 0 ? Math.round(model.totalTokens / totalTokens * 100) : 0 }}%)</span>
               </span>
             </div>
-            <div class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]">
+            <div
+              class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]"
+              role="progressbar"
+              :aria-valuenow="totalTokens > 0 ? Math.round(model.totalTokens / totalTokens * 100) : 0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="`${model.name} token usage`"
+            >
               <div
                 class="h-full rounded-full bg-[var(--color-done-emphasis)] transition-all"
                 :style="{ width: totalTokens > 0 ? `${(model.totalTokens / totalTokens) * 100}%` : '0%' }"

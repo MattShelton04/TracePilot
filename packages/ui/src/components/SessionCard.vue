@@ -33,6 +33,7 @@ function relativeTime(dateStr?: string): string {
     tabindex="0"
     @click="emit('select', session.id)"
     @keydown.enter="emit('select', session.id)"
+    @keydown.space.prevent="emit('select', session.id)"
   >
     <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 truncate group-hover:text-[var(--color-accent-fg)] transition-colors">
       {{ session.summary || 'Untitled Session' }}
@@ -47,11 +48,11 @@ function relativeTime(dateStr?: string): string {
 
     <div class="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
       <span v-if="session.eventCount != null" class="flex items-center gap-1">
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         {{ session.eventCount }}
       </span>
       <span v-if="session.turnCount != null" class="flex items-center gap-1">
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+        <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
         {{ session.turnCount }}
       </span>
       <span class="ml-auto text-[var(--color-text-tertiary)]" :title="session.updatedAt">

@@ -24,8 +24,8 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
-  const mocks: Record<string, unknown> = {
-    list_sessions: [
+
+  const mockSessions: SessionListItem[] = [
       {
         id: "c86fe369-c858-4d91-81da-203c5e276e33",
         summary: "Implemented login feature with OAuth",
@@ -62,7 +62,13 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
         createdAt: new Date(Date.now() - 604800000).toISOString(),
         updatedAt: new Date(Date.now() - 86400000).toISOString(),
       },
-    ] satisfies SessionListItem[],
+  ];
+
+  // Mock search filters the session list
+  const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
+
+  const mocks: Record<string, unknown> = {
+    list_sessions: mockSessions,
     get_session_detail: {
       id: mockSessionId,
       summary: "Mock session detail",
@@ -169,7 +175,13 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
         "gpt-5.4": { requests: { count: 15, cost: 0.46 }, usage: { inputTokens: 234100, outputTokens: 23400, cacheReadTokens: 89000, cacheWriteTokens: 5600 } },
       },
     } as ShutdownMetrics,
-    search_sessions: [] as SessionListItem[],
+    search_sessions: searchQuery
+      ? mockSessions.filter(s =>
+          [s.summary, s.repository, s.branch, s.id].some(
+            f => f && f.toLowerCase().includes(searchQuery)
+          )
+        )
+      : mockSessions,
     reindex_sessions: 0,
   };
   return (mocks[cmd] ?? null) as T;

@@ -48,8 +48,8 @@ function eventTypeColor(type: string): string {
   if (type.startsWith("user.")) return "text-[var(--color-success-fg)]";
   if (type.startsWith("assistant.")) return "text-[var(--color-done-fg)]";
   if (type.startsWith("tool.")) return "text-[var(--color-warning-fg)]";
-  if (type.startsWith("context.")) return "text-cyan-400";
-  if (type.startsWith("subagent.")) return "text-[var(--color-accent-fg)]";
+  if (type.startsWith("context.")) return "text-[var(--color-accent-fg)]";
+  if (type.startsWith("subagent.")) return "text-[var(--color-done-fg)]";
   return "text-[var(--color-text-secondary)]";
 }
 
@@ -58,6 +58,8 @@ function eventTypeBg(type: string): string {
   if (type.startsWith("user.")) return "bg-[var(--color-success-muted)]";
   if (type.startsWith("assistant.")) return "bg-[var(--color-done-muted)]";
   if (type.startsWith("tool.")) return "bg-[var(--color-warning-muted)]";
+  if (type.startsWith("context.")) return "bg-[var(--color-accent-muted)]";
+  if (type.startsWith("subagent.")) return "bg-[var(--color-done-muted)]";
   return "bg-[var(--color-neutral-muted)]";
 }
 </script>
@@ -68,6 +70,7 @@ function eventTypeBg(type: string): string {
     <div class="flex items-center gap-3">
       <select
         v-model="filterType"
+        aria-label="Filter by event type"
         class="rounded-md border border-[var(--color-border-default)] bg-[var(--color-canvas-default)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent-fg)] focus:outline-none transition-colors cursor-pointer"
       >
         <option :value="null">All event types</option>
@@ -84,7 +87,7 @@ function eventTypeBg(type: string): string {
     </div>
 
     <!-- Events table -->
-    <div class="overflow-hidden rounded-lg border border-[var(--color-border-default)]">
+    <div class="overflow-x-auto rounded-lg border border-[var(--color-border-default)]">
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-[var(--color-canvas-subtle)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">

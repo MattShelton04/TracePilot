@@ -63,7 +63,14 @@ function getTodoTitle(id: string): string {
             {{ completedCount }}/{{ todos.length }} completed
           </span>
         </div>
-        <div class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]">
+        <div
+          class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]"
+          role="progressbar"
+          :aria-valuenow="progressPercent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="`${completedCount} of ${todos.length} todos completed`"
+        >
           <div
             class="h-full bg-[var(--color-success-emphasis)] transition-all duration-300 rounded-full"
             :style="{ width: `${progressPercent}%` }"
