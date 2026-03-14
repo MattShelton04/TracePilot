@@ -25,7 +25,7 @@ describe("TabNav", () => {
 
   it("shows count badge when tab has count", () => {
     const wrapper = mount(TabNav, { props: { tabs } });
-    expect(wrapper.text()).toContain("(42)");
+    expect(wrapper.text()).toContain("42");
   });
 
   it("does not show count badge when tab has no count", () => {
@@ -38,9 +38,9 @@ describe("TabNav", () => {
   it("highlights active tab based on route", () => {
     const wrapper = mount(TabNav, { props: { tabs } });
     const buttons = wrapper.findAll("button");
-    // session-overview is the active route
-    expect(buttons[0].classes().join(" ")).toContain("border-b-2");
-    expect(buttons[1].classes().join(" ")).not.toContain("border-b-2");
+    // session-overview is the active route — gets aria-current="page"
+    expect(buttons[0].attributes("aria-current")).toBe("page");
+    expect(buttons[1].attributes("aria-current")).toBeUndefined();
   });
 
   it("navigates on tab click", async () => {

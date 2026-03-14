@@ -10,52 +10,67 @@ describe("Badge", () => {
     expect(wrapper.text()).toBe("Hello Badge");
   });
 
-  it("applies correct classes for accent variant", () => {
+  it("applies accent variant styling", () => {
     const wrapper = mount(Badge, {
       props: { variant: "accent" },
       slots: { default: "Accent" },
     });
-    expect(wrapper.classes()).toContain("bg-blue-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-accent-muted)]");
+    expect(classes).toContain("text-[var(--color-accent-fg)]");
   });
 
-  it("applies correct classes for success variant", () => {
+  it("applies success variant styling", () => {
     const wrapper = mount(Badge, {
       props: { variant: "success" },
       slots: { default: "Success" },
     });
-    expect(wrapper.classes()).toContain("bg-green-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-success-muted)]");
   });
 
-  it("applies correct classes for warning variant", () => {
+  it("applies warning variant styling", () => {
     const wrapper = mount(Badge, {
       props: { variant: "warning" },
       slots: { default: "Warning" },
     });
-    expect(wrapper.classes()).toContain("bg-yellow-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-warning-muted)]");
   });
 
-  it("applies correct classes for error variant", () => {
+  it("applies danger variant styling", () => {
     const wrapper = mount(Badge, {
-      props: { variant: "error" },
-      slots: { default: "Error" },
+      props: { variant: "danger" },
+      slots: { default: "Danger" },
     });
-    expect(wrapper.classes()).toContain("bg-red-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-danger-muted)]");
   });
 
-  it("applies correct classes for purple variant", () => {
+  it("applies done variant styling", () => {
     const wrapper = mount(Badge, {
-      props: { variant: "purple" },
-      slots: { default: "Purple" },
+      props: { variant: "done" },
+      slots: { default: "Done" },
     });
-    expect(wrapper.classes()).toContain("bg-purple-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-done-muted)]");
   });
 
-  it("uses default variant when no prop passed", () => {
+  it("applies neutral variant styling", () => {
+    const wrapper = mount(Badge, {
+      props: { variant: "neutral" },
+      slots: { default: "Neutral" },
+    });
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-neutral-muted)]");
+  });
+
+  it("uses default/neutral variant when no prop passed", () => {
     const wrapper = mount(Badge, {
       slots: { default: "Default" },
     });
-    expect(wrapper.classes()).toContain("text-xs");
-    expect(wrapper.classes()).not.toContain("bg-blue-500/10");
-    expect(wrapper.classes()).not.toContain("bg-green-500/10");
+    const classes = wrapper.classes().join(" ");
+    expect(classes).toContain("bg-[var(--color-neutral-muted)]");
+    expect(classes).not.toContain("bg-[var(--color-accent-muted)]");
   });
 });

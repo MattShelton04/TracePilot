@@ -8,7 +8,8 @@ defineProps<{
 <template>
   <select
     :value="model ?? ''"
-    class="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+    :aria-label="placeholder || 'Filter'"
+    class="rounded-md border border-[var(--color-border-default)] bg-[var(--color-canvas-default)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-fg)] transition-colors cursor-pointer"
     @change="model = ($event.target as HTMLSelectElement).value || null"
   >
     <option value="">{{ placeholder || 'All' }}</option>

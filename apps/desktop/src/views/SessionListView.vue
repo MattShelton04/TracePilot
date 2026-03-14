@@ -3,7 +3,7 @@ import { onMounted, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore } from "@/stores/sessions";
 import { searchSessions, reindexSessions } from "@tracepilot/client";
-import { SessionList, SearchInput, FilterSelect } from "@tracepilot/ui";
+import { SessionList, SearchInput, FilterSelect, ErrorAlert, SkeletonLoader, ActionButton } from "@tracepilot/ui";
 import type { SessionListItem } from "@tracepilot/types";
 
 const router = useRouter();
@@ -19,7 +19,6 @@ const displayedSessions = computed(() => {
     ? [...searchResults.value]
     : [...store.filteredSessions];
 
-  // Apply client-side text filter when not using indexed search
   if (store.searchQuery && searchResults.value === null) {
     const q = store.searchQuery.toLowerCase();
     sessions = sessions.filter(s =>
@@ -30,7 +29,6 @@ const displayedSessions = computed(() => {
     );
   }
 
-  // Apply repo/branch filters to search results too
   if (searchResults.value !== null) {
     if (store.filterRepo) {
       sessions = sessions.filter(s => s.repository === store.filterRepo);
@@ -60,17 +58,20 @@ function onSearchInput(query: string) {
 
   if (searchTimeout.value) clearTimeout(searchTimeout.value);
 
+  // Increment sequence on every change (including clear) to invalidate in-flight requests
+  const seq = ++searchSequence;
+
   if (!query.trim()) {
     searchResults.value = null;
+    isSearching.value = false;
     return;
   }
 
-  const seq = ++searchSequence;
   searchTimeout.value = setTimeout(async () => {
     isSearching.value = true;
     try {
       const results = await searchSessions(query);
-      if (seq !== searchSequence) return; // stale response
+      if (seq !== searchSequence) return;
       searchResults.value = results;
     } catch {
       if (seq !== searchSequence) return;
@@ -92,64 +93,80 @@ async function handleReindex() {
 }
 
 function onSelect(sessionId: string) {
-  router.push({ name: "session-detail", params: { id: sessionId } });
+  router.push({ name: "session-overview", params: { id: sessionId } });
 }
 
 onMounted(() => {
-  store.fetchSessions();
+  if (store.sessions.length === 0) {
+    store.fetchSessions();
+  }
 });
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Toolbar -->
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="flex-1 min-w-[200px]">
+  <div class="space-y-5">
+    <!-- Page header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-[var(--color-text-primary)]">Sessions</h1>
+        <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">
+          Browse and inspect your Copilot CLI sessions
+        </p>
+      </div>
+      <ActionButton :disabled="isReindexing" @click="handleReindex">
+        <svg class="h-4 w-4" :class="{ 'animate-spin': isReindexing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {{ isReindexing ? 'Indexing...' : 'Reindex' }}
+      </ActionButton>
+    </div>
+
+    <!-- Search + filters bar -->
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex-1">
         <SearchInput
           :model-value="store.searchQuery"
-          placeholder="Search sessions..."
+          placeholder="Search sessions by name, repo, branch..."
           @update:model-value="onSearchInput"
         />
       </div>
-      <FilterSelect
-        v-model="store.filterRepo"
-        :options="store.repositories as string[]"
-        placeholder="All repos"
-      />
-      <FilterSelect
-        v-model="store.filterBranch"
-        :options="store.branches as string[]"
-        placeholder="All branches"
-      />
-      <select
-        v-model="store.sortBy"
-        class="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none"
-      >
-        <option value="updated">Recently updated</option>
-        <option value="created">Recently created</option>
-        <option value="events">Most events</option>
-      </select>
-      <button
-        class="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-        :disabled="isReindexing"
-        @click="handleReindex"
-      >
-        {{ isReindexing ? 'Indexing...' : '↻ Reindex' }}
-      </button>
+      <div class="flex gap-2">
+        <FilterSelect
+          v-model="store.filterRepo"
+          :options="store.repositories as string[]"
+          placeholder="All repos"
+        />
+        <FilterSelect
+          v-model="store.filterBranch"
+          :options="store.branches as string[]"
+          placeholder="All branches"
+        />
+        <select
+          v-model="store.sortBy"
+          class="rounded-md border border-[var(--color-border-default)] bg-[var(--color-canvas-default)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent-fg)] focus:outline-none transition-colors cursor-pointer"
+        >
+          <option value="updated">Recently updated</option>
+          <option value="created">Recently created</option>
+          <option value="events">Most events</option>
+        </select>
+      </div>
     </div>
 
-    <!-- Status -->
-    <div v-if="isSearching" class="text-sm text-[var(--text-muted)]">Searching...</div>
-    <div v-if="store.loading" class="text-sm text-[var(--text-muted)]">Loading sessions...</div>
-    <div v-else-if="store.error" class="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-[var(--error)]">
-      {{ store.error }}
+    <!-- Status bar -->
+    <div class="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+      <span v-if="isSearching" class="flex items-center gap-1.5">
+        <svg class="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+        Searching...
+      </span>
+      <span v-else-if="store.loading">Loading sessions...</span>
+      <span v-else>
+        {{ displayedSessions.length }} session{{ displayedSessions.length !== 1 ? 's' : '' }}
+        <span v-if="store.searchQuery"> matching "{{ store.searchQuery }}"</span>
+      </span>
     </div>
 
-    <!-- Session count -->
-    <div v-if="!store.loading && !store.error" class="text-xs text-[var(--text-muted)]">
-      {{ displayedSessions.length }} session{{ displayedSessions.length !== 1 ? 's' : '' }}
-      <span v-if="store.searchQuery"> matching "{{ store.searchQuery }}"</span>
-    </div>
+    <!-- Error state -->
+    <ErrorAlert v-if="store.error" :message="store.error" />
 
     <!-- Session grid -->
     <SessionList
@@ -157,5 +174,8 @@ onMounted(() => {
       :sessions="displayedSessions"
       @select="onSelect"
     />
+
+    <!-- Loading skeleton -->
+    <SkeletonLoader v-if="store.loading" variant="card" :count="6" />
   </div>
 </template>

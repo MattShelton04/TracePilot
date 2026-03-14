@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
+import Badge from "./Badge.vue";
 
 defineProps<{
   session: SessionListItem;
@@ -27,33 +28,36 @@ function relativeTime(dateStr?: string): string {
 
 <template>
   <div
-    class="group cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 transition-all hover:border-[var(--accent)] hover:shadow-[0_0_0_1px_var(--accent)]"
+    class="group cursor-pointer rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4 transition-all duration-150 hover:border-[var(--color-accent-fg)] hover:shadow-[var(--shadow-md)]"
     role="button"
     tabindex="0"
     @click="emit('select', session.id)"
     @keydown.enter="emit('select', session.id)"
+    @keydown.space.prevent="emit('select', session.id)"
   >
-    <h3 class="text-base font-semibold mb-2 truncate">
+    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 truncate group-hover:text-[var(--color-accent-fg)] transition-colors">
       {{ session.summary || 'Untitled Session' }}
     </h3>
-    <div class="flex flex-wrap gap-2 mb-2">
-      <span v-if="session.repository" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-[var(--accent)]">
-        {{ session.repository }}
-      </span>
-      <span v-if="session.branch" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-[var(--success)]">
-        {{ session.branch }}
-      </span>
-      <span v-if="session.hostType" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--border)] text-[var(--text-muted)]">
-        {{ session.hostType }}
-      </span>
-      <span v-if="session.currentModel" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400">
-        {{ session.currentModel }}
-      </span>
+
+    <div class="flex flex-wrap gap-1.5 mb-3">
+      <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
+      <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
+      <Badge v-if="session.hostType" variant="neutral">{{ session.hostType }}</Badge>
+      <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
     </div>
-    <div class="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-      <span v-if="session.eventCount != null">{{ session.eventCount }} events</span>
-      <span v-if="session.turnCount != null">{{ session.turnCount }} turns</span>
-      <span class="ml-auto" :title="session.updatedAt">{{ relativeTime(session.updatedAt) }}</span>
+
+    <div class="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+      <span v-if="session.eventCount != null" class="flex items-center gap-1">
+        <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        {{ session.eventCount }}
+      </span>
+      <span v-if="session.turnCount != null" class="flex items-center gap-1">
+        <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+        {{ session.turnCount }}
+      </span>
+      <span class="ml-auto text-[var(--color-text-tertiary)]" :title="session.updatedAt">
+        {{ relativeTime(session.updatedAt) }}
+      </span>
     </div>
   </div>
 </template>

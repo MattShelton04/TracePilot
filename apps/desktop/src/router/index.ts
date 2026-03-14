@@ -11,6 +11,7 @@ const router = createRouter({
     {
       path: "/session/:id",
       name: "session-detail",
+      redirect: { name: "session-overview" },
       component: () => import("@/views/SessionDetailView.vue"),
       children: [
         { path: "", name: "session-overview", component: () => import("@/views/tabs/OverviewTab.vue") },
@@ -19,11 +20,6 @@ const router = createRouter({
         { path: "todos", name: "session-todos", component: () => import("@/views/tabs/TodosTab.vue") },
         { path: "metrics", name: "session-metrics", component: () => import("@/views/tabs/MetricsTab.vue") },
       ],
-    },
-    {
-      path: "/search",
-      name: "search",
-      component: () => import("@/views/SearchView.vue"),
     },
   ],
 });

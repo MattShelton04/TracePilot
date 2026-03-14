@@ -1,28 +1,19 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { StatCard, Badge, SectionPanel, EmptyState, ProgressBar, DataTable, formatNumber, formatCost, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 
-watch(
+useSessionTabLoader(
   () => store.sessionId,
-  (id) => {
-    if (!id) {
-      return;
-    }
-
-    void store.loadShutdownMetrics();
-  },
-  { immediate: true }
+  () => store.loadShutdownMetrics()
 );
 
 const metrics = computed(() => store.shutdownMetrics);
 
 const modelEntries = computed(() => {
-  if (!metrics.value?.modelMetrics) {
-    return [];
-  }
-
+  if (!metrics.value?.modelMetrics) return [];
   return Object.entries(metrics.value.modelMetrics)
     .map(([name, data]) => ({
       name,
@@ -37,128 +28,103 @@ const modelEntries = computed(() => {
     .sort((a, b) => b.totalTokens - a.totalTokens);
 });
 
-const totalTokens = computed(() => modelEntries.value.reduce((sum, model) => sum + model.totalTokens, 0));
+const totalTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.totalTokens, 0));
+const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
 
-const totalRequests = computed(() => modelEntries.value.reduce((sum, model) => sum + model.requests, 0));
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-
-  return n.toLocaleString();
-}
-
-function formatCost(c: number): string {
-  return c > 0 ? c.toFixed(2) : "—";
-}
+const modelColumns = [
+  { key: "name", label: "Model", align: "left" as const },
+  { key: "requests", label: "Requests", align: "right" as const },
+  { key: "inputTokens", label: "Input", align: "right" as const },
+  { key: "outputTokens", label: "Output", align: "right" as const },
+  { key: "cacheReadTokens", label: "Cache Read", align: "right" as const, class: "hidden lg:table-cell" },
+  { key: "cacheWriteTokens", label: "Cache Write", align: "right" as const, class: "hidden lg:table-cell" },
+  { key: "totalTokens", label: "Total", align: "right" as const },
+  { key: "cost", label: "Cost", align: "right" as const },
+];
 </script>
 
 <template>
   <div class="space-y-6">
-    <div v-if="!metrics" class="py-8 text-center text-sm text-[var(--text-muted)]">
-      No shutdown metrics available for this session.
-    </div>
+    <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
 
     <template v-else>
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-          <div class="text-2xl font-bold text-[var(--accent)]">{{ formatNumber(totalTokens) }}</div>
-          <div class="mt-1 text-xs text-[var(--text-muted)]">Total Tokens</div>
-        </div>
-        <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-          <div class="text-2xl font-bold text-[var(--accent)]">{{ totalRequests }}</div>
-          <div class="mt-1 text-xs text-[var(--text-muted)]">Total Requests</div>
-        </div>
-        <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-          <div class="text-2xl font-bold text-[var(--warning)]">
-            {{ metrics.totalPremiumRequests?.toFixed(1) ?? "—" }}
-          </div>
-          <div class="mt-1 text-xs text-[var(--text-muted)]">Premium Requests</div>
-        </div>
-        <div class="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
-          <div class="text-2xl font-bold text-purple-400">{{ modelEntries.length }}</div>
-          <div class="mt-1 text-xs text-[var(--text-muted)]">Models Used</div>
-        </div>
+      <!-- Summary stats -->
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" color="accent" />
+        <StatCard :value="totalRequests" label="Total Requests" color="accent" />
+        <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Premium Requests" color="warning" />
+        <StatCard :value="modelEntries.length" label="Models Used" color="done" />
       </div>
 
-      <div v-if="modelEntries.length > 0" class="overflow-hidden rounded-lg border border-[var(--border)]">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="bg-[var(--surface)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
-              <th class="px-4 py-2 text-left">Model</th>
-              <th class="px-4 py-2 text-right">Requests</th>
-              <th class="px-4 py-2 text-right">Input</th>
-              <th class="px-4 py-2 text-right">Output</th>
-              <th class="px-4 py-2 text-right">Cache Read</th>
-              <th class="px-4 py-2 text-right">Cache Write</th>
-              <th class="px-4 py-2 text-right">Total Tokens</th>
-              <th class="px-4 py-2 text-right">Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="model in modelEntries"
-              :key="model.name"
-              class="border-t border-[var(--border)] hover:bg-[var(--surface)]/50"
-            >
-              <td class="px-4 py-2 font-medium text-purple-400">{{ model.name }}</td>
-              <td class="px-4 py-2 text-right">{{ model.requests }}</td>
-              <td class="px-4 py-2 text-right">{{ formatNumber(model.inputTokens) }}</td>
-              <td class="px-4 py-2 text-right">{{ formatNumber(model.outputTokens) }}</td>
-              <td class="px-4 py-2 text-right text-[var(--text-muted)]">{{ formatNumber(model.cacheReadTokens) }}</td>
-              <td class="px-4 py-2 text-right text-[var(--text-muted)]">{{ formatNumber(model.cacheWriteTokens) }}</td>
-              <td class="px-4 py-2 text-right font-semibold">{{ formatNumber(model.totalTokens) }}</td>
-              <td class="px-4 py-2 text-right text-[var(--warning)]">{{ formatCost(model.cost) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Model table -->
+      <DataTable v-if="modelEntries.length > 0" :columns="modelColumns" :rows="modelEntries">
+        <template #cell-name="{ value }">
+          <Badge variant="done">{{ value }}</Badge>
+        </template>
+        <template #cell-requests="{ value }">
+          <span class="text-[var(--color-text-primary)]">{{ value }}</span>
+        </template>
+        <template #cell-inputTokens="{ value }">
+          <span class="text-[var(--color-text-secondary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template #cell-outputTokens="{ value }">
+          <span class="text-[var(--color-text-secondary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template #cell-cacheReadTokens="{ value }">
+          <span class="text-[var(--color-text-tertiary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template #cell-cacheWriteTokens="{ value }">
+          <span class="text-[var(--color-text-tertiary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template #cell-totalTokens="{ value }">
+          <span class="font-semibold text-[var(--color-text-primary)]">{{ formatNumber(value as number) }}</span>
+        </template>
+        <template #cell-cost="{ value }">
+          <span class="text-[var(--color-warning-fg)]">{{ formatCost(value as number) }}</span>
+        </template>
+      </DataTable>
 
-      <div class="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4" v-if="modelEntries.length > 0">
-        <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Token Distribution</h3>
-        <div v-for="model in modelEntries" :key="model.name" class="space-y-1">
-          <div class="flex justify-between text-xs">
-            <span class="text-purple-400">{{ model.name }}</span>
-            <span class="text-[var(--text-muted)]">{{ formatNumber(model.totalTokens) }}</span>
-          </div>
-          <div class="h-2 overflow-hidden rounded-full bg-[var(--border)]">
-            <div
-              class="h-full rounded-full bg-purple-500 transition-all"
-              :style="{ width: totalTokens > 0 ? `${(model.totalTokens / totalTokens) * 100}%` : '0%' }"
+      <!-- Token distribution -->
+      <SectionPanel v-if="modelEntries.length > 0" title="Token Distribution">
+        <div class="space-y-3">
+          <div v-for="model in modelEntries" :key="model.name" class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-[var(--color-done-fg)]">{{ model.name }}</span>
+              <span class="text-[var(--color-text-secondary)]">
+                {{ formatNumber(model.totalTokens) }}
+                <span class="text-[var(--color-text-tertiary)]">({{ totalTokens > 0 ? Math.round(model.totalTokens / totalTokens * 100) : 0 }}%)</span>
+              </span>
+            </div>
+            <ProgressBar
+              :percent="totalTokens > 0 ? Math.round(model.totalTokens / totalTokens * 100) : 0"
+              color="var(--color-done-emphasis)"
+              :aria-label="`${model.name} token usage`"
             />
           </div>
         </div>
-      </div>
+      </SectionPanel>
 
-      <div
-        v-if="metrics.codeChanges"
-        class="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
-      >
-        <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Code Changes</h3>
-        <div class="flex gap-6 text-sm">
+      <!-- Code changes -->
+      <SectionPanel v-if="metrics.codeChanges" title="Code Changes">
+        <div class="flex gap-6 text-sm mb-3">
           <div>
-            <span class="text-lg font-bold text-[var(--success)]">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
-            <span class="ml-1 text-[var(--text-muted)]">lines added</span>
+            <span class="text-lg font-bold text-[var(--color-success-fg)]">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
+            <span class="ml-1 text-[var(--color-text-secondary)]">lines added</span>
           </div>
           <div>
-            <span class="text-lg font-bold text-[var(--error)]">-{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
-            <span class="ml-1 text-[var(--text-muted)]">lines removed</span>
+            <span class="text-lg font-bold text-[var(--color-danger-fg)]">-{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
+            <span class="ml-1 text-[var(--color-text-secondary)]">lines removed</span>
           </div>
         </div>
         <div v-if="metrics.codeChanges.filesModified?.length" class="space-y-1">
-          <div class="text-xs text-[var(--text-muted)]">
+          <div class="text-xs text-[var(--color-text-secondary)]">
             Files modified ({{ metrics.codeChanges.filesModified.length }}):
           </div>
-          <div class="max-h-40 space-y-0.5 overflow-y-auto font-mono text-xs text-[var(--text-muted)]">
+          <div class="max-h-40 space-y-0.5 overflow-y-auto font-mono text-xs text-[var(--color-text-tertiary)]">
             <div v-for="file in metrics.codeChanges.filesModified" :key="file">{{ file }}</div>
           </div>
         </div>
-      </div>
+      </SectionPanel>
     </template>
   </div>
 </template>

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
 
 const route = useRoute();
 const router = useRouter();
@@ -9,19 +10,15 @@ const store = useSessionDetailStore();
 
 const sessionId = computed(() => route.params.id as string);
 
-const tabs = [
+const tabs = computed(() => [
   { name: "overview", routeName: "session-overview", label: "Overview" },
-  { name: "conversation", routeName: "session-conversation", label: "Conversation" },
-  { name: "events", routeName: "session-events", label: "Events" },
+  { name: "conversation", routeName: "session-conversation", label: "Conversation", count: store.detail?.turnCount },
+  { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount },
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
-];
+]);
 
 const activeTab = computed(() => route.name as string);
-
-function navigate(routeName: string) {
-  router.push({ name: routeName, params: route.params });
-}
 
 function goBack() {
   router.push({ name: "sessions" });
@@ -43,49 +40,39 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center gap-3">
-      <button
-        class="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-        @click="goBack"
-      >
-        ← Back
-      </button>
-      <div v-if="store.detail" class="min-w-0 flex-1">
-        <h2 class="truncate text-lg font-semibold">
-          {{ store.detail.summary || "Untitled Session" }}
-        </h2>
-        <div class="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-          <span v-if="store.detail.repository" class="text-[var(--accent)]">{{ store.detail.repository }}</span>
-          <span v-if="store.detail.branch" class="text-[var(--success)]">{{ store.detail.branch }}</span>
-          <span>{{ store.detail.eventCount ?? 0 }} events</span>
-          <span>{{ store.detail.turnCount ?? 0 }} turns</span>
+  <div class="space-y-6">
+    <!-- Session header -->
+    <div v-if="store.detail" class="space-y-3 pb-2">
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-2">
+          <h1 class="text-2xl font-bold text-[var(--color-text-primary)] leading-tight">
+            {{ store.detail.summary || "Untitled Session" }}
+          </h1>
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
+            <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
+            <Badge v-if="store.detail.hostType" variant="neutral">{{ store.detail.hostType }}</Badge>
+            <span class="text-xs text-[var(--color-text-tertiary)] font-mono">{{ store.detail.id }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="store.loading" class="text-sm text-[var(--text-muted)]">Loading session...</div>
-    <div
-      v-else-if="store.error"
-      class="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-[var(--error)]"
-    >
-      {{ store.error }}
+    <!-- Loading state -->
+    <div v-if="store.loading" class="space-y-4">
+      <SkeletonLoader variant="text" :count="1" />
+      <SkeletonLoader variant="badge" :count="2" />
     </div>
 
-    <nav v-if="store.detail" class="flex border-b border-[var(--border)]">
-      <button
-        v-for="tab in tabs"
-        :key="tab.name"
-        class="-mb-px px-4 py-2 text-sm font-medium transition-colors"
-        :class="activeTab === tab.routeName
-          ? 'border-b-2 border-[var(--accent)] text-[var(--accent)]'
-          : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-        @click="navigate(tab.routeName)"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
+    <!-- Error state -->
+    <ErrorAlert v-if="store.error" :message="store.error" />
 
-    <router-view v-if="store.detail" :key="`${sessionId}-${activeTab}`" />
+    <!-- Tabs -->
+    <TabNav v-if="store.detail" :tabs="tabs" />
+
+    <!-- Tab content (extra top spacing for breathing room below tabs) -->
+    <div v-if="store.detail" class="pt-1">
+      <router-view :key="`${sessionId}-${activeTab}`" />
+    </div>
   </div>
 </template>

@@ -42,6 +42,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     sessionId.value = id;
     loading.value = true;
     error.value = null;
+    detail.value = null;
     loaded.value.clear();
     turns.value = [];
     events.value = null;

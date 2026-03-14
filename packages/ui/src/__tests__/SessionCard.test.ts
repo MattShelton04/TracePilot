@@ -50,8 +50,8 @@ describe("SessionCard", () => {
         },
       },
     });
-    expect(wrapper.text()).toContain("100 events");
-    expect(wrapper.text()).toContain("5 turns");
+    expect(wrapper.text()).toContain("100");
+    expect(wrapper.text()).toContain("5");
   });
 
   it("shows relative time for updatedAt", () => {
@@ -101,8 +101,8 @@ describe("SessionCard", () => {
         session: { id: "test-id" },
       },
     });
-    expect(wrapper.text()).not.toContain("events");
-    expect(wrapper.text()).not.toContain("turns");
+    // No event/turn counts shown when not provided
+    expect(wrapper.find("svg").exists()).toBe(false);
     expect(wrapper.text()).toContain("Untitled Session");
   });
 });
