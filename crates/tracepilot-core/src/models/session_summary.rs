@@ -42,7 +42,7 @@ pub struct SessionSummary {
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownMetrics {
     pub shutdown_type: Option<String>,
-    pub total_premium_requests: Option<u64>,
+    pub total_premium_requests: Option<f64>,
     pub total_api_duration_ms: Option<u64>,
     pub session_start_time: Option<u64>,
     pub current_model: Option<String>,

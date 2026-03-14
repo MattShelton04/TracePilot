@@ -124,12 +124,15 @@ impl<'de> Deserialize<'de> for SessionEventType {
 #[serde(rename_all = "camelCase")]
 pub struct SessionStartData {
     pub session_id: Option<String>,
-    pub version: Option<String>,
+    /// Version can be a number or string depending on producer version.
+    pub version: Option<serde_json::Value>,
     pub producer: Option<String>,
     pub copilot_version: Option<String>,
-    pub start_time: Option<u64>,
+    /// ISO 8601 datetime string (e.g. "2026-03-11T23:09:12.854Z").
+    pub start_time: Option<String>,
     pub reasoning_effort: Option<String>,
     pub context: Option<SessionContext>,
+    pub already_in_use: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +151,7 @@ pub struct SessionContext {
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownData {
     pub shutdown_type: Option<String>,
-    pub total_premium_requests: Option<u64>,
+    pub total_premium_requests: Option<f64>,
     pub total_api_duration_ms: Option<u64>,
     pub session_start_time: Option<u64>,
     pub current_model: Option<String>,
@@ -175,7 +178,7 @@ pub struct ModelMetricDetail {
 #[serde(rename_all = "camelCase")]
 pub struct RequestMetrics {
     pub count: Option<u64>,
-    pub cost: Option<u64>,
+    pub cost: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,7 +244,8 @@ pub struct ToolExecCompleteData {
     pub interaction_id: Option<String>,
     pub success: Option<bool>,
     pub result: Option<serde_json::Value>,
-    pub error: Option<String>,
+    /// Error can be a string message or a structured object.
+    pub error: Option<serde_json::Value>,
     pub tool_telemetry: Option<serde_json::Value>,
 }
 
