@@ -2,11 +2,13 @@
 
 use crate::error::{Result, TracePilotError};
 use rusqlite::Connection;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
 
 /// A todo item from the `todos` table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TodoItem {
     pub id: String,
     pub title: String,
@@ -17,14 +19,16 @@ pub struct TodoItem {
 }
 
 /// A dependency edge from the `todo_deps` table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TodoDep {
     pub todo_id: String,
     pub depends_on: String,
 }
 
 /// Schema and rows for an arbitrary table discovered at runtime.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CustomTableInfo {
     pub name: String,
     pub columns: Vec<String>,

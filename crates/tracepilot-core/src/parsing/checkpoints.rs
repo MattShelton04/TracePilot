@@ -4,16 +4,19 @@
 //! `index.md` table listing each checkpoint's number, title, and filename.
 
 use crate::error::{Result, TracePilotError};
+use serde::Serialize;
 use std::path::Path;
 
 /// Index of all checkpoints in a session.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CheckpointIndex {
     pub checkpoints: Vec<CheckpointEntry>,
 }
 
 /// A single checkpoint entry.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CheckpointEntry {
     pub number: u32,
     pub title: String,

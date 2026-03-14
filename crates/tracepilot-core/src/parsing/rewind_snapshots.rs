@@ -1,18 +1,18 @@
 //! Parser for `rewind-snapshots/index.json` — the rewind snapshot index.
 
 use crate::error::{Result, TracePilotError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Top-level rewind snapshot index.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RewindIndex {
     pub version: u32,
     pub snapshots: Vec<RewindSnapshot>,
 }
 
 /// A single rewind snapshot entry.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RewindSnapshot {
     pub snapshot_id: String,
