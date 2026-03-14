@@ -1,24 +1,10 @@
 import { createApp } from "vue";
-import { createRouter, createWebHistory } from "vue-router";
+import { createPinia } from "pinia";
 import App from "./App.vue";
+import router from "./router";
 import "./styles.css";
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes: [
-    {
-      path: "/",
-      name: "sessions",
-      component: () => import("./views/SessionListView.vue"),
-    },
-    {
-      path: "/session/:id",
-      name: "session-detail",
-      component: () => import("./views/SessionDetailView.vue"),
-    },
-  ],
-});
-
 const app = createApp(App);
+app.use(createPinia());
 app.use(router);
 app.mount("#root");

@@ -15,7 +15,7 @@ pub mod summary;
 pub mod turns;
 
 pub use error::{Result, TracePilotError};
-pub use models::{ConversationTurn, SessionEvent, SessionSummary, ToolTransaction};
-pub use session::discovery::discover_sessions;
+pub use models::{ConversationTurn, SessionEvent, SessionSummary, ShutdownMetrics, ToolTransaction, TurnToolCall};
+pub use session::discovery::{discover_sessions, resolve_session_path};
 pub use summary::load_session_summary;
 pub use turns::{TurnStats, reconstruct_turns, turn_stats};

@@ -10,13 +10,25 @@
     "test": "vitest run",
     "clean": "rimraf dist"
   },
+  "peerDependencies": {
+    "vue-router": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vue-router": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@tracepilot/types": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^28.1.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0",
+    "vue-router": "^4.6.4",
     "vue-tsc": "^2.2.0"
   }
 }
