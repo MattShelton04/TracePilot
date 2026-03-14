@@ -2,7 +2,8 @@
   "extends": "../../packages/config/typescript/base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "jsx": "preserve"
   },
-  "include": ["src"]
+  "include": ["src", "src/**/*.vue"]
 }

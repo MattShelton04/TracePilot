@@ -1,4 +1,5 @@
 // TracePilot client — wraps Tauri invoke calls for type-safe frontend usage.
+// Framework-agnostic: works with Vue, React, or any JS context.
 
 import type { SessionListItem, ConversationTurn, SessionHealth } from "@tracepilot/types";
 

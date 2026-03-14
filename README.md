@@ -19,7 +19,7 @@ TracePilot reads the session data stored by GitHub Copilot CLI at `~/.copilot/se
 ```
 tracepilot/
 ├── apps/
-│   ├── desktop/        # Tauri + React desktop app
+│   ├── desktop/        # Tauri + Vue 3 desktop app
 │   └── cli/            # Node.js CLI (tracepilot list, show, search)
 ├── crates/
 │   ├── tracepilot-core/          # Session parsing, models, health
@@ -27,9 +27,9 @@ tracepilot/
 │   ├── tracepilot-export/        # Export & redaction
 │   └── tracepilot-tauri-bindings/  # Tauri IPC bridge
 └── packages/
-    ├── ui/             # Shared React components
+    ├── ui/             # Shared Vue components
     ├── types/          # Shared TypeScript types
-    ├── client/         # Tauri invoke wrapper
+    ├── client/         # Tauri invoke wrapper (framework-agnostic)
     └── config/         # Shared TS/ESLint config
 ```
 
@@ -37,7 +37,7 @@ tracepilot/
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.75+)
+- [Rust](https://rustup.rs/) (1.85+)
 - [Node.js](https://nodejs.org/) (20+)
 - [pnpm](https://pnpm.io/) (9+)
 - GitHub Copilot CLI with some session history in `~/.copilot/session-state/`

@@ -1,4 +1,4 @@
-// TracePilot UI component library — shared between desktop and (future) web.
+// TracePilot UI component library — shared Vue components for desktop and web.
 
-export { SessionCard } from "./components/SessionCard";
-export { SessionList } from "./components/SessionList";
+export { default as SessionCard } from "./components/SessionCard.vue";
+export { default as SessionList } from "./components/SessionList.vue";
