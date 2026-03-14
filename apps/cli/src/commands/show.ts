@@ -37,7 +37,8 @@ interface TurnInfo {
 async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
   const turns: TurnInfo[] = [];
   let currentTurn: TurnInfo | null = null;
-  let lastUserMessage: string | undefined;
+  let pendingUserMessage: string | undefined;
+  let lastAssignedUserMessage: string | undefined;
 
   for await (const evt of streamEvents(eventsPath)) {
     const type = evt.type as string;
@@ -47,18 +48,23 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
     if (type === "user.message") {
       const content = data?.content as string | undefined;
       if (content) {
-        // Strip XML tags and transformed content noise; take first meaningful line
         const clean = content.replace(/<[^>]+>[^<]*<\/[^>]+>/g, "").trim();
-        lastUserMessage = clean.slice(0, 200);
+        pendingUserMessage = clean.slice(0, 200);
       }
     }
 
     if (type === "assistant.turn_start") {
+      // Only assign the user message to the first turn after it was sent
+      const userMsg = pendingUserMessage !== lastAssignedUserMessage
+        ? pendingUserMessage
+        : undefined;
+      if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
+
       currentTurn = {
         turnId: (data?.turnId as string) ?? String(turns.length),
         tools: [],
         startTime: timestamp,
-        userMessage: lastUserMessage,
+        userMessage: userMsg,
       };
     }
 
@@ -114,12 +120,13 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
 
 function displayTurns(turns: TurnInfo[]) {
   console.log(chalk.bold.blue("\n  Conversation Turns\n"));
-  for (const t of turns) {
+  for (let i = 0; i < turns.length; i++) {
+    const t = turns[i];
     const dur = t.durationMs
       ? chalk.dim(`${(t.durationMs / 1000).toFixed(1)}s`)
       : "";
     const model = t.model ? chalk.magenta(`[${t.model}]`) : "";
-    console.log(`  ${chalk.bold(`Turn ${t.turnId}`)}  ${model}  ${dur}`);
+    console.log(`  ${chalk.bold(`Turn ${i}`)}  ${model}  ${dur}`);
 
     if (t.userMessage) {
       console.log(`    ${chalk.cyan("User:")} ${t.userMessage}`);
