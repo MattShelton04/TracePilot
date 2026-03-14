@@ -97,7 +97,7 @@ onMounted(() => {
 
       <!-- Page content -->
       <main class="flex-1 overflow-y-auto">
-        <div class="max-w-6xl mx-auto px-6 py-6">
+        <div class="max-w-6xl mx-auto px-8 py-8">
           <router-view />
         </div>
       </main>

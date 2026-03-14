@@ -47,7 +47,7 @@ function formatDuration(ms?: number): string {
 <template>
   <div class="space-y-6">
     <!-- Stats row -->
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard :value="detail?.eventCount ?? 0" label="Events" color="accent" />
       <StatCard :value="detail?.turnCount ?? 0" label="Turns" color="accent" />
       <StatCard :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
@@ -59,10 +59,10 @@ function formatDuration(ms?: number): string {
     </div>
 
     <!-- Two-column layout -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <!-- Session Info -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-3">
+      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
+        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
           Session Info
         </h3>
         <dl class="space-y-2.5 text-sm">
@@ -100,8 +100,8 @@ function formatDuration(ms?: number): string {
       </div>
 
       <!-- Session Summary -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-3">
+      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
+        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
           Session Summary
         </h3>
         <dl class="space-y-2.5 text-sm">
@@ -131,9 +131,9 @@ function formatDuration(ms?: number): string {
     <!-- Checkpoints -->
     <div
       v-if="store.checkpoints.length > 0"
-      class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4"
+      class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5"
     >
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-3">
+      <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
         Checkpoints ({{ store.checkpoints.length }})
       </h3>
       <div class="space-y-2">

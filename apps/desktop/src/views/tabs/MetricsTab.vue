@@ -54,7 +54,7 @@ function formatCost(c: number): string {
 
     <template v-else>
       <!-- Summary stats -->
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" color="accent" />
         <StatCard :value="totalRequests" label="Total Requests" color="accent" />
         <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Premium Requests" color="warning" />
@@ -66,14 +66,14 @@ function formatCost(c: number): string {
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-[var(--color-canvas-subtle)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
-              <th class="px-4 py-2.5 text-left font-medium">Model</th>
-              <th class="px-4 py-2.5 text-right font-medium">Requests</th>
-              <th class="px-4 py-2.5 text-right font-medium">Input</th>
-              <th class="px-4 py-2.5 text-right font-medium">Output</th>
-              <th class="px-4 py-2.5 text-right font-medium hidden lg:table-cell">Cache Read</th>
-              <th class="px-4 py-2.5 text-right font-medium hidden lg:table-cell">Cache Write</th>
-              <th class="px-4 py-2.5 text-right font-medium">Total</th>
-              <th class="px-4 py-2.5 text-right font-medium">Cost</th>
+              <th class="px-5 py-3 text-left font-medium">Model</th>
+              <th class="px-5 py-3 text-right font-medium">Requests</th>
+              <th class="px-5 py-3 text-right font-medium">Input</th>
+              <th class="px-5 py-3 text-right font-medium">Output</th>
+              <th class="px-5 py-3 text-right font-medium hidden lg:table-cell">Cache Read</th>
+              <th class="px-5 py-3 text-right font-medium hidden lg:table-cell">Cache Write</th>
+              <th class="px-5 py-3 text-right font-medium">Total</th>
+              <th class="px-5 py-3 text-right font-medium">Cost</th>
             </tr>
           </thead>
           <tbody>
@@ -82,22 +82,22 @@ function formatCost(c: number): string {
               :key="model.name"
               class="border-t border-[var(--color-border-muted)] hover:bg-[var(--color-canvas-subtle)]"
             >
-              <td class="px-4 py-2.5"><Badge variant="done">{{ model.name }}</Badge></td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-text-primary)]">{{ model.requests }}</td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)]">{{ formatNumber(model.inputTokens) }}</td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)]">{{ formatNumber(model.outputTokens) }}</td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-text-tertiary)] hidden lg:table-cell">{{ formatNumber(model.cacheReadTokens) }}</td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-text-tertiary)] hidden lg:table-cell">{{ formatNumber(model.cacheWriteTokens) }}</td>
-              <td class="px-4 py-2.5 text-right font-semibold text-[var(--color-text-primary)]">{{ formatNumber(model.totalTokens) }}</td>
-              <td class="px-4 py-2.5 text-right text-[var(--color-warning-fg)]">{{ formatCost(model.cost) }}</td>
+              <td class="px-5 py-3"><Badge variant="done">{{ model.name }}</Badge></td>
+              <td class="px-5 py-3 text-right text-[var(--color-text-primary)]">{{ model.requests }}</td>
+              <td class="px-5 py-3 text-right text-[var(--color-text-secondary)]">{{ formatNumber(model.inputTokens) }}</td>
+              <td class="px-5 py-3 text-right text-[var(--color-text-secondary)]">{{ formatNumber(model.outputTokens) }}</td>
+              <td class="px-5 py-3 text-right text-[var(--color-text-tertiary)] hidden lg:table-cell">{{ formatNumber(model.cacheReadTokens) }}</td>
+              <td class="px-5 py-3 text-right text-[var(--color-text-tertiary)] hidden lg:table-cell">{{ formatNumber(model.cacheWriteTokens) }}</td>
+              <td class="px-5 py-3 text-right font-semibold text-[var(--color-text-primary)]">{{ formatNumber(model.totalTokens) }}</td>
+              <td class="px-5 py-3 text-right text-[var(--color-warning-fg)]">{{ formatCost(model.cost) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <!-- Token distribution -->
-      <div v-if="modelEntries.length > 0" class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-3">
+      <div v-if="modelEntries.length > 0" class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
+        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">
           Token Distribution
         </h3>
         <div class="space-y-3">
@@ -129,9 +129,9 @@ function formatCost(c: number): string {
       <!-- Code changes -->
       <div
         v-if="metrics.codeChanges"
-        class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4"
+        class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5"
       >
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-3">Code Changes</h3>
+        <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 pb-2 border-b border-[var(--color-border-muted)]">Code Changes</h3>
         <div class="flex gap-6 text-sm mb-3">
           <div>
             <span class="text-lg font-bold text-[var(--color-success-fg)]">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>

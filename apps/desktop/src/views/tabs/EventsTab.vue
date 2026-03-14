@@ -91,10 +91,10 @@ function eventTypeBg(type: string): string {
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-[var(--color-canvas-subtle)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
-            <th class="w-12 px-4 py-2.5 text-left font-medium">#</th>
-            <th class="px-4 py-2.5 text-left font-medium">Type</th>
-            <th class="w-24 px-4 py-2.5 text-left font-medium">Time</th>
-            <th class="px-4 py-2.5 text-left font-medium">ID</th>
+            <th class="w-12 px-5 py-3 text-left font-medium">#</th>
+            <th class="px-5 py-3 text-left font-medium">Type</th>
+            <th class="w-24 px-5 py-3 text-left font-medium">Time</th>
+            <th class="px-5 py-3 text-left font-medium">ID</th>
           </tr>
         </thead>
         <tbody>
@@ -103,8 +103,8 @@ function eventTypeBg(type: string): string {
             :key="`${event.id ?? event.eventType}-${idx}`"
             class="border-t border-[var(--color-border-muted)] transition-colors hover:bg-[var(--color-canvas-subtle)]"
           >
-            <td class="px-4 py-2 text-xs text-[var(--color-text-tertiary)]">{{ currentPage * pageSize + idx + 1 }}</td>
-            <td class="px-4 py-2">
+            <td class="px-5 py-2.5 text-xs text-[var(--color-text-tertiary)]">{{ currentPage * pageSize + idx + 1 }}</td>
+            <td class="px-5 py-2.5">
               <span
                 class="inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-xs"
                 :class="[eventTypeColor(event.eventType), eventTypeBg(event.eventType)]"
@@ -112,8 +112,8 @@ function eventTypeBg(type: string): string {
                 {{ event.eventType }}
               </span>
             </td>
-            <td class="px-4 py-2 text-xs text-[var(--color-text-secondary)]">{{ formatTimestamp(event.timestamp) }}</td>
-            <td class="max-w-[200px] truncate px-4 py-2 font-mono text-xs text-[var(--color-text-tertiary)]">
+            <td class="px-5 py-2.5 text-xs text-[var(--color-text-secondary)]">{{ formatTimestamp(event.timestamp) }}</td>
+            <td class="max-w-[200px] truncate px-5 py-2.5 font-mono text-xs text-[var(--color-text-tertiary)]">
               {{ event.id || "—" }}
             </td>
           </tr>

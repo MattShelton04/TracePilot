@@ -54,11 +54,11 @@ function getTodoTitle(id: string): string {
       No todos found in this session.
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else class="space-y-5">
       <!-- Progress bar -->
-      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-medium text-[var(--color-text-primary)]">Progress</span>
+      <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-semibold text-[var(--color-text-primary)]">Progress</span>
           <span class="text-xs text-[var(--color-text-secondary)]">
             {{ completedCount }}/{{ todos.length }} completed
           </span>
@@ -82,7 +82,7 @@ function getTodoTitle(id: string): string {
       <div
         v-for="todo in todos"
         :key="todo.id"
-        class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4"
+        class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-5"
       >
         <div class="flex items-start gap-3">
           <StatusIcon :status="todo.status as 'done' | 'in_progress' | 'blocked' | 'pending'" class="mt-0.5" />
