@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { usePreferencesStore } from "@/stores/preferences";
 import {
   StatCard, Badge, SectionPanel, EmptyState,
   DataTable, TokenBar, HealthRing,
@@ -8,6 +9,7 @@ import {
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -19,16 +21,23 @@ const metrics = computed(() => store.shutdownMetrics);
 const modelEntries = computed(() => {
   if (!metrics.value?.modelMetrics) return [];
   return Object.entries(metrics.value.modelMetrics)
-    .map(([name, data]) => ({
-      name,
-      requests: data.requests?.count ?? 0,
-      cost: data.requests?.cost ?? 0,
-      inputTokens: data.usage?.inputTokens ?? 0,
-      outputTokens: data.usage?.outputTokens ?? 0,
-      cacheReadTokens: data.usage?.cacheReadTokens ?? 0,
-      cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
-      totalTokens: (data.usage?.inputTokens ?? 0) + (data.usage?.outputTokens ?? 0),
-    }))
+    .map(([name, data]) => {
+      const inputTokens = data.usage?.inputTokens ?? 0;
+      const outputTokens = data.usage?.outputTokens ?? 0;
+      const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
+      const wholesaleCost = prefs.computeWholesaleCost(name, inputTokens, cacheReadTokens, outputTokens);
+      return {
+        name,
+        requests: data.requests?.count ?? 0,
+        cost: data.requests?.cost ?? 0,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
+        totalTokens: inputTokens + outputTokens,
+        wholesaleCost,
+      };
+    })
     .sort((a, b) => b.totalTokens - a.totalTokens);
 });
 
@@ -37,6 +46,19 @@ const totalOutputTokens = computed(() => modelEntries.value.reduce((sum, m) => s
 const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.value);
 const totalCacheReadTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0));
 const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
+
+const copilotCost = computed(() => {
+  const premiumReqs = metrics.value?.totalPremiumRequests ?? 0;
+  return premiumReqs * prefs.costPerPremiumRequest;
+});
+
+const totalWholesaleCost = computed(() => {
+  let total = 0;
+  for (const m of modelEntries.value) {
+    if (m.wholesaleCost !== null) total += m.wholesaleCost;
+  }
+  return total;
+});
 
 // Cache hit rate: what % of input tokens were served from cache (0–1 for HealthRing)
 const cacheHitRatio = computed(() => {
@@ -47,6 +69,7 @@ const modelColumns = [
   { key: "name", label: "Model", align: "left" as const },
   { key: "requests", label: "Requests", align: "right" as const },
   { key: "cost", label: "Cost", align: "right" as const },
+  { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
   { key: "inputTokens", label: "Input Tokens", align: "right" as const },
   { key: "outputTokens", label: "Output Tokens", align: "right" as const },
   { key: "cacheReadTokens", label: "Cache Read", align: "right" as const, class: "hidden lg:table-cell" },
@@ -60,10 +83,15 @@ const modelColumns = [
     <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
 
     <template v-else>
-      <!-- Stats row — 4 cards matching variant-c -->
+      <!-- Stats row — cost comparison -->
       <div class="grid-4 mb-6">
         <StatCard :value="totalRequests" label="Total Requests" color="accent" />
         <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Premium Requests" color="accent" />
+        <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="warning" />
+        <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" />
+      </div>
+
+      <div class="grid-4 mb-6">
         <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
         <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
       </div>
@@ -92,6 +120,11 @@ const modelColumns = [
         </template>
         <template #cell-cost="{ value }">
           <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
+        </template>
+        <template #cell-wholesaleCost="{ value }">
+          <span :class="value != null ? 'text-[var(--done-fg)]' : 'text-[var(--text-placeholder)]'">
+            {{ value != null ? formatCost(value as number) : '—' }}
+          </span>
         </template>
         <template #cell-inputTokens="{ value }">
           <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>
