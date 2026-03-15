@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
-import { computed, ref, watch } from 'vue';
-import { formatDuration } from '@tracepilot/ui';
+import { ref, watch } from 'vue';
+import { BtnGroup } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
+import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
+import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
+import AgentTreeView from '@/components/timeline/AgentTreeView.vue';
 
 const store = useSessionDetailStore();
 
@@ -15,262 +17,14 @@ watch(
   { immediate: true },
 );
 
-// ── Swimlane types ───────────────────────────────────────────
+// ── View mode toggle ─────────────────────────────────────────
+const activeView = ref('swimlanes');
 
-interface SwimlaneBlock {
-  id: string;
-  label: string;
-  type: 'user' | 'assistant' | 'tool';
-  leftPct: number;
-  widthPct: number;
-  color: string;
-  turn?: ConversationTurn;
-  toolCall?: TurnToolCall;
-}
-
-interface SwimlaneDetailData {
-  type: string;
-  label: string;
-  timestamp: string;
-  duration: string;
-  tokens: string;
-  content: string;
-  toolCalls: Array<{ name: string; success: boolean; durationMs: number; file?: string }>;
-}
-
-// ── Zoom state ───────────────────────────────────────────────
-const zoomLevel = ref(1);
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 3;
-
-function zoomIn() {
-  zoomLevel.value = Math.min(zoomLevel.value + 0.25, MAX_ZOOM);
-}
-function zoomOut() {
-  zoomLevel.value = Math.max(zoomLevel.value - 0.25, MIN_ZOOM);
-}
-
-// ── Transform turns into swimlane blocks ─────────────────────
-
-const totalTurns = computed(() => store.turns.length || 1);
-
-// Determine if we have enough timestamps for time-based positioning
-const timeRange = computed(() => {
-  const turns = store.turns;
-  if (turns.length < 2) return null;
-
-  const timestamps: number[] = [];
-  for (const t of turns) {
-    if (t.timestamp) {
-      const ms = new Date(t.timestamp).getTime();
-      if (!Number.isNaN(ms)) timestamps.push(ms);
-    }
-  }
-  if (timestamps.length < 2) return null;
-
-  const min = Math.min(...timestamps);
-  const max = Math.max(...timestamps);
-  const span = max - min;
-  if (span <= 0) return null;
-
-  return { min, max, span };
-});
-
-function turnPositionPct(turn: ConversationTurn, index: number, count: number): number {
-  const range = timeRange.value;
-  if (range && turn.timestamp) {
-    const ms = new Date(turn.timestamp).getTime();
-    if (!Number.isNaN(ms)) {
-      return ((ms - range.min) / range.span) * 100;
-    }
-  }
-  // Fallback: index-based
-  return (index / count) * 100;
-}
-
-function turnSlotWidthPct(count: number): number {
-  // Each turn gets an equal slot width regardless of time positioning
-  return 100 / count;
-}
-
-interface Lane {
-  name: string;
-  blocks: SwimlaneBlock[];
-}
-
-const lanes = computed<Lane[]>(() => {
-  const turns = store.turns;
-  if (!turns.length) return [];
-
-  const userBlocks: SwimlaneBlock[] = [];
-  const assistantBlocks: SwimlaneBlock[] = [];
-  const toolBlocks: SwimlaneBlock[] = [];
-  const count = turns.length;
-  const slotWidth = turnSlotWidthPct(count);
-
-  turns.forEach((turn, i) => {
-    const base = turnPositionPct(turn, i, count);
-    const effectiveSlot = Math.min(slotWidth, 100 - base);
-
-    // User message block
-    if (turn.userMessage) {
-      userBlocks.push({
-        id: `user-${turn.turnIndex}`,
-        label: turn.userMessage.slice(0, 40) + (turn.userMessage.length > 40 ? '…' : ''),
-        type: 'user',
-        leftPct: base + effectiveSlot * 0.02,
-        widthPct: effectiveSlot * 0.25,
-        color: '#6366f1',
-        turn,
-      });
-    }
-
-    // Assistant response block
-    if (turn.assistantMessages.length > 0) {
-      const msg = turn.assistantMessages[0];
-      assistantBlocks.push({
-        id: `assistant-${turn.turnIndex}`,
-        label: msg.slice(0, 40) + (msg.length > 40 ? '…' : ''),
-        type: 'assistant',
-        leftPct: base + effectiveSlot * 0.2,
-        widthPct: effectiveSlot * 0.6,
-        color: '#34d399',
-        turn,
-      });
-    }
-
-    // Tool call blocks
-    const toolCount = turn.toolCalls.length;
-    if (toolCount > 0) {
-      const toolSlot = (effectiveSlot * 0.7) / toolCount;
-      turn.toolCalls.forEach((tc, j) => {
-        const failed = tc.success === false;
-        toolBlocks.push({
-          id: `tool-${turn.turnIndex}-${j}`,
-          label: tc.toolName,
-          type: 'tool',
-          leftPct: base + effectiveSlot * 0.15 + j * toolSlot,
-          widthPct: Math.max(toolSlot * 0.85, 1),
-          color: failed ? '#fb7185' : '#fbbf24',
-          turn,
-          toolCall: tc,
-        });
-      });
-    }
-  });
-
-  return [
-    { name: 'User', blocks: userBlocks },
-    { name: 'Assistant', blocks: assistantBlocks },
-    { name: 'Tools', blocks: toolBlocks },
-  ];
-});
-
-// ── Time axis markers ────────────────────────────────────────
-
-const timeMarkers = computed(() => {
-  const turns = store.turns;
-  if (!turns.length) return [];
-
-  const count = turns.length;
-  const step = Math.max(1, Math.floor(count / 6));
-  const markers: Array<{ label: string; leftPct: number }> = [];
-
-  for (let i = 0; i < count; i += step) {
-    const turn = turns[i];
-    const ts = turn.timestamp ? new Date(turn.timestamp) : null;
-    const label = ts
-      ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : `Turn ${turn.turnIndex}`;
-    markers.push({ label, leftPct: turnPositionPct(turn, i, count) });
-  }
-
-  // Always include last turn
-  const last = turns[count - 1];
-  const lastTs = last.timestamp ? new Date(last.timestamp) : null;
-  markers.push({
-    label: lastTs
-      ? lastTs.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : `Turn ${last.turnIndex}`,
-    leftPct: 100,
-  });
-
-  return markers;
-});
-
-// ── Selection ────────────────────────────────────────────────
-
-const selectedBlock = ref<SwimlaneBlock | null>(null);
-
-function selectBlock(block: SwimlaneBlock) {
-  selectedBlock.value = selectedBlock.value?.id === block.id ? null : block;
-}
-
-const selectedDetail = computed<SwimlaneDetailData | null>(() => {
-  const block = selectedBlock.value;
-  if (!block) return null;
-
-  const turn = block.turn;
-  const tc = block.toolCall;
-
-  if (block.type === 'tool' && tc) {
-    return {
-      type: 'Tool Call',
-      label: tc.toolName,
-      timestamp: tc.startedAt
-        ? new Date(tc.startedAt).toLocaleTimeString()
-        : turn?.timestamp
-          ? new Date(turn.timestamp).toLocaleTimeString()
-          : '—',
-      duration: tc.durationMs ? `${(tc.durationMs / 1000).toFixed(1)}s` : '—',
-      tokens: '—',
-      content:
-        tc.error || (tc.arguments ? JSON.stringify(tc.arguments, null, 2).slice(0, 200) : '—'),
-      toolCalls: [],
-    };
-  }
-
-  if (!turn) return null;
-
-  const content =
-    block.type === 'user' ? (turn.userMessage ?? '—') : (turn.assistantMessages[0] ?? '—');
-
-  return {
-    type: block.type === 'user' ? 'User Message' : 'Assistant Response',
-    label: content.slice(0, 60) + (content.length > 60 ? '…' : ''),
-    timestamp: turn.timestamp ? new Date(turn.timestamp).toLocaleTimeString() : '—',
-    duration: turn.durationMs ? formatDuration(turn.durationMs) : '—',
-    tokens: '—',
-    content: content.slice(0, 500),
-    toolCalls: turn.toolCalls.map((tc) => ({
-      name: tc.toolName,
-      success: tc.success !== false,
-      durationMs: tc.durationMs ?? 0,
-      file: extractFileFromArgs(tc.arguments),
-    })),
-  };
-});
-
-function extractFileFromArgs(args: unknown): string | undefined {
-  if (args && typeof args === 'object' && 'path' in args) {
-    return String((args as Record<string, unknown>).path);
-  }
-  if (args && typeof args === 'object' && 'command' in args) {
-    return String((args as Record<string, unknown>).command);
-  }
-  return undefined;
-}
-
-function toolBadgeClass(success: boolean): string {
-  return success ? 'badge badge-warning' : 'badge badge-danger';
-}
-
-// Vertical connector lines at the right edge of each user block
-const connectorPositions = computed(() => {
-  const userLane = lanes.value.find((l) => l.name === 'User');
-  if (!userLane || !userLane.blocks.length) return [];
-  return userLane.blocks.map((b) => b.leftPct + b.widthPct);
-});
+const viewModes = [
+  { value: 'swimlanes', label: 'Swimlanes' },
+  { value: 'waterfall', label: 'Waterfall' },
+  { value: 'agent-tree', label: 'Agent Tree' },
+];
 </script>
 
 <template>
@@ -289,10 +43,13 @@ const connectorPositions = computed(() => {
     </div>
 
     <template v-else>
-      <!-- Page Title -->
-      <div class="mb-4">
-        <h1 class="page-title">Session Timeline</h1>
-        <p class="page-subtitle">Visual timeline of session events and interactions</p>
+      <!-- Header: title + view toggle -->
+      <div class="timeline-header">
+        <div>
+          <h1 class="page-title">Session Timeline</h1>
+          <p class="page-subtitle">Visual timeline of session events and interactions</p>
+        </div>
+        <BtnGroup v-model="activeView" :options="viewModes" />
       </div>
 
       <!-- Session Info Bar -->
@@ -316,132 +73,21 @@ const connectorPositions = computed(() => {
         </span>
       </div>
 
-      <!-- Timeline controls -->
-      <div class="timeline-controls mb-4">
-        <button class="btn btn-sm" :disabled="zoomLevel <= MIN_ZOOM" @click="zoomOut">− Zoom Out</button>
-        <span class="zoom-label">{{ Math.round(zoomLevel * 100) }}%</span>
-        <button class="btn btn-sm" :disabled="zoomLevel >= MAX_ZOOM" @click="zoomIn">+ Zoom In</button>
-      </div>
-
-      <!-- Time Axis -->
-      <div class="time-axis" aria-label="Time axis">
-        <div class="time-axis-label"></div>
-        <div class="time-axis-track">
-          <span
-            v-for="(marker, mi) in timeMarkers"
-            :key="`tm-${mi}`"
-            class="time-marker"
-            :style="{ left: marker.leftPct + '%' }"
-          >
-            {{ marker.label }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Swimlane Visualization -->
-      <div class="section-panel mb-6" aria-label="Session activity swimlanes">
-        <div class="section-panel-header">Activity Lanes</div>
-        <div class="section-panel-body" style="padding: 0;">
-          <div
-            class="swimlane-container"
-            :style="{ width: (100 * zoomLevel) + '%' }"
-          >
-            <!-- Vertical connector lines at key event positions -->
-            <div
-              v-for="(pos, ci) in connectorPositions"
-              :key="`conn-${ci}`"
-              class="connector-line"
-              :style="{ left: `calc(${100 - pos}px + ${pos}%)` }"
-              aria-hidden="true"
-            ></div>
-            <div
-              v-for="lane in lanes"
-              :key="lane.name"
-              class="swimlane"
-              role="row"
-              :aria-label="`${lane.name} activity lane`"
-            >
-              <div class="swimlane-label">{{ lane.name }}</div>
-              <div class="swimlane-track swimlane-track-tall">
-                <div
-                  v-for="block in lane.blocks"
-                  :key="block.id"
-                  class="swimlane-bar"
-                  :class="{ 'swimlane-bar--active': selectedBlock?.id === block.id }"
-                  :style="{
-                    left: block.leftPct + '%',
-                    width: block.widthPct + '%',
-                    background: block.color,
-                  }"
-                  :title="block.label"
-                  :aria-label="`${block.type}: ${block.label}`"
-                  @click="selectBlock(block)"
-                >
-                  {{ block.label }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Event Detail Panel -->
-      <div v-if="selectedDetail" class="section-panel" aria-label="Selected event details">
-        <div class="section-panel-header">Event Details</div>
-        <div class="section-panel-body">
-          <div class="event-detail-grid">
-            <div class="event-detail-meta">
-              <div class="event-meta-row">
-                <span class="event-meta-label">Type</span>
-                <span class="badge badge-success">{{ selectedDetail.type }}</span>
-              </div>
-              <div class="event-meta-row">
-                <span class="event-meta-label">Timestamp</span>
-                <span class="event-meta-value font-mono">{{ selectedDetail.timestamp }}</span>
-              </div>
-              <div class="event-meta-row">
-                <span class="event-meta-label">Duration</span>
-                <span class="event-meta-value">{{ selectedDetail.duration }}</span>
-              </div>
-              <div v-if="selectedDetail.tokens !== '—'" class="event-meta-row">
-                <span class="event-meta-label">Tokens</span>
-                <span class="event-meta-value">{{ selectedDetail.tokens }}</span>
-              </div>
-              <div style="margin-top: 12px;">
-                <div class="event-description">{{ selectedDetail.content }}</div>
-              </div>
-            </div>
-            <div v-if="selectedDetail.toolCalls.length">
-              <div class="tool-calls-heading">Related Tool Calls</div>
-              <div class="tool-call-list">
-                <div
-                  v-for="(tc, ti) in selectedDetail.toolCalls"
-                  :key="`tc-${ti}`"
-                  class="tool-call-item"
-                >
-                  <span :class="toolBadgeClass(tc.success)" style="font-size: 0.625rem; padding: 1px 6px;">
-                    {{ tc.name }}
-                  </span>
-                  <span v-if="tc.file" class="tool-call-file">{{ tc.file }}</span>
-                  <span v-if="tc.durationMs" class="tool-call-duration">
-                    {{ (tc.durationMs / 1000).toFixed(1) }}s
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Active sub-view -->
+      <NestedSwimlanesView v-if="activeView === 'swimlanes'" />
+      <TurnWaterfallView v-else-if="activeView === 'waterfall'" />
+      <AgentTreeView v-else-if="activeView === 'agent-tree'" />
     </template>
   </div>
 </template>
 
 <style scoped>
-.mb-4 {
+.timeline-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
-}
-.mb-6 {
-  margin-bottom: 24px;
 }
 
 /* Session info bar */
@@ -449,184 +95,27 @@ const connectorPositions = computed(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--canvas-raised, #161b22);
+  border: 1px solid var(--border-default, #30363d);
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
+
 .session-info-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
-  background: var(--canvas-raised);
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-}
-.session-info-pill .pill-label {
-  color: var(--text-tertiary);
-  font-weight: 400;
+  color: var(--fg-muted, #8b949e);
 }
 
-/* Timeline controls */
-.timeline-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.zoom-label {
-  font-size: 0.75rem;
+.pill-label {
   font-weight: 600;
-  color: var(--text-tertiary);
-  min-width: 42px;
-  text-align: center;
-}
-
-/* Time axis — grid-aligned with swimlanes */
-.time-axis {
-  display: grid;
-  grid-template-columns: 100px 1fr;
-  margin-bottom: 4px;
-}
-.time-axis-label {
-  /* empty spacer matching swimlane label column */
-}
-.time-axis-track {
-  position: relative;
-  height: 28px;
-  padding: 8px 16px 8px 0;
-}
-.time-axis-track::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 16px;
-  top: 50%;
-  height: 1px;
-  background: var(--border-default);
-}
-.time-marker {
-  position: absolute;
-  z-index: 1;
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  background: var(--canvas-default);
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid var(--border-muted);
-  transform: translateX(-50%);
-}
-
-/* Vertical connector lines */
-.connector-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 0;
-  border-left: 1px dashed rgba(255, 255, 255, 0.15);
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Swimlane overrides */
-.swimlane-container {
-  position: relative;
-  overflow-x: auto;
-}
-.swimlane-track-tall {
-  min-height: 48px;
-}
-.swimlane-bar {
-  cursor: pointer;
-  transition: opacity 0.15s, box-shadow 0.15s;
-}
-.swimlane-bar:hover {
-  opacity: 0.85;
-}
-.swimlane-bar--active {
-  box-shadow: 0 0 0 2px var(--accent-fg);
-  z-index: 2;
-}
-
-/* Event detail panel */
-.event-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-.event-detail-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.event-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
-}
-.event-meta-label {
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  min-width: 80px;
-}
-.event-meta-value {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
-.event-description {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  line-height: 1.65;
-  padding: 12px;
-  background: var(--canvas-subtle);
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.tool-calls-heading {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin-bottom: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.tool-call-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-}
-.tool-call-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  background: var(--canvas-inset);
-  border: 1px solid var(--border-subtle);
-  font-size: 0.75rem;
-}
-.tool-call-file {
-  color: var(--text-tertiary);
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-}
-.tool-call-duration {
-  margin-left: auto;
-  color: var(--text-tertiary);
-}
-
-@media (max-width: 768px) {
-  .event-detail-grid {
-    grid-template-columns: 1fr;
-  }
-  .session-info-bar {
-    gap: 6px;
-  }
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  color: var(--fg-subtle, #6e7681);
 }
 </style>

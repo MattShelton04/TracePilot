@@ -42,4 +42,13 @@ pub struct TurnToolCall {
     pub mcp_tool_name: Option<String>,
     #[serde(default)]
     pub is_complete: bool,
+    /// Whether this tool call represents a subagent invocation.
+    #[serde(default)]
+    pub is_subagent: bool,
+    /// Human-readable display name of the subagent (e.g. "Explore Agent").
+    pub agent_display_name: Option<String>,
+    /// Description of what the subagent does.
+    pub agent_description: Option<String>,
+    /// The model used for this specific tool call (populated from ToolExecComplete).
+    pub model: Option<String>,
 }

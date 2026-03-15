@@ -87,6 +87,14 @@ export interface TurnToolCall {
   mcpServerName?: string;
   mcpToolName?: string;
   isComplete: boolean;
+  /** Whether this tool call represents a subagent invocation. */
+  isSubagent?: boolean;
+  /** Human-readable display name of the subagent (e.g. "Explore Agent"). */
+  agentDisplayName?: string;
+  /** Description of what the subagent does. */
+  agentDescription?: string;
+  /** The model used for this specific tool call. */
+  model?: string;
 }
 
 /** Session health assessment */
