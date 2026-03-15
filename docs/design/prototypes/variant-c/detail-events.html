@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Events</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title + Badges -->
+          <div class="mb-4">
+            <h1 class="page-title">OAuth Login Implementation</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">local</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav" role="tablist" aria-label="Session detail tabs">
+            <a class="tab-nav-item" href="detail-overview.html" role="tab" aria-selected="false">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html" role="tab" aria-selected="false">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item active" href="detail-events.html" role="tab" aria-selected="true">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item" href="detail-todos.html" role="tab" aria-selected="false">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html" role="tab" aria-selected="false">Metrics</a>
+          </nav>
+
+          <!-- Event Count -->
+          <div class="flex items-center justify-between mb-4">
+            <span style="font-size: 0.75rem; color: var(--text-tertiary);">
+              <strong style="color: var(--text-secondary);" id="eventTotal">20</strong> events · Page <span id="currentPage">1</span> of <span id="totalPages">2</span>
+            </span>
+          </div>
+
+          <!-- Events Table -->
+          <div class="section-panel mb-4">
+            <table class="data-table" aria-label="Session events">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event Type</th>
+                  <th>Event ID</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="pagination" id="pagination"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      const PAGE_SIZE = 10;
+      let currentPage = 1;
+      const totalPages = Math.ceil(MOCK_EVENTS.length / PAGE_SIZE);
+
+      document.getElementById('eventTotal').textContent = MOCK_EVENTS.length;
+      document.getElementById('totalPages').textContent = totalPages;
+
+      function renderPage(page) {
+        currentPage = page;
+        document.getElementById('currentPage').textContent = page;
+        const start = (page - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const pageEvents = MOCK_EVENTS.slice(start, end);
+
+        const tbody = document.getElementById('eventsBody');
+        tbody.innerHTML = '';
+        pageEvents.forEach(evt => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="font-mono" style="font-size: 0.75rem; color: var(--text-tertiary);">${formatTime(evt.timestamp)}</td>
+            <td><span class="${eventBadgeClass(evt.eventType)}">${evt.eventType}</span></td>
+            <td class="font-mono" style="font-size: 0.75rem; color: var(--text-tertiary);">${evt.id}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const pag = document.getElementById('pagination');
+        let html = '';
+        html += `<button class="btn btn-sm" ${currentPage <= 1 ? 'disabled' : ''} onclick="window._goPage(${currentPage - 1})">← Prev</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+          html += `<button class="btn btn-sm ${i === currentPage ? 'active' : ''}" onclick="window._goPage(${i})" style="${i === currentPage ? 'background:var(--accent-muted);color:var(--accent-fg);border-color:var(--accent-emphasis);' : ''}">${i}</button>`;
+        }
+        html += `<button class="btn btn-sm" ${currentPage >= totalPages ? 'disabled' : ''} onclick="window._goPage(${currentPage + 1})">Next →</button>`;
+        pag.innerHTML = html;
+      }
+
+      window._goPage = function(page) {
+        if (page < 1 || page > totalPages) return;
+        renderPage(page);
+      };
+
+      renderPage(1);
+    });
+  </script>
+</body>
+</html>

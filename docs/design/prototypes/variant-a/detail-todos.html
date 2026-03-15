@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Todos</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <!-- Session Title -->
+          <div class="mb-4">
+            <h1 class="page-title">Implemented OAuth login with GitHub and Google providers</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">cli</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav">
+            <a class="tab-nav-item" href="detail-overview.html">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html">Conversation <span class="tab-count">12</span></a>
+            <a class="tab-nav-item" href="detail-events.html">Events <span class="tab-count">2,450</span></a>
+            <a class="tab-nav-item active" href="detail-todos.html">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html">Metrics</a>
+          </nav>
+
+          <!-- Progress Panel -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-body">
+              <div class="flex items-center justify-between mb-2">
+                <span style="font-size: 0.875rem; font-weight: 600;" id="progress-label">3/6 completed</span>
+                <span style="font-size: 0.75rem; color: var(--text-tertiary);">50%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Todo List -->
+          <div class="section-panel">
+            <div id="todo-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // Build lookup maps
+    const todoMap = {};
+    MOCK_TODOS.todos.forEach(t => { todoMap[t.id] = t; });
+
+    const depsByTodo = {};
+    MOCK_TODOS.deps.forEach(d => {
+      if (!depsByTodo[d.todoId]) depsByTodo[d.todoId] = [];
+      depsByTodo[d.todoId].push(d.dependsOn);
+    });
+
+    // Calculate progress
+    const doneCount = MOCK_TODOS.todos.filter(t => t.status === 'done').length;
+    const total = MOCK_TODOS.todos.length;
+    const pct = Math.round((doneCount / total) * 100);
+    document.getElementById('progress-label').textContent = `${doneCount}/${total} completed`;
+    // Animate progress bar
+    requestAnimationFrame(() => {
+      document.getElementById('progress-fill').style.width = pct + '%';
+    });
+
+    // Render todos
+    const list = document.getElementById('todo-list');
+    MOCK_TODOS.todos.forEach(todo => {
+      const deps = depsByTodo[todo.id] || [];
+      const depsHtml = deps.map(depId => {
+        const dep = todoMap[depId];
+        return dep
+          ? `<span class="badge badge-neutral" style="font-size: 0.625rem;">↳ ${dep.title}</span>`
+          : '';
+      }).join('');
+
+      const item = document.createElement('div');
+      item.className = 'todo-item fade-in';
+      item.innerHTML = `
+        <div class="todo-status-icon">${getStatusIcon(todo.status)}</div>
+        <div class="todo-body">
+          <div class="flex items-center gap-2">
+            <span class="todo-title">${todo.title}</span>
+            <span class="badge ${getStatusBadgeClass(todo.status)}" style="font-size: 0.625rem;">${todo.status.replace('_', ' ')}</span>
+          </div>
+          <div class="todo-desc">${todo.description}</div>
+          <div class="flex items-center gap-3 mt-1">
+            <code class="font-mono" style="font-size: 0.6875rem; color: var(--text-tertiary);">${todo.id}</code>
+          </div>
+          ${deps.length > 0 ? `<div class="todo-deps">${depsHtml}</div>` : ''}
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  </script>
+</body>
+</html>

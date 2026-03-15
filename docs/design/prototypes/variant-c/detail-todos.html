@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Todos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .progress-section {
+      padding: 16px 18px;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
+    }
+    .progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+    .progress-pct {
+      color: var(--success-fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .progress-bar-todo {
+      height: 8px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress-bar-todo-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--success-fg);
+      transition: width var(--transition-slow);
+    }
+    .status-counts {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      flex-wrap: wrap;
+    }
+    .status-counts .done { color: var(--success-fg); }
+    .status-counts .in-progress { color: var(--accent-fg); }
+    .status-counts .pending-c { color: var(--text-tertiary); }
+    .status-counts .blocked { color: var(--danger-fg); }
+    .status-sep {
+      color: var(--text-placeholder);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title + Badges -->
+          <div class="mb-4">
+            <h1 class="page-title">OAuth Login Implementation</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">local</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav" role="tablist" aria-label="Session detail tabs">
+            <a class="tab-nav-item" href="detail-overview.html" role="tab" aria-selected="false">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html" role="tab" aria-selected="false">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item" href="detail-events.html" role="tab" aria-selected="false">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item active" href="detail-todos.html" role="tab" aria-selected="true">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html" role="tab" aria-selected="false">Metrics</a>
+          </nav>
+
+          <!-- Progress Section -->
+          <div class="progress-section" id="progressSection"></div>
+
+          <!-- Todo Items -->
+          <div class="section-panel">
+            <div class="section-panel-header">Tasks</div>
+            <div id="todoList"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      const todos = MOCK_TODOS.todos;
+      const deps = MOCK_TODOS.deps;
+      const total = todos.length;
+      const doneCount = todos.filter(t => t.status === 'done').length;
+      const inProgressCount = todos.filter(t => t.status === 'in_progress').length;
+      const pendingCount = todos.filter(t => t.status === 'pending').length;
+      const blockedCount = todos.filter(t => t.status === 'blocked').length;
+      const pct = Math.round((doneCount / total) * 100);
+
+      // Progress section
+      document.getElementById('progressSection').innerHTML = `
+        <div class="progress-header">
+          <span>${doneCount}/${total} completed</span>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="progress-bar-todo">
+          <div class="progress-bar-todo-fill" style="width: ${pct}%;"></div>
+        </div>
+        <div class="status-counts">
+          <span class="done">✓ ${doneCount} done</span>
+          <span class="status-sep">·</span>
+          <span class="in-progress">● ${inProgressCount} in progress</span>
+          <span class="status-sep">·</span>
+          <span class="pending-c">○ ${pendingCount} pending</span>
+          <span class="status-sep">·</span>
+          <span class="blocked">⊘ ${blockedCount} blocked</span>
+        </div>
+      `;
+
+      // Todo items
+      const todoList = document.getElementById('todoList');
+      todos.forEach(todo => {
+        const todoDeps = deps.filter(d => d.todoId === todo.id);
+        const depBadges = todoDeps.map(d =>
+          `<span class="badge badge-neutral" style="font-size:0.5625rem;">${d.dependsOn}</span>`
+        ).join('');
+
+        todoList.innerHTML += `
+          <div class="todo-item">
+            <div class="todo-status-icon">${getStatusIcon(todo.status)}</div>
+            <div class="todo-body">
+              <div class="flex items-center gap-2">
+                <span class="todo-title">${todo.title}</span>
+                <span class="badge ${getStatusBadgeClass(todo.status)}" style="font-size:0.5625rem;padding:1px 6px;">${todo.status.replace('_', ' ')}</span>
+              </div>
+              <div class="todo-desc">${todo.description}</div>
+              ${todoDeps.length > 0 ? `
+                <div class="todo-deps">
+                  <span style="font-size:0.5625rem;color:var(--text-placeholder);margin-right:2px;">depends on:</span>
+                  ${depBadges}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Timeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+  <style>
+    .zoom-controls { display:flex; align-items:center; gap:4px; }
+    .zoom-controls .btn-ghost { padding:4px 8px; font-size:0.75rem; }
+    .scrubber-container { margin-bottom:20px; }
+    .swimlane-bar.user { background:linear-gradient(90deg,#6366f1,#818cf8); }
+    .swimlane-bar.assistant { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
+    .swimlane-bar.tools { background:linear-gradient(90deg,#d97706,#fbbf24); }
+    .swimlane-bar.subagent { background:linear-gradient(90deg,#059669,#34d399); }
+    .tick-marks { display:flex; justify-content:space-between; padding:0 12px; margin-top:4px; }
+    .tick-marks span { font-size:0.625rem; color:#52525b; font-variant-numeric:tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Timeline</span>
+        </div>
+        <div style="margin-left:auto;" class="zoom-controls">
+          <button class="btn btn-ghost btn-sm">−</button>
+          <span style="font-size:0.6875rem;color:var(--text-tertiary);min-width:32px;text-align:center;">100%</span>
+          <button class="btn btn-ghost btn-sm">+</button>
+          <button class="btn btn-ghost btn-sm">Fit</button>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <h1 class="page-title" style="margin-bottom:4px;">Session Timeline</h1>
+          <p class="page-subtitle" style="margin-bottom:20px;">OAuth login implementation · 2h 15m · 12 turns</p>
+
+          <!-- Compact Scrubber -->
+          <div class="scrubber-container">
+            <div class="timeline-scrubber">
+              <span class="timeline-time">09:30</span>
+              <div class="timeline-track">
+                <div class="timeline-progress" style="width:65%;">
+                  <div class="timeline-thumb"></div>
+                </div>
+              </div>
+              <span class="timeline-time">11:45</span>
+            </div>
+          </div>
+
+          <!-- Swimlane View -->
+          <div class="section-panel" style="margin-bottom:20px;">
+            <div class="section-panel-header" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Swimlane View</span>
+              <div class="zoom-controls">
+                <button class="btn btn-ghost btn-sm">−</button>
+                <button class="btn btn-ghost btn-sm">+</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+
+              <!-- Time axis -->
+              <div style="display:grid;grid-template-columns:100px 1fr;">
+                <div style="border-right:1px solid var(--border-default);padding:6px 12px;font-size:0.625rem;color:var(--text-placeholder);">Actor</div>
+                <div class="tick-marks" style="padding:6px 12px;">
+                  <span>09:30</span><span>09:45</span><span>10:00</span><span>10:15</span><span>10:30</span><span>10:45</span><span>11:00</span><span>11:15</span><span>11:30</span><span>11:45</span>
+                </div>
+              </div>
+
+              <!-- User lane -->
+              <div class="swimlane">
+                <div class="swimlane-label">
+                  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:2px;background:#6366f1;"></span> User</span>
+                </div>
+                <div class="swimlane-track" style="min-height:36px;">
+                  <div class="swimlane-bar user" style="left:2%;width:6%;height:20px;">T0</div>
+                  <div class="swimlane-bar user" style="left:18%;width:5%;height:20px;">T1</div>
+                  <div class="swimlane-bar user" style="left:35%;width:4%;height:20px;">T2</div>
+                  <div class="swimlane-bar user" style="left:55%;width:5%;height:20px;">T3</div>
+                  <div class="swimlane-bar user" style="left:72%;width:4%;height:20px;">T4</div>
+                  <div class="swimlane-bar user" style="left:88%;width:5%;height:20px;">T5</div>
+                </div>
+              </div>
+
+              <!-- Assistant lane -->
+              <div class="swimlane">
+                <div class="swimlane-label">
+                  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:2px;background:#a78bfa;"></span> Assistant</span>
+                </div>
+                <div class="swimlane-track" style="min-height:36px;">
+                  <div class="swimlane-bar assistant" style="left:9%;width:8%;height:20px;">Turn 0</div>
+                  <div class="swimlane-bar assistant" style="left:24%;width:10%;height:20px;">Turn 1</div>
+                  <div class="swimlane-bar assistant" style="left:40%;width:12%;height:20px;">Turn 2</div>
+                  <div class="swimlane-bar assistant" style="left:61%;width:9%;height:20px;">Turn 3</div>
+                  <div class="swimlane-bar assistant" style="left:77%;width:10%;height:20px;">Turn 4</div>
+                </div>
+              </div>
+
+              <!-- Tools lane -->
+              <div class="swimlane">
+                <div class="swimlane-label">
+                  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:2px;background:#fbbf24;"></span> Tools</span>
+                </div>
+                <div class="swimlane-track" style="min-height:36px;">
+                  <div class="swimlane-bar tools" style="left:10%;width:3%;height:20px;">view</div>
+                  <div class="swimlane-bar tools" style="left:14%;width:2%;height:20px;">view</div>
+                  <div class="swimlane-bar tools" style="left:25%;width:4%;height:20px;">create</div>
+                  <div class="swimlane-bar tools" style="left:30%;width:3%;height:20px;">edit</div>
+                  <div class="swimlane-bar tools" style="left:42%;width:5%;height:20px;">shell</div>
+                  <div class="swimlane-bar tools" style="left:48%;width:3%;height:20px;">edit</div>
+                  <div class="swimlane-bar tools" style="left:62%;width:4%;height:20px;">create</div>
+                  <div class="swimlane-bar tools" style="left:78%;width:6%;height:20px;">shell</div>
+                </div>
+              </div>
+
+              <!-- Sub-agents lane -->
+              <div class="swimlane">
+                <div class="swimlane-label">
+                  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:2px;background:#34d399;"></span> Sub-agents</span>
+                </div>
+                <div class="swimlane-track" style="min-height:36px;">
+                  <div class="swimlane-bar subagent" style="left:43%;width:8%;height:20px;">explore</div>
+                  <div class="swimlane-bar subagent" style="left:63%;width:6%;height:20px;">task</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Event list -->
+          <div class="section-panel">
+            <div class="section-panel-header">Events</div>
+            <div class="section-panel-body" style="padding:0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Event</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:30:00</td>
+                    <td><span class="badge badge-accent" style="font-size:0.625rem;">session.start</span></td>
+                    <td style="font-size:0.75rem;">Session initialized</td>
+                  </tr>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:30:01</td>
+                    <td><span class="badge badge-success" style="font-size:0.625rem;">user.message</span></td>
+                    <td style="font-size:0.75rem;">Implement OAuth login with GitHub and Google</td>
+                  </tr>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:30:02</td>
+                    <td><span class="badge badge-done" style="font-size:0.625rem;">assistant.turn_start</span></td>
+                    <td style="font-size:0.75rem;">Turn 0 — claude-opus-4.6</td>
+                  </tr>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:30:03</td>
+                    <td><span class="badge badge-warning" style="font-size:0.625rem;">tool.execution_start</span></td>
+                    <td style="font-size:0.75rem;">view — src/auth/index.ts</td>
+                  </tr>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:30:04</td>
+                    <td><span class="badge badge-warning" style="font-size:0.625rem;">tool.execution_complete</span></td>
+                    <td style="font-size:0.75rem;">view — success (85ms)</td>
+                  </tr>
+                  <tr>
+                    <td style="font-variant-numeric:tabular-nums;font-size:0.75rem;color:var(--text-tertiary);">09:45:00</td>
+                    <td><span class="badge badge-success" style="font-size:0.625rem;">user.message</span></td>
+                    <td style="font-size:0.75rem;">Add error handling and rate limiting</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+  </script>
+</body>
+</html>

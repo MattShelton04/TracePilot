@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Code Impact</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .lines-added-value {
+      background: linear-gradient(135deg, #34d399, #6ee7b7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* File churn rows */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+    }
+    .file-row:last-child { border-bottom: none; }
+    .file-path {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-secondary);
+    }
+    .file-adds {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #34d399;
+      white-space: nowrap;
+    }
+    .file-dels {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #fb7185;
+      white-space: nowrap;
+    }
+    .churn-bar {
+      width: 80px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--neutral-muted);
+      overflow: hidden;
+      display: flex;
+      flex-shrink: 0;
+    }
+    .churn-bar-add {
+      height: 100%;
+      background: #34d399;
+    }
+    .churn-bar-del {
+      height: 100%;
+      background: #fb7185;
+    }
+
+    /* SVG chart */
+    .chart-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .chart-container svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .chart-legend-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Code Impact</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <h1 class="page-title">Code Impact</h1>
+          <p class="page-subtitle">Code changes and file modifications across all sessions</p>
+
+          <!-- Stats Row -->
+          <div class="grid-4" style="margin-bottom:20px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent">47</div>
+              <div class="stat-card-label">Files Modified</div>
+              <div class="stat-card-trend">↑ 8 vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value lines-added-value">+2,847</div>
+              <div class="stat-card-label">Lines Added</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value danger">-892</div>
+              <div class="stat-card-label">Lines Removed</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">+1,955</div>
+              <div class="stat-card-label">Net Change</div>
+              <div class="stat-card-trend">Net positive</div>
+            </div>
+          </div>
+
+          <!-- Two-Column Layout -->
+          <div class="grid-2" style="margin-bottom:20px;">
+
+            <!-- File Type Breakdown -->
+            <div class="section-panel">
+              <div class="section-panel-header">File Type Breakdown</div>
+              <div class="section-panel-body">
+                <div class="token-bar">
+                  <span class="token-bar-label font-mono">.ts</span>
+                  <div class="token-bar-track"><div class="token-bar-fill" style="width:51%;"></div></div>
+                  <span class="token-bar-value">24 files</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label font-mono">.vue</span>
+                  <div class="token-bar-track"><div class="token-bar-fill" style="width:17%;"></div></div>
+                  <span class="token-bar-value">8 files</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label font-mono">.css</span>
+                  <div class="token-bar-track"><div class="token-bar-fill" style="width:13%;"></div></div>
+                  <span class="token-bar-value">6 files</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label font-mono">.json</span>
+                  <div class="token-bar-track"><div class="token-bar-fill" style="width:11%;"></div></div>
+                  <span class="token-bar-value">5 files</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label font-mono">.md</span>
+                  <div class="token-bar-track"><div class="token-bar-fill" style="width:8%;"></div></div>
+                  <span class="token-bar-value">4 files</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Most Modified Files -->
+            <div class="section-panel">
+              <div class="section-panel-header">Most Modified Files</div>
+              <div class="section-panel-body" id="fileList"></div>
+            </div>
+          </div>
+
+          <!-- Changes Over Time -->
+          <div class="section-panel" style="margin-bottom:20px;">
+            <div class="section-panel-header">Changes Over Time</div>
+            <div class="section-panel-body">
+              <div class="chart-legend">
+                <span><span class="chart-legend-dot" style="background:#34d399;"></span>Additions</span>
+                <span><span class="chart-legend-dot" style="background:#fb7185;"></span>Deletions</span>
+              </div>
+              <div class="chart-container">
+                <svg viewBox="0 0 700 220" role="img" aria-label="Area chart showing lines added and removed over 14 days" font-family="Inter" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Grid lines -->
+                  <line x1="50" y1="30" x2="680" y2="30" stroke="#27272a" stroke-width="1"/>
+                  <line x1="50" y1="72" x2="680" y2="72" stroke="#27272a" stroke-width="1"/>
+                  <line x1="50" y1="115" x2="680" y2="115" stroke="#27272a" stroke-width="1"/>
+                  <line x1="50" y1="157" x2="680" y2="157" stroke="#27272a" stroke-width="1"/>
+                  <line x1="50" y1="200" x2="680" y2="200" stroke="#27272a" stroke-width="1"/>
+
+                  <!-- Y-axis labels -->
+                  <text x="44" y="34" text-anchor="end" font-size="9" fill="#71717a">400</text>
+                  <text x="44" y="76" text-anchor="end" font-size="9" fill="#71717a">300</text>
+                  <text x="44" y="119" text-anchor="end" font-size="9" fill="#71717a">200</text>
+                  <text x="44" y="161" text-anchor="end" font-size="9" fill="#71717a">100</text>
+                  <text x="44" y="204" text-anchor="end" font-size="9" fill="#71717a">0</text>
+
+                  <!-- X-axis labels (14 days, Mar 1–14) -->
+                  <text x="93" y="215" text-anchor="middle" font-size="8" fill="#71717a">Mar 1</text>
+                  <text x="138" y="215" text-anchor="middle" font-size="8" fill="#71717a">2</text>
+                  <text x="183" y="215" text-anchor="middle" font-size="8" fill="#71717a">3</text>
+                  <text x="228" y="215" text-anchor="middle" font-size="8" fill="#71717a">4</text>
+                  <text x="273" y="215" text-anchor="middle" font-size="8" fill="#71717a">5</text>
+                  <text x="318" y="215" text-anchor="middle" font-size="8" fill="#71717a">6</text>
+                  <text x="363" y="215" text-anchor="middle" font-size="8" fill="#71717a">7</text>
+                  <text x="408" y="215" text-anchor="middle" font-size="8" fill="#71717a">8</text>
+                  <text x="453" y="215" text-anchor="middle" font-size="8" fill="#71717a">9</text>
+                  <text x="498" y="215" text-anchor="middle" font-size="8" fill="#71717a">10</text>
+                  <text x="543" y="215" text-anchor="middle" font-size="8" fill="#71717a">11</text>
+                  <text x="588" y="215" text-anchor="middle" font-size="8" fill="#71717a">12</text>
+                  <text x="633" y="215" text-anchor="middle" font-size="8" fill="#71717a">13</text>
+                  <text x="678" y="215" text-anchor="middle" font-size="8" fill="#71717a">14</text>
+
+                  <!-- Additions area fill (green) -->
+                  <polygon
+                    points="93,200 93,140 138,125 183,142 228,110 273,100 318,80 363,90 408,70 453,55 498,72 543,60 588,48 633,65 678,50 678,200"
+                    fill="#34d399" fill-opacity="0.15" />
+
+                  <!-- Deletions area fill (red) -->
+                  <polygon
+                    points="93,200 93,175 138,168 183,178 228,160 273,165 318,150 363,155 408,140 453,148 498,155 543,142 588,135 633,150 678,145 678,200"
+                    fill="#fb7185" fill-opacity="0.15" />
+
+                  <!-- Additions line (green) -->
+                  <polyline
+                    points="93,140 138,125 183,142 228,110 273,100 318,80 363,90 408,70 453,55 498,72 543,60 588,48 633,65 678,50"
+                    fill="none" stroke="#34d399" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+
+                  <!-- Deletions line (red) -->
+                  <polyline
+                    points="93,175 138,168 183,178 228,160 273,165 318,150 363,155 408,140 453,148 498,155 543,142 588,135 633,150 678,145"
+                    fill="none" stroke="#fb7185" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+
+                  <!-- Axis lines -->
+                  <line x1="50" y1="30" x2="50" y2="200" stroke="#3f3f46" stroke-width="1"/>
+                  <line x1="50" y1="200" x2="680" y2="200" stroke="#3f3f46" stroke-width="1"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('code');
+
+      // Most Modified Files data
+      const files = [
+        { path: 'src/auth/providers/github.ts', adds: 142, dels: 23 },
+        { path: 'src/auth/providers/google.ts', adds: 128, dels: 18 },
+        { path: 'src/auth/index.ts', adds: 96, dels: 45 },
+        { path: 'src/auth/rate-limiter.ts', adds: 84, dels: 0 },
+        { path: 'src/auth/errors.ts', adds: 67, dels: 0 },
+        { path: 'tests/auth/oauth.test.ts', adds: 234, dels: 12 },
+        { path: 'src/middleware/cors.ts', adds: 45, dels: 31 },
+        { path: 'package.json', adds: 12, dels: 3 },
+      ];
+
+      const maxChurn = Math.max(...files.map(f => f.adds + f.dels));
+      const fileList = document.getElementById('fileList');
+
+      files.forEach(f => {
+        const total = f.adds + f.dels;
+        const barWidth = Math.round((total / maxChurn) * 100);
+        const addPct = Math.round((f.adds / total) * 100);
+        const delPct = 100 - addPct;
+
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.innerHTML = `
+          <span class="file-path font-mono">${f.path}</span>
+          <span class="file-adds">+${f.adds}</span>
+          <span class="file-dels">${f.dels > 0 ? '-' + f.dels : '0'}</span>
+          <div class="churn-bar" style="width:${barWidth}px;" title="${total} changes">
+            <div class="churn-bar-add" style="width:${addPct}%;"></div>
+            <div class="churn-bar-del" style="width:${delPct}%;"></div>
+          </div>
+        `;
+        fileList.appendChild(row);
+      });
+    });
+  </script>
+</body>
+</html>

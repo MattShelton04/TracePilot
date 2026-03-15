@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Metrics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .gradient-value {
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .token-bar-pct {
+      width: 58px;
+      text-align: right;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+    }
+    .cache-viz {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .cache-ring {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--success-fg);
+      position: relative;
+    }
+    .cache-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(var(--success-fg) calc(var(--ring-pct) * 1%), var(--neutral-muted) 0);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+    }
+    .cache-details {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.75rem;
+    }
+    .code-file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+    }
+    .code-file-item:last-child { border-bottom: none; }
+    .code-file-icon { color: var(--text-placeholder); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title + Badges -->
+          <div class="mb-4">
+            <h1 class="page-title">OAuth Login Implementation</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">local</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav" role="tablist" aria-label="Session detail tabs">
+            <a class="tab-nav-item" href="detail-overview.html" role="tab" aria-selected="false">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html" role="tab" aria-selected="false">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item" href="detail-events.html" role="tab" aria-selected="false">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item" href="detail-todos.html" role="tab" aria-selected="false">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item active" href="detail-metrics.html" role="tab" aria-selected="true">Metrics</a>
+          </nav>
+
+          <!-- Stats Row -->
+          <div class="grid-4 mb-6" id="statsRow"></div>
+
+          <!-- Token Distribution -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Token Distribution</div>
+            <div class="section-panel-body" id="tokenBars"></div>
+          </div>
+
+          <!-- Model Breakdown Table -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Model Breakdown</div>
+            <table class="data-table" aria-label="Model metrics breakdown">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th style="text-align: right;">Requests</th>
+                  <th style="text-align: right;">Cost</th>
+                  <th style="text-align: right;">Input Tokens</th>
+                  <th style="text-align: right;">Output Tokens</th>
+                  <th style="text-align: right;">Cache Read</th>
+                  <th style="text-align: right;">Cache Write</th>
+                  <th style="text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody id="modelTbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Cache Breakdown -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Cache Breakdown</div>
+            <div class="section-panel-body" id="cacheSection"></div>
+          </div>
+
+          <!-- Code Changes -->
+          <div class="section-panel">
+            <div class="section-panel-header">Code Changes</div>
+            <div class="section-panel-body">
+              <div class="flex items-center gap-4 mb-4">
+                <span style="font-size: 1.25rem; font-weight: 700; color: var(--success-fg);">+847</span>
+                <span style="font-size: 0.8125rem; color: var(--text-tertiary);">lines added</span>
+                <span style="font-size: 1.25rem; font-weight: 700; color: var(--danger-fg);">−234</span>
+                <span style="font-size: 0.8125rem; color: var(--text-tertiary);">lines removed</span>
+                <span class="badge badge-neutral" style="margin-left:auto;" id="fileCountBadge">0 files</span>
+              </div>
+              <div id="fileList"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      const models = MOCK_METRICS.modelMetrics;
+      const modelNames = Object.keys(models);
+      let totalTokens = 0, totalRequests = 0, totalCost = 0, totalCacheReads = 0;
+      const modelTotals = {};
+
+      modelNames.forEach(name => {
+        const m = models[name];
+        const u = m.usage;
+        const total = u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens;
+        modelTotals[name] = total;
+        totalTokens += total;
+        totalRequests += m.requests.count;
+        totalCost += m.requests.cost;
+        totalCacheReads += u.cacheReadTokens;
+      });
+
+      // Stats Row — gradient text for first two
+      document.getElementById('statsRow').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-card-value gradient-value">${totalRequests}</div>
+          <div class="stat-card-label">Total Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value gradient-value">${MOCK_METRICS.totalPremiumRequests}</div>
+          <div class="stat-card-label">Premium Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value success">${formatNumber(totalTokens)}</div>
+          <div class="stat-card-label">Total Tokens</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value done">${formatDuration(MOCK_METRICS.totalApiDurationMs)}</div>
+          <div class="stat-card-label">API Duration</div>
+        </div>
+      `;
+
+      // Token Distribution — bars with RELATIVE PERCENTAGE of total
+      const barsContainer = document.getElementById('tokenBars');
+      modelNames.forEach(name => {
+        const total = modelTotals[name];
+        const pct = ((total / totalTokens) * 100).toFixed(1);
+        barsContainer.innerHTML += `
+          <div class="token-bar">
+            <span class="token-bar-label">${name}</span>
+            <div class="token-bar-track">
+              <div class="token-bar-fill" style="width: ${pct}%;"></div>
+            </div>
+            <span class="token-bar-value">${formatNumber(total)}</span>
+            <span class="token-bar-pct">(${pct}%)</span>
+          </div>
+        `;
+      });
+
+      // Model Breakdown Table
+      const tbody = document.getElementById('modelTbody');
+      modelNames.forEach(name => {
+        const m = models[name];
+        const u = m.usage;
+        const total = modelTotals[name];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><span class="badge badge-done">${name}</span></td>
+          <td style="text-align: right;">${m.requests.count}</td>
+          <td style="text-align: right;"><span class="badge badge-warning">${formatCost(m.requests.cost)}</span></td>
+          <td style="text-align: right;">${formatNumber(u.inputTokens)}</td>
+          <td style="text-align: right;">${formatNumber(u.outputTokens)}</td>
+          <td style="text-align: right;">${formatNumber(u.cacheReadTokens)}</td>
+          <td style="text-align: right;">${formatNumber(u.cacheWriteTokens)}</td>
+          <td style="text-align: right; font-weight: 600;">${formatNumber(total)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Cache Breakdown
+      const cacheHitRate = ((totalCacheReads / totalTokens) * 100).toFixed(1);
+      document.getElementById('cacheSection').innerHTML = `
+        <div class="cache-viz">
+          <div class="cache-ring" style="--ring-pct: ${cacheHitRate};">
+            ${cacheHitRate}%
+          </div>
+          <div class="cache-details">
+            <div style="font-weight:600; color:var(--text-primary);">Cache Hit Rate</div>
+            <div style="color:var(--text-tertiary);">${formatNumber(totalCacheReads)} cache reads of ${formatNumber(totalTokens)} total tokens</div>
+            <div class="progress-bar" style="width:200px;height:6px;">
+              <div class="progress-bar-fill" style="width:${cacheHitRate}%;background:var(--success-fg);"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Code Changes — file list with expanded set for +847/-234
+      const allFiles = [
+        ...MOCK_METRICS.codeChanges.filesModified,
+        'src/auth/middleware.ts',
+        'src/auth/session.ts',
+        'src/config/oauth.ts',
+        'tests/auth/rate-limiter.test.ts',
+      ];
+      document.getElementById('fileCountBadge').textContent = `${allFiles.length} files`;
+      const fileList = document.getElementById('fileList');
+      allFiles.forEach(file => {
+        fileList.innerHTML += `
+          <div class="code-file-item">
+            <span class="code-file-icon">📄</span>
+            <span class="font-mono" style="color: var(--text-secondary);">${file}</span>
+          </div>
+        `;
+      });
+    });
+  </script>
+</body>
+</html>

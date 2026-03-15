@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Health Scoring</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .health-ring-lg {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .health-ring-lg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 5px;
+      background: conic-gradient(#fbbf24 0% calc(var(--ring-pct) * 1%), rgba(255,255,255,0.06) calc(var(--ring-pct) * 1%) 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    }
+    .health-ring-lg .ring-value {
+      font-size: 2rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      z-index: 1;
+      color: var(--text-primary);
+    }
+    .health-ring-lg .ring-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      z-index: 1;
+    }
+    .attention-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all var(--transition-normal);
+    }
+    .attention-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .attention-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .attention-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(var(--ring-color) 0% calc(var(--ring-pct) * 1%), rgba(255,255,255,0.06) calc(var(--ring-pct) * 1%) 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    }
+    .attention-ring span {
+      font-size: 0.75rem;
+      font-weight: 700;
+      z-index: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .hero-section {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+    .stat-card-value.success { color: var(--success-fg); }
+    .stat-card-value.warning { color: #fbbf24; }
+    .stat-card-value.danger { color: var(--danger-fg); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Session Health</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Hero Section: Large Health Ring + Stat Cards -->
+          <section class="hero-section" aria-label="Overall health summary">
+            <div class="health-ring-lg" style="--ring-pct: 73;" role="img" aria-label="Overall health score: 0.73 out of 1.0">
+              <span class="ring-value">0.73</span>
+              <span class="ring-label">Overall</span>
+            </div>
+            <div class="grid-4" style="flex: 1;">
+              <div class="stat-card">
+                <div class="stat-card-value success">5</div>
+                <div class="stat-card-label">Healthy</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value warning">3</div>
+                <div class="stat-card-label">Needs Attention</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value danger">1</div>
+                <div class="stat-card-label">Critical</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value warning">0.73</div>
+                <div class="stat-card-label">Avg Score</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Attention Grid: Unhealthy Sessions -->
+          <section aria-label="Sessions needing attention" style="margin-bottom: 24px;">
+            <div class="grid-3">
+
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-color: #fbbf24; --ring-pct: 58;" role="img" aria-label="Health score: 0.58">
+                  <span>0.58</span>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.8125rem; font-weight: 600;">GraphQL Migration</div>
+                  <div style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px;">2 flags raised</div>
+                  <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                    <span class="badge badge-warning">High Retry Count</span>
+                    <span class="badge badge-warning">Excessive Tool Calls</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-color: #fb7185; --ring-pct: 45;" role="img" aria-label="Health score: 0.45">
+                  <span>0.45</span>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.8125rem; font-weight: 600;">CI/CD Pipeline Setup</div>
+                  <div style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px;">2 flags raised</div>
+                  <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                    <span class="badge badge-warning">Long Duration</span>
+                    <span class="badge badge-warning">High Token Usage</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-color: #fbbf24; --ring-pct: 62;" role="img" aria-label="Health score: 0.62">
+                  <span>0.62</span>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.8125rem; font-weight: 600;">WebSocket Notifications</div>
+                  <div style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px;">2 flags raised</div>
+                  <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                    <span class="badge badge-danger">Failed Tool Calls</span>
+                    <span class="badge badge-danger">Context Overflow</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-color: #fb7185; --ring-pct: 31;" role="img" aria-label="Health score: 0.31">
+                  <span>0.31</span>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.8125rem; font-weight: 600;">Webpack Build Optimization</div>
+                  <div style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px;">2 flags raised</div>
+                  <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                    <span class="badge badge-danger">Critical Failures</span>
+                    <span class="badge badge-danger">Session Timeout</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- Health Flags Table -->
+          <section class="section-panel" aria-label="Health flags breakdown">
+            <div class="section-panel-header">Health Flags</div>
+            <table class="data-table" aria-label="Health flag details">
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th style="text-align: right;">Count</th>
+                  <th>Severity</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight: 600;">High Retry Count</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">8</td>
+                  <td><span class="badge badge-warning">Warning</span></td>
+                  <td style="color: var(--text-tertiary);">Tool calls retried more than 3 times</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Long Duration</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">5</td>
+                  <td><span class="badge badge-warning">Warning</span></td>
+                  <td style="color: var(--text-tertiary);">Session exceeded 4 hour threshold</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Excessive Tool Calls</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">4</td>
+                  <td><span class="badge badge-warning">Warning</span></td>
+                  <td style="color: var(--text-tertiary);">More than 50 tool calls in a single turn</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Failed Tool Calls</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">3</td>
+                  <td><span class="badge badge-danger">Critical</span></td>
+                  <td style="color: var(--text-tertiary);">Tool execution failures without recovery</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Context Overflow</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">2</td>
+                  <td><span class="badge badge-danger">Critical</span></td>
+                  <td style="color: var(--text-tertiary);">Context window exceeded causing truncation</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">High Token Usage</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">2</td>
+                  <td><span class="badge badge-warning">Warning</span></td>
+                  <td style="color: var(--text-tertiary);">Token consumption above 95th percentile</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Session Timeout</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">1</td>
+                  <td><span class="badge badge-danger">Critical</span></td>
+                  <td style="color: var(--text-tertiary);">Session terminated due to inactivity</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Critical Failures</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">1</td>
+                  <td><span class="badge badge-danger">Critical</span></td>
+                  <td style="color: var(--text-tertiary);">Unrecoverable errors during session</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('health');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Conversation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav">
+            <a class="tab-nav-item" href="detail-overview.html">Overview</a>
+            <a class="tab-nav-item active" href="detail-conversation.html">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item" href="detail-events.html">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item" href="detail-todos.html">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html">Metrics</a>
+          </nav>
+
+          <!-- Compact stats bar -->
+          <div class="flex items-center gap-4 mb-4" style="font-size:0.75rem;color:var(--text-tertiary);">
+            <span>3 turns</span>
+            <span style="width:1px;height:12px;background:var(--border-default);"></span>
+            <span>13 tool calls</span>
+            <span style="width:1px;height:12px;background:var(--border-default);"></span>
+            <span>3m 21s total</span>
+          </div>
+
+          <!-- View Toggle -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="btn-group">
+              <button class="btn btn-sm active" id="viewChat">Chat</button>
+              <button class="btn btn-sm" id="viewCompact">Compact</button>
+              <button class="btn btn-sm" id="viewTimeline">Timeline</button>
+            </div>
+          </div>
+
+          <!-- Conversation -->
+          <div class="turn-group" id="conversationView"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    const container = document.getElementById('conversationView');
+
+    MOCK_TURNS.forEach((turn, ti) => {
+      // User message
+      const userTurn = document.createElement('div');
+      userTurn.className = 'turn-item fade-in';
+      userTurn.style.marginBottom = '20px';
+      userTurn.innerHTML = `
+        <div class="turn-avatar user">👤</div>
+        <div class="turn-body">
+          <div class="turn-header">
+            <span class="turn-author">You</span>
+            <span class="turn-meta">Turn ${turn.turnIndex}</span>
+            <span class="turn-meta">${formatTime(turn.timestamp)}</span>
+          </div>
+          <div class="turn-bubble user">${turn.userMessage}</div>
+        </div>
+      `;
+      container.appendChild(userTurn);
+
+      // Assistant message
+      const asstTurn = document.createElement('div');
+      asstTurn.className = 'turn-item fade-in';
+      asstTurn.style.marginBottom = '8px';
+      asstTurn.innerHTML = `
+        <div class="turn-avatar assistant">🤖</div>
+        <div class="turn-body">
+          <div class="turn-header">
+            <span class="turn-author">Assistant</span>
+            <span class="badge badge-neutral" style="font-size:0.625rem;padding:1px 6px;">${turn.model}</span>
+            <span class="turn-meta">${formatDuration(turn.durationMs)}</span>
+          </div>
+          <div class="turn-bubble assistant">${turn.assistantMessages[0]}</div>
+          ${turn.toolCalls.length > 0 ? `
+          <div class="tool-calls-container" style="margin-top:8px;">
+            <div class="tool-call-header" data-collapse="tools-${ti}" style="cursor:pointer;">
+              <span class="chevron" style="display:inline-flex;transition:transform 0.15s ease;transform:rotate(90deg);">${ICONS.chevronRight}</span>
+              <span>${turn.toolCalls.length} tool calls</span>
+              <span style="margin-left:auto;color:var(--text-placeholder);">${turn.toolCalls.filter(t=>t.success).length} passed · ${turn.toolCalls.filter(t=>!t.success).length} failed</span>
+            </div>
+            <div id="tools-${ti}">
+              ${turn.toolCalls.map(tc => `
+                <div class="tool-call-item">
+                  <span class="tool-call-icon">${toolIcon(tc.toolName)}</span>
+                  <span class="tool-call-name">${tc.toolName}</span>
+                  <span class="tool-call-args">${tc.args}</span>
+                  <span class="tool-call-status ${tc.success ? 'success' : 'failed'}">${tc.success ? '✓' : '✗'}</span>
+                  <span class="tool-call-duration">${formatDuration(tc.durationMs)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+      `;
+      container.appendChild(asstTurn);
+    });
+
+    // View toggle (visual only)
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Code Impact</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <span class="breadcrumb-current">Code Impact</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <!-- Title -->
+          <div class="mb-6">
+            <h1 class="page-title">Code Impact</h1>
+            <p class="page-subtitle">Code change patterns across all sessions</p>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">234</div>
+              <div class="stat-card-label">Files Modified</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">12,456</div>
+              <div class="stat-card-label">Lines Added</div>
+              <div class="stat-card-trend" style="color: var(--success-fg);">↑</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value danger">3,789</div>
+              <div class="stat-card-label">Lines Removed</div>
+              <div class="stat-card-trend" style="color: var(--danger-fg);">↓</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">+8,667</div>
+              <div class="stat-card-label">Net Change</div>
+            </div>
+          </div>
+
+          <!-- Activity Over Time -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Activity Over Time</div>
+            <div class="section-panel-body">
+              <div class="chart-container">
+                <svg viewBox="0 0 700 250" width="100%" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="addGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#3fb950" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#3fb950" stop-opacity="0.02"/>
+                    </linearGradient>
+                    <linearGradient id="removeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#f85149" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#f85149" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+
+                  <!-- Grid lines -->
+                  <line x1="60" y1="20" x2="60" y2="210" stroke="#21262d" stroke-width="1"/>
+                  <line x1="60" y1="210" x2="680" y2="210" stroke="#21262d" stroke-width="1"/>
+                  <line x1="60" y1="20" x2="680" y2="20" stroke="#21262d" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="60" y1="68" x2="680" y2="68" stroke="#21262d" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="60" y1="115" x2="680" y2="115" stroke="#21262d" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="60" y1="163" x2="680" y2="163" stroke="#21262d" stroke-width="0.5" stroke-dasharray="4"/>
+
+                  <!-- Y-axis labels -->
+                  <text x="52" y="24" text-anchor="end" fill="#6e7681" font-size="10">1500</text>
+                  <text x="52" y="72" text-anchor="end" fill="#6e7681" font-size="10">1000</text>
+                  <text x="52" y="119" text-anchor="end" fill="#6e7681" font-size="10">500</text>
+                  <text x="52" y="167" text-anchor="end" fill="#6e7681" font-size="10">250</text>
+                  <text x="52" y="214" text-anchor="end" fill="#6e7681" font-size="10">0</text>
+
+                  <!-- Additions area fill -->
+                  <path d="M104,153 L148,97 L193,58 L237,169 L281,111 L326,20 L370,128 L414,93 L458,71 L503,159 L547,45 L591,101 L636,121 L680,47 L680,210 L104,210 Z"
+                        fill="url(#addGradient)"/>
+                  <!-- Additions line -->
+                  <polyline points="104,153 148,97 193,58 237,169 281,111 326,20 370,128 414,93 458,71 503,159 547,45 591,101 636,121 680,47"
+                            fill="none" stroke="#3fb950" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+                  <!-- Removals area fill -->
+                  <path d="M104,195 L148,175 L193,166 L237,200 L281,185 L326,157 L370,187 L414,178 L458,171 L503,197 L547,162 L591,182 L636,190 L680,167 L680,210 L104,210 Z"
+                        fill="url(#removeGradient)"/>
+                  <!-- Removals line -->
+                  <polyline points="104,195 148,175 193,166 237,200 281,185 326,157 370,187 414,178 458,171 503,197 547,162 591,182 636,190 680,167"
+                            fill="none" stroke="#f85149" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+                  <!-- Data points — additions -->
+                  <circle cx="104" cy="153" r="3" fill="#3fb950"/>
+                  <circle cx="148" cy="97" r="3" fill="#3fb950"/>
+                  <circle cx="193" cy="58" r="3" fill="#3fb950"/>
+                  <circle cx="237" cy="169" r="3" fill="#3fb950"/>
+                  <circle cx="281" cy="111" r="3" fill="#3fb950"/>
+                  <circle cx="326" cy="20" r="3" fill="#3fb950"/>
+                  <circle cx="370" cy="128" r="3" fill="#3fb950"/>
+                  <circle cx="414" cy="93" r="3" fill="#3fb950"/>
+                  <circle cx="458" cy="71" r="3" fill="#3fb950"/>
+                  <circle cx="503" cy="159" r="3" fill="#3fb950"/>
+                  <circle cx="547" cy="45" r="3" fill="#3fb950"/>
+                  <circle cx="591" cy="101" r="3" fill="#3fb950"/>
+                  <circle cx="636" cy="121" r="3" fill="#3fb950"/>
+                  <circle cx="680" cy="47" r="3" fill="#3fb950"/>
+
+                  <!-- Data points — removals -->
+                  <circle cx="104" cy="195" r="3" fill="#f85149"/>
+                  <circle cx="148" cy="175" r="3" fill="#f85149"/>
+                  <circle cx="193" cy="166" r="3" fill="#f85149"/>
+                  <circle cx="237" cy="200" r="3" fill="#f85149"/>
+                  <circle cx="281" cy="185" r="3" fill="#f85149"/>
+                  <circle cx="326" cy="157" r="3" fill="#f85149"/>
+                  <circle cx="370" cy="187" r="3" fill="#f85149"/>
+                  <circle cx="414" cy="178" r="3" fill="#f85149"/>
+                  <circle cx="458" cy="171" r="3" fill="#f85149"/>
+                  <circle cx="503" cy="197" r="3" fill="#f85149"/>
+                  <circle cx="547" cy="162" r="3" fill="#f85149"/>
+                  <circle cx="591" cy="182" r="3" fill="#f85149"/>
+                  <circle cx="636" cy="190" r="3" fill="#f85149"/>
+                  <circle cx="680" cy="167" r="3" fill="#f85149"/>
+
+                  <!-- X-axis labels -->
+                  <text x="104" y="228" text-anchor="middle" fill="#6e7681" font-size="9">Mar 1</text>
+                  <text x="148" y="228" text-anchor="middle" fill="#6e7681" font-size="9">2</text>
+                  <text x="193" y="228" text-anchor="middle" fill="#6e7681" font-size="9">3</text>
+                  <text x="237" y="228" text-anchor="middle" fill="#6e7681" font-size="9">4</text>
+                  <text x="281" y="228" text-anchor="middle" fill="#6e7681" font-size="9">5</text>
+                  <text x="326" y="228" text-anchor="middle" fill="#6e7681" font-size="9">6</text>
+                  <text x="370" y="228" text-anchor="middle" fill="#6e7681" font-size="9">7</text>
+                  <text x="414" y="228" text-anchor="middle" fill="#6e7681" font-size="9">8</text>
+                  <text x="458" y="228" text-anchor="middle" fill="#6e7681" font-size="9">9</text>
+                  <text x="503" y="228" text-anchor="middle" fill="#6e7681" font-size="9">10</text>
+                  <text x="547" y="228" text-anchor="middle" fill="#6e7681" font-size="9">11</text>
+                  <text x="591" y="228" text-anchor="middle" fill="#6e7681" font-size="9">12</text>
+                  <text x="636" y="228" text-anchor="middle" fill="#6e7681" font-size="9">13</text>
+                  <text x="680" y="228" text-anchor="middle" fill="#6e7681" font-size="9">Mar 14</text>
+
+                  <!-- Legend -->
+                  <rect x="260" y="240" width="10" height="10" rx="2" fill="#3fb950"/>
+                  <text x="274" y="249" fill="#8b949e" font-size="10">Additions</text>
+                  <rect x="340" y="240" width="10" height="10" rx="2" fill="#f85149"/>
+                  <text x="354" y="249" fill="#8b949e" font-size="10">Removals</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Most Modified Files -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Most Modified Files</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>File Path</th>
+                  <th style="text-align: right;">Times Modified</th>
+                  <th style="text-align: right;">Lines Added</th>
+                  <th style="text-align: right;">Lines Removed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/auth/providers/github.ts</code></td>
+                  <td style="text-align: right;">18</td>
+                  <td style="text-align: right; color: var(--success-fg);">+342</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−56</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/auth/providers/google.ts</code></td>
+                  <td style="text-align: right;">15</td>
+                  <td style="text-align: right; color: var(--success-fg);">+298</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−43</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/auth/index.ts</code></td>
+                  <td style="text-align: right;">12</td>
+                  <td style="text-align: right; color: var(--success-fg);">+186</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−89</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/auth/rate-limiter.ts</code></td>
+                  <td style="text-align: right;">10</td>
+                  <td style="text-align: right; color: var(--success-fg);">+245</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−12</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">tests/auth/oauth.test.ts</code></td>
+                  <td style="text-align: right;">9</td>
+                  <td style="text-align: right; color: var(--success-fg);">+567</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−34</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/auth/errors.ts</code></td>
+                  <td style="text-align: right;">8</td>
+                  <td style="text-align: right; color: var(--success-fg);">+134</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−8</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">package.json</code></td>
+                  <td style="text-align: right;">7</td>
+                  <td style="text-align: right; color: var(--success-fg);">+23</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−5</td>
+                </tr>
+                <tr>
+                  <td><code class="font-mono" style="font-size: 0.8125rem; color: var(--accent-fg);">src/api/routes.ts</code></td>
+                  <td style="text-align: right;">6</td>
+                  <td style="text-align: right; color: var(--success-fg);">+198</td>
+                  <td style="text-align: right; color: var(--danger-fg);">−67</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom two-column layout -->
+          <div class="grid-2 mb-6">
+            <!-- Repository Activity -->
+            <div class="section-panel">
+              <div class="section-panel-header">Repository Activity</div>
+              <div class="section-panel-body">
+                <div class="token-bar">
+                  <span class="token-bar-label">acme/web-platform</span>
+                  <div class="token-bar-track">
+                    <div class="token-bar-fill" style="width: 100%; background: var(--accent-fg);"></div>
+                  </div>
+                  <span class="token-bar-value">8,234</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label">acme/api-server</span>
+                  <div class="token-bar-track">
+                    <div class="token-bar-fill" style="width: 42%; background: var(--success-fg);"></div>
+                  </div>
+                  <span class="token-bar-value">3,456</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label">acme/infrastructure</span>
+                  <div class="token-bar-track">
+                    <div class="token-bar-fill" style="width: 15%; background: var(--done-fg);"></div>
+                  </div>
+                  <span class="token-bar-value">1,234</span>
+                </div>
+                <div class="token-bar">
+                  <span class="token-bar-label">acme/mobile-app</span>
+                  <div class="token-bar-track">
+                    <div class="token-bar-fill" style="width: 10%; background: var(--warning-fg);"></div>
+                  </div>
+                  <span class="token-bar-value">789</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- File Type Distribution -->
+            <div class="section-panel">
+              <div class="section-panel-header">File Type Distribution</div>
+              <div class="section-panel-body" style="display: flex; flex-direction: column; align-items: center;">
+                <svg viewBox="0 0 300 300" width="220" height="220" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Donut chart: radius=100, cx/cy=150, stroke-width=32 -->
+                  <!-- Circumference = 2 * PI * 100 ≈ 628.32 -->
+                  <!-- .ts  45% = 282.74  offset 0 -->
+                  <!-- .vue 25% = 157.08  offset -282.74 -->
+                  <!-- .css 10% = 62.83   offset -439.82 -->
+                  <!-- .json 8% = 50.27   offset -502.65 -->
+                  <!-- other 12% = 75.40  offset -552.92 -->
+
+                  <!-- Background ring -->
+                  <circle cx="150" cy="150" r="100" fill="none" stroke="#21262d" stroke-width="32"/>
+
+                  <!-- .ts 45% -->
+                  <circle cx="150" cy="150" r="100" fill="none"
+                          stroke="#58a6ff" stroke-width="32"
+                          stroke-dasharray="282.74 345.58"
+                          stroke-dashoffset="0"
+                          transform="rotate(-90 150 150)"/>
+                  <!-- .vue 25% -->
+                  <circle cx="150" cy="150" r="100" fill="none"
+                          stroke="#3fb950" stroke-width="32"
+                          stroke-dasharray="157.08 471.24"
+                          stroke-dashoffset="-282.74"
+                          transform="rotate(-90 150 150)"/>
+                  <!-- .css 10% -->
+                  <circle cx="150" cy="150" r="100" fill="none"
+                          stroke="#a371f7" stroke-width="32"
+                          stroke-dasharray="62.83 565.49"
+                          stroke-dashoffset="-439.82"
+                          transform="rotate(-90 150 150)"/>
+                  <!-- .json 8% -->
+                  <circle cx="150" cy="150" r="100" fill="none"
+                          stroke="#d29922" stroke-width="32"
+                          stroke-dasharray="50.27 578.05"
+                          stroke-dashoffset="-502.65"
+                          transform="rotate(-90 150 150)"/>
+                  <!-- other 12% -->
+                  <circle cx="150" cy="150" r="100" fill="none"
+                          stroke="#6e7681" stroke-width="32"
+                          stroke-dasharray="75.40 552.92"
+                          stroke-dashoffset="-552.92"
+                          transform="rotate(-90 150 150)"/>
+
+                  <!-- Center label -->
+                  <text x="150" y="144" text-anchor="middle" fill="#e6edf3" font-size="22" font-weight="700">234</text>
+                  <text x="150" y="166" text-anchor="middle" fill="#8b949e" font-size="11">files</text>
+                </svg>
+
+                <!-- Legend -->
+                <div style="display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 16px; justify-content: center;">
+                  <div class="flex items-center gap-2" style="font-size: 0.8125rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 2px; background: #58a6ff; display: inline-block;"></span>
+                    <span style="color: var(--text-secondary);">.ts</span>
+                    <span style="color: var(--text-tertiary);">45%</span>
+                  </div>
+                  <div class="flex items-center gap-2" style="font-size: 0.8125rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 2px; background: #3fb950; display: inline-block;"></span>
+                    <span style="color: var(--text-secondary);">.vue</span>
+                    <span style="color: var(--text-tertiary);">25%</span>
+                  </div>
+                  <div class="flex items-center gap-2" style="font-size: 0.8125rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 2px; background: #a371f7; display: inline-block;"></span>
+                    <span style="color: var(--text-secondary);">.css</span>
+                    <span style="color: var(--text-tertiary);">10%</span>
+                  </div>
+                  <div class="flex items-center gap-2" style="font-size: 0.8125rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 2px; background: #d29922; display: inline-block;"></span>
+                    <span style="color: var(--text-secondary);">.json</span>
+                    <span style="color: var(--text-tertiary);">8%</span>
+                  </div>
+                  <div class="flex items-center gap-2" style="font-size: 0.8125rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 2px; background: #6e7681; display: inline-block;"></span>
+                    <span style="color: var(--text-secondary);">other</span>
+                    <span style="color: var(--text-tertiary);">12%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('code');
+  </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Overview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav">
+            <a class="tab-nav-item active" href="detail-overview.html">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item" href="detail-events.html">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item" href="detail-todos.html">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html">Metrics</a>
+          </nav>
+
+          <!-- Stats -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">12</div>
+              <div class="stat-card-label">Turns</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="background:var(--gradient-accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">2,450</div>
+              <div class="stat-card-label">Events</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">2h 15m</div>
+              <div class="stat-card-label">Duration</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">$1.33</div>
+              <div class="stat-card-label">Cost</div>
+            </div>
+          </div>
+
+          <!-- Two Column Layout -->
+          <div class="grid-2 mb-6">
+            <!-- Session Info -->
+            <div class="section-panel">
+              <div class="section-panel-header">Session Info</div>
+              <div class="section-panel-body">
+                <dl class="def-list">
+                  <dt>Session ID</dt>
+                  <dd class="font-mono" style="font-size:0.75rem;">c86fe369-c858-4d91</dd>
+                  <dt>Repository</dt>
+                  <dd>acme/web-platform</dd>
+                  <dt>Branch</dt>
+                  <dd><span class="badge badge-accent">feat/oauth-login</span></dd>
+                  <dt>Host</dt>
+                  <dd>CLI</dd>
+                  <dt>Model</dt>
+                  <dd>claude-opus-4.6</dd>
+                  <dt>Started</dt>
+                  <dd>Mar 14, 2026 9:30 AM</dd>
+                  <dt>Updated</dt>
+                  <dd>Mar 14, 2026 11:45 AM</dd>
+                </dl>
+              </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="section-panel">
+              <div class="section-panel-header">Summary</div>
+              <div class="section-panel-body">
+                <p class="text-body" style="color:var(--text-secondary);line-height:1.7;">
+                  Implemented OAuth login with GitHub and Google providers. Added comprehensive error handling
+                  with custom error types and rate limiting using a sliding window approach. Created integration
+                  tests covering the full OAuth flow for both providers, including error scenarios.
+                </p>
+                <div style="margin-top:14px;">
+                  <div class="text-caption" style="color:var(--text-tertiary);margin-bottom:6px;">KEY FILES MODIFIED</div>
+                  <div class="flex flex-col gap-1">
+                    <span class="font-mono text-body-sm" style="color:var(--text-secondary);">src/auth/providers/github.ts</span>
+                    <span class="font-mono text-body-sm" style="color:var(--text-secondary);">src/auth/providers/google.ts</span>
+                    <span class="font-mono text-body-sm" style="color:var(--text-secondary);">src/auth/rate-limiter.ts</span>
+                    <span class="font-mono text-body-sm" style="color:var(--text-secondary);">tests/auth/oauth.test.ts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Checkpoints -->
+          <div class="section-panel">
+            <div class="section-panel-header">Checkpoints</div>
+            <div class="section-panel-body" id="checkpointsList"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // Render checkpoints
+    const cpList = document.getElementById('checkpointsList');
+    MOCK_CHECKPOINTS.forEach(cp => {
+      const item = document.createElement('div');
+      item.className = 'flex items-center gap-3';
+      item.style.cssText = 'padding:8px 0; border-bottom:1px solid var(--border-subtle);';
+      item.innerHTML = `
+        <div style="width:24px;height:24px;border-radius:var(--radius-sm);background:var(--accent-muted);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:0.6875rem;font-weight:600;flex-shrink:0;">${cp.number}</div>
+        <div>
+          <div class="text-body" style="font-weight:500;">${cp.title}</div>
+          <div class="text-body-sm" style="color:var(--text-tertiary);">${cp.filename}</div>
+        </div>
+      `;
+      cpList.appendChild(item);
+    });
+    // Remove last border
+    if (cpList.lastChild) cpList.lastChild.style.borderBottom = 'none';
+  </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Settings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+  <style>
+    .settings-section { margin-bottom:24px; }
+    .settings-section-title {
+      font-size:0.6875rem; font-weight:600; color:var(--text-tertiary);
+      text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;
+    }
+    .setting-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 16px; border-bottom:1px solid var(--border-subtle);
+    }
+    .setting-row:last-child { border-bottom:none; }
+    .setting-info { flex:1; min-width:0; }
+    .setting-label { font-size:0.8125rem; font-weight:500; }
+    .setting-desc { font-size:0.6875rem; color:var(--text-tertiary); margin-top:1px; }
+    .kbd {
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:22px; padding:2px 6px; background:var(--canvas-default);
+      border:1px solid var(--border-default); border-radius:4px;
+      font-size:0.625rem; font-family:inherit; font-weight:500;
+      color:var(--text-secondary); line-height:1.4;
+    }
+    .shortcut-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:7px 0; border-bottom:1px solid var(--border-subtle);
+      font-size:0.8125rem;
+    }
+    .shortcut-row:last-child { border-bottom:none; }
+    .shortcut-keys { display:flex; gap:3px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Settings</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner" style="max-width:720px;">
+
+          <h1 class="page-title" style="margin-bottom:24px;">Settings</h1>
+
+          <!-- General -->
+          <div class="settings-section">
+            <div class="settings-section-title">General</div>
+            <div class="section-panel">
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Theme</div>
+                  <div class="setting-desc">Switch between dark and light mode</div>
+                </div>
+                <select class="filter-select" style="width:auto;">
+                  <option>System</option>
+                  <option selected>Dark</option>
+                  <option>Light</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Auto-refresh</div>
+                  <div class="setting-desc">Automatically refresh session list</div>
+                </div>
+                <div class="form-switch on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Refresh Interval</div>
+                  <div class="setting-desc">How often to check for new sessions</div>
+                </div>
+                <select class="filter-select" style="width:auto;">
+                  <option>5s</option>
+                  <option selected>10s</option>
+                  <option>30s</option>
+                  <option>60s</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Compact Mode</div>
+                  <div class="setting-desc">Reduce spacing and font sizes</div>
+                </div>
+                <div class="form-switch" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data & Storage -->
+          <div class="settings-section">
+            <div class="settings-section-title">Data &amp; Storage</div>
+            <div class="section-panel">
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Sessions Directory</div>
+                  <div class="setting-desc">Where TracePilot looks for session files</div>
+                </div>
+                <input type="text" class="form-input" value="~/.copilot/sessions" style="width:240px;font-family:'JetBrains Mono',monospace;font-size:0.6875rem;">
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Max Sessions</div>
+                  <div class="setting-desc">Maximum number of sessions to display</div>
+                </div>
+                <input type="number" class="form-input" value="100" style="width:80px;text-align:center;font-variant-numeric:tabular-nums;">
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Cache Metrics</div>
+                  <div class="setting-desc">Cache computed metrics for faster loading</div>
+                </div>
+                <div class="form-switch on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Export Default Format</div>
+                  <div class="setting-desc">Default file format for exports</div>
+                </div>
+                <select class="filter-select" style="width:auto;">
+                  <option selected>JSON</option>
+                  <option>CSV</option>
+                  <option>Markdown</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Health Scoring -->
+          <div class="settings-section">
+            <div class="settings-section-title">Health Scoring</div>
+            <div class="section-panel">
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Enable Health Scoring</div>
+                  <div class="setting-desc">Compute health scores for sessions</div>
+                </div>
+                <div class="form-switch on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Retry Threshold</div>
+                  <div class="setting-desc">Flag sessions exceeding this retry count</div>
+                </div>
+                <input type="number" class="form-input" value="3" style="width:80px;text-align:center;font-variant-numeric:tabular-nums;">
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Duration Threshold</div>
+                  <div class="setting-desc">Flag sessions longer than this (minutes)</div>
+                </div>
+                <input type="number" class="form-input" value="120" style="width:80px;text-align:center;font-variant-numeric:tabular-nums;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Keyboard Shortcuts -->
+          <div class="settings-section">
+            <div class="settings-section-title">Keyboard Shortcuts</div>
+            <div class="section-panel">
+              <div class="section-panel-body">
+                <div class="shortcut-row">
+                  <span>Search sessions</span>
+                  <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd">K</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Toggle sidebar</span>
+                  <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd">B</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Go to Analytics</span>
+                  <div class="shortcut-keys"><span class="kbd">G</span><span class="kbd">A</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Go to Health</span>
+                  <div class="shortcut-keys"><span class="kbd">G</span><span class="kbd">H</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Export current</span>
+                  <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd">E</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Toggle theme</span>
+                  <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">T</span></div>
+                </div>
+                <div class="shortcut-row">
+                  <span>Refresh</span>
+                  <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd">R</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- About -->
+          <div class="settings-section">
+            <div class="settings-section-title">About</div>
+            <div class="section-panel">
+              <div class="section-panel-body">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                  <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:var(--gradient-accent);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;box-shadow:0 2px 8px rgba(99,102,241,0.3);">⏱</div>
+                  <div>
+                    <div style="font-size:0.875rem;font-weight:700;letter-spacing:-0.02em;">TracePilot</div>
+                    <div style="font-size:0.6875rem;color:var(--text-tertiary);">Session Viewer for GitHub Copilot CLI</div>
+                  </div>
+                </div>
+                <div class="def-list" style="font-size:0.75rem;">
+                  <dt>Version</dt><dd style="font-variant-numeric:tabular-nums;">0.2.0</dd>
+                  <dt>Rust</dt><dd style="font-variant-numeric:tabular-nums;">1.82.0</dd>
+                  <dt>License</dt><dd>MIT</dd>
+                  <dt>Repository</dt><dd><a href="#" style="color:var(--text-link);text-decoration:none;">github.com/tracepilot</a></dd>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('settings');
+  </script>
+</body>
+</html>
