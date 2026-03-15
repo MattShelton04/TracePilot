@@ -15,11 +15,15 @@ TracePilot reads the session data stored by GitHub Copilot CLI at `~/.copilot/se
 #### Desktop App (Tauri)
 - 🖥️ **Session Explorer** — sidebar-driven GUI with search, filters (repo/branch), and sorting
 - 💬 **Conversation Viewer** — turn-by-turn display with collapsible tool calls, 3 view modes (chat/compact/timeline)
-- 📊 **Metrics Dashboard** — model usage breakdown, token distribution bars, and cost estimates
+- 📊 **Metrics Dashboard** — model usage breakdown, token distribution bars, cost estimates, and wholesale cost comparison
+- 📈 **Analytics Dashboards** — token usage, sessions/day, model distribution, cost trends with time range filtering (7d/30d/90d/custom)
+- 🔧 **Tool Analysis** — usage frequency, success rates, avg duration, activity heatmap (local timezone)
+- 📝 **Code Impact** — file type breakdown, most-modified files, additions/deletions over time
 - ⚡ **Events Browser** — raw event log with type filtering and pagination
 - ✅ **Todo Tracker** — visual progress bar and dependency display
 - 🔍 **Full-Text Search** — instant search across all sessions via SQLite FTS5 index
 - 🎨 **Variant C Design System** — indigo accent, Inter font, dark + light themes, 60+ CSS custom properties
+- 📱 **Responsive** — bottom tab bar navigation on narrow screens
 - ♿ **Accessible** — ARIA attributes, keyboard navigation, screen reader support
 - 📄 **15 Pages Total** — 6 live pages + 9 stub pages (marked `[STUB]` in UI) for future phases
 
@@ -107,7 +111,7 @@ The desktop app uses the **Variant C** design system — a hybrid of Linear/Rayc
 - **Font:** Inter Variable (locally bundled), JetBrains Mono for code
 - **Themes:** Dark (default) + Light, toggled via `data-theme` attribute
 - **Tokens:** 60+ CSS custom properties for colors, spacing, shadows, gradients
-- **Responsive:** Sidebar collapses at 900px, grids adapt at 1200px
+- **Responsive:** Bottom tab bar at ≤900px, grids adapt at 1200px
 
 See [`docs/design/design-system.md`](docs/design/design-system.md) for full reference.
 
@@ -121,9 +125,9 @@ See [`docs/design/design-system.md`](docs/design/design-system.md) for full refe
 | Session Detail — Events | ✅ Live | Color-coded event table, type filter, pagination |
 | Session Detail — Todos | ✅ Live | Green progress bar, status counts, dependency display |
 | Session Detail — Metrics | ✅ Live | Token distribution, cache breakdown, code changes |
-| Analytics Dashboard | 🔶 STUB | SVG charts, model distribution, cost trends |
-| Tool Analysis | 🔶 STUB | Usage table, heatmap, frequency chart |
-| Code Impact | 🔶 STUB | File type breakdown, modification tracking |
+| Analytics Dashboard | ✅ Live | SVG charts, model distribution, cost trends, time range filter |
+| Tool Analysis | ✅ Live | Usage table, heatmap (local timezone), frequency chart, time filter |
+| Code Impact | ✅ Live | File type breakdown, modification tracking, time filter |
 | Session Timeline | 🔶 STUB | Swimlane visualization |
 | Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
 | Export | 🔶 STUB | Config + live preview, format selection |
@@ -152,6 +156,26 @@ pnpm --filter @tracepilot/desktop test
 pnpm lint
 pnpm format
 ```
+
+## Pricing & Cost Tracking
+
+TracePilot tracks two cost metrics for Copilot usage:
+
+- **Copilot Cost** — Derived from premium request count × cost per premium request (default: $0.04/request). This is what you actually pay through your GitHub Copilot subscription.
+- **Wholesale Cost** — What the same usage would cost through direct API access, computed from per-model token pricing (input, cached input, and output rates per 1M tokens).
+
+Both values are shown in the per-session Metrics tab for comparison.
+
+### Configuring Prices
+
+Go to **Settings → Pricing** to adjust:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Cost per premium request | $0.04 | GitHub Copilot's per-request charge |
+| Model wholesale prices | Pre-populated | Per-model API rates ($/1M tokens) for input, cached input, and output |
+
+Pre-populated wholesale prices include Claude (Opus, Sonnet, Haiku), GPT (5.4, 5.1, 4.1, Codex), and Gemini models. Add or remove models as needed — prices are persisted locally and can be reset to defaults at any time.
 
 ## Development
 
