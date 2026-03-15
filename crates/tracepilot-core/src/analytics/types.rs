@@ -32,6 +32,7 @@ pub struct AnalyticsData {
     pub total_sessions: u32,
     pub total_tokens: u64,
     pub total_cost: f64,
+    pub total_premium_requests: f64,
     pub average_health_score: f64,
     pub token_usage_by_day: Vec<DayTokens>,
     pub sessions_per_day: Vec<DaySessions>,
@@ -64,6 +65,9 @@ pub struct ModelDistEntry {
     pub model: String,
     pub tokens: u64,
     pub percentage: f64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
 }
 
 /// Cost for a single day.

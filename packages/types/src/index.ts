@@ -165,6 +165,8 @@ export interface AnalyticsData {
   totalTokens: number;
   /** Total cost in USD across all sessions */
   totalCost: number;
+  /** Total premium requests across all sessions */
+  totalPremiumRequests: number;
   /** Average health score (0-1) */
   averageHealthScore: number;
   /** Token usage per day for trend charts */
@@ -172,7 +174,7 @@ export interface AnalyticsData {
   /** Session count per day */
   sessionsPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
-  modelDistribution: Array<{ model: string; tokens: number; percentage: number }>;
+  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
   /** Session duration statistics */

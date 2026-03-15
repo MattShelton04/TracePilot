@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
+import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
 
 const store = useAnalyticsStore();
 
@@ -10,9 +11,9 @@ onMounted(() => {
   store.fetchCodeImpact();
 });
 
-watch(() => store.selectedRepo, () => {
+watch([() => store.selectedRepo, () => store.dateRange], () => {
   store.fetchCodeImpact({ force: true });
-});
+}, { deep: true });
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
@@ -106,7 +107,7 @@ const timelineChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title + Repo Filter -->
+          <!-- Title + Filters -->
           <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h1 class="page-title">Code Impact</h1>
@@ -114,15 +115,18 @@ const timelineChart = computed(() => {
                 Code changes and file modifications across {{ store.selectedRepo ? '' : 'all ' }}sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
               </p>
             </div>
-            <select
-              :value="store.selectedRepo ?? ''"
-              class="filter-select"
-              aria-label="Filter by repository"
-              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-            >
-              <option value="">All Repositories</option>
-              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-            </select>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <TimeRangeFilter />
+              <select
+                :value="store.selectedRepo ?? ''"
+                class="filter-select"
+                aria-label="Filter by repository"
+                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+              >
+                <option value="">All Repositories</option>
+                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+              </select>
+            </div>
           </div>
 
           <!-- Stats Row -->
@@ -216,7 +220,7 @@ const timelineChart = computed(() => {
                     :y1="gy"
                     :x2="CHART_RIGHT"
                     :y2="gy"
-                    stroke="#27272a"
+                    class="chart-grid-line"
                     stroke-width="1"
                   />
                   <!-- Y-axis labels -->
@@ -227,7 +231,7 @@ const timelineChart = computed(() => {
                     :y="yl.y + 4"
                     text-anchor="end"
                     font-size="9"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ yl.value }}</text>
                   <!-- Additions area -->
                   <polygon :points="timelineChart.addArea" fill="#34d399" fill-opacity="0.15" />
@@ -252,8 +256,8 @@ const timelineChart = computed(() => {
                     stroke-linecap="round"
                   />
                   <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" stroke="#3f3f46" stroke-width="1" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" stroke="#3f3f46" stroke-width="1" />
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" stroke-width="1" />
+                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" stroke-width="1" />
                   <!-- X-axis labels -->
                   <text
                     v-for="(xl, xi) in timelineChart.xLabels"
@@ -262,7 +266,7 @@ const timelineChart = computed(() => {
                     y="215"
                     text-anchor="middle"
                     font-size="8"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ xl.label }}</text>
                 </svg>
               </div>
@@ -359,5 +363,18 @@ const timelineChart = computed(() => {
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+/* ── Theme-aware SVG chart styles ──────────────────────────── */
+.chart-grid-line {
+  stroke: var(--border-subtle);
+}
+
+.chart-axis {
+  stroke: var(--border-default);
+}
+
+.chart-label {
+  fill: var(--text-tertiary);
 }
 </style>

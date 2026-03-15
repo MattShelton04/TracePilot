@@ -25,6 +25,33 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return sessionsStore.repositories as string[];
   });
 
+  // Time range filter
+  const selectedTimeRange = ref<'all' | '7d' | '30d' | '90d' | 'custom'>('all');
+  const customFromDate = ref<string | undefined>(undefined);
+  const customToDate = ref<string | undefined>(undefined);
+
+  const dateRange = computed<{ fromDate?: string; toDate?: string }>(() => {
+    if (selectedTimeRange.value === 'all') return {};
+    if (selectedTimeRange.value === 'custom') {
+      return { fromDate: customFromDate.value, toDate: customToDate.value };
+    }
+    const days = { '7d': 7, '30d': 30, '90d': 90 }[selectedTimeRange.value];
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const yyyy = from.getFullYear();
+    const mm = String(from.getMonth() + 1).padStart(2, '0');
+    const dd = String(from.getDate()).padStart(2, '0');
+    return { fromDate: `${yyyy}-${mm}-${dd}` };
+  });
+
+  function setTimeRange(range: 'all' | '7d' | '30d' | '90d' | 'custom', from?: string, to?: string) {
+    selectedTimeRange.value = range;
+    if (range === 'custom') {
+      customFromDate.value = from;
+      customToDate.value = to;
+    }
+  }
+
   // Track what's been loaded to avoid redundant fetches
   const loaded = new Set<string>();
 
@@ -47,8 +74,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   // Actions
   async function fetchAnalytics(options?: { fromDate?: string; toDate?: string; repo?: string; force?: boolean }) {
-    const repo = options?.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('analytics', { ...options, repo });
+    const merged = { ...dateRange.value, ...options };
+    const repo = merged.repo ?? selectedRepo.value ?? undefined;
+    const cacheKey = cacheKeyFor('analytics', { ...merged, repo });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++analyticsGen;
@@ -56,8 +84,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     analyticsError.value = null;
     try {
       const result = await getAnalytics({
-        fromDate: options?.fromDate,
-        toDate: options?.toDate,
+        fromDate: merged.fromDate,
+        toDate: merged.toDate,
         repo,
       });
       if (gen !== analyticsGen) return; // superseded by newer request
@@ -77,8 +105,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     repo?: string;
     force?: boolean;
   }) {
-    const repo = options?.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('toolAnalysis', { ...options, repo });
+    const merged = { ...dateRange.value, ...options };
+    const repo = merged.repo ?? selectedRepo.value ?? undefined;
+    const cacheKey = cacheKeyFor('toolAnalysis', { ...merged, repo });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++toolAnalysisGen;
@@ -86,8 +115,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     toolAnalysisError.value = null;
     try {
       const result = await getToolAnalysis({
-        fromDate: options?.fromDate,
-        toDate: options?.toDate,
+        fromDate: merged.fromDate,
+        toDate: merged.toDate,
         repo,
       });
       if (gen !== toolAnalysisGen) return;
@@ -107,8 +136,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     repo?: string;
     force?: boolean;
   }) {
-    const repo = options?.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('codeImpact', { ...options, repo });
+    const merged = { ...dateRange.value, ...options };
+    const repo = merged.repo ?? selectedRepo.value ?? undefined;
+    const cacheKey = cacheKeyFor('codeImpact', { ...merged, repo });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++codeImpactGen;
@@ -116,8 +146,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     codeImpactError.value = null;
     try {
       const result = await getCodeImpact({
-        fromDate: options?.fromDate,
-        toDate: options?.toDate,
+        fromDate: merged.fromDate,
+        toDate: merged.toDate,
         repo,
       });
       if (gen !== codeImpactGen) return;
@@ -156,6 +186,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     toolAnalysisError.value = null;
     codeImpactError.value = null;
     selectedRepo.value = null;
+    selectedTimeRange.value = 'all';
+    customFromDate.value = undefined;
+    customToDate.value = undefined;
     loaded.clear();
   }
 
@@ -172,6 +205,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     codeImpactError,
     selectedRepo,
     availableRepos,
+    selectedTimeRange,
+    customFromDate,
+    customToDate,
+    dateRange,
 
     // Actions
     fetchAnalytics,
@@ -180,6 +217,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchAvailableRepos,
     refreshAll,
     setRepo,
+    setTimeRange,
     $reset,
   };
 });

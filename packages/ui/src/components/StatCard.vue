@@ -7,11 +7,12 @@ defineProps<{
   trendDirection?: 'up' | 'down' | 'neutral';
   gradient?: boolean;
   mini?: boolean;
+  tooltip?: string;
 }>();
 </script>
 
 <template>
-  <div class="stat-card" :class="{ 'mini-stat': mini }">
+  <div class="stat-card" :class="{ 'mini-stat': mini }" :title="tooltip">
     <div
       class="stat-card-value"
       :class="[

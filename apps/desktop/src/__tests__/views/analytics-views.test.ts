@@ -19,6 +19,7 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalSessions: 10,
   totalTokens: 2_500_000,
   totalCost: 5.5,
+  totalPremiumRequests: 40,
   averageHealthScore: 0.82,
   tokenUsageByDay: [
     { date: '2025-01-01', tokens: 100_000 },
@@ -31,8 +32,8 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-03', count: 3 },
   ],
   modelDistribution: [
-    { model: 'gpt-4', tokens: 1_500_000, percentage: 60 },
-    { model: 'claude-3', tokens: 1_000_000, percentage: 40 },
+    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0 },
+    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0 },
   ],
   costByDay: [
     { date: '2025-01-01', cost: 1.5 },
@@ -135,7 +136,9 @@ describe('AnalyticsDashboardView', () => {
 
     expect(wrapper.text()).toContain('10'); // totalSessions
     expect(wrapper.text()).toContain('2.5M'); // totalTokens
-    expect(wrapper.text()).toContain('$5.50'); // totalCost
+    expect(wrapper.text()).toContain('$1.60'); // copilotCost
+    expect(wrapper.text()).toContain('Copilot Cost');
+    expect(wrapper.text()).toContain('Wholesale Cost');
     expect(wrapper.text()).toContain('0.82'); // averageHealthScore
   });
 

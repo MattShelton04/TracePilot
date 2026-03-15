@@ -303,6 +303,7 @@ export const MOCK_ANALYTICS: AnalyticsData = {
   totalSessions: 47,
   totalTokens: 2847000,
   totalCost: 12.47,
+  totalPremiumRequests: 120,
   averageHealthScore: 0.73,
   tokenUsageByDay: Array.from({ length: 14 }, (_, i) => ({
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
@@ -313,10 +314,10 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     count: Math.floor(2 + Math.random() * 6),
   })),
   modelDistribution: [
-    { model: 'Claude Sonnet 4', tokens: 1200000, percentage: 42.1 },
-    { model: 'GPT-4.1', tokens: 850000, percentage: 29.9 },
-    { model: 'Claude Haiku 3.5', tokens: 497000, percentage: 17.5 },
-    { model: 'Gemini 2.5 Pro', tokens: 300000, percentage: 10.5 },
+    { model: 'Claude Sonnet 4', tokens: 1200000, percentage: 42.1, inputTokens: 600000, outputTokens: 400000, cacheReadTokens: 200000 },
+    { model: 'GPT-4.1', tokens: 850000, percentage: 29.9, inputTokens: 425000, outputTokens: 300000, cacheReadTokens: 125000 },
+    { model: 'Claude Haiku 3.5', tokens: 497000, percentage: 17.5, inputTokens: 250000, outputTokens: 150000, cacheReadTokens: 97000 },
+    { model: 'Gemini 2.5 Pro', tokens: 300000, percentage: 10.5, inputTokens: 150000, outputTokens: 100000, cacheReadTokens: 50000 },
   ],
   costByDay: Array.from({ length: 14 }, (_, i) => ({
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
