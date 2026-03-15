@@ -49,10 +49,12 @@ const heatmapData = computed<number[][]>(() => {
   if (!data.value) return [];
   const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   // Backend stores heatmap in UTC; convert to local timezone
-  const localOffsetHours = -(new Date().getTimezoneOffset() / 60);
+  const localOffsetMinutes = -new Date().getTimezoneOffset(); // e.g. +330 for UTC+5:30
   for (const entry of data.value.activityHeatmap) {
     if (entry.day >= 0 && entry.day < 7 && entry.hour >= 0 && entry.hour < 24) {
-      let localHour = entry.hour + localOffsetHours;
+      const utcMinutes = entry.hour * 60;
+      const localMinutes = utcMinutes + localOffsetMinutes;
+      let localHour = Math.floor(localMinutes / 60);
       let localDay = entry.day;
       if (localHour >= 24) {
         localHour -= 24;

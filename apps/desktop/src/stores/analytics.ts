@@ -38,7 +38,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     const days = { '7d': 7, '30d': 30, '90d': 90 }[selectedTimeRange.value];
     const from = new Date();
     from.setDate(from.getDate() - days);
-    return { fromDate: from.toISOString().split('T')[0] };
+    const yyyy = from.getFullYear();
+    const mm = String(from.getMonth() + 1).padStart(2, '0');
+    const dd = String(from.getDate()).padStart(2, '0');
+    return { fromDate: `${yyyy}-${mm}-${dd}` };
   });
 
   function setTimeRange(range: 'all' | '7d' | '30d' | '90d' | 'custom', from?: string, to?: string) {

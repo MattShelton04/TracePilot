@@ -97,8 +97,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
     const lower = modelName.toLowerCase();
-    return modelWholesalePrices.value.find(p => lower.includes(p.model.toLowerCase()))
-      ?? modelWholesalePrices.value.find(p => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')));
+    // Sort candidates by descending model name length so the most specific match wins
+    const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
+    return sorted.find(p => lower.includes(p.model.toLowerCase()))
+      ?? sorted.find(p => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')));
   }
 
   /** Compute wholesale cost for a model given token usage. */
