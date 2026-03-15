@@ -47,9 +47,20 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
 const heatmapData = computed<number[][]>(() => {
   if (!data.value) return [];
   const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+  // Backend stores heatmap in UTC; convert to local timezone
+  const localOffsetHours = -(new Date().getTimezoneOffset() / 60);
   for (const entry of data.value.activityHeatmap) {
     if (entry.day >= 0 && entry.day < 7 && entry.hour >= 0 && entry.hour < 24) {
-      grid[entry.day][entry.hour] = entry.count;
+      let localHour = entry.hour + localOffsetHours;
+      let localDay = entry.day;
+      if (localHour >= 24) {
+        localHour -= 24;
+        localDay = (localDay + 1) % 7;
+      } else if (localHour < 0) {
+        localHour += 24;
+        localDay = (localDay + 6) % 7;
+      }
+      grid[localDay][localHour] += entry.count;
     }
   }
   return grid;
@@ -66,9 +77,14 @@ const heatmapMax = computed(() => {
 });
 
 function getHeatmapColor(val: number): string {
-  if (val === 0) return 'rgba(99, 102, 241, 0.04)';
+  if (val === 0) return 'var(--heatmap-empty, rgba(99, 102, 241, 0.04))';
   const intensity = Math.min(val / heatmapMax.value, 1);
   const opacity = 0.1 + intensity * 0.8;
+  return `rgba(99, 102, 241, ${opacity.toFixed(2)})`;
+}
+
+function getHeatmapLegendColor(level: number): string {
+  const opacity = 0.1 + (level / 5) * 0.8;
   return `rgba(99, 102, 241, ${opacity.toFixed(2)})`;
 }
 
@@ -280,7 +296,7 @@ const successFailureChart = computed(() => {
                     class="heatmap-cell heatmap-legend-cell"
                     v-for="level in 5"
                     :key="level"
-                    :style="{ backgroundColor: getHeatmapColor(level * 2) }"
+                    :style="{ backgroundColor: getHeatmapLegendColor(level) }"
                   />
                   <span>More</span>
                 </div>
