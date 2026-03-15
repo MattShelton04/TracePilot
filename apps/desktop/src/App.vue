@@ -1,18 +1,38 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
+import SetupWizard from '@/components/SetupWizard.vue';
 import { useSessionsStore } from '@/stores/sessions';
 import { usePreferencesStore } from '@/stores/preferences';
+import { checkConfigExists } from '@tracepilot/client';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 
-onMounted(() => {
-  sessionsStore.fetchSessions();
+const showSetup = ref(true);
+const appReady = ref(false);
+
+onMounted(async () => {
+  try {
+    const exists = await checkConfigExists();
+    if (exists) {
+      showSetup.value = false;
+      sessionsStore.fetchSessions();
+    }
+  } catch {
+    showSetup.value = false;
+    sessionsStore.fetchSessions();
+  }
+  appReady.value = true;
 });
+
+function onSetupComplete() {
+  showSetup.value = false;
+  sessionsStore.fetchSessions();
+}
 
 const breadcrumbs = computed(() => {
   const crumbs: { label: string; to?: string }[] = [{ label: 'Sessions', to: '/' }];
@@ -43,7 +63,8 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <div class="app-layout">
+  <SetupWizard v-if="appReady && showSetup" @setup-complete="onSetupComplete" />
+  <div v-else-if="appReady" class="app-layout">
     <AppSidebar />
     <div class="main-content">
       <div class="page-header-bar">

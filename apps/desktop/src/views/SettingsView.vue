@@ -2,11 +2,18 @@
 // STUB: Settings beyond theme are stored in local component state.
 // STUB: Wire to usePreferencesStore or a dedicated settings API for persistence.
 
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { usePreferencesStore, type ThemeOption, type ModelWholesalePrice, DEFAULT_WHOLESALE_PRICES } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 import { useAnalyticsStore } from '@/stores/analytics';
-import { reindexSessions as reindexSessionsApi, reindexSessionsFull as reindexSessionsFullApi } from '@tracepilot/client';
+import {
+  reindexSessions as reindexSessionsApi,
+  reindexSessionsFull as reindexSessionsFullApi,
+  getConfig,
+  getDbSize,
+  getSessionCount as getSessionCountApi,
+  factoryReset as factoryResetApi,
+} from '@tracepilot/client';
 import {
   BtnGroup,
   FormSwitch,
@@ -42,13 +49,15 @@ const autoRefreshInterval = ref(30);
 // STUB: Browse button should open Tauri native file dialog (dialog.open)
 // STUB: Currently shows a text input — wire to Tauri fs dialog in production
 const sessionsDirectory = ref('~/.copilot/sessions/');
-
-// STUB: Database size is mocked — wire to backend stat query
-const databaseSize = ref('42.5 MB');
+const databasePath = ref('');
+const databaseSize = ref('—');
+const indexedSessionCount = ref(0);
 
 const autoIndexOnLaunch = ref(true);
 const reindexing = ref(false);
 const reindexResult = ref<string | null>(null);
+const resetting = ref(false);
+const resetConfirm = ref(false);
 
 async function reindexSessions() {
   reindexing.value = true;
@@ -85,6 +94,43 @@ async function clearCache() {
     clearing.value = false;
   }
 }
+
+async function doFactoryReset() {
+  resetting.value = true;
+  try {
+    await factoryResetApi();
+    // Clear frontend preferences so they don't survive the reset
+    localStorage.removeItem('tracepilot-prefs');
+    window.location.reload();
+  } catch (e) {
+    resetting.value = false;
+    resetConfirm.value = false;
+    alert(`Factory reset failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+// ── Load real data on mount ──────────────────────────────────
+onMounted(async () => {
+  try {
+    const config = await getConfig();
+    sessionsDirectory.value = config.paths.sessionStateDir;
+    databasePath.value = config.paths.indexDbPath;
+    autoIndexOnLaunch.value = config.general.autoIndexOnLaunch;
+  } catch { /* defaults are fine */ }
+
+  try {
+    const bytes = await getDbSize();
+    if (bytes < 1024 * 1024) {
+      databaseSize.value = `${(bytes / 1024).toFixed(1)} KB`;
+    } else {
+      databaseSize.value = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+  } catch { /* keep placeholder */ }
+
+  try {
+    indexedSessionCount.value = await getSessionCountApi();
+  } catch { /* keep 0 */ }
+});
 
 // ── Health Scoring ───────────────────────────────────────────
 const healthScoringEnabled = ref(true);
@@ -137,7 +183,7 @@ const shortcuts = [
 
 // ── About ────────────────────────────────────────────────────
 const appVersion = '0.1.0';
-const sessionCount = computed(() => sessionsStore.sessions.length);
+const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.sessions.length);
 // STUB: About links use placeholder URLs — update with real repository URLs
 </script>
 
@@ -285,6 +331,38 @@ const sessionCount = computed(() => sessionsStore.sessions.length);
             <ActionButton size="sm" class="btn-danger" :disabled="clearing" @click="clearCache">
               {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
             </ActionButton>
+          </div>
+
+          <!-- Danger Zone -->
+          <div class="setting-row" style="border-top: 1px solid var(--danger-muted);">
+            <div class="setting-info">
+              <div class="setting-label" style="color: var(--danger-fg);">Factory Reset</div>
+              <div class="setting-description">
+                Delete all configuration, index data, and preferences. Re-run setup wizard.
+              </div>
+            </div>
+            <div class="setting-actions">
+              <ActionButton
+                v-if="!resetConfirm"
+                size="sm"
+                class="btn-danger"
+                @click="resetConfirm = true"
+              >
+                Reset Everything…
+              </ActionButton>
+              <template v-else>
+                <span class="setting-result" style="color: var(--danger-fg);">Are you sure?</span>
+                <ActionButton
+                  size="sm"
+                  class="btn-danger"
+                  :disabled="resetting"
+                  @click="doFactoryReset"
+                >
+                  {{ resetting ? 'Resetting…' : 'Yes, Reset' }}
+                </ActionButton>
+                <ActionButton size="sm" @click="resetConfirm = false">Cancel</ActionButton>
+              </template>
+            </div>
           </div>
         </SectionPanel>
       </div>
