@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue';
 import { formatDuration } from '@tracepilot/ui';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
+import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
 
 const store = useAnalyticsStore();
 
@@ -11,9 +12,9 @@ onMounted(() => {
   store.fetchAnalytics();
 });
 
-watch(() => store.selectedRepo, () => {
+watch([() => store.selectedRepo, () => store.dateRange], () => {
   store.fetchAnalytics({ force: true });
-});
+}, { deep: true });
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
@@ -145,7 +146,7 @@ const costChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title + Repo Filter -->
+          <!-- Title + Filters -->
           <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h1 class="page-title">Analytics Dashboard</h1>
@@ -153,15 +154,18 @@ const costChart = computed(() => {
                 Aggregate metrics across {{ store.selectedRepo ? '' : 'all ' }}{{ data.totalSessions }} sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
               </p>
             </div>
-            <select
-              :value="store.selectedRepo ?? ''"
-              class="filter-select"
-              aria-label="Filter by repository"
-              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-            >
-              <option value="">All Repositories</option>
-              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-            </select>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <TimeRangeFilter />
+              <select
+                :value="store.selectedRepo ?? ''"
+                class="filter-select"
+                aria-label="Filter by repository"
+                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+              >
+                <option value="">All Repositories</option>
+                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+              </select>
+            </div>
           </div>
 
           <!-- Stats Row -->
