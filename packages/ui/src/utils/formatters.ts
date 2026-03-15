@@ -59,7 +59,7 @@ export function formatNumber(n?: number | null): string {
 /** Format a cost value as USD. */
 export function formatCost(cost?: number | null): string {
   if (cost == null) return "$0.00";
-  return `$${cost.toFixed(4)}`;
+  return `$${cost.toFixed(2)}`;
 }
 
 /** Truncate a string to a max length, appending ellipsis. */
