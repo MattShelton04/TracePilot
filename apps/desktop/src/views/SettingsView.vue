@@ -6,7 +6,7 @@ import { ref, computed } from 'vue';
 import { usePreferencesStore, type ThemeOption } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 import { useAnalyticsStore } from '@/stores/analytics';
-import { reindexSessions as reindexSessionsApi } from '@tracepilot/client';
+import { reindexSessions as reindexSessionsApi, reindexSessionsFull as reindexSessionsFullApi } from '@tracepilot/client';
 import {
   BtnGroup,
   FormSwitch,
@@ -54,8 +54,10 @@ async function reindexSessions() {
   reindexing.value = true;
   reindexResult.value = null;
   try {
-    const count = await reindexSessionsApi();
-    reindexResult.value = `Indexed ${count} session${count !== 1 ? 's' : ''}`;
+    const [updated, total] = await reindexSessionsApi();
+    reindexResult.value = updated > 0
+      ? `Updated ${updated} of ${total} session${total !== 1 ? 's' : ''}`
+      : `All ${total} sessions up to date`;
     // Refresh stores so the UI reflects the updated index
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
@@ -72,9 +74,9 @@ async function clearCache() {
   clearing.value = true;
   reindexResult.value = null;
   try {
-    // Full reindex rebuilds all analytics from scratch (equivalent to clearing + recomputing)
-    const count = await reindexSessionsApi();
-    reindexResult.value = `Cache cleared — reindexed ${count} session${count !== 1 ? 's' : ''}`;
+    // Delete index DB and rebuild everything from scratch
+    const [rebuilt, total] = await reindexSessionsFullApi();
+    reindexResult.value = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? 's' : ''}`;
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {

@@ -94,7 +94,7 @@ describe("useSessionsStore", () => {
   });
 
   it("reindex sets indexing state and refreshes list", async () => {
-    mockReindexSessions.mockResolvedValue(5);
+    mockReindexSessions.mockResolvedValue([5, 10]);
     mockListSessions.mockResolvedValue([MOCK_SESSION]);
     const store = useSessionsStore();
 
@@ -171,7 +171,7 @@ describe("useSessionsStore", () => {
   });
 
   it("ensureIndex silently reindexes and refreshes list", async () => {
-    mockReindexSessions.mockResolvedValue(3);
+    mockReindexSessions.mockResolvedValue([3, 10]);
     mockListSessions.mockResolvedValue([MOCK_SESSION]);
     const store = useSessionsStore();
 

@@ -347,18 +347,47 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Returns (updated, total) session counts.
     #[tauri::command]
-    pub async fn reindex_sessions() -> Result<usize, String> {
+    pub async fn reindex_sessions() -> Result<(usize, usize), String> {
         tokio::task::spawn_blocking(move || {
             let session_state_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let index_path = tracepilot_indexer::default_index_db_path();
 
             match tracepilot_indexer::reindex_incremental(&session_state_dir, &index_path) {
-                Ok((indexed, _skipped)) => Ok(indexed),
+                Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
                 Err(_) => tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
+                    .map(|n| (n, n))
                     .map_err(|e| e.to_string()),
             }
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Full reindex: delete the index DB and rebuild from scratch.
+    /// Returns (rebuilt, total) session counts.
+    #[tauri::command]
+    pub async fn reindex_sessions_full() -> Result<(usize, usize), String> {
+        tokio::task::spawn_blocking(move || {
+            let session_state_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let index_path = tracepilot_indexer::default_index_db_path();
+
+            // Delete existing DB to force a clean rebuild
+            if index_path.exists() {
+                let _ = std::fs::remove_file(&index_path);
+                // Also remove WAL/SHM files if present
+                let wal = index_path.with_extension("db-wal");
+                let shm = index_path.with_extension("db-shm");
+                let _ = std::fs::remove_file(&wal);
+                let _ = std::fs::remove_file(&shm);
+            }
+
+            tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
+                .map(|n| (n, n))
+                .map_err(|e| e.to_string())
         })
         .await
         .map_err(|e| e.to_string())?
@@ -500,6 +529,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_shutdown_metrics,
             commands::search_sessions,
             commands::reindex_sessions,
+            commands::reindex_sessions_full,
             commands::get_analytics,
             commands::get_tool_analysis,
             commands::get_code_impact,

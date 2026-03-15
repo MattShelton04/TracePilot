@@ -13,6 +13,7 @@ fn main() {
                     "get_shutdown_metrics",
                     "search_sessions",
                     "reindex_sessions",
+                    "reindex_sessions_full",
                     "get_analytics",
                     "get_tool_analysis",
                     "get_code_impact",

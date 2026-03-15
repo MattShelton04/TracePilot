@@ -10,7 +10,7 @@ use tracepilot_core::parsing::events::TypedEventData;
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-const CURRENT_ANALYTICS_VERSION: i64 = 1;
+const CURRENT_ANALYTICS_VERSION: i64 = 2;
 
 const MIGRATION_1: &str = r#"
 CREATE TABLE IF NOT EXISTS sessions (
@@ -103,7 +103,6 @@ CREATE TABLE IF NOT EXISTS session_tool_calls (
     success_count INTEGER DEFAULT 0,
     failure_count INTEGER DEFAULT 0,
     total_duration_ms INTEGER DEFAULT 0,
-    calls_with_duration INTEGER DEFAULT 0,
     PRIMARY KEY (session_id, tool_name),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
@@ -131,6 +130,11 @@ CREATE TABLE IF NOT EXISTS session_activity (
 CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_repository ON sessions(repository);
 CREATE INDEX IF NOT EXISTS idx_sessions_repo_updated ON sessions(repository, updated_at);
+"#;
+
+const MIGRATION_4: &str = r#"
+-- Add calls_with_duration for accurate duration averaging
+ALTER TABLE session_tool_calls ADD COLUMN calls_with_duration INTEGER DEFAULT 0;
 "#;
 
 pub struct IndexDb {
@@ -1160,6 +1164,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 1: base schema", MIGRATION_1),
         ("Migration 2: enriched schema", MIGRATION_2),
         ("Migration 3: analytics schema", MIGRATION_3),
+        ("Migration 4: tool duration tracking", MIGRATION_4),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
@@ -1435,8 +1440,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 3);
-        assert_eq!(count1, 3);
+        assert_eq!(v1, 4);
+        assert_eq!(count1, 4);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -1444,7 +1449,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 3);
+        assert_eq!(count2, 4);
     }
 
     #[test]
