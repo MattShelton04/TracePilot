@@ -707,6 +707,9 @@ mod tests {
             mcp_server_name: None,
             mcp_tool_name: None,
             is_complete: true,
+            is_subagent: false,
+            agent_display_name: None,
+            agent_description: None,
         }
     }
 

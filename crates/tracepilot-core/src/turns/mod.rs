@@ -69,6 +69,9 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     mcp_server_name: data.mcp_server_name.clone(),
                     mcp_tool_name: data.mcp_tool_name.clone(),
                     is_complete: false,
+                    is_subagent: false,
+                    agent_display_name: None,
+                    agent_description: None,
                 });
             }
             (
@@ -117,6 +120,9 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     mcp_server_name: None,
                     mcp_tool_name: None,
                     is_complete: false,
+                    is_subagent: true,
+                    agent_display_name: data.agent_display_name.clone(),
+                    agent_description: data.agent_description.clone(),
                 });
             }
             (SessionEventType::SubagentCompleted, TypedEventData::SubagentCompleted(data)) => {
