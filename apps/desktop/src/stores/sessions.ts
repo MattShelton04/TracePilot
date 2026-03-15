@@ -3,6 +3,8 @@ import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions } from "@tracepilot/client";
 
+export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
+
 export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
@@ -10,17 +12,46 @@ export const useSessionsStore = defineStore("sessions", () => {
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
-  const sortBy = ref<"updated" | "created" | "events">("updated");
+  const sortBy = ref<SortOption>("updated");
 
   const filteredSessions = computed(() => {
     let result = sessions.value;
+
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.summary?.toLowerCase().includes(q) ||
+          s.repository?.toLowerCase().includes(q) ||
+          s.branch?.toLowerCase().includes(q) ||
+          s.id.toLowerCase().includes(q),
+      );
+    }
+
     if (filterRepo.value) {
       result = result.filter((s) => s.repository === filterRepo.value);
     }
     if (filterBranch.value) {
       result = result.filter((s) => s.branch === filterBranch.value);
     }
-    return result;
+
+    const sorted = [...result];
+    sorted.sort((a, b) => {
+      switch (sortBy.value) {
+        case "created":
+          return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+        case "oldest":
+          return (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "");
+        case "events":
+          return (b.eventCount ?? 0) - (a.eventCount ?? 0);
+        case "turns":
+          return (b.turnCount ?? 0) - (a.turnCount ?? 0);
+        case "updated":
+        default:
+          return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+      }
+    });
+    return sorted;
   });
 
   const repositories = computed(() => {

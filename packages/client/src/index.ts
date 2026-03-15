@@ -7,7 +7,28 @@ import type {
   CheckpointEntry,
   ShutdownMetrics,
   SessionHealth,
+  AnalyticsData,
+  ToolAnalysisData,
+  CodeImpactData,
+  HealthScoringData,
+  ExportConfig,
+  ExportResult,
 } from "@tracepilot/types";
+
+import {
+  MOCK_SESSIONS,
+  getMockSessionDetail,
+  MOCK_TURNS,
+  MOCK_EVENTS,
+  MOCK_TODOS,
+  MOCK_CHECKPOINTS,
+  MOCK_SHUTDOWN_METRICS,
+  MOCK_ANALYTICS,
+  MOCK_TOOL_ANALYSIS,
+  MOCK_CODE_IMPACT,
+  MOCK_HEALTH_SCORING,
+  MOCK_EXPORT_RESULT,
+} from "./mock/index.js";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -25,171 +46,31 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
-  const mockSessions: SessionListItem[] = [
-      {
-        id: "c86fe369-c858-4d91-81da-203c5e276e33",
-        summary: "Implemented login feature with OAuth",
-        repository: "example/project",
-        branch: "main",
-        hostType: "cli",
-        eventCount: 2450,
-        turnCount: 12,
-        currentModel: "claude-opus-4.6",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        summary: "Fixed CSS layout issues",
-        repository: "example/frontend",
-        branch: "feat/responsive",
-        hostType: "cli",
-        eventCount: 890,
-        turnCount: 5,
-        currentModel: "gpt-5.4",
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-        updatedAt: new Date(Date.now() - 7200000).toISOString(),
-      },
-      {
-        id: "deadbeef-1234-5678-9abc-def012345678",
-        summary: "Set up CI/CD pipeline with GitHub Actions",
-        repository: "example/infra",
-        branch: "devops/ci",
-        hostType: "cli",
-        eventCount: 4200,
-        turnCount: 22,
-        currentModel: "claude-sonnet-4.5",
-        createdAt: new Date(Date.now() - 604800000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-  ];
-
   // Mock search filters the session list
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
 
   const mocks: Record<string, unknown> = {
-    list_sessions: mockSessions,
-    get_session_detail: {
-      id: mockSessionId,
-      summary: "Mock session detail",
-      repository: "example/project",
-      branch: "main",
-      cwd: "/home/user/project",
-      hostType: "cli",
-      eventCount: 2450,
-      turnCount: 12,
-      hasPlan: true,
-      hasCheckpoints: true,
-      checkpointCount: 3,
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    } satisfies SessionDetail,
-    get_session_turns: [
-      {
-        turnIndex: 0,
-        userMessage: "Please implement the login feature with OAuth support. We need GitHub and Google providers.",
-        assistantMessages: ["I'll implement the login feature with OAuth support. Let me start by examining the current project structure and setting up the authentication module.\n\nFirst, I'll create the base auth module with JWT token handling, then add the OAuth provider integrations."],
-        model: "claude-opus-4.6",
-        toolCalls: [
-          { toolName: "view", success: true, isComplete: true, durationMs: 120, arguments: { path: "src/auth/index.ts" }, toolCallId: "tc_001", startedAt: new Date(Date.now() - 86398000).toISOString(), completedAt: new Date(Date.now() - 86397880).toISOString() },
-          { toolName: "edit", success: true, isComplete: true, durationMs: 340, arguments: { path: "src/auth/login.ts", old_str: "// TODO: implement", new_str: "export async function login(credentials: Credentials) { ... }" }, toolCallId: "tc_002" },
-          { toolName: "powershell", success: false, isComplete: true, durationMs: 2100, arguments: { command: "npm test -- --filter auth", description: "Run auth tests" }, error: "Test failed: expected 200 got 401\n  at AuthController.login (src/auth/login.ts:42:15)\n  at Object.<anonymous> (tests/auth.test.ts:28:5)", toolCallId: "tc_003" },
-          { toolName: "edit", success: true, isComplete: true, durationMs: 280, arguments: { path: "src/auth/login.ts" }, toolCallId: "tc_004" },
-          { toolName: "powershell", success: true, isComplete: true, durationMs: 1800, arguments: { command: "npm test -- --filter auth", description: "Run auth tests" }, toolCallId: "tc_005" },
-        ],
-        durationMs: 154000,
-        isComplete: true,
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        turnIndex: 1,
-        userMessage: "Great work! Now add unit tests for the login module and make sure all edge cases are covered.",
-        assistantMessages: ["I'll write comprehensive unit tests for the login module. Let me cover the main flows and edge cases including expired tokens, invalid credentials, and rate limiting."],
-        model: "claude-opus-4.6",
-        toolCalls: [
-          { toolName: "view", success: true, isComplete: true, durationMs: 90, arguments: { path: "src/auth/login.ts" }, toolCallId: "tc_010" },
-          { toolName: "create", success: true, isComplete: true, durationMs: 450, arguments: { path: "tests/auth.test.ts" }, toolCallId: "tc_011" },
-          { toolName: "powershell", success: true, isComplete: true, durationMs: 3200, arguments: { command: "npm test -- --verbose", description: "Run all tests" }, toolCallId: "tc_012" },
-          { toolName: "report_intent", success: true, isComplete: true, durationMs: 10, arguments: { intent: "Writing auth tests" }, toolCallId: "tc_013" },
-          { toolName: "grep", success: true, isComplete: true, durationMs: 45, arguments: { pattern: "export.*function", path: "src/auth", glob: "*.ts" }, toolCallId: "tc_014" },
-          { toolName: "task", success: true, isComplete: true, durationMs: 12000, arguments: { description: "Review auth module", agent_type: "code-review", prompt: "Review auth module for security issues" }, toolCallId: "tc_015" },
-        ],
-        durationMs: 72000,
-        isComplete: true,
-        timestamp: new Date(Date.now() - 82800000).toISOString(),
-      },
-      {
-        turnIndex: 2,
-        userMessage: "Can you also add the session refresh endpoint?",
-        assistantMessages: ["Adding the session refresh endpoint now. This will handle token rotation with sliding window expiry."],
-        model: "gpt-5.4",
-        toolCalls: [
-          { toolName: "edit", success: true, isComplete: true, durationMs: 310, arguments: { path: "src/auth/refresh.ts" }, toolCallId: "tc_020" },
-          { toolName: "web_search", success: true, isComplete: true, durationMs: 4500, arguments: { query: "JWT refresh token best practices 2025" }, toolCallId: "tc_021" },
-          { toolName: "sql", success: true, isComplete: true, durationMs: 15, arguments: { query: "UPDATE todos SET status = 'done' WHERE id = 'refresh-endpoint'", description: "Mark todo done" }, toolCallId: "tc_022" },
-        ],
-        durationMs: 28000,
-        isComplete: false,
-        timestamp: new Date(Date.now() - 79200000).toISOString(),
-      },
-    ] satisfies ConversationTurn[],
-    get_session_events: {
-      events: [
-        { eventType: "session.start", timestamp: new Date(Date.now() - 86400000).toISOString(), id: "evt-001", data: {} },
-        { eventType: "user.message", timestamp: new Date(Date.now() - 86399000).toISOString(), id: "evt-002", data: {} },
-        { eventType: "assistant.turn_start", timestamp: new Date(Date.now() - 86398000).toISOString(), id: "evt-003", data: {} },
-        { eventType: "tool.execution_start", timestamp: new Date(Date.now() - 86397000).toISOString(), id: "evt-004", data: {} },
-        { eventType: "tool.execution_complete", timestamp: new Date(Date.now() - 86396000).toISOString(), id: "evt-005", data: {} },
-        { eventType: "assistant.message", timestamp: new Date(Date.now() - 86395000).toISOString(), id: "evt-006", data: {} },
-        { eventType: "tool.execution_start", timestamp: new Date(Date.now() - 86394000).toISOString(), id: "evt-007", data: {} },
-        { eventType: "tool.execution_complete", timestamp: new Date(Date.now() - 86393000).toISOString(), id: "evt-008", data: {} },
-        { eventType: "assistant.turn_end", timestamp: new Date(Date.now() - 86392000).toISOString(), id: "evt-009", data: {} },
-        { eventType: "session.plan_changed", timestamp: new Date(Date.now() - 86391000).toISOString(), id: "evt-010", data: {} },
-      ],
-      totalCount: 2450,
-      hasMore: true,
-    } satisfies EventsResponse,
-    get_session_todos: {
-      todos: [
-        { id: "user-auth", title: "Create user auth module", description: "Implement JWT-based authentication in src/auth/", status: "done", createdAt: "", updatedAt: "" },
-        { id: "api-routes", title: "Add API routes", description: "Create REST endpoints for login, logout, refresh", status: "done", createdAt: "", updatedAt: "" },
-        { id: "oauth-provider", title: "OAuth provider integration", description: "Add GitHub and Google OAuth providers", status: "in_progress", createdAt: "", updatedAt: "" },
-        { id: "session-mgmt", title: "Session management", description: "Implement session storage and token refresh logic", status: "pending", createdAt: "", updatedAt: "" },
-        { id: "integration-tests", title: "Write integration tests", description: "End-to-end tests for all auth flows", status: "blocked", createdAt: "", updatedAt: "" },
-      ],
-      deps: [
-        { todoId: "api-routes", dependsOn: "user-auth" },
-        { todoId: "session-mgmt", dependsOn: "oauth-provider" },
-        { todoId: "integration-tests", dependsOn: "api-routes" },
-        { todoId: "integration-tests", dependsOn: "session-mgmt" },
-      ],
-    } satisfies TodosResponse,
-    get_session_checkpoints: [
-      { number: 1, title: "Initial project scaffolding", filename: "001-initial-scaffolding.md" },
-      { number: 2, title: "Auth module implementation", filename: "002-auth-module.md" },
-      { number: 3, title: "Unit test coverage", filename: "003-unit-tests.md" },
-    ] as CheckpointEntry[],
-    get_shutdown_metrics: {
-      shutdownType: "normal",
-      totalPremiumRequests: 1.33,
-      totalApiDurationMs: 154200,
-      currentModel: "claude-opus-4.6",
-      codeChanges: { linesAdded: 342, linesRemoved: 56, filesModified: ["src/auth/login.ts", "src/auth/oauth.ts", "src/auth/index.ts", "tests/auth.test.ts"] },
-      modelMetrics: {
-        "claude-opus-4.6": { requests: { count: 32, cost: 0.87 }, usage: { inputTokens: 892300, outputTokens: 45200, cacheReadTokens: 234000, cacheWriteTokens: 12000 } },
-        "gpt-5.4": { requests: { count: 15, cost: 0.46 }, usage: { inputTokens: 234100, outputTokens: 23400, cacheReadTokens: 89000, cacheWriteTokens: 5600 } },
-      },
-    } as ShutdownMetrics,
+    list_sessions: MOCK_SESSIONS,
+    get_session_detail: getMockSessionDetail(mockSessionId),
+    get_session_turns: MOCK_TURNS,
+    get_session_events: MOCK_EVENTS,
+    get_session_todos: MOCK_TODOS,
+    get_session_checkpoints: MOCK_CHECKPOINTS,
+    get_shutdown_metrics: MOCK_SHUTDOWN_METRICS,
     search_sessions: searchQuery
-      ? mockSessions.filter(s =>
+      ? MOCK_SESSIONS.filter(s =>
           [s.summary, s.repository, s.branch, s.id].some(
-            f => f && f.toLowerCase().includes(searchQuery)
+            f => f?.toLowerCase().includes(searchQuery)
           )
         )
-      : mockSessions,
+      : MOCK_SESSIONS,
     reindex_sessions: 0,
   };
-  return (mocks[cmd] ?? null) as T;
+  const data = mocks[cmd];
+  if (data === undefined) {
+    throw new Error(`[STUB] No mock data for command: ${cmd}`);
+  }
+  return data as T;
 }
 
 export async function listSessions(
@@ -236,6 +117,61 @@ export async function searchSessions(query: string): Promise<SessionListItem[]> 
 
 export async function reindexSessions(): Promise<number> {
   return invoke<number>("reindex_sessions");
+}
+
+/**
+ * Get aggregated analytics data across all sessions.
+ * // STUB: Currently returns mock data. Replace with real Tauri IPC command
+ * // STUB: when the analytics backend API is implemented (Phase 6+).
+ */
+export async function getAnalytics(): Promise<AnalyticsData> {
+  // STUB: No Tauri command exists yet for analytics.
+  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_analytics')
+  return MOCK_ANALYTICS;
+}
+
+/**
+ * Get tool usage analysis data across all sessions.
+ * // STUB: Currently returns mock data. Replace with real Tauri IPC command
+ * // STUB: when the tool analysis backend API is implemented (Phase 6+).
+ */
+export async function getToolAnalysis(): Promise<ToolAnalysisData> {
+  // STUB: No Tauri command exists yet for tool analysis.
+  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_tool_analysis')
+  return MOCK_TOOL_ANALYSIS;
+}
+
+/**
+ * Get code impact analysis data across all sessions.
+ * // STUB: Currently returns mock data. Replace with real Tauri IPC command
+ * // STUB: when the code impact backend API is implemented (Phase 6+).
+ */
+export async function getCodeImpact(): Promise<CodeImpactData> {
+  // STUB: No Tauri command exists yet for code impact.
+  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_code_impact')
+  return MOCK_CODE_IMPACT;
+}
+
+/**
+ * Get health scoring data across all sessions.
+ * // STUB: Currently returns mock data. Replace with real Tauri IPC command
+ * // STUB: when the health scoring backend API is implemented (Phase 6+).
+ */
+export async function getHealthScores(): Promise<HealthScoringData> {
+  // STUB: No Tauri command exists yet for health scores.
+  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_health_scores')
+  return MOCK_HEALTH_SCORING;
+}
+
+/**
+ * Export one or more sessions in the specified format.
+ * // STUB: Currently returns mock data. Replace with real Tauri IPC command
+ * // STUB: when the export backend API is implemented (Phase 6+).
+ */
+export async function exportSession(_config: ExportConfig): Promise<ExportResult> {
+  // STUB: No Tauri command exists yet for export.
+  // STUB: When implemented, this should call: invoke('plugin:tracepilot|export_session', { config })
+  return MOCK_EXPORT_RESULT;
 }
 
 export type { SessionHealth };

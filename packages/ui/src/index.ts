@@ -22,6 +22,16 @@ export { default as DataTable } from "./components/DataTable.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
 
+// Visualization & layout components
+export { default as HealthRing } from "./components/HealthRing.vue";
+export { default as TokenBar } from "./components/TokenBar.vue";
+export { default as BtnGroup } from "./components/BtnGroup.vue";
+export { default as FormSwitch } from "./components/FormSwitch.vue";
+export { default as FormInput } from "./components/FormInput.vue";
+export { default as DefList } from "./components/DefList.vue";
+export { default as ModalDialog } from "./components/ModalDialog.vue";
+export { default as MiniTimeline } from "./components/MiniTimeline.vue";
+
 // Utilities
 export * from "./utils/formatters";
 export * from "./utils/toolCall";

@@ -146,3 +146,226 @@ export interface CheckpointEntry {
   filename: string;
   content?: string;
 }
+
+// ===== Analytics Types =====
+
+/** Aggregated analytics data across all sessions */
+export interface AnalyticsData {
+  /** Total number of sessions analyzed */
+  totalSessions: number;
+  /** Total tokens used across all sessions */
+  totalTokens: number;
+  /** Total cost in USD across all sessions */
+  totalCost: number;
+  /** Average health score (0-1) */
+  averageHealthScore: number;
+  /** Token usage per day for trend charts */
+  tokenUsageByDay: Array<{ date: string; tokens: number }>;
+  /** Session count per day */
+  sessionsPerDay: Array<{ date: string; count: number }>;
+  /** Model distribution by total tokens */
+  modelDistribution: Array<{ model: string; tokens: number; percentage: number }>;
+  /** Cost per day for trend charts */
+  costByDay: Array<{ date: string; cost: number }>;
+}
+
+// ===== Tool Analysis Types =====
+
+/** Tool usage analysis data */
+export interface ToolAnalysisData {
+  /** Total tool calls across all sessions */
+  totalCalls: number;
+  /** Overall success rate (0-1) */
+  successRate: number;
+  /** Average duration in milliseconds */
+  avgDurationMs: number;
+  /** Most frequently used tool name */
+  mostUsedTool: string;
+  /** Per-tool breakdown */
+  tools: Array<ToolUsageEntry>;
+  /** Activity heatmap data (hour x day) */
+  activityHeatmap: Array<{ day: number; hour: number; count: number }>;
+}
+
+/** Individual tool usage statistics */
+export interface ToolUsageEntry {
+  /** Tool name (e.g., "powershell", "edit", "view") */
+  name: string;
+  /** Total number of calls */
+  callCount: number;
+  /** Success rate (0-1) */
+  successRate: number;
+  /** Average duration in milliseconds */
+  avgDurationMs: number;
+  /** Total duration in milliseconds */
+  totalDurationMs: number;
+}
+
+// ===== Code Impact Types =====
+
+/** Code impact analysis data */
+export interface CodeImpactData {
+  /** Total files modified across sessions */
+  filesModified: number;
+  /** Total lines added */
+  linesAdded: number;
+  /** Total lines removed */
+  linesRemoved: number;
+  /** Net line change (added - removed) */
+  netChange: number;
+  /** Breakdown by file extension */
+  fileTypeBreakdown: Array<{ extension: string; count: number; percentage: number }>;
+  /** Most modified files */
+  mostModifiedFiles: Array<{ path: string; additions: number; deletions: number }>;
+  /** Changes over time (daily) */
+  changesByDay: Array<{ date: string; additions: number; deletions: number }>;
+}
+
+// ===== Health Scoring Types =====
+// Note: SessionHealth and HealthFlag already exist in this file.
+// Adding the aggregate health scoring view type.
+
+/** Aggregate health scoring data for the health dashboard */
+export interface HealthScoringData {
+  /** Overall average health score (0-1) */
+  overallScore: number;
+  /** Count of healthy sessions (score >= 0.8) */
+  healthyCount: number;
+  /** Count of sessions needing attention (0.5 <= score < 0.8) */
+  attentionCount: number;
+  /** Count of critical sessions (score < 0.5) */
+  criticalCount: number;
+  /** Sessions requiring attention with their health details */
+  attentionSessions: Array<{
+    sessionId: string;
+    sessionName: string;
+    score: number;
+    flags: Array<{ name: string; severity: 'warning' | 'danger' }>;
+  }>;
+  /** All health flags with aggregate counts */
+  healthFlags: Array<{
+    name: string;
+    count: number;
+    severity: 'warning' | 'danger';
+    description: string;
+  }>;
+}
+
+// ===== Export Types =====
+
+/** Export configuration */
+export interface ExportConfig {
+  /** Session IDs to export */
+  sessionIds: string[];
+  /** Export format */
+  format: 'json' | 'csv' | 'markdown';
+  /** Include conversation data */
+  includeConversation: boolean;
+  /** Include events data */
+  includeEvents: boolean;
+  /** Include metrics data */
+  includeMetrics: boolean;
+  /** Include todo items */
+  includeTodos: boolean;
+  /** Output destination path */
+  destination: string;
+}
+
+/** Export result */
+export interface ExportResult {
+  /** Whether export succeeded */
+  success: boolean;
+  /** Output file path */
+  filePath?: string;
+  /** Error message if failed */
+  error?: string;
+  /** Number of sessions exported */
+  sessionsExported: number;
+}
+
+// ===== Comparison Types =====
+
+/** Result of comparing two sessions */
+export interface ComparisonResult {
+  /** Session A details */
+  sessionA: {
+    id: string;
+    summary: string;
+    model: string;
+    duration: number;
+    turns: number;
+    tokens: number;
+    cost: number;
+    toolCalls: number;
+    successRate: number;
+    filesModified: number;
+    linesChanged: number;
+    healthScore: number;
+  };
+  /** Session B details */
+  sessionB: {
+    id: string;
+    summary: string;
+    model: string;
+    duration: number;
+    turns: number;
+    tokens: number;
+    cost: number;
+    toolCalls: number;
+    successRate: number;
+    filesModified: number;
+    linesChanged: number;
+    healthScore: number;
+  };
+  /** Per-model usage breakdown for comparison */
+  modelUsage: {
+    sessionA: Array<{ model: string; tokens: number; requests: number }>;
+    sessionB: Array<{ model: string; tokens: number; requests: number }>;
+  };
+}
+
+// ===== Replay Types =====
+
+/** Replay state for session replay view */
+export interface ReplayState {
+  /** Current step index (0-based) */
+  currentStep: number;
+  /** Total number of steps */
+  totalSteps: number;
+  /** Whether playback is active */
+  isPlaying: boolean;
+  /** Playback speed multiplier */
+  speed: number;
+  /** Current elapsed time in ms */
+  elapsedMs: number;
+  /** Total duration in ms */
+  totalDurationMs: number;
+}
+
+/** Individual replay step */
+export interface ReplayStep {
+  /** Step index */
+  index: number;
+  /** Step title/description */
+  title: string;
+  /** Step type */
+  type: 'user' | 'assistant' | 'tool';
+  /** Timestamp */
+  timestamp: string;
+  /** Duration of this step in ms */
+  durationMs: number;
+  /** Token count for this step */
+  tokens: number;
+  /** Associated tool calls */
+  toolCalls?: Array<{
+    name: string;
+    success: boolean;
+    durationMs: number;
+    command?: string;
+    output?: string;
+  }>;
+  /** Files modified in this step */
+  filesModified?: string[];
+  /** Todos changed in this step */
+  todosChanged?: Array<{ id: string; title: string; status: string }>;
+}

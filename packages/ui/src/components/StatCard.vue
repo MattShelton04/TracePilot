@@ -3,22 +3,31 @@ defineProps<{
   value: string | number;
   label: string;
   color?: 'accent' | 'success' | 'warning' | 'danger' | 'done';
+  trend?: string;
+  trendDirection?: 'up' | 'down' | 'neutral';
+  gradient?: boolean;
 }>();
-
-const colorMap: Record<string, string> = {
-  accent: 'text-[var(--color-accent-fg)]',
-  success: 'text-[var(--color-success-fg)]',
-  warning: 'text-[var(--color-warning-fg)]',
-  danger: 'text-[var(--color-danger-fg)]',
-  done: 'text-[var(--color-done-fg)]',
-};
 </script>
 
 <template>
-  <div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4 text-center">
-    <div class="text-2xl font-bold" :class="colorMap[color ?? 'accent']">
+  <div class="stat-card">
+    <div
+      class="stat-card-value"
+      :class="[
+        gradient ? 'gradient-value' : (color ?? 'accent'),
+      ]"
+    >
       {{ value }}
     </div>
-    <div class="mt-1 text-xs text-[var(--color-text-secondary)]">{{ label }}</div>
+    <div class="stat-card-label">{{ label }}</div>
+    <div
+      v-if="trend"
+      class="stat-card-trend"
+      :class="trendDirection ?? 'neutral'"
+    >
+      <span v-if="trendDirection === 'up'" aria-hidden="true">↑</span>
+      <span v-else-if="trendDirection === 'down'" aria-hidden="true">↓</span>
+      {{ trend }}
+    </div>
   </div>
 </template>

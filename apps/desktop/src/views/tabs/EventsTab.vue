@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { DataTable, ActionButton, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, DataTable, ActionButton, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 const filterType = ref<string | null>(null);
-const pageSize = 100;
+const pageSize = 50;
 const currentPage = ref(0);
+const pageLoading = ref(false);
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -34,6 +35,16 @@ const filteredEvents = computed(() => {
 const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
 
+function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' {
+  if (type.startsWith("session.")) return "accent";
+  if (type.startsWith("user.")) return "success";
+  if (type.startsWith("assistant.")) return "done";
+  if (type.startsWith("tool.")) return "warning";
+  if (type.startsWith("context.")) return "accent";
+  if (type.startsWith("subagent.")) return "done";
+  return "neutral";
+}
+
 const eventColumns = [
   { key: "rowNum", label: "#", align: "left" as const },
   { key: "eventType", label: "Type", align: "left" as const },
@@ -49,41 +60,27 @@ const tableRows = computed(() =>
 );
 
 async function loadPage(page: number) {
-  currentPage.value = page;
-  await store.loadEvents(page * pageSize, pageSize);
-}
-
-function eventTypeColor(type: string): string {
-  if (type.startsWith("session.")) return "text-[var(--color-accent-fg)]";
-  if (type.startsWith("user.")) return "text-[var(--color-success-fg)]";
-  if (type.startsWith("assistant.")) return "text-[var(--color-done-fg)]";
-  if (type.startsWith("tool.")) return "text-[var(--color-warning-fg)]";
-  if (type.startsWith("context.")) return "text-[var(--color-accent-fg)]";
-  if (type.startsWith("subagent.")) return "text-[var(--color-done-fg)]";
-  return "text-[var(--color-text-secondary)]";
-}
-
-function eventTypeBg(type: string): string {
-  if (type.startsWith("session.")) return "bg-[var(--color-accent-muted)]";
-  if (type.startsWith("user.")) return "bg-[var(--color-success-muted)]";
-  if (type.startsWith("assistant.")) return "bg-[var(--color-done-muted)]";
-  if (type.startsWith("tool.")) return "bg-[var(--color-warning-muted)]";
-  if (type.startsWith("context.")) return "bg-[var(--color-accent-muted)]";
-  if (type.startsWith("subagent.")) return "bg-[var(--color-done-muted)]";
-  return "bg-[var(--color-neutral-muted)]";
+  if (pageLoading.value) return;
+  pageLoading.value = true;
+  try {
+    currentPage.value = page;
+    await store.loadEvents(page * pageSize, pageSize);
+  } finally {
+    pageLoading.value = false;
+  }
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Filter bar -->
-    <div class="flex items-center gap-3">
+  <div>
+    <!-- Header with count -->
+    <div class="flex items-center gap-3 mb-4">
       <FilterSelect
         v-model="filterType"
         :options="eventTypes"
         placeholder="All event types"
       />
-      <span class="text-xs text-[var(--color-text-secondary)]">
+      <span class="text-xs text-[var(--text-secondary)]">
         <template v-if="filterType">
           {{ filteredEvents.length }} matching on this page · {{ totalCount }} total events
         </template>
@@ -96,36 +93,31 @@ function eventTypeBg(type: string): string {
     <!-- Events table -->
     <DataTable :columns="eventColumns" :rows="tableRows" empty-message="No events found.">
       <template #cell-rowNum="{ value }">
-        <span class="text-xs text-[var(--color-text-tertiary)]">{{ value }}</span>
+        <span class="text-xs text-[var(--text-tertiary)]">{{ value }}</span>
       </template>
       <template #cell-eventType="{ value }">
-        <span
-          class="inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-xs"
-          :class="[eventTypeColor(value as string), eventTypeBg(value as string)]"
-        >
-          {{ value }}
-        </span>
+        <Badge :variant="eventBadgeVariant(value as string)">{{ value }}</Badge>
       </template>
       <template #cell-timestamp="{ value }">
-        <span class="text-xs text-[var(--color-text-secondary)]">{{ formatTime(value as string) }}</span>
+        <span class="text-xs text-[var(--text-secondary)]">{{ formatTime(value as string) }}</span>
       </template>
       <template #cell-id="{ value }">
-        <span class="max-w-[200px] truncate font-mono text-xs text-[var(--color-text-tertiary)] block">
+        <span class="max-w-[200px] truncate font-mono text-xs text-[var(--text-tertiary)] block">
           {{ value || "—" }}
         </span>
       </template>
     </DataTable>
 
     <!-- Pagination -->
-    <div v-if="totalCount > pageSize" class="flex items-center justify-between">
-      <ActionButton :disabled="currentPage === 0" size="sm" @click="loadPage(currentPage - 1)">
+    <div v-if="totalCount > pageSize" class="flex items-center justify-between mt-4">
+      <ActionButton :disabled="currentPage === 0 || pageLoading" size="sm" @click="loadPage(currentPage - 1)">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         Previous
       </ActionButton>
-      <span class="text-xs text-[var(--color-text-secondary)]">
+      <span class="text-xs text-[var(--text-secondary)]">
         Page {{ currentPage + 1 }} of {{ Math.ceil(totalCount / pageSize) }}
       </span>
-      <ActionButton :disabled="!hasMore" size="sm" @click="loadPage(currentPage + 1)">
+      <ActionButton :disabled="!hasMore || pageLoading" size="sm" @click="loadPage(currentPage + 1)">
         Next
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
       </ActionButton>

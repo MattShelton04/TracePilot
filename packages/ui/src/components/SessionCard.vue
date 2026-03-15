@@ -28,14 +28,14 @@ function relativeTime(dateStr?: string): string {
 
 <template>
   <div
-    class="group cursor-pointer rounded-lg border border-[var(--color-border-default)] bg-[var(--color-canvas-subtle)] p-4 transition-all duration-150 hover:border-[var(--color-accent-fg)] hover:shadow-[var(--shadow-md)]"
+    class="card card-interactive cursor-pointer"
     role="button"
     tabindex="0"
     @click="emit('select', session.id)"
     @keydown.enter="emit('select', session.id)"
     @keydown.space.prevent="emit('select', session.id)"
   >
-    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 truncate group-hover:text-[var(--color-accent-fg)] transition-colors">
+    <h3 class="card-title text-sm font-semibold mb-2 truncate" style="color: var(--text-primary); transition: color var(--transition-fast);">
       {{ session.summary || 'Untitled Session' }}
     </h3>
 
@@ -46,7 +46,7 @@ function relativeTime(dateStr?: string): string {
       <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
     </div>
 
-    <div class="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+    <div class="flex items-center gap-3 text-xs" style="color: var(--text-secondary);">
       <span v-if="session.eventCount != null" class="flex items-center gap-1">
         <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         {{ session.eventCount }}
@@ -55,7 +55,7 @@ function relativeTime(dateStr?: string): string {
         <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
         {{ session.turnCount }}
       </span>
-      <span class="ml-auto text-[var(--color-text-tertiary)]" :title="session.updatedAt">
+      <span class="ml-auto" style="color: var(--text-tertiary);" :title="session.updatedAt">
         {{ relativeTime(session.updatedAt) }}
       </span>
     </div>

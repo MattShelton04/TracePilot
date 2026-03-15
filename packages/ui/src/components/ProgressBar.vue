@@ -1,14 +1,21 @@
 <script setup lang="ts">
 const props = defineProps<{
   percent: number;
-  color?: string;
+  color?: 'accent' | 'success' | 'warning' | 'danger';
   ariaLabel?: string;
 }>();
+
+const colorMap: Record<string, string> = {
+  accent: 'var(--accent-fg)',
+  success: 'var(--success-fg)',
+  warning: 'var(--warning-fg)',
+  danger: 'var(--danger-fg)',
+};
 </script>
 
 <template>
   <div
-    class="h-2 overflow-hidden rounded-full bg-[var(--color-border-muted)]"
+    class="progress-bar"
     role="progressbar"
     :aria-valuenow="Math.round(props.percent)"
     :aria-valuemin="0"
@@ -16,10 +23,10 @@ const props = defineProps<{
     :aria-label="ariaLabel"
   >
     <div
-      class="h-full rounded-full transition-all duration-300"
+      class="progress-bar-fill"
       :style="{
         width: `${Math.min(100, Math.max(0, props.percent))}%`,
-        backgroundColor: color || 'var(--color-success-emphasis)',
+        background: colorMap[color ?? 'accent'],
       }"
     />
   </div>

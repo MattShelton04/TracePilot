@@ -11,7 +11,7 @@ function toggle() {
 
 <template>
   <button
-    class="flex items-center justify-center h-8 w-8 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+    class="flex items-center justify-center h-8 w-8 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--neutral-subtle)] transition-colors"
     :aria-label="`Switch to ${prefs.theme === 'dark' ? 'light' : 'dark'} theme`"
     @click="toggle"
   >

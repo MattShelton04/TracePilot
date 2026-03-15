@@ -26,13 +26,13 @@ export function toolCategory(toolName: string): ToolCategory {
 }
 
 const CATEGORY_COLORS: Record<ToolCategory | string, string> = {
-  file: "text-[var(--color-accent-fg)]",
-  shell: "text-[var(--color-warning-fg)]",
-  agent: "text-[var(--color-done-fg)]",
-  github: "text-[var(--color-text-secondary)]",
-  web: "text-[var(--color-success-fg)]",
-  data: "text-[var(--color-accent-fg)]",
-  other: "text-[var(--color-text-secondary)]",
+  file: "text-[var(--accent-fg)]",
+  shell: "text-[var(--warning-fg)]",
+  agent: "text-[var(--done-fg)]",
+  github: "text-[var(--text-secondary)]",
+  web: "text-[var(--success-fg)]",
+  data: "text-[var(--accent-fg)]",
+  other: "text-[var(--text-secondary)]",
 };
 
 export function categoryColor(category: string): string {

@@ -14,13 +14,14 @@ TracePilot reads the session data stored by GitHub Copilot CLI at `~/.copilot/se
 
 #### Desktop App (Tauri)
 - 🖥️ **Session Explorer** — sidebar-driven GUI with search, filters (repo/branch), and sorting
-- 💬 **Conversation Viewer** — turn-by-turn display with collapsible tool calls
+- 💬 **Conversation Viewer** — turn-by-turn display with collapsible tool calls, 3 view modes (chat/compact/timeline)
 - 📊 **Metrics Dashboard** — model usage breakdown, token distribution bars, and cost estimates
 - ⚡ **Events Browser** — raw event log with type filtering and pagination
 - ✅ **Todo Tracker** — visual progress bar and dependency display
 - 🔍 **Full-Text Search** — instant search across all sessions via SQLite FTS5 index
-- 🎨 **GitHub Primer Design** — dark + light themes, 40+ CSS variables, responsive from 375px to 4K
+- 🎨 **Variant C Design System** — indigo accent, Inter font, dark + light themes, 60+ CSS custom properties
 - ♿ **Accessible** — ARIA attributes, keyboard navigation, screen reader support
+- 📄 **15 Pages Total** — 6 live pages + 9 stub pages (marked `[STUB]` in UI) for future phases
 
 #### Shared Core
 - 📦 **UI Library** — reusable Vue 3 components (@tracepilot/ui): Badge, SessionCard, TabNav, StatCard, SearchInput, FilterSelect, StatusIcon
@@ -94,6 +95,62 @@ pnpm --filter @tracepilot/cli dev -- list
 # Build and run standalone
 pnpm --filter @tracepilot/cli build
 node apps/cli/dist/index.js list
+```
+
+## Frontend
+
+### Design System (Variant C)
+
+The desktop app uses the **Variant C** design system — a hybrid of Linear/Raycast visual polish with GitHub Primer information density:
+
+- **Accent:** Indigo (#6366f1 dark / #4f46e5 light)
+- **Font:** Inter Variable (locally bundled), JetBrains Mono for code
+- **Themes:** Dark (default) + Light, toggled via `data-theme` attribute
+- **Tokens:** 60+ CSS custom properties for colors, spacing, shadows, gradients
+- **Responsive:** Sidebar collapses at 900px, grids adapt at 1200px
+
+See [`docs/design/design-system.md`](docs/design/design-system.md) for full reference.
+
+### Pages (15 total)
+
+| Page | Status | Description |
+|------|--------|-------------|
+| Session List | ✅ Live | Search, repo/branch filters, sortable card grid |
+| Session Detail — Overview | ✅ Live | Stat cards, session info, summary, checkpoints |
+| Session Detail — Conversation | ✅ Live | Chat/compact/timeline view modes, role badges, tool calls |
+| Session Detail — Events | ✅ Live | Color-coded event table, type filter, pagination |
+| Session Detail — Todos | ✅ Live | Green progress bar, status counts, dependency display |
+| Session Detail — Metrics | ✅ Live | Token distribution, cache breakdown, code changes |
+| Analytics Dashboard | 🔶 STUB | SVG charts, model distribution, cost trends |
+| Tool Analysis | 🔶 STUB | Usage table, heatmap, frequency chart |
+| Code Impact | 🔶 STUB | File type breakdown, modification tracking |
+| Session Timeline | 🔶 STUB | Swimlane visualization |
+| Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
+| Export | 🔶 STUB | Config + live preview, format selection |
+| Session Comparison | 🔶 STUB | Side-by-side diff, model usage breakdown |
+| Session Replay | 🔶 STUB | Transport controls, step-by-step playback |
+| Settings | 🔶 STUB | General, Data, Health, Shortcuts, About sections |
+
+> **STUB pages** show complete UI with mock data and a `[STUB]` badge. They will connect to Rust backends in Phases 3–6.
+
+### Running the Frontend
+
+```bash
+# Development server (Vue only, mock data, no Rust backend)
+pnpm --filter @tracepilot/desktop dev
+
+# Development with Tauri (full app with Rust backend)
+pnpm tauri dev
+
+# Production build
+pnpm --filter @tracepilot/desktop build
+
+# Run Vue component tests
+pnpm --filter @tracepilot/desktop test
+
+# Lint & format with Biome
+pnpm lint
+pnpm format
 ```
 
 ## Development

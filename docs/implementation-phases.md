@@ -79,7 +79,7 @@ Each phase builds on the prior, with clear deliverables and testing gates.
 
 **Goal:** A Tauri desktop app showing session list, detail view, and conversation timeline.
 
-**Status: COMPLETE** — Commits on `Matt/Phase_2_Desktop_App`.
+**Status: COMPLETE** — All 15 pages built with the Variant C design system. Commits on `Matt/Phase_2_Desktop_App`.
 
 ### 2.1 — Tauri Commands: Full IPC Surface ✅
 - [x] `list_sessions` — with filtering by repo/branch, sorting, limit
@@ -125,16 +125,54 @@ Each phase builds on the prior, with clear deliverables and testing gates.
 - [x] `StatusIcon` — SVG status icons replacing emoji (done/in_progress/blocked/pending)
 
 ### 2.5 — Styling & Theming ✅
-- [x] Tailwind CSS v4 setup with custom TracePilot design tokens (CSS variables)
-- [x] GitHub Primer-inspired design system with 40+ CSS variables
-- [x] Dark theme (default) + Light theme with toggle
+- [x] **Variant C design system** — hybrid of Linear-inspired visuals + Primer information density
+- [x] Indigo accent (#6366f1), Inter font, 60+ CSS custom properties
+- [x] Dark theme (default) + Light theme with `data-theme` attribute toggle
 - [x] Sidebar navigation layout with session count badge
-- [x] Responsive layout (1/2/3-column grid, sidebar collapse on mobile)
+- [x] Responsive layout (1/2/3-column grid, sidebar collapse at 900px)
 - [x] Loading skeleton animations
 - [x] Theme persistence via localStorage (applied before Vue mount to prevent flash)
 - [x] Comprehensive design system documentation (`docs/design/design-system.md`)
 
-### 2.6 — Testing Gate ✅
+### 2.6 — Frontend Pages ✅
+
+All 15 pages are implemented as Vue 3 single-file components. Pages marked **[STUB]** render complete UI layouts with mock data and display a `[STUB]` badge; they await backend integration in later phases.
+
+| # | Page | View File | Status | Notes |
+|---|------|-----------|--------|-------|
+| 1 | **Session List** | `SessionListView.vue` | ✅ Live | Search, repo/branch filters, card grid |
+| 2 | **Session Detail — Overview** | `tabs/OverviewTab.vue` | ✅ Live | Stat cards, session info, summary, checkpoints |
+| 3 | **Session Detail — Conversation** | `tabs/ConversationTab.vue` | ✅ Live | View modes (chat/compact/timeline), role badges, tool calls |
+| 4 | **Session Detail — Events** | `tabs/EventsTab.vue` | ✅ Live | Color-coded event badges, type filter, pagination |
+| 5 | **Session Detail — Todos** | `tabs/TodosTab.vue` | ✅ Live | Green progress bar, status counts, dependency display |
+| 6 | **Session Detail — Metrics** | `tabs/MetricsTab.vue` | ✅ Live | Token distribution, cache breakdown, code changes |
+| 7 | **Analytics Dashboard** | `AnalyticsDashboardView.vue` | 🔶 STUB | SVG charts, model distribution, cost trends |
+| 8 | **Tool Analysis** | `ToolAnalysisView.vue` | 🔶 STUB | Usage table, heatmap, frequency chart |
+| 9 | **Code Impact** | `CodeImpactView.vue` | 🔶 STUB | File type breakdown, modification tracking |
+| 10 | **Session Timeline** | `SessionTimelineView.vue` | 🔶 STUB | Swimlane visualization, zoom/pan |
+| 11 | **Health Scoring** | `HealthScoringView.vue` | 🔶 STUB | Health rings, attention grid, flags table |
+| 12 | **Export** | `ExportView.vue` | 🔶 STUB | Config + live preview, format selection |
+| 13 | **Session Comparison** | `SessionComparisonView.vue` | 🔶 STUB | Side-by-side diff, model usage breakdown |
+| 14 | **Session Replay** | `SessionReplayView.vue` | 🔶 STUB | Transport controls, step-by-step playback |
+| 15 | **Settings** | `SettingsView.vue` | 🔶 STUB | 5 sections (General, Data, Health, Shortcuts, About) |
+
+> **STUB pages** have full UI chrome (sidebar, breadcrumbs, correct layout) and realistic mock data so the design can be validated. They will be connected to Rust backends in Phases 3–6.
+
+### 2.7 — Design System (Variant C) ✅
+
+The frontend uses **Variant C ("Hybrid")** — combining Linear/Raycast visual polish with GitHub Primer information density.
+
+- **Accent color:** Indigo (#6366f1 dark / #4f46e5 light)
+- **Font:** Inter Variable (locally bundled)
+- **CSS custom properties:** 60+ tokens for colors, spacing, shadows, gradients
+- **Component classes:** 120+ utility and component classes in `styles.css`
+- **Themes:** Dark (default) + Light via `data-theme` attribute on `:root`
+- **Responsive:** 1200px (grid collapse) and 900px (single-column, sidebar hidden)
+- **Accessibility:** `focus-visible` outlines, `prefers-reduced-motion`, `prefers-contrast: more`, ARIA landmarks and labels
+
+Full reference: [`docs/design/design-system.md`](../docs/design/design-system.md)
+
+### 2.8 — Testing Gate ✅
 - [x] 34 Vue component tests across 6 test files (`@vue/test-utils` + Vitest)
 - [x] 39 Rust tests (35 core + 4 indexer)
 - [x] Desktop Vite build passes with all tabs code-split
@@ -143,7 +181,7 @@ Each phase builds on the prior, with clear deliverables and testing gates.
 - [ ] Tauri command integration tests (deferred — requires Tauri test harness)
 - [ ] Visual regression testing (deferred to Phase 3)
 
-**Deliverable:** ✅ Desktop app shows session list → click to detail → browse conversation turns, events, todos, and metrics.
+**Deliverable:** ✅ Desktop app shows session list → click to detail → browse conversation turns, events, todos, and metrics. All 15 pages rendered with Variant C design system (9 using stub data).
 
 ---
 
@@ -389,11 +427,11 @@ These standards apply throughout development:
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1: Core Parsing & CLI MVP** | ✅ **Complete** | 9 commits, 35 tests, 4,000+ lines |
-| Phase 2: Desktop App — Session Explorer | 🔄 In Progress | |
-| Phase 3: Analytics & Visualization | ⬜ Planned | |
-| Phase 4: Health Scoring & Anomaly Detection | ⬜ Planned | |
-| Phase 5: Export & Sharing | ⬜ Planned | |
-| Phase 6: Advanced Features | ⬜ Planned | |
+| **Phase 2: Desktop App — Session Explorer** | ✅ **Complete** | 15 pages (6 live + 9 stubs), Variant C design system, 34 Vue tests |
+| Phase 3: Analytics & Visualization | ⬜ Planned | Frontend stubs ready |
+| Phase 4: Health Scoring & Anomaly Detection | ⬜ Planned | Frontend stub ready |
+| Phase 5: Export & Sharing | ⬜ Planned | Frontend stub ready |
+| Phase 6: Advanced Features | ⬜ Planned | Frontend stubs ready (Compare, Replay, Settings) |
 | Phase 7: Distribution & CI/CD | ⬜ Planned | |
 
 ### Phase 1 Deliverables (Completed)
@@ -411,4 +449,25 @@ These standards apply throughout development:
 | Multi-model review fixes | ✅ | 7 issues fixed (FTS, tool calls, path traversal, etc.) |
 | Rust tests | ✅ | 31 core + 4 indexer = 35 tests |
 
-| **Next up** | **Phase 2 — Desktop App: Session Explorer** |
+| **Next up** | **Phase 3 — Analytics & Visualization** (backend engines for stub pages) |
+
+### Phase 2 Deliverables (Completed)
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Tauri IPC commands (10) | ✅ | list, detail, turns, events, todos, checkpoints, metrics, search, reindex |
+| Session List View | ✅ | Card grid, search, repo/branch filters, sort controls |
+| Session Detail (5 tabs) | ✅ | Overview, Conversation, Events, Todos, Metrics — all live |
+| Analytics Dashboard | 🔶 STUB | SVG charts, model distribution, cost trends |
+| Tool Analysis | 🔶 STUB | Usage table, heatmap, frequency chart |
+| Code Impact | 🔶 STUB | File type breakdown, modification tracking |
+| Session Timeline | 🔶 STUB | Swimlane visualization |
+| Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
+| Export | 🔶 STUB | Config + live preview, format selection |
+| Session Comparison | 🔶 STUB | Side-by-side diff, model usage breakdown |
+| Session Replay | 🔶 STUB | Transport controls, step-by-step playback |
+| Settings | 🔶 STUB | 5 sections (General, Data, Health, Shortcuts, About) |
+| Variant C design system | ✅ | 60+ CSS tokens, 120+ classes, Inter font, dark/light themes |
+| Pinia state management | ✅ | Session list + detail stores with lazy loading |
+| Shared UI library (8 components) | ✅ | Badge, SessionCard, TabNav, StatCard, SearchInput, etc. |
+| Vue component tests | ✅ | 34 tests across 6 test files |

@@ -1,103 +1,82 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { StatCard, Badge, SectionPanel, formatDate, formatDuration, useSessionTabLoader } from "@tracepilot/ui";
+import {
+  StatCard, Badge, SectionPanel, DefList,
+  formatDate, formatDuration, useSessionTabLoader,
+} from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
+const route = useRoute();
 
 useSessionTabLoader(
   () => store.sessionId,
   () => { store.loadCheckpoints(); store.loadShutdownMetrics(); }
 );
 
-// Retry loading when detail finishes (guards against race with loadDetail clearing loaded set)
-watch(
-  () => store.detail,
-  (d) => {
-    if (!d) return;
-    void store.loadCheckpoints();
-    void store.loadShutdownMetrics();
-  }
-);
-
-const detail = computed(() => store.detail);
+const detail= computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
+
+const sessionInfoItems = computed(() => {
+  const d = detail.value;
+  return [
+    { label: "Repository", value: d?.repository ?? "—" },
+    { label: "Branch", value: d?.branch ?? "—" },
+    { label: "Model", value: metrics.value?.currentModel ?? "—" },
+    { label: "Host", value: d?.hostType ?? "—" },
+    { label: "Duration", value: formatDuration(metrics.value?.totalApiDurationMs) },
+    { label: "Created", value: formatDate(d?.createdAt) },
+    { label: "Updated", value: formatDate(d?.updatedAt) },
+  ];
+});
+
+const summaryText = computed(() => detail.value?.summary);
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div>
     <!-- Stats row -->
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <StatCard :value="detail?.eventCount ?? 0" label="Events" color="accent" />
-      <StatCard :value="detail?.turnCount ?? 0" label="Turns" color="accent" />
+    <div class="grid-4 mb-6">
+      <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
+      <StatCard :value="detail?.turnCount ?? 0" label="Turns" :gradient="true" />
       <StatCard :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
       <StatCard
         :value="metrics?.totalPremiumRequests?.toFixed(1) ?? '—'"
         label="Premium Requests"
-        color="warning"
+        color="done"
       />
     </div>
 
     <!-- Two-column layout -->
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <div class="grid-2 mb-6">
       <!-- Session Info -->
       <SectionPanel title="Session Info">
-        <dl class="space-y-2.5 text-sm">
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">ID</dt>
-            <dd class="font-mono text-xs text-[var(--color-text-tertiary)] truncate max-w-[200px]" :title="detail?.id">{{ detail?.id }}</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Repository</dt>
-            <dd><Badge v-if="detail?.repository" variant="accent">{{ detail.repository }}</Badge><span v-else class="text-[var(--color-text-tertiary)]">—</span></dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Branch</dt>
-            <dd><Badge v-if="detail?.branch" variant="success">{{ detail.branch }}</Badge><span v-else class="text-[var(--color-text-tertiary)]">—</span></dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Working Directory</dt>
-            <dd class="max-w-[250px] truncate font-mono text-xs text-[var(--color-text-tertiary)]" :title="detail?.cwd">
-              {{ detail?.cwd || "—" }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Host Type</dt>
-            <dd>{{ detail?.hostType || "—" }}</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Created</dt>
-            <dd class="text-[var(--color-text-secondary)]">{{ formatDate(detail?.createdAt) }}</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-[var(--color-text-secondary)]">Updated</dt>
-            <dd class="text-[var(--color-text-secondary)]">{{ formatDate(detail?.updatedAt) }}</dd>
-          </div>
-        </dl>
+        <DefList :items="sessionInfoItems" />
       </SectionPanel>
 
       <!-- Session Summary -->
       <SectionPanel title="Session Summary">
-        <dl class="space-y-2.5 text-sm">
-          <div class="flex justify-between">
-            <dt class="text-[var(--color-text-secondary)]">API Duration</dt>
-            <dd>{{ formatDuration(metrics?.totalApiDurationMs) }}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-[var(--color-text-secondary)]">Current Model</dt>
-            <dd><Badge v-if="metrics?.currentModel" variant="done">{{ metrics.currentModel }}</Badge><span v-else class="text-[var(--color-text-tertiary)]">—</span></dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-[var(--color-text-secondary)]">Shutdown Type</dt>
-            <dd>{{ metrics?.shutdownType ?? "—" }}</dd>
-          </div>
-          <div v-if="metrics?.codeChanges" class="flex justify-between">
-            <dt class="text-[var(--color-text-secondary)]">Code Changes</dt>
-            <dd class="flex gap-2">
-              <span class="text-[var(--color-success-fg)]">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
-              <span class="text-[var(--color-danger-fg)]">-{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
+        <p v-if="summaryText" class="summary-prose">{{ summaryText }}</p>
+        <p v-else class="summary-prose" style="font-style: italic;">No summary available.</p>
+        <dl class="def-list" style="margin-top: 14px;">
+          <dt>API Duration</dt>
+          <dd>{{ formatDuration(metrics?.totalApiDurationMs) }}</dd>
+          <dt>Current Model</dt>
+          <dd>
+            <Badge v-if="metrics?.currentModel" variant="done">{{ metrics.currentModel }}</Badge>
+            <span v-else>—</span>
+          </dd>
+          <dt>Shutdown Type</dt>
+          <dd>{{ metrics?.shutdownType ?? "—" }}</dd>
+          <template v-if="metrics?.codeChanges">
+            <dt>Code Changes</dt>
+            <dd>
+              <span style="color: var(--success-fg); font-weight: 600;">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
+              <span style="color: var(--text-tertiary);"> / </span>
+              <span style="color: var(--danger-fg); font-weight: 600;">−{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
             </dd>
-          </div>
+          </template>
         </dl>
       </SectionPanel>
     </div>
@@ -106,24 +85,27 @@ const metrics = computed(() => store.shutdownMetrics);
     <SectionPanel
       v-if="store.checkpoints.length > 0"
       :title="`Checkpoints (${store.checkpoints.length})`"
+      class="mb-6"
     >
-      <div class="space-y-2">
-        <div
-          v-for="cp in store.checkpoints"
-          :key="cp.number"
-          class="flex items-start gap-3 rounded-md border border-[var(--color-border-muted)] bg-[var(--color-canvas-default)] p-3 text-sm"
-        >
-          <span
-            class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-muted)] text-xs font-bold text-[var(--color-accent-fg)]"
-          >
-            {{ cp.number }}
-          </span>
-          <div class="min-w-0 flex-1">
-            <div class="font-medium text-[var(--color-text-primary)]">{{ cp.title }}</div>
-            <div class="font-mono text-xs text-[var(--color-text-tertiary)]">{{ cp.filename }}</div>
-          </div>
+      <div
+        v-for="cp in store.checkpoints"
+        :key="cp.number"
+        class="checkpoint-item"
+      >
+        <div class="checkpoint-number">{{ cp.number }}</div>
+        <div class="checkpoint-body">
+          <div class="checkpoint-title">{{ cp.title }}</div>
+          <div class="checkpoint-file font-mono">{{ cp.filename }}</div>
         </div>
       </div>
     </SectionPanel>
+
+    <!-- Link to Timeline -->
+    <router-link
+      :to="{ name: 'session-timeline', params: { id: route.params.id } }"
+      class="timeline-link"
+    >
+      View Session Timeline →
+    </router-link>
   </div>
 </template>
