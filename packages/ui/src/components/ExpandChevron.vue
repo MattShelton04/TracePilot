@@ -8,10 +8,9 @@ defineProps<{
 <template>
   <svg
     class="flex-shrink-0"
-    :class="[
-      expanded ? 'rotate-90' : '',
-      size === 'md' ? 'h-4 w-4' : 'h-3 w-3',
-    ]"
+    :class="expanded ? 'rotate-90' : ''"
+    :width="size === 'md' ? 16 : 12"
+    :height="size === 'md' ? 16 : 12"
     style="color: var(--text-tertiary); transition: transform 150ms ease;"
     fill="currentColor"
     viewBox="0 0 16 16"
