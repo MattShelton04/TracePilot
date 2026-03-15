@@ -48,7 +48,9 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     turn.interaction_id = data.interaction_id.clone();
                 }
                 if let Some(content) = &data.content {
-                    turn.assistant_messages.push(content.clone());
+                    if !content.trim().is_empty() {
+                        turn.assistant_messages.push(content.clone());
+                    }
                 }
             }
             (SessionEventType::ToolExecutionStart, TypedEventData::ToolExecutionStart(data)) => {
@@ -1276,5 +1278,493 @@ mod tests {
         assert_eq!(tc.success, Some(false));
         assert_eq!(tc.error.as_deref(), Some("OOM"));
         assert!(tc.duration_ms.unwrap() > 80_000);
+    }
+
+    #[test]
+    fn filters_empty_string_assistant_messages() {
+        // In real sessions, assistant.message events before tool-call batches
+        // often carry content: "" (empty string, not null). These should be filtered out.
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Fix the bug".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T07:14:51.100Z",
+                Some("evt-1"),
+            ),
+            // First assistant.message with empty content (tool-call-only response)
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": "tc-1", "name": "grep"})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("grep".to_string()),
+                    arguments: Some(json!({ "pattern": "TODO" })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-4",
+                "2026-03-10T07:14:52.100Z",
+                Some("evt-3"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-5",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-4"),
+            ),
+            // Second assistant.message with empty content (another tool-call batch)
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": "tc-2", "name": "view"})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-6",
+                "2026-03-10T07:14:53.100Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-2".to_string()),
+                    tool_name: Some("view".to_string()),
+                    arguments: Some(json!({ "path": "src/main.rs" })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-7",
+                "2026-03-10T07:14:53.200Z",
+                Some("evt-6"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-2".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-8",
+                "2026-03-10T07:14:54.000Z",
+                Some("evt-7"),
+            ),
+            // Final assistant.message with real content
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-3".to_string()),
+                    content: Some("I fixed the bug by updating the handler.".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: Some(42),
+                    parent_tool_call_id: None,
+                }),
+                "evt-9",
+                "2026-03-10T07:14:54.100Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-10",
+                "2026-03-10T07:14:55.000Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        let turn = &turns[0];
+        // Should only contain the real message, not the empty strings
+        assert_eq!(turn.assistant_messages.len(), 1);
+        assert_eq!(
+            turn.assistant_messages[0],
+            "I fixed the bug by updating the handler."
+        );
+        // Tool calls should still be preserved
+        assert_eq!(turn.tool_calls.len(), 2);
+    }
+
+    #[test]
+    fn filters_whitespace_only_assistant_messages() {
+        // Edge case: content is whitespace-only (e.g., "\n", "  ", "\t")
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("   ".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("\n".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-3".to_string()),
+                    content: Some("Real response".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-4",
+                "2026-03-10T07:14:52.200Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns[0].assistant_messages.len(), 1);
+        assert_eq!(turns[0].assistant_messages[0], "Real response");
+    }
+
+    #[test]
+    fn none_content_still_filtered() {
+        // content: null (None) should still be filtered (pre-existing behavior)
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: None,
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": "tc-1"})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("Done!".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns[0].assistant_messages.len(), 1);
+        assert_eq!(turns[0].assistant_messages[0], "Done!");
+    }
+
+    #[test]
+    fn realistic_agentic_session_with_many_tool_rounds() {
+        // Simulates a realistic agentic session: user asks a question, assistant
+        // makes 5 rounds of tool calls (each preceded by an empty-content
+        // assistant.message), then gives a final response.
+        let mut events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Refactor the auth module".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T07:14:51.100Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let tool_names = ["grep", "view", "edit", "view", "powershell"];
+        let mut evt_counter = 3;
+        let base_ts = 52; // seconds offset
+
+        for (round, tool_name) in tool_names.iter().enumerate() {
+            // Empty assistant.message before each tool batch
+            events.push(make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some(format!("msg-{round}")),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": format!("tc-{round}"), "name": tool_name})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                &format!("evt-{evt_counter}"),
+                &format!("2026-03-10T07:14:{}.000Z", base_ts + round * 2),
+                Some("evt-2"),
+            ));
+            evt_counter += 1;
+
+            events.push(make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some(format!("tc-{round}")),
+                    tool_name: Some(tool_name.to_string()),
+                    arguments: Some(json!({"arg": "value"})),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                &format!("evt-{evt_counter}"),
+                &format!("2026-03-10T07:14:{}.100Z", base_ts + round * 2),
+                Some(&format!("evt-{}", evt_counter - 1)),
+            ));
+            evt_counter += 1;
+
+            events.push(make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some(format!("tc-{round}")),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                &format!("evt-{evt_counter}"),
+                &format!("2026-03-10T07:14:{}.900Z", base_ts + round * 2),
+                Some(&format!("evt-{}", evt_counter - 1)),
+            ));
+            evt_counter += 1;
+        }
+
+        // Final assistant.message with real content
+        events.push(make_event(
+            SessionEventType::AssistantMessage,
+            TypedEventData::AssistantMessage(AssistantMessageData {
+                message_id: Some("msg-final".to_string()),
+                content: Some("I've refactored the auth module. Here's a summary of changes.".to_string()),
+                interaction_id: Some("int-1".to_string()),
+                tool_requests: None,
+                output_tokens: Some(150),
+                parent_tool_call_id: None,
+            }),
+            &format!("evt-{evt_counter}"),
+            "2026-03-10T07:15:02.000Z",
+            Some("evt-2"),
+        ));
+        evt_counter += 1;
+
+        events.push(make_event(
+            SessionEventType::AssistantTurnEnd,
+            TypedEventData::TurnEnd(TurnEndData {
+                turn_id: Some("turn-1".to_string()),
+            }),
+            &format!("evt-{evt_counter}"),
+            "2026-03-10T07:15:03.000Z",
+            Some("evt-2"),
+        ));
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        let turn = &turns[0];
+        // Only the final real message should survive, not the 5 empty ones
+        assert_eq!(
+            turn.assistant_messages.len(),
+            1,
+            "Expected 1 message but got {}: {:?}",
+            turn.assistant_messages.len(),
+            turn.assistant_messages
+        );
+        assert_eq!(
+            turn.assistant_messages[0],
+            "I've refactored the auth module. Here's a summary of changes."
+        );
+        // All 5 tool calls should be preserved
+        assert_eq!(turn.tool_calls.len(), 5);
+        assert!(turn.is_complete);
+    }
+
+    #[test]
+    fn turn_stats_excludes_empty_messages() {
+        // Verify that turn_stats reflects the filtered message count
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": "tc-1"})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({"id": "tc-2"})]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-3".to_string()),
+                    content: Some("Final answer".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                }),
+                "evt-4",
+                "2026-03-10T07:14:54.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T07:14:55.000Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let stats = turn_stats(&turns);
+        // Only 1 real message, not 3
+        assert_eq!(stats.total_messages, 1);
     }
 }
