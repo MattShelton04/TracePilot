@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Timeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* Session info bar */
+    .session-info-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .session-info-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--canvas-raised);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+    }
+    .session-info-pill .pill-label {
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    /* Timestamp axis */
+    .time-axis {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 8px 112px;
+      margin-bottom: 4px;
+      position: relative;
+    }
+    .time-axis::before {
+      content: '';
+      position: absolute;
+      left: 112px;
+      right: 16px;
+      top: 50%;
+      height: 1px;
+      background: var(--border-default);
+    }
+    .time-marker {
+      position: relative;
+      z-index: 1;
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      background: var(--canvas-default);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border-muted);
+    }
+
+    /* Swimlane container */
+    .swimlane-container {
+      position: relative;
+    }
+
+    /* Vertical connector lines */
+    .connector-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      border-left: 1px dashed rgba(255,255,255,0.15);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Swimlane overrides for taller tracks */
+    .swimlane-track-tall {
+      min-height: 48px;
+    }
+
+    /* Event detail panel */
+    .event-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .event-detail-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .event-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8125rem;
+    }
+    .event-meta-label {
+      color: var(--text-tertiary);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      min-width: 80px;
+    }
+    .event-meta-value {
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+    }
+    .event-description {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      padding: 12px;
+      background: var(--canvas-subtle);
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+    .tool-call-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .tool-call-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+    }
+    .tool-call-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+    .tool-call-file {
+      color: var(--text-tertiary);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+    .tool-call-duration {
+      margin-left: auto;
+      color: var(--text-tertiary);
+    }
+
+    @media (max-width: 768px) {
+      .event-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .session-info-bar {
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="detail-overview.html">OAuth Login Implementation</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Timeline</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <div class="mb-4">
+            <h1 class="page-title">Session Timeline</h1>
+            <p class="page-subtitle">Visual timeline of session events and interactions</p>
+          </div>
+
+          <!-- Session Info Bar -->
+          <div class="session-info-bar" aria-label="Session metadata">
+            <span class="session-info-pill">
+              <span class="pill-label">ID</span>
+              <code class="font-mono" style="font-size: 0.6875rem; color: var(--accent-fg);">c86fe369…e276e33</code>
+            </span>
+            <span class="badge badge-accent">claude-opus-4.6</span>
+            <span class="session-info-pill">
+              <span class="pill-label">Duration</span>
+              2h 15m
+            </span>
+            <span class="session-info-pill">
+              <span class="pill-label">Events</span>
+              2,450 events
+            </span>
+          </div>
+
+          <!-- Timestamp Axis -->
+          <div class="time-axis" role="img" aria-label="Time range from 09:30 to 11:45">
+            <span class="time-marker">09:30</span>
+            <span class="time-marker">09:50</span>
+            <span class="time-marker">10:10</span>
+            <span class="time-marker">10:30</span>
+            <span class="time-marker">10:50</span>
+            <span class="time-marker">11:10</span>
+            <span class="time-marker">11:30</span>
+            <span class="time-marker">11:45</span>
+          </div>
+
+          <!-- Swimlane Visualization -->
+          <div class="section-panel mb-6" aria-label="Session activity swimlanes">
+            <div class="section-panel-header">Activity Lanes</div>
+            <div class="section-panel-body" style="padding: 0;">
+              <div class="swimlane-container">
+
+                <!-- Vertical connector lines at key event positions -->
+                <div class="connector-line" style="left: calc(100px + 13%);" aria-hidden="true"></div>
+                <div class="connector-line" style="left: calc(100px + 31%);" aria-hidden="true"></div>
+                <div class="connector-line" style="left: calc(100px + 60%);" aria-hidden="true"></div>
+                <div class="connector-line" style="left: calc(100px + 83%);" aria-hidden="true"></div>
+
+                <!-- User Lane -->
+                <div class="swimlane" role="row" aria-label="User activity lane">
+                  <div class="swimlane-label">User</div>
+                  <div class="swimlane-track swimlane-track-tall">
+                    <div class="swimlane-bar" style="left: 5%; width: 8%; background: #6366f1;" title="Implement OAuth (09:30–09:41)" aria-label="User request: Implement OAuth">Implement OAuth</div>
+                    <div class="swimlane-bar" style="left: 25%; width: 6%; background: #6366f1;" title="Add error handling (10:00–10:08)" aria-label="User request: Add error handling">Add error handling</div>
+                    <div class="swimlane-bar" style="left: 55%; width: 5%; background: #6366f1;" title="Write tests (10:45–10:52)" aria-label="User request: Write tests">Write tests</div>
+                  </div>
+                </div>
+
+                <!-- Assistant Lane -->
+                <div class="swimlane" role="row" aria-label="Assistant activity lane">
+                  <div class="swimlane-label">Assistant</div>
+                  <div class="swimlane-track swimlane-track-tall">
+                    <div class="swimlane-bar" style="left: 8%; width: 15%; background: #34d399;" title="Analyzing codebase (09:34–09:55)" aria-label="Assistant: Analyzing codebase">Analyzing codebase</div>
+                    <div class="swimlane-bar" style="left: 30%; width: 20%; background: #34d399;" title="Implementing OAuth (10:06–10:32)" aria-label="Assistant: Implementing OAuth">Implementing OAuth</div>
+                    <div class="swimlane-bar" style="left: 58%; width: 18%; background: #34d399;" title="Error handling (10:49–11:13)" aria-label="Assistant: Error handling">Error handling</div>
+                    <div class="swimlane-bar" style="left: 80%; width: 15%; background: #34d399;" title="Writing tests (11:20–11:40)" aria-label="Assistant: Writing tests">Writing tests</div>
+                  </div>
+                </div>
+
+                <!-- Tool Execution Lane -->
+                <div class="swimlane" role="row" aria-label="Tool execution lane">
+                  <div class="swimlane-label">Tools</div>
+                  <div class="swimlane-track swimlane-track-tall" style="border-bottom: none;">
+                    <div class="swimlane-bar" style="left: 9%; width: 2%; background: #fbbf24;" title="view — src/auth/ (09:36)" aria-label="Tool: view">view</div>
+                    <div class="swimlane-bar" style="left: 12%; width: 2%; background: #fbbf24;" title="view — src/config.ts (09:38)" aria-label="Tool: view">view</div>
+                    <div class="swimlane-bar" style="left: 32%; width: 3%; background: #fbbf24;" title="create — src/auth/oauth.ts (10:10)" aria-label="Tool: create">create</div>
+                    <div class="swimlane-bar" style="left: 36%; width: 4%; background: #fbbf24;" title="edit — src/auth/oauth.ts (10:14)" aria-label="Tool: edit">edit</div>
+                    <div class="swimlane-bar" style="left: 42%; width: 5%; background: #fb7185;" title="powershell — npm test (FAILED) (10:20)" aria-label="Tool: powershell (failed)">powershell</div>
+                    <div class="swimlane-bar" style="left: 48%; width: 3%; background: #fbbf24;" title="edit — src/auth/oauth.ts (10:26)" aria-label="Tool: edit">edit</div>
+                    <div class="swimlane-bar" style="left: 60%; width: 4%; background: #fbbf24;" title="powershell — npm test (10:50)" aria-label="Tool: powershell">powershell</div>
+                    <div class="swimlane-bar" style="left: 82%; width: 3%; background: #fbbf24;" title="create — src/auth/__tests__/oauth.test.ts (11:22)" aria-label="Tool: create">create</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Event Detail Panel -->
+          <div class="section-panel" aria-label="Selected event details">
+            <div class="section-panel-header">Event Details</div>
+            <div class="section-panel-body">
+              <div class="event-detail-grid">
+                <div class="event-detail-meta">
+                  <div class="event-meta-row">
+                    <span class="event-meta-label">Type</span>
+                    <span class="badge badge-success">Assistant Response</span>
+                  </div>
+                  <div class="event-meta-row">
+                    <span class="event-meta-label">Timestamp</span>
+                    <span class="event-meta-value font-mono">10:06:32 AM</span>
+                  </div>
+                  <div class="event-meta-row">
+                    <span class="event-meta-label">Duration</span>
+                    <span class="event-meta-value">26m 14s</span>
+                  </div>
+                  <div class="event-meta-row">
+                    <span class="event-meta-label">Tokens</span>
+                    <span class="event-meta-value">3,842 in / 12,506 out</span>
+                  </div>
+                  <div class="event-meta-row">
+                    <span class="event-meta-label">Status</span>
+                    <span class="badge badge-success">Completed</span>
+                  </div>
+                  <div style="margin-top: 12px;">
+                    <div class="event-description">
+                      Implemented the OAuth 2.0 login flow for GitHub and Google providers. Created the authentication module with PKCE support, token refresh logic, and session persistence. Updated the middleware chain to validate tokens on protected routes.
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Related Tool Calls</div>
+                  <div class="tool-call-list">
+                    <div class="tool-call-item">
+                      <span class="badge badge-warning" style="font-size: 0.625rem; padding: 1px 6px;">create</span>
+                      <span class="tool-call-file">src/auth/oauth.ts</span>
+                      <span class="tool-call-duration">1.2s</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="badge badge-warning" style="font-size: 0.625rem; padding: 1px 6px;">edit</span>
+                      <span class="tool-call-file">src/auth/oauth.ts</span>
+                      <span class="tool-call-duration">0.8s</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="badge badge-danger" style="font-size: 0.625rem; padding: 1px 6px;">powershell</span>
+                      <span class="tool-call-file">npm test</span>
+                      <span class="tool-call-duration">4.3s</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="badge badge-warning" style="font-size: 0.625rem; padding: 1px 6px;">edit</span>
+                      <span class="tool-call-file">src/auth/oauth.ts</span>
+                      <span class="tool-call-duration">0.6s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+    });
+  </script>
+</body>
+</html>

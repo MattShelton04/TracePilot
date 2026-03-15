@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Timeline</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+  <style>
+    .swimlane-bar {
+      position: absolute;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: #e6edf3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .swimlane-bar:hover {
+      opacity: 0.85;
+    }
+    .swimlane-track {
+      position: relative;
+      min-height: 32px;
+    }
+    .time-axis {
+      display: flex;
+      align-items: flex-end;
+      height: 40px;
+      position: relative;
+    }
+    .time-axis-tick {
+      position: absolute;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .time-axis-tick .tick-line {
+      width: 1px;
+      height: 10px;
+      background: var(--border-default);
+    }
+    .time-axis-tick .tick-label {
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+    .time-axis-line {
+      position: absolute;
+      bottom: 10px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--border-muted);
+    }
+    .play-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--accent-emphasis);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .play-btn:hover {
+      opacity: 0.9;
+    }
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .zoom-controls .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .event-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-muted);
+      font-size: 0.8125rem;
+    }
+    .event-row:last-child {
+      border-bottom: none;
+    }
+    .event-time {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+      width: 48px;
+    }
+    .event-text {
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">›</span>
+          <a href="detail-overview.html">OAuth Login Implementation</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">Timeline</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title -->
+          <div class="mb-6">
+            <h1 class="page-title">Session Timeline</h1>
+            <p class="page-subtitle">Swimlane visualization for OAuth Login Implementation</p>
+          </div>
+
+          <!-- Timeline Scrubber -->
+          <div class="section-panel mb-4">
+            <div class="section-panel-body">
+              <div class="flex items-center gap-4">
+                <button class="play-btn" id="playBtn" title="Play / Pause">▶</button>
+                <div class="timeline-scrubber" style="flex: 1;">
+                  <div class="timeline-track">
+                    <div class="timeline-progress" style="width: 40%;">
+                      <div class="timeline-thumb"></div>
+                    </div>
+                  </div>
+                </div>
+                <span class="timeline-time">1:02 / 2:34</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Zoom Controls -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="zoom-controls">
+              <span class="label">Zoom:</span>
+              <div class="btn-group">
+                <button class="btn btn-sm">Fit All</button>
+                <button class="btn btn-sm btn-primary">1x</button>
+                <button class="btn btn-sm">2x</button>
+                <button class="btn btn-sm">5x</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Time Scale Axis -->
+          <div class="section-panel mb-4">
+            <div class="section-panel-body" style="padding-top: 0; padding-bottom: 0;">
+              <div class="time-axis" style="margin-left: 120px;">
+                <div class="time-axis-line"></div>
+                <div class="time-axis-tick" style="left: 0%;">
+                  <span class="tick-label">0:00</span>
+                  <span class="tick-line"></span>
+                </div>
+                <div class="time-axis-tick" style="left: 20%;">
+                  <span class="tick-label">0:30</span>
+                  <span class="tick-line"></span>
+                </div>
+                <div class="time-axis-tick" style="left: 40%;">
+                  <span class="tick-label">1:00</span>
+                  <span class="tick-line"></span>
+                </div>
+                <div class="time-axis-tick" style="left: 60%;">
+                  <span class="tick-label">1:30</span>
+                  <span class="tick-line"></span>
+                </div>
+                <div class="time-axis-tick" style="left: 80%;">
+                  <span class="tick-label">2:00</span>
+                  <span class="tick-line"></span>
+                </div>
+                <div class="time-axis-tick" style="left: 100%; transform: translateX(-100%);">
+                  <span class="tick-label">2:30</span>
+                  <span class="tick-line"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Swimlane Visualization -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header flex items-center justify-between">
+              <span>Swimlanes</span>
+              <span style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: none; letter-spacing: 0;">4 lanes · 18 spans</span>
+            </div>
+            <div class="section-panel-body" style="display: flex; flex-direction: column; gap: 0;">
+
+              <!-- Lane 1: User Messages -->
+              <div class="swimlane">
+                <div class="swimlane-label">User Messages</div>
+                <div class="swimlane-track">
+                  <div class="swimlane-bar" style="left: 0%; width: 4%; background-color: #1f6feb;"></div>
+                  <div class="swimlane-bar" style="left: 25%; width: 3%; background-color: #1f6feb;"></div>
+                  <div class="swimlane-bar" style="left: 65%; width: 4%; background-color: #1f6feb;"></div>
+                </div>
+              </div>
+
+              <!-- Lane 2: Assistant -->
+              <div class="swimlane">
+                <div class="swimlane-label">Assistant</div>
+                <div class="swimlane-track">
+                  <div class="swimlane-bar" style="left: 4%; width: 18%; background-color: #8957e5;">response</div>
+                  <div class="swimlane-bar" style="left: 29%; width: 30%; background-color: #8957e5;">response</div>
+                  <div class="swimlane-bar" style="left: 69%; width: 25%; background-color: #8957e5;">response</div>
+                </div>
+              </div>
+
+              <!-- Lane 3: Tool Calls -->
+              <div class="swimlane">
+                <div class="swimlane-label">Tool Calls</div>
+                <div class="swimlane-track">
+                  <div class="swimlane-bar" style="left: 5%; width: 3%; background-color: #9e6a03;">view</div>
+                  <div class="swimlane-bar" style="left: 9%; width: 2%; background-color: #9e6a03;">view</div>
+                  <div class="swimlane-bar" style="left: 12%; width: 3%; background-color: #9e6a03;">view</div>
+                  <div class="swimlane-bar" style="left: 30%; width: 4%; background-color: #9e6a03;">create</div>
+                  <div class="swimlane-bar" style="left: 35%; width: 4%; background-color: #9e6a03;">create</div>
+                  <div class="swimlane-bar" style="left: 40%; width: 5%; background-color: #9e6a03;">edit</div>
+                  <div class="swimlane-bar" style="left: 46%; width: 4%; background-color: #9e6a03;">edit</div>
+                  <div class="swimlane-bar" style="left: 51%; width: 6%; background-color: #9e6a03;">powershell</div>
+                  <div class="swimlane-bar" style="left: 70%; width: 4%; background-color: #9e6a03;">edit</div>
+                  <div class="swimlane-bar" style="left: 75%; width: 5%; background-color: #9e6a03;">create</div>
+                  <div class="swimlane-bar" style="left: 81%; width: 7%; background-color: #9e6a03;">powershell</div>
+                </div>
+              </div>
+
+              <!-- Lane 4: Sub-agents -->
+              <div class="swimlane">
+                <div class="swimlane-label">Sub-agents</div>
+                <div class="swimlane-track">
+                  <div class="swimlane-bar" style="left: 42%; width: 14%; background-color: #8957e5;">task agent</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Event Log -->
+          <div class="section-panel">
+            <div class="section-panel-header flex items-center justify-between">
+              <span>Event Log</span>
+              <span style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: none; letter-spacing: 0;">Showing events near 1:02</span>
+            </div>
+            <div class="section-panel-body">
+              <div class="event-row">
+                <span class="event-time">0:00</span>
+                <span class="event-badge event-session">session</span>
+                <span class="event-text">Session started — cli / claude-opus-4.6</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:01</span>
+                <span class="event-badge event-user">user</span>
+                <span class="event-text">User message: "Implement OAuth login with GitHub and Google"</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:03</span>
+                <span class="event-badge event-assistant">assistant</span>
+                <span class="event-text">Assistant response started (turn 1)</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:05</span>
+                <span class="event-badge event-tool">tool</span>
+                <span class="event-text">Tool call: view — src/auth/providers/</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:08</span>
+                <span class="event-badge event-tool">tool</span>
+                <span class="event-text">Tool call: view — src/auth/config.ts</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:11</span>
+                <span class="event-badge event-tool">tool</span>
+                <span class="event-text">Tool call: view — package.json</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:22</span>
+                <span class="event-badge event-assistant">assistant</span>
+                <span class="event-text">Assistant response completed — 1,240 tokens</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:38</span>
+                <span class="event-badge event-user">user</span>
+                <span class="event-text">User message: "Continue with the implementation"</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">0:40</span>
+                <span class="event-badge event-tool">tool</span>
+                <span class="event-text">Tool call: create — src/auth/providers/github.ts</span>
+              </div>
+              <div class="event-row">
+                <span class="event-time">1:02</span>
+                <span class="event-badge event-subagent">subagent</span>
+                <span class="event-text">Sub-agent spawned: task agent — "Run test suite"</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // Play/Pause toggle
+    const playBtn = document.getElementById('playBtn');
+    let playing = false;
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      playBtn.textContent = playing ? '⏸' : '▶';
+    });
+  </script>
+</body>
+</html>

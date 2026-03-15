@@ -14,14 +14,13 @@ defineProps<{
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-lg border border-[var(--color-border-default)]">
-    <table class="w-full text-sm">
+  <div class="overflow-x-auto rounded-lg border" style="border-color: var(--border-default);">
+    <table class="data-table">
       <thead>
-        <tr class="bg-[var(--color-canvas-subtle)] text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
+        <tr>
           <th
             v-for="col in columns"
             :key="col.key"
-            class="px-5 py-3 font-medium"
             :class="[
               col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
               col.class || '',
@@ -35,12 +34,10 @@ defineProps<{
         <tr
           v-for="(row, idx) in rows"
           :key="idx"
-          class="border-t border-[var(--color-border-muted)] hover:bg-[var(--color-canvas-subtle)] transition-colors"
         >
           <td
             v-for="col in columns"
             :key="col.key"
-            class="px-5 py-2.5"
             :class="[
               col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : '',
               col.class || '',
@@ -52,7 +49,7 @@ defineProps<{
           </td>
         </tr>
         <tr v-if="rows.length === 0">
-          <td :colspan="columns.length" class="px-5 py-8 text-center text-[var(--color-text-secondary)]">
+          <td :colspan="columns.length" class="px-5 py-8 text-center" style="color: var(--text-secondary);">
             {{ emptyMessage || "No data." }}
           </td>
         </tr>

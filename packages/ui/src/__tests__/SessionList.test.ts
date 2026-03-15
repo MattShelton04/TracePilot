@@ -56,8 +56,7 @@ describe("SessionList", () => {
     const wrapper = mount(SessionList, {
       props: { sessions },
     });
-    const grid = wrapper.find(".grid");
+    const grid = wrapper.find(".grid-cards");
     expect(grid.exists()).toBe(true);
-    expect(grid.classes()).toContain("grid-cols-1");
   });
 });

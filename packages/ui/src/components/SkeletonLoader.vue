@@ -6,12 +6,12 @@ defineProps<{
 </script>
 
 <template>
-  <div class="animate-pulse" :class="variant === 'card' ? 'space-y-4' : 'space-y-2'">
+  <div :class="variant === 'card' ? 'space-y-4' : 'space-y-2'">
     <template v-if="variant === 'card'">
       <div
         v-for="i in (count || 3)"
         :key="i"
-        class="h-24 rounded-lg bg-[var(--color-border-muted)]"
+        class="skeleton h-24"
       />
     </template>
     <template v-else-if="variant === 'badge'">
@@ -19,7 +19,7 @@ defineProps<{
         <div
           v-for="i in (count || 3)"
           :key="i"
-          class="h-5 w-16 rounded-full bg-[var(--color-border-muted)]"
+          class="skeleton h-5 w-16 rounded-full"
         />
       </div>
     </template>
@@ -27,7 +27,7 @@ defineProps<{
       <div
         v-for="i in (count || 2)"
         :key="i"
-        class="rounded bg-[var(--color-border-muted)]"
+        class="skeleton"
         :class="i === 1 ? 'h-6 w-48' : 'h-4 w-32'"
       />
     </template>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Metrics</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <!-- Session Title -->
+          <div class="mb-4">
+            <h1 class="page-title">Implemented OAuth login with GitHub and Google providers</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">cli</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav">
+            <a class="tab-nav-item" href="detail-overview.html">Overview</a>
+            <a class="tab-nav-item" href="detail-conversation.html">Conversation <span class="tab-count">12</span></a>
+            <a class="tab-nav-item" href="detail-events.html">Events <span class="tab-count">2,450</span></a>
+            <a class="tab-nav-item" href="detail-todos.html">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item active" href="detail-metrics.html">Metrics</a>
+          </nav>
+
+          <!-- Stats Row -->
+          <div class="grid-4 mb-6" id="stats-row"></div>
+
+          <!-- Model Breakdown Table -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Model Breakdown</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th style="text-align: right;">Requests</th>
+                  <th style="text-align: right;">Input Tokens</th>
+                  <th style="text-align: right;">Output Tokens</th>
+                  <th style="text-align: right;">Cache Read</th>
+                  <th style="text-align: right;">Cache Write</th>
+                  <th style="text-align: right;">Total</th>
+                  <th style="text-align: right;">Cost</th>
+                </tr>
+              </thead>
+              <tbody id="model-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Token Distribution -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Token Distribution</div>
+            <div class="section-panel-body" id="token-bars"></div>
+          </div>
+
+          <!-- Code Changes -->
+          <div class="section-panel">
+            <div class="section-panel-header">Code Changes</div>
+            <div class="section-panel-body">
+              <div class="flex items-center gap-4 mb-4">
+                <span style="font-size: 1.25rem; font-weight: 700; color: var(--success-fg);">+342</span>
+                <span style="font-size: 0.875rem; color: var(--text-tertiary);">lines added</span>
+                <span style="font-size: 1.25rem; font-weight: 700; color: var(--danger-fg);">−56</span>
+                <span style="font-size: 0.875rem; color: var(--text-tertiary);">lines removed</span>
+              </div>
+              <div id="file-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // Calculate totals
+    const models = MOCK_METRICS.modelMetrics;
+    let totalTokens = 0, totalRequests = 0;
+    const modelNames = Object.keys(models);
+    const modelTotals = {};
+
+    modelNames.forEach(name => {
+      const m = models[name];
+      const u = m.usage;
+      const total = u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens;
+      modelTotals[name] = total;
+      totalTokens += total;
+      totalRequests += m.requests.count;
+    });
+
+    // Stats Row
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-card-value accent">${formatNumber(totalTokens)}</div>
+        <div class="stat-card-label">Total Tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value accent">${totalRequests}</div>
+        <div class="stat-card-label">Total Requests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value warning">${MOCK_METRICS.totalPremiumRequests}</div>
+        <div class="stat-card-label">Premium Requests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value done">${modelNames.length}</div>
+        <div class="stat-card-label">Models Used</div>
+      </div>
+    `;
+
+    // Model Breakdown Table
+    const tbody = document.getElementById('model-tbody');
+    modelNames.forEach(name => {
+      const m = models[name];
+      const u = m.usage;
+      const total = modelTotals[name];
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><span class="badge badge-done">${name}</span></td>
+        <td style="text-align: right;">${m.requests.count}</td>
+        <td style="text-align: right;">${formatNumber(u.inputTokens)}</td>
+        <td style="text-align: right;">${formatNumber(u.outputTokens)}</td>
+        <td style="text-align: right;">${formatNumber(u.cacheReadTokens)}</td>
+        <td style="text-align: right;">${formatNumber(u.cacheWriteTokens)}</td>
+        <td style="text-align: right; font-weight: 600;">${formatNumber(total)}</td>
+        <td style="text-align: right;"><span class="badge badge-warning">${formatCost(m.requests.cost)}</span></td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    // Token Distribution Bars
+    const maxTokens = Math.max(...Object.values(modelTotals));
+    const barsContainer = document.getElementById('token-bars');
+    modelNames.forEach(name => {
+      const total = modelTotals[name];
+      const pct = (total / maxTokens) * 100;
+      barsContainer.innerHTML += `
+        <div class="token-bar">
+          <span class="token-bar-label">${name}</span>
+          <div class="token-bar-track">
+            <div class="token-bar-fill" style="width: ${pct}%;"></div>
+          </div>
+          <span class="token-bar-value">${formatNumber(total)}</span>
+        </div>
+      `;
+    });
+
+    // File List
+    const fileList = document.getElementById('file-list');
+    MOCK_METRICS.codeChanges.filesModified.forEach(file => {
+      const item = document.createElement('div');
+      item.className = 'flex items-center gap-2';
+      item.style.cssText = 'padding: 6px 0; border-bottom: 1px solid var(--border-subtle);';
+      item.innerHTML = `
+        <span style="color: var(--text-tertiary); font-size: 0.8125rem;">📄</span>
+        <code class="font-mono" style="font-size: 0.8125rem; color: var(--text-link);">${file}</code>
+      `;
+      fileList.appendChild(item);
+    });
+  </script>
+</body>
+</html>

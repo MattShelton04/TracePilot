@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Export Sessions</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+  <style>
+    /* Session selection rows */
+    .session-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-muted);
+      transition: background var(--transition-fast);
+    }
+    .session-row:last-child { border-bottom: none; }
+    .session-row:hover { background: var(--canvas-overlay); }
+    .session-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent-fg);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .session-row-info { flex: 1; min-width: 0; }
+    .session-row-summary {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-row-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 0.75rem;
+    }
+    .session-row-id {
+      color: var(--text-tertiary);
+    }
+    .select-all-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .select-all-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent-fg);
+      cursor: pointer;
+    }
+
+    /* Radio option group */
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .radio-option:hover { border-color: var(--border-default); color: var(--text-primary); }
+    .radio-option input[type="radio"] {
+      accent-color: var(--accent-fg);
+      margin: 0;
+      cursor: pointer;
+    }
+    .radio-option:has(input:checked) {
+      border-color: var(--accent-fg);
+      color: var(--accent-fg);
+      background: rgba(88, 166, 255, 0.08);
+    }
+
+    /* Checkbox options row */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .checkbox-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .checkbox-option input[type="checkbox"] {
+      accent-color: var(--accent-fg);
+      cursor: pointer;
+    }
+
+    /* Switch row */
+    .switch-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .switch-label-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .switch-label {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+    }
+    .switch-description {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+
+    /* Preview block */
+    .export-preview {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      white-space: pre;
+      margin: 0;
+    }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    /* Modal close button */
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color var(--transition-fast);
+    }
+    .modal-close:hover { color: var(--text-primary); }
+
+    /* Turn count stat */
+    .turns-stat {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <span class="breadcrumb-current">Export Sessions</span>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="page-title">Export Sessions</h1>
+              <p class="page-subtitle">Export session data in various formats</p>
+            </div>
+            <button class="btn btn-sm" id="show-modal-btn">Show Modal</button>
+          </div>
+
+          <!-- Session Selection -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Select Sessions</div>
+            <div>
+              <div class="select-all-row">
+                <input type="checkbox" id="select-all">
+                <label for="select-all">Select All</label>
+              </div>
+              <div id="session-list"></div>
+            </div>
+          </div>
+
+          <!-- Export Configuration -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Export Configuration</div>
+            <div class="section-panel-body">
+              <!-- Format -->
+              <div class="form-group">
+                <label class="form-label">Format</label>
+                <div class="radio-group">
+                  <label class="radio-option">
+                    <input type="radio" name="format" value="markdown" checked> Markdown
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="format" value="json"> JSON
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="format" value="csv"> CSV
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="format" value="html"> HTML
+                  </label>
+                </div>
+              </div>
+
+              <!-- Include -->
+              <div class="form-group">
+                <label class="form-label">Include</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-option">
+                    <input type="checkbox" checked> Conversation
+                  </label>
+                  <label class="checkbox-option">
+                    <input type="checkbox" checked> Tool Calls
+                  </label>
+                  <label class="checkbox-option">
+                    <input type="checkbox" checked> Events
+                  </label>
+                  <label class="checkbox-option">
+                    <input type="checkbox" checked> Metrics
+                  </label>
+                  <label class="checkbox-option">
+                    <input type="checkbox"> Todos
+                  </label>
+                </div>
+              </div>
+
+              <!-- Redaction -->
+              <div class="form-group">
+                <label class="form-label">Redaction</label>
+                <div class="switch-row">
+                  <div class="form-switch on" id="redaction-toggle"></div>
+                  <div class="switch-label-group">
+                    <span class="switch-label">Enable PII redaction</span>
+                    <span class="switch-description">Automatically redact emails, API keys, and other personally identifiable information from exported data.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Output -->
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Output Path</label>
+                <input type="text" class="form-input" placeholder="/path/to/export/sessions-export.md">
+              </div>
+            </div>
+          </div>
+
+          <!-- Export Preview -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Export Preview</div>
+            <div class="section-panel-body">
+              <pre class="export-preview"># Session Export — c86fe369
+
+**Summary:** Implemented OAuth login with GitHub and Google providers
+**Model:** claude-opus-4.6
+**Duration:** 2h 15m
+**Turns:** 12
+
+## Turn 1
+**User:** Please implement the login feature with OAuth support...
+**Assistant:** I'll implement the OAuth login feature...
+
+### Tool Calls
+- ✅ view src/auth/index.ts (85ms)
+- ✅ view src/auth/providers/ (62ms)
+- ✅ view package.json (91ms)
+
+## Turn 2
+**User:** Looks good. Now add the callback handlers...
+**Assistant:** I'll add the OAuth callback handlers...
+
+### Tool Calls
+- ✅ edit src/auth/callbacks.ts (120ms)
+- ✅ edit src/auth/providers/github.ts (95ms)
+...</pre>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-bar">
+            <button class="btn">Cancel</button>
+            <button class="btn btn-primary" id="export-btn">Export 2 Sessions</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="export-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">Export Sessions</span>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Format -->
+        <div class="form-group">
+          <label class="form-label">Format</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="modal-format" value="markdown" checked> Markdown
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="modal-format" value="json"> JSON
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="modal-format" value="csv"> CSV
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="modal-format" value="html"> HTML
+            </label>
+          </div>
+        </div>
+
+        <!-- Include -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Include</label>
+          <div class="checkbox-group">
+            <label class="checkbox-option">
+              <input type="checkbox" checked> Conversation
+            </label>
+            <label class="checkbox-option">
+              <input type="checkbox" checked> Tool Calls
+            </label>
+            <label class="checkbox-option">
+              <input type="checkbox" checked> Events
+            </label>
+            <label class="checkbox-option">
+              <input type="checkbox" checked> Metrics
+            </label>
+            <label class="checkbox-option">
+              <input type="checkbox"> Todos
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="modal-cancel-btn">Cancel</button>
+        <button class="btn btn-primary">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // Sidebar
+    document.getElementById('sidebar').innerHTML = generateSidebar('export');
+
+    // Render first 5 sessions
+    const sessionList = document.getElementById('session-list');
+    MOCK_SESSIONS.slice(0, 5).forEach((session, index) => {
+      const checked = index < 2 ? 'checked' : '';
+      const shortId = session.id.split('-')[0] + '…';
+      const row = document.createElement('div');
+      row.className = 'session-row';
+      row.innerHTML = `
+        <input type="checkbox" class="session-checkbox" ${checked} data-index="${index}">
+        <div class="session-row-info">
+          <div class="session-row-summary">${session.summary}</div>
+          <div class="session-row-meta">
+            <span class="session-row-id font-mono">${shortId}</span>
+            <span class="badge badge-done">${session.currentModel}</span>
+            <span class="turns-stat">💬 ${session.turnCount} turns</span>
+          </div>
+        </div>
+      `;
+      sessionList.appendChild(row);
+    });
+
+    // Select All logic
+    const selectAllCheckbox = document.getElementById('select-all');
+    selectAllCheckbox.addEventListener('change', () => {
+      document.querySelectorAll('.session-checkbox').forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+      });
+      updateExportCount();
+    });
+
+    document.querySelectorAll('.session-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const all = document.querySelectorAll('.session-checkbox');
+        const checked = document.querySelectorAll('.session-checkbox:checked');
+        selectAllCheckbox.checked = checked.length === all.length;
+        selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < all.length;
+        updateExportCount();
+      });
+    });
+
+    function updateExportCount() {
+      const count = document.querySelectorAll('.session-checkbox:checked').length;
+      document.getElementById('export-btn').textContent = `Export ${count} Session${count !== 1 ? 's' : ''}`;
+    }
+
+    // Redaction toggle
+    document.getElementById('redaction-toggle').addEventListener('click', function () {
+      this.classList.toggle('on');
+    });
+
+    // Modal show/hide
+    const modal = document.getElementById('export-modal');
+    document.getElementById('show-modal-btn').addEventListener('click', () => {
+      modal.style.display = 'flex';
+    });
+    document.getElementById('modal-close-btn').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  </script>
+</body>
+</html>

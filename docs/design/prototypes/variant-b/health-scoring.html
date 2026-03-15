@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Health Scoring</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+  <style>
+    .health-ring-lg {
+      width:120px; height:120px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      position:relative;
+    }
+    .health-ring-lg::before {
+      content:''; position:absolute; inset:0; border-radius:50%; padding:5px;
+      background:conic-gradient(#6366f1 0%, #818cf8 calc(var(--ring-pct) * 1%), rgba(255,255,255,0.06) 0);
+      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 calc(100% - 5px));
+      mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 calc(100% - 5px));
+    }
+    .health-ring-lg .ring-value {
+      font-size:2rem; font-weight:700; font-variant-numeric:tabular-nums;
+      z-index:1; color:var(--text-primary);
+    }
+    .health-ring-lg .ring-label {
+      font-size:0.6875rem; color:var(--text-tertiary); z-index:1;
+    }
+    .attention-card {
+      background:var(--canvas-subtle); background-image:var(--gradient-card);
+      border:1px solid var(--border-default); border-radius:var(--radius-lg);
+      padding:14px 16px; display:flex; align-items:center; gap:14px;
+    }
+    .attention-ring {
+      width:44px; height:44px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      position:relative; flex-shrink:0;
+    }
+    .attention-ring::before {
+      content:''; position:absolute; inset:0; border-radius:50%; padding:3px;
+      background:conic-gradient(var(--ring-color) calc(var(--ring-pct) * 1%), rgba(255,255,255,0.06) 0);
+      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+      mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+    }
+    .attention-ring span { font-size:0.875rem; font-weight:700; z-index:1; font-variant-numeric:tabular-nums; }
+    .flag-dot { width:6px; height:6px; border-radius:2px; flex-shrink:0; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Health Scoring</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <h1 class="page-title" style="margin-bottom:20px;">Health Scoring</h1>
+
+          <!-- Large Health Ring + Stats -->
+          <div style="display:flex;align-items:center;gap:32px;margin-bottom:24px;">
+            <div class="health-ring-lg" style="--ring-pct:82;">
+              <div style="display:flex;flex-direction:column;align-items:center;">
+                <span class="ring-value">82</span>
+                <span class="ring-label">Overall</span>
+              </div>
+            </div>
+            <div class="grid-4" style="flex:1;">
+              <div class="stat-card">
+                <div class="stat-card-value success" style="font-variant-numeric:tabular-nums;">94</div>
+                <div class="stat-card-label">Success Rate</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value accent" style="font-variant-numeric:tabular-nums;">78</div>
+                <div class="stat-card-label">Efficiency</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" style="color:#fbbf24;font-variant-numeric:tabular-nums;">71</div>
+                <div class="stat-card-label">Tool Usage</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" style="color:#a78bfa;font-variant-numeric:tabular-nums;">85</div>
+                <div class="stat-card-label">Code Quality</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Needs Attention -->
+          <div style="margin-bottom:20px;">
+            <h2 class="text-title-sm" style="color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Needs Attention</h2>
+            <div class="grid-3">
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-pct:42;--ring-color:#fb7185;">
+                  <span style="color:#fb7185;">42</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.8125rem;font-weight:600;margin-bottom:2px;">DB Pooling Refactor</div>
+                  <div style="font-size:0.6875rem;color:var(--text-tertiary);">acme/api-server</div>
+                  <div style="margin-top:6px;display:flex;gap:4px;">
+                    <span class="badge badge-danger" style="font-size:0.5625rem;">High retry rate</span>
+                    <span class="badge badge-warning" style="font-size:0.5625rem;">Slow tools</span>
+                  </div>
+                </div>
+              </div>
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-pct:55;--ring-color:#fbbf24;">
+                  <span style="color:#fbbf24;">55</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.8125rem;font-weight:600;margin-bottom:2px;">GraphQL Migration</div>
+                  <div style="font-size:0.6875rem;color:var(--text-tertiary);">acme/api-server</div>
+                  <div style="margin-top:6px;display:flex;gap:4px;">
+                    <span class="badge badge-warning" style="font-size:0.5625rem;">Many edits</span>
+                  </div>
+                </div>
+              </div>
+              <div class="attention-card">
+                <div class="attention-ring" style="--ring-pct:61;--ring-color:#fbbf24;">
+                  <span style="color:#fbbf24;">61</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.8125rem;font-weight:600;margin-bottom:2px;">Webpack Optimization</div>
+                  <div style="font-size:0.6875rem;color:var(--text-tertiary);">acme/web-platform</div>
+                  <div style="margin-top:6px;display:flex;gap:4px;">
+                    <span class="badge badge-warning" style="font-size:0.5625rem;">Long duration</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Health Flag Table -->
+          <div class="section-panel">
+            <div class="section-panel-header">Health Flags</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th>Severity</th>
+                  <th>Sessions</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span class="flag-dot" style="background:#fb7185;"></span><span style="font-weight:500;">High Retry Rate</span></td>
+                  <td><span class="badge badge-danger" style="font-size:0.625rem;">Critical</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">3</td>
+                  <td style="font-size:0.75rem;color:var(--text-secondary);">Tool calls failed and were retried more than 3 times</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span class="flag-dot" style="background:#fbbf24;"></span><span style="font-weight:500;">Slow Tool Execution</span></td>
+                  <td><span class="badge badge-warning" style="font-size:0.625rem;">Warning</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">7</td>
+                  <td style="font-size:0.75rem;color:var(--text-secondary);">Average tool execution exceeded 5s threshold</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span class="flag-dot" style="background:#fbbf24;"></span><span style="font-weight:500;">Excessive Edits</span></td>
+                  <td><span class="badge badge-warning" style="font-size:0.625rem;">Warning</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">5</td>
+                  <td style="font-size:0.75rem;color:var(--text-secondary);">Same file edited more than 10 times in a session</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span class="flag-dot" style="background:#818cf8;"></span><span style="font-weight:500;">Long Duration</span></td>
+                  <td><span class="badge badge-accent" style="font-size:0.625rem;">Info</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">12</td>
+                  <td style="font-size:0.75rem;color:var(--text-secondary);">Session exceeded 2 hour threshold</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span class="flag-dot" style="background:#818cf8;"></span><span style="font-weight:500;">Blocked Todos</span></td>
+                  <td><span class="badge badge-accent" style="font-size:0.625rem;">Info</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">8</td>
+                  <td style="font-size:0.75rem;color:var(--text-secondary);">Session ended with blocked todo items</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('health');
+  </script>
+</body>
+</html>

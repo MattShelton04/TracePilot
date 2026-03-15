@@ -5,7 +5,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="rounded-lg border border-[var(--color-danger-fg)]/20 bg-[var(--color-danger-muted)] p-4 text-sm text-[var(--color-danger-fg)]">
+  <div
+    class="rounded-lg border p-4 text-sm"
+    style="border-color: var(--danger-muted); background: var(--danger-muted); color: var(--danger-fg);"
+  >
     <slot>{{ message }}</slot>
   </div>
 </template>

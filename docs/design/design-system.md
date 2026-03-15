@@ -1,174 +1,154 @@
-# TracePilot Design System
+# TracePilot Design System — Variant C
 
-> A sleek, GitHub-inspired design language for the TracePilot desktop application.
+> A modern, dark-first design language for the TracePilot desktop application.
+> Hybrid of Linear/Raycast visual polish with GitHub Primer information density.
 
 ## Table of Contents
 
 1. [Design Philosophy](#design-philosophy)
-2. [Color System](#color-system)
+2. [Color Tokens](#color-tokens)
 3. [Typography](#typography)
-4. [Spacing & Layout](#spacing--layout)
-5. [Component Library](#component-library)
-6. [Page Layouts](#page-layouts)
-7. [Responsive Strategy](#responsive-strategy)
+4. [Component Classes](#component-classes)
+5. [Spacing & Layout](#spacing--layout)
+6. [Responsive Breakpoints](#responsive-breakpoints)
+7. [Theme Support](#theme-support)
 8. [Accessibility](#accessibility)
 
 ---
 
 ## Design Philosophy
 
-TracePilot draws inspiration from **GitHub's Primer design system** while establishing its own identity as a developer tool for session inspection. The design prioritizes:
+TracePilot's **Variant C** design system combines two inspirations:
 
-- **Information density** — Show meaningful data without clutter
-- **Scanability** — Use consistent patterns so users can quickly parse session lists and details
-- **Visual hierarchy** — Distinct levels: page title → section → content → metadata
+- **Linear/Raycast polish** — Indigo accent, Inter font, gradient effects, translateY hover micro-animations
+- **GitHub Primer density** — Generous pill badges, comfortable spacing, strong semantic color mapping
+
+The result is a design that feels premium and modern while maintaining the information density needed for a developer inspection tool.
+
+### Principles
+
 - **Dark-first** — Optimized for dark theme (developer preference), with full light theme support
-- **Familiar patterns** — GitHub-like cards, tables, badges, and navigation
+- **Information density** — Show meaningful data without clutter
+- **Progressive disclosure** — Glance (session card) → Scan (detail tabs) → Commit (raw events)
+- **Familiar patterns** — Cards, tables, badges, and navigation developers already know
 
-### Brand Identity
+### Source Files
 
-TracePilot is a diagnostic/inspection tool. The design should feel like a **control panel** — organized, precise, professional. We avoid playful elements and favor a structured, data-driven aesthetic.
+- **Production CSS:** `apps/desktop/src/styles.css`
+- **Design reference:** `docs/design/prototypes/shared/design-system-c.css`
 
 ---
 
-## Color System
+## Color Tokens
 
-### Dark Theme (Default)
+All colors are defined as CSS custom properties on `:root` and overridden via `[data-theme="light"]`.
 
-```css
-:root[data-theme="dark"], :root {
-  /* Canvas / Background layers */
-  --color-canvas-default: #0d1117;        /* Page background */
-  --color-canvas-subtle: #161b22;         /* Card/panel backgrounds */
-  --color-canvas-inset: #010409;          /* Inset areas, code blocks */
-  --color-canvas-overlay: #1c2128;        /* Modals, dropdowns */
+### Canvas (Backgrounds)
 
-  /* Border */
-  --color-border-default: #30363d;
-  --color-border-muted: #21262d;
-  --color-border-subtle: #1b1f23;
+| Token | Dark | Light | Usage |
+|-------|------|-------|-------|
+| `--canvas-default` | `#09090b` | `#ffffff` | Page background |
+| `--canvas-subtle` | `#111113` | `#f4f4f5` | Card/panel backgrounds |
+| `--canvas-inset` | `#0a0a0c` | `#fafafa` | Inset areas, code blocks |
+| `--canvas-overlay` | `#18181b` | `#ffffff` | Modals, dropdowns |
+| `--canvas-raised` | `#1c1c1f` | `#ffffff` | Elevated surfaces |
 
-  /* Text */
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #8b949e;
-  --color-text-tertiary: #6e7681;
-  --color-text-link: #58a6ff;
-  --color-text-inverse: #0d1117;
+### Text
 
-  /* Accent — TracePilot blue (GitHub-aligned) */
-  --color-accent-fg: #58a6ff;
-  --color-accent-emphasis: #1f6feb;
-  --color-accent-muted: rgba(56, 139, 253, 0.15);
-  --color-accent-subtle: rgba(56, 139, 253, 0.10);
+| Token | Dark | Light | Usage |
+|-------|------|-------|-------|
+| `--text-primary` | `#fafafa` | `#18181b` | Primary content |
+| `--text-secondary` | `#a1a1aa` | `#52525b` | Secondary info, labels |
+| `--text-tertiary` | `#71717a` | `#71717a` | Muted text, placeholders |
+| `--text-placeholder` | `#52525b` | `#a1a1aa` | Input placeholders |
+| `--text-link` | `#818cf8` | `#6366f1` | Links |
+| `--text-inverse` | `#09090b` | `#fafafa` | Text on colored backgrounds |
 
-  /* Semantic colors */
-  --color-success-fg: #3fb950;
-  --color-success-emphasis: #238636;
-  --color-success-muted: rgba(63, 185, 80, 0.15);
+### Borders
 
-  --color-warning-fg: #d29922;
-  --color-warning-emphasis: #9e6a03;
-  --color-warning-muted: rgba(210, 153, 34, 0.15);
+| Token | Dark | Light | Usage |
+|-------|------|-------|-------|
+| `--border-default` | `rgba(255,255,255,0.10)` | `rgba(0,0,0,0.10)` | Card/panel borders |
+| `--border-muted` | `rgba(255,255,255,0.06)` | `rgba(0,0,0,0.06)` | Subtle separators |
+| `--border-subtle` | `rgba(255,255,255,0.04)` | `rgba(0,0,0,0.04)` | Very subtle dividers |
+| `--border-accent` | `rgba(99,102,241,0.5)` | `rgba(99,102,241,0.4)` | Focus/active borders |
+| `--border-glow` | `rgba(99,102,241,0.15)` | `rgba(99,102,241,0.10)` | Hover glow effect |
 
-  --color-danger-fg: #f85149;
-  --color-danger-emphasis: #da3633;
-  --color-danger-muted: rgba(248, 81, 73, 0.10);
+### Semantic Colors
 
-  --color-done-fg: #a371f7;
-  --color-done-emphasis: #8957e5;
-  --color-done-muted: rgba(163, 113, 247, 0.15);
+Each semantic palette has four tokens: `-fg` (text), `-emphasis` (strong fill), `-muted` (background), `-subtle` (very faint).
 
-  /* Neutral scales for badges/labels */
-  --color-neutral-fg: #8b949e;
-  --color-neutral-emphasis: #6e7681;
-  --color-neutral-muted: rgba(110, 118, 129, 0.20);
+#### Accent (Indigo) — Primary brand, repo badges, links
 
-  /* Header */
-  --color-header-bg: #161b22;
-  --color-header-border: #30363d;
+| Token | Dark | Light |
+|-------|------|-------|
+| `--accent-fg` | `#818cf8` | `#6366f1` |
+| `--accent-emphasis` | `#6366f1` | `#4f46e5` |
+| `--accent-muted` | `rgba(99,102,241,0.25)` | `rgba(99,102,241,0.15)` |
+| `--accent-subtle` | `rgba(99,102,241,0.10)` | `rgba(99,102,241,0.06)` |
 
-  /* Sidebar */
-  --color-sidebar-bg: #0d1117;
-  --color-sidebar-border: #21262d;
-  --color-sidebar-active: rgba(56, 139, 253, 0.15);
-  --color-sidebar-hover: rgba(177, 186, 196, 0.08);
+#### Success (Emerald) — Branches, completion, progress
 
-  /* Shadow */
-  --color-shadow-sm: 0 1px 0 rgba(27, 31, 35, 0.04);
-  --color-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.3);
-  --color-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-```
+| Token | Dark | Light |
+|-------|------|-------|
+| `--success-fg` | `#34d399` | `#059669` |
+| `--success-emphasis` | `#10b981` | `#047857` |
+| `--success-muted` | `rgba(16,185,129,0.25)` | `rgba(16,185,129,0.15)` |
+| `--success-subtle` | `rgba(16,185,129,0.10)` | `rgba(16,185,129,0.06)` |
 
-### Light Theme
+#### Warning (Amber) — Costs, caution, premium requests
 
-```css
-:root[data-theme="light"] {
-  --color-canvas-default: #ffffff;
-  --color-canvas-subtle: #f6f8fa;
-  --color-canvas-inset: #eff2f5;
-  --color-canvas-overlay: #ffffff;
+| Token | Dark | Light |
+|-------|------|-------|
+| `--warning-fg` | `#fbbf24` | `#d97706` |
+| `--warning-emphasis` | `#f59e0b` | `#b45309` |
+| `--warning-muted` | `rgba(245,158,11,0.25)` | `rgba(245,158,11,0.15)` |
+| `--warning-subtle` | `rgba(245,158,11,0.10)` | `rgba(245,158,11,0.06)` |
 
-  --color-border-default: #d0d7de;
-  --color-border-muted: #d8dee4;
-  --color-border-subtle: #e8e8e8;
+#### Danger (Rose) — Errors, failures, critical flags
 
-  --color-text-primary: #1f2328;
-  --color-text-secondary: #636c76;
-  --color-text-tertiary: #8c959f;
-  --color-text-link: #0969da;
-  --color-text-inverse: #ffffff;
+| Token | Dark | Light |
+|-------|------|-------|
+| `--danger-fg` | `#fb7185` | `#e11d48` |
+| `--danger-emphasis` | `#f43f5e` | `#be123c` |
+| `--danger-muted` | `rgba(244,63,94,0.25)` | `rgba(244,63,94,0.15)` |
+| `--danger-subtle` | `rgba(244,63,94,0.10)` | `rgba(244,63,94,0.06)` |
 
-  --color-accent-fg: #0969da;
-  --color-accent-emphasis: #0550ae;
-  --color-accent-muted: rgba(9, 105, 218, 0.12);
-  --color-accent-subtle: rgba(9, 105, 218, 0.08);
+#### Done (Violet) — Model names, completed states
 
-  --color-success-fg: #1a7f37;
-  --color-success-emphasis: #1a7f37;
-  --color-success-muted: rgba(26, 127, 55, 0.12);
+| Token | Dark | Light |
+|-------|------|-------|
+| `--done-fg` | `#a78bfa` | `#7c3aed` |
+| `--done-emphasis` | `#8b5cf6` | `#6d28d9` |
+| `--done-muted` | `rgba(139,92,246,0.25)` | `rgba(139,92,246,0.15)` |
+| `--done-subtle` | `rgba(139,92,246,0.10)` | `rgba(139,92,246,0.06)` |
 
-  --color-warning-fg: #9a6700;
-  --color-warning-emphasis: #7d4e00;
-  --color-warning-muted: rgba(154, 103, 0, 0.12);
+#### Neutral — Host type badges, misc labels
 
-  --color-danger-fg: #d1242f;
-  --color-danger-emphasis: #cf222e;
-  --color-danger-muted: rgba(209, 36, 47, 0.10);
+| Token | Dark | Light |
+|-------|------|-------|
+| `--neutral-fg` | `#a1a1aa` | `#52525b` |
+| `--neutral-emphasis` | `#71717a` | `#3f3f46` |
+| `--neutral-muted` | `rgba(113,113,122,0.25)` | `rgba(113,113,122,0.15)` |
+| `--neutral-subtle` | `rgba(113,113,122,0.10)` | `rgba(113,113,122,0.06)` |
 
-  --color-done-fg: #8250df;
-  --color-done-emphasis: #6639ba;
-  --color-done-muted: rgba(130, 80, 223, 0.12);
+### Shadows & Glows
 
-  --color-neutral-fg: #636c76;
-  --color-neutral-emphasis: #57606a;
-  --color-neutral-muted: rgba(99, 108, 118, 0.12);
+| Token | Value |
+|-------|-------|
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.3)` |
+| `--shadow-md` | `0 4px 12px rgba(0,0,0,0.4)` |
+| `--shadow-lg` | `0 8px 24px rgba(0,0,0,0.5)` |
+| `--shadow-glow-accent` | `0 0 20px rgba(99,102,241,0.15)` |
+| `--shadow-glow-success` | `0 0 20px rgba(16,185,129,0.15)` |
 
-  --color-header-bg: #f6f8fa;
-  --color-header-border: #d0d7de;
+### Gradients
 
-  --color-sidebar-bg: #ffffff;
-  --color-sidebar-border: #d0d7de;
-  --color-sidebar-active: rgba(9, 105, 218, 0.12);
-  --color-sidebar-hover: rgba(208, 215, 222, 0.32);
-
-  --color-shadow-sm: 0 1px 0 rgba(27, 31, 35, 0.04);
-  --color-shadow-md: 0 3px 6px rgba(140, 149, 159, 0.15);
-  --color-shadow-lg: 0 8px 24px rgba(140, 149, 159, 0.20);
-}
-```
-
-### Semantic Color Usage
-
-| Purpose | Variable | Example Usage |
-|---------|----------|---------------|
-| Repo name badge | `--color-accent-fg` | Blue text on subtle blue bg |
-| Branch name badge | `--color-success-fg` | Green text on subtle green bg |
-| Model name badge | `--color-done-fg` | Purple text on subtle purple bg |
-| Host type badge | `--color-neutral-fg` | Gray text on subtle gray bg |
-| Error states | `--color-danger-fg` | Red borders, text |
-| Warnings / premium | `--color-warning-fg` | Amber for costs, warnings |
-| Event types | Per-prefix mapping | session=blue, user=green, assistant=purple, tool=amber |
+| Token | Value |
+|-------|-------|
+| `--gradient-accent` | `linear-gradient(135deg, #6366f1, #8b5cf6)` |
+| `--gradient-card` | `linear-gradient(145deg, var(--canvas-subtle), var(--canvas-default))` |
+| `--gradient-surface` | `linear-gradient(180deg, var(--canvas-subtle) 0%, var(--canvas-default) 100%)` |
 
 ---
 
@@ -177,33 +157,170 @@ TracePilot is a diagnostic/inspection tool. The design should feel like a **cont
 ### Font Stack
 
 ```css
---font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
---font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+--font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
 ```
+
+Inter is bundled locally (no CDN dependency). Monospace code uses JetBrains Mono with Fira Code fallback.
 
 ### Type Scale
 
-| Name | Size | Weight | Line Height | Usage |
-|------|------|--------|-------------|-------|
-| `display` | 24px (1.5rem) | 700 | 1.25 | Page titles only |
-| `title-lg` | 20px (1.25rem) | 600 | 1.3 | Session title in detail view |
-| `title-md` | 16px (1rem) | 600 | 1.4 | Section headings, card titles |
-| `title-sm` | 14px (0.875rem) | 600 | 1.5 | Sub-section headings |
-| `body` | 14px (0.875rem) | 400 | 1.5 | Default body text |
-| `body-sm` | 12px (0.75rem) | 400 | 1.5 | Secondary info, timestamps |
-| `caption` | 11px (0.6875rem) | 500 | 1.4 | Badges, labels, counters |
+| Class | Size | Weight | Line Height | Usage |
+|-------|------|--------|-------------|-------|
+| `.text-display` | 1.5rem (24px) | 600 | 1.3 | Page titles |
+| `.text-title-lg` | 1.125rem (18px) | 600 | 1.4 | Section headings |
+| `.text-title-md` | 0.9375rem (15px) | 600 | 1.4 | Card titles, sub-headings |
+| `.text-title-sm` | 0.8125rem (13px) | 600 | 1.4 | Minor headings |
+| `.text-body` | 0.8125rem (13px) | 400 | 1.55 | Default body text |
+| `.text-body-sm` | 0.75rem (12px) | 400 | 1.5 | Secondary info, timestamps |
+| `.text-caption` | 0.6875rem (11px) | 500 | 1.4 | Badges, labels, counters |
 
-### Tailwind Classes Mapping
+### Letter Spacing
 
-```
-display    → text-2xl font-bold
-title-lg   → text-xl font-semibold
-title-md   → text-base font-semibold
-title-sm   → text-sm font-semibold
-body       → text-sm
-body-sm    → text-xs
-caption    → text-[11px] font-medium
-```
+Variant C uses `-0.02em` letter-spacing globally — relaxed from Linear's -0.03em, tighter than Primer's 0.
+
+---
+
+## Component Classes
+
+### Cards & Containers
+
+| Class | Description |
+|-------|-------------|
+| `.card` | Base card — `--canvas-subtle` bg, `--border-default` border, `--radius-md` corners |
+| `.card-interactive` | Extends `.card` with hover: `translateY(-1px)`, accent border glow |
+| `.section-panel` | Bordered content section with optional `.section-panel-header` |
+| `.chart-container` | Min-height 220px container for SVG/canvas charts |
+
+### Badges
+
+| Class | Color | Usage |
+|-------|-------|-------|
+| `.badge` | Base style | 0.6875rem font, 2px 8px padding, `--radius-full` |
+| `.badge-accent` | Indigo | Repo names |
+| `.badge-success` | Emerald | Branch names |
+| `.badge-done` | Violet | Model names |
+| `.badge-neutral` | Gray | Host type, misc |
+| `.badge-warning` | Amber | Costs, premium |
+| `.badge-danger` | Rose | Errors, failures |
+
+Event badges (`.event-badge`) use a smaller 0.625rem size with prefix-based coloring:
+
+| Class | Color | Prefix |
+|-------|-------|--------|
+| `.event-session` | Indigo | `session.*` events |
+| `.event-user` | Emerald | `user.*` events |
+| `.event-assistant` | Violet | `assistant.*` events |
+| `.event-tool` | Amber | `tool.*` events |
+| `.event-context` | Gray | `context.*` events |
+| `.event-subagent` | Rose | `subagent.*` events |
+
+### Stat Cards
+
+| Class | Description |
+|-------|-------------|
+| `.stat-card` | Compact metric display with 14px padding |
+| `.stat-card-value` | Large number — 1.5rem, weight 700 |
+| `.stat-card-value.accent` | Indigo value |
+| `.stat-card-value.success` | Emerald value |
+| `.stat-card-value.warning` | Amber value |
+| `.stat-card-value.danger` | Rose value |
+| `.stat-card-value.done` | Violet value |
+| `.stat-card-label` | 0.6875rem label, tertiary text |
+| `.stat-card-trend` | Optional trend indicator (`.up` green, `.down` red) |
+
+### Data Table
+
+| Class | Description |
+|-------|-------------|
+| `.data-table` | Full-width table with `border-collapse: separate` |
+| `.data-table th` | Sticky header, 0.6875rem uppercase, tertiary text |
+| `.data-table td` | 9px 14px padding, `--border-muted` separators |
+| `.data-table tbody tr:hover` | Subtle row highlight |
+
+### Progress & Health
+
+| Class | Description |
+|-------|-------------|
+| `.progress-bar` | 6px height track |
+| `.progress-bar-fill` | Accent gradient fill, animatable width |
+| `.health-ring` | 56px ring using `conic-gradient`, driven by `--ring-color` and `--ring-pct` |
+
+### Buttons
+
+| Class | Description |
+|-------|-------------|
+| `.btn` | Base button — 6px padding, 1px border |
+| `.btn-primary` | Accent gradient fill, inverse text |
+| `.btn-ghost` | Transparent, subtle hover |
+| `.btn-sm` | Compact 4px padding variant |
+| `.btn-group` | Horizontal button group with `.btn.active` state |
+| `.transport-btn` | Media playback transport controls |
+
+### Forms
+
+| Class | Description |
+|-------|-------------|
+| `.form-group` | Label + input wrapper, 16px bottom margin |
+| `.form-label` | 0.75rem, weight 500, tertiary text |
+| `.form-input` | 7px padding, accent focus ring |
+| `.form-switch` | 36×20px toggle switch, `.on` for active state |
+| `.filter-select` | Custom-styled `<select>` for toolbar filters |
+| `.search-container` | Search bar with `.search-icon`, `.search-input`, `.search-shortcut` |
+
+### Conversation
+
+| Class | Description |
+|-------|-------------|
+| `.turn-group` | Conversation turn container, 16px gap |
+| `.turn-item` | Single turn wrapper |
+| `.turn-avatar.user` | Success-colored user avatar |
+| `.turn-avatar.assistant` | Done-colored assistant avatar |
+| `.turn-bubble.user` | Canvas-subtle background |
+| `.turn-bubble.assistant` | Canvas-inset background |
+| `.role-badge` / `.role-badge-sm` | User/assistant/tool role indicators |
+
+### Tool Calls
+
+| Class | Description |
+|-------|-------------|
+| `.tool-calls-container` | Bordered container for tool call list |
+| `.tool-call-header` | Clickable header (cursor: pointer) |
+| `.tool-call-item` | Individual tool call row |
+| `.tool-call-status.success` | Green checkmark |
+| `.tool-call-status.failed` | Red X mark |
+| `.tool-call-duration` | 0.625rem, tabular-nums for alignment |
+
+### Data Visualization
+
+| Class | Description |
+|-------|-------------|
+| `.token-bar` | Horizontal bar chart for token distribution |
+| `.timeline-scrubber` | Playback timeline with `.timeline-track`, `.timeline-progress`, `.timeline-thumb` |
+| `.swimlane` | Horizontal swimlane with `.swimlane-label`, `.swimlane-track`, `.swimlane-bar` |
+| `.diff-panel` / `.diff-side` | Side-by-side comparison layout |
+
+### Navigation
+
+| Class | Description |
+|-------|-------------|
+| `.sidebar` | 240px fixed sidebar, collapses at 900px |
+| `.sidebar-nav-item` | Nav link, `.active` shows accent left border + highlight |
+| `.sidebar-nav-badge` | Count badge on nav items |
+| `.breadcrumb` | Path breadcrumb with `.breadcrumb-sep`, `.breadcrumb-current` |
+| `.tab-nav` | Tab bar with `.tab-nav-item`, `.tab-count` badges |
+
+### Utility Classes
+
+| Class | Description |
+|-------|-------------|
+| `.grid-2` / `.grid-3` / `.grid-4` | Fixed-column grids, 14px gap |
+| `.grid-cards` | Auto-fill responsive grid, `minmax(300px, 1fr)` |
+| `.flex` / `.flex-col` | Flexbox helpers |
+| `.gap-1` … `.gap-8` | Gap scale: 4px to 28px |
+| `.truncate` | Single-line text overflow ellipsis |
+| `.skeleton` | Pulsing loading placeholder |
+| `.fade-in` | 0.2s fadeIn animation |
+| `.gradient-value` | Gradient background-clip text effect |
 
 ---
 
@@ -211,533 +328,184 @@ caption    → text-[11px] font-medium
 
 ### Spacing Scale
 
-Use Tailwind's default spacing with these conventions:
-- `gap-1` (4px) — Between related inline items (badge text + icon)
-- `gap-2` (8px) — Between badges, small items
-- `gap-3` (12px) — Between card sections
-- `gap-4` (16px) — Between cards, standard section gap
-- `gap-6` (24px) — Between major sections
-- `gap-8` (32px) — Between page regions
+| Token | Value | Usage |
+|-------|-------|-------|
+| `gap-1` | 4px | Between related inline items |
+| `gap-2` | 8px | Between badges, small items |
+| `gap-3` | 12px | Between card sections |
+| `gap-4` | 16px | Between cards, standard section gap |
+| `gap-6` | 24px | Between major sections |
+| `gap-8` | 28px | Between page regions |
 
 ### Border Radius
 
-- **Cards/Panels**: `rounded-lg` (8px) — consistent everywhere
-- **Badges/Pills**: `rounded-full` — fully rounded
-- **Buttons**: `rounded-md` (6px) — slightly smaller than cards
-- **Tables**: `rounded-lg` on outer container, square inner cells
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--radius-sm` | 6px | Buttons, small elements |
+| `--radius-md` | 8px | Cards, panels |
+| `--radius-lg` | 10px | Large containers |
+| `--radius-xl` | 12px | Modals, overlays |
+| `--radius-full` | 9999px | Pill badges |
 
-### Layout Grid
+### Layout Structure
 
-The app uses a **sidebar + main content** layout:
+| Token | Value |
+|-------|-------|
+| `--sidebar-width` | 240px |
+| `--sidebar-collapsed` | 56px |
+| `--content-max-width` | 1200px |
 
 ```
-┌────────────────────────────────────────────────────┐
-│ Header (48px)                                      │
-├─────────┬──────────────────────────────────────────┤
-│ Sidebar │ Main Content Area                        │
-│ (240px) │                                          │
-│         │  ┌──────────────────────────────────────┐│
-│ ≡ Nav   │  │ Page content with max-width: 1280px  ││
-│         │  │                                      ││
-│         │  └──────────────────────────────────────┘│
-│         │                                          │
-└─────────┴──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ (no fixed header — sidebar-only navigation)      │
+├─────────┬────────────────────────────────────────┤
+│ Sidebar │ Main Content Area                      │
+│ (240px) │                                        │
+│         │  max-width: 1200px, centered           │
+│ ≡ Nav   │  padding: 24px                         │
+│         │                                        │
+└─────────┴────────────────────────────────────────┘
 ```
 
-- **Header**: Fixed, 48px height, full width
-- **Sidebar**: Fixed, 240px width, collapsible to icon-only (48px) at <1024px
-- **Main content**: Fluid, scrollable, max-width 1280px, centered
+### Transitions
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--transition-fast` | 100ms ease | Hover states, micro-interactions |
+| `--transition-normal` | 180ms ease | Panels, tab switches |
+| `--transition-slow` | 280ms ease | Page transitions, overlays |
+
+### Z-Index Stack
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--z-sidebar` | 40 | Sidebar navigation |
+| `--z-header` | 50 | Fixed header (if present) |
+| `--z-overlay` | 60 | Backdrop overlays |
+| `--z-modal` | 70 | Modal dialogs |
+| `--z-tooltip` | 80 | Tooltips, popovers |
 
 ---
 
-## Component Library
+## Responsive Breakpoints
 
-### 1. AppHeader
+Two breakpoints control layout adaptation:
 
-Top navigation bar with logo, breadcrumbs, theme toggle, and session count.
+### ≤ 1200px (Tablet / Medium)
 
-```
-┌──────────────────────────────────────────────────────┐
-│ 🔍 TracePilot          Sessions (76)  🌙/☀️  ⚙️    │
-└──────────────────────────────────────────────────────┘
-```
+- `.grid-4` → 2 columns
+- `.grid-3` → 2 columns
+- Stat grids compress
 
-**Specs:**
-- Height: 48px
-- Background: `--color-header-bg`
-- Border bottom: `--color-header-border`
-- Logo: Bold accent text, no icon initially
-- Right side: theme toggle button, settings (future)
+### ≤ 900px (Mobile / Narrow)
 
-### 2. AppSidebar
-
-Left navigation with route links and session quick stats.
-
-```
-┌─────────────┐
-│ ◉ Sessions  │ ← Active state with accent bg
-│ 🔍 Search   │
-│             │
-│ ─────────── │
-│ STATS       │
-│ 76 sessions │
-│ 3 repos     │
-│ 12 branches │
-└─────────────┘
-```
-
-**Specs:**
-- Width: 240px (desktop), collapses to 48px (tablet)
-- Hidden on mobile (<768px), becomes hamburger menu
-- Active item: left border accent + subtle accent bg
-- Navigation items: 12px icon + 14px label
-
-### 3. SessionCard (Redesigned)
-
-The primary card for session lists. Information-dense but scanable.
-
-```
-┌────────────────────────────────────────────────┐
-│ Implemented login feature with OAuth           │
-│                                                │
-│ [example/project] [main] [cli] [opus-4.6]     │
-│                                                │
-│ 2,450 events · 12 turns · +54/-12 lines       │
-│                                            1h  │
-└────────────────────────────────────────────────┘
-```
-
-**Specs:**
-- Background: `--color-canvas-subtle`
-- Border: `--color-border-default`, accent on hover
-- Title: `title-md` weight, single line truncated
-- Badges: Pill badges with semantic colors
-- Stats row: `body-sm` muted text with dot separators
-- Relative time: bottom-right, muted
-- Hover: border accent + subtle elevation (shadow-sm)
-- Active/Selected: accent left border (2px)
-
-### 4. Badge
-
-Reusable pill badge for metadata.
-
-**Variants:**
-| Variant | Text Color | Background | Usage |
-|---------|-----------|------------|-------|
-| `accent` | `--color-accent-fg` | `--color-accent-muted` | Repo names |
-| `success` | `--color-success-fg` | `--color-success-muted` | Branch names |
-| `done` | `--color-done-fg` | `--color-done-muted` | Model names |
-| `neutral` | `--color-neutral-fg` | `--color-neutral-muted` | Host type, misc |
-| `warning` | `--color-warning-fg` | `--color-warning-muted` | Premium, costs |
-| `danger` | `--color-danger-fg` | `--color-danger-muted` | Errors, failures |
-
-**Specs:**
-- Padding: `px-2 py-0.5`
-- Font: `caption` (11px, font-medium)
-- Border radius: `rounded-full`
-- No border, background-only
-
-### 5. StatCard
-
-Compact stat display for overview metrics.
-
-```
-┌──────────────┐
-│     2,450    │
-│    Events    │
-│   ▲ 12%     │
-└──────────────┘
-```
-
-**Specs:**
-- Value: `text-2xl font-bold`, semantic color
-- Label: `body-sm text-secondary`
-- Optional trend indicator: small text below
-- Background: `--color-canvas-subtle`
-- Border: `--color-border-default`
-
-### 6. DataTable
-
-For events, models, and other tabular data.
-
-**Specs:**
-- Container: `rounded-lg` border, no outer padding
-- Header: `--color-canvas-subtle` bg, uppercase `caption` text
-- Rows: alternate hover state, `--color-border-muted` separators
-- Cells: `px-4 py-2.5` padding
-- Sortable columns: caret indicator, cursor pointer
-- Sticky header on scroll
-
-### 7. TabNav (Existing, to be used)
-
-Route-aware tab navigation for session detail sub-pages.
-
-**Specs:**
-- Border bottom: `--color-border-default`
-- Active tab: accent bottom border (2px), accent text
-- Inactive: secondary text, hover to primary
-- Counter badges: neutral pill badges next to tab labels (e.g., "Events (2,450)")
-
-### 8. SearchBar
-
-Unified search with icon, clear button, and keyboard shortcut hint.
-
-```
-┌───────────────────────────────────────┐
-│ 🔍 Search sessions...        ⌘K      │
-└───────────────────────────────────────┘
-```
-
-**Specs:**
-- Full width within its container
-- Left icon: magnifying glass, `text-tertiary`
-- Placeholder: `text-tertiary`
-- Border: `--color-border-default`, focus: accent
-- Background: `--color-canvas-default` (not inset)
-- Clear button (×) appears when text present
-- `Ctrl+K` / `⌘K` hint on right
-
-### 9. ProgressBar
-
-For todo completion tracking.
-
-**Specs:**
-- Height: 8px
-- Background: `--color-border-muted`
-- Fill: `--color-success-emphasis`
-- Border radius: `rounded-full`
-- Segmented option: colored segments for each status
-
-### 10. ConversationBubble
-
-Chat-style display for conversation turns.
-
-```
-┌─ User ──────────────────────────────────────┐
-│ Can you fix the login page?                 │
-└─────────────────────────────────────────────┘
-
-    ┌─ Assistant (claude-opus-4.6) ─── 2m 34s ─┐
-    │ I'll fix the login page. Let me check     │
-    │ the current implementation...              │
-    │                                            │
-    │ ▸ 5 tool calls                             │
-    └────────────────────────────────────────────┘
-```
-
-**Specs:**
-- User messages: left-aligned, `--color-canvas-subtle` bg
-- Assistant messages: left-aligned, slight indent, `--color-canvas-inset` bg
-- Turn header: `body-sm` with turn number, model badge, duration
-- Tool calls: collapsible section below message
-- Expand/collapse: chevron icon, smooth transition
-
-### 11. EventRow
-
-Compact event display with type coloring.
-
-**Specs:**
-- Type badge: colored per prefix (session=accent, user=success, assistant=done, tool=warning)
-- Timestamp: `body-sm` muted
-- ID: monospace, truncated
-- Hover: subtle highlight
-- Optional: expand to show full event data JSON
-
-### 12. StatusIcon
-
-SVG icons for todo status (replacing emojis).
-
-| Status | Icon | Color |
-|--------|------|-------|
-| `done` | ✓ checkmark circle | `--color-success-fg` |
-| `in_progress` | ◐ half circle / spinner | `--color-accent-fg` |
-| `blocked` | ⊘ no-entry circle | `--color-danger-fg` |
-| `pending` | ○ empty circle | `--color-text-tertiary` |
-
----
-
-## Page Layouts
-
-### Page 1: Session List (Home)
-
-The primary page. Shows all sessions in a scanable grid.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ Sessions                                                  76 total │
-│                                                                    │
-│ ┌──────────────────────────────────────────────────────────────┐   │
-│ │ 🔍 Search sessions...                               ⌘K     │   │
-│ └──────────────────────────────────────────────────────────────┘   │
-│                                                                    │
-│ [All repos ▾] [All branches ▾] [Recently updated ▾] [↻ Reindex]  │
-│                                                                    │
-│ ┌─────────────────────────┐ ┌─────────────────────────┐           │
-│ │ Impl login with OAuth   │ │ Fixed CSS layout issues  │           │
-│ │ [repo] [main] [opus]    │ │ [frontend] [feat] [gpt]  │           │
-│ │ 2450 events · 12 turns  │ │ 890 events · 5 turns     │           │
-│ │                     1h  │ │                     2h   │           │
-│ └─────────────────────────┘ └─────────────────────────┘           │
-│ ┌─────────────────────────┐                                       │
-│ │ Set up CI/CD pipeline   │                                       │
-│ │ [infra] [devops] [sonnet│                                       │
-│ │ 4200 events · 22 turns  │                                       │
-│ │                     1d  │                                       │
-│ └─────────────────────────┘                                       │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-**Key changes from current:**
-- Remove the giant magnifying glass SVG background
-- Search bar at top, prominent but not dominating
-- Filter bar below search, compact single row
-- Session count in page header
-- Cards in responsive grid (1-3 columns)
-- Better empty state
-
-### Page 2: Session Detail — Overview Tab
-
-Two-column layout with session info and quick stats.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ ← Back to Sessions                                                │
-│                                                                    │
-│ Implemented login feature with OAuth                              │
-│ [example/project] [main] [cli] [claude-opus-4.6]                  │
-│                                                                    │
-│ [Overview] [Conversation] [Events] [Todos] [Metrics]              │
-│ ──────────────────────────────────────────────────────             │
-│                                                                    │
-│ ┌─ Session Info ─────────┐ ┌───────┐ ┌───────┐                   │
-│ │ ID        abc-123-def  │ │ 2,450 │ │  12   │                   │
-│ │ Repo      example/proj │ │Events │ │Turns  │                   │
-│ │ Branch    main         │ ├───────┤ ├───────┤                   │
-│ │ CWD       /Users/...   │ │   3   │ │  1.3  │                   │
-│ │ Host      cli          │ │Checks │ │Premiu │                   │
-│ │ Created   Mar 14 10:30 │ └───────┘ └───────┘                   │
-│ │ Updated   Mar 14 12:45 │                                        │
-│ └────────────────────────┘ ┌─ Summary ─────────────┐             │
-│                            │ API Duration    2m 34s │             │
-│ ┌─ Checkpoints (3) ─────┐ │ Current Model opus-4.6│             │
-│ │ ① Phase 1 complete    │ │ Shutdown       normal  │             │
-│ │ ② Added auth module   │ │ Code     +54 -12 lines │             │
-│ │ ③ Fixed tests         │ └────────────────────────┘             │
-│ └────────────────────────┘                                        │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Page 3: Session Detail — Conversation Tab
-
-Chat-style conversation with collapsible tool calls.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ [Overview] [Conversation] [Events] [Todos] [Metrics]              │
-│ ──────────────────────────────────────────────────────             │
-│                                                                    │
-│ Turn 1                                     claude-opus-4.6  2m 34s│
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ 👤 User                                                     │   │
-│ │ Can you implement the login feature with OAuth?             │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-│                                                                    │
-│   ┌──────────────────────────────────────────────────────────┐    │
-│   │ 🤖 Assistant                                              │    │
-│   │ I'll implement the OAuth login. Let me start by checking  │    │
-│   │ the current auth setup...                                 │    │
-│   │                                                            │    │
-│   │ ▸ 5 tool calls (3 ✓, 1 ✗, 1 pending)                     │    │
-│   │   ├─ read_file src/auth.ts ✓ 120ms                       │    │
-│   │   ├─ edit_file src/auth.ts ✓ 340ms                       │    │
-│   │   ├─ run_command npm test ✗ 2.1s  "Error: ..."           │    │
-│   │   ├─ edit_file src/auth.ts ✓ 280ms                       │    │
-│   │   └─ run_command npm test ✓ 1.8s                         │    │
-│   └──────────────────────────────────────────────────────────┘    │
-│                                                                    │
-│ Turn 2                                     claude-opus-4.6  1m 12s│
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ 👤 User                                                     │   │
-│ │ Great, now add unit tests for the login module.             │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Page 4: Session Detail — Events Tab
-
-Table view with type filtering and pagination.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ [Overview] [Conversation] [Events] [Todos] [Metrics]              │
-│ ──────────────────────────────────────────────────────             │
-│                                                                    │
-│ [All types ▾]                    100 of 2,450 events              │
-│                                                                    │
-│ ┌─────┬─────────────────────┬──────────┬────────────────────────┐ │
-│ │  #  │ Type                │ Time     │ ID                     │ │
-│ ├─────┼─────────────────────┼──────────┼────────────────────────┤ │
-│ │  1  │ session.start       │ 10:30:01 │ evt-abc-123            │ │
-│ │  2  │ user.message        │ 10:30:02 │ evt-def-456            │ │
-│ │  3  │ assistant.turn_start│ 10:30:03 │ evt-ghi-789            │ │
-│ │  4  │ tool.execution_start│ 10:30:04 │ evt-jkl-012            │ │
-│ │  5  │ tool.execution_compl│ 10:30:05 │ evt-mno-345            │ │
-│ └─────┴─────────────────────┴──────────┴────────────────────────┘ │
-│                                                                    │
-│ [← Previous]          Page 1 of 25           [Next →]             │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Page 5: Session Detail — Todos Tab
-
-Progress tracking with status icons and dependencies.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ [Overview] [Conversation] [Events] [Todos] [Metrics]              │
-│ ──────────────────────────────────────────────────────             │
-│                                                                    │
-│ 7/12 completed                                                    │
-│ [████████████████████░░░░░░░░░░]  58%                             │
-│                                                                    │
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ ✓ Create user auth module                           done    │   │
-│ │   Implement JWT-based authentication in src/auth/           │   │
-│ │   ID: user-auth                                             │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ ◐ Add API routes                                in_progress │   │
-│ │   Create REST endpoints for login, logout, refresh          │   │
-│ │   Depends on: [Create user auth module]                     │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ ○ Write integration tests                        pending    │   │
-│ │   End-to-end tests for all auth flows                       │   │
-│ │   Depends on: [Add API routes]                              │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Page 6: Session Detail — Metrics Tab
-
-Model usage, tokens, and performance data.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ [Overview] [Conversation] [Events] [Todos] [Metrics]              │
-│ ──────────────────────────────────────────────────────             │
-│                                                                    │
-│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐             │
-│ │  1.2M    │ │    47    │ │   1.3    │ │    3     │             │
-│ │ Tokens   │ │ Requests │ │ Premium  │ │ Models   │             │
-│ └──────────┘ └──────────┘ └──────────┘ └──────────┘             │
-│                                                                    │
-│ ┌─────────────────────────────────────────────────────────────┐   │
-│ │ Model          │ Req │ Input  │ Output │ Cache │ Total │Cost│   │
-│ ├────────────────┼─────┼────────┼────────┼───────┼───────┼────│   │
-│ │ claude-opus-4.6│  32 │ 892.3K │  45.2K │ 234K  │ 937.5K│0.87│  │
-│ │ gpt-5.4        │  15 │ 234.1K │  23.4K │  89K  │ 257.5K│0.46│  │
-│ └────────────────┴─────┴────────┴────────┴───────┴───────┴────┘   │
-│                                                                    │
-│ Token Distribution                                                │
-│ claude-opus-4.6  [████████████████████████░░░░░]  78%   937.5K   │
-│ gpt-5.4          [███████░░░░░░░░░░░░░░░░░░░░░░]  22%   257.5K   │
-│                                                                    │
-│ ┌─ Code Changes ──────────────────────────────────────────────┐   │
-│ │ +54 lines added  -12 lines removed  3 files modified        │   │
-│ │ src/auth/login.ts · src/auth/oauth.ts · src/auth/index.ts   │   │
-│ └─────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Responsive Strategy
-
-### Breakpoints
-
-| Name | Width | Layout Changes |
-|------|-------|----------------|
-| `sm` | <768px | Sidebar hidden → hamburger menu, single column grid, stacked filters |
-| `md` | 768–1023px | Sidebar collapsed (48px, icons only), 2-column card grid |
-| `lg` | 1024–1279px | Sidebar expanded (240px), 2-column card grid |
-| `xl` | ≥1280px | Full layout, 3-column card grid, max-width content |
-
-### Key Responsive Rules
-
-1. **Header**: Always visible, full width
-2. **Sidebar**: 240px → 48px → hidden (with hamburger toggle)
-3. **Session grid**: 3 cols → 2 cols → 1 col
-4. **Detail layout**: 2 cols → stacked
-5. **Tables**: Horizontal scroll on small screens
-6. **Filter bar**: Wraps to multiple rows on narrow screens
-
----
-
-## Accessibility
-
-### Requirements
-
-1. **Keyboard navigation**: All interactive elements focusable, logical tab order
-2. **Focus indicators**: Visible focus ring (2px accent outline, 2px offset)
-3. **Semantic HTML**: Proper heading hierarchy, landmark roles, aria-labels
-4. **Status icons**: SVG icons with `aria-label` (no emoji)
-5. **Color contrast**: WCAG AA minimum (4.5:1 for text, 3:1 for UI)
-6. **Screen reader**: Meaningful alt text, aria-live for dynamic content
-7. **Reduced motion**: Respect `prefers-reduced-motion` for transitions
-
-### Focus Style
+- `.grid-4`, `.grid-3`, `.grid-2` → 1 column
+- `.grid-cards` → single column
+- `.sidebar` → hidden (`display: none`)
+- `.page-content` padding → 16px
 
 ```css
-:focus-visible {
-  outline: 2px solid var(--color-accent-fg);
-  outline-offset: 2px;
-  border-radius: 4px;
+@media (max-width: 1200px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .grid-cards { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .page-content { padding: 16px; }
 }
 ```
 
 ---
 
-## Migration from Current Design
+## Theme Support
 
-### What Changes
+### Dark Theme (Default)
 
-| Current | New |
-|---------|-----|
-| CSS variables (--bg, --surface, etc.) | Expanded Primer-aligned variables |
-| BEM classes in styles.css | Remove all BEM, Tailwind + CSS vars only |
-| Hardcoded purple-400/500 | `--color-done-fg/muted` via badges |
-| Emoji status icons (✅🔄🚫⏳) | SVG StatusIcon component |
-| No sidebar, header-only nav | Sidebar + header layout |
-| Giant search SVG background | Clean SearchBar component |
-| Inline tab nav in detail view | Use TabNav shared component |
-| Duplicate SearchView page | Remove, merge into SessionList search |
-| No light theme | Full light theme via CSS variables |
-| No theme toggle | Theme toggle in header |
+Applied via `:root` with no attribute or `data-theme="dark"`. Near-black backgrounds (`#09090b`) with zinc-based text scale.
 
-### Files to Create/Modify
+### Light Theme
 
-**New shared components** (`packages/ui/src/components/`):
-- `AppSidebar.vue` — Sidebar navigation
-- `StatCard.vue` — Metric stat display
-- `StatusIcon.vue` — SVG status icons
-- `ThemeToggle.vue` — Dark/light switch
-- `ConversationBubble.vue` — Chat message display
+Activated by setting `data-theme="light"` on the `<html>` element. White backgrounds, darker text, reduced opacity for borders and overlays.
 
-**Modified components:**
-- `Badge.vue` — Updated variants
-- `SessionCard.vue` — Redesigned layout
-- `SearchInput.vue` — Enhanced with clear button, shortcut hint
-- `TabNav.vue` — Counter badges support
+### Theme Switching
 
-**Modified views:**
-- `App.vue` — Sidebar layout
-- `SessionListView.vue` — New layout, remove SVG
-- `SessionDetailView.vue` — Use TabNav, breadcrumb
-- All 5 tab views — Updated styling
+- Toggle via the `.theme-toggle` button in the sidebar
+- Preference persisted to `localStorage`
+- Applied before Vue mounts (in `index.html` script) to prevent flash of wrong theme
 
-**Modified styles:**
-- `styles.css` — Complete rewrite with new color system
+### Accessibility Preferences
 
-**Deleted:**
-- `SearchView.vue` — Merged into SessionListView
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  /* Removes gradients, uses solid colors for better contrast */
+}
+```
+
+### Custom Scrollbars
+
+```css
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }  /* Dark */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+```
+
+---
+
+## Accessibility
+
+### ARIA Roles & Landmarks
+
+| Attribute | Component | Purpose |
+|-----------|-----------|---------|
+| `role="navigation"` | AppSidebar | Main navigation landmark |
+| `role="button"` | ToolCallsGroup | Expandable sections |
+| `role="status"` | LoadingOverlay | Loading state announcements |
+| `role="img"` | SVG Charts | Chart descriptions via `aria-label` |
+| `role="slider"` | Session Replay | Timeline scrubber with `aria-valuenow`, `aria-valuemax` |
+| `role="region"` | Comparison View | Labeled comparison panels |
+| `role="row"` | Timeline Swimlane | Accessible row semantics |
+| `aria-expanded` | Tool calls, tabs | Collapsible section state |
+| `aria-current="page"` | Breadcrumb | Current page indicator |
+| `aria-hidden="true"` | Decorative SVGs | Hidden from screen readers |
+| `aria-live="polite"` | Loading states | Dynamic content updates |
+
+### Keyboard Navigation
+
+- **Tab order:** Sidebar → Main content, logical reading order
+- **Focus visible:** `2px solid var(--accent-fg)` outline with `2px` offset on all interactive elements
+- **Enter/Space:** Activates buttons, toggles, and collapsible sections
+- **Escape:** Closes modals and command palette
+
+### Focus Styles
+
+```css
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+```
+
+### Form Controls
+
+- All `<input>` and `<select>` elements have associated `<label>` elements
+- Icon-only buttons include `aria-label` descriptions
+- Data tables include `aria-label` for screen reader context
+
+### Color Contrast
+
+- All semantic color pairs (text on muted background) meet WCAG 2.1 AA contrast ratios
+- `prefers-contrast: more` media query removes gradients and uses solid, higher-contrast colors

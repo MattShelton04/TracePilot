@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Tool Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+  <style>
+    .freq-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-subtle); }
+    .freq-row:last-child { border-bottom:none; }
+    .freq-icon { width:24px; text-align:center; font-size:13px; flex-shrink:0; }
+    .freq-name { width:80px; font-size:0.75rem; font-weight:500; flex-shrink:0; }
+    .freq-track { flex:1; height:8px; background:var(--neutral-muted); border-radius:4px; overflow:hidden; }
+    .freq-fill { height:100%; border-radius:4px; }
+    .freq-count { width:36px; text-align:right; font-size:0.6875rem; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+    .heatmap-grid { display:grid; grid-template-columns:36px repeat(24,1fr); gap:1px; font-size:0.5625rem; }
+    .heatmap-cell { aspect-ratio:1; border-radius:2px; min-width:0; }
+    .heatmap-label { display:flex; align-items:center; justify-content:flex-end; padding-right:4px; color:var(--text-placeholder); font-size:0.5625rem; }
+    .heatmap-hour { text-align:center; color:var(--text-placeholder); font-size:0.5625rem; padding:2px 0; }
+    .fail-bar { display:flex; align-items:center; gap:8px; padding:6px 0; }
+    .fail-track { flex:1; height:6px; background:rgba(251,113,133,0.08); border-radius:3px; overflow:hidden; }
+    .fail-fill { height:100%; background:linear-gradient(90deg,#e11d48,#fb7185); border-radius:3px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Tool Analysis</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <h1 class="page-title" style="margin-bottom:20px;">Tool Analysis</h1>
+
+          <!-- Stats -->
+          <div class="grid-4" style="margin-bottom:20px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent" style="font-variant-numeric:tabular-nums;">1,247</div>
+              <div class="stat-card-label">Total Invocations</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success" style="font-variant-numeric:tabular-nums;">96.2%</div>
+              <div class="stat-card-label">Success Rate</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:#a78bfa;font-variant-numeric:tabular-nums;">340ms</div>
+              <div class="stat-card-label">Avg Execution Time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:#fbbf24;font-variant-numeric:tabular-nums;">12</div>
+              <div class="stat-card-label">Unique Tools</div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-bottom:20px;">
+
+            <!-- Tool Frequency -->
+            <div class="section-panel">
+              <div class="section-panel-header">Tool Frequency</div>
+              <div class="section-panel-body">
+                <div class="freq-row">
+                  <span class="freq-icon">✏️</span>
+                  <span class="freq-name">edit</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:100%;background:linear-gradient(90deg,#6366f1,#818cf8);"></div></div>
+                  <span class="freq-count">342</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">👁</span>
+                  <span class="freq-name">view</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:78%;background:linear-gradient(90deg,#6366f1,#818cf8);"></div></div>
+                  <span class="freq-count">267</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">📄</span>
+                  <span class="freq-name">create</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:52%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+                  <span class="freq-count">178</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">💻</span>
+                  <span class="freq-name">powershell</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:44%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+                  <span class="freq-count">152</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">🔍</span>
+                  <span class="freq-name">grep</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:35%;background:linear-gradient(90deg,#059669,#34d399);"></div></div>
+                  <span class="freq-count">121</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">📂</span>
+                  <span class="freq-name">glob</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:22%;background:linear-gradient(90deg,#059669,#34d399);"></div></div>
+                  <span class="freq-count">76</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">🤖</span>
+                  <span class="freq-name">task</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:16%;background:linear-gradient(90deg,#d97706,#fbbf24);"></div></div>
+                  <span class="freq-count">56</span>
+                </div>
+                <div class="freq-row">
+                  <span class="freq-icon">🗄️</span>
+                  <span class="freq-name">sql</span>
+                  <div class="freq-track"><div class="freq-fill" style="width:10%;background:linear-gradient(90deg,#d97706,#fbbf24);"></div></div>
+                  <span class="freq-count">34</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Failure Analysis -->
+            <div class="section-panel">
+              <div class="section-panel-header">Failure Analysis</div>
+              <div class="section-panel-body">
+                <div style="margin-bottom:12px;">
+                  <span style="font-size:0.75rem;color:var(--text-tertiary);">47 failures across 1,247 invocations</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">powershell</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:100%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">18</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">edit</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:61%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">11</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">create</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:44%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">8</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">grep</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:28%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">5</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">task</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:17%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">3</span>
+                </div>
+                <div class="fail-bar">
+                  <span style="width:80px;font-size:0.75rem;font-weight:500;">web_fetch</span>
+                  <div class="fail-track"><div class="fail-fill" style="width:11%;"></div></div>
+                  <span style="width:24px;text-align:right;font-size:0.6875rem;color:#fb7185;font-variant-numeric:tabular-nums;">2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Execution Time Table -->
+          <div class="section-panel" style="margin-bottom:20px;">
+            <div class="section-panel-header">Execution Time by Tool</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th>Avg</th>
+                  <th>P50</th>
+                  <th>P95</th>
+                  <th>Max</th>
+                  <th>Calls</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span>💻</span><span style="font-weight:500;">powershell</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">2.1s</td>
+                  <td style="font-variant-numeric:tabular-nums;">1.8s</td>
+                  <td style="font-variant-numeric:tabular-nums;">8.4s</td>
+                  <td style="font-variant-numeric:tabular-nums;">45s</td>
+                  <td style="font-variant-numeric:tabular-nums;">152</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span>✏️</span><span style="font-weight:500;">edit</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">280ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">220ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">650ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">1.2s</td>
+                  <td style="font-variant-numeric:tabular-nums;">342</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span>👁</span><span style="font-weight:500;">view</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">85ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">72ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">180ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">340ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">267</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span>📄</span><span style="font-weight:500;">create</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">165ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">140ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">380ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">820ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">178</td>
+                </tr>
+                <tr>
+                  <td style="display:flex;align-items:center;gap:6px;"><span>🔍</span><span style="font-weight:500;">grep</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">110ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">90ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">250ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">480ms</td>
+                  <td style="font-variant-numeric:tabular-nums;">121</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Heatmap -->
+          <div class="section-panel">
+            <div class="section-panel-header">Activity Heatmap (Hour × Day)</div>
+            <div class="section-panel-body" style="overflow-x:auto;">
+              <div class="heatmap-grid" id="heatmap"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('tools');
+
+    // Generate heatmap
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const heatmapEl = document.getElementById('heatmap');
+    // Header row
+    let html = '<div></div>';
+    for (let h = 0; h < 24; h++) {
+      html += `<div class="heatmap-hour">${h}</div>`;
+    }
+    // Data rows
+    days.forEach(day => {
+      html += `<div class="heatmap-label">${day}</div>`;
+      for (let h = 0; h < 24; h++) {
+        const intensity = Math.random();
+        const opacity = (h >= 8 && h <= 20) ? (0.1 + intensity * 0.8) : (intensity * 0.15);
+        html += `<div class="heatmap-cell" style="background:rgba(99,102,241,${opacity.toFixed(2)});"></div>`;
+      }
+    });
+    heatmapEl.innerHTML = html;
+  </script>
+</body>
+</html>

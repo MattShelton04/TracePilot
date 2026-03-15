@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Conversation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .mini-stat {
+      padding: 10px 14px;
+    }
+    .mini-stat .stat-card-value {
+      font-size: 1.125rem;
+    }
+    .user-bubble {
+      border-left: 3px solid var(--accent-emphasis);
+      padding-left: 12px;
+    }
+    .tool-summary-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.6875rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+    }
+    .tool-summary-pass {
+      background: var(--success-muted);
+      color: var(--success-fg);
+    }
+    .tool-summary-fail {
+      background: var(--danger-muted);
+      color: var(--danger-fg);
+    }
+    .tool-detail-args,
+    .tool-detail-result {
+      margin-top: 4px;
+      padding: 8px 10px;
+      background: var(--canvas-default);
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .tool-call-item.expanded .tool-detail-args,
+    .tool-call-item.expanded .tool-detail-result {
+      display: block;
+    }
+    .tool-call-item { cursor: pointer; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">OAuth Login Implementation</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title + Badges -->
+          <div class="mb-4">
+            <h1 class="page-title">OAuth Login Implementation</h1>
+            <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-success">feat/oauth-login</span>
+              <span class="badge badge-done">claude-opus-4.6</span>
+              <span class="badge badge-neutral">local</span>
+            </div>
+          </div>
+
+          <!-- Tab Nav -->
+          <nav class="tab-nav" role="tablist" aria-label="Session detail tabs">
+            <a class="tab-nav-item" href="detail-overview.html" role="tab" aria-selected="false">Overview</a>
+            <a class="tab-nav-item active" href="detail-conversation.html" role="tab" aria-selected="true">Conversation <span class="tab-count">3</span></a>
+            <a class="tab-nav-item" href="detail-events.html" role="tab" aria-selected="false">Events <span class="tab-count">20</span></a>
+            <a class="tab-nav-item" href="detail-todos.html" role="tab" aria-selected="false">Todos <span class="tab-count">6</span></a>
+            <a class="tab-nav-item" href="detail-metrics.html" role="tab" aria-selected="false">Metrics</a>
+          </nav>
+
+          <!-- Conversation Stats (A-style mini stat cards) -->
+          <div class="grid-3 mb-4" style="max-width: 480px;">
+            <div class="stat-card mini-stat">
+              <div class="stat-card-value accent" id="turnCount">0</div>
+              <div class="stat-card-label">Turns</div>
+            </div>
+            <div class="stat-card mini-stat">
+              <div class="stat-card-value accent" id="toolCount">0</div>
+              <div class="stat-card-label">Tool Calls</div>
+            </div>
+            <div class="stat-card mini-stat">
+              <div class="stat-card-value done" id="totalDuration">0s</div>
+              <div class="stat-card-label">Total Time</div>
+            </div>
+          </div>
+
+          <!-- View Mode Toggle -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="btn-group">
+              <button class="btn btn-sm active" id="viewChat">Chat</button>
+              <button class="btn btn-sm" id="viewCompact">Compact</button>
+              <button class="btn btn-sm" id="viewTimeline">Timeline</button>
+            </div>
+          </div>
+
+          <!-- Conversation Turns -->
+          <div class="turn-group" id="conversationView"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      // Compute stats
+      let totalTools = 0, totalDurationMs = 0;
+      MOCK_TURNS.forEach(t => {
+        totalTools += t.toolCalls.length;
+        totalDurationMs += t.durationMs;
+      });
+      document.getElementById('turnCount').textContent = MOCK_TURNS.length;
+      document.getElementById('toolCount').textContent = totalTools;
+      document.getElementById('totalDuration').textContent = formatDuration(totalDurationMs);
+
+      // Render conversation
+      const container = document.getElementById('conversationView');
+
+      MOCK_TURNS.forEach((turn, ti) => {
+        // User message
+        const userTurn = document.createElement('div');
+        userTurn.className = 'turn-item fade-in';
+        userTurn.style.marginBottom = '20px';
+        userTurn.innerHTML = `
+          <div class="turn-avatar user">👤</div>
+          <div class="turn-body">
+            <div class="turn-header">
+              <span class="turn-author">You</span>
+              <span class="turn-meta">Turn ${turn.turnIndex}</span>
+              <span class="turn-meta">${formatTime(turn.timestamp)}</span>
+            </div>
+            <div class="turn-bubble user user-bubble">${turn.userMessage}</div>
+          </div>
+        `;
+        container.appendChild(userTurn);
+
+        // Assistant message
+        const passed = turn.toolCalls.filter(t => t.success).length;
+        const failed = turn.toolCalls.filter(t => !t.success).length;
+
+        const asstTurn = document.createElement('div');
+        asstTurn.className = 'turn-item fade-in';
+        asstTurn.style.marginBottom = '8px';
+        asstTurn.innerHTML = `
+          <div class="turn-avatar assistant">🤖</div>
+          <div class="turn-body">
+            <div class="turn-header">
+              <span class="turn-author">Assistant</span>
+              <span class="badge badge-done" style="font-size:0.625rem;padding:1px 6px;">${turn.model}</span>
+              <span class="turn-meta">${formatDuration(turn.durationMs)}</span>
+            </div>
+            <div class="turn-bubble assistant">${turn.assistantMessages[0]}</div>
+            ${turn.toolCalls.length > 0 ? `
+            <div class="tool-calls-container" style="margin-top:8px;">
+              <div class="tool-call-header" data-collapse="tools-${ti}" style="cursor:pointer;">
+                <span class="chevron" style="display:inline-flex;transition:transform 0.15s ease;transform:rotate(90deg);">${ICONS.chevronRight}</span>
+                <span>${turn.toolCalls.length} tool calls</span>
+                <span style="margin-left:auto;display:flex;gap:6px;">
+                  <span class="tool-summary-badge tool-summary-pass">${passed} passed</span>
+                  ${failed > 0 ? `<span class="tool-summary-badge tool-summary-fail">${failed} failed</span>` : ''}
+                </span>
+              </div>
+              <div id="tools-${ti}">
+                ${turn.toolCalls.map((tc, ci) => `
+                  <div class="tool-call-item" onclick="this.classList.toggle('expanded')">
+                    <span class="tool-call-icon">${toolIcon(tc.toolName)}</span>
+                    <span class="tool-call-name">${tc.toolName}</span>
+                    <span class="tool-call-args">${tc.args}</span>
+                    <span class="badge ${tc.success ? 'badge-success' : 'badge-danger'}" style="font-size:0.5625rem;padding:1px 5px;">${tc.success ? 'pass' : 'fail'}</span>
+                    <span class="tool-call-duration">${formatDuration(tc.durationMs)}</span>
+                    <div class="tool-detail-args" style="width:100%;">Args: ${tc.args}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>` : ''}
+          </div>
+        `;
+        container.appendChild(asstTurn);
+      });
+
+      // View toggle (visual only)
+      document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

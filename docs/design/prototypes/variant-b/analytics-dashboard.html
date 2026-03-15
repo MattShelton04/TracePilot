@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Analytics</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title -->
+          <h1 class="page-title" style="margin-bottom:20px;">Analytics</h1>
+
+          <!-- Stats Row -->
+          <div class="grid-4" style="margin-bottom:20px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent" style="font-variant-numeric:tabular-nums;">53</div>
+              <div class="stat-card-label">Total Sessions</div>
+              <div class="stat-card-trend up">↑ 12% vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:#a78bfa; font-variant-numeric:tabular-nums;">45.2M</div>
+              <div class="stat-card-label">Total Tokens</div>
+              <div class="stat-card-trend up">↑ 8% vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success" style="font-variant-numeric:tabular-nums;">$12.87</div>
+              <div class="stat-card-label">Total Cost</div>
+              <div class="stat-card-trend down">↓ 3% vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:#fbbf24; font-variant-numeric:tabular-nums;">1h 23m</div>
+              <div class="stat-card-label">Avg Duration</div>
+              <div class="stat-card-trend up">↑ 5% vs last week</div>
+            </div>
+          </div>
+
+          <!-- Charts 2x2 -->
+          <div class="grid-2" style="margin-bottom:20px;">
+
+            <!-- Token Usage Line Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Token Usage</div>
+              <div class="section-panel-body" style="padding:12px;">
+                <svg viewBox="0 0 400 180" width="100%" style="display:block;">
+                  <!-- Grid -->
+                  <line x1="40" y1="10" x2="40" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                  <line x1="40" y1="150" x2="390" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                  <line x1="40" y1="115" x2="390" y2="115" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="80" x2="390" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="45" x2="390" y2="45" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <!-- Y axis labels -->
+                  <text x="35" y="153" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">0</text>
+                  <text x="35" y="118" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">5M</text>
+                  <text x="35" y="83" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">10M</text>
+                  <text x="35" y="48" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">15M</text>
+                  <!-- X axis labels -->
+                  <text x="65" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mon</text>
+                  <text x="125" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Tue</text>
+                  <text x="185" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Wed</text>
+                  <text x="245" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Thu</text>
+                  <text x="305" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Fri</text>
+                  <text x="365" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Sat</text>
+                  <!-- Area fill -->
+                  <defs>
+                    <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.2"/>
+                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M65,95 L125,70 L185,85 L245,50 L305,60 L365,35 L365,150 L65,150 Z" fill="url(#lineGrad)"/>
+                  <!-- Line -->
+                  <polyline points="65,95 125,70 185,85 245,50 305,60 365,35" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Dots -->
+                  <circle cx="65" cy="95" r="3" fill="#6366f1"/>
+                  <circle cx="125" cy="70" r="3" fill="#6366f1"/>
+                  <circle cx="185" cy="85" r="3" fill="#6366f1"/>
+                  <circle cx="245" cy="50" r="3" fill="#6366f1"/>
+                  <circle cx="305" cy="60" r="3" fill="#6366f1"/>
+                  <circle cx="365" cy="35" r="3" fill="#818cf8"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Sessions Per Day Bar Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Sessions Per Day</div>
+              <div class="section-panel-body" style="padding:12px;">
+                <svg viewBox="0 0 400 180" width="100%" style="display:block;">
+                  <defs>
+                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#818cf8"/>
+                      <stop offset="100%" stop-color="#6366f1"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="40" y1="150" x2="390" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                  <line x1="40" y1="115" x2="390" y2="115" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="80" x2="390" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="45" x2="390" y2="45" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <text x="35" y="153" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">0</text>
+                  <text x="35" y="118" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">5</text>
+                  <text x="35" y="83" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">10</text>
+                  <text x="35" y="48" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">15</text>
+                  <!-- Bars -->
+                  <rect x="50" y="80" width="35" height="70" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="100" y="60" width="35" height="90" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="150" y="95" width="35" height="55" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="200" y="45" width="35" height="105" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="250" y="70" width="35" height="80" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="300" y="55" width="35" height="95" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <rect x="350" y="100" width="35" height="50" rx="3" fill="url(#barGrad)" opacity="0.9"/>
+                  <!-- Labels -->
+                  <text x="67" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mon</text>
+                  <text x="117" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Tue</text>
+                  <text x="167" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Wed</text>
+                  <text x="217" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Thu</text>
+                  <text x="267" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Fri</text>
+                  <text x="317" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Sat</text>
+                  <text x="367" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Sun</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Model Distribution Donut -->
+            <div class="section-panel">
+              <div class="section-panel-header">Model Distribution</div>
+              <div class="section-panel-body" style="padding:12px; display:flex; align-items:center; gap:24px;">
+                <svg viewBox="0 0 140 140" width="140" height="140" style="flex-shrink:0;">
+                  <!-- Donut segments: Opus 45%, Sonnet 25%, GPT 20%, Haiku 10% -->
+                  <circle cx="70" cy="70" r="52" fill="none" stroke="#6366f1" stroke-width="16"
+                    stroke-dasharray="147.6 180.4" stroke-dashoffset="0" transform="rotate(-90 70 70)"/>
+                  <circle cx="70" cy="70" r="52" fill="none" stroke="#a78bfa" stroke-width="16"
+                    stroke-dasharray="81.7 246.3" stroke-dashoffset="-147.6" transform="rotate(-90 70 70)"/>
+                  <circle cx="70" cy="70" r="52" fill="none" stroke="#34d399" stroke-width="16"
+                    stroke-dasharray="65.3 262.7" stroke-dashoffset="-229.3" transform="rotate(-90 70 70)"/>
+                  <circle cx="70" cy="70" r="52" fill="none" stroke="#fbbf24" stroke-width="16"
+                    stroke-dasharray="32.7 295.3" stroke-dashoffset="-294.6" transform="rotate(-90 70 70)"/>
+                  <!-- Center text -->
+                  <text x="70" y="66" text-anchor="middle" fill="#fafafa" font-size="18" font-weight="700" font-family="Inter">4</text>
+                  <text x="70" y="82" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">models</text>
+                </svg>
+                <div style="display:flex; flex-direction:column; gap:8px; font-size:0.75rem;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:8px;height:8px;border-radius:2px;background:#6366f1;flex-shrink:0;"></span>
+                    <span style="color:#a1a1aa;">Claude Opus</span>
+                    <span style="margin-left:auto;font-variant-numeric:tabular-nums;color:#fafafa;">45%</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:8px;height:8px;border-radius:2px;background:#a78bfa;flex-shrink:0;"></span>
+                    <span style="color:#a1a1aa;">Claude Sonnet</span>
+                    <span style="margin-left:auto;font-variant-numeric:tabular-nums;color:#fafafa;">25%</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:8px;height:8px;border-radius:2px;background:#34d399;flex-shrink:0;"></span>
+                    <span style="color:#a1a1aa;">GPT-5.4</span>
+                    <span style="margin-left:auto;font-variant-numeric:tabular-nums;color:#fafafa;">20%</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:8px;height:8px;border-radius:2px;background:#fbbf24;flex-shrink:0;"></span>
+                    <span style="color:#a1a1aa;">Claude Haiku</span>
+                    <span style="margin-left:auto;font-variant-numeric:tabular-nums;color:#fafafa;">10%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cost Trend Area Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Cost Trend</div>
+              <div class="section-panel-body" style="padding:12px;">
+                <svg viewBox="0 0 400 180" width="100%" style="display:block;">
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="40" y1="150" x2="390" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                  <line x1="40" y1="110" x2="390" y2="110" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="70" x2="390" y2="70" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <line x1="40" y1="30" x2="390" y2="30" stroke="rgba(255,255,255,0.04)" stroke-width="0.5" stroke-dasharray="4,4"/>
+                  <text x="35" y="153" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">$0</text>
+                  <text x="35" y="113" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">$2</text>
+                  <text x="35" y="73" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">$4</text>
+                  <text x="35" y="33" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">$6</text>
+                  <!-- Area -->
+                  <path d="M65,120 L115,100 L165,110 L215,75 L265,85 L315,55 L365,65 L365,150 L65,150 Z" fill="url(#areaGrad)"/>
+                  <polyline points="65,120 115,100 165,110 215,75 265,85 315,55 365,65" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="365" cy="65" r="3" fill="#818cf8"/>
+                  <!-- X labels -->
+                  <text x="65" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mar 8</text>
+                  <text x="165" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mar 10</text>
+                  <text x="265" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mar 12</text>
+                  <text x="365" y="165" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">Mar 14</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Repositories Table -->
+          <div class="section-panel">
+            <div class="section-panel-header">Top Repositories</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Repository</th>
+                  <th>Sessions</th>
+                  <th>Tokens</th>
+                  <th>Cost</th>
+                  <th>Avg Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="font-mono" style="font-size:0.75rem;">acme/web-platform</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">32</td>
+                  <td style="font-variant-numeric:tabular-nums;">28.4M</td>
+                  <td style="font-variant-numeric:tabular-nums;">$7.82</td>
+                  <td style="font-variant-numeric:tabular-nums;">1h 35m</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono" style="font-size:0.75rem;">acme/api-server</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">14</td>
+                  <td style="font-variant-numeric:tabular-nums;">12.1M</td>
+                  <td style="font-variant-numeric:tabular-nums;">$3.54</td>
+                  <td style="font-variant-numeric:tabular-nums;">1h 12m</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono" style="font-size:0.75rem;">acme/infrastructure</span></td>
+                  <td style="font-variant-numeric:tabular-nums;">7</td>
+                  <td style="font-variant-numeric:tabular-nums;">4.7M</td>
+                  <td style="font-variant-numeric:tabular-nums;">$1.51</td>
+                  <td style="font-variant-numeric:tabular-nums;">58m</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+  </script>
+</body>
+</html>

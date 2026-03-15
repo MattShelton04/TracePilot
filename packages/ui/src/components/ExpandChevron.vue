@@ -7,11 +7,12 @@ defineProps<{
 
 <template>
   <svg
-    class="transition-transform duration-150 text-[var(--color-text-tertiary)] flex-shrink-0"
+    class="flex-shrink-0"
     :class="[
       expanded ? 'rotate-90' : '',
       size === 'md' ? 'h-4 w-4' : 'h-3 w-3',
     ]"
+    style="color: var(--text-tertiary); transition: transform 150ms ease;"
     fill="currentColor"
     viewBox="0 0 16 16"
     aria-hidden="true"

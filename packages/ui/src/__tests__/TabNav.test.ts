@@ -38,9 +38,25 @@ describe("TabNav", () => {
   it("highlights active tab based on route", () => {
     const wrapper = mount(TabNav, { props: { tabs } });
     const buttons = wrapper.findAll("button");
-    // session-overview is the active route — gets aria-current="page"
+    // session-overview is the active route — gets aria-current="page" and aria-selected="true"
     expect(buttons[0].attributes("aria-current")).toBe("page");
+    expect(buttons[0].attributes("aria-selected")).toBe("true");
     expect(buttons[1].attributes("aria-current")).toBeUndefined();
+    expect(buttons[1].attributes("aria-selected")).toBe("false");
+  });
+
+  it("has tablist role on nav element", () => {
+    const wrapper = mount(TabNav, { props: { tabs } });
+    const nav = wrapper.find("nav");
+    expect(nav.attributes("role")).toBe("tablist");
+  });
+
+  it("has tab role on each button", () => {
+    const wrapper = mount(TabNav, { props: { tabs } });
+    const buttons = wrapper.findAll("button");
+    buttons.forEach((btn) => {
+      expect(btn.attributes("role")).toBe("tab");
+    });
   });
 
   it("navigates on tab click", async () => {

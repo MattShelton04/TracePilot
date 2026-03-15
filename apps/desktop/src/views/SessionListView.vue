@@ -1,96 +1,21 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from "vue";
+import { onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useSessionsStore } from "@/stores/sessions";
-import { searchSessions, reindexSessions } from "@tracepilot/client";
-import { SessionList, SearchInput, FilterSelect, ErrorAlert, SkeletonLoader, ActionButton } from "@tracepilot/ui";
-import type { SessionListItem } from "@tracepilot/types";
+import { useSessionsStore, type SortOption } from "@/stores/sessions";
+import { formatRelativeTime } from "@tracepilot/ui";
+import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState } from "@tracepilot/ui";
 
 const router = useRouter();
 const store = useSessionsStore();
-const searchResults = ref<SessionListItem[] | null>(null);
-const isSearching = ref(false);
-const isReindexing = ref(false);
-const searchTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
-let searchSequence = 0;
 
-const displayedSessions = computed(() => {
-  let sessions = searchResults.value !== null
-    ? [...searchResults.value]
-    : [...store.filteredSessions];
-
-  if (store.searchQuery && searchResults.value === null) {
-    const q = store.searchQuery.toLowerCase();
-    sessions = sessions.filter(s =>
-      (s.summary?.toLowerCase().includes(q)) ||
-      (s.repository?.toLowerCase().includes(q)) ||
-      (s.branch?.toLowerCase().includes(q)) ||
-      s.id.toLowerCase().includes(q)
-    );
-  }
-
-  if (searchResults.value !== null) {
-    if (store.filterRepo) {
-      sessions = sessions.filter(s => s.repository === store.filterRepo);
-    }
-    if (store.filterBranch) {
-      sessions = sessions.filter(s => s.branch === store.filterBranch);
-    }
-  }
-
-  sessions.sort((a, b) => {
-    switch (store.sortBy) {
-      case 'created':
-        return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
-      case 'events':
-        return (b.eventCount ?? 0) - (a.eventCount ?? 0);
-      case 'updated':
-      default:
-        return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
-    }
-  });
-
-  return sessions;
-});
-
-function onSearchInput(query: string) {
-  store.searchQuery = query;
-
-  if (searchTimeout.value) clearTimeout(searchTimeout.value);
-
-  // Increment sequence on every change (including clear) to invalidate in-flight requests
-  const seq = ++searchSequence;
-
-  if (!query.trim()) {
-    searchResults.value = null;
-    isSearching.value = false;
-    return;
-  }
-
-  searchTimeout.value = setTimeout(async () => {
-    isSearching.value = true;
-    try {
-      const results = await searchSessions(query);
-      if (seq !== searchSequence) return;
-      searchResults.value = results;
-    } catch {
-      if (seq !== searchSequence) return;
-      searchResults.value = null;
-    } finally {
-      if (seq === searchSequence) isSearching.value = false;
-    }
-  }, 300);
-}
-
-async function handleReindex() {
-  isReindexing.value = true;
-  try {
-    await reindexSessions();
-    await store.fetchSessions();
-  } finally {
-    isReindexing.value = false;
-  }
-}
+const repoOptions = computed(() => store.repositories as string[]);
+const branchOptions = computed(() => store.branches as string[]);
+const sortOptions = [
+  { label: "Newest first", value: "updated" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "Most events", value: "events" },
+  { label: "Most turns", value: "turns" },
+];
 
 function onSelect(sessionId: string) {
   router.push({ name: "session-overview", params: { id: sessionId } });
@@ -104,78 +29,80 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-5">
-    <!-- Page header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-[var(--color-text-primary)]">Sessions</h1>
-        <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">
-          Browse and inspect your Copilot CLI sessions
-        </p>
-      </div>
-      <ActionButton :disabled="isReindexing" @click="handleReindex">
-        <svg class="h-4 w-4" :class="{ 'animate-spin': isReindexing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        {{ isReindexing ? 'Indexing...' : 'Reindex' }}
-      </ActionButton>
-    </div>
+  <div class="page-content">
+    <div class="page-content-inner">
 
-    <!-- Search + filters bar -->
-    <div class="flex flex-col sm:flex-row gap-3">
-      <div class="flex-1">
-        <SearchInput
-          :model-value="store.searchQuery"
-          placeholder="Search sessions by name, repo, branch..."
-          @update:model-value="onSearchInput"
-        />
-      </div>
-      <div class="flex gap-2">
-        <FilterSelect
-          v-model="store.filterRepo"
-          :options="store.repositories as string[]"
-          placeholder="All repos"
-        />
-        <FilterSelect
-          v-model="store.filterBranch"
-          :options="store.branches as string[]"
-          placeholder="All branches"
-        />
+      <!-- Toolbar -->
+      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px;">
+        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" shortcut-hint="⌘K" />
+        <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
+        <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
         <select
-          v-model="store.sortBy"
-          class="rounded-md border border-[var(--color-border-default)] bg-[var(--color-canvas-default)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent-fg)] focus:outline-none transition-colors cursor-pointer"
+          :value="store.sortBy"
+          class="filter-select"
+          aria-label="Sort sessions"
+          @change="store.sortBy = ($event.target as HTMLSelectElement).value as SortOption"
         >
-          <option value="updated">Recently updated</option>
-          <option value="created">Recently created</option>
-          <option value="events">Most events</option>
+          <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
+        <span class="session-count-label">
+          {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
+        </span>
       </div>
+
+      <!-- Error state -->
+      <ErrorAlert v-if="store.error" :message="store.error" />
+
+      <!-- Loading skeleton -->
+      <SkeletonLoader v-if="store.loading" variant="card" :count="6" />
+
+      <!-- Session cards grid -->
+      <div v-else-if="store.filteredSessions.length > 0" class="grid-cards">
+        <router-link
+          v-for="session in store.filteredSessions"
+          :key="session.id"
+          :to="{ name: 'session-overview', params: { id: session.id } }"
+          class="card card-interactive"
+          style="text-decoration: none; color: inherit;"
+        >
+          <div class="session-card-title">{{ session.summary || 'Untitled Session' }}</div>
+          <div class="session-card-badges">
+            <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
+            <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
+            <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
+            <Badge variant="neutral">{{ session.hostType || 'cli' }}</Badge>
+          </div>
+          <div class="session-card-footer">
+            <div class="session-card-stats">
+              <span class="session-card-stat">{{ session.eventCount ?? 0 }} events</span>
+              <span class="session-card-stat">{{ session.turnCount ?? 0 }} turns</span>
+            </div>
+            <span>{{ formatRelativeTime(session.updatedAt) }}</span>
+          </div>
+        </router-link>
+      </div>
+
+      <!-- Empty state -->
+      <EmptyState
+        v-else-if="!store.loading"
+        icon="🔍"
+        title="No sessions found"
+        message="Try adjusting your search or filters."
+      />
+
     </div>
-
-    <!-- Status bar -->
-    <div class="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
-      <span v-if="isSearching" class="flex items-center gap-1.5">
-        <svg class="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-        Searching...
-      </span>
-      <span v-else-if="store.loading">Loading sessions...</span>
-      <span v-else>
-        {{ displayedSessions.length }} session{{ displayedSessions.length !== 1 ? 's' : '' }}
-        <span v-if="store.searchQuery"> matching "{{ store.searchQuery }}"</span>
-      </span>
-    </div>
-
-    <!-- Error state -->
-    <ErrorAlert v-if="store.error" :message="store.error" />
-
-    <!-- Session grid -->
-    <SessionList
-      v-if="!store.loading"
-      :sessions="displayedSessions"
-      @select="onSelect"
-    />
-
-    <!-- Loading skeleton -->
-    <SkeletonLoader v-if="store.loading" variant="card" :count="6" />
   </div>
 </template>
+
+<style scoped>
+.session-count-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.session-card-stats {
+  display: flex;
+  gap: 12px;
+}
+</style>

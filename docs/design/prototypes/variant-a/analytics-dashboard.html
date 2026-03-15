@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Analytics Dashboard</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+
+      <div class="page-header-bar">
+        <span class="breadcrumb-current">Analytics</span>
+      </div>
+
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <h1 class="page-title">Analytics Dashboard</h1>
+          <p class="page-subtitle">Aggregated metrics across all sessions</p>
+
+          <!-- Stats Row -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">53</div>
+              <div class="stat-card-label">Total Sessions</div>
+              <div class="stat-card-trend up">↑ 12% from last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">45.2M</div>
+              <div class="stat-card-label">Total Tokens</div>
+              <div class="stat-card-trend up">↑ 8% from last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value warning">$12.87</div>
+              <div class="stat-card-label">Total Cost</div>
+              <div class="stat-card-trend down">↓ 3% from last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">1h 23m</div>
+              <div class="stat-card-label">Avg Session Duration</div>
+              <div class="stat-card-trend up">↑ 5% from last week</div>
+            </div>
+          </div>
+
+          <!-- Charts Grid (2x2) -->
+          <div class="grid-2 mb-6">
+
+            <!-- Token Usage Over Time — Line Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Token Usage Over Time</div>
+              <div class="section-panel-body">
+                <svg viewBox="0 0 560 280" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="tokenGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#58a6ff" stop-opacity="0.3"/>
+                      <stop offset="100%" stop-color="#58a6ff" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Grid lines -->
+                  <line x1="55" y1="20" x2="540" y2="20" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="97" x2="540" y2="97" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="173" x2="540" y2="173" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="250" x2="540" y2="250" stroke="#21262d" stroke-width="1"/>
+                  <!-- Y-axis labels -->
+                  <text x="50" y="24" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">5M</text>
+                  <text x="50" y="101" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">4M</text>
+                  <text x="50" y="177" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">3M</text>
+                  <text x="50" y="254" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">2M</text>
+                  <!-- Gradient fill area -->
+                  <polygon
+                    points="55,189 92,158 130,135 167,181 204,89 242,112 279,150 316,58 354,81 391,127 428,166 465,104 503,35 540,143 540,250 55,250"
+                    fill="url(#tokenGrad)"/>
+                  <!-- Line -->
+                  <polyline
+                    points="55,189 92,158 130,135 167,181 204,89 242,112 279,150 316,58 354,81 391,127 428,166 465,104 503,35 540,143"
+                    fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                  <!-- Data dots -->
+                  <circle cx="55" cy="189" r="3" fill="#58a6ff"/>
+                  <circle cx="92" cy="158" r="3" fill="#58a6ff"/>
+                  <circle cx="130" cy="135" r="3" fill="#58a6ff"/>
+                  <circle cx="167" cy="181" r="3" fill="#58a6ff"/>
+                  <circle cx="204" cy="89" r="3" fill="#58a6ff"/>
+                  <circle cx="242" cy="112" r="3" fill="#58a6ff"/>
+                  <circle cx="279" cy="150" r="3" fill="#58a6ff"/>
+                  <circle cx="316" cy="58" r="3" fill="#58a6ff"/>
+                  <circle cx="354" cy="81" r="3" fill="#58a6ff"/>
+                  <circle cx="391" cy="127" r="3" fill="#58a6ff"/>
+                  <circle cx="428" cy="166" r="3" fill="#58a6ff"/>
+                  <circle cx="465" cy="104" r="3" fill="#58a6ff"/>
+                  <circle cx="503" cy="35" r="3" fill="#58a6ff"/>
+                  <circle cx="540" cy="143" r="3" fill="#58a6ff"/>
+                  <!-- X-axis labels (every other day) -->
+                  <text x="55"  y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 1</text>
+                  <text x="130" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 3</text>
+                  <text x="204" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 5</text>
+                  <text x="279" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 7</text>
+                  <text x="354" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 9</text>
+                  <text x="428" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 11</text>
+                  <text x="503" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 13</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Sessions Per Day — Bar Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Sessions Per Day</div>
+              <div class="section-panel-body">
+                <svg viewBox="0 0 560 280" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Grid lines -->
+                  <line x1="45" y1="20" x2="540" y2="20" stroke="#21262d" stroke-width="1"/>
+                  <line x1="45" y1="78" x2="540" y2="78" stroke="#21262d" stroke-width="1"/>
+                  <line x1="45" y1="135" x2="540" y2="135" stroke="#21262d" stroke-width="1"/>
+                  <line x1="45" y1="193" x2="540" y2="193" stroke="#21262d" stroke-width="1"/>
+                  <line x1="45" y1="250" x2="540" y2="250" stroke="#21262d" stroke-width="1"/>
+                  <!-- Y-axis labels -->
+                  <text x="40" y="24" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">8</text>
+                  <text x="40" y="82" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">6</text>
+                  <text x="40" y="139" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">4</text>
+                  <text x="40" y="197" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">2</text>
+                  <text x="40" y="254" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">0</text>
+                  <!-- Bars: data = [3,5,4,2,7,6,3,8,5,4,2,6,7,4] -->
+                  <rect x="51"  y="164" width="24" height="86" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="86"  y="106" width="24" height="144" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="122" y="135" width="24" height="115" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="157" y="193" width="24" height="57" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="192" y="49"  width="24" height="201" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="228" y="78"  width="24" height="172" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="263" y="164" width="24" height="86" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="298" y="20"  width="24" height="230" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="334" y="106" width="24" height="144" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="369" y="135" width="24" height="115" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="404" y="193" width="24" height="57" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="440" y="78"  width="24" height="172" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="475" y="49"  width="24" height="201" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <rect x="510" y="135" width="24" height="115" rx="3" fill="#58a6ff" opacity="0.85"/>
+                  <!-- X-axis labels (every other day) -->
+                  <text x="63"  y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 1</text>
+                  <text x="134" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 3</text>
+                  <text x="204" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 5</text>
+                  <text x="275" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 7</text>
+                  <text x="346" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 9</text>
+                  <text x="416" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 11</text>
+                  <text x="487" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 13</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Model Distribution — Donut Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Model Distribution</div>
+              <div class="section-panel-body">
+                <svg viewBox="0 0 560 280" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Donut: center (180,140) R=100 r=60 -->
+                  <!-- claude-opus-4.6: 45% → 0° to 162° (from -90°) -->
+                  <path d="M 180,40 A 100,100 0 0,1 210.9,235.1 L 198.5,197.1 A 60,60 0 0,0 180,80 Z" fill="#a371f7"/>
+                  <!-- gpt-5.4: 30% → 162° to 270° (from -90°) = 72° to 180° -->
+                  <path d="M 210.9,235.1 A 100,100 0 0,1 80,140 L 120,140 A 60,60 0 0,0 198.5,197.1 Z" fill="#58a6ff"/>
+                  <!-- claude-sonnet-4.6: 15% → 270° to 324° (from -90°) = 180° to 234° -->
+                  <path d="M 80,140 A 100,100 0 0,1 121.2,59.1 L 144.7,91.5 A 60,60 0 0,0 120,140 Z" fill="#3fb950"/>
+                  <!-- claude-haiku-4.5: 10% → 324° to 360° (from -90°) = 234° to 270° -->
+                  <path d="M 121.2,59.1 A 100,100 0 0,1 180,40 L 180,80 A 60,60 0 0,0 144.7,91.5 Z" fill="#d29922"/>
+                  <!-- Center label -->
+                  <text x="180" y="136" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="700" font-family="sans-serif">45.2M</text>
+                  <text x="180" y="154" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">total tokens</text>
+                  <!-- Legend -->
+                  <rect x="320" y="70" width="12" height="12" rx="2" fill="#a371f7"/>
+                  <text x="338" y="81" fill="#e6edf3" font-size="12" font-family="sans-serif">claude-opus-4.6</text>
+                  <text x="520" y="81" text-anchor="end" fill="#8b949e" font-size="12" font-family="sans-serif">45%</text>
+
+                  <rect x="320" y="100" width="12" height="12" rx="2" fill="#58a6ff"/>
+                  <text x="338" y="111" fill="#e6edf3" font-size="12" font-family="sans-serif">gpt-5.4</text>
+                  <text x="520" y="111" text-anchor="end" fill="#8b949e" font-size="12" font-family="sans-serif">30%</text>
+
+                  <rect x="320" y="130" width="12" height="12" rx="2" fill="#3fb950"/>
+                  <text x="338" y="141" fill="#e6edf3" font-size="12" font-family="sans-serif">claude-sonnet-4.6</text>
+                  <text x="520" y="141" text-anchor="end" fill="#8b949e" font-size="12" font-family="sans-serif">15%</text>
+
+                  <rect x="320" y="160" width="12" height="12" rx="2" fill="#d29922"/>
+                  <text x="338" y="171" fill="#e6edf3" font-size="12" font-family="sans-serif">claude-haiku-4.5</text>
+                  <text x="520" y="171" text-anchor="end" fill="#8b949e" font-size="12" font-family="sans-serif">10%</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Cost Trend — Area Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">Cost Trend</div>
+              <div class="section-panel-body">
+                <svg viewBox="0 0 560 280" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#d29922" stop-opacity="0.3"/>
+                      <stop offset="100%" stop-color="#d29922" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Grid lines -->
+                  <line x1="55" y1="20" x2="540" y2="20" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="78" x2="540" y2="78" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="135" x2="540" y2="135" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="193" x2="540" y2="193" stroke="#21262d" stroke-width="1"/>
+                  <line x1="55" y1="250" x2="540" y2="250" stroke="#21262d" stroke-width="1"/>
+                  <!-- Y-axis labels -->
+                  <text x="50" y="24" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">$1.50</text>
+                  <text x="50" y="82" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">$1.25</text>
+                  <text x="50" y="139" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">$1.00</text>
+                  <text x="50" y="197" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">$0.75</text>
+                  <text x="50" y="254" text-anchor="end" fill="#8b949e" font-size="10" font-family="sans-serif">$0.50</text>
+                  <!-- Area fill -->
+                  <polygon
+                    points="55,216 92,176 130,147 167,202 204,82 242,124 279,163 316,32 354,107 391,153 428,186 465,117 503,61 540,156 540,250 55,250"
+                    fill="url(#costGrad)"/>
+                  <!-- Line -->
+                  <polyline
+                    points="55,216 92,176 130,147 167,202 204,82 242,124 279,163 316,32 354,107 391,153 428,186 465,117 503,61 540,156"
+                    fill="none" stroke="#d29922" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                  <!-- Data dots -->
+                  <circle cx="55" cy="216" r="3" fill="#d29922"/>
+                  <circle cx="92" cy="176" r="3" fill="#d29922"/>
+                  <circle cx="130" cy="147" r="3" fill="#d29922"/>
+                  <circle cx="167" cy="202" r="3" fill="#d29922"/>
+                  <circle cx="204" cy="82" r="3" fill="#d29922"/>
+                  <circle cx="242" cy="124" r="3" fill="#d29922"/>
+                  <circle cx="279" cy="163" r="3" fill="#d29922"/>
+                  <circle cx="316" cy="32" r="3" fill="#d29922"/>
+                  <circle cx="354" cy="107" r="3" fill="#d29922"/>
+                  <circle cx="391" cy="153" r="3" fill="#d29922"/>
+                  <circle cx="428" cy="186" r="3" fill="#d29922"/>
+                  <circle cx="465" cy="117" r="3" fill="#d29922"/>
+                  <circle cx="503" cy="61" r="3" fill="#d29922"/>
+                  <circle cx="540" cy="156" r="3" fill="#d29922"/>
+                  <!-- X-axis labels (every other day) -->
+                  <text x="55"  y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 1</text>
+                  <text x="130" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 3</text>
+                  <text x="204" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 5</text>
+                  <text x="279" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 7</text>
+                  <text x="354" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 9</text>
+                  <text x="428" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 11</text>
+                  <text x="503" y="268" text-anchor="middle" fill="#8b949e" font-size="10" font-family="sans-serif">Jun 13</text>
+                </svg>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Top Repositories Table -->
+          <div class="section-panel">
+            <div class="section-panel-header">Top Repositories</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Repository</th>
+                  <th style="text-align: right;">Sessions</th>
+                  <th style="text-align: right;">Total Tokens</th>
+                  <th style="text-align: right;">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="font-mono">acme/web-platform</span></td>
+                  <td style="text-align: right;">28</td>
+                  <td style="text-align: right;">24.5M</td>
+                  <td style="text-align: right;">$7.23</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono">acme/api-server</span></td>
+                  <td style="text-align: right;">15</td>
+                  <td style="text-align: right;">12.8M</td>
+                  <td style="text-align: right;">$3.45</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono">acme/infrastructure</span></td>
+                  <td style="text-align: right;">6</td>
+                  <td style="text-align: right;">5.1M</td>
+                  <td style="text-align: right;">$1.42</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono">acme/mobile-app</span></td>
+                  <td style="text-align: right;">4</td>
+                  <td style="text-align: right;">2.8M</td>
+                  <td style="text-align: right;">$0.77</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+  </script>
+</body>
+</html>

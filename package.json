@@ -9,7 +9,9 @@
     "build:cli": "pnpm --filter @tracepilot/cli build",
     "cli": "tsx apps/cli/src/index.ts",
     "tauri": "pnpm --filter @tracepilot/desktop tauri",
-    "lint": "pnpm -r lint",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "clean": "pnpm -r clean"
@@ -19,6 +21,8 @@
     "pnpm": ">=9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
+    "@fontsource-variable/inter": "^5.2.8",
     "tsx": "^4.21.0"
   }
 }

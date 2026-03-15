@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Replay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-b.css">
+  <style>
+    .replay-layout { display:grid; grid-template-columns:1fr 320px; gap:0; height:calc(100vh - 48px); }
+    .replay-main { display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border-default); }
+    .replay-panel { display:flex; flex-direction:column; overflow:hidden; background:var(--canvas-subtle); }
+    .replay-controls {
+      display:flex; align-items:center; gap:8px; padding:10px 16px;
+      border-bottom:1px solid var(--border-default); background:var(--canvas-subtle); flex-shrink:0;
+    }
+    .replay-scrubber { flex:1; display:flex; align-items:center; gap:8px; }
+    .replay-track { flex:1; height:4px; background:var(--neutral-muted); border-radius:2px; position:relative; cursor:pointer; }
+    .replay-progress { height:100%; background:linear-gradient(90deg,#6366f1,#818cf8); border-radius:2px; position:relative; }
+    .replay-progress::after {
+      content:''; position:absolute; right:-5px; top:-4px;
+      width:12px; height:12px; border-radius:50%;
+      background:#818cf8; border:2px solid var(--canvas-default);
+      box-shadow:0 0 0 2px rgba(99,102,241,0.3);
+    }
+    .replay-time { font-size:0.6875rem; color:var(--text-tertiary); font-variant-numeric:tabular-nums; min-width:44px; }
+    .speed-group { display:inline-flex; gap:0; }
+    .speed-btn {
+      padding:3px 8px; font-size:0.6875rem; font-weight:500;
+      background:transparent; border:1px solid var(--border-default);
+      color:var(--text-secondary); cursor:pointer; transition:all 100ms ease;
+    }
+    .speed-btn:first-child { border-radius:var(--radius-sm) 0 0 var(--radius-sm); }
+    .speed-btn:last-child { border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+    .speed-btn:not(:first-child) { margin-left:-1px; }
+    .speed-btn.active { background:var(--accent-muted); color:var(--accent-fg); border-color:var(--accent-emphasis); z-index:1; }
+    .step-indicator { font-size:0.6875rem; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+    .conversation-area { flex:1; overflow-y:auto; padding:16px; }
+    .turn-revealed { opacity:1; }
+    .turn-future { opacity:0.25; }
+    .panel-section { padding:12px 16px; border-bottom:1px solid var(--border-default); }
+    .panel-section-title { font-size:0.6875rem; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px; }
+    .panel-kv { display:flex; justify-content:space-between; padding:3px 0; font-size:0.75rem; }
+    .panel-kv-label { color:var(--text-tertiary); }
+    .panel-kv-value { color:var(--text-primary); font-variant-numeric:tabular-nums; font-weight:500; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content" style="overflow:hidden;">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Replay</span>
+        </div>
+        <div class="step-indicator" style="margin-left:auto;">Step 5 of 12</div>
+      </div>
+
+      <div class="replay-layout">
+        <!-- Main Conversation -->
+        <div class="replay-main">
+          <!-- Controls -->
+          <div class="replay-controls">
+            <button class="btn btn-ghost btn-sm" title="Previous">⏮</button>
+            <button class="btn btn-ghost btn-sm" title="Play" style="font-size:1rem;">▶</button>
+            <button class="btn btn-ghost btn-sm" title="Next">⏭</button>
+            <div class="replay-scrubber">
+              <span class="replay-time">09:30</span>
+              <div class="replay-track">
+                <div class="replay-progress" style="width:42%;"></div>
+              </div>
+              <span class="replay-time">11:45</span>
+            </div>
+            <div class="speed-group">
+              <button class="speed-btn">0.5×</button>
+              <button class="speed-btn active">1×</button>
+              <button class="speed-btn">2×</button>
+              <button class="speed-btn">4×</button>
+            </div>
+          </div>
+
+          <!-- Conversation -->
+          <div class="conversation-area">
+            <div class="turn-group">
+
+              <!-- Turn 0 — revealed -->
+              <div class="turn-item turn-revealed">
+                <div class="turn-avatar user">👤</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">You</span>
+                    <span class="turn-meta">09:30:01</span>
+                  </div>
+                  <div class="turn-bubble user">Please implement the login feature with OAuth support. We need GitHub and Google providers integrated with our existing auth module.</div>
+                </div>
+              </div>
+
+              <div class="turn-item turn-revealed">
+                <div class="turn-avatar assistant">🤖</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">Assistant</span>
+                    <span class="turn-meta">09:30:02 · claude-opus-4.6</span>
+                    <span class="badge badge-accent" style="font-size:0.5625rem;">45s</span>
+                  </div>
+                  <div class="turn-bubble assistant">I'll implement the OAuth login feature. Let me start by examining your existing auth module and then add GitHub and Google providers.
+
+First, let me look at the current project structure...</div>
+                  <div class="tool-calls-container" style="margin-top:8px;">
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">👁</span>
+                      <span class="tool-call-name">view</span>
+                      <span class="tool-call-args">src/auth/index.ts</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">85ms</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">👁</span>
+                      <span class="tool-call-name">view</span>
+                      <span class="tool-call-args">src/auth/providers/</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">62ms</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">👁</span>
+                      <span class="tool-call-name">view</span>
+                      <span class="tool-call-args">package.json</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">91ms</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Turn 1 — revealed -->
+              <div class="turn-item turn-revealed">
+                <div class="turn-avatar user">👤</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">You</span>
+                    <span class="turn-meta">09:45:00</span>
+                  </div>
+                  <div class="turn-bubble user">Looks good so far. Can you also add proper error handling and rate limiting?</div>
+                </div>
+              </div>
+
+              <div class="turn-item turn-revealed">
+                <div class="turn-avatar assistant">🤖</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">Assistant</span>
+                    <span class="turn-meta">09:45:01 · claude-opus-4.6</span>
+                    <span class="badge badge-accent" style="font-size:0.5625rem;">1m 29s</span>
+                  </div>
+                  <div class="turn-bubble assistant">I'll add comprehensive error handling with custom error types and implement rate limiting using a sliding window approach.</div>
+                  <div class="tool-calls-container" style="margin-top:8px;">
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">📄</span>
+                      <span class="tool-call-name">create</span>
+                      <span class="tool-call-args">src/auth/errors.ts</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">120ms</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">📄</span>
+                      <span class="tool-call-name">create</span>
+                      <span class="tool-call-args">src/auth/rate-limiter.ts</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">145ms</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">💻</span>
+                      <span class="tool-call-name">powershell</span>
+                      <span class="tool-call-args">npm test -- --filter auth</span>
+                      <span class="tool-call-status failed" style="color:#fb7185;">✗</span>
+                      <span class="tool-call-duration">2.1s</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">✏️</span>
+                      <span class="tool-call-name">edit</span>
+                      <span class="tool-call-args">src/auth/providers/github.ts</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">180ms</span>
+                    </div>
+                    <div class="tool-call-item">
+                      <span class="tool-call-icon">💻</span>
+                      <span class="tool-call-name">powershell</span>
+                      <span class="tool-call-args">npm test -- --filter auth</span>
+                      <span class="tool-call-status success">✓</span>
+                      <span class="tool-call-duration">1.8s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Current step marker -->
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 0;">
+                <div style="flex:1;height:1px;background:var(--accent-emphasis);"></div>
+                <span style="font-size:0.625rem;color:var(--accent-fg);font-weight:500;white-space:nowrap;">▶ Current Step</span>
+                <div style="flex:1;height:1px;background:var(--accent-emphasis);"></div>
+              </div>
+
+              <!-- Turn 2 — future / grayed -->
+              <div class="turn-item turn-future">
+                <div class="turn-avatar user">👤</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">You</span>
+                    <span class="turn-meta">10:15:00</span>
+                  </div>
+                  <div class="turn-bubble user">Perfect. Now let's write integration tests for the OAuth flow.</div>
+                </div>
+              </div>
+
+              <div class="turn-item turn-future">
+                <div class="turn-avatar assistant">🤖</div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author">Assistant</span>
+                    <span class="turn-meta">10:15:01 · claude-opus-4.6</span>
+                  </div>
+                  <div class="turn-bubble assistant">I'll create comprehensive integration tests covering the full OAuth flow for both providers...</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Step Details -->
+        <div class="replay-panel">
+          <div class="panel-section">
+            <div class="panel-section-title">Current Step</div>
+            <div style="font-size:0.8125rem;font-weight:600;margin-bottom:4px;">Turn 1 — Error Handling</div>
+            <div style="font-size:0.6875rem;color:var(--text-tertiary);">Assistant response with 7 tool calls</div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-section-title">Step Metrics</div>
+            <div class="panel-kv"><span class="panel-kv-label">Duration</span><span class="panel-kv-value">1m 29s</span></div>
+            <div class="panel-kv"><span class="panel-kv-label">Model</span><span class="panel-kv-value">claude-opus-4.6</span></div>
+            <div class="panel-kv"><span class="panel-kv-label">Tool Calls</span><span class="panel-kv-value">7</span></div>
+            <div class="panel-kv"><span class="panel-kv-label">Failures</span><span class="panel-kv-value" style="color:#fb7185;">1</span></div>
+            <div class="panel-kv"><span class="panel-kv-label">Tokens In</span><span class="panel-kv-value">124.5K</span></div>
+            <div class="panel-kv"><span class="panel-kv-label">Tokens Out</span><span class="panel-kv-value">8.2K</span></div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-section-title">Files Modified</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.6875rem;">
+                <span style="color:#34d399;">+</span>
+                <span class="font-mono truncate">src/auth/errors.ts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.6875rem;">
+                <span style="color:#34d399;">+</span>
+                <span class="font-mono truncate">src/auth/rate-limiter.ts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.6875rem;">
+                <span style="color:#818cf8;">~</span>
+                <span class="font-mono truncate">src/auth/providers/github.ts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.6875rem;">
+                <span style="color:#818cf8;">~</span>
+                <span class="font-mono truncate">src/auth/providers/google.ts</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-section-title">Todos</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;">
+                <span style="color:var(--success-fg);">✓</span>
+                <span>Create user auth module</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;">
+                <span style="color:var(--success-fg);">✓</span>
+                <span>Add API routes</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;">
+                <span style="color:var(--accent-fg);">◐</span>
+                <span>OAuth provider integration</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;">
+                <span style="color:var(--accent-fg);">◐</span>
+                <span>Implement rate limiting</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;opacity:0.5;">
+                <span>○</span>
+                <span>Session management</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('replay');
+
+    // Speed button toggle
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

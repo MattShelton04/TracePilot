@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Tool Analysis</title>
+  <link rel="stylesheet" href="../shared/design-system-a.css">
+  <style>
+    .heatmap-container {
+      overflow-x: auto;
+    }
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: 48px repeat(24, 20px);
+      grid-template-rows: 20px repeat(7, 20px);
+      gap: 2px;
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+    }
+    .heatmap-corner {
+      /* empty top-left cell */
+    }
+    .heatmap-col-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+    .heatmap-row-label {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .heatmap-cell {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      background: rgba(88, 166, 255, 0.05);
+      transition: background var(--transition-fast);
+    }
+    .heatmap-cell:hover {
+      outline: 1px solid var(--accent-fg);
+      outline-offset: -1px;
+    }
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 12px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .heatmap-legend-cell {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb">
+          <span class="breadcrumb-current">Tool Analysis</span>
+        </nav>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <div class="mb-6">
+            <h1 class="page-title">Tool Analysis</h1>
+            <p class="page-subtitle">Tool usage patterns across all sessions</p>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">8,234</div>
+              <div class="stat-card-label">Total Tool Calls</div>
+              <div class="stat-card-trend">↑ 12% from last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">12</div>
+              <div class="stat-card-label">Unique Tools</div>
+              <div class="stat-card-trend">+2 new this month</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">340ms</div>
+              <div class="stat-card-label">Avg Duration</div>
+              <div class="stat-card-trend">↓ 8% faster</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value danger">3.2%</div>
+              <div class="stat-card-label">Failure Rate</div>
+              <div class="stat-card-trend">↓ 0.4% improvement</div>
+            </div>
+          </div>
+
+          <!-- Tool Usage Frequency -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Tool Usage Frequency</div>
+            <div class="section-panel-body" id="usage-bars"></div>
+          </div>
+
+          <!-- Execution Time -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Execution Time</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th style="text-align: right;">Avg Duration</th>
+                  <th style="text-align: right;">P50</th>
+                  <th style="text-align: right;">P95</th>
+                  <th style="text-align: right;">Max</th>
+                </tr>
+              </thead>
+              <tbody id="exec-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Failure Analysis -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Failure Analysis</div>
+            <div class="section-panel-body" id="failure-bars"></div>
+          </div>
+
+          <!-- Usage Heatmap -->
+          <div class="section-panel">
+            <div class="section-panel-header">Usage Heatmap</div>
+            <div class="section-panel-body">
+              <div class="heatmap-container">
+                <div class="heatmap-grid" id="heatmap"></div>
+              </div>
+              <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="heatmap-legend-cell" style="background: rgba(88,166,255,0.05);"></div>
+                <div class="heatmap-legend-cell" style="background: rgba(88,166,255,0.2);"></div>
+                <div class="heatmap-legend-cell" style="background: rgba(88,166,255,0.4);"></div>
+                <div class="heatmap-legend-cell" style="background: rgba(88,166,255,0.65);"></div>
+                <div class="heatmap-legend-cell" style="background: rgba(88,166,255,0.9);"></div>
+                <span>More</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateSidebar('tools');
+
+    // ── Tool Usage Frequency ──────────────────────────────────────
+    const usageData = [
+      { name: 'view',       count: 3245, color: '#8957e5' },
+      { name: 'edit',       count: 2134, color: '#8957e5' },
+      { name: 'powershell', count: 1567, color: '#1f6feb' },
+      { name: 'grep',       count: 890,  color: '#238636' },
+      { name: 'create',     count: 456,  color: '#1f6feb' },
+      { name: 'glob',       count: 342,  color: '#238636' },
+      { name: 'task',       count: 234,  color: '#8957e5' },
+      { name: 'sql',        count: 123,  color: '#6e7681' },
+      { name: 'web_search', count: 89,   color: '#6e7681' },
+      { name: 'ask_user',   count: 54,   color: '#6e7681' },
+    ];
+
+    const maxCount = usageData[0].count;
+    const usageBars = document.getElementById('usage-bars');
+    usageData.forEach(d => {
+      const pct = (d.count / maxCount) * 100;
+      usageBars.innerHTML += `
+        <div class="token-bar">
+          <span class="token-bar-label">${toolIcon(d.name)} ${d.name}</span>
+          <div class="token-bar-track">
+            <div class="token-bar-fill" style="width: ${pct.toFixed(1)}%; background: ${d.color};"></div>
+          </div>
+          <span class="token-bar-value">${d.count.toLocaleString()}</span>
+        </div>
+      `;
+    });
+
+    // ── Execution Time Table ──────────────────────────────────────
+    const execData = [
+      { name: 'powershell', avg: '1,250ms',  p50: '890ms',    p95: '4,200ms',   max: '12,500ms'  },
+      { name: 'task',       avg: '8,400ms',  p50: '6,200ms',  p95: '18,000ms',  max: '45,000ms'  },
+      { name: 'edit',       avg: '180ms',    p50: '150ms',    p95: '420ms',     max: '1,200ms'   },
+      { name: 'create',     avg: '145ms',    p50: '120ms',    p95: '380ms',     max: '980ms'     },
+      { name: 'view',       avg: '85ms',     p50: '72ms',     p95: '180ms',     max: '450ms'     },
+      { name: 'grep',       avg: '120ms',    p50: '95ms',     p95: '310ms',     max: '780ms'     },
+      { name: 'glob',       avg: '65ms',     p50: '52ms',     p95: '140ms',     max: '320ms'     },
+      { name: 'sql',        avg: '95ms',     p50: '78ms',     p95: '220ms',     max: '560ms'     },
+      { name: 'web_search', avg: '2,100ms',  p50: '1,800ms',  p95: '4,500ms',   max: '8,200ms'   },
+      { name: 'ask_user',   avg: '45,000ms', p50: '30,000ms', p95: '120,000ms', max: '180,000ms' },
+    ];
+
+    const execTbody = document.getElementById('exec-tbody');
+    execData.forEach(d => {
+      execTbody.innerHTML += `
+        <tr>
+          <td><span class="font-mono">${toolIcon(d.name)} ${d.name}</span></td>
+          <td style="text-align: right;" class="font-mono">${d.avg}</td>
+          <td style="text-align: right;" class="font-mono">${d.p50}</td>
+          <td style="text-align: right;" class="font-mono">${d.p95}</td>
+          <td style="text-align: right;" class="font-mono">${d.max}</td>
+        </tr>
+      `;
+    });
+
+    // ── Failure Analysis ──────────────────────────────────────────
+    const failureData = [
+      { name: 'powershell', rate: 8.2 },
+      { name: 'task',       rate: 5.1 },
+      { name: 'web_search', rate: 3.8 },
+      { name: 'edit',       rate: 1.2 },
+      { name: 'create',     rate: 0.8 },
+      { name: 'view',       rate: 0.3 },
+    ];
+
+    const maxFailRate = failureData[0].rate;
+    const failureBars = document.getElementById('failure-bars');
+    failureData.forEach(d => {
+      const pct = (d.rate / maxFailRate) * 100;
+      failureBars.innerHTML += `
+        <div class="token-bar">
+          <span class="token-bar-label">${toolIcon(d.name)} ${d.name}</span>
+          <div class="token-bar-track">
+            <div class="token-bar-fill" style="width: ${pct.toFixed(1)}%; background: #da3633;"></div>
+          </div>
+          <span class="token-bar-value">${d.rate}%</span>
+        </div>
+      `;
+    });
+
+    // ── Usage Heatmap ─────────────────────────────────────────────
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const heatmap = document.getElementById('heatmap');
+
+    // Generate realistic intensity data
+    function heatIntensity(day, hour) {
+      const isWeekend = day >= 5;
+      const isBusinessHour = hour >= 9 && hour <= 17;
+      const isLunchDip = hour >= 12 && hour <= 13;
+      const isEarlyMorning = hour >= 6 && hour <= 8;
+      const isEvening = hour >= 18 && hour <= 22;
+
+      let base;
+      if (isWeekend) {
+        base = isBusinessHour ? 0.15 : 0.03;
+        if (isEvening) base = 0.08;
+      } else {
+        if (isBusinessHour) base = isLunchDip ? 0.45 : 0.7;
+        else if (isEarlyMorning) base = 0.25;
+        else if (isEvening) base = 0.3;
+        else base = 0.03;
+      }
+      // Add some noise
+      const noise = (Math.sin(day * 7 + hour * 13) * 0.5 + 0.5) * 0.2 - 0.1;
+      return Math.max(0.05, Math.min(0.9, base + noise));
+    }
+
+    // Corner cell
+    heatmap.innerHTML = '<div class="heatmap-corner"></div>';
+
+    // Column headers (hours 0–23)
+    for (let h = 0; h < 24; h++) {
+      heatmap.innerHTML += `<div class="heatmap-col-label">${h}</div>`;
+    }
+
+    // Rows
+    days.forEach((day, di) => {
+      heatmap.innerHTML += `<div class="heatmap-row-label">${day}</div>`;
+      for (let h = 0; h < 24; h++) {
+        const opacity = heatIntensity(di, h).toFixed(2);
+        heatmap.innerHTML += `<div class="heatmap-cell" style="background: rgba(88,166,255,${opacity});" title="${day} ${h}:00 — intensity ${(opacity * 100).toFixed(0)}%"></div>`;
+      }
+    });
+  </script>
+</body>
+</html>
