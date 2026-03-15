@@ -268,7 +268,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <div class="setting-info">
               <div class="setting-label">Sessions directory</div>
               <div class="setting-description">
-                Path to Claude Code session data
+                Path to Copilot session data
               </div>
             </div>
             <div class="setting-control-group">

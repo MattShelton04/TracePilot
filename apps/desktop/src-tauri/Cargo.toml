@@ -17,6 +17,7 @@ tauri = { version = "2", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tauri-plugin-dialog = "2.6.0"
 
 [[bin]]
 name = "tracepilot-desktop"

@@ -13,8 +13,16 @@ const transitioning = ref(false);
 const prefersReducedMotion = ref(false);
 
 // ── Form state ─────────────────────────────────────────────────
-const sessionDir = ref('~/.copilot/session-state');
-const dbPath = ref('~/.copilot/tracepilot/index.db');
+// Fallback defaults for dev mode (outside Tauri). In production the backend
+// returns absolute paths via getConfig() which replace these on mount.
+const FALLBACK_SESSION_DIR = '~/.copilot/session-state';
+const FALLBACK_DB_PATH = '~/.copilot/tracepilot/index.db';
+
+const defaultSessionDir = ref(FALLBACK_SESSION_DIR);
+const defaultDbPath = ref(FALLBACK_DB_PATH);
+
+const sessionDir = ref(FALLBACK_SESSION_DIR);
+const dbPath = ref(FALLBACK_DB_PATH);
 const autoIndex = ref(true);
 
 // ── Validation state ───────────────────────────────────────────
@@ -24,6 +32,11 @@ const validationError = ref('');
 
 // ── Saving state ───────────────────────────────────────────────
 const saving = ref(false);
+
+// ── Animation tracking ─────────────────────────────────────────
+// Tracks which feature cards have finished their entrance animation
+// so we can release the animation fill and allow hover transforms.
+const animatedCards = ref(new Set<number>());
 
 // ── Features list ──────────────────────────────────────────────
 const features = [
@@ -47,11 +60,21 @@ const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 const transitionDuration = computed(() => prefersReducedMotion.value ? '0ms' : '400ms');
 
 // ── Navigation ─────────────────────────────────────────────────
+const slidesViewport = ref<HTMLElement | null>(null);
+
 function goTo(slide: number) {
   if (slide < 0 || slide >= totalSlides || transitioning.value) return;
   transitioning.value = true;
   currentSlide.value = slide;
-  setTimeout(() => { transitioning.value = false; }, prefersReducedMotion.value ? 0 : 420);
+  setTimeout(() => {
+    transitioning.value = false;
+    // Move focus to the new slide's first heading for keyboard accessibility
+    nextTick(() => {
+      const headings = slidesViewport.value?.querySelectorAll('.slide-content h1, .slide-content h2');
+      const target = headings?.[slide] as HTMLElement | undefined;
+      target?.focus({ preventScroll: true });
+    });
+  }, prefersReducedMotion.value ? 0 : 420);
 }
 
 function next() {
@@ -80,8 +103,8 @@ async function validateDir() {
 }
 
 // ── Browse (Tauri dialog) ──────────────────────────────────────
-// Uses Tauri's dialog plugin via raw invoke. Falls back to prompt() if
-// the dialog plugin is not installed or we're running outside Tauri.
+// Uses the tauri-plugin-dialog for native file explorer.
+// Falls back to prompt() outside Tauri.
 async function browseSessionDir() {
   if (!('__TAURI_INTERNALS__' in window)) {
     const input = prompt('Enter session-state directory path:', sessionDir.value);
@@ -92,8 +115,8 @@ async function browseSessionDir() {
     return;
   }
   try {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
-    const selected = await tauriInvoke<string | null>('plugin:dialog|open', {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
       directory: true,
       title: 'Select session-state directory',
     });
@@ -117,8 +140,8 @@ async function browseDbPath() {
     return;
   }
   try {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
-    const selected = await tauriInvoke<string | null>('plugin:dialog|save', {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const selected = await save({
       title: 'Choose database location',
       defaultPath: dbPath.value,
     });
@@ -132,6 +155,18 @@ async function browseDbPath() {
 // ── Skip setup ─────────────────────────────────────────────────
 async function skipSetup() {
   await finishSetup();
+}
+
+// ── Reset to defaults ──────────────────────────────────────────
+function resetSessionDir() {
+  sessionDir.value = defaultSessionDir.value;
+  validationResult.value = null;
+  validationError.value = '';
+  validateDir();
+}
+
+function resetDbPath() {
+  dbPath.value = defaultDbPath.value;
 }
 
 // ── Finish setup ───────────────────────────────────────────────
@@ -190,9 +225,16 @@ onMounted(async () => {
     sessionDir.value = config.paths.sessionStateDir;
     dbPath.value = config.paths.indexDbPath;
     autoIndex.value = config.general.autoIndexOnLaunch;
+    // Store backend defaults for the reset buttons
+    defaultSessionDir.value = config.paths.sessionStateDir;
+    defaultDbPath.value = config.paths.indexDbPath;
   } catch {
-    // Defaults are fine
+    // Defaults are fine (dev mode / outside Tauri)
   }
+
+  // Auto-validate default path so user sees green tick immediately
+  await nextTick();
+  validateDir();
 });
 
 onUnmounted(() => {
@@ -210,10 +252,12 @@ onUnmounted(() => {
     </div>
 
     <!-- Skip link -->
-    <button class="skip-link" @click="skipSetup">Skip setup</button>
+    <button class="skip-link" :disabled="saving" @click="skipSetup">
+      {{ saving ? 'Setting up…' : 'Skip setup' }}
+    </button>
 
     <!-- Slide container -->
-    <div class="slides-viewport">
+    <div ref="slidesViewport" class="slides-viewport">
       <div
         class="slides-track"
         :style="{ transform: `translateX(-${currentSlide * 100}%)`, transitionDuration }"
@@ -230,8 +274,8 @@ onUnmounted(() => {
                 </svg>
               </div>
             </div>
-            <h1 class="welcome-title">TracePilot</h1>
-            <p class="welcome-subtitle">Understand your Copilot usage</p>
+            <h1 class="welcome-title" tabindex="-1">TracePilot</h1>
+            <p class="welcome-subtitle">Your personal Copilot analytics dashboard</p>
             <span class="version-pill">v0.1.0</span>
             <button class="btn-accent btn-lg" @click="next">Begin Setup →</button>
           </div>
@@ -240,14 +284,15 @@ onUnmounted(() => {
         <!-- ═══ Slide 2: Features ═══ -->
         <div class="slide">
           <div class="slide-content slide-features">
-            <h2 class="slide-title">Powerful Analytics at Your Fingertips</h2>
+            <h2 class="slide-title" tabindex="-1">Powerful Analytics at Your Fingertips</h2>
             <div class="features-grid">
               <div
                 v-for="(f, i) in features"
                 :key="f.title"
                 class="feature-card"
                 :style="{ animationDelay: currentSlide === 1 ? `${i * 80}ms` : '0ms' }"
-                :class="{ 'animate-in': currentSlide === 1 }"
+                :class="{ 'animate-in': currentSlide === 1 && !animatedCards.has(i), 'animate-done': animatedCards.has(i) }"
+                @animationend="animatedCards.add(i)"
               >
                 <div class="feature-icon" :style="{ background: f.color + '20', color: f.color }">
                   {{ f.emoji }}
@@ -266,7 +311,7 @@ onUnmounted(() => {
         <div class="slide">
           <div class="slide-content slide-form">
             <div class="form-icon">📂</div>
-            <h2 class="slide-title">Where are your sessions?</h2>
+            <h2 class="slide-title" tabindex="-1">Where are your sessions?</h2>
             <p class="slide-desc">
               GitHub Copilot stores session data in a local directory.
               TracePilot reads this data to generate analytics.
@@ -283,6 +328,13 @@ onUnmounted(() => {
                 @keydown.enter.prevent="validateDir"
               />
               <button class="btn-browse" @click="browseSessionDir">Browse…</button>
+              <button
+                v-if="sessionDir !== defaultSessionDir"
+                class="btn-reset-path"
+                title="Reset to default"
+                aria-label="Reset session directory to default"
+                @click="resetSessionDir"
+              >↺</button>
             </div>
 
             <div class="validation-area">
@@ -303,7 +355,7 @@ onUnmounted(() => {
 
             <button
               class="btn-accent"
-              :disabled="!canContinueSlide3 && !validating"
+              :disabled="validating || !canContinueSlide3"
               @click="next"
             >
               Continue →
@@ -315,7 +367,7 @@ onUnmounted(() => {
         <div class="slide">
           <div class="slide-content slide-form">
             <div class="form-icon">🗄️</div>
-            <h2 class="slide-title">Where should we store analytics?</h2>
+            <h2 class="slide-title" tabindex="-1">Where should we store analytics?</h2>
             <p class="slide-desc">
               TracePilot creates a local search index for fast queries.
               Choose where to store the database file.
@@ -330,6 +382,13 @@ onUnmounted(() => {
                 spellcheck="false"
               />
               <button class="btn-browse" @click="browseDbPath">Browse…</button>
+              <button
+                v-if="dbPath !== defaultDbPath"
+                class="btn-reset-path"
+                title="Reset to default"
+                aria-label="Reset database path to default"
+                @click="resetDbPath"
+              >↺</button>
             </div>
 
             <p class="form-note">~2 MB per 100 sessions. Will be created automatically.</p>
@@ -352,7 +411,7 @@ onUnmounted(() => {
               </svg>
             </div>
 
-            <h2 class="slide-title">You're Ready!</h2>
+            <h2 class="slide-title" tabindex="-1">You're Ready!</h2>
             <p class="slide-desc">Here's a summary of your configuration</p>
 
             <div class="config-summary">
@@ -380,7 +439,11 @@ onUnmounted(() => {
             </div>
 
             <button class="btn-accent btn-lg btn-glow" :disabled="saving" @click="finishSetup">
-              {{ saving ? 'Saving…' : 'Launch TracePilot' }}
+              <span v-if="saving" class="btn-loading">
+                <span class="spinner spinner-white" />
+                Indexing sessions…
+              </span>
+              <span v-else>Launch TracePilot</span>
             </button>
             <p v-if="setupError" class="setup-error" role="alert">
               ⚠ Setup failed: {{ setupError }}. Please try again.
@@ -569,6 +632,7 @@ onUnmounted(() => {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  outline: none;
 }
 
 .features-grid {
@@ -590,10 +654,33 @@ onUnmounted(() => {
   text-align: left;
   opacity: 0;
   transform: translateY(12px);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+  cursor: default;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.10), 0 0 0 1px rgba(99, 102, 241, 0.08);
+  background: var(--canvas-raised, #1c1c1f);
 }
 
 .feature-card.animate-in {
   animation: fadeInUp 400ms ease forwards;
+}
+
+/* After animation completes, set final state directly so hover transform works
+   (animation fill-forwards blocks hover transforms per CSS spec) */
+.feature-card.animate-done {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feature-card.animate-done:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.10), 0 0 0 1px rgba(99, 102, 241, 0.08);
+  background: var(--canvas-raised, #1c1c1f);
 }
 
 @keyframes fadeInUp {
@@ -684,6 +771,24 @@ onUnmounted(() => {
   border-color: var(--border-accent, rgba(99, 102, 241, 0.5));
 }
 
+.btn-reset-path {
+  padding: 10px 12px;
+  background: none;
+  border: 1px solid var(--border-default, rgba(255,255,255,0.10));
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-tertiary, #71717a);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+  line-height: 1;
+}
+
+.btn-reset-path:hover {
+  color: var(--warning-fg, #fbbf24);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.06);
+}
+
 /* ── Validation messages ──────────────────────────────────── */
 .validation-area {
   min-height: 28px;
@@ -715,6 +820,17 @@ onUnmounted(() => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.spinner-white {
+  border-color: rgba(255,255,255,0.25);
+  border-top-color: white;
+}
+
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .form-note {
