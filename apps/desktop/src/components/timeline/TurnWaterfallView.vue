@@ -22,6 +22,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const store = useSessionDetailStore();
 const turns = computed(() => store.turns);
+const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 
 /* ------------------------------------------------------------------ */
 /*  Turn navigation                                                   */
@@ -124,7 +125,23 @@ const timelineSpanMs = computed<number>(() => {
   if (!start) return turnDurationMs.value || 1;
 
   let latest = start;
+
+  // Collect IDs of subagent parents in this turn
+  const subagentIds = new Set<string>();
   for (const tc of t.toolCalls) {
+    if (tc.isSubagent && tc.toolCallId) subagentIds.add(tc.toolCallId);
+  }
+
+  // Include current turn's tool calls AND cross-turn children of this turn's subagents
+  const relevantCalls = [
+    ...t.toolCalls,
+    ...allToolCalls.value.filter(
+      (tc) => tc.parentToolCallId && subagentIds.has(tc.parentToolCallId)
+        && !t.toolCalls.includes(tc),
+    ),
+  ];
+
+  for (const tc of relevantCalls) {
     if (tc.completedAt) {
       const ms = new Date(tc.completedAt).getTime();
       if (ms > latest) latest = ms;
@@ -146,21 +163,34 @@ const rows = computed<WaterfallRow[]>(() => {
   const span = timelineSpanMs.value;
   const epochStart = turnEpochStart.value;
 
-  // Index by toolCallId for parent lookup
+  // Index by toolCallId for parent lookup (current turn only)
   const byId = new Map<string, TurnToolCall>();
   for (const tc of calls) {
     if (tc.toolCallId) byId.set(tc.toolCallId, tc);
   }
 
-  // Separate top-level vs children
+  // Separate top-level vs children — search ALL turns for child tool calls
   const topLevel: TurnToolCall[] = [];
   const childrenMap = new Map<string, TurnToolCall[]>();
-  for (const tc of calls) {
+
+  // First, collect children from all turns that belong to a parent in this turn
+  for (const tc of allToolCalls.value) {
     if (tc.parentToolCallId && byId.has(tc.parentToolCallId)) {
       const siblings = childrenMap.get(tc.parentToolCallId) ?? [];
       siblings.push(tc);
       childrenMap.set(tc.parentToolCallId, siblings);
-    } else {
+    }
+  }
+
+  // Collect all subagent IDs across all turns (to suppress cross-turn children from top-level)
+  const allSubagentIds = new Set<string>();
+  for (const tc of allToolCalls.value) {
+    if (tc.isSubagent && tc.toolCallId) allSubagentIds.add(tc.toolCallId);
+  }
+
+  // Top-level = current turn's calls that are not children of any subagent
+  for (const tc of calls) {
+    if (!(tc.parentToolCallId && (byId.has(tc.parentToolCallId) || allSubagentIds.has(tc.parentToolCallId)))) {
       topLevel.push(tc);
     }
   }
@@ -360,6 +390,13 @@ function formatArgsJson(args: unknown): string {
   } catch {
     return String(args);
   }
+}
+
+function extractPrompt(args: unknown): string | null {
+  if (!args || typeof args !== 'object') return null;
+  const obj = args as Record<string, unknown>;
+  const raw = obj.prompt ?? obj.description;
+  return typeof raw === 'string' ? raw : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -770,6 +807,12 @@ function rowArgsSummary(row: WaterfallRow): string {
               <span class="field-label">Child tools</span>
               <span class="field-value">{{ childToolCount(pinnedRow) }}</span>
             </div>
+          </div>
+
+          <!-- Prompt (subagent only) -->
+          <div v-if="pinnedRow.call.isSubagent && extractPrompt(pinnedRow.call.arguments)" class="detail-prompt-section">
+            <span class="field-label">Prompt</span>
+            <pre class="detail-prompt">{{ extractPrompt(pinnedRow.call.arguments) }}</pre>
           </div>
 
           <!-- Arguments (collapsible) -->
@@ -1263,6 +1306,22 @@ function rowArgsSummary(row: WaterfallRow): string {
   gap: 6px 16px;
   border-top: 1px solid var(--border-muted);
   padding-top: 8px;
+}
+.detail-prompt-section {
+  border-top: 1px solid var(--border-muted);
+  padding-top: 8px;
+}
+.detail-prompt {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--canvas-default);
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  margin: 4px 0 0;
 }
 .detail-field {
   display: flex;

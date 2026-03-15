@@ -277,4 +277,61 @@ describe("TurnWaterfallView", () => {
     await nextTick();
     expect(wrapper.find(".terminology-list").exists()).toBe(false);
   });
+
+  it("finds child tools across turns (cross-turn boundary)", () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "explore",
+      isSubagent: true,
+      toolCallId: "agent-cross",
+      agentDisplayName: "Cross-Turn Agent",
+      durationMs: 60000,
+      startedAt: "2025-01-01T00:00:00.000Z",
+      completedAt: "2025-01-01T00:01:00.000Z",
+    });
+    const childTool = makeTurnToolCall({
+      toolName: "grep",
+      isSubagent: false,
+      toolCallId: "child-grep-1",
+      parentToolCallId: "agent-cross",
+      durationMs: 50,
+      startedAt: "2025-01-01T00:00:05.000Z",
+      completedAt: "2025-01-01T00:00:05.050Z",
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+      makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // The waterfall should show the child tool nested under the subagent
+    expect(wrapper.text()).toContain("grep");
+  });
+
+  it("shows prompt in pinned detail for subagent with arguments", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "code-review",
+      isSubagent: true,
+      toolCallId: "agent-prompt",
+      agentDisplayName: "Code Review Agent",
+      arguments: { prompt: "Review auth security", agent_type: "code-review" },
+      durationMs: 30000,
+      startedAt: "2025-01-01T00:00:00.000Z",
+      completedAt: "2025-01-01T00:00:30.000Z",
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Click the waterfall row to pin detail
+    const rows = wrapper.findAll(".waterfall-row");
+    const agentRow = rows.find(r => r.text().includes("Code Review Agent") || r.text().includes("code-review"));
+    if (agentRow) {
+      await agentRow.trigger("click");
+      await nextTick();
+      expect(wrapper.text()).toContain("Review auth security");
+    }
+  });
 });

@@ -298,4 +298,72 @@ describe("NestedSwimlanesView", () => {
     const wrapper = mountComponent();
     expect(wrapper.text()).not.toContain("parallel");
   });
+
+  it("finds subagent child tools across turns (cross-turn boundary)", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "explore",
+      isSubagent: true,
+      toolCallId: "agent-cross",
+      agentDisplayName: "Cross-Turn Agent",
+      durationMs: 60000,
+    });
+    const childTool = makeTurnToolCall({
+      toolName: "grep",
+      isSubagent: false,
+      toolCallId: "child-grep-1",
+      parentToolCallId: "agent-cross",
+      durationMs: 50,
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+      makeTurn({ turnIndex: 1, userMessage: "Second message", toolCalls: [childTool] }),
+    ] as any;
+    store.loading = false;
+
+    const wrapper = mountComponent();
+    await nextTick();
+    // The child tool "grep" should appear in the subagent lane of turn 0
+    // (found via cross-turn allToolCalls search)
+    const allText = wrapper.text();
+    expect(allText).toContain("grep");
+    // The child tool should NOT appear as a direct tool in turn 1
+    // (it's a child of agent-cross in turn 0)
+    const directToolBars = wrapper.findAll(".swimlane-bar--tool");
+    const grepBars = directToolBars.filter(b => b.text().includes("grep"));
+    // grep should appear only under the agent's nested lane, not as a standalone
+    expect(grepBars.length).toBe(1);
+  });
+
+  it("shows prompt in detail panel for subagent with arguments", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "code-review",
+      isSubagent: true,
+      toolCallId: "agent-prompt",
+      agentDisplayName: "Code Review Agent",
+      arguments: { prompt: "Check for SQL injection", agent_type: "code-review" },
+      durationMs: 30000,
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+    ] as any;
+    store.loading = false;
+
+    const wrapper = mountComponent();
+    // Expand phase
+    const phaseHeaders = wrapper.findAll(".phase-header");
+    if (phaseHeaders.length > 0) {
+      await phaseHeaders[0].trigger("click");
+      await nextTick();
+    }
+    // Click the subagent bar to open detail
+    const agentBars = wrapper.findAll(".tool-bar");
+    const bar = agentBars.find(b => b.text().includes("Code Review Agent") || b.text().includes("code-review"));
+    if (bar) {
+      await bar.trigger("click");
+      await nextTick();
+      expect(wrapper.text()).toContain("Check for SQL injection");
+    }
+  });
 });

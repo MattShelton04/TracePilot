@@ -83,22 +83,61 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     if turn.interaction_id.is_none() {
                         turn.interaction_id = data.interaction_id.clone();
                     }
+                }
 
-                    if let Some(tool_call) =
+                // Search current turn first, then finalized turns (tool may complete after turn boundary)
+                let tool_call = current_turn
+                    .as_mut()
+                    .and_then(|turn| {
                         find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
-                    {
+                    })
+                    .or_else(|| {
+                        turns.iter_mut().rev().find_map(|turn| {
+                            find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
+                        })
+                    });
+
+                if let Some(tool_call) = tool_call {
+                    // Only overwrite success/error if the new data provides them
+                    // (avoids SubagentCompleted's success being erased by ToolExecComplete's None)
+                    if data.success.is_some() {
                         tool_call.success = data.success;
-                        tool_call.error = data.error.as_ref().map(json_value_to_string);
+                    }
+                    if let Some(ref err) = data.error {
+                        tool_call.error = Some(json_value_to_string(err));
+                    }
+                    // Use latest timestamp for completion (longest observed duration wins)
+                    if tool_call.completed_at.is_none()
+                        || event.raw.timestamp > tool_call.completed_at
+                    {
                         tool_call.completed_at = event.raw.timestamp;
                         tool_call.duration_ms =
                             duration_ms(tool_call.started_at, tool_call.completed_at);
-                        tool_call.is_complete = true;
+                    }
+                    tool_call.is_complete = true;
+                    if data.model.is_some() {
                         tool_call.model = data.model.clone();
-                        if tool_call.parent_tool_call_id.is_none() {
-                            tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
-                        }
-                        // Only set turn-level model from non-subagent tool completions
-                        if turn.model.is_none() && !tool_call.is_subagent {
+                    }
+                    if tool_call.parent_tool_call_id.is_none() {
+                        tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
+                    }
+                }
+
+                // Set turn-level model from non-subagent completions
+                // Check current turn first, then the finalized turn owning the tool call
+                let tc_id = data.tool_call_id.as_deref();
+                let has_tc = |t: &ConversationTurn| {
+                    tc_id.is_some_and(|id| t.tool_calls.iter().any(|tc| tc.tool_call_id.as_deref() == Some(id)))
+                };
+                let owning_turn = current_turn
+                    .as_mut()
+                    .filter(|t| has_tc(t))
+                    .or_else(|| {
+                        turns.iter_mut().rev().find(|t| has_tc(t))
+                    });
+                if let Some(turn) = owning_turn {
+                    if let Some(tc) = find_tool_call_mut(&mut turn.tool_calls, tc_id) {
+                        if turn.model.is_none() && !tc.is_subagent {
                             turn.model = data.model.clone();
                         }
                     }
@@ -106,49 +145,98 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
             }
             (SessionEventType::SubagentStarted, TypedEventData::SubagentStarted(data)) => {
                 let turn = ensure_current_turn(&mut current_turn, turns.len(), event.raw.timestamp);
-                turn.tool_calls.push(TurnToolCall {
-                    tool_call_id: data.tool_call_id.clone(),
-                    parent_tool_call_id: None,
-                    tool_name: data
-                        .agent_name
-                        .clone()
-                        .or_else(|| data.agent_display_name.clone())
-                        .unwrap_or_else(|| "subagent".to_string()),
-                    arguments: None,
-                    success: None,
-                    error: None,
-                    started_at: event.raw.timestamp,
-                    completed_at: None,
-                    duration_ms: None,
-                    mcp_server_name: None,
-                    mcp_tool_name: None,
-                    is_complete: false,
-                    is_subagent: true,
-                    agent_display_name: data.agent_display_name.clone(),
-                    agent_description: data.agent_description.clone(),
-                    model: None,
-                });
+
+                // Helper closure to enrich an existing entry with subagent metadata
+                fn enrich_subagent(existing: &mut TurnToolCall, data: &crate::models::event_types::SubagentStartedData) {
+                    existing.is_subagent = true;
+                    existing.agent_display_name = data.agent_display_name.clone();
+                    existing.agent_description = data.agent_description.clone();
+                    if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
+                        existing.tool_name = name.clone();
+                    }
+                }
+
+                // Try current turn first, then search finalized turns
+                if let Some(existing) =
+                    find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
+                {
+                    enrich_subagent(existing, &data);
+                } else if let Some(existing) = turns.iter_mut().rev().find_map(|t| {
+                    find_tool_call_mut(&mut t.tool_calls, data.tool_call_id.as_deref())
+                }) {
+                    enrich_subagent(existing, &data);
+                } else {
+                    // No matching ToolExecStart anywhere — create a new entry
+                    turn.tool_calls.push(TurnToolCall {
+                        tool_call_id: data.tool_call_id.clone(),
+                        parent_tool_call_id: None,
+                        tool_name: data
+                            .agent_name
+                            .clone()
+                            .or_else(|| data.agent_display_name.clone())
+                            .unwrap_or_else(|| "subagent".to_string()),
+                        arguments: None,
+                        success: None,
+                        error: None,
+                        started_at: event.raw.timestamp,
+                        completed_at: None,
+                        duration_ms: None,
+                        mcp_server_name: None,
+                        mcp_tool_name: None,
+                        is_complete: false,
+                        is_subagent: true,
+                        agent_display_name: data.agent_display_name.clone(),
+                        agent_description: data.agent_description.clone(),
+                        model: None,
+                    });
+                }
             }
             (SessionEventType::SubagentCompleted, TypedEventData::SubagentCompleted(data)) => {
-                if let Some(turn) = current_turn.as_mut()
-                    && let Some(tool_call) =
+                // First try current turn, then search finalized turns
+                let found = current_turn.as_mut().and_then(|turn| {
+                    find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
+                });
+                let tool_call = if found.is_some() {
+                    found
+                } else {
+                    // Search finalized turns (subagent may complete after turn boundary)
+                    turns.iter_mut().rev().find_map(|turn| {
                         find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
-                {
-                    tool_call.completed_at = event.raw.timestamp;
-                    tool_call.duration_ms =
-                        duration_ms(tool_call.started_at, tool_call.completed_at);
+                    })
+                };
+                if let Some(tool_call) = tool_call {
+                    // Use latest timestamp (SubagentCompleted should override early ToolExecComplete)
+                    if tool_call.completed_at.is_none()
+                        || event.raw.timestamp > tool_call.completed_at
+                    {
+                        tool_call.completed_at = event.raw.timestamp;
+                        tool_call.duration_ms =
+                            duration_ms(tool_call.started_at, tool_call.completed_at);
+                    }
                     tool_call.success = Some(true);
                     tool_call.is_complete = true;
                 }
             }
             (SessionEventType::SubagentFailed, TypedEventData::SubagentFailed(data)) => {
-                if let Some(turn) = current_turn.as_mut()
-                    && let Some(tool_call) =
+                // First try current turn, then search finalized turns
+                let found = current_turn.as_mut().and_then(|turn| {
+                    find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
+                });
+                let tool_call = if found.is_some() {
+                    found
+                } else {
+                    turns.iter_mut().rev().find_map(|turn| {
                         find_tool_call_mut(&mut turn.tool_calls, data.tool_call_id.as_deref())
-                {
-                    tool_call.completed_at = event.raw.timestamp;
-                    tool_call.duration_ms =
-                        duration_ms(tool_call.started_at, tool_call.completed_at);
+                    })
+                };
+                if let Some(tool_call) = tool_call {
+                    if tool_call.completed_at.is_none()
+                        || event.raw.timestamp > tool_call.completed_at
+                    {
+                        tool_call.completed_at = event.raw.timestamp;
+                        tool_call.duration_ms =
+                            duration_ms(tool_call.started_at, tool_call.completed_at);
+                    }
                     tool_call.success = Some(false);
                     tool_call.error = data.error.clone();
                     tool_call.is_complete = true;
@@ -845,5 +933,348 @@ mod tests {
         assert_eq!(stats.total_messages, 2);
         assert_eq!(stats.models_used.len(), 1);
         assert!(stats.models_used.contains(&"claude-sonnet-4.5".to_string()));
+    }
+
+    #[test]
+    fn subagent_started_merges_into_tool_exec_start() {
+        // When SubagentStarted fires with the same toolCallId as a previous ToolExecStart,
+        // it should MERGE into the existing entry (not create a duplicate).
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Launch agent".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T10:00:00.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T10:00:00.100Z",
+                Some("evt-1"),
+            ),
+            // ToolExecStart creates entry with arguments
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-agent-1".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({ "prompt": "Review the code", "agent_type": "code-review" })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T10:00:01.000Z",
+                Some("evt-2"),
+            ),
+            // SubagentStarted should merge into existing entry, not create duplicate
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("tc-agent-1".to_string()),
+                    agent_name: Some("code-review".to_string()),
+                    agent_display_name: Some("Code Review Agent".to_string()),
+                    agent_description: Some("Reviews code for issues".to_string()),
+                }),
+                "evt-4",
+                "2026-03-10T10:00:01.003Z",
+                Some("evt-3"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T10:00:02.000Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        let turn = &turns[0];
+        // Should be 1 entry, not 2 (merged)
+        assert_eq!(turn.tool_calls.len(), 1);
+
+        let tc = &turn.tool_calls[0];
+        assert_eq!(tc.tool_call_id.as_deref(), Some("tc-agent-1"));
+        // Subagent fields from SubagentStarted
+        assert!(tc.is_subagent);
+        assert_eq!(tc.agent_display_name.as_deref(), Some("Code Review Agent"));
+        assert_eq!(tc.agent_description.as_deref(), Some("Reviews code for issues"));
+        // Arguments preserved from ToolExecStart
+        assert!(tc.arguments.is_some());
+        let args = tc.arguments.as_ref().unwrap();
+        assert_eq!(args["prompt"], "Review the code");
+        assert_eq!(args["agent_type"], "code-review");
+        // tool_name updated from SubagentStarted agent_name
+        assert_eq!(tc.tool_name, "code-review");
+    }
+
+    #[test]
+    fn subagent_completed_finds_entry_in_finalized_turn() {
+        // SubagentCompleted may arrive after the turn is finalized.
+        // It should still find and update the entry in the finalized turn.
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Launch agent".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T10:00:00.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T10:00:00.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-agent-1".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({ "prompt": "Explore codebase" })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T10:00:01.000Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("tc-agent-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-4",
+                "2026-03-10T10:00:01.003Z",
+                Some("evt-3"),
+            ),
+            // Turn ends BEFORE subagent completes
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T10:00:02.000Z",
+                Some("evt-2"),
+            ),
+            // SubagentCompleted arrives after turn is finalized (4 minutes later)
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("tc-agent-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                }),
+                "evt-6",
+                "2026-03-10T10:04:01.000Z",
+                None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+
+        // The subagent entry in finalized turn 1 should have the completed_at from SubagentCompleted
+        let tc = &turns[0].tool_calls[0];
+        assert_eq!(tc.tool_call_id.as_deref(), Some("tc-agent-1"));
+        assert!(tc.is_subagent);
+        assert!(tc.is_complete);
+        assert_eq!(tc.success, Some(true));
+        // Duration should be ~4 minutes, not 5ms
+        assert!(tc.duration_ms.unwrap() > 200_000, "Duration should be >200s, got {}ms", tc.duration_ms.unwrap());
+    }
+
+    #[test]
+    fn tool_exec_complete_finds_entry_in_finalized_turn() {
+        // ToolExecutionComplete may also arrive after turn boundary
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do something".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T10:00:00.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T10:00:00.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-slow".to_string()),
+                    tool_name: Some("powershell".to_string()),
+                    arguments: Some(json!({ "command": "sleep 300" })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T10:00:01.000Z",
+                Some("evt-2"),
+            ),
+            // Turn ends before tool completes
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-4",
+                "2026-03-10T10:00:02.000Z",
+                Some("evt-2"),
+            ),
+            // ToolExecComplete arrives after turn is finalized
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-slow".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: Some(json!("done")),
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-5",
+                "2026-03-10T10:05:01.000Z",
+                None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+        assert_eq!(tc.tool_call_id.as_deref(), Some("tc-slow"));
+        assert!(tc.is_complete);
+        assert_eq!(tc.success, Some(true));
+        // Duration should be ~5 minutes
+        assert!(tc.duration_ms.unwrap() > 290_000, "Duration should be >290s, got {}ms", tc.duration_ms.unwrap());
+    }
+
+    #[test]
+    fn subagent_failed_finds_entry_in_finalized_turn() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Launch".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T10:00:00.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T10:00:00.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-fail".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T10:00:01.000Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("tc-fail".to_string()),
+                    agent_name: Some("general-purpose".to_string()),
+                    agent_display_name: Some("General Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-4",
+                "2026-03-10T10:00:01.003Z",
+                Some("evt-3"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T10:00:02.000Z",
+                Some("evt-2"),
+            ),
+            // SubagentFailed arrives after turn
+            make_event(
+                SessionEventType::SubagentFailed,
+                TypedEventData::SubagentFailed(crate::models::event_types::SubagentFailedData {
+                    tool_call_id: Some("tc-fail".to_string()),
+                    agent_name: Some("general-purpose".to_string()),
+                    agent_display_name: Some("General Agent".to_string()),
+                    error: Some("OOM".to_string()),
+                }),
+                "evt-6",
+                "2026-03-10T10:01:30.000Z",
+                None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+        assert!(tc.is_subagent);
+        assert!(tc.is_complete);
+        assert_eq!(tc.success, Some(false));
+        assert_eq!(tc.error.as_deref(), Some("OOM"));
+        assert!(tc.duration_ms.unwrap() > 80_000);
     }
 }

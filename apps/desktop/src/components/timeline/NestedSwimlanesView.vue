@@ -67,21 +67,19 @@ function truncateArgs(args: unknown, limit = 500): { text: string; truncated: bo
 
 const showFullArgs = ref(false);
 
-function selectedNestedCount(turn?: ConversationTurn): number {
+const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+
+function selectedNestedCount(): number {
   const sel = selectedTool.value;
-  if (!sel?.isSubagent || !sel.toolCallId || !turn) return 0;
-  return turn.toolCalls.filter((tc) => tc.parentToolCallId === sel.toolCallId).length;
+  if (!sel?.isSubagent || !sel.toolCallId) return 0;
+  return allToolCalls.value.filter((tc) => tc.parentToolCallId === sel.toolCallId).length;
 }
 
-function selectedTurnForTool(): ConversationTurn | undefined {
-  const sel = selectedTool.value;
-  if (!sel) return undefined;
-  for (const phase of groupedPhases.value) {
-    for (const turn of phase.turns) {
-      if (turn.toolCalls.includes(sel)) return turn;
-    }
-  }
-  return undefined;
+function extractPrompt(args: unknown): string | null {
+  if (!args || typeof args !== 'object') return null;
+  const obj = args as Record<string, unknown>;
+  const raw = obj.prompt ?? obj.description;
+  return typeof raw === 'string' ? raw : null;
 }
 
 // ── Subagent lane color map ──────────────────────────────────
@@ -178,19 +176,21 @@ function subagents(turn: ConversationTurn): TurnToolCall[] {
 
 function nestedTools(turn: ConversationTurn, agent: TurnToolCall): TurnToolCall[] {
   if (!agent.toolCallId) return [];
-  return turn.toolCalls.filter(
+  return allToolCalls.value.filter(
     (tc) => tc.parentToolCallId === agent.toolCallId && !tc.isSubagent,
   );
 }
 
+// Set of all subagent toolCallIds across all turns (for filtering cross-turn children)
+const allSubagentIds = computed(() => new Set(
+  allToolCalls.value
+    .filter((tc) => tc.isSubagent && tc.toolCallId)
+    .map((tc) => tc.toolCallId),
+));
+
 function directTools(turn: ConversationTurn): TurnToolCall[] {
-  const subagentIds = new Set(
-    turn.toolCalls
-      .filter((tc) => tc.isSubagent && tc.toolCallId)
-      .map((tc) => tc.toolCallId),
-  );
   return turn.toolCalls.filter(
-    (tc) => !tc.isSubagent && (!tc.parentToolCallId || !subagentIds.has(tc.parentToolCallId)),
+    (tc) => !tc.isSubagent && (!tc.parentToolCallId || !allSubagentIds.value.has(tc.parentToolCallId)),
   );
 }
 
@@ -570,7 +570,13 @@ const parallelAgentIds = computed<Set<string>>(() => {
                       <span class="detail-value detail-secondary">{{ selectedTool.agentDescription }}</span>
                     </template>
                     <span class="detail-label">Nested tools</span>
-                    <span class="detail-value">{{ selectedNestedCount(selectedTurnForTool()) }}</span>
+                    <span class="detail-value">{{ selectedNestedCount() }}</span>
+                  </template>
+                  <template v-if="selectedTool?.isSubagent && extractPrompt(selectedTool?.arguments)">
+                    <div class="detail-section" style="grid-column: 1 / -1;">
+                      <div class="detail-label">Prompt</div>
+                      <pre class="detail-prompt">{{ extractPrompt(selectedTool.arguments) }}</pre>
+                    </div>
                   </template>
                 </div>
                 <template v-if="selectedTool.arguments">
@@ -1077,6 +1083,19 @@ const parallelAgentIds = computed<Set<string>>(() => {
 .detail-badge--pending {
   background: var(--warning-subtle, rgba(251, 191, 36, 0.15));
   color: var(--warning-fg, #fbbf24);
+}
+
+.detail-prompt {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--canvas-default);
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  margin: 0;
 }
 
 .detail-section {

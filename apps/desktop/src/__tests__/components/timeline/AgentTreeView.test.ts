@@ -350,4 +350,57 @@ describe("AgentTreeView", () => {
     const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
     expect(nextBtn.attributes("disabled")).toBeDefined();
   });
+
+  it("finds child tools across turns (cross-turn boundary)", () => {
+    // Subagent in turn 0, its child tools end up in turn 1
+    const agentTc = makeTurnToolCall({
+      toolName: "explore",
+      isSubagent: true,
+      toolCallId: "agent-cross",
+      agentDisplayName: "Cross-Turn Agent",
+      durationMs: 120000,
+    });
+    // Child tool in a DIFFERENT turn
+    const childTool = makeTurnToolCall({
+      toolName: "grep",
+      isSubagent: false,
+      toolCallId: "child-grep-1",
+      parentToolCallId: "agent-cross",
+      durationMs: 50,
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+      makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // The agent node should show "1 tool" (found cross-turn)
+    expect(wrapper.text()).toContain("1 tool");
+  });
+
+  it("shows prompt in detail panel when subagent has arguments", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "code-review",
+      isSubagent: true,
+      toolCallId: "agent-prompt",
+      agentDisplayName: "Code Review Agent",
+      arguments: { prompt: "Review the auth module for vulnerabilities", agent_type: "code-review" },
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Click the subagent node to open detail panel
+    const nodes = wrapper.findAll(".agent-node");
+    const childNode = nodes.find(n => n.text().includes("Code Review Agent"));
+    expect(childNode).toBeDefined();
+    await childNode!.trigger("click");
+    await nextTick();
+
+    expect(wrapper.find(".detail-panel").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Review the auth module for vulnerabilities");
+  });
 });

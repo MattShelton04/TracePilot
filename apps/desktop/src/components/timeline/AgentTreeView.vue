@@ -52,6 +52,7 @@ const agentTurnIndex = ref(0);
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
+const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
 // ---------------------------------------------------------------------------
 // Turn Filtering — only turns that have subagents
@@ -147,6 +148,8 @@ const STATUS_ICONS: Record<string, string> = {
 // Tree Data
 // ---------------------------------------------------------------------------
 
+const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+
 const treeData = computed<TreeData | null>(() => {
   const turn = currentTurn.value;
   if (!turn) return null;
@@ -160,7 +163,7 @@ const treeData = computed<TreeData | null>(() => {
     const tc = subagentCalls[idx];
     const nodeId = tc.toolCallId ?? `subagent-${idx}`;
     const childTools = tc.toolCallId
-      ? turn.toolCalls.filter(
+      ? allToolCalls.value.filter(
           (t) => t.parentToolCallId === tc.toolCallId && !t.isSubagent,
         )
       : [];
@@ -323,6 +326,8 @@ interface SvgLine {
   y1: number;
   x2: number;
   y2: number;
+  parentId: string;
+  childId: string;
 }
 
 const layout = computed<{ nodes: LayoutNode[]; lines: SvgLine[]; width: number; height: number } | null>(() => {
@@ -406,6 +411,8 @@ const layout = computed<{ nodes: LayoutNode[]; lines: SvgLine[]; width: number; 
           y1: parentCenter.bottomY,
           x2: childX + CHILD_WIDTH / 2,
           y2: childY,
+          parentId: item.parentId,
+          childId: item.node.id,
         });
       }
     });
@@ -419,6 +426,59 @@ const layout = computed<{ nodes: LayoutNode[]; lines: SvgLine[]; width: number; 
 
   return { nodes, lines, width: totalWidth, height: totalHeight };
 });
+
+// ---------------------------------------------------------------------------
+// SVG Line Measurement (DOM-based)
+// ---------------------------------------------------------------------------
+
+const measuredLines = ref<SvgLine[]>([]);
+const measuredCanvasHeight = ref<number>(0);
+
+function setNodeRef(id: string, el: Element | null) {
+  if (el instanceof HTMLElement) nodeRefs.value.set(id, el);
+  else nodeRefs.value.delete(id);
+}
+
+function updateMeasuredLines() {
+  if (!layout.value) {
+    measuredLines.value = [];
+    measuredCanvasHeight.value = 0;
+    return;
+  }
+  const nodeBottoms = new Map<string, number>();
+  let maxBottom = 0;
+  for (const ln of layout.value.nodes) {
+    const el = nodeRefs.value.get(ln.node.id);
+    const actualHeight = el ? el.offsetHeight : (ln.node.type === "main" ? 120 : 140);
+    const bottom = ln.y + actualHeight;
+    nodeBottoms.set(ln.node.id, bottom);
+    if (bottom > maxBottom) maxBottom = bottom;
+  }
+  measuredLines.value = layout.value.lines.map((line) => ({
+    ...line,
+    y1: nodeBottoms.get(line.parentId) ?? line.y1,
+  }));
+  measuredCanvasHeight.value = maxBottom + 30;
+}
+
+const displayLines = computed(() =>
+  measuredLines.value.length > 0 ? measuredLines.value : (layout.value?.lines ?? []),
+);
+
+const canvasHeight = computed(() => {
+  const base = layout.value?.height ?? 0;
+  return measuredCanvasHeight.value > 0 ? Math.max(base, measuredCanvasHeight.value) : base;
+});
+
+watch(
+  layout,
+  () => {
+    measuredLines.value = [];
+    measuredCanvasHeight.value = 0;
+    nextTick(() => updateMeasuredLines());
+  },
+  { immediate: true },
+);
 
 // ---------------------------------------------------------------------------
 // SVG path generation (bezier curves)
@@ -448,6 +508,14 @@ const selectedNode = computed<AgentNode | null>(() => {
   }
   return findNode(treeData.value.children);
 });
+
+function agentPrompt(node: AgentNode): string | null {
+  const tc = node.toolCallRef;
+  if (!tc?.arguments || typeof tc.arguments !== "object") return null;
+  const args = tc.arguments as Record<string, unknown>;
+  const raw = args.prompt ?? args.description;
+  return typeof raw === "string" ? raw : null;
+}
 
 function selectNode(id: string) {
   selectedNodeId.value = selectedNodeId.value === id ? null : id;
@@ -485,6 +553,7 @@ watch(
     agentTurnIndex.value = 0;
     selectedNodeId.value = null;
     expandedToolCalls.clear();
+    nodeRefs.value.clear();
   },
 );
 </script>
@@ -525,17 +594,17 @@ watch(
       <div v-if="layout" ref="treeContainer" class="tree-container">
         <div
           class="tree-canvas"
-          :style="{ width: `${layout.width}px`, height: `${layout.height}px` }"
+          :style="{ width: `${layout.width}px`, height: `${canvasHeight}px` }"
         >
           <!-- SVG connections -->
           <svg
             class="tree-svg"
             :width="layout.width"
-            :height="layout.height"
-            :viewBox="`0 0 ${layout.width} ${layout.height}`"
+            :height="canvasHeight"
+            :viewBox="`0 0 ${layout.width} ${canvasHeight}`"
           >
             <path
-              v-for="(line, i) in layout.lines"
+              v-for="(line, i) in displayLines"
               :key="i"
               :d="bezierPath(line)"
               class="tree-connector"
@@ -546,6 +615,7 @@ watch(
           <div
             v-for="ln in layout.nodes"
             :key="ln.node.id"
+            :ref="(el: any) => setNodeRef(ln.node.id, el)"
             class="agent-node"
             :class="{
               'agent-node--main': ln.node.type === 'main',
@@ -617,6 +687,10 @@ watch(
             <div v-if="selectedNode.description" class="detail-info-row">
               <span class="detail-label">Description</span>
               <span class="detail-value">{{ selectedNode.description }}</span>
+            </div>
+            <div v-if="agentPrompt(selectedNode)" class="detail-section">
+              <h4 class="detail-section-title">Prompt</h4>
+              <pre class="detail-prompt">{{ agentPrompt(selectedNode) }}</pre>
             </div>
             <div class="detail-info-grid">
               <div class="detail-info-item">
@@ -819,7 +893,7 @@ watch(
 
 .tree-connector {
   stroke: var(--border-default);
-  stroke-width: 1.5;
+  stroke-width: 2;
   fill: none;
 }
 
@@ -981,6 +1055,34 @@ watch(
 
 .detail-info-row {
   margin-bottom: 8px;
+}
+
+.detail-section {
+  margin-bottom: 12px;
+}
+
+.detail-section-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  margin: 0 0 6px;
+}
+
+.detail-prompt {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
 }
 
 .detail-info-grid {
