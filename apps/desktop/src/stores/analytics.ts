@@ -1,7 +1,8 @@
-import { getAnalytics, getCodeImpact, getToolAnalysis, listSessions } from '@tracepilot/client';
+import { getAnalytics, getCodeImpact, getToolAnalysis } from '@tracepilot/client';
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from '@tracepilot/types';
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { useSessionsStore } from './sessions';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
   // State
@@ -17,9 +18,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const toolAnalysisError = ref<string | null>(null);
   const codeImpactError = ref<string | null>(null);
 
-  // Repository filter
+  // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
   const selectedRepo = ref<string | null>(null);
-  const availableRepos = ref<string[]>([]);
+  const availableRepos = computed(() => {
+    const sessionsStore = useSessionsStore();
+    return sessionsStore.repositories as string[];
+  });
 
   // Track what's been loaded to avoid redundant fetches
   const loaded = new Set<string>();
@@ -33,15 +37,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return `${prefix}:${options?.fromDate ?? ''}:${options?.toDate ?? ''}:${options?.repo ?? ''}`;
   }
 
-  /** Fetch the list of unique repositories from session metadata. */
+  /** Ensure the sessions store is populated so availableRepos has data. */
   async function fetchAvailableRepos() {
-    if (availableRepos.value.length > 0) return;
-    try {
-      const sessions = await listSessions();
-      const repos = new Set(sessions.map(s => s.repository).filter(Boolean) as string[]);
-      availableRepos.value = [...repos].sort();
-    } catch {
-      // Non-critical — just means repo filter won't have options
+    const sessionsStore = useSessionsStore();
+    if (sessionsStore.sessions.length === 0) {
+      await sessionsStore.fetchSessions();
     }
   }
 

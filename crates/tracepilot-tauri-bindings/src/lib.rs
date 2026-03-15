@@ -318,11 +318,16 @@ mod commands {
             let result_ids = db.search(&query).map_err(|e| e.to_string())?;
             let mut sessions = Vec::new();
             for session_id in result_ids {
-                let path =
-                    match tracepilot_core::session::discovery::resolve_session_path(&session_id) {
+                // Use index DB path lookup (no disk scan) instead of resolve_session_path
+                let path = match db.get_session_path(&session_id) {
+                    Ok(Some(p)) => p,
+                    _ => match tracepilot_core::session::discovery::resolve_session_path(
+                        &session_id,
+                    ) {
                         Ok(path) => path,
                         Err(_) => continue,
-                    };
+                    },
+                };
                 let item = match load_summary_list_item(&path) {
                     Ok(item) => item,
                     Err(_) => continue,
@@ -360,6 +365,21 @@ mod commands {
     }
 
     // ── Analytics Commands ────────────────────────────────────────────
+    //
+    // Fast path: query pre-computed analytics from the index DB (SQL aggregation).
+    // Fallback: disk-scan + in-memory computation when index is empty/missing.
+
+    fn open_index_db() -> Option<tracepilot_indexer::index_db::IndexDb> {
+        let index_path = tracepilot_indexer::default_index_db_path();
+        if !index_path.exists() {
+            return None;
+        }
+        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path).ok()?;
+        if db.session_count().unwrap_or(0) == 0 {
+            return None;
+        }
+        Some(db)
+    }
 
     #[tauri::command]
     pub async fn get_analytics(
@@ -368,6 +388,18 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from pre-computed per-session data
+            if let Some(db) = open_index_db() {
+                if let Ok(result) = db.query_analytics(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    return Ok(result);
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation (uses full session loading to include turns)
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
@@ -390,6 +422,18 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from session_tool_calls + session_activity
+            if let Some(db) = open_index_db() {
+                if let Ok(result) = db.query_tool_analysis(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    return Ok(result);
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
@@ -412,6 +456,18 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from session columns + session_modified_files
+            if let Some(db) = open_index_db() {
+                if let Ok(result) = db.query_code_impact(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    return Ok(result);
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_session_summaries_filtered(

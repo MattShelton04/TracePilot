@@ -96,6 +96,9 @@ pub fn count_events(path: &Path) -> Result<usize> {
 }
 
 /// Deserialize the `data` field of a `RawEvent` into the appropriate typed variant.
+///
+/// Takes `data` by reference. Clones once for `from_value` deserialization;
+/// on failure falls back to `Other` using a second clone.
 fn typed_data_from_raw(event_type: &SessionEventType, data: &Value) -> TypedEventData {
     match event_type {
         SessionEventType::SessionStart => serde_json::from_value(data.clone())

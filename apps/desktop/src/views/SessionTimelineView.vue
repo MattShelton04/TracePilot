@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import { computed, ref, watch } from 'vue';
+import { formatDuration } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
@@ -249,14 +250,6 @@ const selectedDetail = computed<SwimlaneDetailData | null>(() => {
     })),
   };
 });
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const m = Math.floor(ms / 60000);
-  const s = Math.round((ms % 60000) / 1000);
-  return `${m}m ${s}s`;
-}
 
 function extractFileFromArgs(args: unknown): string | undefined {
   if (args && typeof args === 'object' && 'path' in args) {

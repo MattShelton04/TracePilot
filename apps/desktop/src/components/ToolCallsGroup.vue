@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { formatDuration } from '@tracepilot/ui';
 
 const props = defineProps<{
   toolCalls: Array<{
@@ -19,10 +20,7 @@ function toggleExpand() {
   isExpanded.value = !isExpanded.value;
 }
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
+
 </script>
 
 <template>

@@ -31,6 +31,7 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
     let live_ids: std::collections::HashSet<String> =
         sessions.iter().map(|s| s.id.clone()).collect();
 
+    db.begin_transaction()?;
     let mut indexed = 0;
     for session in &sessions {
         if let Err(e) = db.upsert_session(&session.path) {
@@ -39,6 +40,7 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
             indexed += 1;
         }
     }
+    db.commit_transaction()?;
 
     // Remove stale entries for sessions that no longer exist on disk
     match db.prune_deleted(&live_ids) {
@@ -54,13 +56,16 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
     Ok(indexed)
 }
 
-/// Reindex only sessions whose workspace.yaml mtime changed.
+/// Reindex only sessions whose workspace.yaml/events.jsonl changed or analytics version bumped.
 pub fn reindex_incremental(
     session_state_dir: &Path,
     index_db_path: &Path,
 ) -> Result<(usize, usize)> {
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+
+    let live_ids: std::collections::HashSet<String> =
+        sessions.iter().map(|s| s.id.clone()).collect();
 
     let mut indexed = 0;
     let mut skipped = 0;
@@ -74,6 +79,17 @@ pub fn reindex_incremental(
         } else {
             skipped += 1;
         }
+    }
+
+    // Prune sessions that no longer exist on disk
+    match db.prune_deleted(&live_ids) {
+        Ok(pruned) if pruned > 0 => {
+            tracing::info!(pruned, "Pruned deleted sessions from index");
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to prune deleted sessions");
+        }
+        _ => {}
     }
 
     Ok((indexed, skipped))

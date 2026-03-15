@@ -38,7 +38,7 @@ const autoRefreshInterval = ref(30);
 // ── Data & Storage ───────────────────────────────────────────
 // STUB: Browse button should open Tauri native file dialog (dialog.open)
 // STUB: Currently shows a text input — wire to Tauri fs dialog in production
-const sessionsDirectory = ref('~/.claude/sessions/');
+const sessionsDirectory = ref('~/.copilot/sessions/');
 
 // STUB: Database size is mocked — wire to backend stat query
 const databaseSize = ref('42.5 MB');

@@ -10,10 +10,19 @@ use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::checkpoints::parse_checkpoints;
 use crate::parsing::events::{
-    count_events, extract_session_start, extract_shutdown_data, parse_typed_events,
+    extract_session_start, extract_shutdown_data, parse_typed_events, TypedEvent,
 };
 use crate::parsing::workspace::parse_workspace_yaml;
 use crate::turns::{reconstruct_turns, turn_stats};
+
+/// Result of loading a session — includes parsed events for reuse by the indexer.
+///
+/// The `typed_events` field allows callers (e.g., the indexer) to avoid re-parsing
+/// `events.jsonl` for conversation FTS indexing or tool call extraction.
+pub struct SessionLoadResult {
+    pub summary: SessionSummary,
+    pub typed_events: Option<Vec<TypedEvent>>,
+}
 
 /// Load a complete [`SessionSummary`] from a session directory.
 ///
@@ -21,6 +30,18 @@ use crate::turns::{reconstruct_turns, turn_stats};
 /// (`events.jsonl`, `session.db`, `plan.md`, `checkpoints/`) are optional
 /// and their presence is reflected in the summary flags.
 pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
+    load_session_summary_impl(session_dir, false).map(|r| r.summary)
+}
+
+/// Load a session summary along with parsed events for reuse.
+///
+/// Used by the indexer to avoid re-parsing `events.jsonl` for FTS indexing
+/// and tool call extraction.
+pub fn load_session_summary_with_events(session_dir: &Path) -> Result<SessionLoadResult> {
+    load_session_summary_impl(session_dir, true)
+}
+
+fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<SessionLoadResult> {
     // 1. Parse workspace.yaml (required)
     let workspace_path = session_dir.join("workspace.yaml");
     if !workspace_path.exists() {
@@ -50,18 +71,17 @@ pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
         shutdown_metrics: None,
     };
 
-    // 2–5. Events processing
+    // 2–5. Events processing — parse ONCE, derive count from len()
     let events_path = session_dir.join("events.jsonl");
+    let mut typed_events_out = None;
+
     if events_path.exists() {
         summary.has_events = true;
 
-        // 3. Fast event count
-        if let Ok(count) = count_events(&events_path) {
-            summary.event_count = Some(count);
-        }
-
-        // 4–5. Full typed parse for shutdown + turns + context enrichment
         if let Ok(typed_events) = parse_typed_events(&events_path) {
+            // Derive event count from parsed events (no separate count_events call)
+            summary.event_count = Some(typed_events.len());
+
             // Shutdown metrics
             if let Some(sd) = extract_shutdown_data(&typed_events) {
                 summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd));
@@ -72,7 +92,7 @@ pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
             let stats = turn_stats(&turns);
             summary.turn_count = Some(stats.total_turns);
 
-            // 9. Context enrichment from session.start event
+            // Context enrichment from session.start event
             if let Some(start_data) = extract_session_start(&typed_events)
                 && let Some(ctx) = &start_data.context
             {
@@ -85,6 +105,10 @@ pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
                 if summary.host_type.is_none() {
                     summary.host_type = ctx.host_type.clone();
                 }
+            }
+
+            if retain_events {
+                typed_events_out = Some(typed_events);
             }
         }
     }
@@ -101,7 +125,10 @@ pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
         summary.checkpoint_count = Some(cp_index.checkpoints.len());
     }
 
-    Ok(summary)
+    Ok(SessionLoadResult {
+        summary,
+        typed_events: typed_events_out,
+    })
 }
 
 /// Convert [`ShutdownData`] (event-level) to [`ShutdownMetrics`] (summary-level).

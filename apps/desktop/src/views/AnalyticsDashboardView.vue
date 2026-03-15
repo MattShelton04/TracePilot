@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue';
+import { formatDuration } from '@tracepilot/ui';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
@@ -29,12 +30,6 @@ function fmtCost(n: number): string {
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-function fmtDuration(ms: number): string {
-  if (ms >= 3_600_000) return `${(ms / 3_600_000).toFixed(1)}h`;
-  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;
-  if (ms >= 1_000) return `${(ms / 1_000).toFixed(1)}s`;
-  return `${Math.round(ms)}ms`;
 }
 
 // ── Chart constants ──────────────────────────────────────────
@@ -196,23 +191,23 @@ const costChart = computed(() => {
               <div class="section-panel-body">
                 <div class="metric-grid">
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.avgMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.avgMs) }}</span>
                     <span class="metric-label">Average</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.medianMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.medianMs) }}</span>
                     <span class="metric-label">Median</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.p95Ms) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.p95Ms) }}</span>
                     <span class="metric-label">P95</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.minMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.minMs) }}</span>
                     <span class="metric-label">Min</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.maxMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.maxMs) }}</span>
                     <span class="metric-label">Max</span>
                   </div>
                   <div class="metric-item">

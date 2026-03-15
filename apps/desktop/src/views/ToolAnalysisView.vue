@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
 import { computed, onMounted, watch } from 'vue';
+import { formatDuration } from '@tracepilot/ui';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
@@ -19,11 +20,6 @@ const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);
 
 // ── Formatters ───────────────────────────────────────────────
-function fmtDuration(ms: number): string {
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.round(ms)}ms`;
-}
-
 function fmtRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`;
 }
@@ -141,7 +137,7 @@ const successFailureChart = computed(() => {
               <div class="stat-card-label">Success Rate</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value warning">{{ fmtDuration(data.avgDurationMs) }}</div>
+              <div class="stat-card-value warning">{{ formatDuration(data.avgDurationMs) }}</div>
               <div class="stat-card-label">Avg Duration</div>
             </div>
           </div>
@@ -169,7 +165,7 @@ const successFailureChart = computed(() => {
                         <div class="progress-bar-fill" :style="{ width: fmtRate(tool.successRate) }" />
                       </div>
                     </td>
-                    <td style="font-variant-numeric: tabular-nums;">{{ fmtDuration(tool.avgDurationMs) }}</td>
+                    <td style="font-variant-numeric: tabular-nums;">{{ formatDuration(tool.avgDurationMs) }}</td>
                   </tr>
                 </tbody>
               </table>
