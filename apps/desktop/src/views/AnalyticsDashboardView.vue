@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue';
-import { formatDuration } from '@tracepilot/ui';
+import { formatDuration, formatCost } from '@tracepilot/ui';
 import { useAnalyticsStore } from '@/stores/analytics';
+import { usePreferencesStore } from '@/stores/preferences';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
 
 const store = useAnalyticsStore();
+const prefs = usePreferencesStore();
 
 onMounted(() => {
   store.fetchAvailableRepos();
@@ -18,6 +20,17 @@ watch([() => store.selectedRepo, () => store.dateRange], () => {
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
+
+// ── Cost computations ────────────────────────────────────────
+const copilotCost = computed(() => {
+  if (!data.value) return 0;
+  return data.value.totalPremiumRequests * prefs.costPerPremiumRequest;
+});
+const totalWholesaleCost = computed(() => {
+  if (!data.value) return 0;
+  return data.value.modelDistribution.reduce((sum, m) =>
+    sum + (prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens) ?? 0), 0);
+});
 
 // ── Formatters ───────────────────────────────────────────────
 function fmtTokens(n: number): string {
@@ -169,7 +182,7 @@ const costChart = computed(() => {
           </div>
 
           <!-- Stats Row -->
-          <div class="grid-4 mb-4">
+          <div class="grid-5 mb-4">
             <div class="stat-card">
               <div class="stat-card-value accent">{{ data.totalSessions }}</div>
               <div class="stat-card-label">Total Sessions</div>
@@ -179,8 +192,12 @@ const costChart = computed(() => {
               <div class="stat-card-label">Total Tokens</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value success">{{ fmtCost(data.totalCost) }}</div>
-              <div class="stat-card-label">Total Cost</div>
+              <div class="stat-card-value warning">{{ formatCost(copilotCost) }}</div>
+              <div class="stat-card-label">Copilot Cost</div>
+            </div>
+            <div class="stat-card" :title="'Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings.'">
+              <div class="stat-card-value done">{{ formatCost(totalWholesaleCost) }}</div>
+              <div class="stat-card-label">Wholesale Cost</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-value warning">{{ data.averageHealthScore.toFixed(2) }}</div>

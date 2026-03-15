@@ -27,13 +27,14 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut health_score_sum: f64 = 0.0;
     let mut tokens_by_day: BTreeMap<String, u64> = BTreeMap::new();
     let mut sessions_by_day: BTreeMap<String, u32> = BTreeMap::new();
-    let mut model_tokens: HashMap<String, u64> = HashMap::new();
+    let mut model_tokens: HashMap<String, (u64, u64, u64, u64)> = HashMap::new();
     let mut cost_by_day: BTreeMap<String, f64> = BTreeMap::new();
     let mut durations: Vec<u64> = Vec::new();
     let mut total_turns: u64 = 0;
     let mut total_tool_calls: u64 = 0;
     let mut total_tokens_from_turns: u64 = 0;
     let mut sessions_with_turns: u32 = 0;
+    let mut total_premium_requests: f64 = 0.0;
 
     for input in sessions {
         let summary = &input.summary;
@@ -57,6 +58,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
 
         // Shutdown metrics aggregation
         if let Some(ref metrics) = summary.shutdown_metrics {
+            // Premium requests
+            if let Some(pr) = metrics.total_premium_requests {
+                total_premium_requests += pr;
+            }
+
             // Duration from session_start_time
             if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at) {
                 let start_ms = start_time;
@@ -76,7 +82,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let cache_write = usage.cache_write_tokens.unwrap_or(0);
                     let session_model_tokens = input_t + output_t + cache_read + cache_write;
                     total_tokens += session_model_tokens;
-                    *model_tokens.entry(model_name.clone()).or_insert(0) += session_model_tokens;
+                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0));
+                    entry.0 += input_t;
+                    entry.1 += output_t;
+                    entry.2 += cache_read;
+                    entry.3 += cache_write;
 
                     if let Some(ref date) = date_key {
                         *tokens_by_day.entry(date.clone()).or_insert(0) += session_model_tokens;
@@ -130,10 +140,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .collect();
 
     // Model distribution with percentages
-    let total_model_tokens: u64 = model_tokens.values().sum();
+    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, cr, cw)| i + o + cr + cw).sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
-        .map(|(model, tokens)| {
+        .map(|(model, (input_t, output_t, cache_read, cache_write))| {
+            let tokens = input_t + output_t + cache_read + cache_write;
             let percentage = if total_model_tokens > 0 {
                 (tokens as f64 / total_model_tokens as f64) * 100.0
             } else {
@@ -143,6 +154,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 model,
                 tokens,
                 percentage,
+                input_tokens: input_t,
+                output_tokens: output_t,
+                cache_read_tokens: cache_read,
             }
         })
         .collect();
@@ -179,6 +193,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         total_sessions,
         total_tokens,
         total_cost,
+        total_premium_requests,
         average_health_score,
         token_usage_by_day,
         sessions_per_day,

@@ -19,10 +19,11 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalSessions: 10,
   totalTokens: 500_000,
   totalCost: 5.0,
+  totalPremiumRequests: 25,
   averageHealthScore: 0.8,
   tokenUsageByDay: [{ date: '2025-01-01', tokens: 50_000 }],
   sessionsPerDay: [{ date: '2025-01-01', count: 3 }],
-  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100 }],
+  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0 }],
   costByDay: [{ date: '2025-01-01', cost: 5.0 }],
   sessionDurationStats: {
     avgMs: 1_000_000,

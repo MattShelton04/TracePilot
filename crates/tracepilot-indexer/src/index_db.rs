@@ -783,13 +783,14 @@ impl IndexDb {
             "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
-                    COUNT(CASE WHEN turn_count > 0 THEN 1 END)
+                    COUNT(CASE WHEN turn_count > 0 THEN 1 END),
+                    COALESCE(SUM(total_premium_requests), 0.0)
              FROM sessions s{}",
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns): (
-            u32, i64, f64, f64, i64, i64, u32,
+        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests): (
+            u32, i64, f64, f64, i64, i64, u32, f64,
         ) = self.conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((
                 row.get(0)?,
@@ -799,6 +800,7 @@ impl IndexDb {
                 row.get(4)?,
                 row.get(5)?,
                 row.get(6)?,
+                row.get(7)?,
             ))
         })?;
 
@@ -832,7 +834,10 @@ impl IndexDb {
         // Model distribution from session_model_metrics
         let mdist_sql = format!(
             "SELECT m.model_name,
-                    SUM(m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens)
+                    SUM(m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens),
+                    SUM(m.input_tokens),
+                    SUM(m.output_tokens),
+                    SUM(m.cache_read_tokens)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",
@@ -871,6 +876,7 @@ impl IndexDb {
             total_sessions,
             total_tokens: total_tokens as u64,
             total_cost,
+            total_premium_requests,
             average_health_score: avg_health,
             token_usage_by_day,
             sessions_per_day,
@@ -1296,18 +1302,24 @@ fn query_model_distribution(
 ) -> Result<Vec<ModelDistEntry>> {
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)?,
+        ))
     })?;
-    let mut entries: Vec<(String, i64)> = Vec::new();
+    let mut entries: Vec<(String, i64, i64, i64, i64)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens) = row?;
+        let (model, tokens, input_t, output_t, cache_read) = row?;
         grand_total += tokens;
-        entries.push((model, tokens));
+        entries.push((model, tokens, input_t, output_t, cache_read));
     }
     Ok(entries
         .into_iter()
-        .map(|(model, tokens)| {
+        .map(|(model, tokens, input_t, output_t, cache_read)| {
             let percentage = if grand_total > 0 {
                 (tokens as f64 / grand_total as f64) * 100.0
             } else {
@@ -1317,6 +1329,9 @@ fn query_model_distribution(
                 model,
                 tokens: tokens as u64,
                 percentage,
+                input_tokens: input_t as u64,
+                output_tokens: output_t as u64,
+                cache_read_tokens: cache_read as u64,
             }
         })
         .collect())
