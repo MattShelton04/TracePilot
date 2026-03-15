@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Overview Timeline Prototype</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Key Metrics Strip ── */
+    .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .metric-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Activity Heatmap ── */
+    .heatmap-section { margin-bottom: 24px; }
+    .heatmap-canvas-wrap {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-subtle);
+    }
+    #activityHeatmap { display: block; width: 100%; height: 48px; cursor: crosshair; }
+    .heatmap-tooltip {
+      position: absolute;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+      white-space: nowrap;
+      z-index: var(--z-tooltip);
+      box-shadow: var(--shadow-md);
+    }
+    .heatmap-tooltip.visible { opacity: 1; }
+    .heatmap-time-axis {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0 0;
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+    }
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+    }
+    .heatmap-legend-bar {
+      width: 80px;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, rgba(99,102,241,0.05), rgba(99,102,241,0.3), #6366f1, #818cf8);
+    }
+
+    /* ── Phase Cards ── */
+    .phase-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .phase-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+    .phase-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-accent);
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+    .phase-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-1px);
+    }
+    .phase-card:hover::before { opacity: 1; }
+    .phase-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .phase-card.selected::before { opacity: 1; }
+    .phase-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .phase-number {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .phase-duration-badge {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: var(--neutral-subtle);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+    }
+    .phase-user-msg {
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+    .phase-time-range {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      margin-bottom: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .phase-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .phase-stat-item {
+      text-align: center;
+      padding: 6px;
+      background: var(--canvas-inset);
+      border-radius: var(--radius-sm);
+    }
+    .phase-stat-value {
+      font-size: 0.875rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+    .phase-stat-label {
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .phase-model-badge {
+      margin-top: 10px;
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .idle-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 4px;
+      color: var(--text-placeholder);
+      font-size: 0.625rem;
+    }
+    .idle-dots {
+      letter-spacing: 2px;
+      color: var(--text-placeholder);
+      font-size: 0.8125rem;
+      margin-bottom: 2px;
+    }
+
+    /* ── Tool Breakdown ── */
+    .tool-breakdown-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .tool-breakdown-label {
+      min-width: 70px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .tool-breakdown-bar {
+      flex: 1;
+      height: 22px;
+      display: flex;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--canvas-inset);
+    }
+    .tool-segment {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity var(--transition-fast);
+      cursor: default;
+      position: relative;
+    }
+    .tool-segment:hover { opacity: 0.85; }
+    .tool-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .tool-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .tool-legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* ── Subagent Gantt ── */
+    .gantt-container {
+      position: relative;
+      overflow-x: auto;
+    }
+    .gantt-time-header {
+      display: flex;
+      align-items: center;
+      padding: 0 0 6px 80px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .gantt-time-mark {
+      position: absolute;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+      transform: translateX(-50%);
+    }
+    .gantt-row {
+      display: flex;
+      align-items: center;
+      min-height: 28px;
+      position: relative;
+    }
+    .gantt-row-label {
+      width: 80px;
+      flex-shrink: 0;
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      padding-right: 12px;
+    }
+    .gantt-row-track {
+      flex: 1;
+      position: relative;
+      height: 20px;
+    }
+    .gantt-bar {
+      position: absolute;
+      height: 16px;
+      top: 2px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .gantt-bar:hover {
+      transform: scaleY(1.3);
+      z-index: 2;
+      box-shadow: var(--shadow-md);
+    }
+    .gantt-bar.explore { background: #6366f1; }
+    .gantt-bar.general-purpose { background: #34d399; }
+    .gantt-bar.code-review { background: #f59e0b; }
+    .gantt-bar.task { background: #fb7185; }
+    .gantt-tooltip {
+      position: fixed;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+      z-index: var(--z-tooltip);
+      box-shadow: var(--shadow-lg);
+      max-width: 220px;
+    }
+    .gantt-tooltip.visible { opacity: 1; }
+    .gantt-tooltip-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .gantt-phase-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      border-left: 1px dashed var(--border-muted);
+      z-index: 0;
+    }
+    .gantt-legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .gantt-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .gantt-legend-swatch {
+      width: 12px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    /* ── Model Usage Timeline ── */
+    .model-timeline-wrap {
+      position: relative;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--canvas-inset);
+      display: flex;
+    }
+    .model-segment {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      cursor: default;
+      transition: opacity var(--transition-fast);
+    }
+    .model-segment:hover { opacity: 0.85; }
+    .model-timeline-axis {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0 0;
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1200px) {
+      .metrics-strip { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+      .phase-cards { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .metrics-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">⚡</div>
+        <span class="sidebar-brand-text">TracePilot</span>
+      </div>
+      <nav class="sidebar-nav">
+        <span class="sidebar-section-title">Navigation</span>
+        <a class="sidebar-nav-item" href="#">
+          <span class="nav-icon">📋</span> Sessions
+          <span class="sidebar-nav-badge">12</span>
+        </a>
+        <a class="sidebar-nav-item active" href="#">
+          <span class="nav-icon">🗺️</span> Session Overview
+        </a>
+        <a class="sidebar-nav-item" href="#">
+          <span class="nav-icon">⏱️</span> Timeline
+        </a>
+        <a class="sidebar-nav-item" href="#">
+          <span class="nav-icon">💬</span> Conversation
+        </a>
+        <a class="sidebar-nav-item" href="#">
+          <span class="nav-icon">📊</span> Analytics
+        </a>
+        <span class="sidebar-section-title">Tools</span>
+        <a class="sidebar-nav-item" href="#">
+          <span class="nav-icon">⚙️</span> Settings
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="sidebar-version">v0.1.0-alpha</span>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="page-header-bar">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="#">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="#">Codebase Refactor Session</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Overview</span>
+        </nav>
+        <div style="margin-left: auto;">
+          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <div class="mb-4">
+            <h1 class="page-title">Session Overview</h1>
+            <p class="page-subtitle">Macro view of a 2-hour Copilot CLI session — 3 phases, 335 turns, 5,182 events</p>
+          </div>
+
+          <!-- Session Info -->
+          <div class="flex items-center gap-2 mb-4" style="flex-wrap: wrap;">
+            <span class="badge badge-accent">copilot-cli</span>
+            <span class="badge badge-done">claude-opus-4.6 → gpt-5.4</span>
+            <span class="badge badge-success">acme/web-platform</span>
+            <span class="badge badge-neutral">feat/refactor-analytics</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: var(--canvas-raised); border: 1px solid var(--border-default); color: var(--text-secondary);">
+              <span style="color: var(--text-tertiary); font-weight: 400;">ID</span>
+              <code class="font-mono" style="font-size: 0.6875rem; color: var(--accent-fg);">a1b2c3d4…f5e6a7b8</code>
+            </span>
+          </div>
+
+          <!-- ═══ Key Metrics Strip ═══ -->
+          <div class="metrics-strip">
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--accent-fg);">2h 11m</div>
+              <div class="metric-label">Total Duration</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--success-fg);">1,751</div>
+              <div class="metric-label">Total Tools</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--done-fg);">335</div>
+              <div class="metric-label">Assistant Turns</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--warning-fg);">44</div>
+              <div class="metric-label">Subagents Spawned</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--text-primary);">2.8M</div>
+              <div class="metric-label">Total Tokens</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" style="color: var(--danger-fg);">$4.72</div>
+              <div class="metric-label">Est. Cost</div>
+            </div>
+          </div>
+
+          <!-- ═══ Activity Heatmap ═══ -->
+          <div class="section-panel mb-6 heatmap-section">
+            <div class="section-panel-header">Activity Heatmap</div>
+            <div class="section-panel-body">
+              <div class="heatmap-canvas-wrap">
+                <canvas id="activityHeatmap"></canvas>
+                <div class="heatmap-tooltip" id="heatmapTooltip"></div>
+              </div>
+              <div class="heatmap-time-axis" id="heatmapTimeAxis"></div>
+              <div class="heatmap-legend">
+                <span>Idle</span>
+                <div class="heatmap-legend-bar"></div>
+                <span>Dense</span>
+                <span style="margin-left: 12px; color: var(--warning-fg);">▼</span>
+                <span>= User message</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ Phase Cards ═══ -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Phases — Click to Navigate</div>
+            <div class="section-panel-body">
+              <div class="phase-cards" id="phaseCards"></div>
+            </div>
+          </div>
+
+          <!-- ═══ Tool Type Breakdown ═══ -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Tool Type Breakdown per Phase</div>
+            <div class="section-panel-body">
+              <div id="toolBreakdown"></div>
+              <div class="tool-legend" id="toolLegend"></div>
+            </div>
+          </div>
+
+          <!-- ═══ Subagent Gantt Chart ═══ -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Subagent Gantt Chart</div>
+            <div class="section-panel-body">
+              <div class="gantt-container" id="ganttChart"></div>
+              <div class="gantt-legend" id="ganttLegend"></div>
+            </div>
+          </div>
+
+          <!-- ═══ Model Usage Timeline ═══ -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Model Usage Timeline</div>
+            <div class="section-panel-body">
+              <div class="model-timeline-wrap" id="modelTimeline"></div>
+              <div class="model-timeline-axis" id="modelTimelineAxis"></div>
+              <div class="tool-legend" id="modelLegend" style="margin-top: 8px;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gantt Tooltip (fixed position) -->
+  <div class="gantt-tooltip" id="ganttTooltip"></div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  // ============================================================
+  // MOCK DATA
+  // ============================================================
+  const SESSION_START = new Date('2025-07-14T04:00:00');
+  const SESSION_END   = new Date('2025-07-14T06:11:00');
+  const TOTAL_MINUTES = (SESSION_END - SESSION_START) / 60000; // 131 min
+
+  const PHASES = [
+    {
+      id: 1,
+      userMessage: 'Explore codebase',
+      start: new Date('2025-07-14T04:00:00'),
+      end:   new Date('2025-07-14T04:52:00'),
+      turns: 150, tools: 600, subagents: 10,
+      models: ['claude-opus-4.6'],
+      toolBreakdown: { view: 180, grep: 120, glob: 80, task: 100, powershell: 40, edit: 20, 'web_search': 30, other: 30 },
+    },
+    {
+      id: 2,
+      userMessage: 'Fix analytics page',
+      start: new Date('2025-07-14T04:53:00'),
+      end:   new Date('2025-07-14T05:37:00'),
+      turns: 120, tools: 800, subagents: 15,
+      models: ['claude-opus-4.6'],
+      toolBreakdown: { edit: 200, view: 160, powershell: 150, task: 120, grep: 80, glob: 40, create: 30, other: 20 },
+    },
+    {
+      id: 3,
+      userMessage: 'Add incremental updates',
+      start: new Date('2025-07-14T05:38:00'),
+      end:   new Date('2025-07-14T06:11:00'),
+      turns: 65, tools: 351, subagents: 19,
+      models: ['claude-opus-4.6', 'gpt-5.4'],
+      toolBreakdown: { edit: 90, powershell: 70, task: 60, view: 50, grep: 30, glob: 20, create: 18, other: 13 },
+    },
+  ];
+
+  const TOOL_COLORS = {
+    view: '#6366f1',
+    grep: '#818cf8',
+    glob: '#a5b4fc',
+    task: '#34d399',
+    edit: '#f59e0b',
+    powershell: '#fb7185',
+    create: '#c084fc',
+    'web_search': '#38bdf8',
+    other: '#71717a',
+  };
+
+  const MODEL_COLORS = {
+    'claude-opus-4.6': '#a78bfa',
+    'gpt-5.4': '#34d399',
+  };
+
+  // Subagent mock data — realistic parallel execution
+  const SUBAGENTS = [
+    // Phase 1 — explore heavy
+    { type: 'explore', start: 1, end: 4, phase: 1 },
+    { type: 'explore', start: 2, end: 6, phase: 1 },
+    { type: 'explore', start: 5, end: 9, phase: 1 },
+    { type: 'explore', start: 8, end: 12, phase: 1 },
+    { type: 'explore', start: 14, end: 18, phase: 1 },
+    { type: 'explore', start: 20, end: 24, phase: 1 },
+    { type: 'explore', start: 26, end: 30, phase: 1 },
+    { type: 'explore', start: 32, end: 36, phase: 1 },
+    { type: 'explore', start: 38, end: 42, phase: 1 },
+    { type: 'explore', start: 44, end: 48, phase: 1 },
+    // Phase 2 — mixed
+    { type: 'explore', start: 54, end: 58, phase: 2 },
+    { type: 'explore', start: 55, end: 60, phase: 2 },
+    { type: 'general-purpose', start: 57, end: 66, phase: 2 },
+    { type: 'explore', start: 62, end: 66, phase: 2 },
+    { type: 'general-purpose', start: 68, end: 76, phase: 2 },
+    { type: 'general-purpose', start: 70, end: 78, phase: 2 },
+    { type: 'code-review', start: 74, end: 79, phase: 2 },
+    { type: 'explore', start: 80, end: 84, phase: 2 },
+    { type: 'general-purpose', start: 82, end: 88, phase: 2 },
+    { type: 'code-review', start: 86, end: 91, phase: 2 },
+    { type: 'explore', start: 88, end: 92, phase: 2 },
+    { type: 'general-purpose', start: 90, end: 95, phase: 2 },
+    { type: 'code-review', start: 92, end: 96, phase: 2 },
+    { type: 'explore', start: 93, end: 96, phase: 2 },
+    { type: 'code-review', start: 94, end: 97, phase: 2 },
+    // Phase 3 — heavy subagent
+    { type: 'explore', start: 99, end: 103, phase: 3 },
+    { type: 'general-purpose', start: 100, end: 108, phase: 3 },
+    { type: 'general-purpose', start: 102, end: 110, phase: 3 },
+    { type: 'explore', start: 105, end: 109, phase: 3 },
+    { type: 'code-review', start: 107, end: 112, phase: 3 },
+    { type: 'general-purpose', start: 110, end: 116, phase: 3 },
+    { type: 'explore', start: 112, end: 116, phase: 3 },
+    { type: 'code-review', start: 114, end: 118, phase: 3 },
+    { type: 'general-purpose', start: 116, end: 122, phase: 3 },
+    { type: 'explore', start: 118, end: 122, phase: 3 },
+    { type: 'code-review', start: 119, end: 123, phase: 3 },
+    { type: 'general-purpose', start: 120, end: 126, phase: 3 },
+    { type: 'explore', start: 122, end: 126, phase: 3 },
+    { type: 'code-review', start: 123, end: 127, phase: 3 },
+    { type: 'task', start: 124, end: 128, phase: 3 },
+    { type: 'general-purpose', start: 126, end: 130, phase: 3 },
+    { type: 'explore', start: 127, end: 130, phase: 3 },
+    { type: 'code-review', start: 128, end: 131, phase: 3 },
+    { type: 'task', start: 129, end: 131, phase: 3 },
+  ];
+
+  // Model timeline segments (minute offsets from session start)
+  const MODEL_SEGMENTS = [
+    { model: 'claude-opus-4.6', start: 0, end: 110 },
+    { model: 'gpt-5.4', start: 110, end: 131 },
+  ];
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  function fmt(d) {
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  function minToTime(m) {
+    const d = new Date(SESSION_START.getTime() + m * 60000);
+    return fmt(d);
+  }
+  function pct(minutes) { return (minutes / TOTAL_MINUTES * 100); }
+
+  // Generate heatmap density data (events per 30-second bucket)
+  function generateHeatmapData() {
+    const buckets = Math.ceil(TOTAL_MINUTES * 2); // 30s buckets
+    const data = new Float32Array(buckets);
+    PHASES.forEach(phase => {
+      const startBucket = Math.floor(((phase.start - SESSION_START) / 60000) * 2);
+      const endBucket = Math.ceil(((phase.end - SESSION_START) / 60000) * 2);
+      const duration = endBucket - startBucket;
+      for (let i = startBucket; i < endBucket && i < buckets; i++) {
+        // Simulate bursts: higher density near start, some peaks
+        const progress = (i - startBucket) / duration;
+        let intensity = 0.3 + Math.random() * 0.4;
+        // Initial burst after user message
+        if (progress < 0.1) intensity = 0.7 + Math.random() * 0.3;
+        // Mid-phase peak
+        if (progress > 0.4 && progress < 0.6) intensity = 0.5 + Math.random() * 0.4;
+        // End-phase taper
+        if (progress > 0.85) intensity = 0.15 + Math.random() * 0.2;
+        data[i] = intensity * (phase.tools / 800); // Scale by tool density
+      }
+    });
+    return data;
+  }
+
+  // ============================================================
+  // RENDER: Activity Heatmap
+  // ============================================================
+  function renderHeatmap() {
+    const canvas = document.getElementById('activityHeatmap');
+    const wrap = canvas.parentElement;
+    const w = wrap.clientWidth;
+    const h = 48;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const data = generateHeatmapData();
+    const barW = w / data.length;
+
+    // Draw bars
+    for (let i = 0; i < data.length; i++) {
+      const v = data[i];
+      const x = i * barW;
+      if (v < 0.02) {
+        // Idle — very subtle
+        ctx.fillStyle = 'rgba(99,102,241,0.03)';
+      } else {
+        const alpha = 0.08 + v * 0.85;
+        const r = Math.round(99 + v * 30);
+        const g = Math.round(102 - v * 30);
+        const b = Math.round(241);
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+      }
+      ctx.fillRect(x, h * (1 - Math.max(v, 0.04)), barW + 0.5, h * Math.max(v, 0.04));
+    }
+
+    // Draw user message markers
+    PHASES.forEach(phase => {
+      const m = (phase.start - SESSION_START) / 60000;
+      const x = (m / TOTAL_MINUTES) * w;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x - 4, 8);
+      ctx.lineTo(x + 4, 8);
+      ctx.closePath();
+      ctx.fill();
+      // Vertical line
+      ctx.strokeStyle = 'rgba(251,191,36,0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(x, 8);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    // Idle gap indicators
+    for (let i = 0; i < PHASES.length - 1; i++) {
+      const gapStart = (PHASES[i].end - SESSION_START) / 60000;
+      const gapEnd = (PHASES[i + 1].start - SESSION_START) / 60000;
+      if (gapEnd - gapStart > 0.5) {
+        const x1 = (gapStart / TOTAL_MINUTES) * w;
+        const x2 = (gapEnd / TOTAL_MINUTES) * w;
+        ctx.fillStyle = 'rgba(113,113,122,0.06)';
+        ctx.fillRect(x1, 0, x2 - x1, h);
+        ctx.fillStyle = 'rgba(113,113,122,0.3)';
+        ctx.font = '9px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('idle', (x1 + x2) / 2, h / 2 + 3);
+      }
+    }
+
+    // Time axis
+    const axisEl = document.getElementById('heatmapTimeAxis');
+    const marks = 8;
+    let html = '';
+    for (let i = 0; i <= marks; i++) {
+      html += `<span>${minToTime(Math.round((TOTAL_MINUTES / marks) * i))}</span>`;
+    }
+    axisEl.innerHTML = html;
+
+    // Tooltip
+    const tooltip = document.getElementById('heatmapTooltip');
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const bucket = Math.floor((x / rect.width) * data.length);
+      if (bucket >= 0 && bucket < data.length) {
+        const minutes = (bucket / 2);
+        const time = minToTime(minutes);
+        const density = data[bucket];
+        let phase = '—';
+        PHASES.forEach(p => {
+          const ps = (p.start - SESSION_START) / 60000;
+          const pe = (p.end - SESSION_START) / 60000;
+          if (minutes >= ps && minutes <= pe) phase = `Phase ${p.id}: "${p.userMessage}"`;
+        });
+        tooltip.innerHTML = `<strong>${time}</strong><br>Density: ${(density * 100).toFixed(0)}%<br>${phase}`;
+        tooltip.style.left = Math.min(x, rect.width - 160) + 'px';
+        tooltip.style.top = '-42px';
+        tooltip.classList.add('visible');
+      }
+    });
+    canvas.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  }
+
+  // ============================================================
+  // RENDER: Phase Cards
+  // ============================================================
+  function renderPhaseCards() {
+    const container = document.getElementById('phaseCards');
+    let html = '';
+    PHASES.forEach((phase, i) => {
+      const dur = Math.round((phase.end - phase.start) / 60000);
+      html += `
+        <div class="phase-card" data-phase="${phase.id}" onclick="selectPhase(${phase.id})">
+          <div class="phase-card-header">
+            <div class="phase-number">${phase.id}</div>
+            <span class="phase-duration-badge">${dur}min</span>
+          </div>
+          <div class="phase-user-msg">"${phase.userMessage}"</div>
+          <div class="phase-time-range">${fmt(phase.start)} — ${fmt(phase.end)}</div>
+          <div class="phase-stats">
+            <div class="phase-stat-item">
+              <div class="phase-stat-value">${phase.turns}</div>
+              <div class="phase-stat-label">Turns</div>
+            </div>
+            <div class="phase-stat-item">
+              <div class="phase-stat-value">${phase.tools.toLocaleString()}</div>
+              <div class="phase-stat-label">Tools</div>
+            </div>
+            <div class="phase-stat-item">
+              <div class="phase-stat-value">${phase.subagents}</div>
+              <div class="phase-stat-label">Subagents</div>
+            </div>
+          </div>
+          <div class="phase-model-badge">
+            ${phase.models.map(m => `<span class="badge badge-done" style="font-size:0.6rem;">${m}</span>`).join('')}
+          </div>
+        </div>`;
+      // Idle gap between phases
+      if (i < PHASES.length - 1) {
+        const gapMin = Math.round((PHASES[i + 1].start - phase.end) / 60000);
+        if (gapMin > 0) {
+          html += `
+            <div class="idle-indicator">
+              <div class="idle-dots">· · ·</div>
+              <span>${gapMin}min idle</span>
+            </div>`;
+        }
+      }
+    });
+    container.innerHTML = html;
+  }
+
+  function selectPhase(id) {
+    document.querySelectorAll('.phase-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.phase == id);
+    });
+  }
+
+  // ============================================================
+  // RENDER: Tool Breakdown
+  // ============================================================
+  function renderToolBreakdown() {
+    const container = document.getElementById('toolBreakdown');
+    let html = '';
+    PHASES.forEach(phase => {
+      const total = Object.values(phase.toolBreakdown).reduce((a, b) => a + b, 0);
+      html += `<div class="tool-breakdown-row">
+        <span class="tool-breakdown-label">Phase ${phase.id}</span>
+        <div class="tool-breakdown-bar">`;
+      for (const [tool, count] of Object.entries(phase.toolBreakdown)) {
+        const w = (count / total * 100);
+        const color = TOOL_COLORS[tool] || '#71717a';
+        const label = w > 8 ? `${tool} (${count})` : '';
+        html += `<div class="tool-segment" style="width:${w}%;background:${color};" title="${tool}: ${count} calls (${(w).toFixed(1)}%)">${label}</div>`;
+      }
+      html += `</div></div>`;
+    });
+    container.innerHTML = html;
+
+    // Legend
+    const legend = document.getElementById('toolLegend');
+    const allTools = new Set();
+    PHASES.forEach(p => Object.keys(p.toolBreakdown).forEach(t => allTools.add(t)));
+    legend.innerHTML = Array.from(allTools).map(t =>
+      `<span class="tool-legend-item"><span class="tool-legend-swatch" style="background:${TOOL_COLORS[t] || '#71717a'}"></span>${t}</span>`
+    ).join('');
+  }
+
+  // ============================================================
+  // RENDER: Subagent Gantt Chart
+  // ============================================================
+  function renderGanttChart() {
+    const container = document.getElementById('ganttChart');
+
+    // Pack subagents into rows (swim lanes) avoiding overlap
+    const rows = [];
+    const sorted = [...SUBAGENTS].sort((a, b) => a.start - b.start);
+    sorted.forEach(agent => {
+      let placed = false;
+      for (const row of rows) {
+        if (row[row.length - 1].end <= agent.start) {
+          row.push(agent);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) rows.push([agent]);
+    });
+
+    // Time header
+    const totalMin = TOTAL_MINUTES;
+    let html = '<div class="gantt-time-header" style="height: 20px;">';
+    for (let m = 0; m <= totalMin; m += 15) {
+      const left = pct(m);
+      html += `<span class="gantt-time-mark" style="left: calc(80px + ${left}% * (100% - 80px) / 100);">${minToTime(m)}</span>`;
+    }
+    html += '</div>';
+
+    // Phase dividers
+    const trackStyle = `position:relative;`;
+
+    // Rows
+    rows.forEach((row, rowIdx) => {
+      const label = rowIdx === 0 ? '' : '';
+      html += `<div class="gantt-row">
+        <div class="gantt-row-label">${rowIdx === 0 ? 'Lane 1' : `Lane ${rowIdx + 1}`}</div>
+        <div class="gantt-row-track">`;
+
+      // Phase dividers on first row only via absolute positioned elements
+      if (rowIdx === 0) {
+        PHASES.forEach((p, i) => {
+          if (i > 0) {
+            const divLeft = pct((p.start - SESSION_START) / 60000);
+            html += `<div class="gantt-phase-divider" style="left:${divLeft}%;"></div>`;
+          }
+        });
+      }
+
+      row.forEach(agent => {
+        const left = pct(agent.start);
+        const width = pct(agent.end - agent.start);
+        const cls = agent.type;
+        const shortLabel = width > 3 ? agent.type.replace('general-purpose', 'GP').replace('code-review', 'CR').replace('explore', 'EXP').replace('task', 'TSK') : '';
+        html += `<div class="gantt-bar ${cls}" style="left:${left}%;width:${width}%;"
+          data-type="${agent.type}" data-start="${agent.start}" data-end="${agent.end}" data-phase="${agent.phase}"
+          onmouseenter="showGanttTooltip(event, this)" onmouseleave="hideGanttTooltip()">${shortLabel}</div>`;
+      });
+      html += `</div></div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Legend
+    const legend = document.getElementById('ganttLegend');
+    const types = [
+      { type: 'explore', color: '#6366f1' },
+      { type: 'general-purpose', color: '#34d399' },
+      { type: 'code-review', color: '#f59e0b' },
+      { type: 'task', color: '#fb7185' },
+    ];
+    legend.innerHTML = types.map(t =>
+      `<span class="gantt-legend-item"><span class="gantt-legend-swatch" style="background:${t.color}"></span>${t.type}</span>`
+    ).join('');
+  }
+
+  function showGanttTooltip(e, el) {
+    const tooltip = document.getElementById('ganttTooltip');
+    const type = el.dataset.type;
+    const startMin = parseInt(el.dataset.start);
+    const endMin = parseInt(el.dataset.end);
+    const phase = el.dataset.phase;
+    const dur = endMin - startMin;
+    tooltip.innerHTML = `
+      <div class="gantt-tooltip-title">${type}</div>
+      <div>Phase ${phase} · ${minToTime(startMin)} — ${minToTime(endMin)}</div>
+      <div>Duration: ${dur} min</div>`;
+    tooltip.style.left = (e.clientX + 12) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+    tooltip.classList.add('visible');
+  }
+  function hideGanttTooltip() {
+    document.getElementById('ganttTooltip').classList.remove('visible');
+  }
+
+  // ============================================================
+  // RENDER: Model Usage Timeline
+  // ============================================================
+  function renderModelTimeline() {
+    const container = document.getElementById('modelTimeline');
+    let html = '';
+    MODEL_SEGMENTS.forEach(seg => {
+      const w = pct(seg.end - seg.start);
+      const color = MODEL_COLORS[seg.model] || '#71717a';
+      const label = seg.model;
+      html += `<div class="model-segment" style="width:${w}%;background:${color};" title="${label}: ${minToTime(seg.start)} — ${minToTime(seg.end)}">${label}</div>`;
+    });
+    container.innerHTML = html;
+
+    // Axis
+    const axis = document.getElementById('modelTimelineAxis');
+    let axisHtml = '';
+    for (let m = 0; m <= TOTAL_MINUTES; m += Math.round(TOTAL_MINUTES / 6)) {
+      axisHtml += `<span>${minToTime(m)}</span>`;
+    }
+    axisHtml += `<span>${minToTime(TOTAL_MINUTES)}</span>`;
+    axis.innerHTML = axisHtml;
+
+    // Legend
+    const legend = document.getElementById('modelLegend');
+    legend.innerHTML = Object.entries(MODEL_COLORS).map(([m, c]) =>
+      `<span class="tool-legend-item"><span class="tool-legend-swatch" style="background:${c}"></span>${m}</span>`
+    ).join('');
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', () => {
+    renderHeatmap();
+    renderPhaseCards();
+    renderToolBreakdown();
+    renderGanttChart();
+    renderModelTimeline();
+
+    // Select first phase by default
+    selectPhase(1);
+
+    // Resize heatmap on window resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderHeatmap, 150);
+    });
+  });
+  </script>
+</body>
+</html>

@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Flame Chart Timeline Prototype</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Page Layout ── */
+    body {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .page-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header Bar ── */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--canvas-subtle);
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+    .header-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .header-badge {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Breadcrumb ── */
+    .breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      padding: 8px 20px;
+      background: var(--canvas-inset);
+      border-bottom: 1px solid var(--border-muted);
+      flex-shrink: 0;
+      min-height: 36px;
+      gap: 6px;
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .breadcrumb-bar .sep {
+      color: var(--text-placeholder);
+      margin: 0 2px;
+    }
+    .breadcrumb-bar .crumb {
+      color: var(--text-secondary);
+      transition: color var(--transition-fast);
+    }
+    .breadcrumb-bar .crumb:last-child {
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+    .breadcrumb-bar .crumb-duration {
+      color: var(--text-tertiary);
+      margin-left: 4px;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--border-muted);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--canvas-raised);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .toolbar-btn:hover {
+      background: var(--accent-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-accent);
+    }
+    .toolbar-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--border-accent);
+    }
+    .toolbar-info {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .legend-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-right: 4px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── Time Axis ── */
+    .time-axis-container {
+      position: relative;
+      height: 28px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      overflow: hidden;
+    }
+    .time-axis {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+    }
+    .time-tick {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-left: 1px solid var(--border-muted);
+    }
+    .time-tick-label {
+      position: absolute;
+      top: 6px;
+      left: 5px;
+      font-size: 0.625rem;
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* ── Flame Chart Canvas ── */
+    .flame-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent calc(100% - 1px),
+          var(--border-subtle) calc(100% - 1px)
+        );
+    }
+    .flame-container.grabbing {
+      cursor: grabbing;
+    }
+    .flame-viewport {
+      position: absolute;
+      top: 0;
+      left: 0;
+      will-change: transform;
+    }
+
+    /* ── Row Labels ── */
+    .row-labels {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 140px;
+      height: 100%;
+      background: var(--canvas-subtle);
+      border-right: 1px solid var(--border-default);
+      z-index: 10;
+      pointer-events: none;
+    }
+    .row-label {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border-subtle);
+      box-sizing: border-box;
+    }
+
+    /* ── Flame Frames ── */
+    .flame-frame {
+      position: absolute;
+      height: 22px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: rgba(0,0,0,0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: filter var(--transition-fast), box-shadow var(--transition-fast);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 1px 2px rgba(0,0,0,0.25);
+      user-select: none;
+      min-width: 2px;
+    }
+    .flame-frame:hover {
+      filter: brightness(1.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 0 1.5px rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+    .flame-frame.highlighted {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 0 2px rgba(255,255,255,0.6), 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 6;
+      filter: brightness(1.15);
+    }
+    .flame-frame .frame-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    /* Frame colors */
+    .flame-frame.type-session     { background: linear-gradient(180deg, #52525b, #3f3f46); color: #fafafa; }
+    .flame-frame.type-user        { background: linear-gradient(180deg, #818cf8, #6366f1); color: #fff; }
+    .flame-frame.type-assistant   { background: linear-gradient(180deg, #6ee7b7, #34d399); }
+    .flame-frame.type-tool        { background: linear-gradient(180deg, #fcd34d, #fbbf24); }
+    .flame-frame.type-tool-failed { background: linear-gradient(180deg, #fda4af, #fb7185); }
+    .flame-frame.type-subagent-explore  { background: linear-gradient(180deg, #67e8f9, #22d3ee); }
+    .flame-frame.type-subagent-gp       { background: linear-gradient(180deg, #c4b5fd, #a78bfa); }
+    .flame-frame.type-subagent-review   { background: linear-gradient(180deg, #f9a8d4, #f472b6); }
+    .flame-frame.type-subagent-task     { background: linear-gradient(180deg, #fca5a5, #f87171); }
+
+    /* Row stripes */
+    .flame-row-bg {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .flame-row-bg:nth-child(even) {
+      background: rgba(255,255,255,0.01);
+    }
+
+    /* ── Tooltip ── */
+    .flame-tooltip {
+      position: fixed;
+      z-index: var(--z-tooltip);
+      padding: 10px 14px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 80ms ease;
+      max-width: 340px;
+      backdrop-filter: blur(12px);
+    }
+    .flame-tooltip.visible {
+      opacity: 1;
+    }
+    .flame-tooltip .tt-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .flame-tooltip .tt-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 0.6875rem;
+      line-height: 1.6;
+    }
+    .flame-tooltip .tt-label {
+      color: var(--text-tertiary);
+    }
+    .flame-tooltip .tt-value {
+      color: var(--text-secondary);
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      text-align: right;
+    }
+
+    /* ── Minimap ── */
+    .minimap {
+      height: 32px;
+      flex-shrink: 0;
+      background: var(--canvas-inset);
+      border-top: 1px solid var(--border-default);
+      position: relative;
+      overflow: hidden;
+    }
+    .minimap-frame {
+      position: absolute;
+      border-radius: 1px;
+      opacity: 0.7;
+    }
+    .minimap-viewport {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border: 1px solid var(--accent-fg);
+      background: rgba(99,102,241,0.08);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 20px;
+      background: var(--canvas-subtle);
+      border-top: 1px solid var(--border-muted);
+      flex-shrink: 0;
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    }
+    .status-bar .status-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ── Keyboard shortcut hints ── */
+    kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 0.625rem;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      background: var(--canvas-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 3px;
+      color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <!-- ── Header ── -->
+  <div class="page-shell">
+    <div class="header-bar">
+      <div class="header-left">
+        <div class="header-icon">▶</div>
+        <span class="header-title">TracePilot — Flame Chart Timeline</span>
+        <span class="header-badge">PROTOTYPE</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.6875rem;color:var(--text-tertiary);">Session:</span>
+        <span class="font-mono" style="font-size:0.75rem;color:var(--text-secondary);">ses_a1b2c3d4 · 3 turns · 225s</span>
+      </div>
+    </div>
+
+    <!-- ── Breadcrumb ── -->
+    <div class="breadcrumb-bar" id="breadcrumb">
+      <span class="crumb">Session</span>
+    </div>
+
+    <!-- ── Toolbar ── -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button class="toolbar-btn active" onclick="resetView()">⊞ Fit All</button>
+        <button class="toolbar-btn" onclick="zoomIn()">＋ Zoom In</button>
+        <button class="toolbar-btn" onclick="zoomOut()">− Zoom Out</button>
+        <span style="color:var(--border-default);margin:0 2px;">|</span>
+        <span class="toolbar-info" id="zoom-info">Zoom: 100%</span>
+      </div>
+      <div class="toolbar-group">
+        <span style="font-size:0.6875rem;color:var(--text-tertiary);">
+          <kbd>Scroll</kbd> zoom · <kbd>Drag</kbd> pan · <kbd>R</kbd> reset
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Legend ── -->
+    <div class="legend">
+      <span class="legend-label">Legend</span>
+      <div class="legend-item"><div class="legend-swatch" style="background:#6366f1;"></div> User</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#34d399;"></div> Assistant</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#fbbf24;"></div> Tool Call</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#fb7185;"></div> Failed</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#22d3ee;"></div> Subagent: explore</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#a78bfa;"></div> Subagent: general-purpose</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f472b6;"></div> Subagent: code-review</div>
+    </div>
+
+    <!-- ── Time Axis ── -->
+    <div class="time-axis-container" id="time-axis-container">
+      <div class="time-axis" id="time-axis"></div>
+    </div>
+
+    <!-- ── Flame Chart ── -->
+    <div class="flame-container" id="flame-container">
+      <div class="flame-viewport" id="flame-viewport"></div>
+    </div>
+
+    <!-- ── Minimap ── -->
+    <div class="minimap" id="minimap">
+      <div class="minimap-viewport" id="minimap-vp"></div>
+    </div>
+
+    <!-- ── Status Bar ── -->
+    <div class="status-bar">
+      <div class="status-group">
+        <span>Turns: 3</span>
+        <span>Tool Calls: 174</span>
+        <span>Subagents: 14</span>
+        <span>Duration: 225.0s</span>
+      </div>
+      <div class="status-group">
+        <span>Flame Chart v0.1 · Static Prototype</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tooltip ── -->
+  <div class="flame-tooltip" id="tooltip">
+    <div class="tt-title" id="tt-title"></div>
+    <div id="tt-body"></div>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════════════════════════════
+    // Mock Data Generation
+    // ════════════════════════════════════════════════════════════════
+
+    const TOTAL_DURATION = 225; // seconds
+    const ROW_HEIGHT = 28;
+    const ROW_GAP = 2;
+    const FRAME_HEIGHT = 22;
+    const LABEL_COL_W = 0;
+
+    // Types → CSS class mappings
+    const TYPE_CLASSES = {
+      session: 'type-session',
+      user: 'type-user',
+      assistant: 'type-assistant',
+      tool: 'type-tool',
+      'tool-failed': 'type-tool-failed',
+      'subagent-explore': 'type-subagent-explore',
+      'subagent-gp': 'type-subagent-gp',
+      'subagent-review': 'type-subagent-review',
+    };
+
+    function toolNames(type) {
+      const pools = {
+        explore: ['view', 'grep', 'glob', 'grep', 'view', 'glob', 'view', 'grep'],
+        gp: ['view', 'edit', 'powershell', 'view', 'edit', 'grep', 'view', 'powershell', 'edit', 'view'],
+        review: ['view', 'grep', 'glob', 'view', 'grep', 'view'],
+      };
+      return pools[type] || pools.explore;
+    }
+
+    function buildMockData() {
+      const frames = [];
+      let id = 0;
+      const nid = () => `f${id++}`;
+
+      // ── Session root ──
+      frames.push({
+        id: nid(), label: 'Session ses_a1b2c3d4', type: 'session',
+        start: 0, duration: TOTAL_DURATION, depth: 0,
+        path: ['Session'],
+      });
+
+      // ── Turn builder ──
+      function addTurn(turnIdx, turnStart, turnDur, userMsg, subagents) {
+        const userDur = 0.3;
+        const assistStart = turnStart + userDur;
+        const assistDur = turnDur - userDur;
+
+        // User frame
+        frames.push({
+          id: nid(), label: `User: "${userMsg}"`, type: 'user',
+          start: turnStart, duration: userDur, depth: 1,
+          path: ['Session', `Turn ${turnIdx}`],
+          meta: { message: userMsg },
+        });
+
+        // Assistant frame
+        frames.push({
+          id: nid(), label: `Assistant Turn ${turnIdx}`, type: 'assistant',
+          start: assistStart, duration: assistDur, depth: 2,
+          path: ['Session', `Turn ${turnIdx}`, 'Assistant'],
+          meta: { turnIndex: turnIdx },
+        });
+
+        // Subagents within the assistant frame
+        const subagentSlotDur = assistDur / subagents.length;
+        subagents.forEach((sa, si) => {
+          const saType = sa.type; // 'explore' | 'gp' | 'review'
+          const saTypeClass = `subagent-${saType}`;
+          // Stagger subagents to show parallelism — overlap them
+          const overlap = sa.parallel ? 0.7 : 0;
+          const saStart = assistStart + si * subagentSlotDur * (1 - overlap);
+          const saDur = subagentSlotDur * (1 + overlap * 0.3);
+          const saEnd = Math.min(saStart + saDur, turnStart + turnDur - 0.05);
+          const actualDur = saEnd - saStart;
+
+          frames.push({
+            id: nid(), label: `task(${saType === 'gp' ? 'general-purpose' : saType === 'review' ? 'code-review' : saType})`, type: saTypeClass,
+            start: saStart, duration: actualDur, depth: 3,
+            path: ['Session', `Turn ${turnIdx}`, 'Assistant', `task(${saType === 'gp' ? 'general-purpose' : saType === 'review' ? 'code-review' : saType})`],
+            meta: { agentType: saType, toolCount: sa.tools },
+          });
+
+          // Tool calls within each subagent
+          const tools = toolNames(saType);
+          const toolCount = sa.tools || tools.length;
+          const toolSlot = actualDur / toolCount;
+          for (let ti = 0; ti < toolCount; ti++) {
+            const toolName = tools[ti % tools.length];
+            const tStart = saStart + ti * toolSlot + Math.random() * toolSlot * 0.05;
+            const tDur = toolSlot * (0.6 + Math.random() * 0.35);
+            const failed = Math.random() < 0.03; // ~3% failure rate
+            const fileSuffixes = {
+              view: ['src/main.ts', 'src/utils.ts', 'README.md', 'package.json', 'src/index.ts', 'Cargo.toml'],
+              edit: ['src/main.ts', 'src/handler.rs', 'src/lib.rs', 'src/config.ts'],
+              grep: ['"TODO"', '"error"', '"import"', '"async fn"'],
+              glob: ['**/*.ts', '**/*.rs', 'src/**/*.test.ts'],
+              powershell: ['npm run build', 'cargo test', 'pnpm lint'],
+            };
+            const suffix = (fileSuffixes[toolName] || [''])[Math.floor(Math.random() * (fileSuffixes[toolName] || ['']).length)];
+            const toolLabel = suffix ? `${toolName}(${suffix})` : toolName;
+
+            frames.push({
+              id: nid(), label: toolLabel, type: failed ? 'tool-failed' : 'tool',
+              start: tStart, duration: tDur, depth: 4,
+              path: ['Session', `Turn ${turnIdx}`, 'Assistant',
+                `task(${saType === 'gp' ? 'general-purpose' : saType === 'review' ? 'code-review' : saType})`,
+                toolLabel],
+              meta: { tool: toolName, target: suffix, failed },
+            });
+
+            // Nested tool calls (depth 5) for powershell / complex tools
+            if (toolName === 'powershell' || (toolName === 'edit' && Math.random() > 0.5)) {
+              const nestedCount = toolName === 'powershell' ? 2 + Math.floor(Math.random() * 2) : 1;
+              const nestedSlot = tDur / (nestedCount + 0.5);
+              for (let ni = 0; ni < nestedCount; ni++) {
+                const nStart = tStart + (ni + 0.2) * nestedSlot;
+                const nDur = nestedSlot * 0.7;
+                const nestedNames = toolName === 'powershell'
+                  ? ['read_output', 'write_input', 'check_status']
+                  : ['apply_diff'];
+                const nName = nestedNames[ni % nestedNames.length];
+                frames.push({
+                  id: nid(), label: nName, type: 'tool',
+                  start: nStart, duration: nDur, depth: 5,
+                  path: ['Session', `Turn ${turnIdx}`, 'Assistant',
+                    `task(${saType === 'gp' ? 'general-purpose' : saType === 'review' ? 'code-review' : saType})`,
+                    toolLabel, nName],
+                  meta: { tool: nName, nested: true },
+                });
+              }
+            }
+          }
+        });
+      }
+
+      // ── Turn 1: Explore codebase (~60s) ──
+      addTurn(1, 0, 60, 'Explore the codebase structure', [
+        { type: 'explore', tools: 8, parallel: true },
+        { type: 'explore', tools: 7, parallel: true },
+        { type: 'explore', tools: 9, parallel: true },
+        { type: 'explore', tools: 8, parallel: true },
+        { type: 'explore', tools: 6, parallel: true },
+      ]);
+
+      // ── Turn 2: Implement feature (~120s) ──
+      addTurn(2, 62, 120, 'Implement the auth module', [
+        { type: 'explore', tools: 6, parallel: true },
+        { type: 'explore', tools: 5, parallel: true },
+        { type: 'gp', tools: 10, parallel: true },
+        { type: 'gp', tools: 12, parallel: true },
+        { type: 'gp', tools: 9, parallel: true },
+      ]);
+
+      // ── Turn 3: Code review (~45s) ──
+      addTurn(3, 184, 41, 'Review the changes', [
+        { type: 'review', tools: 6, parallel: true },
+        { type: 'review', tools: 7, parallel: true },
+        { type: 'review', tools: 5, parallel: true },
+        { type: 'review', tools: 6, parallel: true },
+      ]);
+
+      return frames;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // Rendering Engine
+    // ════════════════════════════════════════════════════════════════
+
+    const allFrames = buildMockData();
+    const maxDepth = Math.max(...allFrames.map(f => f.depth));
+    const totalRows = maxDepth + 1; // 0..maxDepth
+    const canvasHeight = totalRows * (ROW_HEIGHT + ROW_GAP);
+
+    const container = document.getElementById('flame-container');
+    const viewport = document.getElementById('flame-viewport');
+    const timeAxisContainer = document.getElementById('time-axis-container');
+    const timeAxisEl = document.getElementById('time-axis');
+    const tooltip = document.getElementById('tooltip');
+    const breadcrumbEl = document.getElementById('breadcrumb');
+    const zoomInfoEl = document.getElementById('zoom-info');
+    const minimapEl = document.getElementById('minimap');
+    const minimapVp = document.getElementById('minimap-vp');
+
+    let viewWidth = 0;
+    let scale = 1;     // pixels per second
+    let offsetX = 0;   // pan offset in px
+    let baseScale = 1;
+
+    function recalcLayout() {
+      viewWidth = container.clientWidth;
+      baseScale = viewWidth / TOTAL_DURATION;
+      if (scale < baseScale) scale = baseScale;
+    }
+
+    function pxPerSec() { return scale; }
+
+    function renderFrames() {
+      viewport.innerHTML = '';
+      viewport.style.height = canvasHeight + 'px';
+
+      // Row background stripes
+      for (let d = 0; d <= maxDepth; d++) {
+        const bg = document.createElement('div');
+        bg.className = 'flame-row-bg';
+        bg.style.top = d * (ROW_HEIGHT + ROW_GAP) + 'px';
+        bg.style.height = ROW_HEIGHT + 'px';
+        viewport.appendChild(bg);
+      }
+
+      // Frames
+      allFrames.forEach(f => {
+        const el = document.createElement('div');
+        el.className = `flame-frame ${TYPE_CLASSES[f.type] || 'type-tool'}`;
+        const x = f.start * pxPerSec();
+        const w = Math.max(f.duration * pxPerSec(), 2);
+        const y = f.depth * (ROW_HEIGHT + ROW_GAP) + (ROW_HEIGHT - FRAME_HEIGHT) / 2;
+        el.style.left = x + 'px';
+        el.style.width = w + 'px';
+        el.style.top = y + 'px';
+        el.innerHTML = `<span class="frame-label">${w > 24 ? f.label : ''}</span>`;
+        el.dataset.fid = f.id;
+        el.addEventListener('mouseenter', (e) => showTooltip(e, f));
+        el.addEventListener('mouseleave', hideTooltip);
+        el.addEventListener('mousemove', moveTooltip);
+        viewport.appendChild(el);
+      });
+    }
+
+    function updateTransform() {
+      viewport.style.transform = `translateX(${offsetX}px)`;
+      viewport.style.width = TOTAL_DURATION * pxPerSec() + 'px';
+      renderTimeAxis();
+      renderMinimap();
+      zoomInfoEl.textContent = `Zoom: ${Math.round(scale / baseScale * 100)}%`;
+    }
+
+    // ── Time Axis ──
+    function renderTimeAxis() {
+      timeAxisEl.innerHTML = '';
+      timeAxisEl.style.width = TOTAL_DURATION * pxPerSec() + 'px';
+      timeAxisEl.style.transform = `translateX(${offsetX}px)`;
+
+      // Decide tick interval based on zoom
+      const pps = pxPerSec();
+      let interval;
+      if (pps > 200) interval = 0.5;
+      else if (pps > 80) interval = 1;
+      else if (pps > 30) interval = 5;
+      else if (pps > 10) interval = 10;
+      else if (pps > 4) interval = 30;
+      else interval = 60;
+
+      const startSec = Math.max(0, Math.floor(-offsetX / pps / interval) * interval);
+      const endSec = Math.min(TOTAL_DURATION, (-offsetX + viewWidth) / pps + interval);
+
+      for (let t = startSec; t <= endSec; t += interval) {
+        const tick = document.createElement('div');
+        tick.className = 'time-tick';
+        tick.style.left = t * pps + 'px';
+        const label = document.createElement('span');
+        label.className = 'time-tick-label';
+        label.textContent = formatTime(t);
+        tick.appendChild(label);
+        timeAxisEl.appendChild(tick);
+      }
+    }
+
+    function formatTime(s) {
+      if (s >= 60) {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return sec === 0 ? `${m}m` : `${m}m ${sec}s`;
+      }
+      return s % 1 === 0 ? `${s}s` : `${s.toFixed(1)}s`;
+    }
+
+    // ── Minimap ──
+    function renderMinimap() {
+      minimapEl.querySelectorAll('.minimap-frame').forEach(e => e.remove());
+      const mW = minimapEl.clientWidth;
+      const mH = minimapEl.clientHeight;
+      const mScale = mW / TOTAL_DURATION;
+
+      allFrames.forEach(f => {
+        if (f.depth > 3) return; // only show top layers in minimap
+        const el = document.createElement('div');
+        el.className = 'minimap-frame';
+        const colorMap = {
+          session: '#3f3f46', user: '#6366f1', assistant: '#34d399', tool: '#fbbf24',
+          'tool-failed': '#fb7185', 'subagent-explore': '#22d3ee',
+          'subagent-gp': '#a78bfa', 'subagent-review': '#f472b6',
+        };
+        el.style.background = colorMap[f.type] || '#fbbf24';
+        el.style.left = f.start * mScale + 'px';
+        el.style.width = Math.max(f.duration * mScale, 1) + 'px';
+        el.style.top = (f.depth / (maxDepth + 1)) * mH + 'px';
+        el.style.height = Math.max(mH / (maxDepth + 1) - 1, 2) + 'px';
+        minimapEl.appendChild(el);
+      });
+
+      // Viewport indicator
+      const vpLeft = (-offsetX / (TOTAL_DURATION * pxPerSec())) * mW;
+      const vpWidth = (viewWidth / (TOTAL_DURATION * pxPerSec())) * mW;
+      minimapVp.style.left = Math.max(0, vpLeft) + 'px';
+      minimapVp.style.width = Math.min(vpWidth, mW) + 'px';
+    }
+
+    // ── Tooltip ──
+    function showTooltip(e, frame) {
+      const ttTitle = document.getElementById('tt-title');
+      const ttBody = document.getElementById('tt-body');
+      ttTitle.textContent = frame.label;
+
+      let rows = `
+        <div class="tt-row"><span class="tt-label">Type</span><span class="tt-value">${frame.type.replace('-', ' ')}</span></div>
+        <div class="tt-row"><span class="tt-label">Start</span><span class="tt-value">${frame.start.toFixed(2)}s</span></div>
+        <div class="tt-row"><span class="tt-label">Duration</span><span class="tt-value">${frame.duration.toFixed(2)}s</span></div>
+        <div class="tt-row"><span class="tt-label">Depth</span><span class="tt-value">${frame.depth}</span></div>
+      `;
+      if (frame.meta) {
+        if (frame.meta.agentType) rows += `<div class="tt-row"><span class="tt-label">Agent</span><span class="tt-value">${frame.meta.agentType}</span></div>`;
+        if (frame.meta.toolCount) rows += `<div class="tt-row"><span class="tt-label">Tools</span><span class="tt-value">${frame.meta.toolCount}</span></div>`;
+        if (frame.meta.target) rows += `<div class="tt-row"><span class="tt-label">Target</span><span class="tt-value">${frame.meta.target}</span></div>`;
+        if (frame.meta.failed) rows += `<div class="tt-row"><span class="tt-label">Status</span><span class="tt-value" style="color:var(--danger-fg);">Failed</span></div>`;
+      }
+      ttBody.innerHTML = rows;
+
+      tooltip.classList.add('visible');
+      moveTooltip(e);
+
+      // Breadcrumb
+      breadcrumbEl.innerHTML = frame.path.map((p, i) =>
+        (i > 0 ? '<span class="sep">›</span>' : '') +
+        `<span class="crumb">${p}</span>`
+      ).join('') + `<span class="crumb-duration">${frame.duration.toFixed(2)}s</span>`;
+    }
+
+    function moveTooltip(e) {
+      const pad = 14;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      const tw = tooltip.offsetWidth;
+      const th = tooltip.offsetHeight;
+      if (x + tw > window.innerWidth - 8) x = e.clientX - tw - pad;
+      if (y + th > window.innerHeight - 8) y = e.clientY - th - pad;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove('visible');
+      breadcrumbEl.innerHTML = '<span class="crumb">Session</span>';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // Interaction: Zoom & Pan
+    // ════════════════════════════════════════════════════════════════
+
+    // Mouse wheel zoom (centered on cursor)
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left; // relative to container
+      const worldXBefore = (mouseX - offsetX) / scale;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      scale = Math.max(baseScale, Math.min(scale * zoomFactor, baseScale * 200));
+
+      // Adjust offset so the point under the cursor stays fixed
+      offsetX = mouseX - worldXBefore * scale;
+      clampOffset();
+      updateTransform();
+    }, { passive: false });
+
+    // Drag to pan
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartOff = 0;
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartOff = offsetX;
+      container.classList.add('grabbing');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      offsetX = dragStartOff + (e.clientX - dragStartX);
+      clampOffset();
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      container.classList.remove('grabbing');
+    });
+
+    function clampOffset() {
+      const totalW = TOTAL_DURATION * scale;
+      const maxOff = 0;
+      const minOff = -(totalW - viewWidth);
+      if (totalW <= viewWidth) {
+        offsetX = 0;
+      } else {
+        offsetX = Math.min(maxOff, Math.max(minOff, offsetX));
+      }
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') resetView();
+      if (e.key === '+' || e.key === '=') zoomIn();
+      if (e.key === '-') zoomOut();
+    });
+
+    function resetView() {
+      scale = baseScale;
+      offsetX = 0;
+      updateTransform();
+    }
+
+    function zoomIn() {
+      const centerX = viewWidth / 2;
+      const worldXBefore = (centerX - offsetX) / scale;
+      scale = Math.min(scale * 1.5, baseScale * 200);
+      offsetX = centerX - worldXBefore * scale;
+      clampOffset();
+      updateTransform();
+    }
+
+    function zoomOut() {
+      const centerX = viewWidth / 2;
+      const worldXBefore = (centerX - offsetX) / scale;
+      scale = Math.max(scale / 1.5, baseScale);
+      offsetX = centerX - worldXBefore * scale;
+      clampOffset();
+      updateTransform();
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // Init
+    // ════════════════════════════════════════════════════════════════
+
+    function init() {
+      recalcLayout();
+      resetView();
+      renderFrames();
+      updateTransform();
+    }
+
+    window.addEventListener('resize', () => {
+      recalcLayout();
+      clampOffset();
+      updateTransform();
+    });
+
+    init();
+  </script>
+</body>
+</html>

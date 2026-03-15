@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Agent Orchestration Tree Prototype</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Agent Tree: Scoped Styles ── */
+
+    /* Agent type color tokens */
+    :root {
+      --agent-main-fg: #818cf8;
+      --agent-main-bg: rgba(99,102,241,0.12);
+      --agent-main-border: rgba(99,102,241,0.35);
+
+      --agent-explore-fg: #22d3ee;
+      --agent-explore-bg: rgba(34,211,238,0.10);
+      --agent-explore-border: rgba(34,211,238,0.30);
+
+      --agent-gp-fg: #a78bfa;
+      --agent-gp-bg: rgba(167,139,250,0.10);
+      --agent-gp-border: rgba(167,139,250,0.30);
+
+      --agent-review-fg: #f472b6;
+      --agent-review-bg: rgba(244,114,182,0.10);
+      --agent-review-border: rgba(244,114,182,0.30);
+
+      --agent-task-fg: #fbbf24;
+      --agent-task-bg: rgba(251,191,36,0.10);
+      --agent-task-border: rgba(251,191,36,0.30);
+
+      --agent-tool-fg: var(--text-secondary);
+      --agent-tool-bg: var(--neutral-subtle);
+      --agent-tool-border: var(--border-default);
+    }
+
+    body {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── Page Shell ── */
+    .prototype-shell {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .proto-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .proto-header h1 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .proto-header h1 .icon {
+      width: 28px; height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--gradient-accent);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 13px;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+
+    /* ── Turn Navigator ── */
+    .turn-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .turn-nav .btn { font-variant-numeric: tabular-nums; }
+    .turn-nav-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      min-width: 100px;
+      text-align: center;
+    }
+
+    /* ── Stats Row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ── Tree Container ── */
+    .tree-container {
+      position: relative;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px 24px;
+      min-height: 400px;
+      overflow-x: auto;
+    }
+
+    .tree-svg-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .tree-layout {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ── Tree Levels ── */
+    .tree-level {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 8px 0;
+    }
+
+    /* ── Parallel Group ── */
+    .parallel-group {
+      position: relative;
+      display: flex;
+      gap: 14px;
+      padding: 12px 16px 12px 16px;
+      border: 1px dashed rgba(255,255,255,0.08);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,0.015);
+    }
+    .parallel-group::before {
+      content: attr(data-label);
+      position: absolute;
+      top: -9px;
+      left: 14px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-placeholder);
+      background: var(--canvas-subtle);
+      padding: 0 6px;
+    }
+
+    /* ── Level Connector Spacer ── */
+    .level-spacer {
+      height: 40px;
+      position: relative;
+    }
+
+    /* ── Agent Node ── */
+    .agent-node {
+      position: relative;
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      min-width: 150px;
+      max-width: 200px;
+      text-align: center;
+      user-select: none;
+    }
+    .agent-node:hover {
+      transform: translateY(-2px);
+      z-index: 2;
+    }
+    .agent-node.selected {
+      z-index: 3;
+    }
+
+    .agent-node-icon {
+      font-size: 1.25rem;
+      margin-bottom: 4px;
+    }
+    .agent-node-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+    .agent-node-subtitle {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.3;
+    }
+    .agent-node-stats {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+    }
+    .agent-node-status {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    /* Node Type Variants */
+    .agent-node--main {
+      background: linear-gradient(180deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.06) 100%);
+      border: 1.5px solid var(--agent-main-border);
+      box-shadow: 0 0 24px rgba(99,102,241,0.08);
+      min-width: 180px;
+    }
+    .agent-node--main:hover { box-shadow: 0 0 32px rgba(99,102,241,0.15), var(--shadow-md); }
+    .agent-node--main.selected { box-shadow: 0 0 0 2px var(--agent-main-fg), 0 0 32px rgba(99,102,241,0.2); }
+    .agent-node--main .agent-node-title { color: var(--agent-main-fg); }
+
+    .agent-node--explore {
+      background: var(--agent-explore-bg);
+      border: 1px solid var(--agent-explore-border);
+    }
+    .agent-node--explore:hover { box-shadow: 0 0 20px rgba(34,211,238,0.12), var(--shadow-md); }
+    .agent-node--explore.selected { box-shadow: 0 0 0 2px var(--agent-explore-fg), 0 0 20px rgba(34,211,238,0.15); }
+    .agent-node--explore .agent-node-title { color: var(--agent-explore-fg); }
+
+    .agent-node--general-purpose {
+      background: var(--agent-gp-bg);
+      border: 1px solid var(--agent-gp-border);
+    }
+    .agent-node--general-purpose:hover { box-shadow: 0 0 20px rgba(167,139,250,0.12), var(--shadow-md); }
+    .agent-node--general-purpose.selected { box-shadow: 0 0 0 2px var(--agent-gp-fg), 0 0 20px rgba(167,139,250,0.15); }
+    .agent-node--general-purpose .agent-node-title { color: var(--agent-gp-fg); }
+
+    .agent-node--code-review {
+      background: var(--agent-review-bg);
+      border: 1px solid var(--agent-review-border);
+    }
+    .agent-node--code-review:hover { box-shadow: 0 0 20px rgba(244,114,182,0.12), var(--shadow-md); }
+    .agent-node--code-review.selected { box-shadow: 0 0 0 2px var(--agent-review-fg), 0 0 20px rgba(244,114,182,0.15); }
+    .agent-node--code-review .agent-node-title { color: var(--agent-review-fg); }
+
+    .agent-node--task {
+      background: var(--agent-task-bg);
+      border: 1px solid var(--agent-task-border);
+    }
+    .agent-node--task:hover { box-shadow: 0 0 20px rgba(251,191,36,0.12), var(--shadow-md); }
+    .agent-node--task.selected { box-shadow: 0 0 0 2px var(--agent-task-fg), 0 0 20px rgba(251,191,36,0.15); }
+    .agent-node--task .agent-node-title { color: var(--agent-task-fg); }
+
+    /* Tool pill nodes (leaf) */
+    .tool-node {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: var(--radius-full);
+      background: var(--neutral-subtle);
+      border: 1px solid var(--border-default);
+      font-size: 0.6875rem;
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+    .tool-node:hover {
+      background: var(--neutral-muted);
+      border-color: var(--border-muted);
+      color: var(--text-primary);
+    }
+    .tool-node .tool-dur { color: var(--text-placeholder); }
+    .tool-node .tool-status { font-size: 0.625rem; }
+
+    /* ── Tool Children Row ── */
+    .tool-children-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      max-width: 700px;
+    }
+
+    /* ── Detail Panel ── */
+    .detail-panel {
+      margin-top: 20px;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: all var(--transition-normal);
+    }
+    .detail-panel.hidden { display: none; }
+    .detail-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-default);
+      flex-wrap: wrap;
+    }
+    .detail-panel-header .detail-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .detail-panel-header .detail-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .detail-panel-body {
+      padding: 16px 18px;
+    }
+
+    /* Tool list in detail panel */
+    .tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .tool-list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .tool-list-item:last-child { border-bottom: none; }
+    .tool-list-idx {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      min-width: 18px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .tool-list-name {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tool-list-dur {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .tool-list-status {
+      font-size: 0.75rem;
+      width: 18px;
+      text-align: center;
+    }
+
+    /* ── SVG Connection Lines ── */
+    .tree-svg-layer line,
+    .tree-svg-layer path {
+      stroke-linecap: round;
+    }
+
+    @keyframes dashFlow {
+      to { stroke-dashoffset: -20; }
+    }
+    .conn-line {
+      stroke: var(--border-default);
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .conn-line.animated {
+      stroke-dasharray: 6 4;
+      animation: dashFlow 1.2s linear infinite;
+    }
+    .conn-line--explore { stroke: rgba(34,211,238,0.3); }
+    .conn-line--general-purpose { stroke: rgba(167,139,250,0.3); }
+    .conn-line--code-review { stroke: rgba(244,114,182,0.3); }
+    .conn-line--task { stroke: rgba(251,191,36,0.3); }
+
+    /* ── Duration Bar (inside node) ── */
+    .dur-bar {
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 8px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .dur-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .dur-bar-fill--main { background: var(--agent-main-fg); }
+    .dur-bar-fill--explore { background: var(--agent-explore-fg); }
+    .dur-bar-fill--general-purpose { background: var(--agent-gp-fg); }
+    .dur-bar-fill--code-review { background: var(--agent-review-fg); }
+    .dur-bar-fill--task { background: var(--agent-task-fg); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .parallel-group { flex-wrap: wrap; }
+      .agent-node { min-width: 120px; max-width: 160px; padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="prototype-shell">
+  <!-- ── Header ── -->
+  <div class="proto-header">
+    <h1>
+      <span class="icon">⌘</span>
+      Agent Orchestration View
+    </h1>
+    <div class="turn-nav">
+      <button class="btn btn-sm" id="prevTurn" title="Previous turn with subagents">← Prev</button>
+      <span class="turn-nav-label" id="turnLabel">Turn 7 of 335</span>
+      <button class="btn btn-sm" id="nextTurn" title="Next turn with subagents">Next →</button>
+    </div>
+  </div>
+
+  <!-- ── Summary Stats ── -->
+  <div class="stats-row" id="statsRow">
+    <!-- Filled by JS -->
+  </div>
+
+  <!-- ── Tree Visualization ── -->
+  <div class="tree-container" id="treeContainer">
+    <svg class="tree-svg-layer" id="treeSvg"></svg>
+    <div class="tree-layout" id="treeLayout">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <!-- ── Detail Panel ── -->
+  <div class="detail-panel hidden" id="detailPanel">
+    <div class="detail-panel-header" id="detailHeader"></div>
+    <div class="detail-panel-body" id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// Mock Data — Complex multi-agent turn
+// ══════════════════════════════════════════════════════════════
+
+const MOCK_TURNS = [
+  {
+    turnNumber: 7,
+    totalTurns: 335,
+    mainAgent: {
+      id: 'main',
+      type: 'main',
+      label: 'Main Agent',
+      model: 'claude-opus-4.6',
+      duration: 187.4,
+      status: 'completed',
+      toolCalls: []
+    },
+    parallelGroups: [
+      {
+        label: 'Parallel batch 1 — exploration',
+        agents: [
+          {
+            id: 'explore-1',
+            type: 'explore',
+            label: 'explore Agent #1',
+            subtitle: 'Codebase structure scan',
+            duration: 25.2,
+            status: 'completed',
+            toolCalls: [
+              { name: 'view', args: 'packages/types/src/index.ts', dur: 2.1, status: 'completed' },
+              { name: 'grep', args: '"SessionEvent" **/*.ts', dur: 3.4, status: 'completed' },
+              { name: 'view', args: 'crates/core/src/models.rs', dur: 1.8, status: 'completed' },
+              { name: 'glob', args: '**/*.vue', dur: 0.9, status: 'completed' },
+              { name: 'view', args: 'apps/desktop/src/views/Timeline.vue', dur: 2.3, status: 'completed' },
+              { name: 'grep', args: '"timeline" **/*.css', dur: 1.2, status: 'completed' },
+              { name: 'view', args: 'docs/design/design-system.md', dur: 1.7, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentCard.vue', dur: 1.5, status: 'completed' },
+            ]
+          },
+          {
+            id: 'explore-2',
+            type: 'explore',
+            label: 'explore Agent #2',
+            subtitle: 'Schema & types analysis',
+            duration: 22.1,
+            status: 'completed',
+            toolCalls: [
+              { name: 'view', args: 'packages/types/src/session.ts', dur: 1.9, status: 'completed' },
+              { name: 'grep', args: '"ToolExecution" **/*.ts', dur: 2.8, status: 'completed' },
+              { name: 'view', args: 'packages/types/src/events.ts', dur: 1.5, status: 'completed' },
+              { name: 'grep', args: '"parentToolCallId"', dur: 3.1, status: 'completed' },
+              { name: 'view', args: 'crates/parser/src/lib.rs', dur: 2.0, status: 'completed' },
+              { name: 'glob', args: 'packages/types/**/*.ts', dur: 0.7, status: 'completed' },
+            ]
+          },
+          {
+            id: 'explore-3',
+            type: 'explore',
+            label: 'explore Agent #3',
+            subtitle: 'UI component inventory',
+            duration: 19.7,
+            status: 'completed',
+            toolCalls: [
+              { name: 'glob', args: 'packages/ui/src/**/*.vue', dur: 0.8, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/TurnCard.vue', dur: 1.6, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/ToolCallRow.vue', dur: 1.4, status: 'completed' },
+              { name: 'grep', args: '"subagent" **/*.vue', dur: 2.2, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/composables/useTimeline.ts', dur: 1.9, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/stores/session.ts', dur: 2.1, status: 'completed' },
+              { name: 'grep', args: '"agent_type" **/*.ts', dur: 1.8, status: 'completed' },
+              { name: 'view', args: 'apps/desktop/src/App.vue', dur: 1.3, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/TimelineLane.vue', dur: 1.7, status: 'completed' },
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Parallel batch 2 — implementation',
+        agents: [
+          {
+            id: 'gp-1',
+            type: 'general-purpose',
+            label: 'general-purpose #1',
+            subtitle: 'Create AgentTree component',
+            duration: 54.3,
+            status: 'completed',
+            toolCalls: [
+              { name: 'view', args: 'packages/ui/src/components/TurnCard.vue', dur: 1.2, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/components/AgentTree.vue', dur: 3.8, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/components/AgentNode.vue', dur: 2.9, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/composables/useAgentTree.ts', dur: 4.1, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/components/index.ts', dur: 1.1, status: 'completed' },
+              { name: 'view', args: 'packages/types/src/events.ts', dur: 1.4, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/components/AgentTree.vue', dur: 3.2, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run type-check', dur: 8.7, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/components/AgentNode.vue', dur: 2.6, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run type-check', dur: 7.9, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/components/AgentTree.css', dur: 2.4, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run lint --fix', dur: 5.2, status: 'completed' },
+            ]
+          },
+          {
+            id: 'gp-2',
+            type: 'general-purpose',
+            label: 'general-purpose #2',
+            subtitle: 'Update timeline integration',
+            duration: 41.8,
+            status: 'completed',
+            toolCalls: [
+              { name: 'view', args: 'apps/desktop/src/views/Timeline.vue', dur: 1.8, status: 'completed' },
+              { name: 'edit', args: 'apps/desktop/src/views/Timeline.vue', dur: 3.4, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/stores/session.ts', dur: 1.5, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/stores/session.ts', dur: 2.9, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/utils/agentGrouping.ts', dur: 3.7, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test -- --filter agent', dur: 12.3, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/utils/agentGrouping.ts', dur: 2.1, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test -- --filter agent', dur: 9.8, status: 'completed' },
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Parallel batch 3 — follow-up',
+        agents: [
+          {
+            id: 'explore-4',
+            type: 'explore',
+            label: 'explore Agent #4',
+            subtitle: 'Verify test coverage',
+            duration: 14.6,
+            status: 'completed',
+            toolCalls: [
+              { name: 'glob', args: '**/*.test.ts', dur: 0.9, status: 'completed' },
+              { name: 'grep', args: '"AgentTree" **/*.test.ts', dur: 1.8, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/__tests__/TurnCard.test.ts', dur: 1.6, status: 'completed' },
+              { name: 'grep', args: '"describe.*agent" **/*.test.ts', dur: 2.1, status: 'completed' },
+              { name: 'view', args: 'vitest.config.ts', dur: 1.0, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test -- --reporter=verbose 2>&1 | head -40', dur: 6.4, status: 'completed' },
+            ]
+          },
+          {
+            id: 'explore-5',
+            type: 'explore',
+            label: 'explore Agent #5',
+            subtitle: 'Check accessibility patterns',
+            duration: 11.3,
+            status: 'completed',
+            toolCalls: [
+              { name: 'grep', args: '"aria-" packages/ui/**/*.vue', dur: 2.4, status: 'completed' },
+              { name: 'grep', args: '"role=" packages/ui/**/*.vue', dur: 1.9, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentTree.vue', dur: 1.5, status: 'completed' },
+              { name: 'grep', args: '"tabindex" packages/ui/**/*.vue', dur: 1.8, status: 'completed' },
+              { name: 'view', args: 'docs/CONTRIBUTING.md', dur: 1.2, status: 'completed' },
+              { name: 'grep', args: '"@testing-library" package.json', dur: 0.8, status: 'completed' },
+              { name: 'view', args: '.eslintrc.cjs', dur: 0.9, status: 'completed' },
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Sequential — final review',
+        agents: [
+          {
+            id: 'review-1',
+            type: 'code-review',
+            label: 'code-review #1',
+            subtitle: 'Review all changes',
+            duration: 32.7,
+            status: 'completed',
+            toolCalls: [
+              { name: 'powershell', args: 'git diff --stat', dur: 1.4, status: 'completed' },
+              { name: 'powershell', args: 'git diff packages/ui/src/components/AgentTree.vue', dur: 2.8, status: 'completed' },
+              { name: 'powershell', args: 'git diff packages/ui/src/components/AgentNode.vue', dur: 2.1, status: 'completed' },
+              { name: 'powershell', args: 'git diff packages/ui/src/composables/useAgentTree.ts', dur: 1.9, status: 'completed' },
+              { name: 'powershell', args: 'git diff packages/ui/src/stores/session.ts', dur: 1.7, status: 'completed' },
+              { name: 'powershell', args: 'git diff packages/ui/src/utils/agentGrouping.ts', dur: 1.5, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentTree.vue', dur: 1.8, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentNode.vue', dur: 1.4, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/composables/useAgentTree.ts', dur: 1.6, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/utils/agentGrouping.ts', dur: 1.3, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run lint', dur: 6.8, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test', dur: 8.2, status: 'completed' },
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    turnNumber: 12,
+    totalTurns: 335,
+    mainAgent: {
+      id: 'main',
+      type: 'main',
+      label: 'Main Agent',
+      model: 'claude-opus-4.6',
+      duration: 94.1,
+      status: 'completed',
+      toolCalls: []
+    },
+    parallelGroups: [
+      {
+        label: 'Parallel batch 1 — investigation',
+        agents: [
+          {
+            id: 'explore-a',
+            type: 'explore',
+            label: 'explore Agent #1',
+            subtitle: 'Find broken imports',
+            duration: 18.4,
+            status: 'completed',
+            toolCalls: [
+              { name: 'grep', args: '"import.*AgentTree" **/*.ts', dur: 2.1, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/index.ts', dur: 1.3, status: 'completed' },
+              { name: 'grep', args: '"AgentNode" **/*.vue', dur: 1.9, status: 'completed' },
+              { name: 'view', args: 'apps/desktop/src/views/Timeline.vue', dur: 1.6, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run type-check 2>&1 | head -20', dur: 7.8, status: 'completed' },
+              { name: 'view', args: 'tsconfig.json', dur: 0.9, status: 'completed' },
+            ]
+          },
+          {
+            id: 'task-a',
+            type: 'task',
+            label: 'task Agent #1',
+            subtitle: 'Run full test suite',
+            duration: 28.9,
+            status: 'failed',
+            toolCalls: [
+              { name: 'powershell', args: 'pnpm run build', dur: 12.4, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test', dur: 14.1, status: 'failed' },
+              { name: 'view', args: 'packages/ui/src/__tests__/AgentTree.test.ts', dur: 1.6, status: 'completed' },
+            ]
+          }
+        ]
+      },
+      {
+        label: 'Sequential — fix & verify',
+        agents: [
+          {
+            id: 'gp-b',
+            type: 'general-purpose',
+            label: 'general-purpose #1',
+            subtitle: 'Fix test failures',
+            duration: 36.2,
+            status: 'completed',
+            toolCalls: [
+              { name: 'view', args: 'packages/ui/src/__tests__/AgentTree.test.ts', dur: 1.4, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/__tests__/AgentTree.test.ts', dur: 3.2, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/components/AgentTree.vue', dur: 2.8, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test -- --filter AgentTree', dur: 9.6, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/composables/useAgentTree.ts', dur: 2.1, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run test', dur: 11.4, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run lint --fix', dur: 4.8, status: 'completed' },
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    turnNumber: 45,
+    totalTurns: 335,
+    mainAgent: {
+      id: 'main',
+      type: 'main',
+      label: 'Main Agent',
+      model: 'claude-opus-4.6',
+      duration: 62.8,
+      status: 'in-progress',
+      toolCalls: []
+    },
+    parallelGroups: [
+      {
+        label: 'Parallel — multi-explore',
+        agents: [
+          {
+            id: 'explore-x1',
+            type: 'explore',
+            label: 'explore Agent #1',
+            subtitle: 'Search for CSS patterns',
+            duration: 8.3,
+            status: 'completed',
+            toolCalls: [
+              { name: 'grep', args: '"--agent" **/*.css', dur: 1.7, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/styles/tokens.css', dur: 1.1, status: 'completed' },
+              { name: 'grep', args: '"tree" **/*.css', dur: 1.4, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentTree.css', dur: 1.3, status: 'completed' },
+              { name: 'grep', args: '"animation" **/*.css', dur: 1.9, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/styles/animations.css', dur: 0.9, status: 'completed' },
+            ]
+          },
+          {
+            id: 'explore-x2',
+            type: 'explore',
+            label: 'explore Agent #2',
+            subtitle: 'Check SVG rendering',
+            duration: 6.9,
+            status: 'completed',
+            toolCalls: [
+              { name: 'grep', args: '"<svg" packages/ui/**/*.vue', dur: 2.0, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/components/AgentTree.vue', dur: 1.5, status: 'completed' },
+              { name: 'grep', args: '"getBoundingClientRect" **/*.ts', dur: 1.8, status: 'completed' },
+              { name: 'view', args: 'packages/ui/src/composables/useAgentTree.ts', dur: 1.6, status: 'completed' },
+            ]
+          },
+          {
+            id: 'gp-x1',
+            type: 'general-purpose',
+            label: 'general-purpose #1',
+            subtitle: 'Add SVG connection lines',
+            duration: null,
+            status: 'in-progress',
+            toolCalls: [
+              { name: 'view', args: 'packages/ui/src/components/AgentTree.vue', dur: 1.5, status: 'completed' },
+              { name: 'edit', args: 'packages/ui/src/components/AgentTree.vue', dur: 3.1, status: 'completed' },
+              { name: 'create', args: 'packages/ui/src/utils/svgConnectors.ts', dur: 2.8, status: 'completed' },
+              { name: 'powershell', args: 'pnpm run type-check', dur: null, status: 'in-progress' },
+            ]
+          }
+        ]
+      }
+    ]
+  }
+];
+
+// ══════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════
+
+let currentTurnIdx = 0;
+let selectedNodeId = null;
+
+// ══════════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════════
+
+const STATUS_ICONS = {
+  'completed': '✅',
+  'failed': '❌',
+  'in-progress': '⏳'
+};
+
+const TYPE_ICONS = {
+  'main': '🤖',
+  'explore': '🔍',
+  'general-purpose': '🛠️',
+  'code-review': '📝',
+  'task': '⚡'
+};
+
+const TYPE_LABELS = {
+  'main': 'Main Agent',
+  'explore': 'Explore',
+  'general-purpose': 'General-Purpose',
+  'code-review': 'Code Review',
+  'task': 'Task'
+};
+
+function fmtDur(s) {
+  if (s == null) return '…';
+  return s < 10 ? s.toFixed(1) + 's' : Math.round(s) + 's';
+}
+
+function getAllAgents(turn) {
+  const agents = [];
+  for (const g of turn.parallelGroups) {
+    for (const a of g.agents) agents.push(a);
+  }
+  return agents;
+}
+
+function getTurnStats(turn) {
+  const agents = getAllAgents(turn);
+  const totalTools = agents.reduce((s, a) => s + a.toolCalls.length, 0);
+  const totalDur = agents.reduce((s, a) => s + (a.duration || 0), 0);
+  const parallelGroups = turn.parallelGroups.filter(g => g.agents.length > 1).length;
+  const failedCount = agents.filter(a => a.status === 'failed').length;
+  return { agentCount: agents.length, totalTools, totalDur, parallelGroups, failedCount };
+}
+
+function getMaxDuration(turn) {
+  let max = 0;
+  for (const a of getAllAgents(turn)) {
+    if (a.duration && a.duration > max) max = a.duration;
+  }
+  return max || 1;
+}
+
+// ══════════════════════════════════════════════════════════════
+// Render Stats
+// ══════════════════════════════════════════════════════════════
+
+function renderStats(turn) {
+  const s = getTurnStats(turn);
+  const el = document.getElementById('statsRow');
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-value accent">${s.agentCount}</div>
+      <div class="stat-card-label">Subagents Spawned</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value done">${s.parallelGroups}</div>
+      <div class="stat-card-label">Parallel Groups</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">${s.totalTools}</div>
+      <div class="stat-card-label">Total Tool Calls</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value success">${fmtDur(s.totalDur)}</div>
+      <div class="stat-card-label">Aggregate Duration</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value ${s.failedCount ? 'danger' : 'success'}">${s.failedCount || '0'}</div>
+      <div class="stat-card-label">Failed Agents</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// Render Tree
+// ══════════════════════════════════════════════════════════════
+
+function renderTree(turn) {
+  const layout = document.getElementById('treeLayout');
+  const maxDur = getMaxDuration(turn);
+  let html = '';
+
+  // Level 0: Main agent
+  html += `<div class="tree-level">`;
+  html += renderAgentNode(turn.mainAgent, maxDur);
+  html += `</div>`;
+
+  // Spacer
+  html += `<div class="level-spacer"></div>`;
+
+  // Each parallel group is a row
+  for (const group of turn.parallelGroups) {
+    html += `<div class="tree-level">`;
+    if (group.agents.length > 1) {
+      html += `<div class="parallel-group" data-label="${group.label}">`;
+      for (const agent of group.agents) {
+        html += renderAgentNode(agent, maxDur);
+      }
+      html += `</div>`;
+    } else {
+      // Single agent, just render with a label overlay
+      html += `<div class="parallel-group" data-label="${group.label}">`;
+      html += renderAgentNode(group.agents[0], maxDur);
+      html += `</div>`;
+    }
+    html += `</div>`;
+
+    // Spacer between groups
+    html += `<div class="level-spacer"></div>`;
+  }
+
+  layout.innerHTML = html;
+
+  // Bind click handlers
+  layout.querySelectorAll('.agent-node').forEach(node => {
+    node.addEventListener('click', () => selectNode(node.dataset.id, turn));
+  });
+
+  // Re-select if the same node exists
+  if (selectedNodeId) {
+    const found = getAllAgents(turn).find(a => a.id === selectedNodeId) || (turn.mainAgent.id === selectedNodeId ? turn.mainAgent : null);
+    if (found) {
+      const el = layout.querySelector(`[data-id="${selectedNodeId}"]`);
+      if (el) el.classList.add('selected');
+      renderDetail(found);
+    } else {
+      hideDetail();
+      selectedNodeId = null;
+    }
+  }
+
+  // Draw SVG connections after DOM settles
+  requestAnimationFrame(() => requestAnimationFrame(() => drawConnections(turn)));
+}
+
+function renderAgentNode(agent, maxDur) {
+  const pct = agent.duration ? Math.max(15, (agent.duration / maxDur) * 100) : 15;
+  const sel = agent.id === selectedNodeId ? ' selected' : '';
+  return `
+    <div class="agent-node agent-node--${agent.type}${sel}" data-id="${agent.id}">
+      <div class="agent-node-status">${STATUS_ICONS[agent.status] || ''}</div>
+      <div class="agent-node-icon">${TYPE_ICONS[agent.type]}</div>
+      <div class="agent-node-title">${agent.label}</div>
+      ${agent.model ? `<div class="agent-node-subtitle">${agent.model}</div>` : ''}
+      ${agent.subtitle ? `<div class="agent-node-subtitle">${agent.subtitle}</div>` : ''}
+      <div class="agent-node-stats">
+        <span>${fmtDur(agent.duration)}</span>
+        ${agent.toolCalls.length ? `<span>·</span><span>${agent.toolCalls.length} tools</span>` : ''}
+      </div>
+      <div class="dur-bar">
+        <div class="dur-bar-fill dur-bar-fill--${agent.type}" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SVG Connections
+// ══════════════════════════════════════════════════════════════
+
+function drawConnections(turn) {
+  const svg = document.getElementById('treeSvg');
+  const container = document.getElementById('treeContainer');
+  const rect = container.getBoundingClientRect();
+
+  svg.setAttribute('width', container.scrollWidth);
+  svg.setAttribute('height', container.scrollHeight);
+  svg.innerHTML = '';
+
+  const mainEl = container.querySelector('[data-id="main"]');
+  if (!mainEl) return;
+  const mainRect = mainEl.getBoundingClientRect();
+  const mainCx = mainRect.left + mainRect.width / 2 - rect.left;
+  const mainBy = mainRect.bottom - rect.top;
+
+  // Connect main to each group's agents
+  for (const group of turn.parallelGroups) {
+    for (const agent of group.agents) {
+      const el = container.querySelector(`[data-id="${agent.id}"]`);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2 - rect.left;
+      const cy = r.top - rect.top;
+
+      const midY = (mainBy + cy) / 2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M${mainCx},${mainBy} C${mainCx},${midY} ${cx},${midY} ${cx},${cy}`);
+      path.setAttribute('class', `conn-line conn-line--${agent.type} animated`);
+      svg.appendChild(path);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// Detail Panel
+// ══════════════════════════════════════════════════════════════
+
+function selectNode(id, turn) {
+  const allAgents = [turn.mainAgent, ...getAllAgents(turn)];
+  const agent = allAgents.find(a => a.id === id);
+  if (!agent) return;
+
+  // Toggle selection
+  if (selectedNodeId === id) {
+    selectedNodeId = null;
+    document.querySelectorAll('.agent-node.selected').forEach(el => el.classList.remove('selected'));
+    hideDetail();
+    return;
+  }
+
+  selectedNodeId = id;
+  document.querySelectorAll('.agent-node.selected').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if (el) el.classList.add('selected');
+  renderDetail(agent);
+}
+
+function renderDetail(agent) {
+  const panel = document.getElementById('detailPanel');
+  const header = document.getElementById('detailHeader');
+  const body = document.getElementById('detailBody');
+
+  panel.classList.remove('hidden');
+
+  const statusBadgeClass = agent.status === 'completed' ? 'badge-success' :
+                           agent.status === 'failed' ? 'badge-danger' : 'badge-warning';
+
+  header.innerHTML = `
+    <span class="detail-title" style="color: var(--agent-${agent.type === 'general-purpose' ? 'gp' : agent.type === 'code-review' ? 'review' : agent.type}-fg)">
+      ${TYPE_ICONS[agent.type]} ${agent.label}
+    </span>
+    <div class="detail-badges">
+      <span class="badge ${statusBadgeClass}">${STATUS_ICONS[agent.status]} ${agent.status}</span>
+      <span class="badge badge-neutral">⏱ ${fmtDur(agent.duration)}</span>
+      ${agent.toolCalls.length ? `<span class="badge badge-accent">🔧 ${agent.toolCalls.length} tool calls</span>` : ''}
+      ${agent.model ? `<span class="badge badge-done">${agent.model}</span>` : ''}
+    </div>
+  `;
+
+  if (agent.toolCalls.length === 0) {
+    body.innerHTML = `<div style="color: var(--text-tertiary); font-size: 0.8125rem;">
+      This is the orchestrator agent. It spawned subagents via tool calls. Select a subagent to see its internal tool calls.
+    </div>`;
+    return;
+  }
+
+  let listHtml = '<div class="tool-list">';
+  agent.toolCalls.forEach((tc, i) => {
+    const st = tc.status === 'completed' ? '✅' : tc.status === 'failed' ? '❌' : '⏳';
+    listHtml += `
+      <div class="tool-list-item">
+        <span class="tool-list-idx">${i + 1}.</span>
+        <span class="tool-list-name" title="${tc.name}(${tc.args})">${tc.name}(${tc.args})</span>
+        <span class="tool-list-dur">${fmtDur(tc.dur)}</span>
+        <span class="tool-list-status">${st}</span>
+      </div>`;
+  });
+  listHtml += '</div>';
+
+  const totalDur = agent.toolCalls.reduce((s, tc) => s + (tc.dur || 0), 0);
+  const completedCount = agent.toolCalls.filter(tc => tc.status === 'completed').length;
+  const failedCount = agent.toolCalls.filter(tc => tc.status === 'failed').length;
+
+  body.innerHTML = `
+    <div style="display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;">
+      <div style="font-size: 0.75rem; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">${completedCount}</strong> completed
+        ${failedCount ? `· <strong style="color: var(--danger-fg);">${failedCount}</strong> failed` : ''}
+        · <strong style="color: var(--text-secondary);">${fmtDur(totalDur)}</strong> tool time
+      </div>
+    </div>
+    ${listHtml}
+  `;
+
+  // Scroll into view
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideDetail() {
+  document.getElementById('detailPanel').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════════════════════════
+// Turn Navigation
+// ══════════════════════════════════════════════════════════════
+
+function renderTurn() {
+  const turn = MOCK_TURNS[currentTurnIdx];
+  document.getElementById('turnLabel').textContent = `Turn ${turn.turnNumber} of ${turn.totalTurns}`;
+  document.getElementById('prevTurn').disabled = currentTurnIdx === 0;
+  document.getElementById('nextTurn').disabled = currentTurnIdx === MOCK_TURNS.length - 1;
+  renderStats(turn);
+  renderTree(turn);
+}
+
+document.getElementById('prevTurn').addEventListener('click', () => {
+  if (currentTurnIdx > 0) { currentTurnIdx--; selectedNodeId = null; hideDetail(); renderTurn(); }
+});
+document.getElementById('nextTurn').addEventListener('click', () => {
+  if (currentTurnIdx < MOCK_TURNS.length - 1) { currentTurnIdx++; selectedNodeId = null; hideDetail(); renderTurn(); }
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') document.getElementById('prevTurn').click();
+  if (e.key === 'ArrowRight') document.getElementById('nextTurn').click();
+  if (e.key === 'Escape') { selectedNodeId = null; document.querySelectorAll('.agent-node.selected').forEach(el => el.classList.remove('selected')); hideDetail(); }
+});
+
+// Redraw SVG on resize
+window.addEventListener('resize', () => {
+  const turn = MOCK_TURNS[currentTurnIdx];
+  requestAnimationFrame(() => drawConnections(turn));
+});
+
+// ══════════════════════════════════════════════════════════════
+// Boot
+// ══════════════════════════════════════════════════════════════
+
+renderTurn();
+</script>
+
+</body>
+</html>
