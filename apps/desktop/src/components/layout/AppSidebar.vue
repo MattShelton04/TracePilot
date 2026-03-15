@@ -53,6 +53,7 @@ const advancedNav = [
         v-for="item in primaryNav"
         :key="item.id"
         :to="item.to"
+        :data-nav-id="item.id"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -81,6 +82,7 @@ const advancedNav = [
         v-for="item in advancedNav"
         :key="item.id"
         :to="item.to"
+        :data-nav-id="item.id"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
