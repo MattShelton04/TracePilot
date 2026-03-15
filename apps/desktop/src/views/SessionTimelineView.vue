@@ -1,11 +1,7 @@
 <script setup lang="ts">
-// STUB: Timeline positions derived from turn indices (not real timestamps).
-// STUB: When real timing data is available, use actual timestamps for proportional positioning.
-// STUB: Swimlane layout uses CSS grid — consider canvas/SVG for very long sessions.
-
-import { ref, computed, watch } from 'vue';
-import { useSessionDetailStore } from '@/stores/sessionDetail';
 import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
+import { computed, ref, watch } from 'vue';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 
@@ -57,6 +53,45 @@ function zoomOut() {
 
 const totalTurns = computed(() => store.turns.length || 1);
 
+// Determine if we have enough timestamps for time-based positioning
+const timeRange = computed(() => {
+  const turns = store.turns;
+  if (turns.length < 2) return null;
+
+  const timestamps: number[] = [];
+  for (const t of turns) {
+    if (t.timestamp) {
+      const ms = new Date(t.timestamp).getTime();
+      if (!Number.isNaN(ms)) timestamps.push(ms);
+    }
+  }
+  if (timestamps.length < 2) return null;
+
+  const min = Math.min(...timestamps);
+  const max = Math.max(...timestamps);
+  const span = max - min;
+  if (span <= 0) return null;
+
+  return { min, max, span };
+});
+
+function turnPositionPct(turn: ConversationTurn, index: number, count: number): number {
+  const range = timeRange.value;
+  if (range && turn.timestamp) {
+    const ms = new Date(turn.timestamp).getTime();
+    if (!Number.isNaN(ms)) {
+      return ((ms - range.min) / range.span) * 100;
+    }
+  }
+  // Fallback: index-based
+  return (index / count) * 100;
+}
+
+function turnSlotWidthPct(count: number): number {
+  // Each turn gets an equal slot width regardless of time positioning
+  return 100 / count;
+}
+
 interface Lane {
   name: string;
   blocks: SwimlaneBlock[];
@@ -70,10 +105,11 @@ const lanes = computed<Lane[]>(() => {
   const assistantBlocks: SwimlaneBlock[] = [];
   const toolBlocks: SwimlaneBlock[] = [];
   const count = turns.length;
-  const slotWidth = 100 / count;
+  const slotWidth = turnSlotWidthPct(count);
 
   turns.forEach((turn, i) => {
-    const base = i * slotWidth;
+    const base = turnPositionPct(turn, i, count);
+    const effectiveSlot = Math.min(slotWidth, 100 - base);
 
     // User message block
     if (turn.userMessage) {
@@ -81,8 +117,8 @@ const lanes = computed<Lane[]>(() => {
         id: `user-${turn.turnIndex}`,
         label: turn.userMessage.slice(0, 40) + (turn.userMessage.length > 40 ? '…' : ''),
         type: 'user',
-        leftPct: base + slotWidth * 0.02,
-        widthPct: slotWidth * 0.25,
+        leftPct: base + effectiveSlot * 0.02,
+        widthPct: effectiveSlot * 0.25,
         color: '#6366f1',
         turn,
       });
@@ -95,8 +131,8 @@ const lanes = computed<Lane[]>(() => {
         id: `assistant-${turn.turnIndex}`,
         label: msg.slice(0, 40) + (msg.length > 40 ? '…' : ''),
         type: 'assistant',
-        leftPct: base + slotWidth * 0.2,
-        widthPct: slotWidth * 0.6,
+        leftPct: base + effectiveSlot * 0.2,
+        widthPct: effectiveSlot * 0.6,
         color: '#34d399',
         turn,
       });
@@ -105,14 +141,14 @@ const lanes = computed<Lane[]>(() => {
     // Tool call blocks
     const toolCount = turn.toolCalls.length;
     if (toolCount > 0) {
-      const toolSlot = (slotWidth * 0.7) / toolCount;
+      const toolSlot = (effectiveSlot * 0.7) / toolCount;
       turn.toolCalls.forEach((tc, j) => {
         const failed = tc.success === false;
         toolBlocks.push({
           id: `tool-${turn.turnIndex}-${j}`,
           label: tc.toolName,
           type: 'tool',
-          leftPct: base + slotWidth * 0.15 + j * toolSlot,
+          leftPct: base + effectiveSlot * 0.15 + j * toolSlot,
           widthPct: Math.max(toolSlot * 0.85, 1),
           color: failed ? '#fb7185' : '#fbbf24',
           turn,
@@ -145,7 +181,7 @@ const timeMarkers = computed(() => {
     const label = ts
       ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : `Turn ${turn.turnIndex}`;
-    markers.push({ label, leftPct: (i / count) * 100 });
+    markers.push({ label, leftPct: turnPositionPct(turn, i, count) });
   }
 
   // Always include last turn
@@ -187,23 +223,21 @@ const selectedDetail = computed<SwimlaneDetailData | null>(() => {
           : '—',
       duration: tc.durationMs ? `${(tc.durationMs / 1000).toFixed(1)}s` : '—',
       tokens: '—',
-      content: tc.error || (tc.arguments ? JSON.stringify(tc.arguments, null, 2).slice(0, 200) : '—'),
+      content:
+        tc.error || (tc.arguments ? JSON.stringify(tc.arguments, null, 2).slice(0, 200) : '—'),
       toolCalls: [],
     };
   }
 
   if (!turn) return null;
 
-  const content = block.type === 'user'
-    ? (turn.userMessage ?? '—')
-    : (turn.assistantMessages[0] ?? '—');
+  const content =
+    block.type === 'user' ? (turn.userMessage ?? '—') : (turn.assistantMessages[0] ?? '—');
 
   return {
     type: block.type === 'user' ? 'User Message' : 'Assistant Response',
     label: content.slice(0, 60) + (content.length > 60 ? '…' : ''),
-    timestamp: turn.timestamp
-      ? new Date(turn.timestamp).toLocaleTimeString()
-      : '—',
+    timestamp: turn.timestamp ? new Date(turn.timestamp).toLocaleTimeString() : '—',
     duration: turn.durationMs ? formatDuration(turn.durationMs) : '—',
     tokens: '—',
     content: content.slice(0, 500),

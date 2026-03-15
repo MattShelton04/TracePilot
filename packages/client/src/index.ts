@@ -65,6 +65,9 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
         )
       : MOCK_SESSIONS,
     reindex_sessions: 0,
+    get_analytics: MOCK_ANALYTICS,
+    get_tool_analysis: MOCK_TOOL_ANALYSIS,
+    get_code_impact: MOCK_CODE_IMPACT,
   };
   const data = mocks[cmd];
   if (data === undefined) {
@@ -119,37 +122,37 @@ export async function reindexSessions(): Promise<number> {
   return invoke<number>("reindex_sessions");
 }
 
-/**
- * Get aggregated analytics data across all sessions.
- * // STUB: Currently returns mock data. Replace with real Tauri IPC command
- * // STUB: when the analytics backend API is implemented (Phase 6+).
- */
-export async function getAnalytics(): Promise<AnalyticsData> {
-  // STUB: No Tauri command exists yet for analytics.
-  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_analytics')
-  return MOCK_ANALYTICS;
+/** Get aggregated analytics data across all sessions. */
+export async function getAnalytics(options?: {
+  fromDate?: string;
+  toDate?: string;
+}): Promise<AnalyticsData> {
+  return invoke<AnalyticsData>("get_analytics", {
+    fromDate: options?.fromDate,
+    toDate: options?.toDate,
+  });
 }
 
-/**
- * Get tool usage analysis data across all sessions.
- * // STUB: Currently returns mock data. Replace with real Tauri IPC command
- * // STUB: when the tool analysis backend API is implemented (Phase 6+).
- */
-export async function getToolAnalysis(): Promise<ToolAnalysisData> {
-  // STUB: No Tauri command exists yet for tool analysis.
-  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_tool_analysis')
-  return MOCK_TOOL_ANALYSIS;
+/** Get tool usage analysis data across all sessions. */
+export async function getToolAnalysis(options?: {
+  fromDate?: string;
+  toDate?: string;
+}): Promise<ToolAnalysisData> {
+  return invoke<ToolAnalysisData>("get_tool_analysis", {
+    fromDate: options?.fromDate,
+    toDate: options?.toDate,
+  });
 }
 
-/**
- * Get code impact analysis data across all sessions.
- * // STUB: Currently returns mock data. Replace with real Tauri IPC command
- * // STUB: when the code impact backend API is implemented (Phase 6+).
- */
-export async function getCodeImpact(): Promise<CodeImpactData> {
-  // STUB: No Tauri command exists yet for code impact.
-  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_code_impact')
-  return MOCK_CODE_IMPACT;
+/** Get code impact analysis data across all sessions. */
+export async function getCodeImpact(options?: {
+  fromDate?: string;
+  toDate?: string;
+}): Promise<CodeImpactData> {
+  return invoke<CodeImpactData>("get_code_impact", {
+    fromDate: options?.fromDate,
+    toDate: options?.toDate,
+  });
 }
 
 /**

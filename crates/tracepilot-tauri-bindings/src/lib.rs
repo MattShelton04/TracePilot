@@ -324,6 +324,68 @@ mod commands {
         .await
         .map_err(|e| e.to_string())?
     }
+
+    // ── Analytics Commands ────────────────────────────────────────────
+
+    #[tauri::command]
+    pub async fn get_analytics(
+        from_date: Option<String>,
+        to_date: Option<String>,
+    ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_analytics(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_tool_analysis(
+        from_date: Option<String>,
+        to_date: Option<String>,
+    ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_code_impact(
+        from_date: Option<String>,
+        to_date: Option<String>,
+    ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_session_summaries_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_code_impact(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -339,6 +401,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_shutdown_metrics,
             commands::search_sessions,
             commands::reindex_sessions,
+            commands::get_analytics,
+            commands::get_tool_analysis,
+            commands::get_code_impact,
         ])
         .build()
 }

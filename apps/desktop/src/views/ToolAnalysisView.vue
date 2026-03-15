@@ -1,25 +1,17 @@
 <script setup lang="ts">
-// STUB: Currently loads mock data from getToolAnalysis().
-// STUB: Replace with real tool analytics API when backend is implemented.
-// STUB: Activity heatmap uses generated mock data — wire to real session timestamps.
-// STUB: Tool frequency derived from mock tool usage entries.
-
-import { ref, computed, onMounted } from 'vue';
-import { getToolAnalysis } from '@tracepilot/client';
-import type { ToolAnalysisData, ToolUsageEntry } from '@tracepilot/types';
+import type { ToolUsageEntry } from '@tracepilot/types';
+import { computed, onMounted } from 'vue';
+import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import StubBanner from '@/components/StubBanner.vue';
 
-const loading = ref(true);
-const data = ref<ToolAnalysisData | null>(null);
+const store = useAnalyticsStore();
 
-onMounted(async () => {
-  try {
-    data.value = await getToolAnalysis();
-  } finally {
-    loading.value = false;
-  }
+onMounted(() => {
+  store.fetchToolAnalysis();
 });
+
+const loading = computed(() => store.toolAnalysisLoading);
+const data = computed(() => store.toolAnalysis);
 
 // ── Formatters ───────────────────────────────────────────────
 function fmtDuration(ms: number): string {
@@ -100,9 +92,12 @@ const successFailureChart = computed(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
       <LoadingOverlay :loading="loading" message="Loading tool analysis…">
-        <template v-if="data">
+        <div v-if="store.toolAnalysisError" class="error-state">
+          <p>Failed to load tool analysis: {{ store.toolAnalysisError }}</p>
+          <button class="btn btn-primary" @click="store.fetchToolAnalysis({ force: true })">Retry</button>
+        </div>
+        <template v-else-if="data">
           <!-- Title -->
           <div class="mb-4">
             <h1 class="page-title">Tool Analysis</h1>

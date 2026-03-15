@@ -1,24 +1,16 @@
 <script setup lang="ts">
-// STUB: Currently loads mock data from getAnalytics().
-// STUB: Replace with real aggregate analytics API when backend Phase 6+ is implemented.
-// STUB: Charts use hardcoded SVG — consider a lightweight chart library for production.
-
-import { ref, computed, onMounted } from 'vue';
-import { getAnalytics } from '@tracepilot/client';
-import type { AnalyticsData } from '@tracepilot/types';
+import { computed, onMounted } from 'vue';
+import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import StubBanner from '@/components/StubBanner.vue';
 
-const loading = ref(true);
-const data = ref<AnalyticsData | null>(null);
+const store = useAnalyticsStore();
 
-onMounted(async () => {
-  try {
-    data.value = await getAnalytics();
-  } finally {
-    loading.value = false;
-  }
+onMounted(() => {
+  store.fetchAnalytics();
 });
+
+const loading = computed(() => store.analyticsLoading);
+const data = computed(() => store.analytics);
 
 // ── Formatters ───────────────────────────────────────────────
 function fmtTokens(n: number): string {
@@ -32,6 +24,12 @@ function fmtCost(n: number): string {
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+function fmtDuration(ms: number): string {
+  if (ms >= 3_600_000) return `${(ms / 3_600_000).toFixed(1)}h`;
+  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;
+  if (ms >= 1_000) return `${(ms / 1_000).toFixed(1)}s`;
+  return `${Math.round(ms)}ms`;
 }
 
 // ── Chart constants ──────────────────────────────────────────
@@ -102,7 +100,14 @@ const donutSegments = computed(() => {
   let offset = 0;
   return data.value.modelDistribution.map((m, i) => {
     const dash = (m.percentage / 100) * DONUT_C;
-    const seg = { dash, gap: DONUT_C - dash, offset: -offset, color: DONUT_COLORS[i % DONUT_COLORS.length], model: m.model, pct: m.percentage };
+    const seg = {
+      dash,
+      gap: DONUT_C - dash,
+      offset: -offset,
+      color: DONUT_COLORS[i % DONUT_COLORS.length],
+      model: m.model,
+      pct: m.percentage,
+    };
     offset += dash;
     return seg;
   });
@@ -134,9 +139,12 @@ const costChart = computed(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
       <LoadingOverlay :loading="loading" message="Loading analytics…">
-        <template v-if="data">
+        <div v-if="store.analyticsError" class="error-state">
+          <p>Failed to load analytics: {{ store.analyticsError }}</p>
+          <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
+        </div>
+        <template v-else-if="data">
           <!-- Title -->
           <div class="mb-4">
             <h1 class="page-title">Analytics Dashboard</h1>
@@ -150,22 +158,72 @@ const costChart = computed(() => {
             <div class="stat-card">
               <div class="stat-card-value accent">{{ data.totalSessions }}</div>
               <div class="stat-card-label">Total Sessions</div>
-              <div class="stat-card-trend up">↑ 12% vs last week</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-value gradient-value">{{ fmtTokens(data.totalTokens) }}</div>
               <div class="stat-card-label">Total Tokens</div>
-              <div class="stat-card-trend up">↑ 18% vs last week</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-value success">{{ fmtCost(data.totalCost) }}</div>
               <div class="stat-card-label">Total Cost</div>
-              <div class="stat-card-trend down">↓ 3% vs last week</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-value warning">{{ data.averageHealthScore.toFixed(2) }}</div>
               <div class="stat-card-label">Avg Health Score</div>
-              <div class="stat-card-trend up">↑ 5% vs last week</div>
+            </div>
+          </div>
+
+          <!-- Duration Stats + Productivity Metrics -->
+          <div class="grid-2 mb-4" v-if="data.sessionDurationStats || data.productivityMetrics">
+            <div class="section-panel" v-if="data.sessionDurationStats">
+              <div class="section-panel-header">Session Duration</div>
+              <div class="section-panel-body">
+                <div class="metric-grid">
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.avgMs) }}</span>
+                    <span class="metric-label">Average</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.medianMs) }}</span>
+                    <span class="metric-label">Median</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.p95Ms) }}</span>
+                    <span class="metric-label">P95</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.minMs) }}</span>
+                    <span class="metric-label">Min</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtDuration(data.sessionDurationStats.maxMs) }}</span>
+                    <span class="metric-label">Max</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ data.sessionDurationStats.totalSessionsWithDuration }}</span>
+                    <span class="metric-label">Sessions w/ Duration</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="section-panel" v-if="data.productivityMetrics">
+              <div class="section-panel-header">Productivity Metrics</div>
+              <div class="section-panel-body">
+                <div class="metric-grid">
+                  <div class="metric-item">
+                    <span class="metric-value">{{ data.productivityMetrics.avgTurnsPerSession.toFixed(1) }}</span>
+                    <span class="metric-label">Avg Turns / Session</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ data.productivityMetrics.avgToolCallsPerTurn.toFixed(1) }}</span>
+                    <span class="metric-label">Avg Tool Calls / Turn</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ fmtTokens(data.productivityMetrics.avgTokensPerTurn) }}</span>
+                    <span class="metric-label">Avg Tokens / Turn</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -432,6 +490,43 @@ const costChart = computed(() => {
 <style scoped>
 .mb-4 {
   margin-bottom: 20px;
+}
+
+.error-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+
+.error-state .btn {
+  margin-top: 12px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 18px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 
 .gradient-value {
