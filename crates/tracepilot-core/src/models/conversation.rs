@@ -49,4 +49,6 @@ pub struct TurnToolCall {
     pub agent_display_name: Option<String>,
     /// Description of what the subagent does.
     pub agent_description: Option<String>,
+    /// The model used for this specific tool call (populated from ToolExecComplete).
+    pub model: Option<String>,
 }

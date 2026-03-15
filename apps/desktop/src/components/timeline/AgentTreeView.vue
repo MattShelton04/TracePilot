@@ -170,7 +170,7 @@ const treeData = computed<TreeData | null>(() => {
       type: agentType,
       displayName: tc.agentDisplayName ?? `${agentType} #${idx + 1}`,
       description: tc.agentDescription,
-      model: turn.model,
+      model: tc.model ?? turn.model,
       durationMs: tc.durationMs,
       toolCount: childTools.length,
       status: agentStatusFromToolCall(tc),
@@ -222,16 +222,8 @@ const treeData = computed<TreeData | null>(() => {
 
 const parallelGroups = computed<ParallelGroup[]>(() => {
   if (!treeData.value) return [];
-  // Collect all descendant nodes for parallel overlap detection
-  function collectAll(nodes: AgentNode[]): AgentNode[] {
-    const result: AgentNode[] = [];
-    for (const n of nodes) {
-      result.push(n);
-      if (n.children?.length) result.push(...collectAll(n.children));
-    }
-    return result;
-  }
-  const children = collectAll(treeData.value.children);
+  // Only compare direct children of the root (same hierarchy level)
+  const children = treeData.value.children;
   if (children.length < 2) return [];
 
   // Parse time ranges
@@ -292,6 +284,9 @@ const parallelGroups = computed<ParallelGroup[]>(() => {
     }
   }
 
+  // If there are no parallel groups, nothing to label
+  if (groups.length === 0) return [];
+
   return groups;
 });
 
@@ -333,27 +328,38 @@ interface SvgLine {
 const layout = computed<{ nodes: LayoutNode[]; lines: SvgLine[]; width: number; height: number } | null>(() => {
   if (!treeData.value) return null;
 
-  // Flatten tree children, tracking each node's parent ID
-  interface FlatChild { node: AgentNode; parentId: string; }
-  function flatten(nodes: AgentNode[], parentId: string): FlatChild[] {
-    const result: FlatChild[] = [];
-    for (const n of nodes) {
-      result.push({ node: n, parentId });
-      if (n.children?.length) {
-        result.push(...flatten(n.children, n.id));
+  // Group nodes by depth level (BFS) so nested children appear below parents
+  interface FlatChild { node: AgentNode; parentId: string; depth: number; }
+  const levels: FlatChild[][] = [];
+  let queue: FlatChild[] = treeData.value.children.map((n) => ({
+    node: n,
+    parentId: "main",
+    depth: 0,
+  }));
+  while (queue.length > 0) {
+    const nextQueue: FlatChild[] = [];
+    for (const item of queue) {
+      if (!levels[item.depth]) levels[item.depth] = [];
+      levels[item.depth].push(item);
+      if (item.node.children?.length) {
+        for (const child of item.node.children) {
+          nextQueue.push({ node: child, parentId: item.node.id, depth: item.depth + 1 });
+        }
       }
     }
-    return result;
+    queue = nextQueue;
   }
 
-  const flatChildren = flatten(treeData.value.children, "main");
+  // Chunk each depth level into rows of MAX_PER_ROW
   const rows: FlatChild[][] = [];
-  for (let i = 0; i < flatChildren.length; i += MAX_PER_ROW) {
-    rows.push(flatChildren.slice(i, i + MAX_PER_ROW));
+  for (const level of levels) {
+    for (let i = 0; i < level.length; i += MAX_PER_ROW) {
+      rows.push(level.slice(i, i + MAX_PER_ROW));
+    }
   }
 
   const rootNodeHeight = 120;
-  const childNodeHeight = 110;
+  const childNodeHeight = 140;
 
   // Compute total width needed
   const maxRowWidth = Math.max(

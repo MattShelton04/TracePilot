@@ -325,9 +325,41 @@ function isRowVisible(row: WaterfallRow): boolean {
 
 const selectedRowId = ref<string | null>(null);
 const hoveredRowId = ref<string | null>(null);
+const pinnedRowId = ref<string | null>(null);
+const argsExpanded = ref(false);
 
 function selectRow(id: string) {
   selectedRowId.value = selectedRowId.value === id ? null : id;
+  // Pin/unpin the detail panel on click
+  pinnedRowId.value = pinnedRowId.value === id ? null : id;
+  argsExpanded.value = false;
+}
+
+function dismissDetail() {
+  pinnedRowId.value = null;
+  selectedRowId.value = null;
+  argsExpanded.value = false;
+}
+
+const pinnedRow = computed<WaterfallRow | null>(() => {
+  if (!pinnedRowId.value) return null;
+  return rows.value.find((r) => r.id === pinnedRowId.value) ?? null;
+});
+
+/** Count child tool calls for a subagent row. */
+function childToolCount(row: WaterfallRow): number {
+  if (!row.call.isSubagent || !row.call.toolCallId) return 0;
+  return rows.value.filter((r) => r.parentId === row.call.toolCallId).length;
+}
+
+/** Format arguments as indented JSON string. */
+function formatArgsJson(args: unknown): string {
+  if (args == null) return "(none)";
+  try {
+    return JSON.stringify(args, null, 2);
+  } catch {
+    return String(args);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -343,6 +375,8 @@ const tooltipRow = computed<WaterfallRow | null>(() => {
 /*  Keyboard navigation                                               */
 /* ------------------------------------------------------------------ */
 
+const terminologyOpen = ref(false);
+
 function onKeyDown(e: KeyboardEvent) {
   if (!rootRef.value?.contains(document.activeElement)) return;
   switch (e.key) {
@@ -355,7 +389,11 @@ function onKeyDown(e: KeyboardEvent) {
       nextTurn();
       break;
     case "Escape":
-      selectedRowId.value = null;
+      if (pinnedRowId.value) {
+        dismissDetail();
+      } else {
+        selectedRowId.value = null;
+      }
       break;
   }
 }
@@ -483,6 +521,38 @@ function rowArgsSummary(row: WaterfallRow): string {
         </div>
       </header>
 
+      <!-- ════════════ Terminology legend ════════════ -->
+      <div class="terminology-legend">
+        <button
+          class="terminology-toggle"
+          @click="terminologyOpen = !terminologyOpen"
+          :aria-expanded="terminologyOpen"
+        >
+          ℹ Terminology
+          <ExpandChevron :expanded="terminologyOpen" size="sm" />
+        </button>
+        <Transition name="fade">
+          <dl v-if="terminologyOpen" class="terminology-list">
+            <div class="term-entry">
+              <dt>Waterfall</dt>
+              <dd>Horizontal bars showing when each tool call started and how long it ran</dd>
+            </div>
+            <div class="term-entry">
+              <dt>Subagent</dt>
+              <dd>An autonomous agent spawned to handle a subtask (shown as wider bars containing child tools)</dd>
+            </div>
+            <div class="term-entry">
+              <dt>Nesting</dt>
+              <dd>Child tool calls made within a subagent, indented under their parent</dd>
+            </div>
+            <div class="term-entry">
+              <dt>Parallel</dt>
+              <dd>Multiple subagents running at the same time (overlapping bars)</dd>
+            </div>
+          </dl>
+        </Transition>
+      </div>
+
       <!-- ════════════ Waterfall body ════════════ -->
       <div class="waterfall-body" v-if="currentTurn">
         <!-- Time ruler -->
@@ -518,8 +588,10 @@ function rowArgsSummary(row: WaterfallRow): string {
                 subagent: row.call.isSubagent,
               }"
               @click="selectRow(row.id)"
+              @keydown.enter.space.prevent="selectRow(row.id)"
               @mouseenter="hoveredRowId = row.id"
               @mouseleave="hoveredRowId = null"
+              tabindex="0"
               role="button"
               :aria-label="rowDisplayName(row)"
             >
@@ -573,7 +645,7 @@ function rowArgsSummary(row: WaterfallRow): string {
                   class="bar"
                   :style="{
                     left: row.leftPct + '%',
-                    width: Math.max(row.widthPct, 0.4) + '%',
+                    width: Math.min(Math.max(row.widthPct, 0.4), 100 - row.leftPct) + '%',
                     background: barColor(row.call),
                     opacity: row.call.isSubagent ? 0.35 : 0.85,
                   }"
@@ -596,9 +668,9 @@ function rowArgsSummary(row: WaterfallRow): string {
         </div>
       </div>
 
-      <!-- ════════════ Tooltip ════════════ -->
+      <!-- ════════════ Tooltip (hover preview) ════════════ -->
       <Transition name="fade">
-        <div v-if="tooltipRow" class="wf-tooltip">
+        <div v-if="tooltipRow && !pinnedRowId" class="wf-tooltip">
           <div class="tip-header">
             <span class="tip-icon">{{ toolIcon(tooltipRow.call.toolName) }}</span>
             <strong>{{ rowDisplayName(tooltipRow) }}</strong>
@@ -633,6 +705,91 @@ function rowArgsSummary(row: WaterfallRow): string {
 
           <div v-if="tooltipRow.call.error" class="tip-error">
             {{ truncateText(tooltipRow.call.error, 300) }}
+          </div>
+        </div>
+      </Transition>
+
+      <!-- ════════════ Pinned detail panel ════════════ -->
+      <Transition name="fade">
+        <div v-if="pinnedRow" class="detail-panel">
+          <div class="detail-header">
+            <span class="detail-title">
+              <span class="detail-icon">{{ toolIcon(pinnedRow.call.toolName) }}</span>
+              <strong>{{ rowDisplayName(pinnedRow) }}</strong>
+            </span>
+            <div class="detail-badges">
+              <Badge
+                v-if="pinnedRow.call.success === false"
+                variant="danger"
+              >failed</Badge>
+              <Badge
+                v-else-if="pinnedRow.call.success === true"
+                variant="success"
+              >ok</Badge>
+              <Badge v-if="pinnedRow.isParallel" variant="accent">parallel</Badge>
+              <Badge v-if="pinnedRow.call.isSubagent" variant="neutral">agent</Badge>
+            </div>
+            <button class="detail-close" @click.stop="dismissDetail" aria-label="Close detail panel">✕</button>
+          </div>
+
+          <!-- Detail metadata grid -->
+          <div class="detail-meta">
+            <div v-if="pinnedRow.call.model" class="detail-field">
+              <span class="field-label">Model</span>
+              <span class="field-value">{{ pinnedRow.call.model }}</span>
+            </div>
+            <div v-if="pinnedRow.call.durationMs != null" class="detail-field">
+              <span class="field-label">Duration</span>
+              <span class="field-value">{{ formatDuration(pinnedRow.call.durationMs) }}</span>
+            </div>
+            <div v-if="pinnedRow.call.startedAt" class="detail-field">
+              <span class="field-label">Start</span>
+              <span class="field-value">{{ formatTime(pinnedRow.call.startedAt) }}</span>
+            </div>
+            <div v-if="pinnedRow.call.completedAt" class="detail-field">
+              <span class="field-label">End</span>
+              <span class="field-value">{{ formatTime(pinnedRow.call.completedAt) }}</span>
+            </div>
+            <div v-if="pinnedRow.call.mcpServerName" class="detail-field">
+              <span class="field-label">MCP Server</span>
+              <span class="field-value">{{ pinnedRow.call.mcpServerName }}</span>
+            </div>
+          </div>
+
+          <!-- Subagent info -->
+          <div v-if="pinnedRow.call.isSubagent" class="detail-subagent">
+            <div v-if="pinnedRow.call.agentDisplayName" class="detail-field">
+              <span class="field-label">Agent</span>
+              <span class="field-value">{{ pinnedRow.call.agentDisplayName }}</span>
+            </div>
+            <div v-if="pinnedRow.call.agentDescription" class="detail-field">
+              <span class="field-label">Description</span>
+              <span class="field-value">{{ pinnedRow.call.agentDescription }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="field-label">Child tools</span>
+              <span class="field-value">{{ childToolCount(pinnedRow) }}</span>
+            </div>
+          </div>
+
+          <!-- Arguments (collapsible) -->
+          <div class="detail-args-section">
+            <button class="detail-args-toggle" @click="argsExpanded = !argsExpanded">
+              <ExpandChevron :expanded="argsExpanded" size="sm" />
+              Arguments
+            </button>
+            <div v-if="argsExpanded" class="detail-args-body">
+              <pre class="detail-args-pre">{{ formatArgsJson(pinnedRow.call.arguments) }}</pre>
+            </div>
+            <div v-else class="detail-args-preview">
+              {{ truncateText(formatArgsJson(pinnedRow.call.arguments), 500) }}
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div v-if="pinnedRow.call.error" class="detail-error">
+            <span class="detail-error-label">Error</span>
+            <pre class="detail-error-body">{{ pinnedRow.call.error }}</pre>
           </div>
         </div>
       </Transition>
@@ -993,6 +1150,200 @@ function rowArgsSummary(row: WaterfallRow): string {
   border-top: 1px solid var(--danger-muted);
   padding-top: 4px;
   line-height: 1.3;
+}
+
+/* ── Terminology legend ── */
+.terminology-legend {
+  margin-top: 8px;
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+}
+.terminology-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+  transition: color var(--transition-fast);
+}
+.terminology-toggle:hover {
+  color: var(--text-primary);
+}
+.terminology-list {
+  margin: 8px 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.term-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.term-entry dt {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+.term-entry dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* ── Pinned detail panel ── */
+.detail-panel {
+  margin-top: 8px;
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.8125rem;
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9375rem;
+}
+.detail-icon {
+  flex-shrink: 0;
+}
+.detail-badges {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.detail-close {
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.detail-close:hover {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 16px;
+}
+.detail-subagent {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 16px;
+  border-top: 1px solid var(--border-muted);
+  padding-top: 8px;
+}
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.field-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.field-value {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  word-break: break-word;
+}
+
+.detail-args-section {
+  border-top: 1px solid var(--border-muted);
+  padding-top: 8px;
+}
+.detail-args-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 2px 0;
+  transition: color var(--transition-fast);
+}
+.detail-args-toggle:hover {
+  color: var(--text-primary);
+}
+.detail-args-preview {
+  margin-top: 4px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.detail-args-body {
+  margin-top: 4px;
+  max-height: 300px;
+  overflow: auto;
+}
+.detail-args-pre {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.detail-error {
+  border-top: 1px solid var(--danger-muted);
+  padding-top: 8px;
+}
+.detail-error-label {
+  font-size: 0.6875rem;
+  color: var(--danger-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.detail-error-body {
+  margin: 4px 0 0;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--danger-fg);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* ── Transitions ── */

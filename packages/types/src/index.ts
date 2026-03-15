@@ -93,6 +93,8 @@ export interface TurnToolCall {
   agentDisplayName?: string;
   /** Description of what the subagent does. */
   agentDescription?: string;
+  /** The model used for this specific tool call. */
+  model?: string;
 }
 
 /** Session health assessment */

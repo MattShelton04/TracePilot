@@ -710,6 +710,7 @@ mod tests {
             is_subagent: false,
             agent_display_name: None,
             agent_description: None,
+            model: None,
         }
     }
 

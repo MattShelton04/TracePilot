@@ -72,6 +72,7 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     is_subagent: false,
                     agent_display_name: None,
                     agent_description: None,
+                    model: None,
                 });
             }
             (
@@ -81,9 +82,6 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                 if let Some(turn) = current_turn.as_mut() {
                     if turn.interaction_id.is_none() {
                         turn.interaction_id = data.interaction_id.clone();
-                    }
-                    if turn.model.is_none() {
-                        turn.model = data.model.clone();
                     }
 
                     if let Some(tool_call) =
@@ -95,8 +93,13 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                         tool_call.duration_ms =
                             duration_ms(tool_call.started_at, tool_call.completed_at);
                         tool_call.is_complete = true;
+                        tool_call.model = data.model.clone();
                         if tool_call.parent_tool_call_id.is_none() {
                             tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
+                        }
+                        // Only set turn-level model from non-subagent tool completions
+                        if turn.model.is_none() && !tool_call.is_subagent {
+                            turn.model = data.model.clone();
                         }
                     }
                 }
@@ -123,6 +126,7 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     is_subagent: true,
                     agent_display_name: data.agent_display_name.clone(),
                     agent_description: data.agent_description.clone(),
+                    model: None,
                 });
             }
             (SessionEventType::SubagentCompleted, TypedEventData::SubagentCompleted(data)) => {

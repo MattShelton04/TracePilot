@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   Badge,
   ExpandChevron,
@@ -23,6 +23,66 @@ const store = useSessionDetailStore();
 const phases = useToggleSet<number>();    // phase index → collapsed
 const turnSet = useToggleSet<string>();   // `${phaseIdx}-${turnIdx}` → collapsed
 const agentSet = useToggleSet<string>();  // `${turnKey}-${toolCallId}` → collapsed
+
+// ── Terminology legend toggle ────────────────────────────────
+const showLegend = ref(false);
+
+// ── Click-to-select detail panel ─────────────────────────────
+const selectedTool = ref<TurnToolCall | null>(null);
+
+function selectTool(tc: TurnToolCall) {
+  if (selectedTool.value?.toolCallId === tc.toolCallId && tc.toolCallId) {
+    selectedTool.value = null;
+  } else if (selectedTool.value === tc && !tc.toolCallId) {
+    selectedTool.value = null;
+  } else {
+    selectedTool.value = tc;
+    showFullArgs.value = false;
+  }
+}
+
+function isSelected(tc: TurnToolCall): boolean {
+  if (!selectedTool.value) return false;
+  if (tc.toolCallId && selectedTool.value.toolCallId) {
+    return tc.toolCallId === selectedTool.value.toolCallId;
+  }
+  return selectedTool.value === tc;
+}
+
+function closeDetail() {
+  selectedTool.value = null;
+}
+
+function formatDetailTime(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
+}
+
+function truncateArgs(args: unknown, limit = 500): { text: string; truncated: boolean } {
+  const raw = JSON.stringify(args, null, 2) ?? "";
+  if (raw.length <= limit) return { text: raw, truncated: false };
+  return { text: raw.slice(0, limit), truncated: true };
+}
+
+const showFullArgs = ref(false);
+
+function selectedNestedCount(turn?: ConversationTurn): number {
+  const sel = selectedTool.value;
+  if (!sel?.isSubagent || !sel.toolCallId || !turn) return 0;
+  return turn.toolCalls.filter((tc) => tc.parentToolCallId === sel.toolCallId).length;
+}
+
+function selectedTurnForTool(): ConversationTurn | undefined {
+  const sel = selectedTool.value;
+  if (!sel) return undefined;
+  for (const phase of groupedPhases.value) {
+    for (const turn of phase.turns) {
+      if (turn.toolCalls.includes(sel)) return turn;
+    }
+  }
+  return undefined;
+}
 
 // ── Subagent lane color map ──────────────────────────────────
 
@@ -79,6 +139,15 @@ const groupedPhases = computed<Phase[]>(() => {
 
   return result;
 });
+
+// ── Default collapsed for large sessions ─────────────────────
+watch(groupedPhases, (newPhases) => {
+  if (newPhases.length > 3) {
+    for (let i = 1; i < newPhases.length; i++) {
+      phases.set.value.add(i);
+    }
+  }
+}, { immediate: true });
 
 // ── Phase-level summaries ────────────────────────────────────
 
@@ -153,6 +222,7 @@ function barWidthPct(tc: TurnToolCall, maxMs: number): string {
 
 function toolBarColor(tc: TurnToolCall): string {
   if (tc.success === false) return "var(--danger-fg)";
+  if (tc.success === undefined || tc.success === null) return "var(--text-tertiary)";
   if (tc.toolName === "read_agent") return "var(--text-tertiary)";
   return "var(--warning-fg)";
 }
@@ -171,7 +241,7 @@ function toolTooltip(tc: TurnToolCall): string {
   const parts = [tc.toolName];
   if (tc.arguments) parts.push(formatArgsSummary(tc.arguments, tc.toolName));
   if (tc.durationMs != null) parts.push(formatDuration(tc.durationMs));
-  parts.push(tc.success === false ? "Failed" : "Success");
+  parts.push(tc.success === false ? "Failed" : tc.success === true ? "Success" : "In Progress");
   return parts.join(" · ");
 }
 
@@ -224,6 +294,34 @@ const parallelAgentIds = computed<Set<string>>(() => {
     <div v-else-if="store.loading && !store.turns.length" class="ns-loading">
       <span class="ns-loading-icon">⏳</span>
       <span>Loading timeline…</span>
+    </div>
+
+    <!-- Terminology legend -->
+    <div v-if="store.turns.length" class="legend-container">
+      <button class="legend-toggle" @click="showLegend = !showLegend">
+        ℹ Terminology
+        <span class="legend-chevron" :class="{ 'legend-chevron--open': showLegend }">›</span>
+      </button>
+      <div v-if="showLegend" class="legend-body">
+        <dl class="legend-list">
+          <div class="legend-item">
+            <dt class="legend-term">Phase</dt>
+            <dd class="legend-def">A group of turns initiated by one user prompt</dd>
+          </div>
+          <div class="legend-item">
+            <dt class="legend-term">Turn</dt>
+            <dd class="legend-def">A single assistant response cycle (may include tool calls and subagent invocations)</dd>
+          </div>
+          <div class="legend-item">
+            <dt class="legend-term">Subagent</dt>
+            <dd class="legend-def">An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)</dd>
+          </div>
+          <div class="legend-item">
+            <dt class="legend-term">Direct Tools</dt>
+            <dd class="legend-def">Tool calls made directly by the main agent (not delegated to subagents)</dd>
+          </div>
+        </dl>
+      </div>
     </div>
 
     <!-- Phases -->
@@ -336,21 +434,23 @@ const parallelAgentIds = computed<Set<string>>(() => {
               <!-- Subagent header -->
               <div
                 class="subagent-header"
+                :class="{ 'subagent-header--selected': isSelected(agent) }"
                 role="button"
                 tabindex="0"
                 :aria-expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
-                @click.stop="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
-                @keydown.enter.space.prevent="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
+                @keydown.enter.space.prevent="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx)); selectTool(agent)"
               >
-                <ExpandChevron
-                  :expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
-                  size="sm"
-                />
-                <span class="subagent-icon">{{ toolIcon(agent.toolName) }}</span>
-                <span class="subagent-name">
+                <span class="subagent-chevron" @click.stop="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))">
+                  <ExpandChevron
+                    :expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
+                    size="sm"
+                  />
+                </span>
+                <span class="subagent-icon" @click.stop="selectTool(agent)">{{ toolIcon(agent.toolName) }}</span>
+                <span class="subagent-name" @click.stop="selectTool(agent)">
                   {{ agent.agentDisplayName ?? agent.toolName }}
                 </span>
-                <span class="subagent-meta">
+                <span class="subagent-meta" @click.stop="selectTool(agent)">
                   <span v-if="agent.durationMs" class="subagent-duration">
                     {{ formatDuration(agent.durationMs) }}
                   </span>
@@ -378,12 +478,17 @@ const parallelAgentIds = computed<Set<string>>(() => {
                       v-for="(tc, idx) in nestedTools(turn, agent)"
                       :key="tc.toolCallId ?? idx"
                       class="swimlane-bar swimlane-bar--tool"
+                      :class="{ 'swimlane-bar--selected': isSelected(tc) }"
                       :style="{
                         width: barWidthPct(tc, turnMaxDuration(turn)),
                         background: toolBarColor(tc),
                         position: 'relative',
                       }"
                       :title="toolTooltip(tc)"
+                      role="button"
+                      tabindex="0"
+                      @click.stop="selectTool(tc)"
+                      @keydown.enter.space.prevent="selectTool(tc)"
                     >
                       <span class="bar-icon">{{ toolIcon(tc.toolName) }}</span>
                       {{ tc.toolName }}
@@ -402,16 +507,92 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     v-for="(tc, idx) in directTools(turn)"
                     :key="tc.toolCallId ?? idx"
                     class="swimlane-bar swimlane-bar--tool"
+                    :class="{ 'swimlane-bar--selected': isSelected(tc) }"
                     :style="{
                       width: barWidthPct(tc, turnMaxDuration(turn)),
                       background: toolBarColor(tc),
                       position: 'relative',
                     }"
                     :title="toolTooltip(tc)"
+                    role="button"
+                    tabindex="0"
+                    @click.stop="selectTool(tc)"
+                    @keydown.enter.space.prevent="selectTool(tc)"
                   >
                     <span class="bar-icon">{{ toolIcon(tc.toolName) }}</span>
                     {{ tc.toolName }}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail panel (shown when a tool in this turn is selected) -->
+            <div
+              v-if="selectedTool && turn.toolCalls.includes(selectedTool)"
+              class="detail-panel"
+            >
+              <div class="detail-header">
+                <span class="detail-title">
+                  <span class="detail-icon">{{ toolIcon(selectedTool.toolName) }}</span>
+                  {{ selectedTool.toolName }}
+                </span>
+                <button class="detail-close" @click.stop="closeDetail" title="Close detail panel">✕ Close</button>
+              </div>
+              <div class="detail-body">
+                <div class="detail-grid">
+                  <template v-if="selectedTool.model">
+                    <span class="detail-label">Model</span>
+                    <span class="detail-value"><Badge variant="done">{{ selectedTool.model }}</Badge></span>
+                  </template>
+                  <span class="detail-label">Status</span>
+                  <span class="detail-value">
+                    <span class="detail-badge" :class="selectedTool.success === false ? 'detail-badge--fail' : selectedTool.success === true ? 'detail-badge--ok' : 'detail-badge--pending'">
+                      {{ selectedTool.success === false ? '✕ Failed' : selectedTool.success === true ? '✓ Success' : '⏳ In Progress' }}
+                    </span>
+                  </span>
+                  <template v-if="selectedTool.durationMs != null">
+                    <span class="detail-label">Duration</span>
+                    <span class="detail-value detail-mono">{{ formatDuration(selectedTool.durationMs) }}</span>
+                  </template>
+                  <template v-if="selectedTool.startedAt">
+                    <span class="detail-label">Started at</span>
+                    <span class="detail-value detail-mono">{{ formatDetailTime(selectedTool.startedAt) }}</span>
+                  </template>
+                  <template v-if="selectedTool.completedAt">
+                    <span class="detail-label">Completed at</span>
+                    <span class="detail-value detail-mono">{{ formatDetailTime(selectedTool.completedAt) }}</span>
+                  </template>
+                  <template v-if="selectedTool.isSubagent">
+                    <span class="detail-label">Agent</span>
+                    <span class="detail-value">{{ selectedTool.agentDisplayName ?? selectedTool.toolName }}</span>
+                    <template v-if="selectedTool.agentDescription">
+                      <span class="detail-label">Description</span>
+                      <span class="detail-value detail-secondary">{{ selectedTool.agentDescription }}</span>
+                    </template>
+                    <span class="detail-label">Nested tools</span>
+                    <span class="detail-value">{{ selectedNestedCount(selectedTurnForTool()) }}</span>
+                  </template>
+                </div>
+                <template v-if="selectedTool.arguments">
+                  <div class="detail-section">
+                    <div class="detail-section-title" @click="showFullArgs = !showFullArgs" style="cursor: pointer;">
+                      Arguments
+                      <span class="detail-section-toggle">{{ showFullArgs ? '▾' : '▸' }}</span>
+                    </div>
+                    <pre v-if="showFullArgs" class="detail-args">{{ JSON.stringify(selectedTool.arguments, null, 2) }}</pre>
+                    <pre v-else class="detail-args">{{ truncateArgs(selectedTool.arguments).text }}{{ truncateArgs(selectedTool.arguments).truncated ? '\n…' : '' }}</pre>
+                    <button
+                      v-if="!showFullArgs && truncateArgs(selectedTool.arguments).truncated"
+                      class="detail-show-more"
+                      @click.stop="showFullArgs = true"
+                    >
+                      Show more
+                    </button>
+                  </div>
+                </template>
+                <div v-if="selectedTool.error" class="detail-error">
+                  <span class="detail-error-label">Error</span>
+                  <span class="detail-error-msg">{{ selectedTool.error }}</span>
                 </div>
               </div>
             </div>
@@ -637,6 +818,13 @@ const parallelAgentIds = computed<Set<string>>(() => {
   background: var(--canvas-subtle);
 }
 
+.subagent-chevron {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .subagent-icon {
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -695,6 +883,271 @@ const parallelAgentIds = computed<Set<string>>(() => {
   margin-left: 40px;
   border-left: 3px solid var(--border-muted);
   background: var(--canvas-default);
+}
+
+/* ── Terminology legend ────────────────────────────────── */
+.legend-container {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-raised);
+  overflow: hidden;
+}
+
+.legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.legend-toggle:hover {
+  color: var(--text-primary);
+}
+
+.legend-chevron {
+  margin-left: auto;
+  font-size: 0.875rem;
+  transition: transform var(--transition-fast);
+  transform: rotate(0deg);
+}
+
+.legend-chevron--open {
+  transform: rotate(90deg);
+}
+
+.legend-body {
+  padding: 4px 12px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.legend-list {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.legend-term {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.legend-def {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ── Clickable bar styles ──────────────────────────────── */
+.nested-swimlanes .swimlane-bar--tool {
+  cursor: pointer;
+}
+
+.nested-swimlanes .swimlane-bar--selected {
+  box-shadow: 0 0 0 2px var(--accent-fg), 0 0 8px rgba(56, 139, 253, 0.4);
+  z-index: 1;
+}
+
+.subagent-header--selected {
+  background: var(--canvas-subtle);
+  box-shadow: inset 3px 0 0 0 var(--agent-color, var(--accent-fg));
+}
+
+/* ── Detail panel ──────────────────────────────────────── */
+.detail-panel {
+  margin: 6px 12px 8px 40px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-raised);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--canvas-overlay);
+}
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-icon {
+  font-size: 1rem;
+}
+
+.detail-close {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.detail-close:hover {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+}
+
+.detail-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.detail-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.detail-value {
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+.detail-value.detail-mono {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-value.detail-secondary {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.detail-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.detail-badge--ok {
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.detail-badge--fail {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.detail-badge--pending {
+  background: var(--warning-subtle, rgba(251, 191, 36, 0.15));
+  color: var(--warning-fg, #fbbf24);
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-section-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-section-toggle {
+  font-size: 0.625rem;
+}
+
+.detail-args {
+  margin: 0;
+  padding: 8px;
+  font-size: 0.625rem;
+  font-family: var(--font-mono, monospace);
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.detail-show-more {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--accent-fg);
+  font-size: 0.625rem;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.detail-show-more:hover {
+  text-decoration: underline;
+}
+
+.detail-error {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-muted, var(--danger-fg));
+  border-radius: var(--radius-sm);
+  align-items: baseline;
+}
+
+.detail-error-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--danger-fg);
+  white-space: nowrap;
+}
+
+.detail-error-msg {
+  font-size: 0.6875rem;
+  color: var(--danger-fg);
+  word-break: break-word;
 }
 
 /* ── Responsive ─────────────────────────────────────────── */
