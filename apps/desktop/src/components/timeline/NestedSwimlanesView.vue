@@ -411,15 +411,15 @@ const parallelAgentIds = computed<Set<string>>(() => {
             </div>
 
             <!-- Assistant lane -->
-            <div v-if="turn.assistantMessages.length" class="swimlane">
+            <div v-if="turn.assistantMessages.some(m => m.trim())" class="swimlane">
               <div class="swimlane-label">Assistant</div>
               <div class="swimlane-track">
                 <div
                   class="swimlane-bar swimlane-bar--assistant"
                   :style="{ width: '80%' }"
-                  :title="turn.assistantMessages[0]?.slice(0, 200)"
+                  :title="turn.assistantMessages.find(m => m.trim())?.slice(0, 200)"
                 >
-                  {{ truncateText(turn.assistantMessages[0] ?? "", 80) }}
+                  {{ truncateText(turn.assistantMessages.find(m => m.trim()) ?? "", 80) }}
                 </div>
               </div>
             </div>

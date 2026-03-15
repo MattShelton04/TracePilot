@@ -88,7 +88,7 @@ const totalDurationMs = computed(() =>
         </div>
 
         <!-- Assistant messages -->
-        <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="turn-item">
+        <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="turn-item">
           <div class="turn-avatar assistant">🤖</div>
           <div class="turn-body">
             <div class="turn-header">
@@ -157,7 +157,7 @@ const totalDurationMs = computed(() =>
             <span class="compact-turn-label-prefix user">User:</span>
             {{ truncateText(turn.userMessage, 300) }}
           </div>
-          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="compact-turn-label">
+          <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="compact-turn-label">
             <span class="compact-turn-label-prefix assistant">Copilot:</span>
             {{ truncateText(msg, 300) }}
           </div>
@@ -228,7 +228,7 @@ const totalDurationMs = computed(() =>
             />
           </div>
 
-          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="timeline-block assistant">
+          <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="timeline-block assistant">
             <div class="timeline-block-label assistant">Copilot</div>
             <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
           </div>
