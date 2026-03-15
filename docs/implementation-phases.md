@@ -190,45 +190,64 @@ Full reference: [`docs/design/design-system.md`](../docs/design/design-system.md
 **Goal:** Rich analytics dashboards showing usage patterns, costs, and productivity insights.
 
 ### 3.1 — Analytics Engine (Rust)
-- [ ] Aggregate metrics across sessions: total tokens, total cost, session count per day
-- [ ] Per-model usage breakdown: requests, tokens (input/output), estimated cost
-- [ ] Tool usage statistics: frequency, avg duration, failure rate per tool
-- [ ] Code change metrics: lines added/removed over time, files modified frequency
-- [ ] Session duration analysis: avg, median, p95, outliers
-- [ ] Productivity heuristics: turns-to-completion, tool-call-to-turn ratio
+- [x] Aggregate metrics across sessions: total tokens, total cost, session count per day
+- [x] Per-model usage breakdown: requests, tokens (input/output), estimated cost
+- [x] Tool usage statistics: frequency, avg duration, failure rate per tool
+- [x] Code change metrics: lines added/removed over time, files modified frequency
+- [x] Session duration analysis: avg, median, p95, outliers
+- [x] Productivity heuristics: turns-to-completion, tool-call-to-turn ratio
 
 ### 3.2 — Visualization Components (Vue)
-- [ ] **Usage Dashboard** — aggregated stats across all sessions
-  - Token usage over time (line chart)
-  - Model distribution (pie/donut chart)
-  - Sessions per day/week (bar chart)
-  - Cost estimation (if model pricing is available)
-- [ ] **Session Timeline** — hierarchical swimlane view:
+- [x] **Usage Dashboard** — aggregated stats across all sessions
+  - Token usage over time (SVG line chart)
+  - Model distribution (SVG donut chart)
+  - Sessions per day/week (SVG bar chart)
+  - Cost estimation (from model metrics)
+- [x] **Session Timeline** — hierarchical swimlane view:
   - Lane 1: User turns (messages)
   - Lane 2: Assistant responses
   - Lane 3: Tool executions (with duration bars)
   - Lane 4: Subagent lifecycles
-  - Zoomable, pannable timeline control
-- [ ] **Tool Analysis View**
+  - Timestamp-based positioning with index fallback
+  - [ ] Zoomable, pannable timeline control (deferred to Phase 6)
+- [x] **Tool Analysis View**
   - Tool call frequency heatmap
   - Average execution time per tool
   - Tool failure rates
-- [ ] **Code Impact View**
-  - Files modified across sessions (treemap)
+- [x] **Code Impact View**
+  - Files modified across sessions (frequency-based)
   - Lines added/removed trends
   - Repository activity summary
 
 ### 3.3 — Charting Library Integration
-- [ ] Evaluate and integrate: Apache ECharts (via `vue-echarts`) or D3.js
-- [ ] Responsive chart sizing
-- [ ] Export charts as PNG/SVG
+- [x] Evaluate: Existing SVG charts are clean and sufficient; no external library needed
+- [x] Responsive chart sizing (implemented via viewBox + percentage widths)
+- [ ] Export charts as PNG/SVG (deferred to Phase 6)
 
 ### 3.4 — Testing Gate
-- [ ] Analytics computation unit tests (Rust)
-- [ ] Chart component snapshot tests
-- [ ] Performance benchmarks for aggregation over 500+ sessions
+- [x] Analytics computation unit tests (Rust) — 34 tests covering all aggregation functions
+- [x] Frontend store + component tests — 68 tests across stores and views
+- [ ] Performance benchmarks for aggregation over 500+ sessions (deferred)
 
-**Deliverable:** Dashboard view with charts showing usage patterns, cost breakdown, and productivity metrics.
+### 3.5 — Post-Implementation Fixes
+- [x] Tauri ACL: Added analytics commands to build.rs permission generation
+- [x] Session list: Switched to IndexDb-backed fast queries with disk fallback
+- [x] Session list: Added loading/indexing indicators with spinner and progress
+- [x] Metrics tab: Simplified to 4 stat cards (variant-c), per-model token distribution, corrected cache hit rate formula
+- [x] Conversation tab: Aligned chat view labels with variant-c ("You"/"Assistant" text), right-aligned pass/fail badges
+- [x] Todos tab: Added percentage display, inline status counts (done/in-progress/pending/blocked), "Tasks" section header
+- [x] Index staleness: `ensureIndex()` for silent background reindex + `prune_deleted()` to remove ghost entries
+
+### 3.6 — UI Refinements (Variant-C Alignment)
+- [x] Conversation tab: Full variant-c prototype alignment — 28px emoji avatars, 13px bubble text, canvas-raised assistant bg, bordered tool call containers, muted BtnGroup active state, mini stat cards
+- [x] Todos tab: Full variant-c prototype alignment — flat list with border-bottom separators, 8px solid green progress bar, 12px/14px padding, smaller fonts/badges, text-placeholder colors
+- [x] Session Timeline: Variant-c alignment — h1 title, CSS grid time axis, connector lines, cleaned zoom controls
+- [x] Activity heatmap: Increased cell size (14→28px), added hour labels, count numbers in cells, improved tooltips
+- [x] Tool analysis: Scrollable sections (max-height 400px) for tool usage table, success/failure chart, tool frequency chart
+- [x] Repository filtering: Added `repo` parameter to all analytics Tauri commands, loader functions, client layer, and Pinia store; repo dropdown on Dashboard, Tool Analysis, and Code Impact views
+- [x] Analytics persistence research: Feasibility study saved to `docs/research/analytics-persistence.md` (Migration 3 plan for SQLite-backed per-session analytics caching)
+
+**Deliverable:** ✅ Dashboard views with SVG charts showing usage patterns, cost breakdown, and productivity metrics. All analytics commands wired through Tauri IPC with real session data. UI aligned with variant-c prototypes. Repository filtering across all analytics views.
 
 ---
 
@@ -428,7 +447,7 @@ These standards apply throughout development:
 |-------|--------|-------|
 | **Phase 1: Core Parsing & CLI MVP** | ✅ **Complete** | 9 commits, 35 tests, 4,000+ lines |
 | **Phase 2: Desktop App — Session Explorer** | ✅ **Complete** | 15 pages (6 live + 9 stubs), Variant C design system, 34 Vue tests |
-| Phase 3: Analytics & Visualization | ⬜ Planned | Frontend stubs ready |
+| Phase 3: Analytics & Visualization | ✅ **Complete** | Analytics engine, 3 dashboard views, repo filtering, variant-c alignment |
 | Phase 4: Health Scoring & Anomaly Detection | ⬜ Planned | Frontend stub ready |
 | Phase 5: Export & Sharing | ⬜ Planned | Frontend stub ready |
 | Phase 6: Advanced Features | ⬜ Planned | Frontend stubs ready (Compare, Replay, Settings) |
@@ -449,7 +468,7 @@ These standards apply throughout development:
 | Multi-model review fixes | ✅ | 7 issues fixed (FTS, tool calls, path traversal, etc.) |
 | Rust tests | ✅ | 31 core + 4 indexer = 35 tests |
 
-| **Next up** | **Phase 3 — Analytics & Visualization** (backend engines for stub pages) |
+| **Next up** | **Phase 4 — Health Scoring & Anomaly Detection** |
 
 ### Phase 2 Deliverables (Completed)
 
@@ -458,10 +477,10 @@ These standards apply throughout development:
 | Tauri IPC commands (10) | ✅ | list, detail, turns, events, todos, checkpoints, metrics, search, reindex |
 | Session List View | ✅ | Card grid, search, repo/branch filters, sort controls |
 | Session Detail (5 tabs) | ✅ | Overview, Conversation, Events, Todos, Metrics — all live |
-| Analytics Dashboard | 🔶 STUB | SVG charts, model distribution, cost trends |
-| Tool Analysis | 🔶 STUB | Usage table, heatmap, frequency chart |
-| Code Impact | 🔶 STUB | File type breakdown, modification tracking |
-| Session Timeline | 🔶 STUB | Swimlane visualization |
+| Analytics Dashboard | ✅ Live | SVG charts, model distribution, cost trends, repo filtering |
+| Tool Analysis | ✅ Live | Usage table, heatmap (28px cells, hour labels), frequency chart, scrollable sections |
+| Code Impact | ✅ Live | File type breakdown, modification tracking, repo filtering |
+| Session Timeline | ✅ Live | Swimlane visualization, zoom controls, variant-c aligned |
 | Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
 | Export | 🔶 STUB | Config + live preview, format selection |
 | Session Comparison | 🔶 STUB | Side-by-side diff, model usage breakdown |

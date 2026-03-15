@@ -198,6 +198,19 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
     cost: +(0.5 + Math.random() * 1.5).toFixed(2),
   })),
+  sessionDurationStats: {
+    avgMs: 1_800_000,
+    medianMs: 1_200_000,
+    p95Ms: 5_400_000,
+    minMs: 120_000,
+    maxMs: 7_200_000,
+    totalSessionsWithDuration: 42,
+  },
+  productivityMetrics: {
+    avgTurnsPerSession: 8.5,
+    avgToolCallsPerTurn: 4.2,
+    avgTokensPerTurn: 60_489,
+  },
 };
 
 export const MOCK_TOOL_ANALYSIS: ToolAnalysisData = {

@@ -1,24 +1,21 @@
 <script setup lang="ts">
-// STUB: Currently loads mock data from getCodeImpact().
-// STUB: Replace with real code impact analytics from backend.
-// STUB: File type breakdown and timeline derived from mock data.
-
-import { ref, computed, onMounted } from 'vue';
-import { getCodeImpact } from '@tracepilot/client';
-import type { CodeImpactData } from '@tracepilot/types';
+import { computed, onMounted, watch } from 'vue';
+import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import StubBanner from '@/components/StubBanner.vue';
 
-const loading = ref(true);
-const data = ref<CodeImpactData | null>(null);
+const store = useAnalyticsStore();
 
-onMounted(async () => {
-  try {
-    data.value = await getCodeImpact();
-  } finally {
-    loading.value = false;
-  }
+onMounted(() => {
+  store.fetchAvailableRepos();
+  store.fetchCodeImpact();
 });
+
+watch(() => store.selectedRepo, () => {
+  store.fetchCodeImpact({ force: true });
+});
+
+const loading = computed(() => store.codeImpactLoading);
+const data = computed(() => store.codeImpact);
 
 // ── Formatters ───────────────────────────────────────────────
 function fmtNum(n: number): string {
@@ -103,15 +100,29 @@ const timelineChart = computed(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
       <LoadingOverlay :loading="loading" message="Loading code impact data…">
-        <template v-if="data">
-          <!-- Title -->
-          <div class="mb-4">
-            <h1 class="page-title">Code Impact</h1>
-            <p class="page-subtitle">
-              Code changes and file modifications across all sessions
-            </p>
+        <div v-if="store.codeImpactError" class="error-state">
+          <p>Failed to load code impact data: {{ store.codeImpactError }}</p>
+          <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
+        </div>
+        <template v-else-if="data">
+          <!-- Title + Repo Filter -->
+          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1 class="page-title">Code Impact</h1>
+              <p class="page-subtitle">
+                Code changes and file modifications across {{ store.selectedRepo ? '' : 'all ' }}sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
+              </p>
+            </div>
+            <select
+              :value="store.selectedRepo ?? ''"
+              class="filter-select"
+              aria-label="Filter by repository"
+              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">All Repositories</option>
+              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+            </select>
           </div>
 
           <!-- Stats Row -->
@@ -129,9 +140,9 @@ const timelineChart = computed(() => {
               <div class="stat-card-label">Lines Removed</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value done">+{{ fmtNum(data.netChange) }}</div>
+              <div :class="['stat-card-value', data.netChange >= 0 ? 'done' : 'danger']">{{ data.netChange >= 0 ? '+' : '' }}{{ fmtNum(data.netChange) }}</div>
               <div class="stat-card-label">Net Change</div>
-              <div class="stat-card-trend">Net positive</div>
+              <div class="stat-card-trend">{{ data.netChange > 0 ? 'Net positive' : data.netChange < 0 ? 'Net negative' : 'Net neutral' }}</div>
             </div>
           </div>
 
@@ -168,15 +179,13 @@ const timelineChart = computed(() => {
                   class="file-row"
                 >
                   <span class="file-path font-mono">{{ file.path }}</span>
-                  <span class="file-adds">+{{ file.additions }}</span>
-                  <span class="file-dels">{{ file.deletions > 0 ? '-' + file.deletions : '0' }}</span>
+                  <span class="file-freq">{{ file.additions }} session{{ file.additions !== 1 ? 's' : '' }}</span>
                   <div
                     class="churn-bar"
-                    :style="{ width: churnBarWidth(file.additions, file.deletions) + 'px' }"
-                    :title="`${file.additions + file.deletions} changes`"
+                    :style="{ width: churnBarWidth(file.additions, 0) + 'px' }"
+                    :title="`Modified in ${file.additions} session(s)`"
                   >
-                    <div class="churn-bar-add" :style="{ width: addPct(file.additions, file.deletions) + '%' }" />
-                    <div class="churn-bar-del" :style="{ width: (100 - addPct(file.additions, file.deletions)) + '%' }" />
+                    <div class="churn-bar-add" style="width: 100%" />
                   </div>
                 </div>
               </div>

@@ -254,6 +254,37 @@ impl IndexDb {
         Ok(sessions)
     }
 
+    /// Return the total number of indexed sessions (fast `SELECT COUNT(*)`).
+    pub fn session_count(&self) -> Result<usize> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
+        Ok(count as usize)
+    }
+
+    /// Return the set of all session IDs currently in the index.
+    pub fn all_indexed_ids(&self) -> Result<HashSet<String>> {
+        let mut stmt = self.conn.prepare("SELECT id FROM sessions")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut ids = HashSet::new();
+        for row in rows {
+            ids.insert(row?);
+        }
+        Ok(ids)
+    }
+
+    /// Remove sessions from the index whose IDs are not in the given set of live IDs.
+    pub fn prune_deleted(&self, live_ids: &HashSet<String>) -> Result<usize> {
+        let indexed_ids = self.all_indexed_ids()?;
+        let stale: Vec<&String> = indexed_ids.iter().filter(|id| !live_ids.contains(*id)).collect();
+        let count = stale.len();
+        for id in &stale {
+            self.conn.execute("DELETE FROM sessions WHERE id = ?1", [id.as_str()])?;
+            self.conn.execute("DELETE FROM conversation_fts WHERE session_id = ?1", [id.as_str()])?;
+        }
+        Ok(count)
+    }
+
     fn index_conversation_content(&self, session_path: &Path, session_id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM conversation_fts WHERE session_id = ?1", [session_id])?;
@@ -516,5 +547,74 @@ updated_at: "2026-03-11T07:15:00Z"
 
         let limited = db.list_sessions(Some(1), None, None).unwrap();
         assert_eq!(limited.len(), 1);
+    }
+
+    #[test]
+    fn test_prune_deleted_removes_stale_sessions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+        let s1 = write_session(
+            tmp.path(),
+            "55555555-5555-5555-5555-555555555555",
+            "Session to keep",
+            "org/repo",
+            "main",
+            "keep user msg",
+            "keep assistant msg",
+        );
+        let s2 = write_session(
+            tmp.path(),
+            "66666666-6666-6666-6666-666666666666",
+            "Session to delete",
+            "org/repo",
+            "main",
+            "delete user msg",
+            "delete assistant msg",
+        );
+        db.upsert_session(&s1).unwrap();
+        db.upsert_session(&s2).unwrap();
+
+        assert_eq!(db.session_count().unwrap(), 2);
+
+        // Only s1 is "live" — s2 should be pruned
+        let mut live_ids = HashSet::new();
+        live_ids.insert("55555555-5555-5555-5555-555555555555".to_string());
+
+        let pruned = db.prune_deleted(&live_ids).unwrap();
+        assert_eq!(pruned, 1);
+        assert_eq!(db.session_count().unwrap(), 1);
+
+        let remaining = db.list_sessions(None, None, None).unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].id, "55555555-5555-5555-5555-555555555555");
+
+        // FTS should also be cleaned — searching for deleted content returns nothing
+        let hits = db.search("delete").unwrap();
+        assert!(!hits.contains(&"66666666-6666-6666-6666-666666666666".to_string()));
+    }
+
+    #[test]
+    fn test_prune_deleted_with_all_live() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+
+        let s1 = write_session(
+            tmp.path(),
+            "77777777-7777-7777-7777-777777777777",
+            "Session one",
+            "org/repo",
+            "main",
+            "msg one",
+            "reply one",
+        );
+        db.upsert_session(&s1).unwrap();
+
+        let mut live_ids = HashSet::new();
+        live_ids.insert("77777777-7777-7777-7777-777777777777".to_string());
+
+        let pruned = db.prune_deleted(&live_ids).unwrap();
+        assert_eq!(pruned, 0);
+        assert_eq!(db.session_count().unwrap(), 1);
     }
 }

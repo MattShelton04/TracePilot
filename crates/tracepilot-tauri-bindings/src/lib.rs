@@ -94,9 +94,43 @@ mod commands {
         repo: Option<String>,
         branch: Option<String>,
     ) -> Result<Vec<SessionListItem>, String> {
-        // NOTE: Currently loads every session summary from disk. For 1000+ sessions,
-        // consider using the indexer DB for metadata queries (Phase 3 optimization).
         tokio::task::spawn_blocking(move || {
+            // Fast path: query the index DB (single SQLite read, no per-session I/O)
+            let index_path = tracepilot_indexer::default_index_db_path();
+            if index_path.exists() {
+                let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                    .map_err(|e| e.to_string())?;
+
+                // Check if index has any sessions; if empty, fall through to disk scan
+                let count = db.session_count().unwrap_or(0);
+                if count > 0 {
+                    let indexed = db
+                        .list_sessions(
+                            limit.map(|l| l as usize),
+                            repo.as_deref(),
+                            branch.as_deref(),
+                        )
+                        .map_err(|e| e.to_string())?;
+
+                    return Ok(indexed
+                        .into_iter()
+                        .map(|s| SessionListItem {
+                            id: s.id,
+                            summary: s.summary,
+                            repository: s.repository,
+                            branch: s.branch,
+                            host_type: s.host_type,
+                            created_at: s.created_at,
+                            updated_at: s.updated_at,
+                            event_count: s.event_count.map(|v| v as usize),
+                            turn_count: s.turn_count.map(|v| v as usize),
+                            current_model: s.current_model,
+                        })
+                        .collect());
+                }
+            }
+
+            // Fallback: full disk scan (used when index is empty or missing)
             let base_dir = tracepilot_core::session::discovery::default_session_state_dir();
             let sessions = tracepilot_core::session::discovery::discover_sessions(&base_dir)
                 .map_err(|e| e.to_string())?;
@@ -324,6 +358,74 @@ mod commands {
         .await
         .map_err(|e| e.to_string())?
     }
+
+    // ── Analytics Commands ────────────────────────────────────────────
+
+    #[tauri::command]
+    pub async fn get_analytics(
+        from_date: Option<String>,
+        to_date: Option<String>,
+        repo: Option<String>,
+    ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+                repo.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_analytics(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_tool_analysis(
+        from_date: Option<String>,
+        to_date: Option<String>,
+        repo: Option<String>,
+    ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+                repo.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_code_impact(
+        from_date: Option<String>,
+        to_date: Option<String>,
+        repo: Option<String>,
+    ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
+        tokio::task::spawn_blocking(move || {
+            let sessions_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let inputs = tracepilot_core::analytics::load_session_summaries_filtered(
+                &sessions_dir,
+                from_date.as_deref(),
+                to_date.as_deref(),
+                repo.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::analytics::compute_code_impact(&inputs))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -339,6 +441,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_shutdown_metrics,
             commands::search_sessions,
             commands::reindex_sessions,
+            commands::get_analytics,
+            commands::get_tool_analysis,
+            commands::get_code_impact,
         ])
         .build()
 }

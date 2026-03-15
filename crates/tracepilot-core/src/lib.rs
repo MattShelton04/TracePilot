@@ -5,7 +5,9 @@
 //! - Parsing of `workspace.yaml`, `events.jsonl`, and `session.db`
 //! - Derived models: `SessionSummary`, `ConversationTurn`, `ToolTransaction`
 //! - Health scoring and anomaly detection
+//! - Analytics aggregation across sessions (tokens, tools, code impact)
 
+pub mod analytics;
 pub mod error;
 pub mod health;
 pub mod models;

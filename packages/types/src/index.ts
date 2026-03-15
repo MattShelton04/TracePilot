@@ -167,6 +167,27 @@ export interface AnalyticsData {
   modelDistribution: Array<{ model: string; tokens: number; percentage: number }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
+  /** Session duration statistics */
+  sessionDurationStats: SessionDurationStats;
+  /** Productivity heuristics */
+  productivityMetrics: ProductivityMetrics;
+}
+
+/** Session duration statistics (avg, median, p95) */
+export interface SessionDurationStats {
+  avgMs: number;
+  medianMs: number;
+  p95Ms: number;
+  minMs: number;
+  maxMs: number;
+  totalSessionsWithDuration: number;
+}
+
+/** Productivity heuristics across sessions */
+export interface ProductivityMetrics {
+  avgTurnsPerSession: number;
+  avgToolCallsPerTurn: number;
+  avgTokensPerTurn: number;
 }
 
 // ===== Tool Analysis Types =====

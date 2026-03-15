@@ -50,10 +50,6 @@ function getArgsSummary(turnIndex: number, tcIdx: number): string {
 const totalToolCalls = computed(() =>
   store.turns.reduce((sum, t) => sum + t.toolCalls.length, 0)
 );
-const failedToolCalls = computed(() =>
-  store.turns.reduce((sum, t) => sum + t.toolCalls.filter((tc) => tc.success === false).length, 0)
-);
-
 const totalDurationMs = computed(() =>
   store.turns.reduce((sum, t) => sum + (t.durationMs ?? 0), 0)
 );
@@ -63,36 +59,31 @@ const totalDurationMs = computed(() =>
   <div>
     <!-- Mini stat row -->
     <div class="grid-3 mb-4" style="max-width: 480px;">
-      <StatCard :value="store.turns.length" label="Total Turns" color="accent" />
-      <StatCard :value="totalToolCalls" label="Tool Calls" color="accent" />
-      <StatCard :value="formatDuration(totalDurationMs)" label="Duration" color="done" />
+      <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
+      <StatCard :value="totalToolCalls" label="Tool Calls" color="accent" mini />
+      <StatCard :value="formatDuration(totalDurationMs)" label="Total Time" color="done" mini />
     </div>
 
     <!-- View mode toggle -->
     <div class="flex items-center justify-between mb-4">
       <BtnGroup v-model="activeView" :options="viewModes" />
-      <span v-if="failedToolCalls > 0" class="badge badge-danger">{{ failedToolCalls }} failed</span>
     </div>
 
     <EmptyState v-if="store.turns.length === 0" message="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
-    <div v-else-if="activeView === 'chat'" class="space-y-6">
+    <div v-else-if="activeView === 'chat'" class="space-y-4">
       <div v-for="turn in store.turns" :key="turn.turnIndex" class="space-y-4">
         <!-- User message bubble -->
         <div v-if="turn.userMessage" class="flex gap-3 items-start">
-          <div class="flex-shrink-0 h-8 w-8 rounded-full bg-[var(--accent-muted)] flex items-center justify-center">
-            <svg class="h-4 w-4 text-[var(--accent-fg)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
+          <div style="width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;" class="bg-[var(--accent-muted)]">👤</div>
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <Badge variant="accent">user</Badge>
-              <span class="text-xs text-[var(--text-tertiary)]">Turn {{ turn.turnIndex }}</span>
-              <span v-if="turn.timestamp" class="text-xs text-[var(--text-tertiary)]">{{ formatTime(turn.timestamp) }}</span>
+              <span class="font-semibold text-[var(--text-primary)]" style="font-size: 0.8125rem;">You</span>
+              <span class="text-xs text-[var(--text-placeholder)]">Turn {{ turn.turnIndex }}</span>
+              <span v-if="turn.timestamp" class="text-xs text-[var(--text-placeholder)]">{{ formatTime(turn.timestamp) }}</span>
             </div>
-            <div class="whitespace-pre-wrap rounded-lg rounded-tl-sm border-l-[3px] border-l-[var(--accent-emphasis)] bg-[var(--accent-subtle)] border border-[var(--accent-muted)] px-4 py-3 text-sm text-[var(--text-primary)] leading-relaxed">
+            <div class="whitespace-pre-wrap rounded-lg border-l-[3px] border-l-[var(--accent-emphasis)] bg-[var(--accent-subtle)] border border-[var(--accent-muted)] text-[var(--text-primary)]" style="padding: 10px 14px; padding-left: 12px; font-size: 0.8125rem; line-height: 1.6;">
               {{ truncateText(turn.userMessage) }}
             </div>
           </div>
@@ -100,42 +91,43 @@ const totalDurationMs = computed(() =>
 
         <!-- Assistant message bubble -->
         <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="flex gap-3 items-start">
-          <div class="flex-shrink-0 h-8 w-8 rounded-full bg-[var(--done-muted)] flex items-center justify-center">
-            <svg class="h-4 w-4 text-[var(--done-fg)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
+          <div style="width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;" class="bg-[var(--done-muted)]">🤖</div>
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <Badge variant="done">assistant</Badge>
-              <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
-              <span v-if="turn.durationMs" class="text-xs text-[var(--text-tertiary)]">{{ formatDuration(turn.durationMs) }}</span>
+              <span class="font-semibold text-[var(--text-primary)]" style="font-size: 0.8125rem;">Assistant</span>
+              <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
+              <span v-if="turn.durationMs" class="text-xs text-[var(--text-placeholder)]">{{ formatDuration(turn.durationMs) }}</span>
               <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
             </div>
-            <div class="whitespace-pre-wrap rounded-lg rounded-tl-sm border-l-[3px] border-l-[var(--done-emphasis)] bg-[var(--canvas-subtle)] border border-[var(--border-muted)] px-4 py-3 text-sm text-[var(--text-primary)] leading-relaxed">
+            <div class="whitespace-pre-wrap rounded-lg bg-[var(--canvas-raised)] border border-[var(--border-default)] text-[var(--text-primary)]" style="padding: 10px 14px; font-size: 0.8125rem; line-height: 1.6;">
               {{ truncateText(msg) }}
             </div>
           </div>
         </div>
 
         <!-- Tool calls section (chat view) -->
-        <div v-if="turn.toolCalls.length > 0" class="ml-11">
+        <div v-if="turn.toolCalls.length > 0" class="ml-11" style="border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;">
           <button
-            class="flex items-center gap-2 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] py-1.5 px-2 rounded-md hover:bg-[var(--neutral-subtle)]"
+            class="flex items-center gap-2 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] py-1.5 px-2 w-full hover:bg-[var(--neutral-subtle)]"
             :aria-expanded="expandedTools.has(turn.turnIndex)"
             @click="expandedTools.toggle(turn.turnIndex)"
           >
             <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
             <span class="font-medium">{{ turn.toolCalls.length }} tool call{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
-            <span class="text-[var(--text-tertiary)]">
-              ({{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
-              <template v-if="turn.toolCalls.some((tc) => tc.success === false)">
-                · {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
-              </template>)
+            <span class="ml-auto flex items-center gap-1.5">
+              <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--success-muted)] text-[var(--success-fg)]">
+                {{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
+              </span>
+              <span
+                v-if="turn.toolCalls.some((tc) => tc.success === false)"
+                class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--danger-muted)] text-[var(--danger-fg)]"
+              >
+                {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
+              </span>
             </span>
           </button>
 
-          <div v-if="expandedTools.has(turn.turnIndex)" class="mt-2 space-y-2">
+          <div v-if="expandedTools.has(turn.turnIndex)" class="mt-0 space-y-0">
             <ToolCallItem
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"

@@ -15,7 +15,7 @@ const emit = defineEmits<{
       v-for="option in options"
       :key="option.value"
       class="btn btn-sm"
-      :class="{ 'btn-primary': modelValue === option.value }"
+      :class="{ active: modelValue === option.value }"
       :aria-pressed="modelValue === option.value"
       @click="emit('update:modelValue', option.value)"
     >

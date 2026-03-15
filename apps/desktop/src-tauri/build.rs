@@ -13,6 +13,9 @@ fn main() {
                     "get_shutdown_metrics",
                     "search_sessions",
                     "reindex_sessions",
+                    "get_analytics",
+                    "get_tool_analysis",
+                    "get_code_impact",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),
