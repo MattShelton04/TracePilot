@@ -236,8 +236,18 @@ Full reference: [`docs/design/design-system.md`](../docs/design/design-system.md
 - [x] Metrics tab: Simplified to 4 stat cards (variant-c), per-model token distribution, corrected cache hit rate formula
 - [x] Conversation tab: Aligned chat view labels with variant-c ("You"/"Assistant" text), right-aligned pass/fail badges
 - [x] Todos tab: Added percentage display, inline status counts (done/in-progress/pending/blocked), "Tasks" section header
+- [x] Index staleness: `ensureIndex()` for silent background reindex + `prune_deleted()` to remove ghost entries
 
-**Deliverable:** ✅ Dashboard views with SVG charts showing usage patterns, cost breakdown, and productivity metrics. All analytics commands wired through Tauri IPC with real session data.
+### 3.6 — UI Refinements (Variant-C Alignment)
+- [x] Conversation tab: Full variant-c prototype alignment — 28px emoji avatars, 13px bubble text, canvas-raised assistant bg, bordered tool call containers, muted BtnGroup active state, mini stat cards
+- [x] Todos tab: Full variant-c prototype alignment — flat list with border-bottom separators, 8px solid green progress bar, 12px/14px padding, smaller fonts/badges, text-placeholder colors
+- [x] Session Timeline: Variant-c alignment — h1 title, CSS grid time axis, connector lines, cleaned zoom controls
+- [x] Activity heatmap: Increased cell size (14→28px), added hour labels, count numbers in cells, improved tooltips
+- [x] Tool analysis: Scrollable sections (max-height 400px) for tool usage table, success/failure chart, tool frequency chart
+- [x] Repository filtering: Added `repo` parameter to all analytics Tauri commands, loader functions, client layer, and Pinia store; repo dropdown on Dashboard, Tool Analysis, and Code Impact views
+- [x] Analytics persistence research: Feasibility study saved to `docs/research/analytics-persistence.md` (Migration 3 plan for SQLite-backed per-session analytics caching)
+
+**Deliverable:** ✅ Dashboard views with SVG charts showing usage patterns, cost breakdown, and productivity metrics. All analytics commands wired through Tauri IPC with real session data. UI aligned with variant-c prototypes. Repository filtering across all analytics views.
 
 ---
 
@@ -437,7 +447,7 @@ These standards apply throughout development:
 |-------|--------|-------|
 | **Phase 1: Core Parsing & CLI MVP** | ✅ **Complete** | 9 commits, 35 tests, 4,000+ lines |
 | **Phase 2: Desktop App — Session Explorer** | ✅ **Complete** | 15 pages (6 live + 9 stubs), Variant C design system, 34 Vue tests |
-| Phase 3: Analytics & Visualization | ⬜ Planned | Frontend stubs ready |
+| Phase 3: Analytics & Visualization | ✅ **Complete** | Analytics engine, 3 dashboard views, repo filtering, variant-c alignment |
 | Phase 4: Health Scoring & Anomaly Detection | ⬜ Planned | Frontend stub ready |
 | Phase 5: Export & Sharing | ⬜ Planned | Frontend stub ready |
 | Phase 6: Advanced Features | ⬜ Planned | Frontend stubs ready (Compare, Replay, Settings) |
@@ -458,7 +468,7 @@ These standards apply throughout development:
 | Multi-model review fixes | ✅ | 7 issues fixed (FTS, tool calls, path traversal, etc.) |
 | Rust tests | ✅ | 31 core + 4 indexer = 35 tests |
 
-| **Next up** | **Phase 3 — Analytics & Visualization** (backend engines for stub pages) |
+| **Next up** | **Phase 4 — Health Scoring & Anomaly Detection** |
 
 ### Phase 2 Deliverables (Completed)
 
@@ -467,10 +477,10 @@ These standards apply throughout development:
 | Tauri IPC commands (10) | ✅ | list, detail, turns, events, todos, checkpoints, metrics, search, reindex |
 | Session List View | ✅ | Card grid, search, repo/branch filters, sort controls |
 | Session Detail (5 tabs) | ✅ | Overview, Conversation, Events, Todos, Metrics — all live |
-| Analytics Dashboard | 🔶 STUB | SVG charts, model distribution, cost trends |
-| Tool Analysis | 🔶 STUB | Usage table, heatmap, frequency chart |
-| Code Impact | 🔶 STUB | File type breakdown, modification tracking |
-| Session Timeline | 🔶 STUB | Swimlane visualization |
+| Analytics Dashboard | ✅ Live | SVG charts, model distribution, cost trends, repo filtering |
+| Tool Analysis | ✅ Live | Usage table, heatmap (28px cells, hour labels), frequency chart, scrollable sections |
+| Code Impact | ✅ Live | File type breakdown, modification tracking, repo filtering |
+| Session Timeline | ✅ Live | Swimlane visualization, zoom controls, variant-c aligned |
 | Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
 | Export | 🔶 STUB | Config + live preview, format selection |
 | Session Comparison | 🔶 STUB | Side-by-side diff, model usage breakdown |

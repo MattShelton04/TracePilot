@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
 const store = useAnalyticsStore();
 
 onMounted(() => {
+  store.fetchAvailableRepos();
   store.fetchCodeImpact();
+});
+
+watch(() => store.selectedRepo, () => {
+  store.fetchCodeImpact({ force: true });
 });
 
 const loading = computed(() => store.codeImpactLoading);
@@ -101,12 +106,23 @@ const timelineChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title -->
-          <div class="mb-4">
-            <h1 class="page-title">Code Impact</h1>
-            <p class="page-subtitle">
-              Code changes and file modifications across all sessions
-            </p>
+          <!-- Title + Repo Filter -->
+          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1 class="page-title">Code Impact</h1>
+              <p class="page-subtitle">
+                Code changes and file modifications across {{ store.selectedRepo ? '' : 'all ' }}sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
+              </p>
+            </div>
+            <select
+              :value="store.selectedRepo ?? ''"
+              class="filter-select"
+              aria-label="Filter by repository"
+              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">All Repositories</option>
+              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+            </select>
           </div>
 
           <!-- Stats Row -->

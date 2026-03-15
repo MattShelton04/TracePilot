@@ -20,14 +20,14 @@ describe("BtnGroup", () => {
     expect(buttons[2].text()).toBe("Gamma");
   });
 
-  it("applies btn-primary class to active option", () => {
+  it("applies active class to active option", () => {
     const wrapper = mount(BtnGroup, {
       props: { options, modelValue: "b" },
     });
     const buttons = wrapper.findAll("button");
-    expect(buttons[0].classes()).not.toContain("btn-primary");
-    expect(buttons[1].classes()).toContain("btn-primary");
-    expect(buttons[2].classes()).not.toContain("btn-primary");
+    expect(buttons[0].classes()).not.toContain("active");
+    expect(buttons[1].classes()).toContain("active");
+    expect(buttons[2].classes()).not.toContain("active");
   });
 
   it("emits update:modelValue on click", async () => {

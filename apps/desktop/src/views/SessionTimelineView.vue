@@ -271,6 +271,13 @@ function extractFileFromArgs(args: unknown): string | undefined {
 function toolBadgeClass(success: boolean): string {
   return success ? 'badge badge-warning' : 'badge badge-danger';
 }
+
+// Vertical connector lines at the right edge of each user block
+const connectorPositions = computed(() => {
+  const userLane = lanes.value.find((l) => l.name === 'User');
+  if (!userLane || !userLane.blocks.length) return [];
+  return userLane.blocks.map((b) => b.leftPct + b.widthPct);
+});
 </script>
 
 <template>
@@ -291,7 +298,7 @@ function toolBadgeClass(success: boolean): string {
     <template v-else>
       <!-- Page Title -->
       <div class="mb-4">
-        <h2 class="page-title" style="font-size: 1.125rem;">Session Timeline</h2>
+        <h1 class="page-title">Session Timeline</h1>
         <p class="page-subtitle">Visual timeline of session events and interactions</p>
       </div>
 
@@ -325,14 +332,17 @@ function toolBadgeClass(success: boolean): string {
 
       <!-- Time Axis -->
       <div class="time-axis" aria-label="Time axis">
-        <span
-          v-for="(marker, mi) in timeMarkers"
-          :key="`tm-${mi}`"
-          class="time-marker"
-          :style="{ left: marker.leftPct + '%' }"
-        >
-          {{ marker.label }}
-        </span>
+        <div class="time-axis-label"></div>
+        <div class="time-axis-track">
+          <span
+            v-for="(marker, mi) in timeMarkers"
+            :key="`tm-${mi}`"
+            class="time-marker"
+            :style="{ left: marker.leftPct + '%' }"
+          >
+            {{ marker.label }}
+          </span>
+        </div>
       </div>
 
       <!-- Swimlane Visualization -->
@@ -343,6 +353,14 @@ function toolBadgeClass(success: boolean): string {
             class="swimlane-container"
             :style="{ width: (100 * zoomLevel) + '%' }"
           >
+            <!-- Vertical connector lines at key event positions -->
+            <div
+              v-for="(pos, ci) in connectorPositions"
+              :key="`conn-${ci}`"
+              class="connector-line"
+              :style="{ left: `calc(${100 - pos}px + ${pos}%)` }"
+              aria-hidden="true"
+            ></div>
             <div
               v-for="lane in lanes"
               :key="lane.name"
@@ -471,37 +489,26 @@ function toolBadgeClass(success: boolean): string {
   min-width: 42px;
   text-align: center;
 }
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  border-radius: 4px;
-  border: 1px solid var(--border-default);
-  background: var(--canvas-raised);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-sm:hover:not(:disabled) {
-  background: var(--neutral-subtle);
-}
-.btn-sm:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
-/* Time axis */
+/* Time axis — grid-aligned with swimlanes */
 .time-axis {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  margin-bottom: 4px;
+}
+.time-axis-label {
+  /* empty spacer matching swimlane label column */
+}
+.time-axis-track {
   position: relative;
   height: 28px;
-  margin-bottom: 4px;
-  padding-left: 100px;
+  padding: 8px 16px 8px 0;
 }
-.time-axis::before {
+.time-axis-track::before {
   content: '';
   position: absolute;
-  left: 100px;
-  right: 0;
+  left: 0;
+  right: 16px;
   top: 50%;
   height: 1px;
   background: var(--border-default);
@@ -517,6 +524,17 @@ function toolBadgeClass(success: boolean): string {
   border-radius: 3px;
   border: 1px solid var(--border-muted);
   transform: translateX(-50%);
+}
+
+/* Vertical connector lines */
+.connector-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.15);
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* Swimlane overrides */
@@ -589,6 +607,7 @@ function toolBadgeClass(success: boolean): string {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: 8px;
 }
 .tool-call-item {
   display: flex;
@@ -612,6 +631,9 @@ function toolBadgeClass(success: boolean): string {
 @media (max-width: 768px) {
   .event-detail-grid {
     grid-template-columns: 1fr;
+  }
+  .session-info-bar {
+    gap: 6px;
   }
 }
 </style>

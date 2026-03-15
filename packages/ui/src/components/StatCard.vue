@@ -6,11 +6,12 @@ defineProps<{
   trend?: string;
   trendDirection?: 'up' | 'down' | 'neutral';
   gradient?: boolean;
+  mini?: boolean;
 }>();
 </script>
 
 <template>
-  <div class="stat-card">
+  <div class="stat-card" :class="{ 'mini-stat': mini }">
     <div
       class="stat-card-value"
       :class="[

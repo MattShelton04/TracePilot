@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
 const store = useAnalyticsStore();
 
 onMounted(() => {
+  store.fetchAvailableRepos();
   store.fetchAnalytics();
+});
+
+watch(() => store.selectedRepo, () => {
+  store.fetchAnalytics({ force: true });
 });
 
 const loading = computed(() => store.analyticsLoading);
@@ -145,12 +150,23 @@ const costChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title -->
-          <div class="mb-4">
-            <h1 class="page-title">Analytics Dashboard</h1>
-            <p class="page-subtitle">
-              Aggregate metrics across all {{ data.totalSessions }} sessions
-            </p>
+          <!-- Title + Repo Filter -->
+          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1 class="page-title">Analytics Dashboard</h1>
+              <p class="page-subtitle">
+                Aggregate metrics across {{ store.selectedRepo ? '' : 'all ' }}{{ data.totalSessions }} sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
+              </p>
+            </div>
+            <select
+              :value="store.selectedRepo ?? ''"
+              class="filter-select"
+              aria-label="Filter by repository"
+              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">All Repositories</option>
+              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+            </select>
           </div>
 
           <!-- Stats Row -->

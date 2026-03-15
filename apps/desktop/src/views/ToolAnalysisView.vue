@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
 const store = useAnalyticsStore();
 
 onMounted(() => {
+  store.fetchAvailableRepos();
   store.fetchToolAnalysis();
+});
+
+watch(() => store.selectedRepo, () => {
+  store.fetchToolAnalysis({ force: true });
 });
 
 const loading = computed(() => store.toolAnalysisLoading);
@@ -38,6 +43,10 @@ const maxInvocations = computed(() => {
 
 // ── Heatmap ──────────────────────────────────────────────────
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const hourLabels = Array.from({ length: 24 }, (_, i) => {
+  if (i % 3 === 0) return `${i}:00`;
+  return '';
+});
 
 const heatmapData = computed<number[][]>(() => {
   if (!data.value) return [];
@@ -98,12 +107,23 @@ const successFailureChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchToolAnalysis({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title -->
-          <div class="mb-4">
-            <h1 class="page-title">Tool Analysis</h1>
-            <p class="page-subtitle">
-              Performance and usage metrics across all tool invocations
-            </p>
+          <!-- Title + Repo Filter -->
+          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1 class="page-title">Tool Analysis</h1>
+              <p class="page-subtitle">
+                Performance and usage metrics across all tool invocations{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
+              </p>
+            </div>
+            <select
+              :value="store.selectedRepo ?? ''"
+              class="filter-select"
+              aria-label="Filter by repository"
+              @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">All Repositories</option>
+              <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+            </select>
           </div>
 
           <!-- Stat Cards -->
@@ -129,7 +149,7 @@ const successFailureChart = computed(() => {
           <!-- Tool Usage Table -->
           <div class="section-panel mb-4">
             <div class="section-panel-header">Tool Usage Breakdown</div>
-            <div class="section-panel-body" style="padding: 0;">
+            <div class="section-panel-body scrollable-section" style="padding: 0;">
               <table class="data-table" aria-label="Tool usage breakdown">
                 <thead>
                   <tr>
@@ -161,7 +181,7 @@ const successFailureChart = computed(() => {
             <!-- Success/Failure Chart -->
             <div class="section-panel">
               <div class="section-panel-header">Success / Failure Breakdown</div>
-              <div class="section-panel-body">
+              <div class="section-panel-body scrollable-section">
                 <div class="legend">
                   <span><span class="legend-dot" style="background: #34d399;" />&nbsp;Success</span>
                   <span><span class="legend-dot" style="background: #fb7185;" />&nbsp;Failure</span>
@@ -217,7 +237,7 @@ const successFailureChart = computed(() => {
             <!-- Tool Frequency -->
             <div class="section-panel">
               <div class="section-panel-header">Tool Frequency</div>
-              <div class="section-panel-body">
+              <div class="section-panel-body scrollable-section">
                 <div class="frequency-chart">
                   <div class="freq-row" v-for="tool in sortedTools" :key="tool.name">
                     <span class="freq-label">{{ tool.name }}</span>
@@ -236,6 +256,16 @@ const successFailureChart = computed(() => {
             <div class="section-panel-header">Activity Heatmap</div>
             <div class="section-panel-body">
               <div class="heatmap">
+                <!-- Hour labels row -->
+                <div class="heatmap-row heatmap-hour-labels">
+                  <span class="heatmap-label" />
+                  <span
+                    class="heatmap-hour"
+                    v-for="(label, hourIdx) in hourLabels"
+                    :key="`h-${hourIdx}`"
+                  >{{ label }}</span>
+                </div>
+                <!-- Day rows -->
                 <div class="heatmap-row" v-for="(row, dayIdx) in heatmapData" :key="dayIdx">
                   <span class="heatmap-label">{{ dayLabels[dayIdx] }}</span>
                   <div
@@ -243,13 +273,15 @@ const successFailureChart = computed(() => {
                     v-for="(val, hourIdx) in row"
                     :key="hourIdx"
                     :style="{ backgroundColor: getHeatmapColor(val) }"
-                    :title="`${dayLabels[dayIdx]} ${hourIdx}:00 — ${val} calls`"
-                  />
+                    :title="`${dayLabels[dayIdx]} ${String(hourIdx).padStart(2, '0')}:00 — ${val} tool call${val !== 1 ? 's' : ''}`"
+                  >
+                    <span v-if="val > 0" class="heatmap-count">{{ val }}</span>
+                  </div>
                 </div>
                 <div class="heatmap-legend">
                   <span>Less</span>
                   <div
-                    class="heatmap-cell"
+                    class="heatmap-cell heatmap-legend-cell"
                     v-for="level in 5"
                     :key="level"
                     :style="{ backgroundColor: getHeatmapColor(level * 2) }"
@@ -302,31 +334,56 @@ const successFailureChart = computed(() => {
 .heatmap-row {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-bottom: 2px;
+  gap: 3px;
+  margin-bottom: 3px;
+}
+
+.heatmap-hour-labels {
+  margin-bottom: 6px;
+}
+
+.heatmap-hour {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 
 .heatmap-label {
-  width: 36px;
+  width: 40px;
   flex-shrink: 0;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-tertiary);
   text-align: right;
-  padding-right: 6px;
+  padding-right: 8px;
   font-weight: 500;
 }
 
 .heatmap-cell {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
   flex-shrink: 0;
   transition: outline 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .heatmap-cell:hover {
-  outline: 1px solid var(--accent-fg);
+  outline: 2px solid var(--accent-fg);
   outline-offset: -1px;
+  z-index: 1;
+}
+
+.heatmap-count {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
 }
 
 .heatmap-legend {
@@ -334,19 +391,25 @@ const successFailureChart = computed(() => {
   align-items: center;
   gap: 4px;
   margin-top: 12px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-tertiary);
-  padding-left: 36px;
+  padding-left: 48px;
 }
 
-.heatmap-legend .heatmap-cell {
-  width: 14px;
-  height: 14px;
+.heatmap-legend-cell {
+  width: 20px;
+  height: 20px;
   cursor: default;
 }
 
-.heatmap-legend .heatmap-cell:hover {
+.heatmap-legend-cell:hover {
   outline: none;
+}
+
+/* ── Scrollable Sections ──────────────────────────────────── */
+.scrollable-section {
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 /* ── Tool Frequency ────────────────────────────────────────── */

@@ -44,7 +44,7 @@ function getTodoTitle(id: string): string {
 
     <template v-else>
       <!-- Progress section -->
-      <div class="progress-section mb-5">
+      <div class="progress-section">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[0.8125rem] font-semibold text-[var(--text-primary)]">
             {{ completedCount }}/{{ todos.length }} completed
@@ -56,9 +56,10 @@ function getTodoTitle(id: string): string {
         <ProgressBar
           :percent="progressPercent"
           color="success"
+          class="progress-bar-todo"
           :aria-label="`${completedCount} of ${todos.length} todos completed`"
         />
-        <div class="flex items-center gap-3 mt-2.5 text-xs flex-wrap">
+        <div class="flex items-center gap-3 text-xs flex-wrap">
           <span class="text-[var(--success-fg)]">✓ {{ completedCount }} done</span>
           <span class="text-[var(--text-placeholder)]">·</span>
           <span class="text-[var(--accent-fg)]">● {{ inProgressCount }} in progress</span>
@@ -71,36 +72,42 @@ function getTodoTitle(id: string): string {
 
       <!-- Todo list -->
       <SectionPanel title="Tasks">
-        <div class="space-y-3">
+        <template v-for="(todo, index) in todos" :key="todo.id">
           <div
-            v-for="todo in todos"
-            :key="todo.id"
-            class="flex items-start gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--canvas-subtle)] p-5"
+            class="todo-item"
+            :style="index === todos.length - 1 ? 'border-bottom: none' : ''"
           >
-            <StatusIcon :status="todo.status as 'done' | 'in_progress' | 'blocked' | 'pending'" class="mt-0.5" />
+            <StatusIcon
+              :status="todo.status as 'done' | 'in_progress' | 'blocked' | 'pending'"
+              style="width: 18px; height: 18px; margin-top: 1px;"
+            />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-medium text-[var(--text-primary)]">{{ todo.title }}</span>
-                <Badge :variant="statusBadgeVariant(todo.status)">
+                <span class="todo-title">{{ todo.title }}</span>
+                <Badge
+                  :variant="statusBadgeVariant(todo.status)"
+                  style="font-size: 0.5625rem; padding: 1px 6px;"
+                >
                   {{ todo.status.replace('_', ' ') }}
                 </Badge>
               </div>
-              <div v-if="todo.description" class="mt-1.5 whitespace-pre-wrap text-xs text-[var(--text-secondary)] leading-relaxed">
+              <div v-if="todo.description" class="todo-desc whitespace-pre-wrap">
                 {{ todo.description }}
               </div>
-              <div v-if="getDependencies(todo.id).length > 0" class="mt-2 flex flex-wrap items-center gap-1.5">
-                <span class="text-[11px] text-[var(--text-tertiary)]">depends on:</span>
+              <div v-if="getDependencies(todo.id).length > 0" class="todo-deps">
+                <span style="font-size: 0.5625rem; color: var(--text-placeholder); margin-right: 2px;">depends on:</span>
                 <Badge
                   v-for="depId in getDependencies(todo.id)"
                   :key="depId"
                   variant="neutral"
+                  style="font-size: 0.5625rem;"
                 >
                   {{ getTodoTitle(depId) }}
                 </Badge>
               </div>
             </div>
           </div>
-        </div>
+        </template>
       </SectionPanel>
     </template>
   </div>
@@ -113,5 +120,51 @@ function getTodoTitle(id: string): string {
   background-image: var(--gradient-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+}
+
+/* Override progress bar height and color to match variant-c */
+.progress-bar-todo {
+  margin-bottom: 10px;
+}
+.progress-bar-todo :deep(.progress-bar) {
+  height: 8px;
+}
+.progress-bar-todo :deep(.progress-bar-fill) {
+  background: var(--success-fg);
+}
+
+/* Remove section-panel-body padding so items render flush */
+:deep(.section-panel-body) {
+  padding: 0;
+}
+
+/* Flat list todo items with border-bottom separators */
+.todo-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: flex-start;
+}
+
+.todo-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.todo-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.todo-deps {
+  margin-top: 4px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 </style>

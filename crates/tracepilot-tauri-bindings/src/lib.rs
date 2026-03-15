@@ -365,6 +365,7 @@ mod commands {
     pub async fn get_analytics(
         from_date: Option<String>,
         to_date: Option<String>,
+        repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
         tokio::task::spawn_blocking(move || {
             let sessions_dir =
@@ -373,6 +374,7 @@ mod commands {
                 &sessions_dir,
                 from_date.as_deref(),
                 to_date.as_deref(),
+                repo.as_deref(),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_analytics(&inputs))
@@ -385,6 +387,7 @@ mod commands {
     pub async fn get_tool_analysis(
         from_date: Option<String>,
         to_date: Option<String>,
+        repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
         tokio::task::spawn_blocking(move || {
             let sessions_dir =
@@ -393,6 +396,7 @@ mod commands {
                 &sessions_dir,
                 from_date.as_deref(),
                 to_date.as_deref(),
+                repo.as_deref(),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
@@ -405,6 +409,7 @@ mod commands {
     pub async fn get_code_impact(
         from_date: Option<String>,
         to_date: Option<String>,
+        repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
         tokio::task::spawn_blocking(move || {
             let sessions_dir =
@@ -413,6 +418,7 @@ mod commands {
                 &sessions_dir,
                 from_date.as_deref(),
                 to_date.as_deref(),
+                repo.as_deref(),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_code_impact(&inputs))

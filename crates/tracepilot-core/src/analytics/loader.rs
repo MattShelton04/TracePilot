@@ -91,26 +91,30 @@ fn load_single_full_session(
     Ok(SessionAnalyticsInput { summary, turns })
 }
 
-/// Load summaries with optional date range filtering.
+/// Load summaries with optional date range and repository filtering.
 ///
-/// Sessions outside the date range are excluded before loading.
+/// Sessions outside the date range or not matching the repository are excluded.
 pub fn load_session_summaries_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
     to_date: Option<&str>,
+    repo: Option<&str>,
 ) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let inputs = load_session_summaries(sessions_dir)?;
-    Ok(filter_by_date_range(inputs, from_date, to_date))
+    let filtered = filter_by_date_range(inputs, from_date, to_date);
+    Ok(filter_by_repo(filtered, repo))
 }
 
-/// Load full sessions with optional date range filtering.
+/// Load full sessions with optional date range and repository filtering.
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
     to_date: Option<&str>,
+    repo: Option<&str>,
 ) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let inputs = load_full_sessions(sessions_dir)?;
-    Ok(filter_by_date_range(inputs, from_date, to_date))
+    let filtered = filter_by_date_range(inputs, from_date, to_date);
+    Ok(filter_by_repo(filtered, repo))
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).
@@ -150,6 +154,20 @@ fn filter_by_date_range(
             true
         })
         .collect()
+}
+
+/// Filter inputs by repository name (exact match).
+fn filter_by_repo(
+    inputs: Vec<SessionAnalyticsInput>,
+    repo: Option<&str>,
+) -> Vec<SessionAnalyticsInput> {
+    match repo {
+        None => inputs,
+        Some(repo) => inputs
+            .into_iter()
+            .filter(|input| input.summary.repository.as_deref() == Some(repo))
+            .collect(),
+    }
 }
 
 #[cfg(test)]
