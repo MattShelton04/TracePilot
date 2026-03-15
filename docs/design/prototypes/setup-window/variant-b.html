@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot Setup — Variant B: Single-Page Card</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* --- Backdrop --- */
+    body {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    /* --- Card Shell --- */
+    .setup-card {
+      width: 100%;
+      max-width: 580px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      transition: box-shadow var(--transition-slow);
+      overflow: hidden;
+    }
+    .setup-card:hover {
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(99,102,241,0.06);
+    }
+
+    /* --- Header --- */
+    .header {
+      padding: 28px 28px 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+    }
+    .logo svg {
+      width: 26px;
+      height: 26px;
+      color: #fff;
+    }
+    .header-text h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      color: var(--text-primary);
+    }
+    .header-text p {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .header-divider {
+      height: 1px;
+      margin: 20px 28px 0;
+      background: linear-gradient(90deg, var(--accent-emphasis), transparent 80%);
+      opacity: 0.45;
+    }
+
+    /* --- Sections shared --- */
+    .section {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .section:last-of-type {
+      border-bottom: none;
+    }
+    .section-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 14px;
+    }
+
+    /* --- Feature Chips (About strip) --- */
+    .feature-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .chip svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-fg);
+      flex-shrink: 0;
+    }
+
+    /* --- Config Rows --- */
+    .config-row {
+      margin-bottom: 18px;
+    }
+    .config-row:last-child {
+      margin-bottom: 0;
+    }
+    .config-row-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .config-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .config-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+    .config-input-group {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+    .config-input {
+      flex: 1;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .config-input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .btn-browse {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 8px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .btn-browse:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .validation-msg {
+      font-size: 0.6875rem;
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 16px;
+      transition: opacity var(--transition-normal);
+    }
+    .validation-msg.success {
+      color: var(--success-fg);
+    }
+    .validation-msg.info {
+      color: var(--text-tertiary);
+    }
+
+    /* --- Toggle Rows --- */
+    .pref-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .pref-row + .pref-row {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .pref-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: var(--text-secondary);
+      border-radius: 50%;
+      transition: transform var(--transition-fast), background var(--transition-fast);
+    }
+    .toggle input:checked + .toggle-track {
+      background: var(--accent-emphasis);
+    }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(16px);
+      background: #fff;
+    }
+
+    /* Select */
+    .pref-select {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.75rem;
+      padding: 5px 28px 5px 10px;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%2371717a' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 12px;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .pref-select:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+
+    /* --- Feature Overview (Collapsible) --- */
+    .feature-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--accent-fg);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      transition: color var(--transition-fast);
+    }
+    .feature-toggle-btn:hover {
+      color: var(--text-primary);
+    }
+    .feature-toggle-btn .chevron {
+      display: inline-flex;
+      transition: transform var(--transition-normal);
+    }
+    .feature-toggle-btn .chevron.open {
+      transform: rotate(90deg);
+    }
+    .feature-grid-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .feature-grid-wrapper.open {
+      max-height: 500px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding-top: 14px;
+    }
+    .feature-card {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      background: var(--accent-subtle);
+    }
+    .feature-card-icon {
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+    .feature-card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .feature-card-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+
+    /* --- Footer --- */
+    .footer {
+      padding: 20px 28px 24px;
+    }
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: var(--accent-emphasis);
+      border: none;
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 12px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    }
+    .btn-primary:hover {
+      background: var(--accent-fg);
+      box-shadow: 0 0 20px rgba(99,102,241,0.3);
+    }
+    .btn-primary:active {
+      transform: scale(0.985);
+    }
+    .btn-primary.success {
+      background: var(--success-emphasis);
+      pointer-events: none;
+    }
+    .btn-primary .btn-label,
+    .btn-primary .btn-check {
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .btn-primary .btn-check {
+      position: absolute;
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    .btn-primary.success .btn-label {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    .btn-primary.success .btn-check {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .footer-note {
+      text-align: center;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 10px;
+    }
+
+    /* Shimmer on primary button */
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+      transform: translateX(-100%);
+      transition: none;
+    }
+    .btn-primary:hover::before {
+      animation: shimmer 0.6s ease forwards;
+    }
+    @keyframes shimmer {
+      to { transform: translateX(100%); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="setup-card">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <!-- Radar/Compass icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="rgba(255,255,255,0.15)" stroke="currentColor"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h2>Welcome to TracePilot</h2>
+        <p>Configure your setup to get started</p>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+
+    <!-- Section 1: About -->
+    <div class="section">
+      <div class="feature-chips">
+        <span class="chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          Session Analytics
+        </span>
+        <span class="chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Conversation Viewer
+        </span>
+        <span class="chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Cost Tracking
+        </span>
+      </div>
+    </div>
+
+    <!-- Section 2: Data Configuration -->
+    <div class="section">
+      <div class="section-label">Data Paths</div>
+
+      <div class="config-row">
+        <div class="config-row-top">
+          <div>
+            <div class="config-label">Session Directory</div>
+            <div class="config-desc">Where Copilot stores session data</div>
+          </div>
+        </div>
+        <div class="config-input-group">
+          <input type="text" class="config-input" id="sessionDir" value="~/.copilot/session-state/">
+          <button class="btn-browse" onclick="alert('Native dialog would open here')">Browse</button>
+        </div>
+        <div class="validation-msg" id="sessionDirStatus"></div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-row-top">
+          <div>
+            <div class="config-label">Index Database</div>
+            <div class="config-desc">Search index and analytics cache</div>
+          </div>
+        </div>
+        <div class="config-input-group">
+          <input type="text" class="config-input" id="dbPath" value="~/.copilot/tracepilot/index.db">
+          <button class="btn-browse" onclick="alert('Native dialog would open here')">Browse</button>
+        </div>
+        <div class="validation-msg info" id="dbPathStatus">Will be created if needed</div>
+      </div>
+    </div>
+
+    <!-- Section 3: Preferences -->
+    <div class="section">
+      <div class="section-label">Preferences</div>
+
+      <div class="pref-row">
+        <span class="pref-label">Auto-index on launch</span>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <span class="pref-label">Dark theme</span>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <span class="pref-label">Default view</span>
+        <select class="pref-select">
+          <option>Sessions</option>
+          <option>Analytics</option>
+          <option>Tools</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Section 4: Feature Overview -->
+    <div class="section">
+      <button class="feature-toggle-btn" id="featureToggle">
+        <span class="chevron" id="featureChevron">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
+        ✨ See what TracePilot can do
+      </button>
+      <div class="feature-grid-wrapper" id="featureGrid">
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-card-icon">📋</div>
+            <div class="feature-card-title">Session Explorer</div>
+            <div class="feature-card-desc">Browse, search, and filter all Copilot sessions</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-icon">💬</div>
+            <div class="feature-card-title">Conversations</div>
+            <div class="feature-card-desc">View full conversation threads with context</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-icon">📊</div>
+            <div class="feature-card-title">Analytics</div>
+            <div class="feature-card-desc">Visualize usage patterns and productivity trends</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-icon">🔧</div>
+            <div class="feature-card-title">Tool Analysis</div>
+            <div class="feature-card-desc">Track tool invocations and success rates</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-icon">📝</div>
+            <div class="feature-card-title">Code Impact</div>
+            <div class="feature-card-desc">Measure lines changed and files touched per session</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-card-icon">💰</div>
+            <div class="feature-card-title">Cost Tracking</div>
+            <div class="feature-card-desc">Estimate token usage and cost per session</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <button class="btn-primary" id="getStartedBtn">
+        <span class="btn-label">Get Started</span>
+        <svg class="btn-check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>
+      <div class="footer-note">You can change these settings anytime from the Settings page</div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- Feature Overview Toggle ---
+    const featureToggle = document.getElementById('featureToggle');
+    const featureGrid = document.getElementById('featureGrid');
+    const featureChevron = document.getElementById('featureChevron');
+
+    featureToggle.addEventListener('click', () => {
+      const isOpen = featureGrid.classList.toggle('open');
+      featureChevron.classList.toggle('open', isOpen);
+    });
+
+    // --- Mock Path Validation ---
+    const sessionDirInput = document.getElementById('sessionDir');
+    const sessionDirStatus = document.getElementById('sessionDirStatus');
+    const dbPathInput = document.getElementById('dbPath');
+    const dbPathStatus = document.getElementById('dbPathStatus');
+
+    let sessionTimer = null;
+    let dbTimer = null;
+
+    function validateSessionDir() {
+      clearTimeout(sessionTimer);
+      sessionDirStatus.textContent = '';
+      sessionDirStatus.className = 'validation-msg';
+      sessionTimer = setTimeout(() => {
+        const val = sessionDirInput.value.trim();
+        if (val) {
+          sessionDirStatus.className = 'validation-msg success';
+          sessionDirStatus.textContent = '✓ 47 sessions found';
+        }
+      }, 500);
+    }
+
+    function validateDbPath() {
+      clearTimeout(dbTimer);
+      dbTimer = setTimeout(() => {
+        const val = dbPathInput.value.trim();
+        if (val) {
+          dbPathStatus.className = 'validation-msg info';
+          dbPathStatus.textContent = 'Will be created if needed';
+        }
+      }, 500);
+    }
+
+    sessionDirInput.addEventListener('blur', validateSessionDir);
+    sessionDirInput.addEventListener('input', () => {
+      sessionDirStatus.textContent = '';
+      sessionDirStatus.className = 'validation-msg';
+    });
+
+    dbPathInput.addEventListener('blur', validateDbPath);
+
+    // Trigger initial validation for session dir
+    setTimeout(validateSessionDir, 600);
+
+    // --- Get Started Button ---
+    const getStartedBtn = document.getElementById('getStartedBtn');
+
+    getStartedBtn.addEventListener('click', () => {
+      getStartedBtn.classList.add('success');
+      setTimeout(() => {
+        getStartedBtn.classList.remove('success');
+      }, 2000);
+    });
+  </script>
+
+</body>
+</html>

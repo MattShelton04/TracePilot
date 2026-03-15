@@ -13,6 +13,8 @@ import type {
   HealthScoringData,
   ExportConfig,
   ExportResult,
+  TracePilotConfig,
+  ValidateSessionDirResult,
 } from "@tracepilot/types";
 
 import {
@@ -69,12 +71,18 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_analytics: MOCK_ANALYTICS,
     get_tool_analysis: MOCK_TOOL_ANALYSIS,
     get_code_impact: MOCK_CODE_IMPACT,
+    check_config_exists: true,
+    get_config: { version: 1, paths: { sessionStateDir: '~/.copilot/session-state', indexDbPath: '~/.copilot/tracepilot/index.db' }, general: { autoIndexOnLaunch: true } },
+    save_config: undefined,
+    validate_session_dir: { valid: true, sessionCount: 47 },
+    get_db_size: 44564480,
+    get_session_count: 47,
+    factory_reset: undefined,
   };
-  const data = mocks[cmd];
-  if (data === undefined) {
+  if (!(cmd in mocks)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
   }
-  return data as T;
+  return mocks[cmd] as T;
 }
 
 export async function listSessions(
@@ -188,6 +196,48 @@ export async function exportSession(_config: ExportConfig): Promise<ExportResult
   // STUB: No Tauri command exists yet for export.
   // STUB: When implemented, this should call: invoke('plugin:tracepilot|export_session', { config })
   return MOCK_EXPORT_RESULT;
+}
+
+// ── Setup / Configuration Commands ────────────────────────────
+
+/** Check if TracePilot config.toml exists (determines if setup is needed). */
+export async function checkConfigExists(): Promise<boolean> {
+  if (!isTauri()) return true; // In dev mode, skip setup
+  return invoke<boolean>("check_config_exists");
+}
+
+/** Get the current TracePilot configuration. */
+export async function getConfig(): Promise<TracePilotConfig> {
+  return invoke<TracePilotConfig>("get_config");
+}
+
+/** Save TracePilot configuration (creates/updates config.toml). */
+export async function saveConfig(config: TracePilotConfig): Promise<void> {
+  return invoke<void>("save_config", { config });
+}
+
+/** Validate a session state directory path. */
+export async function validateSessionDir(path: string): Promise<ValidateSessionDirResult> {
+  if (!isTauri()) return { valid: true, sessionCount: 47 };
+  return invoke<ValidateSessionDirResult>("validate_session_dir", { path });
+}
+
+/** Get the index database file size in bytes. */
+export async function getDbSize(): Promise<number> {
+  if (!isTauri()) return 44_564_480; // ~42.5 MB mock
+  return invoke<number>("get_db_size");
+}
+
+/** Get the number of indexed sessions. */
+export async function getSessionCount(): Promise<number> {
+  if (!isTauri()) return 47;
+  return invoke<number>("get_session_count");
+}
+
+/** Factory reset: delete config, index DB, and all app data. */
+export async function factoryReset(): Promise<void> {
+  if (!isTauri()) return;
+  return invoke<void>("factory_reset");
 }
 
 export type { SessionHealth };

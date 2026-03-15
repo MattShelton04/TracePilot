@@ -10,5 +10,6 @@ tracepilot-indexer = { workspace = true }
 tracepilot-export = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["rt"] }

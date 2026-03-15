@@ -17,6 +17,13 @@ fn main() {
                     "get_analytics",
                     "get_tool_analysis",
                     "get_code_impact",
+                    "check_config_exists",
+                    "get_config",
+                    "save_config",
+                    "validate_session_dir",
+                    "get_db_size",
+                    "get_session_count",
+                    "factory_reset",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

@@ -400,3 +400,24 @@ export interface ReplayStep {
   /** Todos changed in this step */
   todosChanged?: Array<{ id: string; title: string; status: string }>;
 }
+
+// ===== Configuration Types =====
+
+/** TracePilot application configuration */
+export interface TracePilotConfig {
+  version: number;
+  paths: {
+    sessionStateDir: string;
+    indexDbPath: string;
+  };
+  general: {
+    autoIndexOnLaunch: boolean;
+  };
+}
+
+/** Result from validating a session directory */
+export interface ValidateSessionDirResult {
+  valid: boolean;
+  sessionCount: number;
+  error?: string;
+}

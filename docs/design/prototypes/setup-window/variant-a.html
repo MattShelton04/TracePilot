@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Setup Wizard (Variant A)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* --- Modal Overlay --- */
+    body { background: var(--canvas-default); }
+    .wizard-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: var(--z-modal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* --- Wizard Card --- */
+    .wizard-card {
+      width: 640px;
+      max-width: calc(100vw - 48px);
+      max-height: calc(100vh - 64px);
+      background: var(--canvas-overlay);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-glow), 0 0 60px rgba(99, 102, 241, 0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: wizardEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes wizardEnter {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* --- Stepper --- */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 32px 0;
+      gap: 0;
+      flex-shrink: 0;
+    }
+    .stepper-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .stepper-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      flex-shrink: 0;
+      transition: all var(--transition-normal);
+      border: 2px solid var(--border-default);
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+    }
+    .stepper-step.current .stepper-circle {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    }
+    .stepper-step.completed .stepper-circle {
+      border-color: var(--success-emphasis);
+      background: var(--success-muted);
+      color: var(--success-fg);
+    }
+    .stepper-label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      transition: color var(--transition-normal);
+      white-space: nowrap;
+    }
+    .stepper-step.current .stepper-label { color: var(--text-primary); }
+    .stepper-step.completed .stepper-label { color: var(--text-secondary); }
+
+    .stepper-line {
+      width: 48px;
+      height: 2px;
+      background: var(--border-default);
+      margin: 0 8px;
+      flex-shrink: 0;
+      transition: background var(--transition-normal);
+      border-radius: 1px;
+    }
+    .stepper-line.completed {
+      background: var(--success-emphasis);
+    }
+
+    /* --- Step Content Area --- */
+    .wizard-body {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      min-height: 320px;
+    }
+    .step-content {
+      position: absolute;
+      inset: 0;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateX(20px);
+      pointer-events: none;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+      overflow-y: auto;
+    }
+    .step-content.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: all;
+      position: relative;
+    }
+    .step-content.exit-left {
+      transform: translateX(-20px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .step-content, .wizard-card, .stepper-circle, .stepper-line, .stepper-label {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    /* --- Footer --- */
+    .wizard-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-top: 1px solid var(--border-default);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .wizard-footer-left { display: flex; align-items: center; gap: 8px; }
+    .wizard-footer-right { display: flex; align-items: center; gap: 8px; }
+
+    /* --- Buttons --- */
+    .btn-wizard {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .btn-wizard:hover { background: var(--neutral-subtle); border-color: var(--border-muted); }
+    .btn-wizard.primary {
+      background: var(--gradient-accent);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
+    }
+    .btn-wizard.primary:hover {
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+      opacity: 0.95;
+    }
+    .btn-wizard.primary.launch {
+      padding: 10px 28px;
+      font-size: 0.875rem;
+      box-shadow: 0 2px 16px rgba(99, 102, 241, 0.4), 0 0 40px rgba(99, 102, 241, 0.12);
+    }
+    .btn-wizard.primary.launch:hover {
+      box-shadow: 0 4px 24px rgba(99, 102, 241, 0.6), 0 0 60px rgba(99, 102, 241, 0.18);
+    }
+    .btn-wizard.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--text-tertiary);
+      padding: 8px 12px;
+    }
+    .btn-wizard.ghost:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+
+    /* --- Step 1: Welcome --- */
+    .welcome-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      flex: 1;
+      justify-content: center;
+      gap: 6px;
+    }
+    .welcome-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      background: var(--gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      color: white;
+      box-shadow: 0 4px 24px rgba(99, 102, 241, 0.35);
+      margin-bottom: 12px;
+    }
+    .welcome-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .welcome-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .welcome-version {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .welcome-description {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      max-width: 460px;
+      line-height: 1.6;
+    }
+
+    /* --- Step 2: Configure --- */
+    .config-section-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 2px;
+    }
+    .config-section-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+    .config-field { margin-bottom: 18px; }
+    .config-field:last-child { margin-bottom: 0; }
+    .config-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .config-hint {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+    }
+    .config-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .config-input {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      outline: none;
+      transition: all var(--transition-fast);
+      min-width: 0;
+    }
+    .config-input:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .config-input.valid {
+      border-color: var(--success-emphasis);
+    }
+    .btn-browse {
+      padding: 8px 14px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .btn-browse:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-muted);
+    }
+    .config-validation {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .config-validation.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .config-validation.success { color: var(--success-fg); }
+    .config-validation.error { color: var(--danger-fg); }
+    .config-note {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      margin-top: 5px;
+      font-style: italic;
+    }
+
+    /* Toggle Row */
+    .config-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-top: 8px;
+    }
+    .config-toggle-info { flex: 1; }
+    .config-toggle-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .config-toggle-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    /* --- Step 3: Features --- */
+    .features-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .feature-card {
+      display: flex;
+      gap: 12px;
+      padding: 14px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-normal);
+    }
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      background: var(--canvas-raised);
+    }
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .feature-icon.indigo  { background: var(--accent-muted);  }
+    .feature-icon.emerald { background: var(--success-muted); }
+    .feature-icon.amber   { background: var(--warning-muted); }
+    .feature-icon.violet  { background: var(--done-muted);    }
+    .feature-icon.rose    { background: var(--danger-muted);  }
+    .feature-icon.neutral { background: var(--neutral-muted); }
+    .feature-body { flex: 1; min-width: 0; }
+    .feature-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .feature-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+
+    /* --- Step 4: Ready --- */
+    .ready-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      flex: 1;
+      justify-content: center;
+      gap: 4px;
+    }
+    .ready-check-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--success-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .ready-check-ring {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid var(--success-fg);
+      opacity: 0;
+      animation: checkRing 0.6s 0.3s ease-out forwards;
+    }
+    @keyframes checkRing {
+      0%   { transform: scale(0.6); opacity: 0.6; }
+      100% { transform: scale(1); opacity: 0.15; }
+    }
+    .ready-check-icon {
+      width: 36px;
+      height: 36px;
+      stroke: var(--success-fg);
+      stroke-width: 3;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .ready-check-icon .check-path {
+      stroke-dasharray: 36;
+      stroke-dashoffset: 36;
+      animation: drawCheck 0.4s 0.15s ease-out forwards;
+    }
+    @keyframes drawCheck {
+      to { stroke-dashoffset: 0; }
+    }
+    .ready-title {
+      font-size: 1.375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    .ready-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .ready-summary {
+      width: 100%;
+      max-width: 420px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .ready-summary-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 0.75rem;
+    }
+    .ready-summary-row + .ready-summary-row {
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 4px;
+      padding-top: 8px;
+    }
+    .ready-summary-label {
+      color: var(--text-tertiary);
+      font-weight: 500;
+      flex-shrink: 0;
+      min-width: 68px;
+    }
+    .ready-summary-value {
+      color: var(--text-secondary);
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.6875rem;
+      word-break: break-all;
+    }
+    .ready-summary-extra {
+      color: var(--success-fg);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .ready-hint {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wizard-overlay" id="wizardOverlay">
+    <div class="wizard-card" role="dialog" aria-modal="true" aria-label="TracePilot Setup Wizard">
+
+      <!-- Stepper -->
+      <div class="stepper" role="navigation" aria-label="Setup progress">
+        <div class="stepper-step current" data-step="0">
+          <div class="stepper-circle" aria-current="step">1</div>
+          <span class="stepper-label">Welcome</span>
+        </div>
+        <div class="stepper-line" data-line="0"></div>
+        <div class="stepper-step" data-step="1">
+          <div class="stepper-circle">2</div>
+          <span class="stepper-label">Configure</span>
+        </div>
+        <div class="stepper-line" data-line="1"></div>
+        <div class="stepper-step" data-step="2">
+          <div class="stepper-circle">3</div>
+          <span class="stepper-label">Features</span>
+        </div>
+        <div class="stepper-line" data-line="2"></div>
+        <div class="stepper-step" data-step="3">
+          <div class="stepper-circle">4</div>
+          <span class="stepper-label">Ready</span>
+        </div>
+      </div>
+
+      <!-- Step Content Area -->
+      <div class="wizard-body">
+
+        <!-- Step 1: Welcome -->
+        <div class="step-content active" data-step-content="0">
+          <div class="welcome-center">
+            <div class="welcome-logo" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" opacity="0.3"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="5"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="5" y2="12"/>
+                <line x1="19" y1="12" x2="22" y2="12"/>
+                <line x1="4.93" y1="4.93" x2="7.07" y2="7.07"/>
+                <line x1="16.93" y1="16.93" x2="19.07" y2="19.07"/>
+              </svg>
+            </div>
+            <h1 class="welcome-title">Welcome to TracePilot</h1>
+            <p class="welcome-subtitle">Your Copilot session analytics dashboard</p>
+            <span class="welcome-version">v0.1.0</span>
+            <p class="welcome-description">
+              TracePilot helps you understand, analyze, and optimize your GitHub Copilot usage
+              by parsing session data and providing rich visualizations.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 2: Configure Paths -->
+        <div class="step-content" data-step-content="1">
+          <div class="config-section-title">Configure Data Paths</div>
+          <p class="config-section-desc">Tell TracePilot where to find your data</p>
+
+          <div class="config-field">
+            <div class="config-label">Copilot Session Directory</div>
+            <div class="config-hint">Path to your Copilot CLI session-state folder</div>
+            <div class="config-input-row">
+              <input type="text" class="config-input" id="sessionDirInput"
+                     value="~/.copilot/session-state/"
+                     spellcheck="false" autocomplete="off">
+              <button class="btn-browse" type="button" aria-label="Browse for session directory">Browse…</button>
+            </div>
+            <div class="config-validation" id="sessionDirValidation">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>Found 47 sessions</span>
+            </div>
+          </div>
+
+          <div class="config-field">
+            <div class="config-label">TracePilot Database</div>
+            <div class="config-hint">Where to store the search index and analytics cache</div>
+            <div class="config-input-row">
+              <input type="text" class="config-input" id="dbPathInput"
+                     value="~/.copilot/tracepilot/index.db"
+                     spellcheck="false" autocomplete="off">
+              <button class="btn-browse" type="button" aria-label="Browse for database location">Browse…</button>
+            </div>
+            <div class="config-validation" id="dbPathValidation">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>Path is valid</span>
+            </div>
+            <div class="config-note">Will be created automatically if it doesn't exist</div>
+          </div>
+
+          <div class="config-toggle-row">
+            <div class="config-toggle-info">
+              <div class="config-toggle-label">Index sessions on launch</div>
+              <div class="config-toggle-desc">Automatically discover and index new sessions when TracePilot starts</div>
+            </div>
+            <div class="form-switch on" id="autoIndexToggle" role="switch" aria-checked="true" aria-label="Auto-index on launch" tabindex="0"></div>
+          </div>
+        </div>
+
+        <!-- Step 3: Feature Tour -->
+        <div class="step-content" data-step-content="2">
+          <div class="features-title">What TracePilot Can Do</div>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon indigo" aria-hidden="true">📋</div>
+              <div class="feature-body">
+                <div class="feature-name">Session Explorer</div>
+                <div class="feature-desc">Browse, search, and filter all your Copilot sessions</div>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon violet" aria-hidden="true">💬</div>
+              <div class="feature-body">
+                <div class="feature-name">Conversation Viewer</div>
+                <div class="feature-desc">Turn-by-turn display with tool calls and subagents</div>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon emerald" aria-hidden="true">📊</div>
+              <div class="feature-body">
+                <div class="feature-name">Analytics Dashboard</div>
+                <div class="feature-desc">Token usage, cost trends, model distribution charts</div>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon amber" aria-hidden="true">🔧</div>
+              <div class="feature-body">
+                <div class="feature-name">Tool Analysis</div>
+                <div class="feature-desc">Usage frequency, success rates, and activity heatmaps</div>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon neutral" aria-hidden="true">📝</div>
+              <div class="feature-body">
+                <div class="feature-name">Code Impact</div>
+                <div class="feature-desc">File type breakdown, most modified files, change trends</div>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon rose" aria-hidden="true">💰</div>
+              <div class="feature-body">
+                <div class="feature-name">Cost Tracking</div>
+                <div class="feature-desc">Compare premium request costs vs wholesale API pricing</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Ready -->
+        <div class="step-content" data-step-content="3">
+          <div class="ready-center">
+            <div class="ready-check-wrap" aria-hidden="true">
+              <div class="ready-check-ring"></div>
+              <svg class="ready-check-icon" viewBox="0 0 24 24">
+                <polyline class="check-path" points="4 12 10 18 20 6"/>
+              </svg>
+            </div>
+            <h2 class="ready-title">You're All Set!</h2>
+            <p class="ready-subtitle">TracePilot is configured and ready to go</p>
+            <div class="ready-summary">
+              <div class="ready-summary-row">
+                <span class="ready-summary-label">Sessions</span>
+                <span class="ready-summary-value" id="readySessions">~/.copilot/session-state/</span>
+                <span class="ready-summary-extra">47 sessions found</span>
+              </div>
+              <div class="ready-summary-row">
+                <span class="ready-summary-label">Database</span>
+                <span class="ready-summary-value" id="readyDatabase">~/.copilot/tracepilot/index.db</span>
+              </div>
+            </div>
+            <button type="button" class="btn-wizard primary launch" id="launchBtn">
+              Launch TracePilot
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+            <p class="ready-hint">You can change these settings anytime in Settings → Data &amp; Storage</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer navigation -->
+      <div class="wizard-footer" id="wizardFooter">
+        <div class="wizard-footer-left">
+          <button type="button" class="btn-wizard" id="backBtn" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back
+          </button>
+        </div>
+        <div class="wizard-footer-right">
+          <button type="button" class="btn-wizard ghost" id="skipBtn" style="display:none;">Skip</button>
+          <button type="button" class="btn-wizard primary" id="nextBtn">
+            Get Started
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STEP_COUNT = 4;
+      let currentStep = 0;
+
+      // Elements
+      const steps = document.querySelectorAll('.stepper-step');
+      const lines = document.querySelectorAll('.stepper-line');
+      const contents = document.querySelectorAll('.step-content');
+      const nextBtn = document.getElementById('nextBtn');
+      const backBtn = document.getElementById('backBtn');
+      const skipBtn = document.getElementById('skipBtn');
+      const launchBtn = document.getElementById('launchBtn');
+      const footer = document.getElementById('wizardFooter');
+      const sessionInput = document.getElementById('sessionDirInput');
+      const dbInput = document.getElementById('dbPathInput');
+      const sessionVal = document.getElementById('sessionDirValidation');
+      const dbVal = document.getElementById('dbPathValidation');
+      const autoToggle = document.getElementById('autoIndexToggle');
+
+      function updateStepper() {
+        steps.forEach((s, i) => {
+          s.classList.remove('current', 'completed');
+          const circle = s.querySelector('.stepper-circle');
+          if (i < currentStep) {
+            s.classList.add('completed');
+            circle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            circle.removeAttribute('aria-current');
+          } else if (i === currentStep) {
+            s.classList.add('current');
+            circle.textContent = i + 1;
+            circle.setAttribute('aria-current', 'step');
+          } else {
+            circle.textContent = i + 1;
+            circle.removeAttribute('aria-current');
+          }
+        });
+
+        lines.forEach((l, i) => {
+          l.classList.toggle('completed', i < currentStep);
+        });
+      }
+
+      function updateContent(direction) {
+        contents.forEach((c, i) => {
+          if (i === currentStep) {
+            c.classList.remove('exit-left');
+            // Force reflow for animation
+            void c.offsetWidth;
+            c.classList.add('active');
+          } else {
+            c.classList.remove('active');
+            if (direction === 'forward' && i < currentStep) {
+              c.classList.add('exit-left');
+            } else {
+              c.classList.remove('exit-left');
+            }
+          }
+        });
+
+        // Replay check animation on step 4
+        if (currentStep === 3) {
+          const ring = document.querySelector('.ready-check-ring');
+          const path = document.querySelector('.check-path');
+          if (ring) {
+            ring.style.animation = 'none';
+            void ring.offsetWidth;
+            ring.style.animation = '';
+          }
+          if (path) {
+            path.style.animation = 'none';
+            void path.offsetWidth;
+            path.style.animation = '';
+          }
+        }
+      }
+
+      function updateButtons() {
+        // Back button
+        backBtn.style.display = currentStep > 0 && currentStep < STEP_COUNT - 1 ? '' : 'none';
+
+        // Skip button: only on Features step
+        skipBtn.style.display = currentStep === 2 ? '' : 'none';
+
+        // Next button
+        if (currentStep === 0) {
+          nextBtn.innerHTML = 'Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+          nextBtn.style.display = '';
+        } else if (currentStep < STEP_COUNT - 1) {
+          nextBtn.innerHTML = 'Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+          nextBtn.style.display = '';
+        } else {
+          // Hide next on Ready step — Launch button is inline
+          nextBtn.style.display = 'none';
+        }
+
+        // Hide entire footer on Ready step
+        footer.style.display = currentStep === STEP_COUNT - 1 ? 'none' : '';
+      }
+
+      function updateReadySummary() {
+        document.getElementById('readySessions').textContent = sessionInput.value || '~/.copilot/session-state/';
+        document.getElementById('readyDatabase').textContent = dbInput.value || '~/.copilot/tracepilot/index.db';
+      }
+
+      function goTo(step, direction) {
+        if (step < 0 || step >= STEP_COUNT) return;
+        currentStep = step;
+        updateStepper();
+        updateContent(direction);
+        updateButtons();
+        if (currentStep === 3) updateReadySummary();
+      }
+
+      // Navigation
+      nextBtn.addEventListener('click', () => goTo(currentStep + 1, 'forward'));
+      backBtn.addEventListener('click', () => goTo(currentStep - 1, 'backward'));
+      skipBtn.addEventListener('click', () => goTo(currentStep + 1, 'forward'));
+      launchBtn.addEventListener('click', () => {
+        // In a real app this would close the wizard and open the main UI
+        document.querySelector('.wizard-card').style.transform = 'scale(0.95)';
+        document.querySelector('.wizard-card').style.opacity = '0';
+        document.querySelector('.wizard-overlay').style.opacity = '0';
+        setTimeout(() => {
+          alert('TracePilot would launch here.\n\nThis is a prototype — no backend is connected.');
+          document.querySelector('.wizard-card').style.transform = '';
+          document.querySelector('.wizard-card').style.opacity = '';
+          document.querySelector('.wizard-overlay').style.opacity = '';
+        }, 300);
+      });
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && currentStep < STEP_COUNT - 1) {
+          goTo(currentStep + 1, 'forward');
+        } else if (e.key === 'Enter' && currentStep === STEP_COUNT - 1) {
+          launchBtn.click();
+        } else if (e.key === 'Escape') {
+          // In a real app this might close the wizard
+        }
+      });
+
+      // Toggle switch
+      autoToggle.addEventListener('click', () => {
+        const isOn = autoToggle.classList.toggle('on');
+        autoToggle.setAttribute('aria-checked', isOn ? 'true' : 'false');
+      });
+      autoToggle.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          autoToggle.click();
+        }
+      });
+
+      // Mock validation with delay
+      let sessionTimer = null;
+      let dbTimer = null;
+
+      function validateSessionDir() {
+        sessionVal.classList.remove('visible', 'success', 'error');
+        sessionInput.classList.remove('valid');
+        clearTimeout(sessionTimer);
+        const val = sessionInput.value.trim();
+        if (!val) return;
+        sessionTimer = setTimeout(() => {
+          if (val.includes('session-state') || val.includes('session')) {
+            sessionVal.querySelector('span').textContent = 'Found 47 sessions';
+            sessionVal.querySelector('svg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+            sessionVal.classList.add('visible', 'success');
+            sessionInput.classList.add('valid');
+          } else {
+            sessionVal.querySelector('span').textContent = 'Directory not found';
+            sessionVal.querySelector('svg').innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+            sessionVal.classList.add('visible', 'error');
+            sessionInput.classList.remove('valid');
+          }
+        }, 600);
+      }
+
+      function validateDbPath() {
+        dbVal.classList.remove('visible', 'success', 'error');
+        dbInput.classList.remove('valid');
+        clearTimeout(dbTimer);
+        const val = dbInput.value.trim();
+        if (!val) return;
+        dbTimer = setTimeout(() => {
+          if (val.endsWith('.db') || val.endsWith('.sqlite')) {
+            dbVal.querySelector('span').textContent = 'Path is valid';
+            dbVal.querySelector('svg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+            dbVal.classList.add('visible', 'success');
+            dbInput.classList.add('valid');
+          } else {
+            dbVal.querySelector('span').textContent = 'Expected a .db file path';
+            dbVal.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+            dbVal.classList.add('visible', 'error');
+            dbInput.classList.remove('valid');
+          }
+        }, 600);
+      }
+
+      sessionInput.addEventListener('input', validateSessionDir);
+      dbInput.addEventListener('input', validateDbPath);
+
+      // Trigger initial validation when reaching the Configure step
+      const origGoTo = goTo;
+      goTo = function(step, direction) {
+        origGoTo(step, direction);
+        if (step === 1) {
+          // Auto-validate default values
+          setTimeout(validateSessionDir, 400);
+          setTimeout(validateDbPath, 700);
+        }
+      };
+
+      // Initial state
+      updateStepper();
+      updateButtons();
+    })();
+  </script>
+</body>
+</html>
