@@ -390,12 +390,13 @@ mod commands {
         tokio::task::spawn_blocking(move || {
             // Fast path: SQL aggregation from pre-computed per-session data
             if let Some(db) = open_index_db() {
-                if let Ok(result) = db.query_analytics(
+                match db.query_analytics(
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
                 ) {
-                    return Ok(result);
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Analytics SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 
@@ -424,12 +425,13 @@ mod commands {
         tokio::task::spawn_blocking(move || {
             // Fast path: SQL aggregation from session_tool_calls + session_activity
             if let Some(db) = open_index_db() {
-                if let Ok(result) = db.query_tool_analysis(
+                match db.query_tool_analysis(
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
                 ) {
-                    return Ok(result);
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Tool analysis SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 
@@ -458,12 +460,13 @@ mod commands {
         tokio::task::spawn_blocking(move || {
             // Fast path: SQL aggregation from session columns + session_modified_files
             if let Some(db) = open_index_db() {
-                if let Ok(result) = db.query_code_impact(
+                match db.query_code_impact(
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
                 ) {
-                    return Ok(result);
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Code impact SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 

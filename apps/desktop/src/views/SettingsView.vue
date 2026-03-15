@@ -5,6 +5,8 @@
 import { ref, computed } from 'vue';
 import { usePreferencesStore, type ThemeOption } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
+import { useAnalyticsStore } from '@/stores/analytics';
+import { reindexSessions as reindexSessionsApi } from '@tracepilot/client';
 import {
   BtnGroup,
   FormSwitch,
@@ -16,6 +18,7 @@ import StubBanner from '@/components/StubBanner.vue';
 
 const preferences = usePreferencesStore();
 const sessionsStore = useSessionsStore();
+const analyticsStore = useAnalyticsStore();
 
 // ── General ──────────────────────────────────────────────────
 const themeOptions = [
@@ -45,18 +48,40 @@ const databaseSize = ref('42.5 MB');
 
 const autoIndexOnLaunch = ref(true);
 const reindexing = ref(false);
+const reindexResult = ref<string | null>(null);
 
 async function reindexSessions() {
-  // STUB: Reindex triggers backend session re-scan
   reindexing.value = true;
-  setTimeout(() => {
+  reindexResult.value = null;
+  try {
+    const count = await reindexSessionsApi();
+    reindexResult.value = `Indexed ${count} session${count !== 1 ? 's' : ''}`;
+    // Refresh stores so the UI reflects the updated index
+    await sessionsStore.fetchSessions();
+    analyticsStore.$reset();
+  } catch (e) {
+    reindexResult.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
     reindexing.value = false;
-  }, 2000);
+  }
 }
 
-// STUB: Clear cache functionality not yet implemented
-function clearCache() {
-  // no-op stub
+const clearing = ref(false);
+
+async function clearCache() {
+  clearing.value = true;
+  reindexResult.value = null;
+  try {
+    // Full reindex rebuilds all analytics from scratch (equivalent to clearing + recomputing)
+    const count = await reindexSessionsApi();
+    reindexResult.value = `Cache cleared — reindexed ${count} session${count !== 1 ? 's' : ''}`;
+    await sessionsStore.fetchSessions();
+    analyticsStore.$reset();
+  } catch (e) {
+    reindexResult.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    clearing.value = false;
+  }
 }
 
 // ── Health Scoring ───────────────────────────────────────────
@@ -213,28 +238,30 @@ const sessionCount = computed(() => sessionsStore.sessions.length);
             <div class="setting-info">
               <div class="setting-label">Reindex sessions</div>
               <div class="setting-description">
-                Rescan the sessions directory
+                Incrementally scan for new/changed sessions and recompute their analytics. Only re-processes sessions that changed since the last index.
               </div>
             </div>
-            <ActionButton
-              size="sm"
-              :disabled="reindexing"
-              @click="reindexSessions"
-            >
-              {{ reindexing ? 'Reindexing…' : 'Reindex' }}
-            </ActionButton>
+            <div class="setting-actions">
+              <ActionButton
+                size="sm"
+                :disabled="reindexing"
+                @click="reindexSessions"
+              >
+                {{ reindexing ? 'Reindexing…' : 'Reindex' }}
+              </ActionButton>
+              <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
+            </div>
           </div>
 
           <div class="setting-row">
             <div class="setting-info">
-              <div class="setting-label">Clear cache</div>
+              <div class="setting-label">Rebuild analytics</div>
               <div class="setting-description">
-                Remove cached session data
+                Clear all cached analytics data and recompute from scratch. Use this if analytics appear stale or incorrect.
               </div>
             </div>
-            <!-- STUB: Clear cache functionality not yet implemented -->
-            <ActionButton size="sm" class="btn-danger" @click="clearCache">
-              Clear Cache
+            <ActionButton size="sm" class="btn-danger" :disabled="clearing" @click="clearCache">
+              {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
             </ActionButton>
           </div>
         </SectionPanel>
@@ -464,6 +491,17 @@ const sessionCount = computed(() => sessionsStore.sessions.length);
 }
 .btn-danger:hover {
   background: var(--danger-subtle);
+}
+
+.setting-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-result {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 /* ── Health threshold inputs ──────────────────────────────── */
