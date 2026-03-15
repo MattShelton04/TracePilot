@@ -318,11 +318,16 @@ mod commands {
             let result_ids = db.search(&query).map_err(|e| e.to_string())?;
             let mut sessions = Vec::new();
             for session_id in result_ids {
-                let path =
-                    match tracepilot_core::session::discovery::resolve_session_path(&session_id) {
+                // Use index DB path lookup (no disk scan) instead of resolve_session_path
+                let path = match db.get_session_path(&session_id) {
+                    Ok(Some(p)) => p,
+                    _ => match tracepilot_core::session::discovery::resolve_session_path(
+                        &session_id,
+                    ) {
                         Ok(path) => path,
                         Err(_) => continue,
-                    };
+                    },
+                };
                 let item = match load_summary_list_item(&path) {
                     Ok(item) => item,
                     Err(_) => continue,
@@ -342,16 +347,18 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Returns (updated, total) session counts.
     #[tauri::command]
-    pub async fn reindex_sessions() -> Result<usize, String> {
+    pub async fn reindex_sessions() -> Result<(usize, usize), String> {
         tokio::task::spawn_blocking(move || {
             let session_state_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let index_path = tracepilot_indexer::default_index_db_path();
 
             match tracepilot_indexer::reindex_incremental(&session_state_dir, &index_path) {
-                Ok((indexed, _skipped)) => Ok(indexed),
+                Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
                 Err(_) => tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
+                    .map(|n| (n, n))
                     .map_err(|e| e.to_string()),
             }
         })
@@ -359,7 +366,49 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Full reindex: delete the index DB and rebuild from scratch.
+    /// Returns (rebuilt, total) session counts.
+    #[tauri::command]
+    pub async fn reindex_sessions_full() -> Result<(usize, usize), String> {
+        tokio::task::spawn_blocking(move || {
+            let session_state_dir =
+                tracepilot_core::session::discovery::default_session_state_dir();
+            let index_path = tracepilot_indexer::default_index_db_path();
+
+            // Delete existing DB to force a clean rebuild
+            if index_path.exists() {
+                let _ = std::fs::remove_file(&index_path);
+                // Also remove WAL/SHM files if present
+                let wal = index_path.with_extension("db-wal");
+                let shm = index_path.with_extension("db-shm");
+                let _ = std::fs::remove_file(&wal);
+                let _ = std::fs::remove_file(&shm);
+            }
+
+            tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
+                .map(|n| (n, n))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     // ── Analytics Commands ────────────────────────────────────────────
+    //
+    // Fast path: query pre-computed analytics from the index DB (SQL aggregation).
+    // Fallback: disk-scan + in-memory computation when index is empty/missing.
+
+    fn open_index_db() -> Option<tracepilot_indexer::index_db::IndexDb> {
+        let index_path = tracepilot_indexer::default_index_db_path();
+        if !index_path.exists() {
+            return None;
+        }
+        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path).ok()?;
+        if db.session_count().unwrap_or(0) == 0 {
+            return None;
+        }
+        Some(db)
+    }
 
     #[tauri::command]
     pub async fn get_analytics(
@@ -368,6 +417,19 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from pre-computed per-session data
+            if let Some(db) = open_index_db() {
+                match db.query_analytics(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Analytics SQL fast path failed, falling back to disk scan: {e}"),
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation (uses full session loading to include turns)
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
@@ -390,6 +452,19 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from session_tool_calls + session_activity
+            if let Some(db) = open_index_db() {
+                match db.query_tool_analysis(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Tool analysis SQL fast path failed, falling back to disk scan: {e}"),
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
@@ -412,6 +487,19 @@ mod commands {
         repo: Option<String>,
     ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
         tokio::task::spawn_blocking(move || {
+            // Fast path: SQL aggregation from session columns + session_modified_files
+            if let Some(db) = open_index_db() {
+                match db.query_code_impact(
+                    from_date.as_deref(),
+                    to_date.as_deref(),
+                    repo.as_deref(),
+                ) {
+                    Ok(result) => return Ok(result),
+                    Err(e) => eprintln!("Code impact SQL fast path failed, falling back to disk scan: {e}"),
+                }
+            }
+
+            // Fallback: disk scan + in-memory computation
             let sessions_dir =
                 tracepilot_core::session::discovery::default_session_state_dir();
             let inputs = tracepilot_core::analytics::load_session_summaries_filtered(
@@ -441,6 +529,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_shutdown_metrics,
             commands::search_sessions,
             commands::reindex_sessions,
+            commands::reindex_sessions_full,
             commands::get_analytics,
             commands::get_tool_analysis,
             commands::get_code_impact,

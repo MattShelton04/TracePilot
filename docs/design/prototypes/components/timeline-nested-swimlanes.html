@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Nested Swimlanes Timeline Prototype</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Page layout ── */
+    .proto-page {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 0;
+    }
+    .proto-header {
+      position: sticky;
+      top: 0;
+      z-index: var(--z-header);
+      background: var(--canvas-subtle);
+      border-bottom: 1px solid var(--border-default);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .proto-header h1 {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .proto-header .badge { margin-left: 4px; }
+    .proto-body { padding: 20px 28px 60px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Session stats bar ── */
+    .session-stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--canvas-raised);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+    }
+    .stat-pill .label { color: var(--text-tertiary); font-weight: 400; }
+
+    /* ── Mini-map overview strip ── */
+    .minimap {
+      position: relative;
+      height: 36px;
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .minimap-track {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      align-items: stretch;
+    }
+    .minimap-block {
+      height: 100%;
+      min-width: 2px;
+      opacity: 0.7;
+      border-radius: 1px;
+    }
+    .minimap-viewport {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1.5px solid rgba(99, 102, 241, 0.5);
+      border-radius: 3px;
+      pointer-events: none;
+      transition: left 0.15s ease, width 0.15s ease;
+    }
+    .minimap-label {
+      position: absolute;
+      top: 2px;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ── Turn group ── */
+    .turn-group {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      margin-bottom: 12px;
+      overflow: hidden;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      transition: box-shadow var(--transition-normal);
+    }
+    .turn-group:hover {
+      box-shadow: 0 0 0 1px var(--border-glow);
+    }
+
+    .turn-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+    }
+    .turn-header:hover { background: rgba(255,255,255,0.04); }
+
+    .turn-chevron {
+      width: 16px;
+      height: 16px;
+      color: var(--text-tertiary);
+      transition: transform var(--transition-normal);
+      flex-shrink: 0;
+    }
+    .turn-group.collapsed .turn-chevron { transform: rotate(-90deg); }
+
+    .turn-number {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      min-width: 56px;
+    }
+    .turn-user-msg {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .turn-badges {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .turn-body {
+      padding: 0;
+      overflow: hidden;
+      transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    }
+    .turn-group.collapsed .turn-body {
+      max-height: 0 !important;
+      opacity: 0;
+      padding: 0;
+    }
+
+    /* ── Lane rows ── */
+    .lane-container { padding: 8px 16px 12px; }
+
+    .lane-row {
+      display: flex;
+      align-items: center;
+      min-height: 32px;
+      margin-bottom: 4px;
+    }
+    .lane-label {
+      width: 100px;
+      min-width: 100px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding-right: 12px;
+    }
+    .lane-track {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-height: 24px;
+      position: relative;
+    }
+
+    /* Duration bar blocks */
+    .dur-bar {
+      height: 22px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: default;
+      position: relative;
+      transition: filter var(--transition-fast), transform var(--transition-fast);
+    }
+    .dur-bar:hover {
+      filter: brightness(1.2);
+      transform: scaleY(1.15);
+      z-index: 2;
+    }
+
+    /* Color presets */
+    .bar-user     { background: rgba(99, 102, 241, 0.7);  color: #fff; }
+    .bar-assistant{ background: rgba(52, 211, 153, 0.45); color: #d1fae5; }
+    .bar-explore  { background: rgba(34, 211, 238, 0.5);  color: #cffafe; }
+    .bar-general  { background: rgba(167, 139, 250, 0.5); color: #ede9fe; }
+    .bar-review   { background: rgba(244, 114, 182, 0.5); color: #fce7f3; }
+    .bar-tool     { background: rgba(251, 191, 36, 0.5);  color: #fef3c7; }
+    .bar-tool-fail{ background: rgba(251, 113, 133, 0.55);color: #ffe4e6; }
+
+    /* ── Subagent group ── */
+    .subagent-section {
+      margin: 4px 0 4px 100px;
+    }
+    .subagent-group {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 6px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.015);
+    }
+    .subagent-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--transition-fast);
+    }
+    .subagent-header:hover { background: rgba(255,255,255,0.03); }
+
+    .sa-chevron {
+      width: 12px;
+      height: 12px;
+      color: var(--text-placeholder);
+      transition: transform var(--transition-normal);
+      flex-shrink: 0;
+    }
+    .subagent-group.collapsed .sa-chevron { transform: rotate(-90deg); }
+
+    .sa-type-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sa-dot-explore  { background: #22d3ee; box-shadow: 0 0 6px rgba(34,211,238,0.4); }
+    .sa-dot-general  { background: #a78bfa; box-shadow: 0 0 6px rgba(167,139,250,0.4); }
+    .sa-dot-review   { background: #f472b6; box-shadow: 0 0 6px rgba(244,114,182,0.4); }
+
+    .sa-name {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .sa-meta {
+      margin-left: auto;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .sa-meta .badge {
+      font-size: 0.5625rem;
+      padding: 1px 6px;
+    }
+
+    .sa-tools-track {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 12px 6px 32px;
+      flex-wrap: wrap;
+      min-height: 26px;
+      overflow: hidden;
+      transition: max-height 0.25s ease, opacity 0.15s ease;
+    }
+    .subagent-group.collapsed .sa-tools-track {
+      max-height: 0 !important;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .sa-tool-bar {
+      height: 18px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: default;
+      transition: filter var(--transition-fast), transform var(--transition-fast);
+    }
+    .sa-tool-bar:hover {
+      filter: brightness(1.25);
+      transform: scaleY(1.2);
+      z-index: 2;
+    }
+
+    /* ── Parallel overlap indicator ── */
+    .parallel-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 2px 0 2px 100px;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      font-weight: 500;
+    }
+    .parallel-indicator svg {
+      width: 12px;
+      height: 12px;
+      color: var(--text-placeholder);
+    }
+
+    /* ── Direct tools lane ── */
+    .direct-tools-row {
+      display: flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 2px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* ── Tooltip ── */
+    .tooltip-overlay {
+      display: none;
+      position: fixed;
+      z-index: var(--z-tooltip);
+      padding: 8px 12px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+      max-width: 320px;
+    }
+    .tooltip-overlay.visible { display: block; }
+    .tooltip-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .tooltip-row {
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 8px;
+    }
+    .tooltip-row .tt-label { color: var(--text-tertiary); min-width: 60px; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* ── Utility ── */
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .mb-4 { margin-bottom: 16px; }
+
+    @media (max-width: 900px) {
+      .proto-body { padding: 12px 12px 40px; }
+      .lane-label { width: 60px; min-width: 60px; font-size: 0.5625rem; }
+      .subagent-section { margin-left: 60px; }
+      .parallel-indicator { margin-left: 60px; }
+    }
+  </style>
+</head>
+<body class="proto-page">
+
+  <!-- ───────── Header ───────── -->
+  <header class="proto-header">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-fg)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    <h1>TracePilot — Nested Swimlanes Timeline</h1>
+    <span class="badge badge-accent">Prototype</span>
+    <span class="badge badge-neutral" style="margin-left:auto">Component</span>
+  </header>
+
+  <!-- ───────── Body ───────── -->
+  <div class="proto-body">
+
+    <!-- Session stats -->
+    <div class="session-stats">
+      <div class="stat-pill"><span class="label">Session</span> OAuth Login Implementation</div>
+      <div class="stat-pill"><span class="label">Turns</span> 3</div>
+      <div class="stat-pill"><span class="label">Subagents</span> 17</div>
+      <div class="stat-pill"><span class="label">Tool calls</span> 186</div>
+      <div class="stat-pill"><span class="label">Duration</span> 225.0s</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(99,102,241,0.7)"></div>User</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(52,211,153,0.45)"></div>Assistant</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(34,211,238,0.5)"></div>explore</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(167,139,250,0.5)"></div>general-purpose</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(244,114,182,0.5)"></div>code-review</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(251,191,36,0.5)"></div>Tool call</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(251,113,133,0.55)"></div>Failed tool</div>
+    </div>
+
+    <!-- Mini-map overview strip -->
+    <div class="minimap" id="minimap">
+      <span class="minimap-label" style="left:6px">0s</span>
+      <span class="minimap-label" style="left:28%">60s</span>
+      <span class="minimap-label" style="left:55%">120s</span>
+      <span class="minimap-label" style="right:6px; left:auto">225s</span>
+      <!-- Turn blocks rendered by JS -->
+      <div class="minimap-viewport" id="minimap-viewport"></div>
+    </div>
+
+    <!-- Timeline container — populated by JS -->
+    <div id="timeline"></div>
+  </div>
+
+  <!-- Tooltip -->
+  <div class="tooltip-overlay" id="tooltip"></div>
+
+  <script>
+  /* ============================================================
+     Mock data generator — realistic session data
+     ============================================================ */
+  const TOOL_NAMES = ['view','grep','glob','edit','powershell','create','read_powershell','write_powershell'];
+  const DIRECT_TOOLS = ['report_intent','read_agent','write_agent','sql','store_memory','ide-get_diagnostics','web_search'];
+
+  function randTool() { return TOOL_NAMES[Math.floor(Math.random()*TOOL_NAMES.length)]; }
+  function randDirect() { return DIRECT_TOOLS[Math.floor(Math.random()*DIRECT_TOOLS.length)]; }
+  function randDur(min,max) { return +(min + Math.random()*(max-min)).toFixed(1); }
+  function randFail() { return Math.random() < 0.08; }
+
+  function makeToolCalls(count, durMin, durMax) {
+    const tools = [];
+    for (let i = 0; i < count; i++) {
+      tools.push({ name: randTool(), duration: randDur(durMin, durMax), failed: randFail() });
+    }
+    return tools;
+  }
+  function makeDirectTools(count) {
+    const tools = [];
+    for (let i = 0; i < count; i++) {
+      tools.push({ name: randDirect(), duration: randDur(0.05, 0.8), failed: false });
+    }
+    return tools;
+  }
+  function makeSubagent(type, index, toolCount, durMin, durMax) {
+    const tools = makeToolCalls(toolCount, durMin, durMax);
+    const totalDur = tools.reduce((s,t) => s+t.duration, 0);
+    return { type, name: `${type}-${index}`, tools, duration: +totalDur.toFixed(1) };
+  }
+
+  const turns = [
+    {
+      number: 1,
+      userMessage: "Explore the codebase and understand the authentication module",
+      userDur: 0.2,
+      assistantDur: 58.4,
+      subagents: [
+        makeSubagent('explore', 1, 8, 0.3, 2.5),
+        makeSubagent('explore', 2, 8, 0.2, 3.0),
+        makeSubagent('explore', 3, 8, 0.4, 2.0),
+        makeSubagent('explore', 4, 8, 0.3, 1.8),
+        makeSubagent('explore', 5, 8, 0.5, 2.2),
+      ],
+      parallelGroups: [[0,1,2],[3,4]],
+      directTools: makeDirectTools(3),
+      totalDuration: 60.2,
+    },
+    {
+      number: 2,
+      userMessage: "Implement JWT authentication with refresh token rotation and update all middleware",
+      userDur: 0.3,
+      assistantDur: 118.5,
+      subagents: [
+        makeSubagent('general-purpose', 1, 12, 0.5, 4.0),
+        makeSubagent('general-purpose', 2, 10, 0.4, 3.5),
+        makeSubagent('general-purpose', 3, 11, 0.6, 3.0),
+        makeSubagent('explore', 6, 9, 0.2, 2.0),
+        makeSubagent('explore', 7, 8, 0.3, 1.5),
+      ],
+      parallelGroups: [[0,1],[2,3,4]],
+      directTools: makeDirectTools(5),
+      totalDuration: 120.0,
+    },
+    {
+      number: 3,
+      userMessage: "Review all changes and run the test suite to verify correctness",
+      userDur: 0.1,
+      assistantDur: 43.8,
+      subagents: [
+        makeSubagent('code-review', 1, 6, 0.3, 1.8),
+        makeSubagent('code-review', 2, 7, 0.4, 2.0),
+        makeSubagent('code-review', 3, 5, 0.2, 1.5),
+        makeSubagent('code-review', 4, 6, 0.3, 1.6),
+        makeSubagent('explore', 8, 7, 0.2, 1.2),
+        makeSubagent('explore', 9, 6, 0.3, 1.0),
+        makeSubagent('explore', 10, 5, 0.2, 0.8),
+      ],
+      parallelGroups: [[0,1,2,3],[4,5,6]],
+      directTools: makeDirectTools(2),
+      totalDuration: 45.0,
+    }
+  ];
+
+  /* ============================================================
+     Rendering
+     ============================================================ */
+  const timeline = document.getElementById('timeline');
+
+  function chevronSVG(cls) {
+    return `<svg class="${cls}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"/></svg>`;
+  }
+  function parallelSVG() {
+    return `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="4" x2="13" y2="4"/><line x1="3" y1="8" x2="13" y2="8"/><line x1="3" y1="12" x2="13" y2="12"/></svg>`;
+  }
+
+  function barWidth(dur, maxDur) {
+    const minPx = 28;
+    const maxPx = 320;
+    return Math.max(minPx, Math.round((dur / maxDur) * maxPx));
+  }
+
+  function renderTurn(turn) {
+    const totalTools = turn.subagents.reduce((s, sa) => s + sa.tools.length, 0) + turn.directTools.length;
+    const maxToolDur = 4.0;
+
+    let html = `
+    <div class="turn-group" data-turn="${turn.number}">
+      <div class="turn-header" onclick="toggleTurn(this)">
+        ${chevronSVG('turn-chevron')}
+        <span class="turn-number">Turn ${turn.number}</span>
+        <span class="turn-user-msg">${turn.userMessage}</span>
+        <div class="turn-badges">
+          <span class="badge badge-accent">${turn.subagents.length} subagents</span>
+          <span class="badge badge-warning">${totalTools} tools</span>
+          <span class="badge badge-neutral">${turn.totalDuration}s</span>
+        </div>
+      </div>
+      <div class="turn-body">
+        <div class="lane-container">
+          <!-- User lane -->
+          <div class="lane-row">
+            <div class="lane-label">User</div>
+            <div class="lane-track">
+              <div class="dur-bar bar-user" style="width:${barWidth(turn.userDur, 2)}px"
+                   data-tip-title="User message" data-tip-dur="${turn.userDur}s"
+                   data-tip-detail="${turn.userMessage.substring(0,80)}"
+                   onmouseenter="showTip(event,this)" onmouseleave="hideTip()">
+                ${turn.userDur}s
+              </div>
+            </div>
+          </div>
+          <!-- Assistant lane -->
+          <div class="lane-row">
+            <div class="lane-label">Assistant</div>
+            <div class="lane-track">
+              <div class="dur-bar bar-assistant" style="width:${barWidth(turn.assistantDur, 130)}px"
+                   data-tip-title="Assistant turn" data-tip-dur="${turn.assistantDur}s"
+                   data-tip-detail="${turn.subagents.length} subagents launched"
+                   onmouseenter="showTip(event,this)" onmouseleave="hideTip()">
+                ${turn.assistantDur}s
+              </div>
+            </div>
+          </div>`;
+
+    // Render parallel groups with subagents
+    turn.parallelGroups.forEach((group, gi) => {
+      if (group.length > 1) {
+        html += `<div class="parallel-indicator">${parallelSVG()} ${group.length} parallel subagents</div>`;
+      }
+      html += `<div class="subagent-section">`;
+      group.forEach(idx => {
+        const sa = turn.subagents[idx];
+        if (!sa) return;
+        const dotCls = sa.type === 'explore' ? 'sa-dot-explore' : sa.type === 'general-purpose' ? 'sa-dot-general' : 'sa-dot-review';
+        const barCls = sa.type === 'explore' ? 'bar-explore' : sa.type === 'general-purpose' ? 'bar-general' : 'bar-review';
+        const failCount = sa.tools.filter(t => t.failed).length;
+        html += `
+          <div class="subagent-group" data-sa="${sa.name}">
+            <div class="subagent-header" onclick="toggleSubagent(this)">
+              ${chevronSVG('sa-chevron')}
+              <div class="sa-type-dot ${dotCls}"></div>
+              <span class="sa-name">${sa.name}</span>
+              <div class="sa-meta">
+                <span class="badge badge-neutral">${sa.tools.length} tools</span>
+                ${failCount ? `<span class="badge badge-danger">${failCount} failed</span>` : ''}
+                <span class="badge badge-neutral">${sa.duration}s</span>
+              </div>
+            </div>
+            <div class="sa-tools-track">`;
+        sa.tools.forEach(tool => {
+          const cls = tool.failed ? 'bar-tool-fail' : barCls;
+          html += `<div class="sa-tool-bar ${cls}" style="width:${barWidth(tool.duration, maxToolDur)}px"
+                        data-tip-title="${tool.name}" data-tip-dur="${tool.duration}s"
+                        data-tip-detail="${tool.failed ? 'FAILED' : 'Success'} — in ${sa.name}"
+                        onmouseenter="showTip(event,this)" onmouseleave="hideTip()">
+                     ${tool.name}
+                   </div>`;
+        });
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+
+    // Direct tools lane
+    html += `
+          <div class="direct-tools-row">
+            <div class="lane-label">Direct tools</div>
+            <div class="lane-track">`;
+    turn.directTools.forEach(tool => {
+      html += `<div class="dur-bar bar-tool" style="width:${barWidth(tool.duration, 1)}px; height:20px; font-size:0.5625rem;"
+                    data-tip-title="${tool.name}" data-tip-dur="${tool.duration}s"
+                    data-tip-detail="Direct tool call"
+                    onmouseenter="showTip(event,this)" onmouseleave="hideTip()">
+                 ${tool.name}
+               </div>`;
+    });
+    html += `</div></div>`;
+
+    html += `</div></div></div>`;
+    return html;
+  }
+
+  turns.forEach(t => { timeline.insertAdjacentHTML('beforeend', renderTurn(t)); });
+
+  /* ============================================================
+     Collapse / Expand
+     ============================================================ */
+  function toggleTurn(header) {
+    header.closest('.turn-group').classList.toggle('collapsed');
+    updateMinimap();
+  }
+  function toggleSubagent(header) {
+    header.closest('.subagent-group').classList.toggle('collapsed');
+  }
+
+  /* ============================================================
+     Minimap
+     ============================================================ */
+  function renderMinimap() {
+    const minimap = document.getElementById('minimap');
+    const totalDur = turns.reduce((s, t) => s + t.totalDuration, 0);
+    let offset = 0;
+    turns.forEach(t => {
+      const pct = (t.totalDuration / totalDur) * 100;
+      const left = (offset / totalDur) * 100;
+      // Turn block
+      const colors = {
+        1: 'rgba(34,211,238,0.6)',
+        2: 'rgba(167,139,250,0.6)',
+        3: 'rgba(244,114,182,0.6)',
+      };
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;left:${left}%;width:${pct}%;top:4px;bottom:4px;background:${colors[t.number]||'rgba(99,102,241,0.4)'};border-radius:3px;opacity:0.8;`;
+      // Turn label
+      const lbl = document.createElement('span');
+      lbl.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:0.5625rem;font-weight:700;color:#fff;pointer-events:none;white-space:nowrap;`;
+      lbl.textContent = `T${t.number}`;
+      el.appendChild(lbl);
+      minimap.insertBefore(el, document.getElementById('minimap-viewport'));
+      offset += t.totalDuration;
+    });
+  }
+  renderMinimap();
+
+  function updateMinimap() {
+    const vp = document.getElementById('minimap-viewport');
+    const tl = document.getElementById('timeline');
+    const scrollParent = document.scrollingElement || document.documentElement;
+    const tlRect = tl.getBoundingClientRect();
+    const vpHeight = window.innerHeight;
+    const tlTop = tl.offsetTop;
+    const tlHeight = tl.scrollHeight;
+    if (tlHeight <= 0) return;
+    const scrollTop = scrollParent.scrollTop;
+    const visStart = Math.max(0, scrollTop - tlTop);
+    const visEnd = Math.min(tlHeight, scrollTop - tlTop + vpHeight);
+    const leftPct = (visStart / tlHeight) * 100;
+    const widthPct = ((visEnd - visStart) / tlHeight) * 100;
+    vp.style.left = leftPct + '%';
+    vp.style.width = Math.max(widthPct, 8) + '%';
+  }
+  window.addEventListener('scroll', updateMinimap);
+  window.addEventListener('resize', updateMinimap);
+  updateMinimap();
+
+  /* Minimap click-to-scroll */
+  document.getElementById('minimap').addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const tl = document.getElementById('timeline');
+    const target = tl.offsetTop + tl.scrollHeight * pct - window.innerHeight / 3;
+    window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  });
+
+  /* ============================================================
+     Tooltip
+     ============================================================ */
+  const tooltip = document.getElementById('tooltip');
+
+  function showTip(e, el) {
+    const title = el.getAttribute('data-tip-title');
+    const dur = el.getAttribute('data-tip-dur');
+    const detail = el.getAttribute('data-tip-detail');
+    tooltip.innerHTML = `
+      <div class="tooltip-title">${title}</div>
+      <div class="tooltip-row"><span class="tt-label">Duration</span> ${dur}</div>
+      ${detail ? `<div class="tooltip-row"><span class="tt-label">Detail</span> ${detail}</div>` : ''}
+    `;
+    tooltip.classList.add('visible');
+    positionTip(e);
+  }
+  function hideTip() {
+    tooltip.classList.remove('visible');
+  }
+  function positionTip(e) {
+    const pad = 12;
+    let x = e.clientX + pad;
+    let y = e.clientY + pad;
+    if (x + 320 > window.innerWidth) x = e.clientX - 320 - pad;
+    if (y + 100 > window.innerHeight) y = e.clientY - 100 - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) positionTip(e);
+  });
+
+  /* ============================================================
+     Expand All / Collapse All keyboard shortcut
+     ============================================================ */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'e' && !e.ctrlKey && !e.metaKey && e.target === document.body) {
+      document.querySelectorAll('.turn-group.collapsed').forEach(el => el.classList.remove('collapsed'));
+      document.querySelectorAll('.subagent-group.collapsed').forEach(el => el.classList.remove('collapsed'));
+      updateMinimap();
+    }
+    if (e.key === 'c' && !e.ctrlKey && !e.metaKey && e.target === document.body) {
+      document.querySelectorAll('.turn-group:not(.collapsed)').forEach(el => el.classList.add('collapsed'));
+      updateMinimap();
+    }
+  });
+  </script>
+</body>
+</html>

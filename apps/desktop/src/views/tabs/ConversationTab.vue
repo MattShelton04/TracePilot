@@ -72,128 +72,121 @@ const totalDurationMs = computed(() =>
     <EmptyState v-if="store.turns.length === 0" message="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
-    <div v-else-if="activeView === 'chat'" class="space-y-4">
-      <div v-for="turn in store.turns" :key="turn.turnIndex" class="space-y-4">
-        <!-- User message bubble -->
-        <div v-if="turn.userMessage" class="flex gap-3 items-start">
-          <div style="width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;" class="bg-[var(--accent-muted)]">👤</div>
-          <div class="flex-1 min-w-0 space-y-1">
-            <div class="flex items-center gap-2">
-              <span class="font-semibold text-[var(--text-primary)]" style="font-size: 0.8125rem;">You</span>
-              <span class="text-xs text-[var(--text-placeholder)]">Turn {{ turn.turnIndex }}</span>
-              <span v-if="turn.timestamp" class="text-xs text-[var(--text-placeholder)]">{{ formatTime(turn.timestamp) }}</span>
+    <div v-else-if="activeView === 'chat'" class="turn-group">
+      <div v-for="turn in store.turns" :key="turn.turnIndex" class="conversation-turn">
+        <!-- User message -->
+        <div v-if="turn.userMessage" class="turn-item">
+          <div class="turn-avatar user">👤</div>
+          <div class="turn-body">
+            <div class="turn-header">
+              <span class="turn-author">You</span>
+              <span class="turn-meta">Turn {{ turn.turnIndex }}</span>
+              <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
             </div>
-            <div class="whitespace-pre-wrap rounded-lg border-l-[3px] border-l-[var(--accent-emphasis)] bg-[var(--accent-subtle)] border border-[var(--accent-muted)] text-[var(--text-primary)]" style="padding: 10px 14px; padding-left: 12px; font-size: 0.8125rem; line-height: 1.6;">
-              {{ truncateText(turn.userMessage) }}
-            </div>
+            <div class="turn-bubble user">{{ truncateText(turn.userMessage) }}</div>
           </div>
         </div>
 
-        <!-- Assistant message bubble -->
-        <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="flex gap-3 items-start">
-          <div style="width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;" class="bg-[var(--done-muted)]">🤖</div>
-          <div class="flex-1 min-w-0 space-y-1">
-            <div class="flex items-center gap-2">
-              <span class="font-semibold text-[var(--text-primary)]" style="font-size: 0.8125rem;">Assistant</span>
+        <!-- Assistant messages -->
+        <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="turn-item">
+          <div class="turn-avatar assistant">🤖</div>
+          <div class="turn-body">
+            <div class="turn-header">
+              <span class="turn-author">Assistant</span>
               <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
-              <span v-if="turn.durationMs" class="text-xs text-[var(--text-placeholder)]">{{ formatDuration(turn.durationMs) }}</span>
+              <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
               <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
             </div>
-            <div class="whitespace-pre-wrap rounded-lg bg-[var(--canvas-raised)] border border-[var(--border-default)] text-[var(--text-primary)]" style="padding: 10px 14px; font-size: 0.8125rem; line-height: 1.6;">
-              {{ truncateText(msg) }}
-            </div>
+            <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
           </div>
         </div>
 
-        <!-- Tool calls section (chat view) -->
-        <div v-if="turn.toolCalls.length > 0" class="ml-11" style="border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;">
-          <button
-            class="flex items-center gap-2 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] py-1.5 px-2 w-full hover:bg-[var(--neutral-subtle)]"
-            :aria-expanded="expandedTools.has(turn.turnIndex)"
-            @click="expandedTools.toggle(turn.turnIndex)"
-          >
-            <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
-            <span class="font-medium">{{ turn.toolCalls.length }} tool call{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
-            <span class="ml-auto flex items-center gap-1.5">
-              <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--success-muted)] text-[var(--success-fg)]">
-                {{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
+        <!-- Tool calls section -->
+        <div v-if="turn.toolCalls.length > 0" class="turn-tool-calls">
+          <div class="tool-calls-container">
+            <button
+              class="tool-call-header w-full"
+              :aria-expanded="expandedTools.has(turn.turnIndex)"
+              @click="expandedTools.toggle(turn.turnIndex)"
+            >
+              <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
+              <span>{{ turn.toolCalls.length }} tool call{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
+              <span style="margin-left: auto; display: flex; gap: 6px;">
+                <span class="tool-summary-badge tool-summary-pass">
+                  {{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
+                </span>
+                <span
+                  v-if="turn.toolCalls.some((tc) => tc.success === false)"
+                  class="tool-summary-badge tool-summary-fail"
+                >
+                  {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
+                </span>
               </span>
-              <span
-                v-if="turn.toolCalls.some((tc) => tc.success === false)"
-                class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--danger-muted)] text-[var(--danger-fg)]"
-              >
-                {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
-              </span>
-            </span>
-          </button>
+            </button>
 
-          <div v-if="expandedTools.has(turn.turnIndex)" class="mt-0 space-y-0">
-            <ToolCallItem
-              v-for="(tc, tcIdx) in turn.toolCalls"
-              :key="tcIdx"
-              :tc="tc"
-              :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
-              :expanded="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
-              @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${tcIdx}`)"
-            />
+            <div v-if="expandedTools.has(turn.turnIndex)">
+              <ToolCallItem
+                v-for="(tc, tcIdx) in turn.toolCalls"
+                :key="tcIdx"
+                :tc="tc"
+                :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
+                :expanded="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
+                @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${tcIdx}`)"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
-    <div v-else-if="activeView === 'compact'" class="space-y-3">
-      <div
-        v-for="turn in store.turns"
-        :key="turn.turnIndex"
-        class="rounded-lg border border-[var(--border-default)] bg-[var(--canvas-subtle)] overflow-hidden"
-      >
-        <div class="flex items-center gap-3 px-5 py-3 border-b border-[var(--border-muted)] bg-[var(--canvas-default)]">
-          <span class="text-xs font-bold text-[var(--accent-fg)]">Turn {{ turn.turnIndex }}</span>
+    <div v-else-if="activeView === 'compact'" class="turn-group">
+      <div v-for="turn in store.turns" :key="turn.turnIndex" class="compact-turn">
+        <div class="compact-turn-header">
+          <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
-          <span v-if="turn.durationMs" class="text-xs text-[var(--text-tertiary)]">{{ formatDuration(turn.durationMs) }}</span>
-          <span v-if="turn.toolCalls.length" class="ml-auto text-xs text-[var(--text-secondary)]">
+          <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+          <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
             {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
           </span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
         </div>
 
-        <div class="p-5 space-y-3">
-          <div v-if="turn.userMessage" class="text-sm text-[var(--text-primary)]">
-            <span class="font-semibold text-[var(--text-secondary)] mr-2">User:</span>
+        <div class="compact-turn-body">
+          <div v-if="turn.userMessage" class="compact-turn-label">
+            <span class="compact-turn-label-prefix user">User:</span>
             {{ truncateText(turn.userMessage, 300) }}
           </div>
-          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="text-sm text-[var(--text-primary)]">
-            <span class="font-semibold text-[var(--done-fg)] mr-2">Copilot:</span>
+          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="compact-turn-label">
+            <span class="compact-turn-label-prefix assistant">Copilot:</span>
             {{ truncateText(msg, 300) }}
           </div>
 
           <!-- Tool pills -->
-          <div v-if="turn.toolCalls.length > 0" class="flex flex-wrap gap-1.5">
+          <div v-if="turn.toolCalls.length > 0" class="compact-tool-pills">
             <button
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"
-              class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-mono cursor-pointer transition-colors hover:ring-1 hover:ring-[var(--border-default)]"
-              :class="tc.success === false
-                ? 'bg-[var(--danger-muted)] text-[var(--danger-fg)]'
-                : tc.success === true
-                  ? 'bg-[var(--canvas-default)] border border-[var(--border-muted)] text-[var(--text-secondary)]'
-                  : 'bg-[var(--neutral-muted)] text-[var(--text-tertiary)]'"
+              class="compact-tool-pill"
+              :class="{
+                failed: tc.success === false,
+                unknown: tc.success == null,
+              }"
               :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)"
               @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${tcIdx}`)"
             >
               {{ toolIcon(tc.toolName) }} {{ tc.toolName }}
-              <span v-if="tc.durationMs" class="text-[var(--text-tertiary)]">{{ formatDuration(tc.durationMs) }}</span>
+              <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
             </button>
           </div>
 
           <!-- Expanded tool detail (compact view) -->
           <template v-for="(tc, tcIdx) in turn.toolCalls" :key="`detail-${tcIdx}`">
-            <div v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)" class="rounded-md border border-[var(--border-muted)] overflow-hidden mt-2">
-              <div class="flex items-center gap-2 text-xs px-4 py-2 bg-[var(--canvas-subtle)]">
+            <div v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)" class="tool-calls-container" style="margin-top: 4px;">
+              <div class="tool-call-header">
                 <span>{{ toolIcon(tc.toolName) }}</span>
-                <span class="font-semibold" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
-                <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="text-[var(--text-tertiary)] font-mono truncate">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
+                <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
+                <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="tool-call-args" style="font-family: var(--font-mono, monospace);">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
               </div>
               <ToolCallDetail :tc="tc" :show-metadata="false" />
             </div>
@@ -203,32 +196,27 @@ const totalDurationMs = computed(() =>
     </div>
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
-    <div v-else-if="activeView === 'timeline'" class="relative pl-8">
-      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" class="relative pb-8 last:pb-0">
-        <div
-          v-if="turnIdx < store.turns.length - 1"
-          class="absolute left-[-16.5px] top-7 bottom-0 w-px bg-[var(--border-default)]"
-        />
-        <div class="absolute -left-8 top-1 h-7 w-7 rounded-full border-2 border-[var(--border-default)] bg-[var(--canvas-default)] flex items-center justify-center text-xs font-bold text-[var(--accent-fg)]">
-          {{ turn.turnIndex }}
-        </div>
+    <div v-else-if="activeView === 'timeline'" class="timeline-view">
+      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" class="timeline-turn">
+        <div v-if="turnIdx < store.turns.length - 1" class="timeline-connector" />
+        <div class="timeline-marker">{{ turn.turnIndex }}</div>
 
-        <div class="space-y-3">
-          <div class="flex items-center gap-2 flex-wrap">
+        <div class="timeline-turn-body">
+          <div class="timeline-meta">
             <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
-            <span v-if="turn.durationMs" class="text-xs text-[var(--text-tertiary)]">{{ formatDuration(turn.durationMs) }}</span>
-            <span v-if="turn.timestamp" class="text-xs text-[var(--text-tertiary)]">{{ formatTime(turn.timestamp) }}</span>
-            <span v-if="turn.toolCalls.length" class="text-xs text-[var(--text-secondary)]">· {{ turn.toolCalls.length }} tools</span>
+            <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+            <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
+            <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tools</span>
             <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
           </div>
 
-          <div v-if="turn.userMessage" class="rounded-lg border border-[var(--accent-muted)] bg-[var(--accent-subtle)] px-4 py-3">
-            <div class="text-xs font-semibold text-[var(--accent-fg)] mb-1">User</div>
-            <div class="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{{ truncateText(turn.userMessage, 500) }}</div>
+          <div v-if="turn.userMessage" class="timeline-block user">
+            <div class="timeline-block-label user">User</div>
+            <div class="timeline-block-text">{{ truncateText(turn.userMessage, 500) }}</div>
           </div>
 
-          <!-- Tool calls — uses shared ToolCallItem (compact variant) -->
-          <div v-if="turn.toolCalls.length > 0" class="space-y-1.5">
+          <!-- Tool calls (timeline) -->
+          <div v-if="turn.toolCalls.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
             <ToolCallItem
               v-for="(tc, tcIdx) in turn.toolCalls"
               :key="tcIdx"
@@ -240,9 +228,9 @@ const totalDurationMs = computed(() =>
             />
           </div>
 
-          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="rounded-lg border border-[var(--border-muted)] bg-[var(--canvas-subtle)] px-4 py-3">
-            <div class="text-xs font-semibold text-[var(--done-fg)] mb-1">Copilot</div>
-            <div class="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{{ truncateText(msg, 500) }}</div>
+          <div v-for="(msg, idx) in turn.assistantMessages" :key="idx" class="timeline-block assistant">
+            <div class="timeline-block-label assistant">Copilot</div>
+            <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
           </div>
         </div>
       </div>

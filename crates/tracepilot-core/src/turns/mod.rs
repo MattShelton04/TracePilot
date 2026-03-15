@@ -162,13 +162,12 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
 
 /// Compute summary statistics for reconstructed turns.
 pub fn turn_stats(turns: &[ConversationTurn]) -> TurnStats {
-    let mut models_used = Vec::new();
+    let mut models_set = std::collections::HashSet::new();
 
     for model in turns.iter().filter_map(|turn| turn.model.as_ref()) {
-        if !models_used.iter().any(|existing| existing == model) {
-            models_used.push(model.clone());
-        }
+        models_set.insert(model.clone());
     }
+    let models_used: Vec<String> = models_set.into_iter().collect();
 
     TurnStats {
         total_turns: turns.len(),
@@ -834,6 +833,7 @@ mod tests {
         assert_eq!(stats.incomplete_turns, 1);
         assert_eq!(stats.total_tool_calls, 1);
         assert_eq!(stats.total_messages, 2);
-        assert_eq!(stats.models_used, vec!["claude-sonnet-4.5".to_string()]);
+        assert_eq!(stats.models_used.len(), 1);
+        assert!(stats.models_used.contains(&"claude-sonnet-4.5".to_string()));
     }
 }

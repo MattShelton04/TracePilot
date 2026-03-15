@@ -64,7 +64,8 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
           )
         )
       : MOCK_SESSIONS,
-    reindex_sessions: 0,
+    reindex_sessions: [0, 0] as [number, number],
+    reindex_sessions_full: [0, 0] as [number, number],
     get_analytics: MOCK_ANALYTICS,
     get_tool_analysis: MOCK_TOOL_ANALYSIS,
     get_code_impact: MOCK_CODE_IMPACT,
@@ -118,8 +119,14 @@ export async function searchSessions(query: string): Promise<SessionListItem[]> 
   return invoke<SessionListItem[]>("search_sessions", { query });
 }
 
-export async function reindexSessions(): Promise<number> {
-  return invoke<number>("reindex_sessions");
+/** Returns [updated, total] session counts. */
+export async function reindexSessions(): Promise<[number, number]> {
+  return invoke<[number, number]>("reindex_sessions");
+}
+
+/** Delete the index DB and rebuild all analytics from scratch. Returns [rebuilt, total]. */
+export async function reindexSessionsFull(): Promise<[number, number]> {
+  return invoke<[number, number]>("reindex_sessions_full");
 }
 
 /** Get aggregated analytics data across all sessions. */

@@ -5,7 +5,7 @@
 
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { MiniTimeline } from '@tracepilot/ui';
+import { MiniTimeline, formatDuration } from '@tracepilot/ui';
 import StubBanner from '@/components/StubBanner.vue';
 import type { ReplayStep } from '@tracepilot/types';
 
@@ -176,10 +176,6 @@ function fmtTime(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function fmtDuration(ms: number): string {
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${ms}ms`;
-}
 
 function clearTimer() {
   if (playTimer !== null) {
@@ -396,7 +392,7 @@ onUnmounted(() => {
               </div>
               <div class="kv-row">
                 <span class="kv-key">Duration</span>
-                <span class="kv-value">{{ fmtDuration(currentStepData.durationMs) }}</span>
+                <span class="kv-value">{{ formatDuration(currentStepData.durationMs) }}</span>
               </div>
               <div class="kv-row">
                 <span class="kv-key">Model</span>
@@ -414,7 +410,7 @@ onUnmounted(() => {
                 <span class="metric-label">Tokens</span>
               </div>
               <div class="metric-card">
-                <span class="metric-value">{{ fmtDuration(currentStepData.durationMs) }}</span>
+                <span class="metric-value">{{ formatDuration(currentStepData.durationMs) }}</span>
                 <span class="metric-label">Duration</span>
               </div>
               <div class="metric-card">

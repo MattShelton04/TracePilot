@@ -7,13 +7,14 @@
 export function formatDuration(ms?: number | null): string {
   if (ms == null || ms < 0) return "";
   if (ms < 1000) return `${ms}ms`;
-  const totalSeconds = Math.floor(ms / 1000);
+  const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${Math.floor(seconds)}s`;
+  // Show one decimal for sub-minute durations (e.g. "2.1s")
+  return seconds % 1 === 0 ? `${seconds}s` : `${seconds.toFixed(1)}s`;
 }
 
 /** Format an ISO date string to locale date+time. */

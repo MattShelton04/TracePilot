@@ -6,6 +6,7 @@
 
 import { ref, onMounted, computed } from 'vue';
 import type { ComparisonResult, SessionListItem } from '@tracepilot/types';
+import { formatDuration } from '@tracepilot/ui';
 import { useSessionsStore } from '@/stores/sessions';
 import StubBanner from '@/components/StubBanner.vue';
 
@@ -92,10 +93,8 @@ interface MetricRow {
   deltaClass: string;
 }
 
-function fmtDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+function fmtDurationSec(seconds: number): string {
+  return formatDuration(seconds * 1000);
 }
 
 function fmtTokens(t: number): string {
@@ -149,7 +148,7 @@ const metricsRows = computed<MetricRow[]>(() => {
     rows.push({ label, valueA: fmt(va), valueB: fmt(vb), delta, deltaClass });
   }
 
-  row('Duration', a.duration, b.duration, fmtDuration, false);
+  row('Duration', a.duration, b.duration, fmtDurationSec, false);
   row('Turns', a.turns, b.turns, String, false);
   row('Total Tokens', a.tokens, b.tokens, fmtTokens, false);
   row('Cost', a.cost, b.cost, fmtCost, false);
@@ -295,7 +294,7 @@ function barHeight(value: number, group: BarGroup): number {
               <dd><span class="badge badge-done">{{ comparison.sessionA.model }}</span></dd>
               <dt>Duration</dt>
               <dd :class="valueCls(comparison.sessionA.duration, comparison.sessionB.duration, false)">
-                {{ fmtDuration(comparison.sessionA.duration) }}
+                {{ fmtDurationSec(comparison.sessionA.duration) }}
               </dd>
               <dt>Turns</dt>
               <dd :class="valueCls(comparison.sessionA.turns, comparison.sessionB.turns, false)">
@@ -326,7 +325,7 @@ function barHeight(value: number, group: BarGroup): number {
               <dd><span class="badge badge-done">{{ comparison.sessionB.model }}</span></dd>
               <dt>Duration</dt>
               <dd :class="valueCls(comparison.sessionB.duration, comparison.sessionA.duration, false)">
-                {{ fmtDuration(comparison.sessionB.duration) }}
+                {{ fmtDurationSec(comparison.sessionB.duration) }}
               </dd>
               <dt>Turns</dt>
               <dd :class="valueCls(comparison.sessionB.turns, comparison.sessionA.turns, false)">
