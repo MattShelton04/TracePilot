@@ -265,12 +265,12 @@ const costChart = computed(() => {
                     :y1="gy"
                     :x2="CHART_RIGHT"
                     :y2="gy"
-                    stroke="rgba(255,255,255,0.04)"
+                    class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
                   <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
                     v-for="(yl, yi) in tokenChart.yLabels"
@@ -279,7 +279,7 @@ const costChart = computed(() => {
                     :y="yl.y + 3"
                     text-anchor="end"
                     font-size="9"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ yl.value }}</text>
                   <!-- Area -->
                   <polygon :points="tokenChart.areaPoints" fill="url(#tokenAreaGrad)" />
@@ -309,7 +309,7 @@ const costChart = computed(() => {
                     y="192"
                     text-anchor="middle"
                     font-size="8"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ xl.label }}</text>
                 </svg>
               </div>
@@ -340,12 +340,12 @@ const costChart = computed(() => {
                     :y1="gy"
                     :x2="CHART_RIGHT"
                     :y2="gy"
-                    stroke="rgba(255,255,255,0.04)"
+                    class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
                   <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
                     v-for="(yl, yi) in sessionsChart.yLabels"
@@ -354,7 +354,7 @@ const costChart = computed(() => {
                     :y="yl.y + 3"
                     text-anchor="end"
                     font-size="9"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ yl.value }}</text>
                   <!-- Bars -->
                   <rect
@@ -375,7 +375,7 @@ const costChart = computed(() => {
                     y="192"
                     text-anchor="middle"
                     font-size="8"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ xl.label }}</text>
                 </svg>
               </div>
@@ -402,10 +402,10 @@ const costChart = computed(() => {
                     :stroke-dashoffset="seg.offset"
                     transform="rotate(-90 80 80)"
                   />
-                  <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="#fafafa">
+                  <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" class="donut-center-value">
                     {{ fmtTokens(data.totalTokens) }}
                   </text>
-                  <text x="80" y="92" text-anchor="middle" font-size="9" fill="#71717a">total tokens</text>
+                  <text x="80" y="92" text-anchor="middle" font-size="9" fill="currentColor" class="donut-center-label">total tokens</text>
                 </svg>
                 <div class="donut-legend">
                   <div v-for="(seg, si) in donutSegments" :key="`dl-${si}`" class="donut-legend-item">
@@ -442,12 +442,12 @@ const costChart = computed(() => {
                     :y1="gy"
                     :x2="CHART_RIGHT"
                     :y2="gy"
-                    stroke="rgba(255,255,255,0.04)"
+                    class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
                   <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" stroke="rgba(255,255,255,0.06)" />
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
                     v-for="(yl, yi) in costChart.yLabels"
@@ -456,7 +456,7 @@ const costChart = computed(() => {
                     :y="yl.y + 3"
                     text-anchor="end"
                     font-size="9"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ yl.value }}</text>
                   <!-- Area -->
                   <polygon :points="costChart.areaPoints" fill="url(#costAreaGrad)" />
@@ -486,7 +486,7 @@ const costChart = computed(() => {
                     y="192"
                     text-anchor="middle"
                     font-size="8"
-                    fill="#71717a"
+                    class="chart-label"
                   >{{ xl.label }}</text>
                 </svg>
               </div>
@@ -582,5 +582,26 @@ const costChart = computed(() => {
   color: var(--text-tertiary);
   min-width: 36px;
   text-align: right;
+}
+
+.donut-center-value {
+  fill: var(--text-primary);
+}
+
+.donut-center-label {
+  fill: var(--text-tertiary);
+}
+
+/* ── Theme-aware SVG chart styles ──────────────────────────── */
+.chart-grid-line {
+  stroke: var(--border-subtle);
+}
+
+.chart-axis {
+  stroke: var(--border-default);
+}
+
+.chart-label {
+  fill: var(--text-tertiary);
 }
 </style>
