@@ -23,10 +23,13 @@ pub fn default_index_db_path() -> PathBuf {
         .join("index.db")
 }
 
-/// Perform a full reindex of all sessions.
+/// Perform a full reindex of all sessions, pruning any that no longer exist on disk.
 pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usize> {
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+
+    let live_ids: std::collections::HashSet<String> =
+        sessions.iter().map(|s| s.id.clone()).collect();
 
     let mut indexed = 0;
     for session in &sessions {
@@ -35,6 +38,17 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
         } else {
             indexed += 1;
         }
+    }
+
+    // Remove stale entries for sessions that no longer exist on disk
+    match db.prune_deleted(&live_ids) {
+        Ok(pruned) if pruned > 0 => {
+            tracing::info!(pruned, "Pruned deleted sessions from index");
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to prune deleted sessions");
+        }
+        _ => {}
     }
 
     Ok(indexed)

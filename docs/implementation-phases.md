@@ -190,45 +190,54 @@ Full reference: [`docs/design/design-system.md`](../docs/design/design-system.md
 **Goal:** Rich analytics dashboards showing usage patterns, costs, and productivity insights.
 
 ### 3.1 — Analytics Engine (Rust)
-- [ ] Aggregate metrics across sessions: total tokens, total cost, session count per day
-- [ ] Per-model usage breakdown: requests, tokens (input/output), estimated cost
-- [ ] Tool usage statistics: frequency, avg duration, failure rate per tool
-- [ ] Code change metrics: lines added/removed over time, files modified frequency
-- [ ] Session duration analysis: avg, median, p95, outliers
-- [ ] Productivity heuristics: turns-to-completion, tool-call-to-turn ratio
+- [x] Aggregate metrics across sessions: total tokens, total cost, session count per day
+- [x] Per-model usage breakdown: requests, tokens (input/output), estimated cost
+- [x] Tool usage statistics: frequency, avg duration, failure rate per tool
+- [x] Code change metrics: lines added/removed over time, files modified frequency
+- [x] Session duration analysis: avg, median, p95, outliers
+- [x] Productivity heuristics: turns-to-completion, tool-call-to-turn ratio
 
 ### 3.2 — Visualization Components (Vue)
-- [ ] **Usage Dashboard** — aggregated stats across all sessions
-  - Token usage over time (line chart)
-  - Model distribution (pie/donut chart)
-  - Sessions per day/week (bar chart)
-  - Cost estimation (if model pricing is available)
-- [ ] **Session Timeline** — hierarchical swimlane view:
+- [x] **Usage Dashboard** — aggregated stats across all sessions
+  - Token usage over time (SVG line chart)
+  - Model distribution (SVG donut chart)
+  - Sessions per day/week (SVG bar chart)
+  - Cost estimation (from model metrics)
+- [x] **Session Timeline** — hierarchical swimlane view:
   - Lane 1: User turns (messages)
   - Lane 2: Assistant responses
   - Lane 3: Tool executions (with duration bars)
   - Lane 4: Subagent lifecycles
-  - Zoomable, pannable timeline control
-- [ ] **Tool Analysis View**
+  - Timestamp-based positioning with index fallback
+  - [ ] Zoomable, pannable timeline control (deferred to Phase 6)
+- [x] **Tool Analysis View**
   - Tool call frequency heatmap
   - Average execution time per tool
   - Tool failure rates
-- [ ] **Code Impact View**
-  - Files modified across sessions (treemap)
+- [x] **Code Impact View**
+  - Files modified across sessions (frequency-based)
   - Lines added/removed trends
   - Repository activity summary
 
 ### 3.3 — Charting Library Integration
-- [ ] Evaluate and integrate: Apache ECharts (via `vue-echarts`) or D3.js
-- [ ] Responsive chart sizing
-- [ ] Export charts as PNG/SVG
+- [x] Evaluate: Existing SVG charts are clean and sufficient; no external library needed
+- [x] Responsive chart sizing (implemented via viewBox + percentage widths)
+- [ ] Export charts as PNG/SVG (deferred to Phase 6)
 
 ### 3.4 — Testing Gate
-- [ ] Analytics computation unit tests (Rust)
-- [ ] Chart component snapshot tests
-- [ ] Performance benchmarks for aggregation over 500+ sessions
+- [x] Analytics computation unit tests (Rust) — 34 tests covering all aggregation functions
+- [x] Frontend store + component tests — 68 tests across stores and views
+- [ ] Performance benchmarks for aggregation over 500+ sessions (deferred)
 
-**Deliverable:** Dashboard view with charts showing usage patterns, cost breakdown, and productivity metrics.
+### 3.5 — Post-Implementation Fixes
+- [x] Tauri ACL: Added analytics commands to build.rs permission generation
+- [x] Session list: Switched to IndexDb-backed fast queries with disk fallback
+- [x] Session list: Added loading/indexing indicators with spinner and progress
+- [x] Metrics tab: Simplified to 4 stat cards (variant-c), per-model token distribution, corrected cache hit rate formula
+- [x] Conversation tab: Aligned chat view labels with variant-c ("You"/"Assistant" text), right-aligned pass/fail badges
+- [x] Todos tab: Added percentage display, inline status counts (done/in-progress/pending/blocked), "Tasks" section header
+
+**Deliverable:** ✅ Dashboard views with SVG charts showing usage patterns, cost breakdown, and productivity metrics. All analytics commands wired through Tauri IPC with real session data.
 
 ---
 

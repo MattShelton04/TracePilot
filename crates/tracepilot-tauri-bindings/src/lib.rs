@@ -94,9 +94,43 @@ mod commands {
         repo: Option<String>,
         branch: Option<String>,
     ) -> Result<Vec<SessionListItem>, String> {
-        // NOTE: Currently loads every session summary from disk. For 1000+ sessions,
-        // consider using the indexer DB for metadata queries (Phase 3 optimization).
         tokio::task::spawn_blocking(move || {
+            // Fast path: query the index DB (single SQLite read, no per-session I/O)
+            let index_path = tracepilot_indexer::default_index_db_path();
+            if index_path.exists() {
+                let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                    .map_err(|e| e.to_string())?;
+
+                // Check if index has any sessions; if empty, fall through to disk scan
+                let count = db.session_count().unwrap_or(0);
+                if count > 0 {
+                    let indexed = db
+                        .list_sessions(
+                            limit.map(|l| l as usize),
+                            repo.as_deref(),
+                            branch.as_deref(),
+                        )
+                        .map_err(|e| e.to_string())?;
+
+                    return Ok(indexed
+                        .into_iter()
+                        .map(|s| SessionListItem {
+                            id: s.id,
+                            summary: s.summary,
+                            repository: s.repository,
+                            branch: s.branch,
+                            host_type: s.host_type,
+                            created_at: s.created_at,
+                            updated_at: s.updated_at,
+                            event_count: s.event_count.map(|v| v as usize),
+                            turn_count: s.turn_count.map(|v| v as usize),
+                            current_model: s.current_model,
+                        })
+                        .collect());
+                }
+            }
+
+            // Fallback: full disk scan (used when index is empty or missing)
             let base_dir = tracepilot_core::session::discovery::default_session_state_dir();
             let sessions = tracepilot_core::session::discovery::discover_sessions(&base_dir)
                 .map_err(|e| e.to_string())?;

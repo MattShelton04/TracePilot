@@ -1,13 +1,14 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
-import { listSessions } from "@tracepilot/client";
+import { listSessions, reindexSessions } from "@tracepilot/client";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
+  const indexing = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
@@ -76,9 +77,39 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  /** Reindex sessions in the background, then refresh the list. */
+  async function reindex() {
+    indexing.value = true;
+    error.value = null;
+    try {
+      await reindexSessions();
+      // After reindex completes, refresh the list from the now-updated index
+      sessions.value = await listSessions();
+    } catch (e) {
+      error.value = String(e);
+    } finally {
+      indexing.value = false;
+    }
+  }
+
+  /**
+   * Ensure the index is up-to-date without blocking the UI.
+   * Runs an incremental reindex in the background and silently refreshes
+   * the session list when done. Does not show loading/indexing states.
+   */
+  async function ensureIndex() {
+    try {
+      await reindexSessions();
+      sessions.value = await listSessions();
+    } catch {
+      // Silent — this is a background optimization, not user-initiated
+    }
+  }
+
   return {
     sessions,
     loading,
+    indexing,
     error,
     searchQuery,
     filterRepo,
@@ -88,5 +119,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     repositories,
     branches,
     fetchSessions,
+    reindex,
+    ensureIndex,
   };
 });

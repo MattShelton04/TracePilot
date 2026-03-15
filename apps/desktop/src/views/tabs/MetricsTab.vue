@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
-  StatCard, Badge, SectionPanel, EmptyState, ProgressBar,
+  StatCard, Badge, SectionPanel, EmptyState,
   DataTable, TokenBar, HealthRing,
   formatNumber, formatCost, formatDuration, useSessionTabLoader,
 } from "@tracepilot/ui";
@@ -36,30 +36,23 @@ const totalInputTokens = computed(() => modelEntries.value.reduce((sum, m) => su
 const totalOutputTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.outputTokens, 0));
 const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.value);
 const totalCacheReadTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0));
-const totalCacheWriteTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.cacheWriteTokens, 0));
 const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
 
-const inputPct = computed(() => totalTokens.value > 0 ? (totalInputTokens.value / totalTokens.value) * 100 : 0);
-const outputPct = computed(() => totalTokens.value > 0 ? (totalOutputTokens.value / totalTokens.value) * 100 : 0);
-const totalCacheTokens = computed(() => totalCacheReadTokens.value + totalCacheWriteTokens.value);
-const cacheReadPct = computed(() => totalCacheTokens.value > 0 ? (totalCacheReadTokens.value / totalCacheTokens.value) * 100 : 0);
-const cacheWritePct = computed(() => totalCacheTokens.value > 0 ? (totalCacheWriteTokens.value / totalCacheTokens.value) * 100 : 0);
-
-// Cache hit ratio as 0–1 for HealthRing
+// Cache hit rate: what % of total input context was cached (0–1 for HealthRing)
 const cacheHitRatio = computed(() => {
-  const allTokens = totalTokens.value + totalCacheReadTokens.value + totalCacheWriteTokens.value;
-  return allTokens > 0 ? totalCacheReadTokens.value / allTokens : 0;
+  const totalInput = totalInputTokens.value + totalCacheReadTokens.value;
+  return totalInput > 0 ? totalCacheReadTokens.value / totalInput : 0;
 });
 
 const modelColumns = [
   { key: "name", label: "Model", align: "left" as const },
   { key: "requests", label: "Requests", align: "right" as const },
-  { key: "inputTokens", label: "Input", align: "right" as const },
-  { key: "outputTokens", label: "Output", align: "right" as const },
+  { key: "cost", label: "Cost", align: "right" as const },
+  { key: "inputTokens", label: "Input Tokens", align: "right" as const },
+  { key: "outputTokens", label: "Output Tokens", align: "right" as const },
   { key: "cacheReadTokens", label: "Cache Read", align: "right" as const, class: "hidden lg:table-cell" },
   { key: "cacheWriteTokens", label: "Cache Write", align: "right" as const, class: "hidden lg:table-cell" },
   { key: "totalTokens", label: "Total", align: "right" as const },
-  { key: "cost", label: "Cost", align: "right" as const },
 ];
 </script>
 
@@ -68,65 +61,25 @@ const modelColumns = [
     <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
 
     <template v-else>
-      <!-- Token stats grid -->
+      <!-- Stats row — 4 cards matching variant-c -->
       <div class="grid-4 mb-6">
-        <StatCard :value="formatNumber(totalInputTokens)" label="Input Tokens" color="accent" />
-        <StatCard :value="formatNumber(totalOutputTokens)" label="Output Tokens" color="accent" />
-        <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
-        <StatCard :value="formatNumber(totalCacheReadTokens)" label="Cache Read Tokens" color="success" />
-      </div>
-      <div class="grid-4 mb-6">
-        <StatCard :value="formatNumber(totalCacheWriteTokens)" label="Cache Creation Tokens" color="done" />
         <StatCard :value="totalRequests" label="Total Requests" color="accent" />
-        <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Premium Requests" color="warning" />
+        <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Premium Requests" color="accent" />
+        <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
         <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
       </div>
 
-      <!-- Token Distribution -->
-      <SectionPanel title="Token Distribution" class="mb-6">
+      <!-- Token Distribution — per-model bars -->
+      <SectionPanel v-if="modelEntries.length > 0" title="Token Distribution" class="mb-6">
         <div class="space-y-3">
           <TokenBar
-            label="Input Tokens"
-            :value="formatNumber(totalInputTokens)"
-            :percentage="inputPct"
+            v-for="model in modelEntries"
+            :key="model.name"
+            :label="model.name"
+            :value="formatNumber(model.totalTokens)"
+            :percentage="totalTokens > 0 ? (model.totalTokens / totalTokens) * 100 : 0"
             color="var(--accent-emphasis)"
           />
-          <TokenBar
-            label="Output Tokens"
-            :value="formatNumber(totalOutputTokens)"
-            :percentage="outputPct"
-            color="var(--done-emphasis)"
-          />
-        </div>
-        <div v-if="totalCacheTokens > 0" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
-          <div class="text-xs text-[var(--text-tertiary)] mb-3" style="font-weight: 500;">Cache Distribution</div>
-          <div class="space-y-3">
-            <TokenBar
-              label="Cache Read"
-              :value="formatNumber(totalCacheReadTokens)"
-              :percentage="cacheReadPct"
-              color="var(--success-fg)"
-            />
-            <TokenBar
-              label="Cache Write"
-              :value="formatNumber(totalCacheWriteTokens)"
-              :percentage="cacheWritePct"
-              color="var(--warning-fg)"
-            />
-          </div>
-        </div>
-      </SectionPanel>
-
-      <!-- Cache Breakdown with HealthRing -->
-      <SectionPanel v-if="totalCacheReadTokens > 0 || totalCacheWriteTokens > 0" title="Cache Breakdown" class="mb-6">
-        <div class="flex items-center gap-4">
-          <HealthRing :score="cacheHitRatio" size="lg" />
-          <div>
-            <div class="text-sm font-semibold text-[var(--text-primary)]">Cache Hit Rate</div>
-            <div class="text-xs text-[var(--text-tertiary)] mt-1">
-              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalTokens + totalCacheReadTokens + totalCacheWriteTokens) }} total tokens
-            </div>
-          </div>
         </div>
       </SectionPanel>
 
@@ -137,6 +90,9 @@ const modelColumns = [
         </template>
         <template #cell-requests="{ value }">
           <span class="text-[var(--text-primary)]">{{ value }}</span>
+        </template>
+        <template #cell-cost="{ value }">
+          <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
         </template>
         <template #cell-inputTokens="{ value }">
           <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>
@@ -153,22 +109,18 @@ const modelColumns = [
         <template #cell-totalTokens="{ value }">
           <span class="font-semibold text-[var(--text-primary)]">{{ formatNumber(value as number) }}</span>
         </template>
-        <template #cell-cost="{ value }">
-          <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
-        </template>
       </DataTable>
 
-      <!-- Per-model token distribution -->
-      <SectionPanel v-if="modelEntries.length > 1" title="Token Distribution by Model" class="mb-6">
-        <div class="space-y-3">
-          <TokenBar
-            v-for="model in modelEntries"
-            :key="model.name"
-            :label="model.name"
-            :value="formatNumber(model.totalTokens)"
-            :percentage="totalTokens > 0 ? (model.totalTokens / totalTokens) * 100 : 0"
-            color="var(--done-emphasis)"
-          />
+      <!-- Cache Breakdown with HealthRing -->
+      <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
+        <div class="flex items-center gap-4">
+          <HealthRing :score="cacheHitRatio" size="lg" />
+          <div>
+            <div class="text-sm font-semibold text-[var(--text-primary)]">Cache Hit Rate</div>
+            <div class="text-xs text-[var(--text-tertiary)] mt-1">
+              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalInputTokens + totalCacheReadTokens) }} total input tokens
+            </div>
+          </div>
         </div>
       </SectionPanel>
 

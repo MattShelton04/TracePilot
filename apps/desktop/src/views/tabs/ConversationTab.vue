@@ -88,7 +88,7 @@ const totalDurationMs = computed(() =>
           </div>
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <Badge variant="accent">user</Badge>
+              <span class="text-sm font-semibold text-[var(--text-primary)]">You</span>
               <span class="text-xs text-[var(--text-tertiary)]">Turn {{ turn.turnIndex }}</span>
               <span v-if="turn.timestamp" class="text-xs text-[var(--text-tertiary)]">{{ formatTime(turn.timestamp) }}</span>
             </div>
@@ -107,7 +107,7 @@ const totalDurationMs = computed(() =>
           </div>
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <Badge variant="done">assistant</Badge>
+              <span class="text-sm font-semibold text-[var(--text-primary)]">Assistant</span>
               <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
               <span v-if="turn.durationMs" class="text-xs text-[var(--text-tertiary)]">{{ formatDuration(turn.durationMs) }}</span>
               <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
@@ -127,11 +127,16 @@ const totalDurationMs = computed(() =>
           >
             <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
             <span class="font-medium">{{ turn.toolCalls.length }} tool call{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
-            <span class="text-[var(--text-tertiary)]">
-              ({{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
-              <template v-if="turn.toolCalls.some((tc) => tc.success === false)">
-                · {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
-              </template>)
+            <span class="ml-auto flex items-center gap-1.5">
+              <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--success-muted)] text-[var(--success-fg)]">
+                {{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
+              </span>
+              <span
+                v-if="turn.toolCalls.some((tc) => tc.success === false)"
+                class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6875rem] font-medium bg-[var(--danger-muted)] text-[var(--danger-fg)]"
+              >
+                {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
+              </span>
             </span>
           </button>
 
