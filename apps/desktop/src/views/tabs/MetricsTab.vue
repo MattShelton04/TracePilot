@@ -38,10 +38,9 @@ const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.va
 const totalCacheReadTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0));
 const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
 
-// Cache hit rate: what % of total input context was cached (0–1 for HealthRing)
+// Cache hit rate: what % of input tokens were served from cache (0–1 for HealthRing)
 const cacheHitRatio = computed(() => {
-  const totalInput = totalInputTokens.value + totalCacheReadTokens.value;
-  return totalInput > 0 ? totalCacheReadTokens.value / totalInput : 0;
+  return totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0;
 });
 
 const modelColumns = [
@@ -118,7 +117,7 @@ const modelColumns = [
           <div>
             <div class="text-sm font-semibold text-[var(--text-primary)]">Cache Hit Rate</div>
             <div class="text-xs text-[var(--text-tertiary)] mt-1">
-              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalInputTokens + totalCacheReadTokens) }} total input tokens
+              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalInputTokens) }} total input tokens
             </div>
           </div>
         </div>
