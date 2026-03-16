@@ -41,6 +41,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const lastViewedSession = ref<string | null>(null);
   const costPerPremiumRequest = ref(0.04);
   const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
+  const hideEmptySessions = ref(true);
+  const cliCommand = ref('copilot');
   let mediaQuery: MediaQueryList | null = null;
   let mediaHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
@@ -54,6 +56,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         if (parsed.lastViewedSession) lastViewedSession.value = parsed.lastViewedSession;
         if (typeof parsed.costPerPremiumRequest === 'number') costPerPremiumRequest.value = parsed.costPerPremiumRequest;
         if (Array.isArray(parsed.modelWholesalePrices)) modelWholesalePrices.value = parsed.modelWholesalePrices;
+        if (typeof parsed.hideEmptySessions === 'boolean') hideEmptySessions.value = parsed.hideEmptySessions;
+        if (typeof parsed.cliCommand === 'string') cliCommand.value = parsed.cliCommand;
       }
     } catch { /* ignore */ }
   }
@@ -66,6 +70,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         lastViewedSession: lastViewedSession.value,
         costPerPremiumRequest: costPerPremiumRequest.value,
         modelWholesalePrices: modelWholesalePrices.value,
+        hideEmptySessions: hideEmptySessions.value,
+        cliCommand: cliCommand.value,
       })
     );
   }
@@ -92,7 +98,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     setupSystemThemeListener();
   }, { immediate: true });
 
-  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices], save, { deep: true });
+  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand], save, { deep: true });
 
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
@@ -135,7 +141,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
     lastViewedSession,
     costPerPremiumRequest,
     modelWholesalePrices,
-    applyTheme: () => applyTheme(theme.value),
+    hideEmptySessions,
+    cliCommand,
+    applyTheme:() => applyTheme(theme.value),
     getWholesalePrice,
     computeWholesaleCost,
     addWholesalePrice,

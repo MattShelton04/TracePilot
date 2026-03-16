@@ -10,7 +10,7 @@ use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::checkpoints::parse_checkpoints;
 use crate::parsing::events::{
-    extract_session_start, extract_shutdown_data, parse_typed_events, TypedEvent,
+    extract_combined_shutdown_data, extract_session_start, parse_typed_events, TypedEvent,
 };
 use crate::parsing::workspace::parse_workspace_yaml;
 use crate::turns::{reconstruct_turns, turn_stats};
@@ -82,9 +82,9 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
             // Derive event count from parsed events (no separate count_events call)
             summary.event_count = Some(typed_events.len());
 
-            // Shutdown metrics
-            if let Some(sd) = extract_shutdown_data(&typed_events) {
-                summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd));
+            // Shutdown metrics (summed across all shutdown events for resumed sessions)
+            if let Some((sd, count)) = extract_combined_shutdown_data(&typed_events) {
+                summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
             }
 
             // Turn count
@@ -132,7 +132,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
 }
 
 /// Convert [`ShutdownData`] (event-level) to [`ShutdownMetrics`] (summary-level).
-fn shutdown_data_to_metrics(data: &ShutdownData) -> ShutdownMetrics {
+fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> ShutdownMetrics {
     ShutdownMetrics {
         shutdown_type: data.shutdown_type.clone(),
         total_premium_requests: data.total_premium_requests,
@@ -141,6 +141,7 @@ fn shutdown_data_to_metrics(data: &ShutdownData) -> ShutdownMetrics {
         current_model: data.current_model.clone(),
         code_changes: data.code_changes.clone(),
         model_metrics: data.model_metrics.clone().unwrap_or_default(),
+        shutdown_count: Some(shutdown_count),
     }
 }
 
@@ -325,5 +326,72 @@ summary: "Sparse session"
             }
             other => panic!("Expected SessionNotFound, got {:?}", other),
         }
+    }
+
+    /// Events.jsonl with two shutdown events simulating a resumed session.
+    fn resumed_events_jsonl() -> &'static str {
+        concat!(
+            r#"{"type":"session.start","data":{"sessionId":"test-session-id","version":"1.0","producer":"copilot-cli","context":{"cwd":"/test","branch":"main","repository":"user/repo"}},"id":"evt-1","timestamp":"2026-03-10T07:00:00.000Z","parentId":null}"#,
+            "\n",
+            r#"{"type":"user.message","data":{"content":"Hello","interactionId":"int-1"},"id":"evt-2","timestamp":"2026-03-10T07:01:00.000Z","parentId":"evt-1"}"#,
+            "\n",
+            r#"{"type":"assistant.turn_start","data":{"turnId":"t1","interactionId":"int-1"},"id":"evt-3","timestamp":"2026-03-10T07:01:01.000Z","parentId":"evt-2"}"#,
+            "\n",
+            r#"{"type":"assistant.turn_end","data":{"turnId":"t1"},"id":"evt-4","timestamp":"2026-03-10T07:01:02.000Z","parentId":"evt-3"}"#,
+            "\n",
+            r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":12,"totalApiDurationMs":5000,"sessionStartTime":1000,"currentModel":"claude-sonnet-4.5","codeChanges":{"linesAdded":10,"linesRemoved":2,"filesModified":["/a.rs"]},"modelMetrics":{"claude-sonnet-4.5":{"requests":{"count":20,"cost":5.0},"usage":{"inputTokens":1000,"outputTokens":500,"cacheReadTokens":0,"cacheWriteTokens":0}}}},"id":"evt-5","timestamp":"2026-03-10T07:10:00.000Z","parentId":null}"#,
+            "\n",
+            r#"{"type":"session.resume","data":{"resumeTime":"2026-03-10T08:00:00.000Z"},"id":"evt-6","timestamp":"2026-03-10T08:00:00.000Z","parentId":null}"#,
+            "\n",
+            r#"{"type":"user.message","data":{"content":"Continue","interactionId":"int-2"},"id":"evt-7","timestamp":"2026-03-10T08:01:00.000Z","parentId":null}"#,
+            "\n",
+            r#"{"type":"assistant.turn_start","data":{"turnId":"t2","interactionId":"int-2"},"id":"evt-8","timestamp":"2026-03-10T08:01:01.000Z","parentId":"evt-7"}"#,
+            "\n",
+            r#"{"type":"assistant.turn_end","data":{"turnId":"t2"},"id":"evt-9","timestamp":"2026-03-10T08:01:02.000Z","parentId":"evt-8"}"#,
+            "\n",
+            r#"{"type":"session.shutdown","data":{"shutdownType":"user_exit","totalPremiumRequests":6,"totalApiDurationMs":3000,"sessionStartTime":2000,"currentModel":"claude-opus-4.6","codeChanges":{"linesAdded":5,"linesRemoved":3,"filesModified":["/a.rs","/b.rs"]},"modelMetrics":{"claude-opus-4.6":{"requests":{"count":8,"cost":4.0},"usage":{"inputTokens":2000,"outputTokens":1000,"cacheReadTokens":0,"cacheWriteTokens":0}}}},"id":"evt-10","timestamp":"2026-03-10T08:10:00.000Z","parentId":null}"#,
+            "\n",
+        )
+    }
+
+    #[test]
+    fn test_resumed_session_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path();
+
+        fs::write(session_dir.join("workspace.yaml"), full_workspace_yaml()).unwrap();
+        fs::write(session_dir.join("events.jsonl"), resumed_events_jsonl()).unwrap();
+
+        let summary = load_session_summary(session_dir).unwrap();
+
+        let metrics = summary.shutdown_metrics.as_ref().expect("should have shutdown metrics");
+        // shutdown_count = 2 (two shutdown events combined)
+        assert_eq!(metrics.shutdown_count, Some(2));
+        // Summed premium requests: 12 + 6 = 18
+        assert_eq!(metrics.total_premium_requests, Some(18.0));
+        // Summed API duration: 5000 + 3000 = 8000
+        assert_eq!(metrics.total_api_duration_ms, Some(8000));
+        // session_start_time from FIRST shutdown
+        assert_eq!(metrics.session_start_time, Some(1000));
+        // shutdown_type and current_model from LAST shutdown
+        assert_eq!(metrics.shutdown_type.as_deref(), Some("user_exit"));
+        assert_eq!(metrics.current_model.as_deref(), Some("claude-opus-4.6"));
+
+        // Code changes: lines summed, files deduped
+        let changes = metrics.code_changes.as_ref().unwrap();
+        assert_eq!(changes.lines_added, Some(15)); // 10 + 5
+        assert_eq!(changes.lines_removed, Some(5)); // 2 + 3
+        let files = changes.files_modified.as_ref().unwrap();
+        assert_eq!(files.len(), 2); // /a.rs deduped, + /b.rs
+        assert!(files.contains(&"/a.rs".to_string()));
+        assert!(files.contains(&"/b.rs".to_string()));
+
+        // Model metrics: sonnet from first, opus from second
+        assert!(metrics.model_metrics.contains_key("claude-sonnet-4.5"));
+        assert!(metrics.model_metrics.contains_key("claude-opus-4.6"));
+        let sonnet = &metrics.model_metrics["claude-sonnet-4.5"];
+        assert_eq!(sonnet.requests.as_ref().unwrap().count, Some(20));
+        let opus = &metrics.model_metrics["claude-opus-4.6"];
+        assert_eq!(opus.requests.as_ref().unwrap().count, Some(8));
     }
 }

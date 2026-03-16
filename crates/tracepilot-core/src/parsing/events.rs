@@ -5,15 +5,17 @@
 
 use crate::error::{Result, TracePilotError};
 use crate::models::event_types::{
-    AbortData, AssistantMessageData, CompactionCompleteData, CompactionStartData, ModelChangeData,
-    PlanChangedData, SessionErrorData, SessionEventType, SessionInfoData, SessionResumeData,
-    SessionStartData, ShutdownData, SkillInvokedData, SubagentCompletedData, SubagentFailedData,
-    SubagentStartedData, SystemNotificationData, ToolExecCompleteData, ToolExecStartData,
-    ToolUserRequestedData, TurnEndData, TurnStartData, UserMessageData, WorkspaceFileChangedData,
+    AbortData, AssistantMessageData, CodeChanges, CompactionCompleteData, CompactionStartData,
+    ModelChangeData, ModelMetricDetail, PlanChangedData, RequestMetrics, SessionErrorData,
+    SessionEventType, SessionInfoData, SessionResumeData, SessionStartData, ShutdownData,
+    SkillInvokedData, SubagentCompletedData, SubagentFailedData, SubagentStartedData,
+    SystemNotificationData, ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData,
+    TurnEndData, TurnStartData, UsageMetrics, UserMessageData, WorkspaceFileChangedData,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -216,6 +218,7 @@ pub fn parse_typed_events(path: &Path) -> Result<Vec<TypedEvent>> {
 }
 
 /// Extract shutdown data from the LAST `session.shutdown` event.
+#[deprecated(note = "Use extract_combined_shutdown_data to correctly sum metrics across resumed sessions")]
 pub fn extract_shutdown_data(events: &[TypedEvent]) -> Option<ShutdownData> {
     events
         .iter()
@@ -225,6 +228,153 @@ pub fn extract_shutdown_data(events: &[TypedEvent]) -> Option<ShutdownData> {
             TypedEventData::SessionShutdown(d) => Some(d.clone()),
             _ => None,
         })
+}
+
+/// Collect ALL `session.shutdown` events and combine their per-instance metrics.
+///
+/// Metrics in each shutdown event are per-instance (not cumulative), so resumed
+/// sessions require summing across all shutdown events. Returns `(combined_data, count)`.
+pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(ShutdownData, u32)> {
+    let shutdowns: Vec<&ShutdownData> = events
+        .iter()
+        .filter(|e| e.event_type == SessionEventType::SessionShutdown)
+        .filter_map(|e| match &e.typed_data {
+            TypedEventData::SessionShutdown(d) => Some(d),
+            _ => None,
+        })
+        .collect();
+
+    if shutdowns.is_empty() {
+        return None;
+    }
+
+    let count = shutdowns.len() as u32;
+    if count == 1 {
+        return Some((shutdowns[0].clone(), 1));
+    }
+
+    Some((combine_shutdown_data(&shutdowns), count))
+}
+
+/// Combine multiple `ShutdownData` instances into a single aggregate.
+fn combine_shutdown_data(shutdowns: &[&ShutdownData]) -> ShutdownData {
+    let first = shutdowns.first().unwrap();
+    let last = shutdowns.last().unwrap();
+
+    ShutdownData {
+        shutdown_type: last.shutdown_type.clone(),
+        current_model: last.current_model.clone(),
+        session_start_time: first.session_start_time,
+        total_premium_requests: sum_opt_f64(shutdowns.iter().map(|s| s.total_premium_requests)),
+        total_api_duration_ms: sum_opt_u64(shutdowns.iter().map(|s| s.total_api_duration_ms)),
+        code_changes: combine_code_changes(shutdowns.iter().map(|s| s.code_changes.as_ref())),
+        model_metrics: Some(combine_model_metrics(
+            shutdowns.iter().map(|s| s.model_metrics.as_ref()),
+        )),
+    }
+}
+
+/// Sum Option<f64> values: None + Some(5) = Some(5), None + None = None.
+fn sum_opt_f64(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
+    let mut has_any = false;
+    let mut total = 0.0;
+    for v in values {
+        if let Some(n) = v {
+            has_any = true;
+            total += n;
+        }
+    }
+    if has_any { Some(total) } else { None }
+}
+
+/// Sum Option<u64> values: None + Some(5) = Some(5), None + None = None.
+fn sum_opt_u64(values: impl Iterator<Item = Option<u64>>) -> Option<u64> {
+    let mut has_any = false;
+    let mut total = 0u64;
+    for v in values {
+        if let Some(n) = v {
+            has_any = true;
+            total += n;
+        }
+    }
+    if has_any { Some(total) } else { None }
+}
+
+/// Combine code changes: sum lines, deduplicate files.
+fn combine_code_changes<'a>(
+    changes: impl Iterator<Item = Option<&'a CodeChanges>>,
+) -> Option<CodeChanges> {
+    let items: Vec<&CodeChanges> = changes.flatten().collect();
+    if items.is_empty() {
+        return None;
+    }
+
+    let lines_added = sum_opt_u64(items.iter().map(|c| c.lines_added));
+    let lines_removed = sum_opt_u64(items.iter().map(|c| c.lines_removed));
+
+    // Deduplicated union of all modified files
+    let files_modified = {
+        let mut seen = std::collections::HashSet::new();
+        let mut files = Vec::new();
+        for c in &items {
+            if let Some(ref f) = c.files_modified {
+                for path in f {
+                    if seen.insert(path.clone()) {
+                        files.push(path.clone());
+                    }
+                }
+            }
+        }
+        if files.is_empty() { None } else { Some(files) }
+    };
+
+    Some(CodeChanges {
+        lines_added,
+        lines_removed,
+        files_modified,
+    })
+}
+
+/// Merge per-model metric HashMaps: for each model key, sum all numeric fields.
+fn combine_model_metrics<'a>(
+    maps: impl Iterator<Item = Option<&'a HashMap<String, ModelMetricDetail>>>,
+) -> HashMap<String, ModelMetricDetail> {
+    let mut merged: HashMap<String, ModelMetricDetail> = HashMap::new();
+
+    for map in maps.flatten() {
+        for (model, detail) in map {
+            let entry = merged.entry(model.clone()).or_insert_with(|| ModelMetricDetail {
+                requests: None,
+                usage: None,
+            });
+
+            // Merge requests
+            if let Some(ref req) = detail.requests {
+                let e_req = entry.requests.get_or_insert(RequestMetrics {
+                    count: None,
+                    cost: None,
+                });
+                e_req.count = sum_opt_u64([e_req.count, req.count].into_iter());
+                e_req.cost = sum_opt_f64([e_req.cost, req.cost].into_iter());
+            }
+
+            // Merge usage
+            if let Some(ref usg) = detail.usage {
+                let e_usg = entry.usage.get_or_insert(UsageMetrics {
+                    input_tokens: None,
+                    output_tokens: None,
+                    cache_read_tokens: None,
+                    cache_write_tokens: None,
+                });
+                e_usg.input_tokens = sum_opt_u64([e_usg.input_tokens, usg.input_tokens].into_iter());
+                e_usg.output_tokens = sum_opt_u64([e_usg.output_tokens, usg.output_tokens].into_iter());
+                e_usg.cache_read_tokens = sum_opt_u64([e_usg.cache_read_tokens, usg.cache_read_tokens].into_iter());
+                e_usg.cache_write_tokens = sum_opt_u64([e_usg.cache_write_tokens, usg.cache_write_tokens].into_iter());
+            }
+        }
+    }
+
+    merged
 }
 
 /// Extract session start data from the FIRST `session.start` event.
@@ -347,6 +497,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
         let events = parse_typed_events(&path).unwrap();
+        #[allow(deprecated)]
         let shutdown = extract_shutdown_data(&events);
         assert!(shutdown.is_some());
         let sd = shutdown.unwrap();
@@ -395,5 +546,108 @@ mod tests {
 
         let typed = parse_typed_events(&path).unwrap();
         assert!(typed.is_empty());
+    }
+
+    // ── Combined shutdown tests ──────────────────────────────────────
+
+    #[test]
+    fn test_extract_combined_shutdown_single() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sample_file(&dir);
+        let events = parse_typed_events(&path).unwrap();
+        let (sd, count) = extract_combined_shutdown_data(&events).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(sd.shutdown_type.as_deref(), Some("routine"));
+        assert_eq!(sd.total_premium_requests, Some(1.0));
+        assert_eq!(sd.total_api_duration_ms, Some(5000));
+        assert_eq!(sd.current_model.as_deref(), Some("claude-opus-4.6"));
+        let changes = sd.code_changes.unwrap();
+        assert_eq!(changes.lines_added, Some(10));
+        assert_eq!(changes.lines_removed, Some(2));
+    }
+
+    /// Build events.jsonl with two shutdown events (simulating a resumed session).
+    fn resumed_session_jsonl() -> String {
+        let mut lines = Vec::new();
+        // session.start
+        lines.push(r#"{"type":"session.start","data":{"sessionId":"resumed-1","version":"1.0","producer":"copilot-cli","context":{"cwd":"/test","branch":"main"}},"id":"evt-1","timestamp":"2026-03-10T07:00:00.000Z","parentId":null}"#.to_string());
+        // first shutdown: 12 premium requests, 5000ms, model A with 1000 input tokens
+        lines.push(r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":12,"totalApiDurationMs":5000,"sessionStartTime":1000000,"currentModel":"claude-sonnet-4.5","codeChanges":{"linesAdded":10,"linesRemoved":2,"filesModified":["/a.rs","/b.rs"]},"modelMetrics":{"claude-sonnet-4.5":{"requests":{"count":20,"cost":5.0},"usage":{"inputTokens":1000,"outputTokens":500,"cacheReadTokens":800,"cacheWriteTokens":100}}}},"id":"evt-2","timestamp":"2026-03-10T07:10:00.000Z","parentId":null}"#.to_string());
+        // session.resume
+        lines.push(r#"{"type":"session.resume","data":{"resumeTime":"2026-03-10T08:00:00.000Z"},"id":"evt-3","timestamp":"2026-03-10T08:00:00.000Z","parentId":null}"#.to_string());
+        // second shutdown: 6 premium requests, 3000ms, model A+B
+        lines.push(r#"{"type":"session.shutdown","data":{"shutdownType":"user_exit","totalPremiumRequests":6,"totalApiDurationMs":3000,"sessionStartTime":2000000,"currentModel":"claude-opus-4.6","codeChanges":{"linesAdded":5,"linesRemoved":3,"filesModified":["/b.rs","/c.rs"]},"modelMetrics":{"claude-sonnet-4.5":{"requests":{"count":10,"cost":2.5},"usage":{"inputTokens":500,"outputTokens":250,"cacheReadTokens":400,"cacheWriteTokens":50}},"claude-opus-4.6":{"requests":{"count":8,"cost":4.0},"usage":{"inputTokens":2000,"outputTokens":1000,"cacheReadTokens":1500,"cacheWriteTokens":200}}}},"id":"evt-4","timestamp":"2026-03-10T08:10:00.000Z","parentId":null}"#.to_string());
+        lines.join("\n") + "\n"
+    }
+
+    #[test]
+    fn test_extract_combined_shutdown_multiple() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        std::fs::write(&path, resumed_session_jsonl()).unwrap();
+        let events = parse_typed_events(&path).unwrap();
+        let (sd, count) = extract_combined_shutdown_data(&events).unwrap();
+
+        assert_eq!(count, 2);
+        // Last shutdown's values for non-summed fields
+        assert_eq!(sd.shutdown_type.as_deref(), Some("user_exit"));
+        assert_eq!(sd.current_model.as_deref(), Some("claude-opus-4.6"));
+        // First shutdown's session_start_time
+        assert_eq!(sd.session_start_time, Some(1000000));
+        // Summed metrics: 12 + 6 = 18, 5000 + 3000 = 8000
+        assert_eq!(sd.total_premium_requests, Some(18.0));
+        assert_eq!(sd.total_api_duration_ms, Some(8000));
+        // Code changes summed: 10+5=15 added, 2+3=5 removed
+        let changes = sd.code_changes.unwrap();
+        assert_eq!(changes.lines_added, Some(15));
+        assert_eq!(changes.lines_removed, Some(5));
+    }
+
+    #[test]
+    fn test_extract_combined_shutdown_files_deduped() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        std::fs::write(&path, resumed_session_jsonl()).unwrap();
+        let events = parse_typed_events(&path).unwrap();
+        let (sd, _) = extract_combined_shutdown_data(&events).unwrap();
+
+        let files = sd.code_changes.unwrap().files_modified.unwrap();
+        // /a.rs, /b.rs from first; /b.rs, /c.rs from second → deduped = /a.rs, /b.rs, /c.rs
+        assert_eq!(files.len(), 3);
+        assert!(files.contains(&"/a.rs".to_string()));
+        assert!(files.contains(&"/b.rs".to_string()));
+        assert!(files.contains(&"/c.rs".to_string()));
+    }
+
+    #[test]
+    fn test_extract_combined_model_metrics_merged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        std::fs::write(&path, resumed_session_jsonl()).unwrap();
+        let events = parse_typed_events(&path).unwrap();
+        let (sd, _) = extract_combined_shutdown_data(&events).unwrap();
+
+        let metrics = sd.model_metrics.unwrap();
+        // claude-sonnet-4.5: merged from both shutdowns
+        let sonnet = &metrics["claude-sonnet-4.5"];
+        let s_req = sonnet.requests.as_ref().unwrap();
+        assert_eq!(s_req.count, Some(30)); // 20 + 10
+        assert_eq!(s_req.cost, Some(7.5)); // 5.0 + 2.5
+        let s_usg = sonnet.usage.as_ref().unwrap();
+        assert_eq!(s_usg.input_tokens, Some(1500)); // 1000 + 500
+        assert_eq!(s_usg.output_tokens, Some(750)); // 500 + 250
+        assert_eq!(s_usg.cache_read_tokens, Some(1200)); // 800 + 400
+        assert_eq!(s_usg.cache_write_tokens, Some(150)); // 100 + 50
+
+        // claude-opus-4.6: only from second shutdown
+        let opus = &metrics["claude-opus-4.6"];
+        let o_req = opus.requests.as_ref().unwrap();
+        assert_eq!(o_req.count, Some(8));
+        assert_eq!(o_req.cost, Some(4.0));
+        let o_usg = opus.usage.as_ref().unwrap();
+        assert_eq!(o_usg.input_tokens, Some(2000));
+        assert_eq!(o_usg.output_tokens, Some(1000));
+        assert_eq!(o_usg.cache_read_tokens, Some(1500));
+        assert_eq!(o_usg.cache_write_tokens, Some(200));
     }
 }

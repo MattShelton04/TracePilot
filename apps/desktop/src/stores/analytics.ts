@@ -1,8 +1,9 @@
 import { getAnalytics, getCodeImpact, getToolAnalysis } from '@tracepilot/client';
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from '@tracepilot/types';
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useSessionsStore } from './sessions';
+import { usePreferencesStore } from './preferences';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
   // State
@@ -60,8 +61,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   let toolAnalysisGen = 0;
   let codeImpactGen = 0;
 
-  function cacheKeyFor(prefix: string, options?: { fromDate?: string; toDate?: string; repo?: string }) {
-    return `${prefix}:${options?.fromDate ?? ''}:${options?.toDate ?? ''}:${options?.repo ?? ''}`;
+  function cacheKeyFor(prefix: string, options?: { fromDate?: string; toDate?: string; repo?: string; hideEmpty?: boolean }) {
+    return `${prefix}:${options?.fromDate ?? ''}:${options?.toDate ?? ''}:${options?.repo ?? ''}:${options?.hideEmpty ?? ''}`;
   }
 
   /** Ensure the sessions store is populated so availableRepos has data. */
@@ -74,9 +75,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   // Actions
   async function fetchAnalytics(options?: { fromDate?: string; toDate?: string; repo?: string; force?: boolean }) {
+    const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
     const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('analytics', { ...merged, repo });
+    const hideEmpty = prefs.hideEmptySessions;
+    const cacheKey = cacheKeyFor('analytics', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++analyticsGen;
@@ -87,6 +90,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         fromDate: merged.fromDate,
         toDate: merged.toDate,
         repo,
+        hideEmpty,
       });
       if (gen !== analyticsGen) return; // superseded by newer request
       analytics.value = result;
@@ -105,9 +109,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     repo?: string;
     force?: boolean;
   }) {
+    const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
     const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('toolAnalysis', { ...merged, repo });
+    const hideEmpty = prefs.hideEmptySessions;
+    const cacheKey = cacheKeyFor('toolAnalysis', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++toolAnalysisGen;
@@ -118,6 +124,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         fromDate: merged.fromDate,
         toDate: merged.toDate,
         repo,
+        hideEmpty,
       });
       if (gen !== toolAnalysisGen) return;
       toolAnalysis.value = result;
@@ -136,9 +143,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     repo?: string;
     force?: boolean;
   }) {
+    const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
     const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const cacheKey = cacheKeyFor('codeImpact', { ...merged, repo });
+    const hideEmpty = prefs.hideEmptySessions;
+    const cacheKey = cacheKeyFor('codeImpact', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
 
     const gen = ++codeImpactGen;
@@ -149,6 +158,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         fromDate: merged.fromDate,
         toDate: merged.toDate,
         repo,
+        hideEmpty,
       });
       if (gen !== codeImpactGen) return;
       codeImpact.value = result;
@@ -191,6 +201,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     customToDate.value = undefined;
     loaded.clear();
   }
+
+  // Invalidate analytics cache when hideEmptySessions preference changes
+  const prefs = usePreferencesStore();
+  watch(() => prefs.hideEmptySessions, () => {
+    loaded.clear();
+  });
 
   return {
     // State

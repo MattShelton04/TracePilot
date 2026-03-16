@@ -177,7 +177,7 @@ const treeData = computed<TreeData | null>(() => {
       type: agentType,
       displayName: tc.agentDisplayName ?? `${agentType} #${idx + 1}`,
       description: tc.agentDescription,
-      model: tc.model ?? turn.model,
+      model: tc.model,
       durationMs: tc.durationMs,
       toolCount: childTools.length,
       status: agentStatusFromToolCall(tc),
@@ -1088,6 +1088,9 @@ watch(
 }
 
 .detail-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 8px;
 }
 

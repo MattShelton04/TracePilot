@@ -25,6 +25,7 @@ fn main() {
                     "get_session_count",
                     "factory_reset",
                     "get_tool_result",
+                    "resume_session_in_terminal",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore, type SortOption } from "@/stores/sessions";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 const router = useRouter();
 const store = useSessionsStore();
 
-const repoOptions = computed(() => store.repositories as string[]);
+const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const unlisteners: UnlistenFn[] = [];
+
+const repoOptions= computed(() => store.repositories as string[]);
 const branchOptions = computed(() => store.branches as string[]);
 const sortOptions = [
   { label: "Newest first", value: "updated" },
@@ -22,6 +26,18 @@ function onSelect(sessionId: string) {
 }
 
 onMounted(async () => {
+  unlisteners.push(
+    await listen<{ current: number; total: number }>('indexing-progress', (event) => {
+      indexingProgress.value = event.payload;
+    }),
+    await listen('indexing-started', () => {
+      indexingProgress.value = null;
+    }),
+    await listen('indexing-finished', () => {
+      indexingProgress.value = null;
+    }),
+  );
+
   if (store.sessions.length === 0) {
     await store.fetchSessions();
     // If fetch returned empty (no index yet and no sessions on disk), show indexing UI
@@ -34,6 +50,10 @@ onMounted(async () => {
   // This handles: first launch (populates index from disk scan), subsequent launches
   // (picks up new sessions), and pruning deleted sessions.
   store.ensureIndex();
+});
+
+onUnmounted(() => {
+  for (const unlisten of unlisteners) unlisten();
 });
 </script>
 
@@ -71,7 +91,15 @@ onMounted(async () => {
             <div class="text-xs text-[var(--text-tertiary)] mt-1">Building search index for faster loading. This only happens once.</div>
           </div>
         </div>
-        <ProgressBar :percent="50" color="accent" class="mt-4" style="max-width: 400px; margin-inline: auto;" />
+        <ProgressBar 
+          :percent="indexingProgress ? (indexingProgress.current / indexingProgress.total * 100) : 0" 
+          color="accent" 
+          class="mt-4" 
+          style="max-width: 400px; margin-inline: auto;" 
+        />
+        <div v-if="indexingProgress" class="text-xs text-[var(--text-tertiary)] mt-1" style="text-align: center;">
+          {{ indexingProgress.current }} / {{ indexingProgress.total }} sessions
+        </div>
       </div>
 
       <!-- Loading state -->
