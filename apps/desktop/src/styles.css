@@ -430,6 +430,9 @@ body {
   font-weight: 500;
   line-height: 1.5;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .badge-accent { background: var(--accent-muted); color: var(--accent-fg); }
 .badge-success { background: var(--success-muted); color: var(--success-fg); }
@@ -1317,7 +1320,7 @@ body {
 
 .def-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 0.8125rem; }
 .def-list dt { color: var(--text-tertiary); font-weight: 500; white-space: nowrap; }
-.def-list dd { color: var(--text-primary); }
+.def-list dd { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* ============================
    SESSION CARD
@@ -1335,7 +1338,7 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.session-card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.session-card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; min-width: 0; }
 .session-card-footer {
   display: flex;
   justify-content: space-between;
