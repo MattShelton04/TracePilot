@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Tool Call Renderer Prototypes</title>
+  <link rel="stylesheet" href="shared/design-system-c.css">
+  <style>
+    /* ── Layout ── */
+    body {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sticky Header ── */
+    .page-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: rgba(9,9,11,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: var(--z-header);
+      gap: 12px;
+    }
+    .page-header .logo {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+    .page-header .logo span {
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-header .sep {
+      color: var(--text-tertiary);
+      font-weight: 300;
+    }
+    .page-header .subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    /* ── Sidebar Nav ── */
+    .sidebar {
+      position: fixed;
+      top: 52px;
+      left: 0;
+      bottom: 0;
+      width: 220px;
+      background: var(--canvas-subtle);
+      border-right: 1px solid var(--border-default);
+      overflow-y: auto;
+      padding: 16px 0;
+      z-index: var(--z-sidebar);
+    }
+    .sidebar h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      padding: 8px 16px 4px;
+      font-weight: 600;
+    }
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      transition: all var(--transition-fast);
+      border-left: 2px solid transparent;
+    }
+    .sidebar a:hover {
+      color: var(--text-primary);
+      background: var(--accent-subtle);
+    }
+    .sidebar a.active {
+      color: var(--accent-fg);
+      border-left-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+    }
+    .sidebar .icon {
+      width: 16px;
+      text-align: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ── Main Content ── */
+    .main {
+      margin-left: 220px;
+      margin-top: 52px;
+      padding: 32px 40px 80px;
+      flex: 1;
+      max-width: 1200px;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 64px;
+      scroll-margin-top: 68px;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title .num {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-fg);
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-full);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .section-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Comparison Grid ── */
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .comparison.stacked {
+      grid-template-columns: 1fr;
+    }
+    .panel {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--gradient-surface);
+    }
+    .panel-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    .panel-label.before { color: var(--text-tertiary); }
+    .panel-label.after { color: var(--success-fg); }
+    .panel-body {
+      padding: 16px;
+    }
+
+    /* ── Badge ── */
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      line-height: 1.5;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .badge-accent { background: var(--accent-muted); color: var(--accent-fg); }
+    .badge-success { background: var(--success-muted); color: var(--success-fg); }
+    .badge-warning { background: var(--warning-muted); color: var(--warning-fg); }
+    .badge-danger { background: var(--danger-muted); color: var(--danger-fg); }
+    .badge-done { background: var(--done-muted); color: var(--done-fg); }
+    .badge-neutral { background: var(--neutral-muted); color: var(--neutral-fg); }
+    .badge-cyan { background: rgba(34,211,238,0.12); color: #22d3ee; }
+    .badge-pink { background: rgba(244,114,182,0.12); color: #f472b6; }
+    .badge-amber { background: var(--warning-muted); color: var(--warning-fg); }
+
+    /* ── Raw JSON / Before styling ── */
+    .raw-json {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.6;
+    }
+
+    /* ── Code Block ── */
+    .code-block {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-muted);
+      background: rgba(255,255,255,0.02);
+    }
+    .code-header .file-path {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .code-header .file-path .icon { color: var(--accent-fg); }
+    .code-header .actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-sm {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .btn-sm:hover {
+      background: var(--accent-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-accent);
+    }
+    .btn-sm.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--accent-emphasis);
+    }
+    .code-content {
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 12.5px;
+      line-height: 1.65;
+      overflow-x: auto;
+    }
+    .code-content table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .code-content td { padding: 0 12px; vertical-align: top; white-space: pre; }
+    .line-num {
+      color: var(--text-tertiary);
+      text-align: right;
+      user-select: none;
+      padding-right: 16px !important;
+      width: 1%;
+      opacity: 0.5;
+    }
+    .line-code { width: 100%; }
+
+    /* ── Syntax Highlight Colors ── */
+    .syn-keyword { color: #c084fc; }
+    .syn-type { color: #38bdf8; }
+    .syn-string { color: #34d399; }
+    .syn-number { color: #fb923c; }
+    .syn-comment { color: var(--text-tertiary); font-style: italic; }
+    .syn-func { color: #fbbf24; }
+    .syn-const { color: #818cf8; }
+    .syn-param { color: #f472b6; }
+    .syn-operator { color: var(--text-secondary); }
+    .syn-tag { color: #fb7185; }
+    .syn-attr { color: #38bdf8; }
+    .syn-punct { color: var(--text-tertiary); }
+    .syn-prop { color: #93c5fd; }
+    .syn-regex { color: #fb923c; }
+
+    /* ── Diff View ── */
+    .diff-view { overflow: hidden; }
+    .diff-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .diff-side {
+      overflow-x: auto;
+    }
+    .diff-side + .diff-side {
+      border-left: 1px solid var(--border-muted);
+    }
+    .diff-line {
+      display: flex;
+      min-height: 24px;
+      line-height: 24px;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 12.5px;
+    }
+    .diff-line .d-num {
+      width: 44px;
+      min-width: 44px;
+      text-align: right;
+      padding-right: 12px;
+      color: var(--text-tertiary);
+      opacity: 0.5;
+      user-select: none;
+    }
+    .diff-line .d-code {
+      flex: 1;
+      padding: 0 12px;
+      white-space: pre;
+    }
+    .diff-line.removed {
+      background: rgba(251,113,133,0.08);
+    }
+    .diff-line.removed .d-code { color: var(--danger-fg); }
+    .diff-line.added {
+      background: rgba(52,211,153,0.08);
+    }
+    .diff-line.added .d-code { color: var(--success-fg); }
+    .diff-line.context .d-code { color: var(--text-tertiary); }
+    .diff-word-removed {
+      background: rgba(251,113,133,0.25);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+    .diff-word-added {
+      background: rgba(52,211,153,0.25);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+    .diff-unified .diff-line {
+      width: 100%;
+    }
+    .diff-tab-bar {
+      display: flex;
+      gap: 2px;
+    }
+
+    /* ── Grep Results ── */
+    .grep-file-group {
+      margin-bottom: 12px;
+    }
+    .grep-file-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .grep-file-header .icon { color: var(--accent-fg); }
+    .grep-line {
+      display: flex;
+      font-family: monospace;
+      font-size: 12.5px;
+      line-height: 24px;
+      padding: 0 12px;
+    }
+    .grep-line .g-num {
+      width: 44px;
+      min-width: 44px;
+      text-align: right;
+      padding-right: 12px;
+      color: var(--text-tertiary);
+      opacity: 0.5;
+      user-select: none;
+    }
+    .grep-line .g-code {
+      flex: 1;
+      white-space: pre;
+    }
+    .grep-line.match { background: rgba(251,191,36,0.05); }
+    .grep-line.ctx .g-code { color: var(--text-tertiary); }
+    .grep-highlight {
+      background: rgba(251,191,36,0.25);
+      color: var(--warning-fg);
+      font-weight: 600;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+
+    /* ── File Tree ── */
+    .file-tree {
+      font-size: 13px;
+      font-family: monospace;
+    }
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0 3px calc(var(--depth, 0) * 20px);
+      color: var(--text-secondary);
+      cursor: default;
+    }
+    .tree-item.dir {
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+    .tree-item.dir:hover { color: var(--accent-fg); }
+    .tree-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+    .tree-children {
+      overflow: hidden;
+      transition: max-height var(--transition-slow);
+    }
+    .tree-children.collapsed { max-height: 0 !important; }
+
+    /* ── Terminal ── */
+    .terminal {
+      background: #0c0c0e;
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border-muted);
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .terminal-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border-default);
+    }
+    .terminal-body {
+      padding: 12px 16px;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+    .term-prompt { color: var(--success-fg); }
+    .term-cmd { color: var(--text-primary); font-weight: 500; }
+    .term-output { color: var(--text-secondary); }
+    .term-error { color: var(--danger-fg); }
+    .term-success { color: var(--success-fg); }
+    .term-warning { color: var(--warning-fg); }
+    .term-dim { color: var(--text-tertiary); }
+
+    /* ── SQL Table ── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: rgba(255,255,255,0.02);
+    }
+    .data-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+    .data-table tr:nth-child(even) td {
+      background: rgba(255,255,255,0.015);
+    }
+    .data-table tr:hover td {
+      background: var(--accent-subtle);
+    }
+
+    /* ── Agent Card ── */
+    .agent-card {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--canvas-inset);
+    }
+    .agent-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--gradient-surface);
+      border-bottom: 1px solid var(--border-muted);
+    }
+    .agent-card-body {
+      padding: 16px;
+    }
+    .agent-card-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* ── Question Card ── */
+    .question-card {
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      background: var(--accent-subtle);
+    }
+    .question-text {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+    .choice-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .choice-btn {
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all var(--transition-fast);
+    }
+    .choice-btn:hover {
+      border-color: var(--accent-emphasis);
+      color: var(--text-primary);
+    }
+    .choice-btn.selected {
+      background: var(--accent-muted);
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+
+    /* ── GitHub Card ── */
+    .gh-card {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      background: var(--canvas-inset);
+    }
+    .gh-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .gh-card-title .number {
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+    .gh-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .gh-labels {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .gh-label {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+    }
+    .gh-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--accent-fg);
+      font-weight: 700;
+    }
+
+    /* ── Web Search Results ── */
+    .source-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--canvas-inset);
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+    .source-card:hover {
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+    }
+    .source-card .s-num {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .citation {
+      color: var(--accent-fg);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .citation:hover { text-decoration: underline; }
+
+    /* ── Collapsible ── */
+    .collapsible-trigger {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .collapsible-trigger .chevron {
+      transition: transform var(--transition-fast);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .collapsible-trigger.open .chevron {
+      transform: rotate(90deg);
+    }
+    .collapsible-content {
+      overflow: hidden;
+      transition: max-height var(--transition-slow), opacity var(--transition-normal);
+    }
+    .collapsible-content.collapsed {
+      max-height: 0 !important;
+      opacity: 0;
+    }
+    .collapsible-content.expanded {
+      opacity: 1;
+    }
+
+    /* ── Utility ── */
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .gap-6 { gap: 6px; }
+    .gap-8 { gap: 8px; }
+    .gap-12 { gap: 12px; }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-12 { margin-bottom: 12px; }
+    .text-sm { font-size: 12px; }
+    .text-xs { font-size: 11px; }
+    .mono { font-family: monospace; }
+    .copy-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent-emphasis);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all var(--transition-normal);
+      pointer-events: none;
+      z-index: 100;
+    }
+    .copy-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Markdown rendering inside agent */
+    .md-content h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 12px 0 6px;
+      color: var(--text-primary);
+    }
+    .md-content p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    .md-content ul {
+      padding-left: 20px;
+      margin-bottom: 8px;
+    }
+    .md-content li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .md-content code {
+      background: rgba(255,255,255,0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 12px;
+      color: var(--accent-fg);
+    }
+    .md-content pre {
+      background: var(--canvas-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin: 8px 0;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+    .md-content pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-secondary);
+    }
+
+    /* Status dots */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.running {
+      background: var(--warning-fg);
+      animation: pulse 1.5s infinite;
+    }
+    .status-dot.success { background: var(--success-fg); }
+    .status-dot.error { background: var(--danger-fg); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="page-header">
+  <div class="logo"><span>TracePilot</span></div>
+  <span class="sep">/</span>
+  <span class="subtitle">Tool Call Renderer Prototypes</span>
+</header>
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <h3>Renderers</h3>
+  <a href="#edit" class="active"><span class="icon">✏️</span> Edit — Diff</a>
+  <a href="#view"><span class="icon">👁</span> View — Code</a>
+  <a href="#create"><span class="icon">✨</span> Create — New File</a>
+  <a href="#grep"><span class="icon">🔍</span> Grep — Search</a>
+  <a href="#glob"><span class="icon">📁</span> Glob — File Tree</a>
+  <a href="#shell"><span class="icon">⬛</span> Shell — Terminal</a>
+  <a href="#sql"><span class="icon">🗄</span> SQL — Table</a>
+  <a href="#task"><span class="icon">🤖</span> Task — Agent</a>
+  <a href="#websearch"><span class="icon">🌐</span> Web Search</a>
+  <a href="#askuser"><span class="icon">❓</span> Ask User</a>
+  <a href="#github"><span class="icon">🐙</span> GitHub MCP</a>
+</nav>
+
+<!-- ── Main Content ── -->
+<main class="main">
+
+<!-- ━━━━━━━━━━━━━━━ 1. EDIT — DIFF ━━━━━━━━━━━━━━━ -->
+<section class="section" id="edit">
+  <div class="section-title"><span class="num">1</span> Edit Tool — Diff Renderer</div>
+  <p class="section-desc">Transforms raw JSON tool arguments into a readable side-by-side diff with word-level highlighting.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Raw JSON</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">{
+  "tool": "edit",
+  "arguments": {
+    "path": "src/components/Auth.vue",
+    "old_str": "const token = localStorage.getItem('token');",
+    "new_str": "const token = sessionStorage.getItem('auth_token');\nconst refreshToken = sessionStorage.getItem('refresh_token');"
+  }
+}</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Rich Diff</span>
+      </div>
+      <div class="panel-body">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="file-path">
+              <span class="icon">📄</span>
+              src/components/Auth.vue
+              <span class="badge badge-warning">Modified</span>
+            </div>
+            <div class="actions diff-tab-bar" data-target="diff-edit">
+              <button class="btn-sm active" data-mode="split">Split</button>
+              <button class="btn-sm" data-mode="unified">Unified</button>
+            </div>
+          </div>
+          <!-- Split diff -->
+          <div class="diff-view" id="diff-edit-split">
+            <div class="diff-split">
+              <div class="diff-side">
+                <div class="diff-line context"><span class="d-num">14</span><span class="d-code"><span class="syn-keyword">import</span> { useRouter } <span class="syn-keyword">from</span> <span class="syn-string">'vue-router'</span>;</span></div>
+                <div class="diff-line context"><span class="d-num">15</span><span class="d-code"></span></div>
+                <div class="diff-line removed"><span class="d-num">16</span><span class="d-code"><span class="syn-keyword">const</span> token = <span class="diff-word-removed">localStorage</span>.getItem(<span class="diff-word-removed"><span class="syn-string">'token'</span></span>);</span></div>
+                <div class="diff-line context"><span class="d-num">17</span><span class="d-code"></span></div>
+                <div class="diff-line context"><span class="d-num">18</span><span class="d-code"><span class="syn-keyword">if</span> (!token) {</span></div>
+              </div>
+              <div class="diff-side">
+                <div class="diff-line context"><span class="d-num">14</span><span class="d-code"><span class="syn-keyword">import</span> { useRouter } <span class="syn-keyword">from</span> <span class="syn-string">'vue-router'</span>;</span></div>
+                <div class="diff-line context"><span class="d-num">15</span><span class="d-code"></span></div>
+                <div class="diff-line added"><span class="d-num">16</span><span class="d-code"><span class="syn-keyword">const</span> token = <span class="diff-word-added">sessionStorage</span>.getItem(<span class="diff-word-added"><span class="syn-string">'auth_token'</span></span>);</span></div>
+                <div class="diff-line added"><span class="d-num">17</span><span class="d-code"><span class="syn-keyword">const</span> refreshToken = <span class="diff-word-added">sessionStorage</span>.getItem(<span class="diff-word-added"><span class="syn-string">'refresh_token'</span></span>);</span></div>
+                <div class="diff-line context"><span class="d-num">18</span><span class="d-code"></span></div>
+                <div class="diff-line context"><span class="d-num">19</span><span class="d-code"><span class="syn-keyword">if</span> (!token) {</span></div>
+              </div>
+            </div>
+          </div>
+          <!-- Unified diff -->
+          <div class="diff-view diff-unified" id="diff-edit-unified" style="display:none;">
+            <div class="diff-line context"><span class="d-num">14</span><span class="d-code"><span class="syn-keyword">import</span> { useRouter } <span class="syn-keyword">from</span> <span class="syn-string">'vue-router'</span>;</span></div>
+            <div class="diff-line context"><span class="d-num">15</span><span class="d-code"></span></div>
+            <div class="diff-line removed"><span class="d-num">16</span><span class="d-code">- <span class="syn-keyword">const</span> token = <span class="diff-word-removed">localStorage</span>.getItem(<span class="diff-word-removed"><span class="syn-string">'token'</span></span>);</span></div>
+            <div class="diff-line added"><span class="d-num">16</span><span class="d-code">+ <span class="syn-keyword">const</span> token = <span class="diff-word-added">sessionStorage</span>.getItem(<span class="diff-word-added"><span class="syn-string">'auth_token'</span></span>);</span></div>
+            <div class="diff-line added"><span class="d-num">17</span><span class="d-code">+ <span class="syn-keyword">const</span> refreshToken = <span class="diff-word-added">sessionStorage</span>.getItem(<span class="diff-word-added"><span class="syn-string">'refresh_token'</span></span>);</span></div>
+            <div class="diff-line context"><span class="d-num">18</span><span class="d-code"></span></div>
+            <div class="diff-line context"><span class="d-num">19</span><span class="d-code"><span class="syn-keyword">if</span> (!token) {</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 2. VIEW — CODE VIEWER ━━━━━━━━━━━━━━━ -->
+<section class="section" id="view">
+  <div class="section-title"><span class="num">2</span> View Tool — Code Viewer</div>
+  <p class="section-desc">Renders viewed files with syntax highlighting, line numbers, and interactive controls.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">1. import { ref, computed } from 'vue';
+2. import type { AuthState, User } from '@/types';
+3.
+4. export function useAuth() {
+5.   const user = ref&lt;User | null&gt;(null);
+6.   const isLoading = ref(false);
+7.   const error = ref&lt;string | null&gt;(null);
+8.
+9.   const isAuthenticated = computed(() =&gt; !!user.value);
+10.
+11.  async function login(email: string, password: string) {
+12.    isLoading.value = true;
+13.    error.value = null;
+14.    try {
+15.      const response = await fetch('/api/auth/login', {
+16.        method: 'POST',
+17.        headers: { 'Content-Type': 'application/json' },
+18.        body: JSON.stringify({ email, password }),
+19.      });
+20.      if (!response.ok) throw new Error('Login failed');
+21.      user.value = await response.json();
+22.    } catch (e) {
+23.      error.value = (e as Error).message;
+24.    } finally {
+25.      isLoading.value = false;
+26.    }
+27.  }
+28.
+29.  return { user, isAuthenticated, isLoading, error, login };
+30. }</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Syntax Highlighted</span>
+      </div>
+      <div class="panel-body">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="file-path">
+              <span class="icon">📄</span>
+              src/composables/useAuth.ts
+              <span class="badge badge-accent">TypeScript</span>
+              <span class="badge badge-neutral">Lines 1–30</span>
+            </div>
+            <div class="actions">
+              <button class="btn-sm" onclick="showToast('Copied to clipboard!')">📋 Copy</button>
+            </div>
+          </div>
+          <div class="code-content">
+            <table>
+              <tr><td class="line-num">1</td><td class="line-code"><span class="syn-keyword">import</span> { ref, computed } <span class="syn-keyword">from</span> <span class="syn-string">'vue'</span>;</td></tr>
+              <tr><td class="line-num">2</td><td class="line-code"><span class="syn-keyword">import</span> <span class="syn-keyword">type</span> { <span class="syn-type">AuthState</span>, <span class="syn-type">User</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/types'</span>;</td></tr>
+              <tr><td class="line-num">3</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">4</td><td class="line-code"><span class="syn-keyword">export function</span> <span class="syn-func">useAuth</span>() {</td></tr>
+              <tr><td class="line-num">5</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">user</span> = ref&lt;<span class="syn-type">User</span> | <span class="syn-type">null</span>&gt;(<span class="syn-const">null</span>);</td></tr>
+              <tr><td class="line-num">6</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">isLoading</span> = ref(<span class="syn-const">false</span>);</td></tr>
+              <tr><td class="line-num">7</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">error</span> = ref&lt;<span class="syn-type">string</span> | <span class="syn-type">null</span>&gt;(<span class="syn-const">null</span>);</td></tr>
+              <tr><td class="line-num">8</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">9</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">isAuthenticated</span> = computed(() =&gt; !!<span class="syn-const">user</span>.value);</td></tr>
+              <tr><td class="line-num">10</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">11</td><td class="line-code">  <span class="syn-keyword">async function</span> <span class="syn-func">login</span>(<span class="syn-param">email</span>: <span class="syn-type">string</span>, <span class="syn-param">password</span>: <span class="syn-type">string</span>) {</td></tr>
+              <tr><td class="line-num">12</td><td class="line-code">    <span class="syn-const">isLoading</span>.value = <span class="syn-const">true</span>;</td></tr>
+              <tr><td class="line-num">13</td><td class="line-code">    <span class="syn-const">error</span>.value = <span class="syn-const">null</span>;</td></tr>
+              <tr><td class="line-num">14</td><td class="line-code">    <span class="syn-keyword">try</span> {</td></tr>
+              <tr><td class="line-num">15</td><td class="line-code">      <span class="syn-keyword">const</span> <span class="syn-const">response</span> = <span class="syn-keyword">await</span> <span class="syn-func">fetch</span>(<span class="syn-string">'/api/auth/login'</span>, {</td></tr>
+              <tr><td class="line-num">16</td><td class="line-code">        method: <span class="syn-string">'POST'</span>,</td></tr>
+              <tr><td class="line-num">17</td><td class="line-code">        headers: { <span class="syn-string">'Content-Type'</span>: <span class="syn-string">'application/json'</span> },</td></tr>
+              <tr><td class="line-num">18</td><td class="line-code">        body: <span class="syn-type">JSON</span>.<span class="syn-func">stringify</span>({ email, password }),</td></tr>
+              <tr><td class="line-num">19</td><td class="line-code">      });</td></tr>
+              <tr><td class="line-num">20</td><td class="line-code">      <span class="syn-keyword">if</span> (!<span class="syn-const">response</span>.ok) <span class="syn-keyword">throw new</span> <span class="syn-type">Error</span>(<span class="syn-string">'Login failed'</span>);</td></tr>
+              <tr><td class="line-num">21</td><td class="line-code">      <span class="syn-const">user</span>.value = <span class="syn-keyword">await</span> <span class="syn-const">response</span>.<span class="syn-func">json</span>();</td></tr>
+              <tr><td class="line-num">22</td><td class="line-code">    } <span class="syn-keyword">catch</span> (<span class="syn-param">e</span>) {</td></tr>
+              <tr><td class="line-num">23</td><td class="line-code">      <span class="syn-const">error</span>.value = (<span class="syn-param">e</span> <span class="syn-keyword">as</span> <span class="syn-type">Error</span>).message;</td></tr>
+              <tr><td class="line-num">24</td><td class="line-code">    } <span class="syn-keyword">finally</span> {</td></tr>
+              <tr><td class="line-num">25</td><td class="line-code">      <span class="syn-const">isLoading</span>.value = <span class="syn-const">false</span>;</td></tr>
+              <tr><td class="line-num">26</td><td class="line-code">    }</td></tr>
+              <tr><td class="line-num">27</td><td class="line-code">  }</td></tr>
+              <tr><td class="line-num">28</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">29</td><td class="line-code">  <span class="syn-keyword">return</span> { user, isAuthenticated, isLoading, error, login };</td></tr>
+              <tr><td class="line-num">30</td><td class="line-code">}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 3. CREATE — NEW FILE ━━━━━━━━━━━━━━━ -->
+<section class="section" id="create">
+  <div class="section-title"><span class="num">3</span> Create Tool — New File Renderer</div>
+  <p class="section-desc">Displays newly created files with a celebratory badge and full syntax highlighting.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Raw JSON</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">{
+  "tool": "create",
+  "arguments": {
+    "path": "src/middleware/rateLimit.ts",
+    "file_text": "import { RateLimiter } from '@/utils/rate-limiter';\nimport type { Middleware, Context } from '@/types';\n\nconst limiter = new RateLimiter({\n  windowMs: 15 * 60 * 1000,\n  maxRequests: 100,\n  keyGenerator: (ctx: Context) => ctx.ip,\n});\n\nexport const rateLimitMiddleware: Middleware = async (ctx, next) => {\n  const key = limiter.keyGenerator(ctx);\n  const result = limiter.consume(key);\n\n  ctx.set('X-RateLimit-Limit', String(result.limit));\n  ctx.set('X-RateLimit-Remaining', String(result.remaining));\n\n  if (!result.allowed) {\n    ctx.status = 429;\n    ctx.body = { error: 'Too many requests' };\n    return;\n  }\n\n  await next();\n};"
+  }
+}</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Rich Preview</span>
+      </div>
+      <div class="panel-body">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="file-path">
+              <span class="icon">✨</span>
+              src/middleware/rateLimit.ts
+              <span class="badge badge-success">New File ✨</span>
+              <span class="badge badge-accent">TypeScript</span>
+              <span class="badge badge-neutral">23 lines</span>
+            </div>
+            <div class="actions">
+              <button class="btn-sm" onclick="showToast('Copied!')">📋 Copy</button>
+            </div>
+          </div>
+          <div class="code-content">
+            <table>
+              <tr><td class="line-num">1</td><td class="line-code"><span class="syn-keyword">import</span> { <span class="syn-type">RateLimiter</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/utils/rate-limiter'</span>;</td></tr>
+              <tr><td class="line-num">2</td><td class="line-code"><span class="syn-keyword">import</span> <span class="syn-keyword">type</span> { <span class="syn-type">Middleware</span>, <span class="syn-type">Context</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/types'</span>;</td></tr>
+              <tr><td class="line-num">3</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">4</td><td class="line-code"><span class="syn-keyword">const</span> <span class="syn-const">limiter</span> = <span class="syn-keyword">new</span> <span class="syn-type">RateLimiter</span>({</td></tr>
+              <tr><td class="line-num">5</td><td class="line-code">  windowMs: <span class="syn-number">15</span> * <span class="syn-number">60</span> * <span class="syn-number">1000</span>,</td></tr>
+              <tr><td class="line-num">6</td><td class="line-code">  maxRequests: <span class="syn-number">100</span>,</td></tr>
+              <tr><td class="line-num">7</td><td class="line-code">  keyGenerator: (<span class="syn-param">ctx</span>: <span class="syn-type">Context</span>) =&gt; <span class="syn-param">ctx</span>.ip,</td></tr>
+              <tr><td class="line-num">8</td><td class="line-code">});</td></tr>
+              <tr><td class="line-num">9</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">10</td><td class="line-code"><span class="syn-keyword">export const</span> <span class="syn-const">rateLimitMiddleware</span>: <span class="syn-type">Middleware</span> = <span class="syn-keyword">async</span> (<span class="syn-param">ctx</span>, <span class="syn-param">next</span>) =&gt; {</td></tr>
+              <tr><td class="line-num">11</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">key</span> = <span class="syn-const">limiter</span>.<span class="syn-func">keyGenerator</span>(<span class="syn-param">ctx</span>);</td></tr>
+              <tr><td class="line-num">12</td><td class="line-code">  <span class="syn-keyword">const</span> <span class="syn-const">result</span> = <span class="syn-const">limiter</span>.<span class="syn-func">consume</span>(<span class="syn-const">key</span>);</td></tr>
+              <tr><td class="line-num">13</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">14</td><td class="line-code">  <span class="syn-param">ctx</span>.<span class="syn-func">set</span>(<span class="syn-string">'X-RateLimit-Limit'</span>, <span class="syn-type">String</span>(<span class="syn-const">result</span>.limit));</td></tr>
+              <tr><td class="line-num">15</td><td class="line-code">  <span class="syn-param">ctx</span>.<span class="syn-func">set</span>(<span class="syn-string">'X-RateLimit-Remaining'</span>, <span class="syn-type">String</span>(<span class="syn-const">result</span>.remaining));</td></tr>
+              <tr><td class="line-num">16</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">17</td><td class="line-code">  <span class="syn-keyword">if</span> (!<span class="syn-const">result</span>.allowed) {</td></tr>
+              <tr><td class="line-num">18</td><td class="line-code">    <span class="syn-param">ctx</span>.status = <span class="syn-number">429</span>;</td></tr>
+              <tr><td class="line-num">19</td><td class="line-code">    <span class="syn-param">ctx</span>.body = { error: <span class="syn-string">'Too many requests'</span> };</td></tr>
+              <tr><td class="line-num">20</td><td class="line-code">    <span class="syn-keyword">return</span>;</td></tr>
+              <tr><td class="line-num">21</td><td class="line-code">  }</td></tr>
+              <tr><td class="line-num">22</td><td class="line-code"></td></tr>
+              <tr><td class="line-num">23</td><td class="line-code">  <span class="syn-keyword">await</span> <span class="syn-func">next</span>();</td></tr>
+              <tr><td class="line-num">24</td><td class="line-code">};</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 4. GREP — SEARCH RESULTS ━━━━━━━━━━━━━━━ -->
+<section class="section" id="grep">
+  <div class="section-title"><span class="num">4</span> Grep Tool — Search Results</div>
+  <p class="section-desc">Transforms raw grep output into grouped, highlighted search results with context lines.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">src/composables/useAuth.ts:11:  async function handleAuth(credentials: AuthCredentials) {
+src/composables/useAuth.ts:34:  function handleAuthError(error: AuthError) {
+src/composables/useAuth.ts:48:  // Re-export handleAuth for external use
+src/components/LoginForm.vue:23:  const { handleAuth, isLoading } = useAuth();
+src/components/LoginForm.vue:31:    await handleAuth({ email: email.value, password: password.value });
+src/middleware/authGuard.ts:8:import { handleAuth } from '@/composables/useAuth';
+src/middleware/authGuard.ts:15:  const result = await handleAuth(storedCredentials);
+src/middleware/authGuard.ts:22:  // Retry handleAuth on token refresh</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Grouped Results</span>
+      </div>
+      <div class="panel-body">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="file-path">
+              <span class="icon">🔍</span>
+              Search: <code style="color:var(--warning-fg);background:var(--warning-subtle);padding:1px 6px;border-radius:3px;font-size:12px">handleAuth</code>
+              <span class="badge badge-warning">8 matches</span>
+              <span class="badge badge-neutral">3 files</span>
+            </div>
+          </div>
+
+          <!-- File 1 -->
+          <div class="grep-file-group">
+            <div class="grep-file-header">
+              <span class="icon">📄</span>
+              src/composables/useAuth.ts
+              <span class="badge badge-warning" style="font-size:10px">3 matches</span>
+            </div>
+            <div class="grep-line ctx"><span class="g-num">10</span><span class="g-code">  <span class="syn-keyword">const</span> <span class="syn-const">isLoading</span> = ref(<span class="syn-const">false</span>);</span></div>
+            <div class="grep-line match"><span class="g-num">11</span><span class="g-code">  <span class="syn-keyword">async function</span> <span class="grep-highlight">handleAuth</span>(<span class="syn-param">credentials</span>: <span class="syn-type">AuthCredentials</span>) {</span></div>
+            <div class="grep-line ctx"><span class="g-num">12</span><span class="g-code">    <span class="syn-const">isLoading</span>.value = <span class="syn-const">true</span>;</span></div>
+            <div class="grep-line" style="height:8px"></div>
+            <div class="grep-line ctx"><span class="g-num">33</span><span class="g-code">  }</span></div>
+            <div class="grep-line match"><span class="g-num">34</span><span class="g-code">  <span class="syn-keyword">function</span> <span class="grep-highlight">handleAuth</span><span class="syn-type">Error</span>(<span class="syn-param">error</span>: <span class="syn-type">AuthError</span>) {</span></div>
+            <div class="grep-line ctx"><span class="g-num">35</span><span class="g-code">    console.<span class="syn-func">error</span>(<span class="syn-string">'Auth failed:'</span>, error);</span></div>
+            <div class="grep-line" style="height:8px"></div>
+            <div class="grep-line ctx"><span class="g-num">47</span><span class="g-code">  }</span></div>
+            <div class="grep-line match"><span class="g-num">48</span><span class="g-code">  <span class="syn-comment">// Re-export <span class="grep-highlight">handleAuth</span> for external use</span></span></div>
+            <div class="grep-line ctx"><span class="g-num">49</span><span class="g-code">  <span class="syn-keyword">return</span> { <span class="syn-const">handleAuth</span>, isLoading, error };</span></div>
+          </div>
+
+          <!-- File 2 -->
+          <div class="grep-file-group">
+            <div class="grep-file-header">
+              <span class="icon">📄</span>
+              src/components/LoginForm.vue
+              <span class="badge badge-warning" style="font-size:10px">2 matches</span>
+            </div>
+            <div class="grep-line ctx"><span class="g-num">22</span><span class="g-code"><span class="syn-keyword">const</span> { isLoading } = useAuth();</span></div>
+            <div class="grep-line match"><span class="g-num">23</span><span class="g-code"><span class="syn-keyword">const</span> { <span class="grep-highlight">handleAuth</span>, isLoading } = <span class="syn-func">useAuth</span>();</span></div>
+            <div class="grep-line ctx"><span class="g-num">24</span><span class="g-code"></span></div>
+            <div class="grep-line" style="height:8px"></div>
+            <div class="grep-line ctx"><span class="g-num">30</span><span class="g-code"><span class="syn-keyword">async function</span> <span class="syn-func">onSubmit</span>() {</span></div>
+            <div class="grep-line match"><span class="g-num">31</span><span class="g-code">  <span class="syn-keyword">await</span> <span class="grep-highlight">handleAuth</span>({ email: email.value, password: password.value });</span></div>
+            <div class="grep-line ctx"><span class="g-num">32</span><span class="g-code">}</span></div>
+          </div>
+
+          <!-- File 3 -->
+          <div class="grep-file-group">
+            <div class="grep-file-header">
+              <span class="icon">📄</span>
+              src/middleware/authGuard.ts
+              <span class="badge badge-warning" style="font-size:10px">3 matches</span>
+            </div>
+            <div class="grep-line ctx"><span class="g-num">7</span><span class="g-code"><span class="syn-keyword">import</span> { useRouter } <span class="syn-keyword">from</span> <span class="syn-string">'vue-router'</span>;</span></div>
+            <div class="grep-line match"><span class="g-num">8</span><span class="g-code"><span class="syn-keyword">import</span> { <span class="grep-highlight">handleAuth</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/composables/useAuth'</span>;</span></div>
+            <div class="grep-line ctx"><span class="g-num">9</span><span class="g-code"></span></div>
+            <div class="grep-line" style="height:8px"></div>
+            <div class="grep-line ctx"><span class="g-num">14</span><span class="g-code">  <span class="syn-keyword">const</span> <span class="syn-const">storedCredentials</span> = getStoredCredentials();</span></div>
+            <div class="grep-line match"><span class="g-num">15</span><span class="g-code">  <span class="syn-keyword">const</span> <span class="syn-const">result</span> = <span class="syn-keyword">await</span> <span class="grep-highlight">handleAuth</span>(storedCredentials);</span></div>
+            <div class="grep-line ctx"><span class="g-num">16</span><span class="g-code">  <span class="syn-keyword">if</span> (!result.success) router.<span class="syn-func">push</span>(<span class="syn-string">'/login'</span>);</span></div>
+            <div class="grep-line" style="height:8px"></div>
+            <div class="grep-line ctx"><span class="g-num">21</span><span class="g-code">  <span class="syn-keyword">try</span> {</span></div>
+            <div class="grep-line match"><span class="g-num">22</span><span class="g-code">  <span class="syn-comment">// Retry <span class="grep-highlight">handleAuth</span> on token refresh</span></span></div>
+            <div class="grep-line ctx"><span class="g-num">23</span><span class="g-code">    <span class="syn-keyword">await</span> <span class="syn-func">refreshToken</span>();</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 5. GLOB — FILE TREE ━━━━━━━━━━━━━━━ -->
+<section class="section" id="glob">
+  <div class="section-title"><span class="num">5</span> Glob Tool — File Tree</div>
+  <p class="section-desc">Renders flat file lists as interactive, collapsible directory trees with file type icons.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Paths</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">src/components/Auth/LoginForm.vue
+src/components/Auth/RegisterForm.vue
+src/components/Auth/ResetPassword.vue
+src/components/Layout/Header.vue
+src/components/Layout/Sidebar.vue
+src/composables/useAuth.ts
+src/composables/useTheme.ts
+src/middleware/authGuard.ts
+src/middleware/rateLimit.ts
+src/styles/auth.css
+src/styles/layout.css
+src/types/auth.d.ts
+src/types/index.d.ts
+src/utils/crypto.ts
+src/utils/validators.ts
+package.json
+tsconfig.json
+vite.config.ts</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">File Tree</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="flex items-center gap-8">
+            <span class="badge badge-accent">18 files</span>
+            <span style="font-size:12px;color:var(--text-secondary)">Pattern: <code style="color:var(--accent-fg);font-size:11px">src/**/*.{vue,ts,css} + *.json + *.ts</code></span>
+          </div>
+          <div class="flex gap-6">
+            <button class="btn-sm" onclick="expandAllTree()">Expand All</button>
+            <button class="btn-sm" onclick="collapseAllTree()">Collapse All</button>
+          </div>
+        </div>
+        <div class="file-tree" id="file-tree">
+          <!-- src/ -->
+          <div class="tree-item dir" style="--depth:0" onclick="toggleTree(this)">
+            <span class="tree-icon">📂</span> <span>src</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+          </div>
+          <div class="tree-children" data-tree-children>
+            <!-- components/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>components</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <!-- Auth/ -->
+              <div class="tree-item dir" style="--depth:2" onclick="toggleTree(this)">
+                <span class="tree-icon">📂</span> <span>Auth</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+              </div>
+              <div class="tree-children" data-tree-children>
+                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> LoginForm.vue</div>
+                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> RegisterForm.vue</div>
+                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> ResetPassword.vue</div>
+              </div>
+              <!-- Layout/ -->
+              <div class="tree-item dir" style="--depth:2" onclick="toggleTree(this)">
+                <span class="tree-icon">📂</span> <span>Layout</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+              </div>
+              <div class="tree-children" data-tree-children>
+                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> Header.vue</div>
+                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> Sidebar.vue</div>
+              </div>
+            </div>
+            <!-- composables/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>composables</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> useAuth.ts</div>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> useTheme.ts</div>
+            </div>
+            <!-- middleware/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>middleware</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> authGuard.ts</div>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> rateLimit.ts</div>
+            </div>
+            <!-- styles/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>styles</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#264de4">🟣</span> auth.css</div>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#264de4">🟣</span> layout.css</div>
+            </div>
+            <!-- types/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>types</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> auth.d.ts</div>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> index.d.ts</div>
+            </div>
+            <!-- utils/ -->
+            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+              <span class="tree-icon">📂</span> <span>utils</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
+            </div>
+            <div class="tree-children" data-tree-children>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> crypto.ts</div>
+              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> validators.ts</div>
+            </div>
+          </div>
+          <!-- root files -->
+          <div class="tree-item" style="--depth:0"><span class="tree-icon">📦</span> package.json</div>
+          <div class="tree-item" style="--depth:0"><span class="tree-icon">⚙️</span> tsconfig.json</div>
+          <div class="tree-item" style="--depth:0"><span class="tree-icon">⚡</span> vite.config.ts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 6. SHELL — TERMINAL OUTPUT ━━━━━━━━━━━━━━━ -->
+<section class="section" id="shell">
+  <div class="section-title"><span class="num">6</span> Shell — Terminal Output</div>
+  <p class="section-desc">Renders shell output in a rich terminal emulator with color coding, prompts, and status badges.</p>
+
+  <!-- Success Example -->
+  <p class="text-sm mb-8" style="color:var(--text-tertiary);margin-top:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Example A — Successful Build</p>
+  <div class="comparison">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">$ npm run build
+
+> tracepilot@0.1.0 build
+> vite build
+
+vite v5.4.2 building for production...
+transforming (142) src/main.ts
+✓ 247 modules transformed.
+dist/index.html                  0.42 kB │ gzip:  0.27 kB
+dist/assets/index-BjK3xU9o.css  14.28 kB │ gzip:  3.71 kB
+dist/assets/index-Dz7Sk2VY.js  138.52 kB │ gzip: 45.09 kB
+✓ built in 2.34s</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Terminal</span>
+      </div>
+      <div class="panel-body">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="flex items-center gap-8">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <span style="font-size:12px;color:var(--text-tertiary)">powershell</span>
+            </div>
+            <div class="flex items-center gap-6">
+              <span class="badge badge-accent">sync</span>
+              <span class="badge badge-success">✓ exit 0</span>
+            </div>
+          </div>
+          <div class="terminal-body">
+<span class="term-prompt">$ </span><span class="term-cmd">npm run build</span>
+<span class="term-dim">
+&gt; tracepilot@0.1.0 build
+&gt; vite build</span>
+
+<span class="term-output">vite v5.4.2 building for production...</span>
+<span class="term-output">transforming (142) src/main.ts</span>
+<span class="term-success">✓ 247 modules transformed.</span>
+<span class="term-output">dist/index.html                  0.42 kB │ gzip:  0.27 kB</span>
+<span class="term-output">dist/assets/index-BjK3xU9o.css  14.28 kB │ gzip:  3.71 kB</span>
+<span class="term-output">dist/assets/index-Dz7Sk2VY.js  138.52 kB │ gzip: 45.09 kB</span>
+<span class="term-success">✓ built in 2.34s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Failure Example -->
+  <p class="text-sm mb-8" style="color:var(--text-tertiary);margin-top:24px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Example B — Failed Test Run</p>
+  <div class="comparison">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">$ npm test
+
+FAIL src/composables/useAuth.test.ts
+  ● useAuth > should refresh token on 401
+
+    expect(received).toBe(expected)
+
+    Expected: true
+    Received: false
+
+      42 |     const result = await login('user@test.com', 'pass');
+      43 |     expect(mockFetch).toHaveBeenCalledTimes(2);
+    > 44 |     expect(result.refreshed).toBe(true);
+         |                              ^
+      45 |   });
+
+Tests:  1 failed, 14 passed, 15 total
+Time:   3.42 s</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Terminal</span>
+      </div>
+      <div class="panel-body">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="flex items-center gap-8">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <span style="font-size:12px;color:var(--text-tertiary)">powershell</span>
+            </div>
+            <div class="flex items-center gap-6">
+              <span class="badge badge-accent">sync</span>
+              <span class="badge badge-danger">✗ exit 1</span>
+            </div>
+          </div>
+          <div class="terminal-body">
+<span class="term-prompt">$ </span><span class="term-cmd">npm test</span>
+
+<span class="term-error">FAIL</span> <span class="term-output">src/composables/useAuth.test.ts</span>
+<span class="term-error">  ● useAuth › should refresh token on 401</span>
+
+<span class="term-output">    expect(received).toBe(expected)</span>
+
+<span class="term-error">    Expected: </span><span class="term-success">true</span>
+<span class="term-error">    Received: </span><span class="term-error">false</span>
+
+<span class="term-dim">      42 |     const result = await login('user@test.com', 'pass');</span>
+<span class="term-dim">      43 |     expect(mockFetch).toHaveBeenCalledTimes(2);</span>
+<span class="term-error">    &gt; 44 |     expect(result.refreshed).toBe(true);</span>
+<span class="term-error">         |                              ^</span>
+<span class="term-dim">      45 |   });</span>
+
+<span class="term-output">Tests:  </span><span class="term-error">1 failed</span><span class="term-output">, </span><span class="term-success">14 passed</span><span class="term-output">, 15 total</span>
+<span class="term-output">Time:   3.42 s</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="collapsible-trigger" onclick="toggleCollapsible(this)">
+            <span class="chevron">▶</span>
+            <span style="font-size:12px;color:var(--text-tertiary);">Show full output (47 lines)</span>
+          </div>
+          <div class="collapsible-content collapsed" style="max-height:200px;">
+            <div style="padding:8px 0;font-size:12px;color:var(--text-tertiary);font-family:monospace;">
+              ... additional test output would appear here when expanded ...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 7. SQL — QUERY + TABLE ━━━━━━━━━━━━━━━ -->
+<section class="section" id="sql">
+  <div class="section-title"><span class="num">7</span> SQL Tool — Query + Table</div>
+  <p class="section-desc">Renders SQL queries with syntax highlighting and results as styled data tables.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">Query: SELECT id, title, status, created_at FROM todos WHERE status != 'done' ORDER BY created_at DESC
+
+Results:
+id             | title                      | status      | created_at
+setup-auth     | Setup authentication       | in_progress | 2025-01-15 10:23:00
+add-rate-limit | Add rate limiting          | pending     | 2025-01-15 10:24:00
+fix-cors       | Fix CORS configuration     | blocked     | 2025-01-15 10:25:00
+write-tests    | Write integration tests    | pending     | 2025-01-15 10:26:00
+update-docs    | Update API documentation   | pending     | 2025-01-15 10:27:00
+
+5 rows returned</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Styled Table</span>
+      </div>
+      <div class="panel-body">
+        <div class="code-block" style="margin-bottom:16px;">
+          <div class="code-header">
+            <div class="file-path">
+              <span class="icon">🗄</span> SQL Query
+              <span class="badge badge-done">session</span>
+            </div>
+          </div>
+          <div style="padding:12px 16px;font-family:monospace;font-size:12.5px;line-height:1.6;">
+<span class="syn-keyword">SELECT</span> id, title, status, created_at
+<span class="syn-keyword">FROM</span> todos
+<span class="syn-keyword">WHERE</span> status <span class="syn-operator">!=</span> <span class="syn-string">'done'</span>
+<span class="syn-keyword">ORDER BY</span> created_at <span class="syn-keyword">DESC</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span class="badge badge-accent">5 rows</span>
+        </div>
+
+        <div style="border:1px solid var(--border-default);border-radius:var(--radius-md);overflow:hidden;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>title</th>
+                <th>status</th>
+                <th>created_at</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">setup-auth</code></td>
+                <td>Setup authentication</td>
+                <td><span class="badge badge-warning">in_progress</span></td>
+                <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:23</td>
+              </tr>
+              <tr>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">add-rate-limit</code></td>
+                <td>Add rate limiting</td>
+                <td><span class="badge badge-neutral">pending</span></td>
+                <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:24</td>
+              </tr>
+              <tr>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">fix-cors</code></td>
+                <td>Fix CORS configuration</td>
+                <td><span class="badge badge-danger">blocked</span></td>
+                <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:25</td>
+              </tr>
+              <tr>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">write-tests</code></td>
+                <td>Write integration tests</td>
+                <td><span class="badge badge-neutral">pending</span></td>
+                <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:26</td>
+              </tr>
+              <tr>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">update-docs</code></td>
+                <td>Update API documentation</td>
+                <td><span class="badge badge-neutral">pending</span></td>
+                <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:27</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 8. TASK — AGENT CARD ━━━━━━━━━━━━━━━ -->
+<section class="section" id="task">
+  <div class="section-title"><span class="num">8</span> Task (Subagent) — Agent Card</div>
+  <p class="section-desc">Renders sub-agent invocations as rich cards with status, prompt, and formatted results.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Generic</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">{
+  "tool": "task",
+  "arguments": {
+    "agent_type": "explore",
+    "description": "Find auth patterns",
+    "prompt": "Find all authentication-related patterns in the codebase. Look for JWT usage, session handling, middleware, and any security-related code. Report file paths, key functions, and how they connect."
+  },
+  "result": "Found 3 authentication patterns:\n\n1. JWT-based auth in src/composables/useAuth.ts\n   - login() creates JWT tokens\n   - refreshToken() handles refresh flow\n\n2. Session middleware in src/middleware/authGuard.ts\n   - Validates tokens on each request\n   - Redirects to /login on failure\n\n3. Rate limiting in src/middleware/rateLimit.ts\n   - IP-based rate limiting\n   - 100 requests per 15 minutes"
+}</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Agent Card</span>
+      </div>
+      <div class="panel-body">
+        <div class="agent-card">
+          <div class="agent-card-header">
+            <div class="agent-card-meta">
+              <span class="badge badge-cyan">🔍 explore</span>
+              <span class="badge badge-neutral">claude-haiku-4.5</span>
+              <span style="font-size:12px;color:var(--text-tertiary);">Find auth patterns</span>
+            </div>
+            <div class="flex items-center gap-8">
+              <span style="font-size:11px;color:var(--text-tertiary);">2.4s</span>
+              <span class="status-dot success"></span>
+              <span class="badge badge-success">completed</span>
+            </div>
+          </div>
+          <div class="agent-card-body">
+            <!-- Prompt -->
+            <div class="collapsible-trigger" onclick="toggleCollapsible(this)" style="margin-bottom:12px;">
+              <span class="chevron">▶</span>
+              <span style="font-size:12px;color:var(--text-tertiary);font-weight:500;">Prompt</span>
+            </div>
+            <div class="collapsible-content collapsed" style="max-height:200px;">
+              <div style="padding:8px 12px;margin-bottom:12px;background:var(--canvas-default);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);font-size:12px;color:var(--text-secondary);line-height:1.6;">
+                Find all authentication-related patterns in the codebase. Look for JWT usage, session handling, middleware, and any security-related code. Report file paths, key functions, and how they connect.
+              </div>
+            </div>
+            <!-- Result -->
+            <div style="font-size:12px;color:var(--text-tertiary);font-weight:500;margin-bottom:8px;">Result</div>
+            <div class="md-content" style="padding:12px;background:var(--canvas-default);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <p>Found <strong style="color:var(--text-primary)">3 authentication patterns</strong>:</p>
+              <h4>1. JWT-based auth</h4>
+              <p>Located in <code>src/composables/useAuth.ts</code></p>
+              <ul>
+                <li><code>login()</code> creates JWT tokens via <code>/api/auth/login</code></li>
+                <li><code>refreshToken()</code> handles the refresh flow with sliding window</li>
+              </ul>
+              <h4>2. Session middleware</h4>
+              <p>Located in <code>src/middleware/authGuard.ts</code></p>
+              <ul>
+                <li>Validates tokens on each request via <code>beforeEach</code> guard</li>
+                <li>Redirects to <code>/login</code> on failure</li>
+              </ul>
+              <h4>3. Rate limiting</h4>
+              <p>Located in <code>src/middleware/rateLimit.ts</code></p>
+              <ul>
+                <li>IP-based rate limiting with sliding window</li>
+                <li>100 requests per 15 minutes, configurable</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 9. WEB SEARCH — RESULTS ━━━━━━━━━━━━━━━ -->
+<section class="section" id="websearch">
+  <div class="section-title"><span class="num">9</span> Web Search — Search Results</div>
+  <p class="section-desc">Renders web search responses as formatted markdown with clickable citations and source cards.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Plain Text</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">Vue 3 introduced the Composition API as a more flexible way to organize component logic. Key features include:
+
+1. setup() function or &lt;script setup&gt; syntax
+2. Reactive primitives: ref(), reactive(), computed()
+3. Lifecycle hooks: onMounted(), onUnmounted()
+4. Composables for reusable logic extraction
+
+The &lt;script setup&gt; syntax is the recommended approach for Single File Components [1]. Composables should follow the "use" naming convention [2]. For state management, Pinia has replaced Vuex as the officially recommended solution [3].
+
+Sources:
+[1] https://vuejs.org/api/sfc-script-setup.html
+[2] https://vuejs.org/guide/reusability/composables.html
+[3] https://pinia.vuejs.org/introduction.html</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Rich Markdown</span>
+      </div>
+      <div class="panel-body">
+        <div style="border:1px solid var(--border-default);border-radius:var(--radius-lg);overflow:hidden;background:var(--canvas-inset);">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border-muted);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.02);">
+            <span>🌐</span>
+            <span style="font-size:13px;font-weight:500;">Web Search Results</span>
+            <span class="badge badge-accent">3 sources</span>
+          </div>
+          <div class="md-content" style="padding:16px;">
+            <p>Vue 3 introduced the <strong style="color:var(--text-primary)">Composition API</strong> as a more flexible way to organize component logic. Key features include:</p>
+            <ul>
+              <li><code>&lt;script setup&gt;</code> syntax for cleaner SFC authoring <a class="citation" href="#">[1]</a></li>
+              <li>Reactive primitives: <code>ref()</code>, <code>reactive()</code>, <code>computed()</code></li>
+              <li>Lifecycle hooks: <code>onMounted()</code>, <code>onUnmounted()</code></li>
+              <li>Composables for reusable logic extraction <a class="citation" href="#">[2]</a></li>
+            </ul>
+            <p>The <code>&lt;script setup&gt;</code> syntax is the recommended approach for Single File Components. Composables should follow the <strong style="color:var(--text-primary)">"use" naming convention</strong>. For state management, <strong style="color:var(--text-primary)">Pinia</strong> has replaced Vuex as the officially recommended solution <a class="citation" href="#">[3]</a>.</p>
+          </div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border-muted);display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="source-card" href="#"><span class="s-num">1</span> vuejs.org — Script Setup</a>
+            <a class="source-card" href="#"><span class="s-num">2</span> vuejs.org — Composables</a>
+            <a class="source-card" href="#"><span class="s-num">3</span> pinia.vuejs.org — Introduction</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 10. ASK USER — QUESTION CARD ━━━━━━━━━━━━━━━ -->
+<section class="section" id="askuser">
+  <div class="section-title"><span class="num">10</span> Ask User — Question Card</div>
+  <p class="section-desc">Renders user prompts as interactive question cards with selectable answer choices.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Raw JSON</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">{
+  "tool": "ask_user",
+  "arguments": {
+    "question": "The authentication module can use either JWT tokens stored in httpOnly cookies or session-based auth with server-side storage. Which approach do you prefer?",
+    "choices": [
+      "JWT with httpOnly cookies",
+      "Session-based with Redis",
+      "OAuth 2.0 with external provider"
+    ]
+  },
+  "result": "JWT with httpOnly cookies"
+}</div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed</span>
+        <span class="badge badge-success">Question Card</span>
+      </div>
+      <div class="panel-body">
+        <div class="question-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:12px;color:var(--accent-fg);font-weight:600;">❓ Question for User</span>
+            <span class="badge badge-success">✓ Answered</span>
+          </div>
+          <div class="question-text">
+            The authentication module can use either JWT tokens stored in httpOnly cookies or session-based auth with server-side storage. Which approach do you prefer?
+          </div>
+          <div class="choice-buttons">
+            <button class="choice-btn selected">✓ JWT with httpOnly cookies</button>
+            <button class="choice-btn">Session-based with Redis</button>
+            <button class="choice-btn">OAuth 2.0 with external provider</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━ 11. GITHUB MCP — ISSUE/PR CARD ━━━━━━━━━━━━━━━ -->
+<section class="section" id="github">
+  <div class="section-title"><span class="num">11</span> GitHub MCP — Issue/PR Card</div>
+  <p class="section-desc">Renders GitHub API responses as familiar GitHub-style issue and pull request cards.</p>
+  <div class="comparison">
+    <!-- BEFORE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label before">Current</span>
+        <span class="badge badge-neutral">Raw JSON</span>
+      </div>
+      <div class="panel-body">
+        <div class="raw-json">{
+  "number": 247,
+  "title": "Add rate limiting to authentication endpoints",
+  "state": "open",
+  "user": { "login": "sarahdev" },
+  "labels": [
+    { "name": "enhancement", "color": "a2eeef" },
+    { "name": "security", "color": "d93f0b" },
+    { "name": "priority: high", "color": "b60205" }
+  ],
+  "created_at": "2025-01-14T09:15:00Z",
+  "comments": 8,
+  "body": "We need rate limiting on auth endpoints to prevent brute force attacks..."
+}</div>
+      </div>
+    </div>
+    <!-- AFTER — Issue -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label after">Proposed — Issue</span>
+        <span class="badge badge-success">GitHub Card</span>
+      </div>
+      <div class="panel-body">
+        <div class="gh-card" style="margin-bottom:16px;">
+          <div class="gh-card-title">
+            <span style="font-size:18px;">🟢</span>
+            Add rate limiting to authentication endpoints
+            <span class="number">#247</span>
+          </div>
+          <div class="gh-card-meta">
+            <span class="badge badge-success">● Open</span>
+            <span class="flex items-center gap-6">
+              <span class="gh-avatar">S</span>
+              <span>sarahdev</span>
+            </span>
+            <span>opened Jan 14, 2025</span>
+            <span>💬 8 comments</span>
+          </div>
+          <div class="gh-labels">
+            <span class="gh-label" style="background:rgba(162,238,239,0.15);color:#a2eeef;border:1px solid rgba(162,238,239,0.3);">enhancement</span>
+            <span class="gh-label" style="background:rgba(217,63,11,0.15);color:#ff8a65;border:1px solid rgba(217,63,11,0.3);">security</span>
+            <span class="gh-label" style="background:rgba(182,2,5,0.15);color:#fb7185;border:1px solid rgba(182,2,5,0.3);">priority: high</span>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">We need rate limiting on auth endpoints to prevent brute force attacks...</p>
+          </div>
+        </div>
+
+        <!-- PR Card -->
+        <div class="gh-card">
+          <div class="gh-card-title">
+            <span style="font-size:18px;">🟣</span>
+            Implement JWT refresh token rotation
+            <span class="number">#251</span>
+          </div>
+          <div class="gh-card-meta">
+            <span class="badge badge-done">● Merged</span>
+            <span class="flex items-center gap-6">
+              <span class="gh-avatar">A</span>
+              <span>alexcoder</span>
+            </span>
+            <span>merged Jan 15, 2025</span>
+            <span>💬 12 comments</span>
+            <span style="color:var(--success-fg)">+284</span>
+            <span style="color:var(--danger-fg)">−47</span>
+          </div>
+          <div class="gh-labels">
+            <span class="gh-label" style="background:rgba(162,238,239,0.15);color:#a2eeef;border:1px solid rgba(162,238,239,0.3);">enhancement</span>
+            <span class="gh-label" style="background:rgba(63,185,80,0.15);color:#34d399;border:1px solid rgba(63,185,80,0.3);">reviewed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main><!-- /main -->
+
+<!-- Toast notification -->
+<div class="copy-toast" id="copy-toast">Copied to clipboard!</div>
+
+<script>
+// ── Sidebar active state on scroll ──
+const sections = document.querySelectorAll('.section');
+const navLinks = document.querySelectorAll('.sidebar a');
+
+function updateActiveNav() {
+  let current = '';
+  sections.forEach(section => {
+    const top = section.offsetTop - 80;
+    if (window.scrollY >= top) {
+      current = section.getAttribute('id');
+    }
+  });
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + current) {
+      link.classList.add('active');
+    }
+  });
+}
+window.addEventListener('scroll', updateActiveNav);
+
+// ── Smooth scroll for nav links ──
+navLinks.forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+});
+
+// ── Diff mode toggle ──
+document.querySelectorAll('.diff-tab-bar').forEach(bar => {
+  const target = bar.dataset.target;
+  bar.querySelectorAll('.btn-sm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bar.querySelectorAll('.btn-sm').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.mode;
+      const splitEl = document.getElementById(target + '-split');
+      const unifiedEl = document.getElementById(target + '-unified');
+      if (mode === 'split') {
+        splitEl.style.display = '';
+        unifiedEl.style.display = 'none';
+      } else {
+        splitEl.style.display = 'none';
+        unifiedEl.style.display = '';
+      }
+    });
+  });
+});
+
+// ── Collapsible toggle ──
+function toggleCollapsible(trigger) {
+  const content = trigger.nextElementSibling;
+  const isCollapsed = content.classList.contains('collapsed');
+  if (isCollapsed) {
+    content.classList.remove('collapsed');
+    content.classList.add('expanded');
+    trigger.classList.add('open');
+  } else {
+    content.classList.add('collapsed');
+    content.classList.remove('expanded');
+    trigger.classList.remove('open');
+  }
+}
+
+// ── File tree toggle ──
+function toggleTree(dirItem) {
+  const children = dirItem.nextElementSibling;
+  if (!children || !children.hasAttribute('data-tree-children')) return;
+  const chevron = dirItem.querySelector('.chevron');
+  if (children.classList.contains('collapsed')) {
+    children.classList.remove('collapsed');
+    children.style.maxHeight = children.scrollHeight + 'px';
+    if (chevron) chevron.textContent = '▼';
+  } else {
+    children.classList.add('collapsed');
+    children.style.maxHeight = '0';
+    if (chevron) chevron.textContent = '▶';
+  }
+}
+
+function expandAllTree() {
+  document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
+    el.classList.remove('collapsed');
+    el.style.maxHeight = el.scrollHeight + 'px';
+  });
+  document.querySelectorAll('#file-tree .dir .chevron').forEach(ch => {
+    ch.textContent = '▼';
+  });
+  // Recalculate after expand
+  setTimeout(() => {
+    document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    });
+  }, 50);
+}
+
+function collapseAllTree() {
+  document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
+    el.classList.add('collapsed');
+    el.style.maxHeight = '0';
+  });
+  document.querySelectorAll('#file-tree .dir .chevron').forEach(ch => {
+    ch.textContent = '▶';
+  });
+}
+
+// ── Copy toast ──
+function showToast(msg) {
+  const toast = document.getElementById('copy-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ── Init tree heights ──
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
+    el.style.maxHeight = el.scrollHeight + 'px';
+  });
+});
+</script>
+
+</body>
+</html>
