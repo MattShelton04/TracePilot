@@ -23,6 +23,15 @@ pub struct ConversationTurn {
     pub duration_ms: Option<u64>,
     #[serde(default)]
     pub is_complete: bool,
+    /// Visible chain-of-thought reasoning per assistant message (parallel to messages).
+    #[serde(default)]
+    pub reasoning_texts: Vec<String>,
+    /// Total output tokens across all assistant messages in this turn.
+    pub output_tokens: Option<u64>,
+    /// System-decorated version of the user message (includes datetime, reminders, SQL state).
+    pub transformed_user_message: Option<String>,
+    /// User message attachments (file selections, code snippets).
+    pub attachments: Option<Vec<serde_json::Value>>,
 }
 
 /// A tool call within a conversation turn.
@@ -51,4 +60,8 @@ pub struct TurnToolCall {
     pub agent_description: Option<String>,
     /// The model used for this specific tool call (populated from ToolExecComplete).
     pub model: Option<String>,
+    /// Human-readable description of what this tool call intends to do.
+    pub intention_summary: Option<String>,
+    /// Truncated preview of the tool result (≤1KB). Use `get_tool_result` for full content.
+    pub result_content: Option<String>,
 }

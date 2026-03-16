@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import {
   Badge,
   EmptyState,
@@ -47,6 +48,9 @@ interface ParallelGroup {
 // ---------------------------------------------------------------------------
 
 const store = useSessionDetailStore();
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
+  () => store.sessionId
+);
 const selectedNodeId = ref<string | null>(null);
 const agentTurnIndex = ref(0);
 const treeContainer = ref<HTMLElement | null>(null);
@@ -753,7 +757,15 @@ watch(
                   <span class="detail-tool-icon">{{ toolIcon(tc.toolName) }}</span>
                   <span class="detail-tool-name">{{ tc.toolName }}</span>
                   <span
-                    v-if="formatArgsSummary(tc.arguments, tc.toolName)"
+                    v-if="tc.intentionSummary"
+                    class="tool-call-intent"
+                    :title="tc.intentionSummary"
+                    style="flex: 1;"
+                  >
+                    {{ truncateText(tc.intentionSummary, 60) }}
+                  </span>
+                  <span
+                    v-else-if="formatArgsSummary(tc.arguments, tc.toolName)"
                     class="detail-tool-args"
                     :title="formatArgsSummary(tc.arguments, tc.toolName)"
                   >
@@ -802,6 +814,28 @@ watch(
                   >
                     <div class="detail-label">Arguments</div>
                     <pre class="detail-tool-args-body">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
+                  </div>
+                  <!-- Result preview -->
+                  <div v-if="tc.resultContent || (tc.toolCallId && fullResults.has(tc.toolCallId))" class="tool-result-section">
+                    <div class="tool-result-label">Result{{ tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId ?? '') ? ' Preview' : '' }}</div>
+                    <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent }}</pre>
+                    <div v-if="tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId)" class="tool-result-actions">
+                      <button
+                        v-if="!failedResults.has(tc.toolCallId)"
+                        class="tool-result-btn"
+                        :disabled="loadingResults.has(tc.toolCallId)"
+                        @click="loadFullResult(tc.toolCallId)"
+                      >
+                        {{ loadingResults.has(tc.toolCallId) ? 'Loading…' : 'Show Full Output' }}
+                      </button>
+                      <button
+                        v-else
+                        class="tool-result-btn tool-result-btn--retry"
+                        @click="retryFullResult(tc.toolCallId)"
+                      >
+                        ⚠ Load failed — Retry
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

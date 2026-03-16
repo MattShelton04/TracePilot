@@ -24,6 +24,7 @@ fn main() {
                     "get_db_size",
                     "get_session_count",
                     "factory_reset",
+                    "get_tool_result",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

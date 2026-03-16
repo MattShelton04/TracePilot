@@ -15,8 +15,12 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
 
 const store = useSessionDetailStore();
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
+  () => store.sessionId
+);
 
 // ── Collapse / expand state ──────────────────────────────────
 
@@ -68,6 +72,18 @@ function truncateArgs(args: unknown, limit = 500): { text: string; truncated: bo
 const showFullArgs = ref(false);
 
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+
+/** Check if the selected tool belongs to this turn (directly or as a nested child of a subagent). */
+function turnOwnsSelected(turn: ConversationTurn): boolean {
+  const sel = selectedTool.value;
+  if (!sel) return false;
+  if (turn.toolCalls.includes(sel)) return true;
+  // Check if selected tool is a nested child of one of this turn's subagents
+  const turnSubagentIds = new Set(
+    turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
+  );
+  return !!sel.parentToolCallId && turnSubagentIds.has(sel.parentToolCallId);
+}
 
 function selectedNestedCount(): number {
   const sel = selectedTool.value;
@@ -528,7 +544,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
 
             <!-- Detail panel (shown when a tool in this turn is selected) -->
             <div
-              v-if="selectedTool && turn.toolCalls.includes(selectedTool)"
+              v-if="selectedTool && turnOwnsSelected(turn)"
               class="detail-panel"
             >
               <div class="detail-header">
@@ -536,6 +552,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   <span class="detail-icon">{{ toolIcon(selectedTool.toolName) }}</span>
                   {{ selectedTool.toolName }}
                 </span>
+                <span v-if="selectedTool.intentionSummary" class="tool-call-intent" style="margin-left: 8px;">{{ selectedTool.intentionSummary }}</span>
                 <button class="detail-close" @click.stop="closeDetail" title="Close detail panel">✕ Close</button>
               </div>
               <div class="detail-body">
@@ -596,6 +613,28 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     </button>
                   </div>
                 </template>
+                <!-- Result preview -->
+                <div v-if="selectedTool.resultContent || (selectedTool.toolCallId && fullResults.has(selectedTool.toolCallId))" class="tool-result-section">
+                  <div class="tool-result-label">Result{{ selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId ?? '') ? ' Preview' : '' }}</div>
+                  <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(selectedTool.toolCallId ?? '') ?? selectedTool.resultContent }}</pre>
+                  <div v-if="selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId)" class="tool-result-actions">
+                    <button
+                      v-if="!failedResults.has(selectedTool.toolCallId)"
+                      class="tool-result-btn"
+                      :disabled="loadingResults.has(selectedTool.toolCallId)"
+                      @click="loadFullResult(selectedTool.toolCallId)"
+                    >
+                      {{ loadingResults.has(selectedTool.toolCallId) ? 'Loading…' : 'Show Full Output' }}
+                    </button>
+                    <button
+                      v-else
+                      class="tool-result-btn tool-result-btn--retry"
+                      @click="retryFullResult(selectedTool.toolCallId)"
+                    >
+                      ⚠ Load failed — Retry
+                    </button>
+                  </div>
+                </div>
                 <div v-if="selectedTool.error" class="detail-error">
                   <span class="detail-error-label">Error</span>
                   <span class="detail-error-msg">{{ selectedTool.error }}</span>

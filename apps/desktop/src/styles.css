@@ -748,6 +748,61 @@ body {
 .turn-tool-calls { margin-left: 38px; }
 
 /* ============================
+   REASONING / THINKING
+   ============================ */
+
+.turn-reasoning { margin-left: 38px; }
+
+.reasoning-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color var(--transition-fast);
+}
+.reasoning-toggle:hover { color: var(--text-secondary); }
+
+.reasoning-content {
+  margin-top: 4px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--done-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.reasoning-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 8px 0;
+}
+
+/* Token count badge */
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--neutral-subtle);
+  color: var(--text-tertiary);
+}
+
+/* ============================
    TOOL CALLS
    ============================ */
 
@@ -776,6 +831,7 @@ body {
   font-size: 0.75rem;
   border-top: 1px solid var(--border-subtle);
   transition: background var(--transition-fast);
+  cursor: pointer;
 }
 .tool-call-item:hover { background: var(--neutral-subtle); }
 .tool-call-icon { font-size: 12px; flex-shrink: 0; }
@@ -798,6 +854,49 @@ body {
 }
 .tool-summary-pass { background: var(--success-muted); color: var(--success-fg); }
 .tool-summary-fail { background: var(--danger-muted); color: var(--danger-fg); }
+
+/* Tool call intention summary */
+.tool-call-name-group { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.tool-call-intent {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tool result preview in detail panel */
+.tool-result-section { margin-top: 8px; }
+.tool-result-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 4px; }
+.tool-result-preview {
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--canvas-default);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.tool-result-actions { display: flex; gap: 8px; margin-top: 6px; }
+.tool-result-btn {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+.tool-result-btn:hover { color: var(--accent-emphasis); text-decoration: underline; }
+.tool-result-btn--retry { color: var(--danger-fg); }
+.tool-result-btn--retry:hover { color: var(--danger-emphasis); text-decoration: underline; }
 
 /* Compact view */
 .compact-turn {
