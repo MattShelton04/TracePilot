@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
@@ -11,6 +12,7 @@ import {
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
+const preferences = usePreferencesStore();
 const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<number>();
@@ -164,6 +166,7 @@ const totalDurationMs = computed(() =>
                 :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
                 :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
                 :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
+                :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
                 @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${tcIdx}`)"
                 @load-full-result="handleLoadFullResult"
                 @retry-full-result="handleRetryResult"
@@ -229,6 +232,7 @@ const totalDurationMs = computed(() =>
                 :show-metadata="false"
                 :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
                 :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
                 @load-full-result="handleLoadFullResult"
               />
             </div>
@@ -288,6 +292,7 @@ const totalDurationMs = computed(() =>
               :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
               :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
               :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
+              :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
               @toggle="expandedToolDetails.toggle(`tl-${turn.turnIndex}-${tcIdx}`)"
               @load-full-result="handleLoadFullResult"
               @retry-full-result="handleRetryResult"

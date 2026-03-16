@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, watch, computed } from "vue";
+import type { ToolRenderingPreferences, RichRenderableToolName } from "@tracepilot/types";
+import { DEFAULT_TOOL_RENDERING_PREFS } from "@tracepilot/types";
 
 export type ThemeOption = "dark" | "light" | "system";
 
@@ -43,6 +45,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
   const hideEmptySessions = ref(true);
   const cliCommand = ref('copilot');
+  const toolRendering = ref<ToolRenderingPreferences>({
+    enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
+    toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
+  });
   let mediaQuery: MediaQueryList | null = null;
   let mediaHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
@@ -58,6 +64,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
         if (Array.isArray(parsed.modelWholesalePrices)) modelWholesalePrices.value = parsed.modelWholesalePrices;
         if (typeof parsed.hideEmptySessions === 'boolean') hideEmptySessions.value = parsed.hideEmptySessions;
         if (typeof parsed.cliCommand === 'string') cliCommand.value = parsed.cliCommand;
+        if (parsed.toolRendering && typeof parsed.toolRendering === 'object') {
+          toolRendering.value = {
+            enabled: typeof parsed.toolRendering.enabled === 'boolean' ? parsed.toolRendering.enabled : true,
+            toolOverrides: parsed.toolRendering.toolOverrides ?? {},
+          };
+        }
       }
     } catch { /* ignore */ }
   }
@@ -72,6 +84,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         modelWholesalePrices: modelWholesalePrices.value,
         hideEmptySessions: hideEmptySessions.value,
         cliCommand: cliCommand.value,
+        toolRendering: toolRendering.value,
       })
     );
   }
@@ -98,7 +111,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     setupSystemThemeListener();
   }, { immediate: true });
 
-  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand], save, { deep: true });
+  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand, toolRendering], save, { deep: true });
 
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
@@ -136,6 +149,26 @@ export const usePreferencesStore = defineStore("preferences", () => {
     modelWholesalePrices.value = [...DEFAULT_WHOLESALE_PRICES];
   }
 
+  /** Check if rich rendering is enabled for a specific tool. */
+  function isRichRenderingEnabled(toolName: string): boolean {
+    if (!toolRendering.value.enabled) return false;
+    const override = toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
+    return override ?? true;
+  }
+
+  /** Set the per-tool rendering override. */
+  function setToolRenderingOverride(toolName: RichRenderableToolName, enabled: boolean) {
+    toolRendering.value.toolOverrides[toolName] = enabled;
+  }
+
+  /** Reset tool rendering preferences to defaults. */
+  function resetToolRendering() {
+    toolRendering.value = {
+      enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
+      toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
+    };
+  }
+
   return {
     theme,
     lastViewedSession,
@@ -143,11 +176,15 @@ export const usePreferencesStore = defineStore("preferences", () => {
     modelWholesalePrices,
     hideEmptySessions,
     cliCommand,
+    toolRendering,
     applyTheme:() => applyTheme(theme.value),
     getWholesalePrice,
     computeWholesaleCost,
     addWholesalePrice,
     removeWholesalePrice,
     resetWholesalePrices,
+    isRichRenderingEnabled,
+    setToolRenderingOverride,
+    resetToolRendering,
   };
 });

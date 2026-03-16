@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, useSlots, onMounted, onUpdated } from 'vue';
+
 defineProps<{
   variant?: 'default' | 'accent' | 'success' | 'warning' | 'danger' | 'done' | 'neutral';
 }>();
@@ -12,9 +14,21 @@ const variantClass: Record<string, string> = {
   danger: 'badge-danger',
   done: 'badge-done',
 };
+
+const el = ref<HTMLElement>();
+const slotText = ref('');
+const slots = useSlots();
+
+function updateSlotText() {
+  if (el.value) {
+    slotText.value = el.value.textContent?.trim() ?? '';
+  }
+}
+onMounted(updateSlotText);
+onUpdated(updateSlotText);
 </script>
 <template>
-  <span class="badge" :class="variantClass[variant ?? 'default']">
+  <span ref="el" class="badge" :class="variantClass[variant ?? 'default']" :title="slotText">
     <slot />
   </span>
 </template>

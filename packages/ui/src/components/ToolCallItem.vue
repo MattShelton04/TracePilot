@@ -18,6 +18,8 @@ const props = defineProps<{
   loadingFullResult?: boolean;
   /** Whether the full result load has failed. */
   failedFullResult?: boolean;
+  /** Whether rich rendering is enabled for this tool (default: true). */
+  richEnabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -96,6 +98,7 @@ const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.a
       :full-result="fullResult"
       :loading-full-result="loadingFullResult"
       :failed-full-result="failedFullResult"
+      :rich-enabled="richEnabled"
       @load-full-result="emit('load-full-result', $event)"
       @retry-full-result="emit('retry-full-result', $event)"
     />

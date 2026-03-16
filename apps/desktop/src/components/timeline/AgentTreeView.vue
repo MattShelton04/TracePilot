@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue"
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 import {
   Badge,
   EmptyState,
@@ -12,6 +13,8 @@ import {
   toolIcon,
   formatArgsSummary,
   useToggleSet,
+  ToolArgsRenderer,
+  ToolResultRenderer,
 } from "@tracepilot/ui";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +51,7 @@ interface ParallelGroup {
 // ---------------------------------------------------------------------------
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
   () => store.sessionId
 );
@@ -528,6 +532,23 @@ function bezierPath(line: SvgLine): string {
   return `M ${line.x1} ${line.y1} C ${line.x1} ${midY}, ${line.x2} ${midY}, ${line.x2} ${line.y2}`;
 }
 
+/** Resolve the color for a connector line based on the child node's agent type. */
+function lineColor(line: SvgLine): string {
+  if (!treeData.value) return AGENT_COLORS.main;
+  // Search treeData for the child node to find its type
+  function findType(nodes: AgentNode[]): string | undefined {
+    for (const n of nodes) {
+      if (n.id === line.childId) return AGENT_COLORS[n.type];
+      if (n.children?.length) {
+        const found = findType(n.children);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  return findType(treeData.value.children) ?? AGENT_COLORS.main;
+}
+
 // ---------------------------------------------------------------------------
 // Node Selection & Detail
 // ---------------------------------------------------------------------------
@@ -659,11 +680,21 @@ watch(
             :height="canvasHeight"
             :viewBox="`0 0 ${layout.width} ${canvasHeight}`"
           >
+            <!-- Static base line (subtle, behind the animated one) -->
             <path
               v-for="(line, i) in displayLines"
-              :key="i"
+              :key="`base-${i}`"
               :d="bezierPath(line)"
-              class="tree-connector"
+              class="tree-connector tree-connector--base"
+              :style="{ stroke: lineColor(line) }"
+            />
+            <!-- Animated flowing dash overlay -->
+            <path
+              v-for="(line, i) in displayLines"
+              :key="`flow-${i}`"
+              :d="bezierPath(line)"
+              class="tree-connector tree-connector--flow"
+              :style="{ stroke: lineColor(line) }"
             />
           </svg>
 
@@ -862,34 +893,19 @@ watch(
                       <span class="detail-value font-mono">{{ tc.toolCallId }}</span>
                     </div>
                   </div>
-                  <div
-                    v-if="tc.arguments && typeof tc.arguments === 'object' && Object.keys(tc.arguments as Record<string, unknown>).length > 0"
-                    class="detail-tool-arguments"
-                  >
-                    <div class="detail-label">Arguments</div>
-                    <pre class="detail-tool-args-body">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
-                  </div>
-                  <!-- Result preview -->
+                  <!-- Arguments (rich renderer) -->
+                  <ToolArgsRenderer :tc="tc" :rich-enabled="prefs.isRichRenderingEnabled(tc.toolName)" />
+
+                  <!-- Result (rich renderer) -->
                   <div v-if="tc.resultContent || (tc.toolCallId && fullResults.has(tc.toolCallId))" class="tool-result-section">
-                    <div class="tool-result-label">Result{{ tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId ?? '') ? ' Preview' : '' }}</div>
-                    <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent }}</pre>
-                    <div v-if="tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId)" class="tool-result-actions">
-                      <button
-                        v-if="!failedResults.has(tc.toolCallId)"
-                        class="tool-result-btn"
-                        :disabled="loadingResults.has(tc.toolCallId)"
-                        @click="loadFullResult(tc.toolCallId)"
-                      >
-                        {{ loadingResults.has(tc.toolCallId) ? 'Loading…' : 'Show Full Output' }}
-                      </button>
-                      <button
-                        v-else
-                        class="tool-result-btn tool-result-btn--retry"
-                        @click="retryFullResult(tc.toolCallId)"
-                      >
-                        ⚠ Load failed — Retry
-                      </button>
-                    </div>
+                    <ToolResultRenderer
+                      :tc="tc"
+                      :content="fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent ?? ''"
+                      :rich-enabled="prefs.isRichRenderingEnabled(tc.toolName)"
+                      :is-truncated="!!(tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId))"
+                      :loading="!!(tc.toolCallId && loadingResults.has(tc.toolCallId))"
+                      @load-full="loadFullResult(tc.toolCallId!)"
+                    />
                   </div>
                 </div>
               </div>
@@ -980,9 +996,25 @@ watch(
 }
 
 .tree-connector {
-  stroke: var(--border-default);
   stroke-width: 2;
   fill: none;
+}
+
+.tree-connector--base {
+  opacity: 0.18;
+}
+
+.tree-connector--flow {
+  stroke-dasharray: 8 14;
+  stroke-dashoffset: 0;
+  animation: connector-flow 1.2s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes connector-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -23,7 +23,9 @@ import {
   FormInput,
   ActionButton,
   SectionPanel,
+  getRegisteredRenderers,
 } from '@tracepilot/ui';
+import type { RichRenderableToolName } from '@tracepilot/types';
 import StubBanner from '@/components/StubBanner.vue';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -188,6 +190,10 @@ onMounted(async () => {
     indexedSessionCount.value = await getSessionCountApi();
   } catch { /* keep 0 */ }
 });
+
+
+// ── Tool Visualization ──────────────────────────────────────
+const registeredRenderers = getRegisteredRenderers();
 
 // ── Health Scoring ───────────────────────────────────────────
 const healthScoringEnabled = ref(true);
@@ -596,7 +602,54 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
         </SectionPanel>
       </div>
 
-      <!-- ════════ 4. Health Scoring ════════ -->
+      <!-- ════════ 4. Tool Visualization ════════ -->
+      <div class="settings-section">
+        <div class="settings-section-title">Tool Visualization</div>
+        <SectionPanel>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Rich Tool Rendering</div>
+              <div class="setting-description">
+                Enable enhanced visualizations for tool call results — syntax-highlighted code,
+                diffs, terminal output, file trees, and more. When disabled, tool results display
+                as plain text.
+              </div>
+            </div>
+            <FormSwitch
+              :model-value="preferences.toolRendering.enabled"
+              @update:model-value="preferences.toolRendering.enabled = $event"
+              label="Rich Tool Rendering"
+            />
+          </div>
+
+          <!-- Per-tool overrides -->
+          <template v-if="preferences.toolRendering.enabled">
+            <div class="tool-viz-divider" />
+            <div class="setting-row" style="flex-direction: column; align-items: stretch;">
+              <div class="setting-label" style="margin-bottom: 8px;">Per-Tool Overrides</div>
+              <div class="setting-description" style="margin-bottom: 8px;">
+                Disable rich rendering for specific tool types. Disabled tools fall back to plain text.
+              </div>
+              <div class="tool-viz-grid">
+                <div v-for="renderer in registeredRenderers" :key="renderer.toolName" class="tool-viz-item">
+                  <FormSwitch
+                    :model-value="preferences.isRichRenderingEnabled(renderer.toolName)"
+                    @update:model-value="preferences.setToolRenderingOverride(renderer.toolName as RichRenderableToolName, $event)"
+                    :label="renderer.label"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="tool-viz-divider" />
+            <div class="setting-row" style="justify-content: flex-end;">
+              <ActionButton size="sm" @click="preferences.resetToolRendering()">Reset to Defaults</ActionButton>
+            </div>
+          </template>
+        </SectionPanel>
+      </div>
+
+      <!-- ════════ 5. Health Scoring ════════ -->
       <div class="settings-section">
         <div class="settings-section-title">Health Scoring</div>
         <SectionPanel>
@@ -833,6 +886,21 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ── Tool Visualization ──────────────────────────────────── */
+.tool-viz-divider {
+  border-top: 1px solid var(--border-subtle);
+  margin: 0;
+}
+.tool-viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 16px;
+  padding: 0 4px;
+}
+.tool-viz-item {
+  padding: 4px 0;
 }
 
 .setting-result {
