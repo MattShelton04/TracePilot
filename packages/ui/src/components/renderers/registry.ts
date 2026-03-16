@@ -20,6 +20,8 @@ export interface RendererEntry {
   resultComponent?: Component;
   /** The async component for rendering the tool arguments. */
   argsComponent?: Component;
+  /** When true, hide args display entirely when rich result renderer is active. */
+  hideArgsWithRichResult?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Edit (Diff View)",
     resultComponent: defineAsyncComponent(() => import("./EditDiffRenderer.vue")),
     argsComponent: defineAsyncComponent(() => import("./EditArgsRenderer.vue")),
+    hideArgsWithRichResult: true,
   },
   view: {
     label: "View (Code Highlight)",
@@ -40,6 +43,7 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Create (Code Highlight)",
     resultComponent: defineAsyncComponent(() => import("./CreateFileRenderer.vue")),
     argsComponent: defineAsyncComponent(() => import("./CreateArgsRenderer.vue")),
+    hideArgsWithRichResult: true,
   },
   grep: {
     label: "Grep (Search Results)",
@@ -77,6 +81,12 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Report Intent",
     argsComponent: defineAsyncComponent(() => import("./ReportIntentRenderer.vue")),
   },
+  ask_user: {
+    label: "Ask User (Q&A)",
+    resultComponent: defineAsyncComponent(() => import("./AskUserRenderer.vue")),
+    argsComponent: defineAsyncComponent(() => import("./AskUserArgsRenderer.vue")),
+    hideArgsWithRichResult: true,
+  },
 };
 
 /** Get the renderer entry for a tool, or undefined if none registered. */
@@ -100,4 +110,9 @@ export function hasResultRenderer(toolName: string): boolean {
 /** Check if a tool has a dedicated args renderer. */
 export function hasArgsRenderer(toolName: string): boolean {
   return !!RENDERER_REGISTRY[toolName]?.argsComponent;
+}
+
+/** Check if args should be hidden when rich result rendering is active. */
+export function shouldHideArgsWithRichResult(toolName: string): boolean {
+  return !!RENDERER_REGISTRY[toolName]?.hideArgsWithRichResult;
 }

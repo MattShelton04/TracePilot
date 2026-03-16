@@ -20,9 +20,28 @@ const pattern = computed(() =>
   typeof props.args?.pattern === "string" ? props.args.pattern : null
 );
 
+/** The search root path from args — used to make tree relative. */
+const searchRoot = computed(() =>
+  typeof props.args?.path === "string"
+    ? props.args.path.replace(/\\/g, "/").replace(/\/+$/, "")
+    : null
+);
+
 const files = computed(() =>
   props.content.split("\n").filter(l => l.trim())
 );
+
+/** Strip the search root prefix from paths to build a relative tree. */
+const relativePaths = computed(() => {
+  const root = searchRoot.value;
+  if (!root) return files.value;
+  return files.value.map(f => {
+    const norm = f.replace(/\\/g, "/");
+    if (norm.startsWith(root + "/")) return norm.slice(root.length + 1);
+    if (norm.startsWith(root)) return norm.slice(root.length);
+    return norm;
+  }).filter(p => p);
+});
 
 const fileCount = computed(() => files.value.length);
 
@@ -74,7 +93,7 @@ function sortNodes(nodes: TreeNode[]): TreeNode[] {
   }).map(n => n.isDir ? { ...n, children: sortNodes(n.children) } : n);
 }
 
-const tree = computed(() => buildTree(files.value));
+const tree = computed(() => buildTree(relativePaths.value));
 
 // ── Flatten tree into a renderable list with depth ──
 
@@ -137,6 +156,7 @@ function fileIcon(name: string): string {
     <div class="glob-tree">
       <div class="glob-stats">
         <span class="glob-stat">📁 {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} matched</span>
+        <span v-if="searchRoot" class="glob-root-path" :title="searchRoot">{{ searchRoot }}</span>
       </div>
       <div class="glob-list" role="tree">
         <div v-for="item in flatList" :key="item.node.path"
@@ -175,6 +195,16 @@ function fileIcon(name: string): string {
 .glob-stat {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+.glob-root-path {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: auto;
 }
 .glob-list {
   max-height: 400px;

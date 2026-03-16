@@ -41,24 +41,76 @@ const sources = computed<Array<{ title: string; url: string; domain: string }>>(
 const renderedBody = computed(() => {
   if (!props.content) return "";
   let html = escapeHtml(props.content);
+
+  // Headings: ### before ## to avoid conflicts
+  html = html.replace(/^### (.+)$/gm, '<h4 class="ws-heading ws-h3">$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3 class="ws-heading ws-h2">$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h2 class="ws-heading ws-h1">$1</h2>');
+
+  // Horizontal rule
+  html = html.replace(/^---+$/gm, '<hr class="ws-hr">');
+
   // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic (single *)
+  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="ws-inline-code">$1</code>');
-  // Citation references like [1], [2] — BEFORE link conversion to avoid
-  // corrupting URLs that contain bracketed numbers (e.g. ?a=[1])
+
+  // Citation references like [1], [2] — only match standalone numeric refs
+  // Use negative lookbehind/lookahead to avoid matching markdown link text
   html = html.replace(
-    /\[(\d+)\]/g,
+    /(?<!\[)\[(\d+)\](?!\()/g,
     '<span class="ws-citation">$1</span>'
   );
-  // Markdown links → clickable (after citations, so [text](url) still works
-  // because link text won't be purely numeric like citation refs)
+
+  // Markdown links → clickable
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>'
   );
-  // Line breaks
+
+  // Unordered lists (- or * at line start)
+  html = html.replace(
+    /(?:^|\n)((?:(?:- |\* ).+\n?)+)/g,
+    (_match, block: string) => {
+      const items = block.split("\n")
+        .filter(l => l.trim())
+        .map(l => `<li>${l.replace(/^(?:- |\* )/, "")}</li>`)
+        .join("");
+      return `<ul class="ws-list">${items}</ul>`;
+    }
+  );
+
+  // Ordered lists (1. 2. etc.)
+  html = html.replace(
+    /(?:^|\n)((?:\d+\. .+\n?)+)/g,
+    (_match, block: string) => {
+      const items = block.split("\n")
+        .filter(l => l.trim())
+        .map(l => `<li>${l.replace(/^\d+\. /, "")}</li>`)
+        .join("");
+      return `<ol class="ws-list ws-list--ordered">${items}</ol>`;
+    }
+  );
+
+  // Blockquotes (> at line start)
+  html = html.replace(
+    /(?:^|\n)((?:&gt; .+\n?)+)/g,
+    (_match, block: string) => {
+      const content = block.split("\n")
+        .filter(l => l.trim())
+        .map(l => l.replace(/^&gt; /, ""))
+        .join("<br>");
+      return `<blockquote class="ws-blockquote">${content}</blockquote>`;
+    }
+  );
+
+  // Line breaks (double newline = paragraph, single = br)
+  html = html.replace(/\n\n+/g, '</p><p class="ws-paragraph">');
   html = html.replace(/\n/g, '<br>');
+  html = `<p class="ws-paragraph">${html}</p>`;
+
   return html;
 });
 
@@ -151,6 +203,28 @@ function faviconUrl(domain: string): string {
   text-decoration: none;
 }
 .ws-body :deep(.ws-link:hover) { text-decoration: underline; }
+.ws-body :deep(.ws-heading) { color: var(--text-primary); margin: 8px 0 4px; }
+.ws-body :deep(.ws-h1) { font-size: 1rem; font-weight: 700; }
+.ws-body :deep(.ws-h2) { font-size: 0.875rem; font-weight: 700; }
+.ws-body :deep(.ws-h3) { font-size: 0.8125rem; font-weight: 600; }
+.ws-body :deep(.ws-hr) { border: none; border-top: 1px solid var(--border-muted); margin: 8px 0; }
+.ws-body :deep(.ws-list) {
+  margin: 4px 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+}
+.ws-body :deep(.ws-list li) { margin: 2px 0; }
+.ws-body :deep(.ws-blockquote) {
+  border-left: 3px solid var(--accent-emphasis, #6366f1);
+  padding: 4px 10px;
+  margin: 6px 0;
+  background: var(--neutral-muted);
+  border-radius: 0 4px 4px 0;
+  color: var(--text-secondary);
+}
+.ws-body :deep(.ws-paragraph) { margin: 0 0 6px; }
+.ws-body :deep(.ws-paragraph:last-child) { margin-bottom: 0; }
+.ws-body :deep(em) { font-style: italic; }
 .ws-body :deep(.ws-citation) {
   display: inline-flex;
   align-items: center;

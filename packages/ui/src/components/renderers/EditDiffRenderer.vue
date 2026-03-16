@@ -166,6 +166,27 @@ const diffLines = computed<DiffLine[]>(() => {
 const oldLineCount = computed(() => oldStr.value ? splitLines(oldStr.value).length : 0);
 const newLineCount = computed(() => newStr.value ? splitLines(newStr.value).length : 0);
 
+/** Actual diff stats based on LCS result, not raw line counts. */
+const addedCount = computed(() => diffLines.value.filter(l => l.type === "added").length);
+const removedCount = computed(() => diffLines.value.filter(l => l.type === "removed").length);
+const contextCount = computed(() => diffLines.value.filter(l => l.type === "context").length);
+
+/** When all old lines appear as context (no removals), the edit only added new content. */
+const isPureAddition = computed(() => removedCount.value === 0 && addedCount.value > 0);
+
+/** Badge text based on the kind of edit. */
+const editBadgeText = computed(() => {
+  if (isDelete.value) return "Deleted";
+  if (isPureAddition.value) return "Extended";
+  if (addedCount.value === 0 && removedCount.value > 0) return "Trimmed";
+  return "Modified";
+});
+const editBadgeClass = computed(() => {
+  if (isDelete.value) return "edit-diff-badge--deleted";
+  if (isPureAddition.value) return "edit-diff-badge--added";
+  return "edit-diff-badge--modified";
+});
+
 /** Split view: left (old) lines and right (new) lines aligned. */
 const splitPairs = computed(() => {
   const pairs: Array<{ left: DiffLine | null; right: DiffLine | null }> = [];
@@ -217,7 +238,7 @@ function fileName(path: string): string {
           <span class="edit-diff-path-icon">📄</span>
           {{ filePath }}
         </span>
-        <span class="edit-diff-badge edit-diff-badge--modified">Modified</span>
+        <span class="edit-diff-badge" :class="editBadgeClass">{{ editBadgeText }}</span>
       </div>
       <div v-if="oldStr != null && newStr != null" class="edit-diff-tabs" role="tablist">
         <button
@@ -239,8 +260,9 @@ function fileName(path: string): string {
 
     <!-- Stats bar -->
     <div v-if="oldStr != null || isDelete" class="edit-diff-stats">
-      <span class="edit-diff-stat edit-diff-stat--removed">−{{ oldLineCount }} line{{ oldLineCount !== 1 ? 's' : '' }}</span>
-      <span v-if="newStr != null" class="edit-diff-stat edit-diff-stat--added">+{{ newLineCount }} line{{ newLineCount !== 1 ? 's' : '' }}</span>
+      <span v-if="removedCount > 0" class="edit-diff-stat edit-diff-stat--removed">−{{ removedCount }} line{{ removedCount !== 1 ? 's' : '' }}</span>
+      <span v-if="addedCount > 0" class="edit-diff-stat edit-diff-stat--added">+{{ addedCount }} line{{ addedCount !== 1 ? 's' : '' }}</span>
+      <span v-if="contextCount > 0" class="edit-diff-stat edit-diff-stat--context">{{ contextCount }} unchanged</span>
       <span v-if="isDelete" class="edit-diff-stat edit-diff-stat--removed">deleted</span>
     </div>
 
@@ -351,6 +373,14 @@ function fileName(path: string): string {
   background: rgba(251, 191, 36, 0.15);
   color: var(--warning-fg, #fbbf24);
 }
+.edit-diff-badge--added {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success-fg, #34d399);
+}
+.edit-diff-badge--deleted {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--danger-fg, #f87171);
+}
 .edit-diff-tabs {
   display: flex;
   gap: 2px;
@@ -389,6 +419,7 @@ function fileName(path: string): string {
 }
 .edit-diff-stat--removed { color: var(--danger-fg, #f87171); }
 .edit-diff-stat--added { color: var(--success-fg, #34d399); }
+.edit-diff-stat--context { color: var(--text-tertiary); }
 .edit-diff-body {
   overflow: auto;
   max-height: 500px;

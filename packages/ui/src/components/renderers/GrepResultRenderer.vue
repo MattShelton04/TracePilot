@@ -34,40 +34,95 @@ interface GrepMatch {
 /** Parse grep output into structured matches. */
 const parsedMatches = computed<GrepMatch[]>(() => {
   if (!props.content) return [];
-  const lines = props.content.split("\n").filter(l => l.trim());
+  const lines = props.content.split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.trim());
 
-  return lines.map(line => {
-    // Context lines use "file-lineNum-text" separator
-    const ctxMatch = line.match(/^(.+?)-(\d+)-(.*)$/);
-    // Match lines use "file:lineNum:text"
-    const matchLine = line.match(/^(.+?):(\d+):(.*)$/);
+  const results: GrepMatch[] = [];
 
-    if (matchLine) {
-      return { file: matchLine[1], lineNum: parseInt(matchLine[2]), text: matchLine[3], isContext: false };
+  for (const line of lines) {
+    // Skip ripgrep group separators
+    if (line === "--") continue;
+
+    // Windows match: C:\path:lineNum:text (drive letter prefix)
+    const winMatchLine = line.match(/^([A-Za-z]:\\.+?):(\d+):(.*)$/);
+    if (winMatchLine) {
+      results.push({
+        file: winMatchLine[1],
+        lineNum: parseInt(winMatchLine[2]),
+        text: winMatchLine[3],
+        isContext: false,
+      });
+      continue;
     }
-    if (ctxMatch && (ctxMatch[1].includes("/") || ctxMatch[1].includes("\\"))) {
-      return { file: ctxMatch[1], lineNum: parseInt(ctxMatch[2]), text: ctxMatch[3], isContext: true };
+
+    // Windows context: C:\path-lineNum-text (drive letter prefix)
+    const winCtxLine = line.match(/^([A-Za-z]:\\.+?)-(\d+)-(.*)$/);
+    if (winCtxLine) {
+      results.push({
+        file: winCtxLine[1],
+        lineNum: parseInt(winCtxLine[2]),
+        text: winCtxLine[3],
+        isContext: true,
+      });
+      continue;
     }
-    // Windows drive-letter paths: "C:\...:content"
-    const winMatch = line.match(/^([A-Za-z]:\\.+?):(.+)$/);
-    if (winMatch) {
-      return { file: winMatch[1], text: winMatch[2] };
+
+    // Unix match: path:lineNum:text
+    const unixMatchLine = line.match(/^(.+?):(\d+):(.*)$/);
+    if (unixMatchLine) {
+      results.push({
+        file: unixMatchLine[1],
+        lineNum: parseInt(unixMatchLine[2]),
+        text: unixMatchLine[3],
+        isContext: false,
+      });
+      continue;
     }
-    // "file:content" — require path separators
-    const match2 = line.match(/^(.+?):(.+)$/);
-    if (match2 && (match2[1].includes("/") || match2[1].includes("\\"))) {
-      return { file: match2[1], text: match2[2] };
+
+    // Unix context: path-lineNum-text (require path separator to avoid false positives)
+    const unixCtxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
+    if (unixCtxLine && (unixCtxLine[1].includes("/") || unixCtxLine[1].includes("\\"))) {
+      results.push({
+        file: unixCtxLine[1],
+        lineNum: parseInt(unixCtxLine[2]),
+        text: unixCtxLine[3],
+        isContext: true,
+      });
+      continue;
     }
-    return { file: line, text: "" };
-  });
+
+    // Windows path with text (no line number): C:\path:text — count mode or bare
+    const winBare = line.match(/^([A-Za-z]:\\.+?):(.+)$/);
+    if (winBare) {
+      results.push({ file: winBare[1], text: winBare[2] });
+      continue;
+    }
+
+    // Unix path:text (count mode) — require path separator in file
+    const unixBare = line.match(/^(.+?):(.+)$/);
+    if (unixBare && (unixBare[1].includes("/") || unixBare[1].includes("\\"))) {
+      results.push({ file: unixBare[1], text: unixBare[2] });
+      continue;
+    }
+
+    // Bare file path (files_with_matches mode or fallback)
+    results.push({ file: line.trim(), text: "", isContext: false });
+  }
+
+  return results;
 });
 
-/** Group matches by file. */
+/** Normalize file paths for consistent grouping. */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+/** Group matches by file (using normalized path for consistent grouping). */
 const groupedByFile = computed(() => {
   const groups: Record<string, GrepMatch[]> = {};
   for (const m of parsedMatches.value) {
-    if (!groups[m.file]) groups[m.file] = [];
-    groups[m.file].push(m);
+    const key = normalizePath(m.file);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(m);
   }
   return groups;
 });
@@ -132,10 +187,10 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 
       <!-- File-grouped results (content mode) -->
       <div v-if="outputMode === 'content'" class="grep-groups">
-        <div v-for="(matches, file) in groupedByFile" :key="file" class="grep-file-group">
+        <div v-for="(matches, _key) in groupedByFile" :key="_key" class="grep-file-group">
           <div class="grep-file-header">
             <span class="grep-file-icon">📄</span>
-            <span class="grep-file-path">{{ file }}</span>
+            <span class="grep-file-path">{{ matches[0]?.file ?? _key }}</span>
             <span class="grep-file-count">{{ matches.filter(m => !m.isContext).length }}</span>
           </div>
           <div class="grep-matches">
