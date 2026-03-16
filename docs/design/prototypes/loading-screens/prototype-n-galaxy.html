@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype N: Galaxy</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── Background Stars ── */
+    .starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .star {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      background: #e6edf3;
+      border-radius: 50%;
+      animation: starTwinkle var(--dur, 4s) ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes starTwinkle {
+      0%, 100% { opacity: var(--min-o, 0.08); }
+      50%      { opacity: var(--max-o, 0.2); }
+    }
+
+    /* ── Galaxy Field ── */
+    .galaxy-field {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .galaxy-rotator {
+      position: absolute;
+      inset: 0;
+      transition: none;
+    }
+
+    /* ── Galactic Core Glow ── */
+    .galactic-core {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, rgba(99, 102, 241, 0.15) 35%, transparent 70%);
+      filter: blur(20px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      z-index: 2;
+    }
+
+    .galactic-core.visible {
+      opacity: 1;
+    }
+
+    /* ── Spiral Arm Guide Paths ── */
+    .arm-guides {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .arm-guides svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .arm-guide-path {
+      fill: none;
+      stroke: rgba(99, 102, 241, 0.04);
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    .arm-guide-path.visible {
+      opacity: 1;
+    }
+
+    /* ── Session Nodes (galaxy stars) ── */
+    .galaxy-node {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0);
+      z-index: 5;
+      will-change: transform, opacity;
+    }
+
+    .galaxy-node.active {
+      animation: nodePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes nodePop {
+      0%   { transform: scale(0); opacity: 0; }
+      40%  { transform: scale(2); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ── Dust Particles ── */
+    .dust-particle {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    .dust-particle.visible {
+      opacity: 1;
+    }
+
+    /* ── Arm Labels ── */
+    .arm-label {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+      pointer-events: none;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      z-index: 6;
+      padding: 2px 6px;
+      background: rgba(22, 27, 34, 0.5);
+      backdrop-filter: blur(4px);
+      border-radius: var(--radius-sm);
+    }
+
+    .arm-label.visible {
+      opacity: 0.7;
+      transform: translateY(0);
+    }
+
+    /* ── Pulse Ring ── */
+    .pulse-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      pointer-events: none;
+      z-index: 4;
+      opacity: 0;
+    }
+
+    @keyframes pulseExpand {
+      0%   { width: 20px; height: 20px; opacity: 0.5; }
+      100% { width: 600px; height: 600px; opacity: 0; }
+    }
+
+    /* ── Center Logo (fixed, doesn't rotate) ── */
+    .center-logo {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+
+    .center-logo.visible {
+      opacity: 1;
+    }
+
+    .center-logo .logo-svg {
+      width: 72px;
+      height: 72px;
+    }
+
+    .center-logo .logo-svg svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .logo-glow {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -55%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(129, 140, 248, 0.3) 0%, transparent 70%);
+      filter: blur(12px);
+      pointer-events: none;
+      animation: coreBreath 3s ease-in-out infinite;
+    }
+
+    @keyframes coreBreath {
+      0%, 100% { opacity: 0.6; transform: translate(-50%, -55%) scale(1); }
+      50%      { opacity: 1; transform: translate(-50%, -55%) scale(1.1); }
+    }
+
+    /* ── Phase Text ── */
+    .phase-text {
+      position: fixed;
+      bottom: calc(50% - 80px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 21;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      letter-spacing: 0.05em;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .phase-text.visible {
+      opacity: 1;
+    }
+
+    /* ── Stats Overlay (top-right) ── */
+    .stats-overlay {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 30;
+      background: rgba(22, 27, 34, 0.75);
+      backdrop-filter: blur(16px) saturate(1.3);
+      border: 1px solid rgba(48, 54, 61, 0.5);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      min-width: 180px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .stats-overlay.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 3px 0;
+    }
+
+    .stats-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-fg-subtle);
+    }
+
+    .stats-value {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-divider {
+      height: 1px;
+      background: var(--color-border-muted);
+      margin: 6px 0;
+    }
+
+    .stats-progress-track {
+      height: 2px;
+      background: rgba(48, 54, 61, 0.5);
+      border-radius: 1px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .stats-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg));
+      border-radius: 1px;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Top Progress Bar ── */
+    .progress-bar-track {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .progress-bar-track.visible {
+      opacity: 1;
+    }
+
+    /* ── Completion Flash ── */
+    .completion-flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(129, 140, 248, 0.08);
+      z-index: 90;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .completion-flash.active {
+      animation: flashPulse 0.6s ease-out forwards;
+    }
+
+    @keyframes flashPulse {
+      0%   { opacity: 0; }
+      20%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── App Chrome (morph target) ── */
+    .app-chrome {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .app-chrome.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .app-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 52;
+      transform: translateY(-100%);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .app-header.visible {
+      transform: translateY(0);
+    }
+
+    .header-logo {
+      width: 28px;
+      height: 28px;
+    }
+
+    .header-logo svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .header-title {
+      font-size: var(--text-md);
+      font-weight: 600;
+      color: var(--color-fg);
+    }
+
+    .header-search {
+      margin-left: auto;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 5px 12px;
+      font-size: var(--text-sm);
+      color: var(--color-fg-subtle);
+      font-family: var(--font-mono);
+      min-width: 220px;
+    }
+
+    .header-settings {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-fg-muted);
+      font-size: 16px;
+    }
+
+    .app-sidebar {
+      position: absolute;
+      top: 52px;
+      left: 0;
+      bottom: 0;
+      width: 200px;
+      background: var(--color-canvas-subtle);
+      border-right: 1px solid var(--color-border);
+      padding: 12px 0;
+      z-index: 51;
+      transform: translateX(-100%);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .app-sidebar.visible {
+      transform: translateX(0);
+    }
+
+    .sidebar-item {
+      padding: 8px 16px;
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .sidebar-item.active {
+      color: var(--color-fg);
+      background: rgba(99, 102, 241, 0.08);
+      border-right: 2px solid var(--accent-fg);
+    }
+
+    .session-grid-container {
+      position: absolute;
+      top: 52px;
+      left: 200px;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .grid-header {
+      padding: 16px 24px 8px;
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-fg);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .grid-header.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .grid-header .count {
+      font-weight: 400;
+      color: var(--color-fg-muted);
+      font-size: var(--text-base);
+    }
+
+    .session-cards-area {
+      padding: 8px 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    /* ── Final Session Cards ── */
+    .session-card-final {
+      position: relative;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1), box-shadow 0.3s ease;
+      overflow: hidden;
+    }
+
+    .session-card-final.placed {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .session-card-final .card-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .session-card-final .card-badges {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .session-card-final .badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    .badge-branch {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--success-fg);
+    }
+
+    .badge-model {
+      background: rgba(167, 139, 250, 0.12);
+      color: var(--done-fg);
+    }
+
+    .session-card-final .card-stats {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-fg-muted);
+    }
+
+    .session-card-final .card-time {
+      font-size: 10px;
+      color: var(--color-fg-subtle);
+      margin-top: 4px;
+    }
+
+    .shimmer-overlay {
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    .session-card-final.shimmer .shimmer-overlay {
+      animation: shimmerWave 0.8s ease-out forwards;
+    }
+
+    @keyframes shimmerWave {
+      0%   { left: -100%; }
+      100% { left: 200%; }
+    }
+
+    /* ── Morph intermediate state: nodes become column-aligned ── */
+    .galaxy-node.morphing {
+      transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  top 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.5s ease,
+                  height 0.5s ease,
+                  border-radius 0.5s ease,
+                  opacity 0.4s ease;
+    }
+
+    .galaxy-node.to-card {
+      transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  top 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  height 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  border-radius 0.6s ease,
+                  background 0.6s ease,
+                  opacity 0.4s ease;
+    }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .galaxy-node, .dust-particle, .star, .pulse-ring {
+        animation: none !important;
+        transition: opacity 0.3s ease !important;
+      }
+
+      .galaxy-rotator {
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ── Top Progress Bar ── -->
+  <div class="progress-bar-track" id="progress-track">
+    <div class="progress-bar-fill" id="progress-bar"></div>
+  </div>
+
+  <!-- ── Background Stars ── -->
+  <div class="starfield" id="starfield"></div>
+
+  <!-- ── Galaxy Field ── -->
+  <div class="galaxy-field" id="galaxy-field">
+    <div class="galaxy-rotator" id="galaxy-rotator">
+      <!-- Arm guide SVG -->
+      <div class="arm-guides" id="arm-guides">
+        <svg id="arm-guides-svg"></svg>
+      </div>
+      <!-- Dust particles go here -->
+      <!-- Session nodes go here -->
+      <!-- Arm labels go here -->
+    </div>
+
+    <!-- Galactic core glow (rotates with galaxy) -->
+    <div class="galactic-core" id="galactic-core"></div>
+  </div>
+
+  <!-- ── Center Logo (fixed) ── -->
+  <div class="center-logo" id="center-logo">
+    <div class="logo-glow" id="logo-glow"></div>
+    <div class="logo-svg" id="logo-svg"></div>
+  </div>
+
+  <!-- ── Phase Text (fixed, below logo) ── -->
+  <div class="phase-text" id="phase-text">Initializing…</div>
+
+  <!-- ── Stats Overlay (top-right) ── -->
+  <div class="stats-overlay" id="stats-overlay">
+    <div class="stats-row">
+      <span class="stats-label">Sessions</span>
+      <span class="stats-value"><span id="stat-sessions">0</span> / <span id="stat-sessions-total">0</span></span>
+    </div>
+    <div class="stats-row">
+      <span class="stats-label">Tokens</span>
+      <span class="stats-value" id="stat-tokens">0</span>
+    </div>
+    <div class="stats-row">
+      <span class="stats-label">Events</span>
+      <span class="stats-value" id="stat-events">0</span>
+    </div>
+    <div class="stats-row">
+      <span class="stats-label">Tool Calls</span>
+      <span class="stats-value" id="stat-tools">0</span>
+    </div>
+    <div class="stats-row">
+      <span class="stats-label">Repos</span>
+      <span class="stats-value" id="stat-repos">0</span>
+    </div>
+    <div class="stats-divider"></div>
+    <div class="stats-progress-track">
+      <div class="stats-progress-fill" id="stats-progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- ── Completion Flash ── -->
+  <div class="completion-flash" id="completion-flash"></div>
+
+  <!-- ── App Chrome (morph target) ── -->
+  <div class="app-chrome" id="app-chrome">
+    <div class="app-header" id="app-header">
+      <div class="header-logo" id="header-logo"></div>
+      <span class="header-title">TracePilot</span>
+      <div class="header-search">⌘K  Search sessions…</div>
+      <div class="header-settings">⚙</div>
+    </div>
+    <div class="app-sidebar" id="app-sidebar">
+      <div class="sidebar-item active">📋 Sessions</div>
+      <div class="sidebar-item">📊 Analytics</div>
+      <div class="sidebar-item">⏱️ Timelines</div>
+      <div class="sidebar-item">🔧 Tool Calls</div>
+      <div class="sidebar-item">💻 Code Impact</div>
+      <div class="sidebar-item">⚙️ Settings</div>
+    </div>
+    <div class="session-grid-container" id="session-grid-container">
+      <div class="grid-header" id="grid-header">
+        Your Sessions <span class="count" id="grid-count"></span>
+      </div>
+      <div class="session-cards-area" id="session-cards-area"></div>
+    </div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ============================================================
+    // Configuration
+    // ============================================================
+
+    const REPO_COLORS = {
+      'frontend-app': '#818cf8',
+      'api-server':   '#34d399',
+      'data-pipeline': '#fbbf24',
+      'mobile-app':   '#f87171',
+      'infra-config': '#a78bfa',
+      'ml-service':   '#38bdf8',
+      'docs-site':    '#fb923c',
+    };
+
+    const REPO_NAMES = Object.keys(REPO_COLORS);
+    const NUM_ARMS = 7;
+
+    const PHASE_LABELS = {
+      discovering: 'Scanning for sessions…',
+      indexing:    'Indexing sessions…',
+      finalizing:  'Galaxy complete',
+      complete:    'Ready',
+    };
+
+    const TIME_LABELS = [
+      '2h ago', '3h ago', '5h ago', 'Yesterday', 'Yesterday',
+      '2 days ago', '3 days ago', 'Last week', 'Last week', '2 weeks ago',
+    ];
+
+    // ============================================================
+    // State
+    // ============================================================
+
+    let simulator = null;
+    let galaxyRotation = 0;         // radians
+    let rotationSpeed = (2 * Math.PI) / 120; // 120s per revolution
+    let lastFrameTime = 0;
+    let animating = false;
+    let morphing = false;
+    let completionTriggered = false;
+    let coreIntensity = 0;
+    let lastPulsePct = 0;
+
+    const nodes = [];
+    const dustParticles = [];
+    const armLabels = {};
+    const armNodeCounts = {};       // repo → count of nodes in that arm
+    const discoveredRepos = new Set();
+
+    // DOM refs
+    const starfield = document.getElementById('starfield');
+    const galaxyField = document.getElementById('galaxy-field');
+    const galaxyRotator = document.getElementById('galaxy-rotator');
+    const galacticCore = document.getElementById('galactic-core');
+    const centerLogo = document.getElementById('center-logo');
+    const logoSvg = document.getElementById('logo-svg');
+    const logoGlow = document.getElementById('logo-glow');
+    const phaseText = document.getElementById('phase-text');
+    const progressTrack = document.getElementById('progress-track');
+    const progressBar = document.getElementById('progress-bar');
+    const statsOverlay = document.getElementById('stats-overlay');
+    const statsProgressFill = document.getElementById('stats-progress-fill');
+    const completionFlash = document.getElementById('completion-flash');
+    const appChrome = document.getElementById('app-chrome');
+    const appHeader = document.getElementById('app-header');
+    const appSidebar = document.getElementById('app-sidebar');
+    const gridContainer = document.getElementById('session-grid-container');
+    const gridHeader = document.getElementById('grid-header');
+    const gridCount = document.getElementById('grid-count');
+    const sessionCardsArea = document.getElementById('session-cards-area');
+    const armGuidesSvg = document.getElementById('arm-guides-svg');
+    const headerLogo = document.getElementById('header-logo');
+
+    // Animated counters
+    let sessionCounter, tokenCounter, eventCounter, toolCounter, repoCounter;
+
+    // ============================================================
+    // Initialization
+    // ============================================================
+
+    function init() {
+      logoSvg.innerHTML = TRACEPILOT_LOGO_SVG;
+      headerLogo.innerHTML = TRACEPILOT_LOGO_SVG;
+      createStarfield();
+      setupCounters();
+      setupDemoControls();
+    }
+
+    function createStarfield() {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < 80; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        s.style.left = Math.random() * 100 + '%';
+        s.style.top = Math.random() * 100 + '%';
+        const minO = 0.04 + Math.random() * 0.08;
+        const maxO = minO + 0.05 + Math.random() * 0.1;
+        s.style.setProperty('--min-o', minO.toFixed(2));
+        s.style.setProperty('--max-o', maxO.toFixed(2));
+        s.style.setProperty('--dur', (3 + Math.random() * 4).toFixed(1) + 's');
+        s.style.setProperty('--delay', (Math.random() * 5).toFixed(1) + 's');
+        if (Math.random() < 0.15) {
+          s.style.width = '2px';
+          s.style.height = '2px';
+        }
+        frag.appendChild(s);
+      }
+      starfield.appendChild(frag);
+    }
+
+    function setupCounters() {
+      sessionCounter = new AnimatedCounter(document.getElementById('stat-sessions'), { format: n => n.toLocaleString() });
+      tokenCounter = new AnimatedCounter(document.getElementById('stat-tokens'), { format: formatTokens });
+      eventCounter = new AnimatedCounter(document.getElementById('stat-events'), { format: formatTokens });
+      toolCounter = new AnimatedCounter(document.getElementById('stat-tools'), { format: formatTokens });
+      repoCounter = new AnimatedCounter(document.getElementById('stat-repos'), { format: n => n.toString() });
+    }
+
+    function setupDemoControls() {
+      createDemoControls(null, {
+        defaultDuration: 12,
+        onStart: startSimulation,
+        onReset: resetSimulation,
+      });
+    }
+
+    // ============================================================
+    // Spiral Math
+    // ============================================================
+
+    function getCenter() {
+      return {
+        x: galaxyField.clientWidth / 2,
+        y: galaxyField.clientHeight / 2,
+      };
+    }
+
+    function getArmIndex(repo) {
+      const idx = REPO_NAMES.indexOf(repo);
+      return idx >= 0 ? idx : 0;
+    }
+
+    function spiralPosition(armIndex, nodeIndexInArm, totalInArm) {
+      const center = getCenter();
+      const baseAngle = (armIndex / NUM_ARMS) * Math.PI * 2;
+      // t goes from 0 to 1 as we move outward along the arm
+      const t = totalInArm > 1 ? nodeIndexInArm / (totalInArm - 1) : 0.5;
+      const theta = baseAngle + t * Math.PI * 1.5; // 1.5 turns per arm
+      const r = 40 + 25 * Math.exp(0.3 * t * Math.PI * 1.5);
+      const maxR = Math.min(r, Math.min(center.x, center.y) * 0.82);
+      return {
+        x: center.x + maxR * Math.cos(theta),
+        y: center.y + maxR * Math.sin(theta),
+        theta,
+        r: maxR,
+      };
+    }
+
+    // Position in the rotating frame: apply current galaxy rotation
+    function rotatedPosition(x, y) {
+      const center = getCenter();
+      const dx = x - center.x;
+      const dy = y - center.y;
+      const cos = Math.cos(galaxyRotation);
+      const sin = Math.sin(galaxyRotation);
+      return {
+        x: center.x + dx * cos - dy * sin,
+        y: center.y + dx * sin + dy * cos,
+      };
+    }
+
+    // ============================================================
+    // Arm Guide Paths (drawn once at start)
+    // ============================================================
+
+    function drawArmGuides() {
+      const center = getCenter();
+      const svgNS = 'http://www.w3.org/2000/svg';
+      armGuidesSvg.setAttribute('width', '100%');
+      armGuidesSvg.setAttribute('height', '100%');
+      armGuidesSvg.setAttribute('viewBox', `0 0 ${galaxyField.clientWidth} ${galaxyField.clientHeight}`);
+      armGuidesSvg.innerHTML = '';
+
+      for (let arm = 0; arm < NUM_ARMS; arm++) {
+        const points = [];
+        const steps = 60;
+        const baseAngle = (arm / NUM_ARMS) * Math.PI * 2;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const theta = baseAngle + t * Math.PI * 1.5;
+          const r = 40 + 25 * Math.exp(0.3 * t * Math.PI * 1.5);
+          const maxR = Math.min(r, Math.min(center.x, center.y) * 0.82);
+          points.push(`${center.x + maxR * Math.cos(theta)},${center.y + maxR * Math.sin(theta)}`);
+        }
+        const path = document.createElementNS(svgNS, 'polyline');
+        path.setAttribute('points', points.join(' '));
+        path.setAttribute('class', 'arm-guide-path');
+        path.setAttribute('stroke', REPO_COLORS[REPO_NAMES[arm]] || '#818cf8');
+        path.setAttribute('stroke-opacity', '0.04');
+        armGuidesSvg.appendChild(path);
+      }
+    }
+
+    function showArmGuides() {
+      const paths = armGuidesSvg.querySelectorAll('.arm-guide-path');
+      paths.forEach((p, i) => {
+        setTimeout(() => p.classList.add('visible'), i * 100);
+      });
+    }
+
+    // ============================================================
+    // Node Creation
+    // ============================================================
+
+    function createNode(session, index) {
+      const repo = session.repo;
+      const armIdx = getArmIndex(repo);
+      const color = REPO_COLORS[repo] || '#818cf8';
+
+      // Track per-arm node counts
+      if (!armNodeCounts[repo]) armNodeCounts[repo] = 0;
+      armNodeCounts[repo]++;
+      const nodeInArm = armNodeCounts[repo];
+
+      // Calculate spiral position (in the galaxy's local frame)
+      // We recalculate all positions for this arm to redistribute evenly
+      const pos = spiralPosition(armIdx, nodeInArm - 1, nodeInArm);
+
+      // Determine size based on token count (4-10px)
+      const minTok = 5000, maxTok = 200000;
+      const tokRatio = Math.min(1, Math.max(0, (session.tokens - minTok) / (maxTok - minTok)));
+      const dotSize = 4 + tokRatio * 6;
+
+      const el = document.createElement('div');
+      el.className = 'galaxy-node';
+      el.style.width = dotSize + 'px';
+      el.style.height = dotSize + 'px';
+      el.style.background = color;
+      el.style.boxShadow = `0 0 ${dotSize + 4}px ${color}88, 0 0 ${dotSize * 2 + 6}px ${color}33`;
+
+      // Place at rotated position
+      const rp = rotatedPosition(pos.x, pos.y);
+      el.style.left = (rp.x - dotSize / 2) + 'px';
+      el.style.top = (rp.y - dotSize / 2) + 'px';
+
+      galaxyRotator.appendChild(el);
+
+      // Pop animation
+      requestAnimationFrame(() => el.classList.add('active'));
+
+      // Initial bright flash
+      const origShadow = el.style.boxShadow;
+      el.style.boxShadow = `0 0 20px 8px ${color}cc, 0 0 40px ${color}66`;
+      setTimeout(() => {
+        el.style.transition = 'box-shadow 0.8s ease-out';
+        el.style.boxShadow = origShadow;
+        // Clear inline transition after settling
+        setTimeout(() => { el.style.transition = ''; }, 900);
+      }, 350);
+
+      const node = {
+        el, armIdx, repo, color, session, dotSize,
+        localX: pos.x,
+        localY: pos.y,
+        theta: pos.theta,
+        r: pos.r,
+        nodeInArm,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.5 + Math.random() * 1.5,
+      };
+      nodes.push(node);
+
+      // Add dust particles along this arm
+      addDustForArm(armIdx, nodeInArm, color);
+
+      // Update arm label
+      updateArmLabel(repo, armIdx, nodeInArm);
+
+      return node;
+    }
+
+    // Redistribute all nodes on a given arm for even spacing
+    function redistributeArm(armIdx) {
+      const repo = REPO_NAMES[armIdx];
+      const armNodes = nodes.filter(n => n.armIdx === armIdx);
+      const total = armNodes.length;
+      armNodes.forEach((n, i) => {
+        const pos = spiralPosition(armIdx, i, total);
+        n.localX = pos.x;
+        n.localY = pos.y;
+        n.theta = pos.theta;
+        n.r = pos.r;
+        n.nodeInArm = i + 1;
+      });
+    }
+
+    // ============================================================
+    // Dust Particles
+    // ============================================================
+
+    function addDustForArm(armIdx, nodeCount, color) {
+      if (nodeCount < 2) return;
+
+      const center = getCenter();
+      // Add 2-3 dust particles between the last two positions
+      const count = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < count; i++) {
+        const t1 = (nodeCount - 2) / Math.max(1, nodeCount - 1);
+        const t2 = (nodeCount - 1) / Math.max(1, nodeCount - 1);
+        const t = t1 + (t2 - t1) * Math.random();
+        const baseAngle = (armIdx / NUM_ARMS) * Math.PI * 2;
+        const theta = baseAngle + t * Math.PI * 1.5;
+        const r = 40 + 25 * Math.exp(0.3 * t * Math.PI * 1.5);
+        const maxR = Math.min(r, Math.min(center.x, center.y) * 0.82);
+
+        // Slight random offset perpendicular to arm
+        const perpAngle = theta + Math.PI / 2;
+        const offset = (Math.random() - 0.5) * 12;
+        const px = center.x + maxR * Math.cos(theta) + offset * Math.cos(perpAngle);
+        const py = center.y + maxR * Math.sin(theta) + offset * Math.sin(perpAngle);
+
+        const el = document.createElement('div');
+        el.className = 'dust-particle';
+        const size = 1.5 + Math.random() * 1;
+        el.style.width = size + 'px';
+        el.style.height = size + 'px';
+        el.style.background = color;
+        el.style.opacity = '0';
+
+        const rp = rotatedPosition(px, py);
+        el.style.left = (rp.x - size / 2) + 'px';
+        el.style.top = (rp.y - size / 2) + 'px';
+
+        galaxyRotator.appendChild(el);
+
+        // Fade in
+        setTimeout(() => el.classList.add('visible'), 100 + Math.random() * 300);
+
+        dustParticles.push({
+          el, localX: px, localY: py, size,
+          opacity: 0.03 + Math.random() * 0.04,
+        });
+      }
+    }
+
+    // ============================================================
+    // Arm Labels
+    // ============================================================
+
+    function updateArmLabel(repo, armIdx, nodeCount) {
+      if (nodeCount < 2) return;
+
+      if (!armLabels[repo]) {
+        const label = document.createElement('div');
+        label.className = 'arm-label';
+        label.textContent = repo;
+        galaxyRotator.appendChild(label);
+        armLabels[repo] = label;
+      }
+
+      // Position at outer end of arm
+      const total = armNodeCounts[repo];
+      const pos = spiralPosition(armIdx, total - 1, total);
+
+      // Offset slightly outward
+      const center = getCenter();
+      const dx = pos.x - center.x;
+      const dy = pos.y - center.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const offsetR = 20;
+      const lx = pos.x + (dx / dist) * offsetR;
+      const ly = pos.y + (dy / dist) * offsetR;
+
+      const label = armLabels[repo];
+      label.style.left = lx + 'px';
+      label.style.top = ly + 'px';
+      label.dataset.localX = lx;
+      label.dataset.localY = ly;
+
+      if (!label.classList.contains('visible')) {
+        setTimeout(() => label.classList.add('visible'), 200);
+      }
+    }
+
+    // ============================================================
+    // Pulse Ring Effect
+    // ============================================================
+
+    function emitPulseRing() {
+      const ring = document.createElement('div');
+      ring.className = 'pulse-ring';
+      ring.style.animation = 'pulseExpand 1.2s ease-out forwards';
+      galaxyField.appendChild(ring);
+      setTimeout(() => ring.remove(), 1300);
+    }
+
+    // ============================================================
+    // Galaxy Animation Loop
+    // ============================================================
+
+    function startAnimation() {
+      if (animating) return;
+      animating = true;
+      lastFrameTime = performance.now();
+      requestAnimationFrame(animateGalaxy);
+    }
+
+    function animateGalaxy(timestamp) {
+      if (!animating) return;
+
+      const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.1); // cap dt
+      lastFrameTime = timestamp;
+
+      if (!morphing) {
+        // Rotate the entire galaxy
+        galaxyRotation += rotationSpeed * dt;
+
+        // Apply rotation via CSS transform on the rotator container
+        const center = getCenter();
+        galaxyRotator.style.transform =
+          `rotate(${(galaxyRotation * 180 / Math.PI).toFixed(3)}deg)`;
+        galaxyRotator.style.transformOrigin = `${center.x}px ${center.y}px`;
+
+        // Counter-rotate arm labels to keep them horizontal
+        Object.values(armLabels).forEach(label => {
+          label.style.transform = `rotate(${(-galaxyRotation * 180 / Math.PI).toFixed(3)}deg)`;
+        });
+
+        // Twinkle nodes
+        nodes.forEach(node => {
+          if (!node.el.classList.contains('active')) return;
+          node.twinklePhase += node.twinkleSpeed * dt;
+          const twinkle = 0.7 + 0.3 * Math.sin(node.twinklePhase);
+          node.el.style.opacity = twinkle.toFixed(2);
+        });
+
+        // Update core glow intensity
+        galacticCore.style.opacity = (0.3 + coreIntensity * 0.7).toFixed(2);
+        const glowScale = 1 + coreIntensity * 0.5;
+        logoGlow.style.transform = `translate(-50%, -55%) scale(${glowScale.toFixed(2)})`;
+        logoGlow.style.opacity = (0.4 + coreIntensity * 0.6).toFixed(2);
+      }
+
+      requestAnimationFrame(animateGalaxy);
+    }
+
+    // ============================================================
+    // Simulation
+    // ============================================================
+
+    function startSimulation(durationS, totalSessions) {
+      resetSimulation();
+
+      durationS = durationS || 12;
+      totalSessions = totalSessions || 20;
+
+      document.getElementById('stat-sessions-total').textContent = totalSessions;
+
+      simulator = new LoadingSimulator({
+        totalSessions,
+        durationMs: durationS * 1000,
+
+        onPhaseChange(phase) {
+          phaseText.textContent = PHASE_LABELS[phase] || '';
+
+          if (phase === 'discovering') {
+            // Phase 1: Core Ignition
+            centerLogo.classList.add('visible');
+            phaseText.classList.add('visible');
+            progressTrack.classList.add('visible');
+            galacticCore.classList.add('visible');
+
+            // Draw and show arm guides
+            drawArmGuides();
+            setTimeout(showArmGuides, 400);
+          }
+
+          if (phase === 'indexing') {
+            // Phase 2: Arm Formation
+            statsOverlay.classList.add('visible');
+            startAnimation();
+          }
+
+          if (phase === 'finalizing') {
+            // Phase 3: Full Galaxy
+            coreIntensity = 1;
+            phaseText.textContent = 'Galaxy complete';
+          }
+
+          if (phase === 'complete') {
+            // Phase 4: Morph
+            completionFlash.classList.add('active');
+            setTimeout(() => startMorphSequence(), 600);
+          }
+        },
+
+        onProgress(progress) {
+          const pct = (progress * 100).toFixed(1) + '%';
+          progressBar.style.width = pct;
+          statsProgressFill.style.width = pct;
+
+          // Core intensity ramps with progress
+          coreIntensity = Math.min(1, progress * 1.1);
+
+          // Emit pulse rings at 25%, 50%, 75%
+          const pctNum = progress * 100;
+          [25, 50, 75].forEach(threshold => {
+            if (pctNum >= threshold && lastPulsePct < threshold) {
+              emitPulseRing();
+            }
+          });
+          lastPulsePct = pctNum;
+        },
+
+        onSessionProcessed({ current, total, session }) {
+          sessionCounter.set(current);
+
+          // Add to discovered repos
+          discoveredRepos.add(session.repo);
+          repoCounter.set(discoveredRepos.size);
+
+          // Create galaxy node
+          const node = createNode(session, current - 1);
+
+          // Redistribute the arm for even spacing
+          redistributeArm(node.armIdx);
+
+          // Update positions of redistributed nodes
+          updateNodePositions(node.armIdx);
+        },
+
+        onStatsUpdate(stats) {
+          tokenCounter.set(stats.totalTokens);
+          eventCounter.set(stats.totalEvents);
+          toolCounter.set(stats.totalToolCalls);
+        },
+
+        onComplete() {
+          // Handled in onPhaseChange
+        },
+      });
+
+      simulator.start();
+    }
+
+    // Update DOM positions after redistribution
+    function updateNodePositions(armIdx) {
+      const armNodes = nodes.filter(n => n.armIdx === armIdx);
+      armNodes.forEach(n => {
+        const size = n.dotSize;
+        n.el.style.left = (n.localX - size / 2) + 'px';
+        n.el.style.top = (n.localY - size / 2) + 'px';
+      });
+
+      // Update arm label position
+      const repo = REPO_NAMES[armIdx];
+      if (armLabels[repo] && armNodeCounts[repo] >= 2) {
+        const total = armNodeCounts[repo];
+        const pos = spiralPosition(armIdx, total - 1, total);
+        const center = getCenter();
+        const dx = pos.x - center.x;
+        const dy = pos.y - center.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const offsetR = 20;
+        const lx = pos.x + (dx / dist) * offsetR;
+        const ly = pos.y + (dy / dist) * offsetR;
+        armLabels[repo].style.left = lx + 'px';
+        armLabels[repo].style.top = ly + 'px';
+      }
+    }
+
+    // ============================================================
+    // Morph Sequence: Galaxy → App
+    // ============================================================
+
+    function startMorphSequence() {
+      if (completionTriggered) return;
+      completionTriggered = true;
+      morphing = true;
+
+      const fieldW = galaxyField.clientWidth;
+      const fieldH = galaxyField.clientHeight;
+      const center = getCenter();
+
+      // Flatten rotation: stop rotating, lock current positions to absolute coords
+      const currentRotDeg = (galaxyRotation * 180 / Math.PI) % 360;
+
+      // Convert all node positions from local (rotated) to absolute screen coords
+      nodes.forEach(n => {
+        const cos = Math.cos(galaxyRotation);
+        const sin = Math.sin(galaxyRotation);
+        const dx = n.localX - center.x;
+        const dy = n.localY - center.y;
+        n.absX = center.x + dx * cos - dy * sin;
+        n.absY = center.y + dx * sin + dy * cos;
+      });
+
+      // Move nodes from rotator to galaxy-field (absolute positioning)
+      galaxyRotator.style.transform = 'none';
+      nodes.forEach(n => {
+        galaxyField.appendChild(n.el);
+        n.el.style.left = (n.absX - n.dotSize / 2) + 'px';
+        n.el.style.top = (n.absY - n.dotSize / 2) + 'px';
+        n.el.style.opacity = '1';
+      });
+
+      // === Step 1: Halt rotation (0.3s) - already done above ===
+
+      // Hide non-essential elements
+      galacticCore.style.transition = 'opacity 0.5s ease';
+      galacticCore.style.opacity = '0';
+      centerLogo.style.transition = 'opacity 0.4s ease';
+      centerLogo.style.opacity = '0';
+      phaseText.style.transition = 'opacity 0.3s ease';
+      phaseText.style.opacity = '0';
+      statsOverlay.style.transition = 'opacity 0.4s ease';
+      statsOverlay.classList.remove('visible');
+      progressTrack.style.transition = 'opacity 0.3s ease';
+      progressTrack.classList.remove('visible');
+
+      // Fade out arm guides & dust
+      galaxyRotator.style.transition = 'opacity 0.4s ease';
+      galaxyRotator.style.opacity = '0';
+
+      // Fade out starfield
+      starfield.style.transition = 'opacity 0.5s ease';
+      starfield.style.opacity = '0';
+
+      // === Step 2: Arm Collapse → Columns (delay 0.3s, duration 0.6s) ===
+      setTimeout(() => {
+        // Group nodes by arm/repo into vertical columns
+        const repoGroups = {};
+        nodes.forEach(n => {
+          if (!repoGroups[n.repo]) repoGroups[n.repo] = [];
+          repoGroups[n.repo].push(n);
+        });
+
+        const repos = Object.keys(repoGroups);
+        const colWidth = fieldW / (repos.length + 1);
+
+        repos.forEach((repo, colIdx) => {
+          const colX = colWidth * (colIdx + 0.5);
+          const group = repoGroups[repo];
+          group.forEach((n, rowIdx) => {
+            const rowY = 80 + rowIdx * 30;
+            n.el.classList.add('morphing');
+            n.el.style.left = (colX - n.dotSize / 2) + 'px';
+            n.el.style.top = (rowY - n.dotSize / 2) + 'px';
+          });
+        });
+      }, 300);
+
+      // === Step 3: Grid Formation (delay 0.9s, duration 0.6s) ===
+      setTimeout(() => {
+        // Calculate grid positions
+        const gridTop = 52 + 16 + 36;   // header + padding + grid-header
+        const gridLeft = 200 + 24;       // sidebar + padding
+        const gridRight = fieldW - 24;
+        const availW = gridRight - gridLeft;
+        const gridCols = 3;
+        const cardW = Math.min(280, (availW - (gridCols - 1) * 12) / gridCols);
+        const cardH = 110;
+
+        nodes.forEach((n, i) => {
+          const col = i % gridCols;
+          const row = Math.floor(i / gridCols);
+          const tx = gridLeft + col * (cardW + 12);
+          const ty = gridTop + row * (cardH + 12);
+
+          n.el.classList.add('to-card');
+          n.el.style.left = tx + 'px';
+          n.el.style.top = ty + 'px';
+          n.el.style.width = cardW + 'px';
+          n.el.style.height = cardH + 'px';
+          n.el.style.borderRadius = '10px';
+          n.el.style.background = 'var(--color-canvas-subtle)';
+          n.el.style.boxShadow = 'none';
+
+          // Store grid position for card creation
+          n.gridX = tx;
+          n.gridY = ty;
+          n.cardW = cardW;
+          n.cardH = cardH;
+        });
+      }, 900);
+
+      // === Step 4: Detail Fill (delay 1.5s, duration 0.4s) ===
+      setTimeout(() => {
+        // Hide morphing nodes, show real cards
+        nodes.forEach((n, i) => {
+          n.el.style.opacity = '0';
+        });
+
+        // Create session cards
+        gridCount.textContent = `(${nodes.length})`;
+        nodes.forEach((n, i) => {
+          const s = n.session;
+          const color = REPO_COLORS[s.repo] || '#818cf8';
+          const timeLabel = TIME_LABELS[i % TIME_LABELS.length];
+
+          const card = document.createElement('div');
+          card.className = 'session-card-final';
+          card.innerHTML = `
+            <div class="card-title" style="color:${color}">${s.repo}</div>
+            <div class="card-badges">
+              <span class="badge badge-branch">${s.branch}</span>
+              <span class="badge badge-model">${s.model.replace('claude-', '').replace('gpt-', 'gpt')}</span>
+            </div>
+            <div class="card-stats">${s.turns} turns · ${formatTokens(s.tokens)} tokens</div>
+            <div class="card-time">${timeLabel}</div>
+            <div class="shimmer-overlay"></div>
+          `;
+          sessionCardsArea.appendChild(card);
+
+          setTimeout(() => card.classList.add('placed'), 30 * i);
+        });
+      }, 1500);
+
+      // === Step 5: Chrome Appears (delay 1.9s, duration 0.4s) ===
+      setTimeout(() => {
+        appChrome.classList.add('visible');
+        appHeader.classList.add('visible');
+        gridContainer.classList.add('visible');
+
+        setTimeout(() => appSidebar.classList.add('visible'), 100);
+        setTimeout(() => gridHeader.classList.add('visible'), 200);
+      }, 1900);
+
+      // === Step 6: Polish (delay 2.3s, duration 0.2s) ===
+      setTimeout(() => {
+        // Shimmer wave across cards
+        const cards = sessionCardsArea.querySelectorAll('.session-card-final');
+        cards.forEach((card, i) => {
+          setTimeout(() => card.classList.add('shimmer'), i * 50);
+        });
+
+        // Subtle scale pop
+        sessionCardsArea.style.transition = 'transform 0.3s ease';
+        sessionCardsArea.style.transform = 'scale(0.98)';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            sessionCardsArea.style.transform = 'scale(1)';
+          });
+        });
+      }, 2300);
+    }
+
+    // ============================================================
+    // Reset
+    // ============================================================
+
+    function resetSimulation() {
+      if (simulator) {
+        simulator.stop();
+        simulator = null;
+      }
+
+      animating = false;
+      morphing = false;
+      completionTriggered = false;
+      galaxyRotation = 0;
+      coreIntensity = 0;
+      lastPulsePct = 0;
+      nodes.length = 0;
+      dustParticles.length = 0;
+      Object.keys(armLabels).forEach(k => delete armLabels[k]);
+      Object.keys(armNodeCounts).forEach(k => delete armNodeCounts[k]);
+      discoveredRepos.clear();
+
+      // Reset DOM
+      galaxyRotator.style.transform = 'none';
+      galaxyRotator.style.opacity = '1';
+      galaxyRotator.style.transition = '';
+
+      // Remove dynamic children from rotator
+      const dynamicEls = galaxyRotator.querySelectorAll('.galaxy-node, .dust-particle, .arm-label');
+      dynamicEls.forEach(el => el.remove());
+      armGuidesSvg.innerHTML = '';
+
+      // Remove any nodes moved to galaxy-field during morph
+      galaxyField.querySelectorAll('.galaxy-node').forEach(el => el.remove());
+      galaxyField.querySelectorAll('.pulse-ring').forEach(el => el.remove());
+
+      // Reset visibility
+      centerLogo.classList.remove('visible');
+      centerLogo.style.transition = '';
+      centerLogo.style.opacity = '';
+      phaseText.classList.remove('visible');
+      phaseText.style.transition = '';
+      phaseText.style.opacity = '';
+      progressTrack.classList.remove('visible');
+      progressTrack.style.transition = '';
+      progressBar.style.width = '0%';
+      statsOverlay.classList.remove('visible');
+      statsOverlay.style.transition = '';
+      statsProgressFill.style.width = '0%';
+      galacticCore.classList.remove('visible');
+      galacticCore.style.transition = '';
+      galacticCore.style.opacity = '';
+      completionFlash.classList.remove('active');
+
+      // Reset app chrome
+      appChrome.classList.remove('visible');
+      appHeader.classList.remove('visible');
+      appSidebar.classList.remove('visible');
+      gridHeader.classList.remove('visible');
+      gridCount.textContent = '';
+      sessionCardsArea.innerHTML = '';
+      sessionCardsArea.style.transform = '';
+      sessionCardsArea.style.transition = '';
+
+      // Reset starfield
+      starfield.style.opacity = '';
+      starfield.style.transition = '';
+
+      // Reset counters
+      [sessionCounter, tokenCounter, eventCounter, toolCounter, repoCounter].forEach(c => {
+        if (c) { c.current = 0; c.target = 0; c.el.textContent = '0'; }
+      });
+
+      document.getElementById('stat-sessions-total').textContent = '0';
+    }
+
+    // ============================================================
+    // Boot
+    // ============================================================
+
+    init();
+  </script>
+</body>
+</html>

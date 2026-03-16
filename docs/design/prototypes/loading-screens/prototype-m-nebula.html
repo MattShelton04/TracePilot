@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype M: Nebula</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── Star field background ── */
+    .starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .bg-star {
+      position: absolute;
+      border-radius: 50%;
+      background: #e6edf3;
+      opacity: 0.15;
+      pointer-events: none;
+      transition: transform 1s linear, height 0.6s ease;
+    }
+
+    @keyframes starTwinkle {
+      0%, 100% { opacity: var(--min-o, 0.08); }
+      50%      { opacity: var(--max-o, 0.25); }
+    }
+
+    /* ── Nebula Field ── */
+    .nebula-field {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .nebula-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .nebula-svg line {
+      stroke-linecap: round;
+    }
+
+    /* ── Center Logo + Info ── */
+    .center-hub {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      opacity: 0;
+      transition: opacity 0.8s ease, transform 1s ease;
+      pointer-events: none;
+    }
+
+    .center-hub.visible {
+      opacity: 1;
+    }
+
+    .center-hub .logo-wrap {
+      position: relative;
+      width: 64px;
+      height: 64px;
+    }
+
+    .center-hub .logo-wrap svg {
+      width: 64px;
+      height: 64px;
+    }
+
+    .center-hub .logo-glow {
+      position: absolute;
+      inset: -40px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.06) 50%, transparent 70%);
+      animation: hubGlow 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes hubGlow {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50%      { opacity: 1; transform: scale(1.15); }
+    }
+
+    .center-hub .phase-text {
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      letter-spacing: 0.04em;
+      transition: opacity 0.4s ease;
+    }
+
+    .center-hub .session-counter {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-fg-subtle);
+      font-variant-numeric: tabular-nums;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .center-hub .session-counter.visible {
+      opacity: 1;
+    }
+
+    /* ── Nebula Cluster ── */
+    .nebula-cluster {
+      position: absolute;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Nebula mist cloud */
+    .nebula-mist {
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--repo-color) 0%, transparent 70%);
+      opacity: 0;
+      filter: blur(40px);
+      transition: opacity 1s ease, transform 1s ease;
+      pointer-events: none;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+    }
+
+    .nebula-mist.visible {
+      opacity: 0.06;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Cluster repo label */
+    .cluster-label {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      background: rgba(22, 27, 34, 0.5);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(48, 54, 61, 0.3);
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      left: 50%;
+    }
+
+    .cluster-label.visible {
+      opacity: 0.65;
+      transform: translateY(0) translateX(-50%);
+    }
+
+    /* ── Session Nodes ── */
+    .session-node {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0);
+      z-index: 4;
+    }
+
+    .session-node.active {
+      animation: nodePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes nodePop {
+      0%   { opacity: 0; transform: scale(0); }
+      50%  { opacity: 1; transform: scale(1.6); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes nodeFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.85; }
+      50%      { transform: translate(var(--float-dx, 2px), var(--float-dy, -2px)) scale(1.05); opacity: 1; }
+    }
+
+    .session-node.breathing {
+      animation: nodeFloat 3s ease-in-out infinite;
+      animation-delay: var(--breath-delay, 0s);
+    }
+
+    /* ── Sparkle Particles ── */
+    .nebula-sparkle {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    @keyframes sparkleFloat {
+      0%   { opacity: 0; transform: translate(0, 0); }
+      25%  { opacity: var(--sparkle-max-o, 0.5); }
+      75%  { opacity: var(--sparkle-max-o, 0.5); }
+      100% { opacity: 0; transform: translate(var(--sp-dx), var(--sp-dy)); }
+    }
+
+    /* ── Pulse Ripple ── */
+    .pulse-ripple {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid var(--accent-fg);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 8;
+    }
+
+    @keyframes rippleExpand {
+      0%   { width: 0; height: 0; opacity: 0.3; }
+      100% { width: 600px; height: 600px; opacity: 0; }
+    }
+
+    /* ── Stats Bar (bottom) ── */
+    .stats-bar {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: var(--space-5);
+      padding: var(--space-3) var(--space-6);
+      background: rgba(22, 27, 34, 0.7);
+      backdrop-filter: blur(20px) saturate(1.3);
+      -webkit-backdrop-filter: blur(20px) saturate(1.3);
+      border: 1px solid var(--color-border-muted);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      opacity: 0;
+      transform: translateX(-50%) translateY(12px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .stats-bar.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .stats-bar .stat-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .stats-bar .stat-main {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .stats-bar .stat-current {
+      font-family: var(--font-mono);
+      font-size: var(--text-md);
+      font-weight: 600;
+      color: var(--accent-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-bar .stat-total {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-fg-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-bar .stat-mini-bar {
+      width: 50px;
+      height: 3px;
+      background: var(--color-border-muted);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .stats-bar .stat-mini-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg));
+      border-radius: 2px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+
+    .stats-bar .stat-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--color-border-muted);
+    }
+
+    .stats-bar .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .stats-bar .stat-item-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-bar .stat-item-label {
+      font-size: 9px;
+      color: var(--color-fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Progress bar (top) ── */
+    .progress-bar-track {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .progress-bar-track.visible {
+      opacity: 1;
+    }
+
+    /* ── Zoom flash ── */
+    .zoom-flash {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 101;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Mock Homepage ── */
+    .mock-homepage {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: var(--color-canvas);
+      opacity: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.5s ease;
+    }
+
+    .mock-homepage.visible {
+      opacity: 1;
+    }
+
+    .mock-header {
+      height: 48px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-5);
+      gap: var(--space-4);
+      flex-shrink: 0;
+    }
+
+    .mock-header-logo { width: 28px; height: 28px; flex-shrink: 0; }
+    .mock-header-logo svg { width: 28px; height: 28px; }
+
+    .mock-search {
+      flex: 1;
+      max-width: 400px;
+      height: 30px;
+      margin: 0 auto;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+    }
+
+    .mock-settings {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-border-muted);
+    }
+
+    .mock-body { display: flex; flex: 1; overflow: hidden; }
+
+    .mock-sidebar {
+      width: 200px;
+      background: var(--color-canvas-subtle);
+      border-right: 1px solid var(--color-border);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    .mock-nav-item {
+      height: 32px;
+      background: var(--color-border-muted);
+      border-radius: var(--radius-sm);
+      opacity: 0.6;
+    }
+
+    .mock-nav-item:first-child {
+      opacity: 1;
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent-muted);
+    }
+
+    .mock-main {
+      flex: 1;
+      padding: var(--space-6) var(--space-8);
+      overflow: auto;
+    }
+
+    .mock-heading {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      color: var(--color-fg);
+      margin-bottom: var(--space-5);
+    }
+
+    .mock-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      max-width: 900px;
+    }
+
+    .mock-card {
+      height: 130px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mock-card-badge {
+      width: 48px;
+      height: 6px;
+      border-radius: 3px;
+    }
+
+    .mock-card-title {
+      height: 14px;
+      width: 60%;
+      background: var(--color-border-muted);
+      border-radius: 3px;
+    }
+
+    .mock-card-subtitle {
+      height: 10px;
+      width: 80%;
+      background: var(--color-border-muted);
+      border-radius: 3px;
+      opacity: 0.5;
+    }
+
+    .mock-card-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(99, 102, 241, 0.04) 40%,
+        rgba(99, 102, 241, 0.08) 50%,
+        rgba(99, 102, 241, 0.04) 60%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Progress bar -->
+  <div class="progress-bar-track" id="progress-track">
+    <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+  </div>
+
+  <!-- Star field -->
+  <div class="starfield" id="starfield"></div>
+
+  <!-- Nebula field (clusters + nodes) -->
+  <div class="nebula-field" id="nebula-field">
+    <svg class="nebula-svg" id="nebula-svg"></svg>
+  </div>
+
+  <!-- Center hub: logo + phase text + counter -->
+  <div class="center-hub" id="center-hub">
+    <div class="logo-wrap">
+      <div class="logo-glow"></div>
+      <div id="logo-svg"></div>
+    </div>
+    <div class="phase-text" id="phase-text">Preparing…</div>
+    <div class="session-counter" id="session-counter">0 / 0 sessions</div>
+  </div>
+
+  <!-- Stats bar (bottom) -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-group">
+      <div class="stat-main">
+        <span class="stat-current" id="stat-sessions-current">0</span>
+        <span class="stat-total">/<span id="stat-sessions-total">0</span></span>
+      </div>
+      <span class="stat-item-label">sessions</span>
+      <div class="stat-mini-bar">
+        <div class="stat-mini-fill" id="stat-mini-fill"></div>
+      </div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-item-value" id="stat-tokens">0</span>
+      <span class="stat-item-label">tokens</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-item-value" id="stat-events">0</span>
+      <span class="stat-item-label">events</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-item-value" id="stat-repos">0</span>
+      <span class="stat-item-label">repos</span>
+    </div>
+  </div>
+
+  <!-- Zoom flash -->
+  <div class="zoom-flash" id="zoom-flash"></div>
+
+  <!-- Mock Homepage -->
+  <div class="mock-homepage" id="mock-homepage">
+    <div class="mock-header">
+      <div class="mock-header-logo" id="mock-logo"></div>
+      <div class="mock-search"></div>
+      <div class="mock-settings"></div>
+    </div>
+    <div class="mock-body">
+      <div class="mock-sidebar">
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+      </div>
+      <div class="mock-main">
+        <div class="mock-heading">Your Sessions</div>
+        <div class="mock-grid" id="mock-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ── Cluster Definitions ──
+    const CLUSTERS = [
+      { repo: 'frontend-app',  color: '#818cf8', angle: 0 },
+      { repo: 'api-server',    color: '#34d399', angle: 51 },
+      { repo: 'data-pipeline', color: '#fbbf24', angle: 103 },
+      { repo: 'mobile-app',    color: '#f87171', angle: 154 },
+      { repo: 'infra-config',  color: '#a78bfa', angle: 206 },
+      { repo: 'ml-service',    color: '#38bdf8', angle: 257 },
+      { repo: 'docs-site',     color: '#fb923c', angle: 309 },
+    ];
+
+    const ORBIT_RADIUS = 280;
+    const ORBIT_SPEED = 0.0008; // radians per frame (~70s full rotation)
+    const NODE_SCATTER = 55;
+
+    const PHASE_LABELS = {
+      idle:        'Preparing…',
+      discovering: 'Discovering sessions…',
+      indexing:    'Indexing sessions…',
+      finalizing:  'Building search index…',
+      complete:    'Ready!',
+    };
+
+    // ── State ──
+    let clusters = [];       // runtime cluster objects
+    let allNodes = [];       // all session node objects
+    let connections = [];    // SVG connection lines
+    let sparkles = [];       // sparkle particles
+    let simulator = null;
+    let animating = true;
+    let completionTriggered = false;
+    let convergenceActive = false;
+    let discoveredRepos = new Set();
+    let lastPulseProgress = 0;
+    let fieldW, fieldH, cx, cy;
+
+    // ── DOM refs ──
+    const nebulaField = document.getElementById('nebula-field');
+    const nebulaSvg = document.getElementById('nebula-svg');
+    const starfield = document.getElementById('starfield');
+    const centerHub = document.getElementById('center-hub');
+    const phaseText = document.getElementById('phase-text');
+    const sessionCounter = document.getElementById('session-counter');
+    const progressTrack = document.getElementById('progress-track');
+    const progressBar = document.getElementById('progress-bar');
+    const statsBar = document.getElementById('stats-bar');
+    const statMiniFill = document.getElementById('stat-mini-fill');
+    const zoomFlash = document.getElementById('zoom-flash');
+    const mockHomepage = document.getElementById('mock-homepage');
+
+    // Logo injection
+    document.getElementById('logo-svg').innerHTML = TRACEPILOT_LOGO_SVG;
+    document.getElementById('mock-logo').innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // Animated counters
+    const sessionsCounter = new AnimatedCounter(document.getElementById('stat-sessions-current'), { format: n => String(Math.round(n)) });
+    const tokenCounter = new AnimatedCounter(document.getElementById('stat-tokens'), { format: formatTokens });
+    const eventCounter = new AnimatedCounter(document.getElementById('stat-events'), { format: n => formatTokens(n) });
+    const repoCounter  = new AnimatedCounter(document.getElementById('stat-repos'),  { format: n => String(Math.round(n)) });
+
+    // Generate mock homepage cards
+    function generateMockCards() {
+      const grid = document.getElementById('mock-grid');
+      grid.innerHTML = '';
+      const colors = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#38bdf8'];
+      for (let i = 0; i < 6; i++) {
+        const card = document.createElement('div');
+        card.className = 'mock-card';
+        card.innerHTML = `
+          <div class="mock-card-badge" style="background: ${colors[i]}"></div>
+          <div class="mock-card-title"></div>
+          <div class="mock-card-subtitle"></div>
+          <div class="mock-card-shimmer"></div>
+        `;
+        grid.appendChild(card);
+      }
+    }
+    generateMockCards();
+
+    // ── Layout ──
+    function measureField() {
+      fieldW = window.innerWidth;
+      fieldH = window.innerHeight;
+      cx = fieldW / 2;
+      cy = fieldH / 2;
+    }
+
+    // ── Background Stars ──
+    function generateStars() {
+      starfield.innerHTML = '';
+      const count = 60;
+      for (let i = 0; i < count; i++) {
+        const star = document.createElement('div');
+        star.className = 'bg-star';
+        const size = 1 + (Math.random() < 0.2 ? 1 : 0);
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.setProperty('--min-o', (0.06 + Math.random() * 0.1).toFixed(2));
+        star.style.setProperty('--max-o', (0.2 + Math.random() * 0.15).toFixed(2));
+        star.style.animation = `starTwinkle ${2.5 + Math.random() * 4}s ease-in-out infinite`;
+        star.style.animationDelay = `${Math.random() * 4}s`;
+        starfield.appendChild(star);
+      }
+    }
+
+    // ── Cluster Init ──
+    function initClusters() {
+      clusters = CLUSTERS.map((def) => {
+        const rad = (def.angle * Math.PI) / 180;
+
+        // Container element for the cluster
+        const el = document.createElement('div');
+        el.className = 'nebula-cluster';
+        nebulaField.appendChild(el);
+
+        // Nebula mist
+        const mist = document.createElement('div');
+        mist.className = 'nebula-mist';
+        mist.style.setProperty('--repo-color', def.color);
+        el.appendChild(mist);
+
+        // Repo label
+        const label = document.createElement('div');
+        label.className = 'cluster-label';
+        label.style.color = def.color;
+        label.style.borderColor = def.color + '30';
+        label.textContent = def.repo;
+        label.style.transform = 'translateX(-50%) translateY(4px)';
+        el.appendChild(label);
+
+        return {
+          ...def,
+          el,
+          mist,
+          label,
+          currentAngle: rad,
+          nodes: [],
+          sparkles: [],
+          labelShown: false,
+        };
+      });
+    }
+
+    // ── Position clusters in their orbital positions ──
+    function updateClusterPositions() {
+      clusters.forEach((cluster) => {
+        const x = cx + ORBIT_RADIUS * Math.cos(cluster.currentAngle);
+        const y = cy + ORBIT_RADIUS * Math.sin(cluster.currentAngle);
+        cluster.el.style.left = x + 'px';
+        cluster.el.style.top = y + 'px';
+        cluster.x = x;
+        cluster.y = y;
+
+        // Position label above the cluster
+        cluster.label.style.top = '-50px';
+      });
+    }
+
+    // ── Create session node within a cluster ──
+    function createSessionNode(session) {
+      const cluster = clusters.find(c => c.repo === session.repo);
+      if (!cluster) return null;
+
+      const color = cluster.color;
+      const tokens = session.tokens;
+      const dotSize = 8 + Math.min(6, ((tokens - 5000) / 245000) * 6);
+
+      // Random jitter within cluster
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * NODE_SCATTER;
+      const offsetX = dist * Math.cos(angle);
+      const offsetY = dist * Math.sin(angle);
+
+      const el = document.createElement('div');
+      el.className = 'session-node';
+      el.style.width = dotSize + 'px';
+      el.style.height = dotSize + 'px';
+      el.style.background = color;
+      el.style.boxShadow = `0 0 ${dotSize + 4}px ${color}88, 0 0 ${dotSize * 2 + 6}px ${color}33`;
+      el.style.left = offsetX - dotSize / 2 + 'px';
+      el.style.top = offsetY - dotSize / 2 + 'px';
+      el.style.setProperty('--float-dx', (Math.random() * 4 - 2) + 'px');
+      el.style.setProperty('--float-dy', (Math.random() * 4 - 2) + 'px');
+      el.style.setProperty('--breath-delay', (Math.random() * 3) + 's');
+
+      cluster.el.appendChild(el);
+
+      // Pop animation
+      requestAnimationFrame(() => el.classList.add('active'));
+
+      // Glow flash on appear
+      const origShadow = el.style.boxShadow;
+      el.style.boxShadow = `0 0 20px 8px ${color}cc, 0 0 40px ${color}66`;
+      setTimeout(() => {
+        el.style.transition = 'box-shadow 0.8s ease-out';
+        el.style.boxShadow = origShadow;
+        setTimeout(() => {
+          el.classList.remove('active');
+          el.classList.add('breathing');
+        }, 800);
+      }, 400);
+
+      const node = {
+        el,
+        cluster,
+        session,
+        dotSize,
+        color,
+        offsetX,
+        offsetY,
+      };
+
+      cluster.nodes.push(node);
+      allNodes.push(node);
+
+      // Grow nebula mist as nodes are added
+      updateMistSize(cluster);
+
+      return node;
+    }
+
+    // ── Update nebula mist size & brightness ──
+    function updateMistSize(cluster) {
+      const count = cluster.nodes.length;
+      if (count === 0) return;
+
+      // Mist grows with more nodes
+      const baseSize = 180;
+      const growFactor = Math.min(2.2, 1 + count * 0.12);
+      const newSize = baseSize * growFactor;
+      cluster.mist.style.width = newSize + 'px';
+      cluster.mist.style.height = newSize + 'px';
+
+      // Increase opacity as cluster gets more nodes
+      const opacity = Math.min(0.14, 0.05 + count * 0.012);
+      cluster.mist.style.opacity = opacity;
+      cluster.mist.style.transform = `translate(-50%, -50%) scale(1)`;
+    }
+
+    // ── Sparkle particles for a cluster ──
+    function addSparkles(cluster) {
+      if (cluster.sparkles.length >= 5) return;
+
+      const count = Math.min(5 - cluster.sparkles.length, 2);
+      for (let i = 0; i < count; i++) {
+        const sp = document.createElement('div');
+        sp.className = 'nebula-sparkle';
+        const size = 1 + Math.random();
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 15 + Math.random() * 40;
+        const x = dist * Math.cos(angle);
+        const y = dist * Math.sin(angle);
+        const dx = (Math.random() - 0.5) * 50;
+        const dy = (Math.random() - 0.5) * 50;
+        const dur = 6 + Math.random() * 8;
+
+        sp.style.cssText = `
+          width: ${size}px; height: ${size}px;
+          background: ${cluster.color};
+          left: ${x}px; top: ${y}px;
+          --sp-dx: ${dx}px; --sp-dy: ${dy}px;
+          --sparkle-max-o: ${0.3 + Math.random() * 0.4};
+          animation: sparkleFloat ${dur}s ease-in-out infinite;
+          animation-delay: ${-Math.random() * dur}s;
+        `;
+        cluster.el.appendChild(sp);
+        cluster.sparkles.push(sp);
+      }
+    }
+
+    // ── Connection Lines ──
+    function createIntraConnection(nodeA, nodeB) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', nodeA.color);
+      line.setAttribute('stroke-opacity', '0');
+      line.setAttribute('stroke-width', '0.8');
+      line.style.transition = 'stroke-opacity 0.6s ease';
+      nebulaSvg.appendChild(line);
+
+      requestAnimationFrame(() => {
+        line.setAttribute('stroke-opacity', '0.15');
+      });
+
+      connections.push({ a: nodeA, b: nodeB, el: line, type: 'intra' });
+      return line;
+    }
+
+    function createInterConnection(nodeA, nodeB) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', '#484f58');
+      line.setAttribute('stroke-opacity', '0');
+      line.setAttribute('stroke-width', '0.5');
+      line.setAttribute('stroke-dasharray', '4 6');
+      line.style.transition = 'stroke-opacity 0.8s ease';
+      nebulaSvg.appendChild(line);
+
+      requestAnimationFrame(() => {
+        line.setAttribute('stroke-opacity', '0.08');
+      });
+
+      connections.push({ a: nodeA, b: nodeB, el: line, type: 'inter' });
+      return line;
+    }
+
+    function findAndCreateConnections(newNode) {
+      let repoConns = 0;
+      let modelConns = 0;
+
+      for (const existing of allNodes) {
+        if (existing === newNode) continue;
+        if (existing.session.repo === newNode.session.repo && repoConns < 2) {
+          createIntraConnection(newNode, existing);
+          repoConns++;
+        } else if (existing.session.model === newNode.session.model && modelConns < 1 && existing.cluster !== newNode.cluster) {
+          createInterConnection(newNode, existing);
+          modelConns++;
+        }
+        if (repoConns >= 2 && modelConns >= 1) break;
+      }
+    }
+
+    // ── Update connection line positions (they track moving clusters) ──
+    function updateConnectionPositions() {
+      connections.forEach(conn => {
+        const aCluster = conn.a.cluster;
+        const bCluster = conn.b.cluster;
+        const x1 = aCluster.x + conn.a.offsetX;
+        const y1 = aCluster.y + conn.a.offsetY;
+        const x2 = bCluster.x + conn.b.offsetX;
+        const y2 = bCluster.y + conn.b.offsetY;
+        conn.el.setAttribute('x1', x1);
+        conn.el.setAttribute('y1', y1);
+        conn.el.setAttribute('x2', x2);
+        conn.el.setAttribute('y2', y2);
+      });
+    }
+
+    // ── Pulse Ripple ──
+    function emitPulse() {
+      const ripple = document.createElement('div');
+      ripple.className = 'pulse-ripple';
+      ripple.style.animation = 'rippleExpand 1.5s ease-out forwards';
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 1600);
+    }
+
+    // ── Animation Loop ──
+    function animate() {
+      if (!animating) return;
+
+      if (!convergenceActive) {
+        // Orbital drift
+        clusters.forEach(cluster => {
+          cluster.currentAngle += ORBIT_SPEED;
+        });
+        updateClusterPositions();
+      }
+
+      updateConnectionPositions();
+      requestAnimationFrame(animate);
+    }
+
+    // ── Zoom-through Completion ──
+    function playConvergence() {
+      if (completionTriggered) return;
+      completionTriggered = true;
+      convergenceActive = true;
+
+      const convergeDuration = 600;
+      const convergeStart = performance.now();
+
+      // Step 1: Convergence — all clusters drift toward center
+      function convergeStep() {
+        const elapsed = performance.now() - convergeStart;
+        const t = Math.min(elapsed / convergeDuration, 1);
+        const eased = t * t; // ease-in
+
+        clusters.forEach(cluster => {
+          const targetX = cx;
+          const targetY = cy;
+          const origX = cx + ORBIT_RADIUS * Math.cos(cluster.currentAngle);
+          const origY = cy + ORBIT_RADIUS * Math.sin(cluster.currentAngle);
+          const x = origX + (targetX - origX) * eased;
+          const y = origY + (targetY - origY) * eased;
+          cluster.el.style.left = x + 'px';
+          cluster.el.style.top = y + 'px';
+          cluster.x = x;
+          cluster.y = y;
+
+          // Merge mists — grow + brighten
+          const mistScale = 1 + eased * 1.5;
+          cluster.mist.style.opacity = parseFloat(cluster.mist.style.opacity || 0.08) + eased * 0.08;
+          cluster.mist.style.filter = `blur(${40 + eased * 20}px)`;
+        });
+
+        updateConnectionPositions();
+
+        if (t < 1) {
+          requestAnimationFrame(convergeStep);
+        } else {
+          startAcceleration();
+        }
+      }
+
+      // Step 2: Acceleration — nodes streak, stars warp
+      function startAcceleration() {
+        const accelDuration = 400;
+        const accelStart = performance.now();
+
+        // Start star warp
+        const bgStars = starfield.querySelectorAll('.bg-star');
+
+        function accelStep() {
+          const elapsed = performance.now() - accelStart;
+          const t = Math.min(elapsed / accelDuration, 1);
+          const eased = t * t * t;
+
+          // Star warp effect
+          bgStars.forEach(star => {
+            star.style.transform = `scaleY(${1 + eased * 19})`;
+            star.style.opacity = (0.15 + eased * 0.3).toFixed(2);
+          });
+
+          // Node streak toward center
+          allNodes.forEach(node => {
+            node.el.style.transition = 'none';
+            const streakFactor = eased;
+            node.el.style.transform = `scale(${1 - streakFactor * 0.8})`;
+            node.el.style.opacity = (1 - streakFactor * 0.7).toFixed(2);
+          });
+
+          if (t < 1) {
+            requestAnimationFrame(accelStep);
+          } else {
+            triggerFlash();
+          }
+        }
+
+        requestAnimationFrame(accelStep);
+      }
+
+      // Step 3: Flash
+      function triggerFlash() {
+        zoomFlash.style.transition = 'opacity 0.15s ease';
+        zoomFlash.style.opacity = '1';
+
+        // Hide everything behind the flash
+        nebulaField.style.opacity = '0';
+        centerHub.style.opacity = '0';
+        statsBar.classList.remove('visible');
+        progressTrack.classList.remove('visible');
+        starfield.style.opacity = '0';
+
+        // Step 4: Reveal homepage
+        setTimeout(() => {
+          mockHomepage.classList.add('visible');
+          zoomFlash.style.transition = 'opacity 0.6s ease';
+          zoomFlash.style.opacity = '0';
+        }, 150);
+      }
+
+      requestAnimationFrame(convergeStep);
+    }
+
+    // ── Clear Everything ──
+    function clearNebula() {
+      completionTriggered = false;
+      convergenceActive = false;
+      lastPulseProgress = 0;
+      discoveredRepos.clear();
+
+      // Remove all nodes
+      allNodes.forEach(n => n.el.remove());
+      allNodes = [];
+
+      // Remove connections
+      connections.forEach(c => c.el.remove());
+      connections = [];
+      nebulaSvg.innerHTML = '';
+
+      // Remove clusters
+      clusters.forEach(c => {
+        c.sparkles.forEach(s => s.remove());
+        c.el.remove();
+      });
+      clusters = [];
+
+      // Remove stray ripples
+      document.querySelectorAll('.pulse-ripple').forEach(r => r.remove());
+
+      // Reset UI elements
+      centerHub.classList.remove('visible');
+      centerHub.style.opacity = '';
+      centerHub.style.transform = 'translate(-50%, -50%)';
+      nebulaField.style.opacity = '1';
+      starfield.style.opacity = '1';
+      progressTrack.classList.remove('visible');
+      progressBar.style.width = '0%';
+      statsBar.classList.remove('visible');
+      statMiniFill.style.width = '0%';
+      sessionCounter.classList.remove('visible');
+      mockHomepage.classList.remove('visible');
+      zoomFlash.style.opacity = '0';
+
+      phaseText.textContent = PHASE_LABELS.idle;
+    }
+
+    // ── Simulation ──
+    function startSimulation(durationS, totalSessions) {
+      clearNebula();
+      measureField();
+      generateStars();
+      initClusters();
+      updateClusterPositions();
+
+      document.getElementById('stat-sessions-total').textContent = totalSessions;
+      sessionsCounter.set(0);
+      tokenCounter.set(0);
+      eventCounter.set(0);
+      repoCounter.set(0);
+      sessionCounter.textContent = `0 / ${totalSessions} sessions`;
+
+      if (simulator) simulator.stop();
+
+      simulator = new LoadingSimulator({
+        totalSessions,
+        durationMs: durationS * 1000,
+
+        onPhaseChange(phase) {
+          phaseText.textContent = PHASE_LABELS[phase] || '';
+
+          if (phase === 'discovering') {
+            // Phase 1→2: Logo fades in, stars twinkle
+            centerHub.classList.add('visible');
+            progressTrack.classList.add('visible');
+
+            // Show nebula mists (ghost clouds before nodes)
+            clusters.forEach((cluster, i) => {
+              setTimeout(() => {
+                cluster.mist.classList.add('visible');
+                cluster.label.classList.add('visible');
+              }, 200 + i * 150);
+            });
+          }
+
+          if (phase === 'indexing') {
+            // Phase 3: Session counter + stats bar appear
+            sessionCounter.classList.add('visible');
+            setTimeout(() => statsBar.classList.add('visible'), 300);
+          }
+
+          if (phase === 'finalizing') {
+            // Phase 4: Full brightness
+            clusters.forEach(cluster => {
+              const currentOpacity = parseFloat(cluster.mist.style.opacity) || 0.06;
+              cluster.mist.style.opacity = Math.min(0.18, currentOpacity + 0.04);
+              cluster.mist.style.transition = 'opacity 0.8s ease';
+            });
+          }
+
+          if (phase === 'complete') {
+            // Phase 5: Brief pause then convergence
+            setTimeout(() => playConvergence(), 500);
+          }
+        },
+
+        onProgress(progress) {
+          const pct = (progress * 100).toFixed(1) + '%';
+          progressBar.style.width = pct;
+          statMiniFill.style.width = pct;
+
+          // Emit pulse ripple every ~20%
+          const pulseThreshold = Math.floor(progress / 0.20);
+          if (pulseThreshold > lastPulseProgress && progress > 0.15 && progress < 0.85) {
+            lastPulseProgress = pulseThreshold;
+            emitPulse();
+          }
+        },
+
+        onSessionProcessed({ current, total, session }) {
+          sessionsCounter.set(current);
+          sessionCounter.textContent = `${current} / ${total} sessions`;
+
+          const node = createSessionNode(session);
+          if (node) {
+            findAndCreateConnections(node);
+
+            // Show cluster label once cluster has 2+ nodes
+            const cluster = node.cluster;
+            if (!cluster.labelShown && cluster.nodes.length >= 2) {
+              cluster.labelShown = true;
+            }
+
+            // Add sparkles after first few nodes
+            if (cluster.nodes.length >= 2) {
+              addSparkles(cluster);
+            }
+          }
+
+          // Update repo count
+          discoveredRepos.add(session.repo);
+          repoCounter.set(discoveredRepos.size);
+        },
+
+        onStatsUpdate(stats) {
+          tokenCounter.set(stats.totalTokens);
+          eventCounter.set(stats.totalEvents);
+        },
+
+        onComplete() {
+          // Handled in onPhaseChange('complete')
+        },
+      });
+
+      simulator.start();
+    }
+
+    // ── Init ──
+    measureField();
+    animating = true;
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+      measureField();
+    });
+
+    // ── Demo controls ──
+    createDemoControls(document.body, {
+      defaultDuration: 12,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (simulator) simulator.stop();
+        clearNebula();
+        sessionsCounter.set(0);
+        tokenCounter.set(0);
+        eventCounter.set(0);
+        repoCounter.set(0);
+      },
+    });
+
+    // Auto-start
+    setTimeout(() => startSimulation(12, 20), 500);
+  </script>
+</body>
+</html>

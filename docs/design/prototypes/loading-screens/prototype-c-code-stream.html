@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype C: Code Stream</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* === Code Stream Background === */
+    .code-stream-layer {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .code-column {
+      position: absolute;
+      top: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.6;
+      white-space: pre;
+      color: var(--accent-fg);
+      user-select: none;
+      will-change: transform;
+      transition: opacity 1.5s ease;
+    }
+
+    .code-column .line-flash {
+      color: var(--accent-fg);
+      opacity: 0.6 !important;
+      text-shadow: 0 0 8px var(--accent-muted);
+      transition: opacity 0.15s ease-out, text-shadow 0.15s ease-out;
+    }
+
+    /* === Top Progress Bar === */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--color-border-muted);
+      z-index: 100;
+    }
+
+    .top-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg), var(--success-fg));
+      border-radius: 0 2px 2px 0;
+      box-shadow: 0 0 12px var(--accent-muted);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* === Center Frosted Card === */
+    .center-card {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 50;
+      width: 380px;
+      padding: 40px 36px 36px;
+      background: rgba(22, 27, 34, 0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      box-shadow:
+        0 0 40px rgba(99, 102, 241, 0.08),
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      opacity: 0;
+      animation: cardFadeIn 0.8s ease-out 0.3s forwards;
+      transition: box-shadow 0.6s ease, opacity 0.6s ease;
+    }
+
+    .center-card.complete {
+      box-shadow:
+        0 0 60px rgba(99, 102, 241, 0.2),
+        0 0 120px rgba(99, 102, 241, 0.08),
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    @keyframes cardFadeIn {
+      from { opacity: 0; transform: translate(-50%, -48%); }
+      to   { opacity: 1; transform: translate(-50%, -50%); }
+    }
+
+    /* === Logo === */
+    .card-logo {
+      position: relative;
+      width: 40px;
+      height: 40px;
+    }
+
+    .card-logo svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .logo-glow {
+      position: absolute;
+      inset: -12px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: glowPulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50%      { opacity: 1; transform: scale(1.15); }
+    }
+
+    /* === Phase Text === */
+    .phase-text {
+      font-size: var(--text-md);
+      color: var(--color-fg-muted);
+      text-align: center;
+      min-height: 1.4em;
+      transition: opacity 0.3s ease;
+    }
+
+    /* === Progress Ring === */
+    .progress-ring-container {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-ring-svg {
+      transform: rotate(-90deg);
+      width: 72px;
+      height: 72px;
+    }
+
+    .progress-ring-bg {
+      fill: none;
+      stroke: var(--color-border-muted);
+      stroke-width: 3;
+    }
+
+    .progress-ring-fg {
+      fill: none;
+      stroke: url(#ring-gradient);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 188.5;
+      stroke-dashoffset: 188.5;
+      transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-ring-text {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: var(--text-md);
+      font-weight: 600;
+      color: var(--color-fg);
+    }
+
+    /* === Session Counter === */
+    .session-counter {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .session-counter .current {
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+
+    /* === Token Processing Meter === */
+    .token-meter {
+      width: 100%;
+      padding: 14px 0 0;
+      border-top: 1px solid var(--color-border-muted);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .token-value-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .token-value {
+      font-family: var(--font-mono);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      position: relative;
+      z-index: 2;
+    }
+
+    .token-scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(99, 102, 241, 0.12) 45%,
+        rgba(129, 140, 248, 0.2) 50%,
+        rgba(99, 102, 241, 0.12) 55%,
+        transparent 100%
+      );
+      animation: scanLine 2.5s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    @keyframes scanLine {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(100%); }
+    }
+
+    .token-label {
+      font-size: var(--text-xs);
+      color: var(--color-fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    /* === Particle Burst (completion) === */
+    .particle-container {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent-fg);
+      opacity: 0;
+    }
+
+    @keyframes particleBurst {
+      0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+    }
+
+    /* === Collecting Fragments Effect === */
+    .collecting-fragment {
+      position: fixed;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent-fg);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 40;
+      white-space: nowrap;
+    }
+
+    @keyframes collectToCenter {
+      0%   { opacity: 0.5; transform: translate(0, 0) scale(1); }
+      60%  { opacity: 0.4; }
+      100% { opacity: 0; transform: translate(var(--cx), var(--cy)) scale(0.3); }
+    }
+
+    /* === Fade Out === */
+    .loading-screen.fade-out {
+      animation: screenFadeOut 0.6s ease-in forwards;
+    }
+
+    @keyframes screenFadeOut {
+      to { opacity: 0; }
+    }
+
+    /* === Completion State === */
+    .center-card .completion-check {
+      display: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--success-emphasis);
+      align-items: center;
+      justify-content: center;
+      animation: checkPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    .center-card .completion-check svg {
+      width: 24px;
+      height: 24px;
+      stroke: white;
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    @keyframes checkPop {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* === Stats Row (visible during indexing) === */
+    .stats-row {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .mini-stat {
+      text-align: center;
+    }
+
+    .mini-stat-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mini-stat-label {
+      font-size: 9px;
+      color: var(--color-fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-screen" id="loading-screen">
+    <!-- Top progress bar -->
+    <div class="top-bar">
+      <div class="top-bar-fill" id="top-bar-fill"></div>
+    </div>
+
+    <!-- Streaming code background -->
+    <div class="code-stream-layer" id="code-stream-layer"></div>
+
+    <!-- Center frosted card -->
+    <div class="center-card" id="center-card">
+      <!-- SVG gradient defs for progress ring -->
+      <svg width="0" height="0" style="position:absolute">
+        <defs>
+          <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="var(--accent-emphasis)" />
+            <stop offset="100%" stop-color="var(--accent-fg)" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div class="card-logo">
+        <div class="logo-glow"></div>
+        <div id="logo-svg"></div>
+      </div>
+
+      <div class="phase-text" id="phase-text">Waiting to start…</div>
+
+      <div class="progress-ring-container">
+        <svg class="progress-ring-svg" viewBox="0 0 72 72">
+          <circle class="progress-ring-bg" cx="36" cy="36" r="30" />
+          <circle class="progress-ring-fg" id="progress-ring" cx="36" cy="36" r="30" />
+        </svg>
+        <span class="progress-ring-text" id="progress-ring-text">0%</span>
+      </div>
+
+      <div class="session-counter" id="session-counter">
+        <span class="current">0</span> / <span id="session-total">0</span> sessions
+      </div>
+
+      <div class="stats-row" id="stats-row">
+        <div class="mini-stat">
+          <div class="mini-stat-value" id="stat-events">0</div>
+          <div class="mini-stat-label">Events</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-value" id="stat-turns">0</div>
+          <div class="mini-stat-label">Turns</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-value" id="stat-tools">0</div>
+          <div class="mini-stat-label">Tool Calls</div>
+        </div>
+      </div>
+
+      <div class="token-meter">
+        <div class="token-value-wrap">
+          <span class="token-value" id="token-value">0</span>
+          <div class="token-scan-line"></div>
+        </div>
+        <div class="token-label">tokens parsed</div>
+      </div>
+
+      <div class="completion-check" id="completion-check">
+        <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6" /></svg>
+      </div>
+    </div>
+
+    <!-- Particle container for completion -->
+    <div class="particle-container" id="particle-container"></div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ============================================================
+    // Code Stream — Background Columns
+    // ============================================================
+    const COLUMN_CONFIG = [
+      { left: '2%',  width: '13%', speed: 0.35, opacity: 0.07 },
+      { left: '14%', width: '14%', speed: 0.55, opacity: 0.09 },
+      { left: '28%', width: '11%', speed: 0.25, opacity: 0.06 },
+      { left: '42%', width: '15%', speed: 0.45, opacity: 0.10 },
+      { left: '58%', width: '12%', speed: 0.6,  opacity: 0.08 },
+      { left: '70%', width: '14%', speed: 0.3,  opacity: 0.07 },
+      { left: '83%', width: '15%', speed: 0.5,  opacity: 0.11 },
+    ];
+
+    class CodeStreamManager {
+      constructor(container) {
+        this.container = container;
+        this.columns = [];
+        this.running = false;
+        this.speedMultiplier = 1;
+        this._raf = null;
+        this._flashInterval = null;
+        this._collectInterval = null;
+        this._lastTime = 0;
+        this._init();
+      }
+
+      _init() {
+        COLUMN_CONFIG.forEach((cfg, i) => {
+          const el = document.createElement('div');
+          el.className = 'code-column';
+          el.style.left = cfg.left;
+          el.style.width = cfg.width;
+          el.style.opacity = cfg.opacity;
+
+          // Build text content: repeat snippets to fill screen
+          const snippet = MOCK_CODE_SNIPPETS[i % MOCK_CODE_SNIPPETS.length];
+          const snippet2 = MOCK_CODE_SNIPPETS[(i + 3) % MOCK_CODE_SNIPPETS.length];
+          const snippet3 = MOCK_CODE_SNIPPETS[(i + 5) % MOCK_CODE_SNIPPETS.length];
+          const fullText = [snippet, '', snippet2, '', snippet3, '', snippet, '', snippet2].join('\n');
+          const lines = fullText.split('\n');
+
+          // Wrap each line in a span for flash targeting
+          el.innerHTML = lines.map((line, li) =>
+            `<span data-line="${li}">${this._escapeHtml(line) || ' '}</span>`
+          ).join('\n');
+
+          this.container.appendChild(el);
+
+          const totalHeight = lines.length * 17.6; // ~11px * 1.6 line-height
+          this.columns.push({
+            el,
+            speed: cfg.speed,
+            baseOpacity: cfg.opacity,
+            y: -Math.random() * totalHeight * 0.5,
+            totalHeight,
+            lineEls: el.querySelectorAll('span'),
+          });
+        });
+      }
+
+      _escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      start() {
+        if (this.running) return;
+        this.running = true;
+        this._lastTime = performance.now();
+        this._animate();
+        this._startFlashes();
+      }
+
+      stop() {
+        this.running = false;
+        if (this._raf) cancelAnimationFrame(this._raf);
+        if (this._flashInterval) clearInterval(this._flashInterval);
+        if (this._collectInterval) clearInterval(this._collectInterval);
+      }
+
+      slowDown() {
+        // Gradually reduce speed for completion effect
+        const fade = () => {
+          this.speedMultiplier *= 0.96;
+          if (this.speedMultiplier > 0.05) {
+            requestAnimationFrame(fade);
+          } else {
+            this.speedMultiplier = 0;
+          }
+          // Also fade opacity
+          this.columns.forEach(col => {
+            col.el.style.opacity = col.baseOpacity * this.speedMultiplier;
+          });
+        };
+        fade();
+      }
+
+      startCollecting() {
+        // Periodically "collect" a fragment from a column toward center
+        this._collectInterval = setInterval(() => {
+          if (!this.running) return;
+          this._emitCollectingFragment();
+        }, 600);
+      }
+
+      stopCollecting() {
+        if (this._collectInterval) clearInterval(this._collectInterval);
+      }
+
+      _animate() {
+        if (!this.running) return;
+        const now = performance.now();
+        const dt = (now - this._lastTime) / 16.67; // normalize to ~60fps
+        this._lastTime = now;
+
+        this.columns.forEach(col => {
+          col.y += col.speed * dt * this.speedMultiplier;
+          if (col.y > 0) col.y = -col.totalHeight / 2;
+          col.el.style.transform = `translateY(${col.y}px)`;
+        });
+
+        this._raf = requestAnimationFrame(() => this._animate());
+      }
+
+      _startFlashes() {
+        this._flashInterval = setInterval(() => {
+          if (!this.running) return;
+          // Flash a random line in a random column
+          const col = this.columns[Math.floor(Math.random() * this.columns.length)];
+          const lineEl = col.lineEls[Math.floor(Math.random() * col.lineEls.length)];
+          if (!lineEl) return;
+          lineEl.classList.add('line-flash');
+          setTimeout(() => lineEl.classList.remove('line-flash'), 300);
+        }, 200);
+      }
+
+      _emitCollectingFragment() {
+        const colIdx = Math.floor(Math.random() * this.columns.length);
+        const col = this.columns[colIdx];
+        const lineEl = col.lineEls[Math.floor(Math.random() * col.lineEls.length)];
+        if (!lineEl) return;
+
+        const text = lineEl.textContent.trim().slice(0, 30);
+        if (!text) return;
+
+        const rect = lineEl.getBoundingClientRect();
+        const frag = document.createElement('div');
+        frag.className = 'collecting-fragment';
+        frag.textContent = text;
+        frag.style.left = rect.left + 'px';
+        frag.style.top = rect.top + 'px';
+
+        // Calculate vector toward center
+        const cx = window.innerWidth / 2 - rect.left;
+        const cy = window.innerHeight / 2 - rect.top;
+        frag.style.setProperty('--cx', cx + 'px');
+        frag.style.setProperty('--cy', cy + 'px');
+        frag.style.animation = 'collectToCenter 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+
+        document.getElementById('loading-screen').appendChild(frag);
+        setTimeout(() => frag.remove(), 1300);
+      }
+    }
+
+    // ============================================================
+    // Particle Burst (on completion)
+    // ============================================================
+    function emitParticleBurst() {
+      const container = document.getElementById('particle-container');
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const count = 40;
+
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const dist = 80 + Math.random() * 160;
+        const dx = Math.cos(angle) * dist;
+        const dy = Math.sin(angle) * dist;
+        p.style.left = cx + 'px';
+        p.style.top = cy + 'px';
+        p.style.setProperty('--dx', dx + 'px');
+        p.style.setProperty('--dy', dy + 'px');
+        p.style.width = (2 + Math.random() * 4) + 'px';
+        p.style.height = p.style.width;
+        p.style.background = Math.random() > 0.5
+          ? 'var(--accent-fg)'
+          : 'var(--success-fg)';
+        p.style.animation = `particleBurst ${0.6 + Math.random() * 0.6}s ease-out forwards`;
+        p.style.animationDelay = (Math.random() * 0.15) + 's';
+        container.appendChild(p);
+        setTimeout(() => p.remove(), 1500);
+      }
+    }
+
+    // ============================================================
+    // Main Controller
+    // ============================================================
+    const PHASE_LABELS = {
+      idle: 'Waiting to start…',
+      discovering: 'Discovering sessions…',
+      indexing: 'Indexing sessions…',
+      finalizing: 'Building search index…',
+      complete: 'Ready!',
+    };
+
+    // DOM refs
+    const topBarFill = document.getElementById('top-bar-fill');
+    const phaseText = document.getElementById('phase-text');
+    const progressRing = document.getElementById('progress-ring');
+    const progressRingText = document.getElementById('progress-ring-text');
+    const sessionCounter = document.getElementById('session-counter');
+    const sessionTotal = document.getElementById('session-total');
+    const tokenValueEl = document.getElementById('token-value');
+    const statEvents = document.getElementById('stat-events');
+    const statTurns = document.getElementById('stat-turns');
+    const statTools = document.getElementById('stat-tools');
+    const centerCard = document.getElementById('center-card');
+    const completionCheck = document.getElementById('completion-check');
+    const logoContainer = document.getElementById('logo-svg');
+
+    // Insert logo SVG
+    logoContainer.innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // Ring circumference
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 30; // r=30
+
+    // Animated counters
+    const tokenCounter = new AnimatedCounter(tokenValueEl, {
+      format: n => n.toLocaleString(),
+      speed: 0.06,
+    });
+    const eventsCounter = new AnimatedCounter(statEvents, {
+      format: n => formatNumber(n),
+      speed: 0.08,
+    });
+    const turnsCounter = new AnimatedCounter(statTurns, {
+      format: n => formatNumber(n),
+      speed: 0.08,
+    });
+    const toolsCounter = new AnimatedCounter(statTools, {
+      format: n => formatNumber(n),
+      speed: 0.08,
+    });
+
+    // Code stream
+    const codeStream = new CodeStreamManager(document.getElementById('code-stream-layer'));
+
+    // Simulator
+    let sim = null;
+
+    function setProgress(pct) {
+      topBarFill.style.width = (pct * 100) + '%';
+      const offset = RING_CIRCUMFERENCE * (1 - pct);
+      progressRing.style.strokeDashoffset = offset;
+      progressRingText.textContent = Math.round(pct * 100) + '%';
+    }
+
+    function resetUI() {
+      setProgress(0);
+      phaseText.textContent = PHASE_LABELS.idle;
+      tokenCounter.set(0);
+      tokenValueEl.textContent = '0';
+      tokenCounter.current = 0;
+      tokenCounter.target = 0;
+      eventsCounter.set(0);
+      statEvents.textContent = '0';
+      eventsCounter.current = 0;
+      eventsCounter.target = 0;
+      turnsCounter.set(0);
+      statTurns.textContent = '0';
+      turnsCounter.current = 0;
+      turnsCounter.target = 0;
+      toolsCounter.set(0);
+      statTools.textContent = '0';
+      toolsCounter.current = 0;
+      toolsCounter.target = 0;
+      sessionCounter.querySelector('.current').textContent = '0';
+      sessionTotal.textContent = '0';
+      centerCard.classList.remove('complete');
+      completionCheck.style.display = 'none';
+      codeStream.speedMultiplier = 1;
+      codeStream.columns.forEach(col => {
+        col.el.style.opacity = col.baseOpacity;
+      });
+    }
+
+    function startSimulation(durationSec, totalSessions) {
+      // Clean up previous
+      if (sim) sim.stop();
+      codeStream.stop();
+      codeStream.stopCollecting();
+      resetUI();
+
+      sessionTotal.textContent = totalSessions;
+
+      sim = new LoadingSimulator({
+        totalSessions,
+        durationMs: durationSec * 1000,
+        onProgress(pct, phase) {
+          setProgress(pct);
+        },
+        onPhaseChange(phase) {
+          phaseText.textContent = PHASE_LABELS[phase] || phase;
+
+          if (phase === 'indexing') {
+            codeStream.startCollecting();
+          }
+
+          if (phase === 'finalizing') {
+            codeStream.stopCollecting();
+          }
+
+          if (phase === 'complete') {
+            handleComplete();
+          }
+        },
+        onSessionProcessed({ current, total }) {
+          sessionCounter.querySelector('.current').textContent = current;
+        },
+        onStatsUpdate(stats) {
+          tokenCounter.set(stats.totalTokens);
+          eventsCounter.set(stats.totalEvents);
+          turnsCounter.set(stats.totalTurns);
+          toolsCounter.set(stats.totalToolCalls);
+        },
+        onComplete() {},
+      });
+
+      codeStream.start();
+      sim.start();
+    }
+
+    function handleComplete() {
+      // Slow down code streams
+      codeStream.slowDown();
+
+      // Brighten card
+      centerCard.classList.add('complete');
+
+      // Show check mark
+      setTimeout(() => {
+        completionCheck.style.display = 'flex';
+        emitParticleBurst();
+      }, 300);
+
+      // Fade out the entire screen after a pause
+      setTimeout(() => {
+        document.getElementById('loading-screen').classList.add('fade-out');
+      }, 2500);
+
+      // Remove fade-out for demo replay
+      setTimeout(() => {
+        document.getElementById('loading-screen').classList.remove('fade-out');
+      }, 3500);
+    }
+
+    // ============================================================
+    // Demo Controls
+    // ============================================================
+    createDemoControls(document.body, {
+      defaultDuration: 10,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (sim) sim.stop();
+        codeStream.stop();
+        codeStream.stopCollecting();
+        resetUI();
+      },
+      onDurationChange() {},
+    });
+
+    // Auto-start after a brief delay
+    setTimeout(() => startSimulation(10, 20), 500);
+  </script>
+</body>
+</html>

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype G: Orbital</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── Orbital Field ── */
+    .orbital-field {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 800px;
+    }
+
+    /* ── Ambient Particles ── */
+    .ambient-particle {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent-fg);
+      opacity: 0;
+      pointer-events: none;
+      animation: particleDrift linear infinite;
+    }
+
+    @keyframes particleDrift {
+      0%   { opacity: 0; transform: translate(0, 0); }
+      15%  { opacity: 0.15; }
+      85%  { opacity: 0.15; }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+    }
+
+    /* ── Center Logo ── */
+    .orbital-logo {
+      position: absolute;
+      z-index: 10;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.8s ease, transform 1.5s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+    }
+
+    .orbital-logo svg {
+      width: 80px;
+      height: 80px;
+    }
+
+    .orbital-logo.visible {
+      opacity: 1;
+    }
+
+    .logo-halo {
+      position: absolute;
+      inset: -30px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 70%);
+      animation: haloPulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes haloPulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50%      { opacity: 1; transform: scale(1.12); }
+    }
+
+    /* ── Orbital Rings ── */
+    .orbital-rings {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .orbit-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border-radius: 50%;
+      border: 1px solid rgba(99, 102, 241, 0.08);
+      transform-origin: center;
+      opacity: 0;
+      transition: opacity 0.6s ease, border-color 0.4s ease;
+    }
+
+    .orbit-ring.visible {
+      opacity: 1;
+    }
+
+    .orbit-ring.bright {
+      border-color: rgba(99, 102, 241, 0.2);
+    }
+
+    /* Orbital trails (gradient overlay on ring) */
+    .orbit-trail {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .orbit-trail.visible {
+      opacity: 1;
+    }
+
+    /* ── Orbital Dots ── */
+    .orbital-dot {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0);
+      z-index: 5;
+    }
+
+    .orbital-dot.active {
+      animation: dotAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes dotAppear {
+      0%   { opacity: 0; transform: scale(0); }
+      60%  { opacity: 1; transform: scale(1.6); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ── Stats Overlay ── */
+    .stats-overlay {
+      position: fixed;
+      bottom: 80px;
+      left: var(--space-6);
+      background: rgba(22, 27, 34, 0.85);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      z-index: 20;
+      min-width: 180px;
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .stats-overlay.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .stats-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .stats-label {
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+    }
+
+    .stats-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mini-progress {
+      width: 60px;
+      height: 3px;
+      background: var(--color-border-muted);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-left: var(--space-2);
+    }
+
+    .mini-progress-fill {
+      height: 100%;
+      background: var(--accent-fg);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    .stats-phase {
+      font-size: var(--text-xs);
+      color: var(--accent-fg);
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-border-muted);
+    }
+
+    /* ── Progress Bar (top) ── */
+    .progress-bar-track {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .progress-bar-track.visible {
+      opacity: 1;
+    }
+
+    /* ── Zoom-through overlay ── */
+    .zoom-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .zoom-flash {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 101;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Mock Homepage ── */
+    .mock-homepage {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: var(--color-canvas);
+      opacity: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.5s ease;
+    }
+
+    .mock-homepage.visible {
+      opacity: 1;
+    }
+
+    .mock-header {
+      height: 48px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-5);
+      gap: var(--space-4);
+      flex-shrink: 0;
+    }
+
+    .mock-header-logo {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .mock-header-logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .mock-search {
+      flex: 1;
+      max-width: 400px;
+      height: 30px;
+      margin: 0 auto;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+    }
+
+    .mock-settings {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-border-muted);
+    }
+
+    .mock-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .mock-sidebar {
+      width: 200px;
+      background: var(--color-canvas-subtle);
+      border-right: 1px solid var(--color-border);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    .mock-nav-item {
+      height: 32px;
+      background: var(--color-border-muted);
+      border-radius: var(--radius-sm);
+      opacity: 0.6;
+    }
+
+    .mock-nav-item:first-child {
+      opacity: 1;
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent-muted);
+    }
+
+    .mock-main {
+      flex: 1;
+      padding: var(--space-6) var(--space-8);
+      overflow: auto;
+    }
+
+    .mock-heading {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      color: var(--color-fg);
+      margin-bottom: var(--space-5);
+    }
+
+    .mock-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      max-width: 720px;
+    }
+
+    .mock-card {
+      height: 140px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mock-card-badge {
+      width: 48px;
+      height: 6px;
+      border-radius: 3px;
+    }
+
+    .mock-card-title {
+      height: 14px;
+      width: 60%;
+      background: var(--color-border-muted);
+      border-radius: 3px;
+    }
+
+    .mock-card-subtitle {
+      height: 10px;
+      width: 80%;
+      background: var(--color-border-muted);
+      border-radius: 3px;
+      opacity: 0.5;
+    }
+
+    .mock-card-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(99, 102, 241, 0.04) 40%,
+        rgba(99, 102, 241, 0.08) 50%,
+        rgba(99, 102, 241, 0.04) 60%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Progress bar -->
+  <div class="progress-bar-track" id="progress-track">
+    <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+  </div>
+
+  <!-- Orbital field -->
+  <div class="orbital-field" id="orbital-field">
+
+    <!-- Ambient particles (generated by JS) -->
+    <div id="ambient-particles"></div>
+
+    <!-- Orbital rings container -->
+    <div class="orbital-rings" id="orbital-rings"></div>
+
+    <!-- Center logo -->
+    <div class="orbital-logo" id="orbital-logo">
+      <div class="logo-halo"></div>
+      <div id="logo-svg"></div>
+    </div>
+  </div>
+
+  <!-- Stats overlay -->
+  <div class="stats-overlay" id="stats-overlay">
+    <div class="stats-row">
+      <span class="stats-label">Sessions</span>
+      <span style="display:flex;align-items:center;">
+        <span class="stats-value"><span id="sessions-current">0</span> / <span id="sessions-total">0</span></span>
+        <div class="mini-progress">
+          <div class="mini-progress-fill" id="sessions-progress"></div>
+        </div>
+      </span>
+    </div>
+    <div class="stats-row">
+      <span class="stats-label">Tokens</span>
+      <span class="stats-value" id="stat-tokens">0</span>
+    </div>
+    <div class="stats-phase" id="phase-text">Preparing…</div>
+  </div>
+
+  <!-- Zoom flash -->
+  <div class="zoom-flash" id="zoom-flash"></div>
+
+  <!-- Mock Homepage -->
+  <div class="mock-homepage" id="mock-homepage">
+    <div class="mock-header">
+      <div class="mock-header-logo" id="mock-logo"></div>
+      <div class="mock-search"></div>
+      <div class="mock-settings"></div>
+    </div>
+    <div class="mock-body">
+      <div class="mock-sidebar">
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+        <div class="mock-nav-item"></div>
+      </div>
+      <div class="mock-main">
+        <div class="mock-heading">Your Sessions</div>
+        <div class="mock-grid">
+          <div class="mock-card">
+            <div class="mock-card-badge" style="background: #818cf8"></div>
+            <div class="mock-card-title"></div>
+            <div class="mock-card-subtitle"></div>
+            <div class="mock-card-shimmer"></div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-card-badge" style="background: #34d399"></div>
+            <div class="mock-card-title"></div>
+            <div class="mock-card-subtitle"></div>
+            <div class="mock-card-shimmer"></div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-card-badge" style="background: #fbbf24"></div>
+            <div class="mock-card-title"></div>
+            <div class="mock-card-subtitle"></div>
+            <div class="mock-card-shimmer"></div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-card-badge" style="background: #f87171"></div>
+            <div class="mock-card-title"></div>
+            <div class="mock-card-subtitle"></div>
+            <div class="mock-card-shimmer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ── Repo color mapping ──
+    const REPO_COLORS = {
+      'frontend-app':  '#818cf8',
+      'api-server':    '#34d399',
+      'data-pipeline': '#fbbf24',
+      'mobile-app':    '#f87171',
+      'infra-config':  '#a78bfa',
+      'ml-service':    '#38bdf8',
+      'docs-site':     '#fb923c',
+    };
+
+    const PHASE_LABELS = {
+      idle:        'Preparing…',
+      discovering: 'Scanning for sessions…',
+      indexing:    'Indexing sessions…',
+      finalizing:  'Building search index…',
+      complete:    'Ready — launching TracePilot',
+    };
+
+    // ── Ring definitions ──
+    const RINGS = [
+      { rx: 120, ry: 70,  period: 8,  tilt: -15, dotSize: 5,  label: 'inner' },
+      { rx: 210, ry: 125, period: 14, tilt: 10,  dotSize: 7,  label: 'middle' },
+      { rx: 310, ry: 185, period: 22, tilt: -5,  dotSize: 9,  label: 'outer' },
+    ];
+
+    // ── State ──
+    let dots = [];
+    let ringEls = [];
+    let trailEls = [];
+    let simulator = null;
+    let animating = true;
+    let completionTriggered = false;
+
+    // ── DOM refs ──
+    const orbitalField = document.getElementById('orbital-field');
+    const orbitalLogo = document.getElementById('orbital-logo');
+    const ringsContainer = document.getElementById('orbital-rings');
+    const progressTrack = document.getElementById('progress-track');
+    const progressBar = document.getElementById('progress-bar');
+    const statsOverlay = document.getElementById('stats-overlay');
+    const sessionsCurrent = document.getElementById('sessions-current');
+    const sessionsTotal = document.getElementById('sessions-total');
+    const sessionsProgress = document.getElementById('sessions-progress');
+    const phaseText = document.getElementById('phase-text');
+    const zoomFlash = document.getElementById('zoom-flash');
+    const mockHomepage = document.getElementById('mock-homepage');
+    const ambientContainer = document.getElementById('ambient-particles');
+
+    // Logo injection
+    document.getElementById('logo-svg').innerHTML = TRACEPILOT_LOGO_SVG;
+    document.getElementById('mock-logo').innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // Animated counter for tokens
+    const tokenCounter = new AnimatedCounter(document.getElementById('stat-tokens'), {
+      format: formatTokens
+    });
+
+    // ── Create ambient particles ──
+    function createAmbientParticles(count) {
+      ambientContainer.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'ambient-particle';
+        const size = 1 + Math.random() * 2;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const dx = (Math.random() - 0.5) * 80;
+        const dy = (Math.random() - 0.5) * 80;
+        const dur = 15 + Math.random() * 25;
+        const delay = Math.random() * dur;
+        p.style.cssText = `
+          width: ${size}px; height: ${size}px;
+          left: ${x}%; top: ${y}%;
+          --dx: ${dx}px; --dy: ${dy}px;
+          animation-duration: ${dur}s;
+          animation-delay: -${delay}s;
+          opacity: 0;
+        `;
+        ambientContainer.appendChild(p);
+      }
+    }
+
+    // ── Create orbital ring elements ──
+    function createRings() {
+      ringsContainer.innerHTML = '';
+      ringEls = [];
+      trailEls = [];
+
+      RINGS.forEach((ring) => {
+        // Ring outline (ellipse border)
+        const el = document.createElement('div');
+        el.className = 'orbit-ring';
+        el.style.width = ring.rx * 2 + 'px';
+        el.style.height = ring.ry * 2 + 'px';
+        el.style.marginLeft = -ring.rx + 'px';
+        el.style.marginTop = -ring.ry + 'px';
+        el.style.transform = `rotate(${ring.tilt}deg)`;
+        ringsContainer.appendChild(el);
+        ringEls.push(el);
+
+        // Trail (conic gradient for a fading tail effect)
+        const trail = document.createElement('div');
+        trail.className = 'orbit-trail';
+        const trailRx = ring.rx;
+        const trailRy = ring.ry;
+        trail.style.width = trailRx * 2 + 'px';
+        trail.style.height = trailRy * 2 + 'px';
+        trail.style.marginLeft = -trailRx + 'px';
+        trail.style.marginTop = -trailRy + 'px';
+        trail.style.transform = `rotate(${ring.tilt}deg)`;
+        trail.style.background = `conic-gradient(from 0deg, transparent 0%, rgba(99,102,241,0.06) 30%, transparent 60%)`;
+        trail.style.borderRadius = '50%';
+        ringsContainer.appendChild(trail);
+        trailEls.push(trail);
+      });
+    }
+
+    // ── Assign a dot to the nearest ring ──
+    function assignRing(dotIndex) {
+      return dotIndex % RINGS.length;
+    }
+
+    // ── Create an orbital dot ──
+    function createDot(session, index) {
+      const ringIdx = assignRing(index);
+      const ring = RINGS[ringIdx];
+      const color = REPO_COLORS[session.repo] || '#818cf8';
+
+      // Random starting angle
+      const startAngle = Math.random() * Math.PI * 2;
+
+      const el = document.createElement('div');
+      el.className = 'orbital-dot';
+      el.style.width = ring.dotSize + 'px';
+      el.style.height = ring.dotSize + 'px';
+      el.style.background = color;
+      el.style.boxShadow = `0 0 ${ring.dotSize + 4}px ${color}88, 0 0 ${ring.dotSize * 2 + 6}px ${color}33`;
+      ringsContainer.appendChild(el);
+
+      // Trigger appearance animation
+      requestAnimationFrame(() => el.classList.add('active'));
+
+      // Flash on appear
+      const origShadow = el.style.boxShadow;
+      el.style.boxShadow = `0 0 18px 6px ${color}cc, 0 0 36px ${color}66`;
+      setTimeout(() => {
+        el.style.transition = 'box-shadow 0.8s ease-out';
+        el.style.boxShadow = origShadow;
+      }, 350);
+
+      const dot = {
+        el,
+        ringIdx,
+        angle: startAngle,
+        color,
+        session,
+        size: ring.dotSize,
+        speedMultiplier: 0.85 + Math.random() * 0.3,
+      };
+
+      dots.push(dot);
+      return dot;
+    }
+
+    // ── Animation loop ──
+    let lastTime = 0;
+    let globalSpeedMultiplier = 1;
+    let spiralProgress = 0; // 0 = normal orbit, 1 = fully spiraled in
+
+    function animateOrbits(timestamp) {
+      if (!animating) return;
+      if (!lastTime) lastTime = timestamp;
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      dots.forEach((dot) => {
+        const ring = RINGS[dot.ringIdx];
+        const angularSpeed = (Math.PI * 2) / ring.period;
+
+        dot.angle += angularSpeed * dt * dot.speedMultiplier * globalSpeedMultiplier;
+
+        // During spiral-in, shrink orbit radius toward center
+        const spiralFactor = 1 - spiralProgress;
+        const rx = ring.rx * spiralFactor;
+        const ry = ring.ry * spiralFactor;
+        const tiltRad = (ring.tilt * Math.PI) / 180;
+
+        // Position on the ellipse
+        const ex = rx * Math.cos(dot.angle);
+        const ey = ry * Math.sin(dot.angle);
+
+        // Apply tilt rotation
+        const x = ex * Math.cos(tiltRad) - ey * Math.sin(tiltRad);
+        const y = ex * Math.sin(tiltRad) + ey * Math.cos(tiltRad);
+
+        // Center of the viewport
+        const cx = ringsContainer.clientWidth / 2;
+        const cy = ringsContainer.clientHeight / 2;
+
+        dot.el.style.left = (cx + x - dot.size / 2) + 'px';
+        dot.el.style.top = (cy + y - dot.size / 2) + 'px';
+
+        // During spiral, increase glow
+        if (spiralProgress > 0) {
+          const glowIntensity = 1 + spiralProgress * 3;
+          dot.el.style.boxShadow = `0 0 ${dot.size * glowIntensity + 8}px ${dot.color}cc, 0 0 ${dot.size * glowIntensity * 2}px ${dot.color}66`;
+        }
+      });
+
+      // Rotate trail elements to follow the ring rotation time
+      trailEls.forEach((trail, i) => {
+        const ring = RINGS[i];
+        const elapsed = timestamp / 1000;
+        const angle = (elapsed / ring.period) * 360 * globalSpeedMultiplier + ring.tilt;
+        trail.style.transform = `rotate(${angle}deg)`;
+      });
+
+      requestAnimationFrame(animateOrbits);
+    }
+
+    // ── Zoom-through completion animation ──
+    function playZoomThrough() {
+      if (completionTriggered) return;
+      completionTriggered = true;
+
+      // Phase 1: Accelerate orbits and spiral inward (~800ms)
+      const spiralDuration = 800;
+      const spiralStart = performance.now();
+
+      function spiralStep() {
+        const elapsed = performance.now() - spiralStart;
+        const t = Math.min(elapsed / spiralDuration, 1);
+        // Ease in exponential
+        const eased = t * t * t;
+
+        globalSpeedMultiplier = 1 + eased * 8;
+        spiralProgress = eased;
+
+        if (t < 1) {
+          requestAnimationFrame(spiralStep);
+        } else {
+          // Phase 2: Logo scale up + blur (~500ms)
+          orbitalLogo.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 1, 1), filter 0.5s ease';
+          orbitalLogo.style.transform = 'scale(3)';
+          orbitalLogo.style.filter = 'blur(4px)';
+
+          // Hide orbital dots
+          dots.forEach(d => {
+            d.el.style.transition = 'opacity 0.3s ease';
+            d.el.style.opacity = '0';
+          });
+
+          // Hide rings and trails
+          ringEls.forEach(r => {
+            r.style.transition = 'opacity 0.3s ease';
+            r.style.opacity = '0';
+          });
+          trailEls.forEach(t => {
+            t.style.transition = 'opacity 0.3s ease';
+            t.style.opacity = '0';
+          });
+
+          // Hide stats
+          statsOverlay.classList.remove('visible');
+
+          // Phase 3: White flash after 400ms
+          setTimeout(() => {
+            zoomFlash.style.transition = 'opacity 0.1s ease';
+            zoomFlash.style.opacity = '1';
+
+            // Hide everything behind the flash
+            orbitalField.style.opacity = '0';
+
+            // Phase 4: Fade flash out and reveal homepage
+            setTimeout(() => {
+              mockHomepage.classList.add('visible');
+              zoomFlash.style.transition = 'opacity 0.5s ease';
+              zoomFlash.style.opacity = '0';
+            }, 100);
+          }, 400);
+        }
+      }
+
+      requestAnimationFrame(spiralStep);
+    }
+
+    // ── Clear everything ──
+    function clearOrbital() {
+      dots.forEach(d => d.el.remove());
+      dots = [];
+      spiralProgress = 0;
+      globalSpeedMultiplier = 1;
+      completionTriggered = false;
+
+      orbitalLogo.style.transform = '';
+      orbitalLogo.style.filter = '';
+      orbitalLogo.classList.remove('visible');
+      orbitalField.style.opacity = '1';
+      orbitalField.style.transition = '';
+
+      ringEls.forEach(r => {
+        r.classList.remove('visible', 'bright');
+        r.style.opacity = '';
+        r.style.transition = '';
+      });
+      trailEls.forEach(t => {
+        t.classList.remove('visible');
+        t.style.opacity = '';
+        t.style.transition = '';
+      });
+
+      progressTrack.classList.remove('visible');
+      progressBar.style.width = '0%';
+      statsOverlay.classList.remove('visible');
+      mockHomepage.classList.remove('visible');
+      zoomFlash.style.opacity = '0';
+    }
+
+    // ── Main simulation ──
+    function startSimulation(durationS, totalSessions) {
+      clearOrbital();
+
+      sessionsTotal.textContent = totalSessions;
+      sessionsCurrent.textContent = '0';
+      sessionsProgress.style.width = '0%';
+      phaseText.textContent = PHASE_LABELS.idle;
+      tokenCounter.set(0);
+
+      let dotIndex = 0;
+
+      if (simulator) simulator.stop();
+
+      simulator = new LoadingSimulator({
+        totalSessions,
+        durationMs: durationS * 1000,
+
+        onPhaseChange(phase) {
+          phaseText.textContent = PHASE_LABELS[phase] || '';
+
+          if (phase === 'discovering') {
+            // Logo fades in with glow
+            orbitalLogo.classList.add('visible');
+            progressTrack.classList.add('visible');
+
+            // Ring outlines fade in with staggered delay
+            ringEls.forEach((r, i) => {
+              setTimeout(() => r.classList.add('visible'), 200 + i * 300);
+            });
+            trailEls.forEach((t, i) => {
+              setTimeout(() => t.classList.add('visible'), 400 + i * 300);
+            });
+          }
+
+          if (phase === 'indexing') {
+            statsOverlay.classList.add('visible');
+          }
+
+          if (phase === 'finalizing') {
+            // Orbits glow brighter
+            ringEls.forEach(r => r.classList.add('bright'));
+            globalSpeedMultiplier = 1.3;
+          }
+
+          if (phase === 'complete') {
+            playZoomThrough();
+          }
+        },
+
+        onProgress(progress) {
+          const pct = (progress * 100).toFixed(1) + '%';
+          progressBar.style.width = pct;
+        },
+
+        onSessionProcessed({ current, total, session }) {
+          sessionsCurrent.textContent = current;
+          const pct = ((current / total) * 100).toFixed(1) + '%';
+          sessionsProgress.style.width = pct;
+          createDot(session, dotIndex++);
+        },
+
+        onStatsUpdate(stats) {
+          tokenCounter.set(stats.totalTokens);
+        },
+
+        onComplete() {
+          // Handled by onPhaseChange 'complete'
+        },
+      });
+
+      simulator.start();
+    }
+
+    // ── Initialize ──
+    createAmbientParticles(40);
+    createRings();
+
+    // Start animation loop
+    animating = true;
+    requestAnimationFrame(animateOrbits);
+
+    // ── Demo controls ──
+    createDemoControls(document.body, {
+      defaultDuration: 12,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (simulator) simulator.stop();
+        clearOrbital();
+        tokenCounter.set(0);
+      },
+    });
+
+    // Auto-start
+    setTimeout(() => startSimulation(12, 20), 500);
+  </script>
+</body>
+</html>
