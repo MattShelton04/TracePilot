@@ -80,6 +80,8 @@
       font-size: 13px;
       transition: all var(--transition-fast);
       border-left: 2px solid transparent;
+      border-radius: 6px;
+      margin: 0 8px;
     }
     .sidebar a:hover {
       color: var(--text-primary);
@@ -99,7 +101,7 @@
 
     /* ── Main Content ── */
     .main {
-      margin-left: 220px;
+      margin-left: 240px;
       margin-top: 52px;
       padding: 32px 40px 80px;
       flex: 1;
@@ -423,6 +425,7 @@
     .tree-children {
       overflow: hidden;
       transition: max-height var(--transition-slow);
+      max-height: 2000px;
     }
     .tree-children.collapsed { max-height: 0 !important; }
 
@@ -655,6 +658,11 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      color: inherit;
     }
     .collapsible-trigger .chevron {
       transition: transform var(--transition-fast);
@@ -673,6 +681,7 @@
       opacity: 0;
     }
     .collapsible-content.expanded {
+      max-height: none;
       opacity: 1;
     }
 
@@ -736,7 +745,7 @@
     .md-content code {
       background: rgba(255,255,255,0.06);
       padding: 1px 5px;
-      border-radius: 3px;
+      border-radius: 4px;
       font-size: 12px;
       color: var(--accent-fg);
     }
@@ -768,6 +777,35 @@
     }
     .status-dot.success { background: var(--success-fg); }
     .status-dot.error { background: var(--danger-fg); }
+
+    /* ── Standardize table border-collapse ── */
+    table { border-collapse: collapse; }
+
+    /* ── Skip nav ── */
+    .skip-nav {
+      position: absolute;
+      top: -100%;
+      left: 16px;
+      z-index: 1000;
+      padding: 8px 16px;
+      background: var(--accent-emphasis);
+      color: #fff;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .skip-nav:focus {
+      top: 8px;
+    }
+
+    /* ── Choice feedback ── */
+    .choice-feedback {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--accent-fg);
+      font-weight: 500;
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
@@ -775,6 +813,8 @@
   </style>
 </head>
 <body>
+
+<a class="skip-nav" href="#main-content">Skip to main content</a>
 
 <!-- ── Header ── -->
 <header class="page-header">
@@ -800,7 +840,7 @@
 </nav>
 
 <!-- ── Main Content ── -->
-<main class="main">
+<main class="main" id="main-content">
 
 <!-- ━━━━━━━━━━━━━━━ 1. EDIT — DIFF ━━━━━━━━━━━━━━━ -->
 <section class="section" id="edit">
@@ -838,9 +878,9 @@
               src/components/Auth.vue
               <span class="badge badge-warning">Modified</span>
             </div>
-            <div class="actions diff-tab-bar" data-target="diff-edit">
-              <button class="btn-sm active" data-mode="split">Split</button>
-              <button class="btn-sm" data-mode="unified">Unified</button>
+            <div class="actions diff-tab-bar" data-target="diff-edit" role="tablist">
+              <button class="btn-sm active" type="button" data-mode="split" role="tab" aria-selected="true">Split</button>
+              <button class="btn-sm" type="button" data-mode="unified" role="tab" aria-selected="false">Unified</button>
             </div>
           </div>
           <!-- Split diff -->
@@ -939,11 +979,12 @@
               <span class="badge badge-neutral">Lines 1–30</span>
             </div>
             <div class="actions">
-              <button class="btn-sm" onclick="showToast('Copied to clipboard!')">📋 Copy</button>
+              <button class="btn-sm" type="button" onclick="showToast('Copied to clipboard!')" aria-label="Copy to clipboard">📋 Copy</button>
             </div>
           </div>
           <div class="code-content">
             <table>
+              <tbody>
               <tr><td class="line-num">1</td><td class="line-code"><span class="syn-keyword">import</span> { ref, computed } <span class="syn-keyword">from</span> <span class="syn-string">'vue'</span>;</td></tr>
               <tr><td class="line-num">2</td><td class="line-code"><span class="syn-keyword">import</span> <span class="syn-keyword">type</span> { <span class="syn-type">AuthState</span>, <span class="syn-type">User</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/types'</span>;</td></tr>
               <tr><td class="line-num">3</td><td class="line-code"></td></tr>
@@ -974,6 +1015,7 @@
               <tr><td class="line-num">28</td><td class="line-code"></td></tr>
               <tr><td class="line-num">29</td><td class="line-code">  <span class="syn-keyword">return</span> { user, isAuthenticated, isLoading, error, login };</td></tr>
               <tr><td class="line-num">30</td><td class="line-code">}</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -1017,14 +1059,15 @@
               src/middleware/rateLimit.ts
               <span class="badge badge-success">New File ✨</span>
               <span class="badge badge-accent">TypeScript</span>
-              <span class="badge badge-neutral">23 lines</span>
+              <span class="badge badge-neutral">24 lines</span>
             </div>
             <div class="actions">
-              <button class="btn-sm" onclick="showToast('Copied!')">📋 Copy</button>
+              <button class="btn-sm" type="button" onclick="showToast('Copied!')" aria-label="Copy to clipboard">📋 Copy</button>
             </div>
           </div>
           <div class="code-content">
             <table>
+              <tbody>
               <tr><td class="line-num">1</td><td class="line-code"><span class="syn-keyword">import</span> { <span class="syn-type">RateLimiter</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/utils/rate-limiter'</span>;</td></tr>
               <tr><td class="line-num">2</td><td class="line-code"><span class="syn-keyword">import</span> <span class="syn-keyword">type</span> { <span class="syn-type">Middleware</span>, <span class="syn-type">Context</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/types'</span>;</td></tr>
               <tr><td class="line-num">3</td><td class="line-code"></td></tr>
@@ -1049,6 +1092,7 @@
               <tr><td class="line-num">22</td><td class="line-code"></td></tr>
               <tr><td class="line-num">23</td><td class="line-code">  <span class="syn-keyword">await</span> <span class="syn-func">next</span>();</td></tr>
               <tr><td class="line-num">24</td><td class="line-code">};</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -1090,7 +1134,7 @@ src/middleware/authGuard.ts:22:  // Retry handleAuth on token refresh</div>
           <div class="code-header">
             <div class="file-path">
               <span class="icon">🔍</span>
-              Search: <code style="color:var(--warning-fg);background:var(--warning-subtle);padding:1px 6px;border-radius:3px;font-size:12px">handleAuth</code>
+              Search: <code style="color:var(--warning-fg);background:var(--warning-subtle);padding:1px 6px;border-radius:4px;font-size:12px">handleAuth</code>
               <span class="badge badge-warning">8 matches</span>
               <span class="badge badge-neutral">3 files</span>
             </div>
@@ -1101,7 +1145,7 @@ src/middleware/authGuard.ts:22:  // Retry handleAuth on token refresh</div>
             <div class="grep-file-header">
               <span class="icon">📄</span>
               src/composables/useAuth.ts
-              <span class="badge badge-warning" style="font-size:10px">3 matches</span>
+              <span class="badge badge-warning">3 matches</span>
             </div>
             <div class="grep-line ctx"><span class="g-num">10</span><span class="g-code">  <span class="syn-keyword">const</span> <span class="syn-const">isLoading</span> = ref(<span class="syn-const">false</span>);</span></div>
             <div class="grep-line match"><span class="g-num">11</span><span class="g-code">  <span class="syn-keyword">async function</span> <span class="grep-highlight">handleAuth</span>(<span class="syn-param">credentials</span>: <span class="syn-type">AuthCredentials</span>) {</span></div>
@@ -1121,7 +1165,7 @@ src/middleware/authGuard.ts:22:  // Retry handleAuth on token refresh</div>
             <div class="grep-file-header">
               <span class="icon">📄</span>
               src/components/LoginForm.vue
-              <span class="badge badge-warning" style="font-size:10px">2 matches</span>
+              <span class="badge badge-warning">2 matches</span>
             </div>
             <div class="grep-line ctx"><span class="g-num">22</span><span class="g-code"><span class="syn-keyword">const</span> { isLoading } = useAuth();</span></div>
             <div class="grep-line match"><span class="g-num">23</span><span class="g-code"><span class="syn-keyword">const</span> { <span class="grep-highlight">handleAuth</span>, isLoading } = <span class="syn-func">useAuth</span>();</span></div>
@@ -1137,7 +1181,7 @@ src/middleware/authGuard.ts:22:  // Retry handleAuth on token refresh</div>
             <div class="grep-file-header">
               <span class="icon">📄</span>
               src/middleware/authGuard.ts
-              <span class="badge badge-warning" style="font-size:10px">3 matches</span>
+              <span class="badge badge-warning">3 matches</span>
             </div>
             <div class="grep-line ctx"><span class="g-num">7</span><span class="g-code"><span class="syn-keyword">import</span> { useRouter } <span class="syn-keyword">from</span> <span class="syn-string">'vue-router'</span>;</span></div>
             <div class="grep-line match"><span class="g-num">8</span><span class="g-code"><span class="syn-keyword">import</span> { <span class="grep-highlight">handleAuth</span> } <span class="syn-keyword">from</span> <span class="syn-string">'@/composables/useAuth'</span>;</span></div>
@@ -1202,84 +1246,84 @@ vite.config.ts</div>
             <span style="font-size:12px;color:var(--text-secondary)">Pattern: <code style="color:var(--accent-fg);font-size:11px">src/**/*.{vue,ts,css} + *.json + *.ts</code></span>
           </div>
           <div class="flex gap-6">
-            <button class="btn-sm" onclick="expandAllTree()">Expand All</button>
-            <button class="btn-sm" onclick="collapseAllTree()">Collapse All</button>
+            <button class="btn-sm" type="button" onclick="expandAllTree()">Expand All</button>
+            <button class="btn-sm" type="button" onclick="collapseAllTree()">Collapse All</button>
           </div>
         </div>
-        <div class="file-tree" id="file-tree">
+        <div class="file-tree" id="file-tree" role="tree">
           <!-- src/ -->
-          <div class="tree-item dir" style="--depth:0" onclick="toggleTree(this)">
+          <div class="tree-item dir" style="--depth:0" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
             <span class="tree-icon">📂</span> <span>src</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
           </div>
-          <div class="tree-children" data-tree-children>
+          <div class="tree-children" role="group" data-tree-children>
             <!-- components/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>components</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
+            <div class="tree-children" role="group" data-tree-children>
               <!-- Auth/ -->
-              <div class="tree-item dir" style="--depth:2" onclick="toggleTree(this)">
+              <div class="tree-item dir" style="--depth:2" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
                 <span class="tree-icon">📂</span> <span>Auth</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
               </div>
-              <div class="tree-children" data-tree-children>
-                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> LoginForm.vue</div>
-                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> RegisterForm.vue</div>
-                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> ResetPassword.vue</div>
+              <div class="tree-children" role="group" data-tree-children>
+                <div class="tree-item" style="--depth:3" role="treeitem"><span class="tree-icon" style="color:#42b883">🟢</span> LoginForm.vue</div>
+                <div class="tree-item" style="--depth:3" role="treeitem"><span class="tree-icon" style="color:#42b883">🟢</span> RegisterForm.vue</div>
+                <div class="tree-item" style="--depth:3" role="treeitem"><span class="tree-icon" style="color:#42b883">🟢</span> ResetPassword.vue</div>
               </div>
               <!-- Layout/ -->
-              <div class="tree-item dir" style="--depth:2" onclick="toggleTree(this)">
+              <div class="tree-item dir" style="--depth:2" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
                 <span class="tree-icon">📂</span> <span>Layout</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
               </div>
-              <div class="tree-children" data-tree-children>
-                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> Header.vue</div>
-                <div class="tree-item" style="--depth:3"><span class="tree-icon" style="color:#42b883">🟢</span> Sidebar.vue</div>
+              <div class="tree-children" role="group" data-tree-children>
+                <div class="tree-item" style="--depth:3" role="treeitem"><span class="tree-icon" style="color:#42b883">🟢</span> Header.vue</div>
+                <div class="tree-item" style="--depth:3" role="treeitem"><span class="tree-icon" style="color:#42b883">🟢</span> Sidebar.vue</div>
               </div>
             </div>
             <!-- composables/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>composables</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> useAuth.ts</div>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> useTheme.ts</div>
+            <div class="tree-children" role="group" data-tree-children>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> useAuth.ts</div>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> useTheme.ts</div>
             </div>
             <!-- middleware/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>middleware</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> authGuard.ts</div>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> rateLimit.ts</div>
+            <div class="tree-children" role="group" data-tree-children>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> authGuard.ts</div>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> rateLimit.ts</div>
             </div>
             <!-- styles/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>styles</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#264de4">🟣</span> auth.css</div>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#264de4">🟣</span> layout.css</div>
+            <div class="tree-children" role="group" data-tree-children>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#264de4">🟣</span> auth.css</div>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#264de4">🟣</span> layout.css</div>
             </div>
             <!-- types/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>types</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> auth.d.ts</div>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> index.d.ts</div>
+            <div class="tree-children" role="group" data-tree-children>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> auth.d.ts</div>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> index.d.ts</div>
             </div>
             <!-- utils/ -->
-            <div class="tree-item dir" style="--depth:1" onclick="toggleTree(this)">
+            <div class="tree-item dir" style="--depth:1" role="treeitem" aria-expanded="true" tabindex="0" onclick="toggleTree(this)" onkeydown="treeKeydown(event, this)">
               <span class="tree-icon">📂</span> <span>utils</span> <span class="chevron" style="font-size:11px;color:var(--text-tertiary)">▼</span>
             </div>
-            <div class="tree-children" data-tree-children>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> crypto.ts</div>
-              <div class="tree-item" style="--depth:2"><span class="tree-icon" style="color:#3178c6">🔷</span> validators.ts</div>
+            <div class="tree-children" role="group" data-tree-children>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> crypto.ts</div>
+              <div class="tree-item" style="--depth:2" role="treeitem"><span class="tree-icon" style="color:#3178c6">🔷</span> validators.ts</div>
             </div>
           </div>
           <!-- root files -->
-          <div class="tree-item" style="--depth:0"><span class="tree-icon">📦</span> package.json</div>
-          <div class="tree-item" style="--depth:0"><span class="tree-icon">⚙️</span> tsconfig.json</div>
-          <div class="tree-item" style="--depth:0"><span class="tree-icon">⚡</span> vite.config.ts</div>
+          <div class="tree-item" style="--depth:0" role="treeitem"><span class="tree-icon">📦</span> package.json</div>
+          <div class="tree-item" style="--depth:0" role="treeitem"><span class="tree-icon">⚙️</span> tsconfig.json</div>
+          <div class="tree-item" style="--depth:0" role="treeitem"><span class="tree-icon">⚡</span> vite.config.ts</div>
         </div>
       </div>
     </div>
@@ -1331,7 +1375,7 @@ dist/assets/index-Dz7Sk2VY.js  138.52 kB │ gzip: 45.09 kB
               <span class="badge badge-success">✓ exit 0</span>
             </div>
           </div>
-          <div class="terminal-body">
+          <div class="terminal-body" role="log">
 <span class="term-prompt">$ </span><span class="term-cmd">npm run build</span>
 <span class="term-dim">
 &gt; tracepilot@0.1.0 build
@@ -1396,7 +1440,7 @@ Time:   3.42 s</div>
               <span class="badge badge-danger">✗ exit 1</span>
             </div>
           </div>
-          <div class="terminal-body">
+          <div class="terminal-body" role="log">
 <span class="term-prompt">$ </span><span class="term-cmd">npm test</span>
 
 <span class="term-error">FAIL</span> <span class="term-output">src/composables/useAuth.test.ts</span>
@@ -1418,11 +1462,11 @@ Time:   3.42 s</div>
           </div>
         </div>
         <div style="margin-top:8px;">
-          <div class="collapsible-trigger" onclick="toggleCollapsible(this)">
+          <button class="collapsible-trigger" type="button" onclick="toggleCollapsible(this)" aria-expanded="false">
             <span class="chevron">▶</span>
             <span style="font-size:12px;color:var(--text-tertiary);">Show full output (47 lines)</span>
-          </div>
-          <div class="collapsible-content collapsed" style="max-height:200px;">
+          </button>
+          <div class="collapsible-content collapsed">
             <div style="padding:8px 0;font-size:12px;color:var(--text-tertiary);font-family:monospace;">
               ... additional test output would appear here when expanded ...
             </div>
@@ -1488,39 +1532,39 @@ update-docs    | Update API documentation   | pending     | 2025-01-15 10:27:00
           <table class="data-table">
             <thead>
               <tr>
-                <th>id</th>
-                <th>title</th>
-                <th>status</th>
-                <th>created_at</th>
+                <th scope="col">id</th>
+                <th scope="col">title</th>
+                <th scope="col">status</th>
+                <th scope="col">created_at</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">setup-auth</code></td>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:4px;font-size:11px">setup-auth</code></td>
                 <td>Setup authentication</td>
                 <td><span class="badge badge-warning">in_progress</span></td>
                 <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:23</td>
               </tr>
               <tr>
-                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">add-rate-limit</code></td>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:4px;font-size:11px">add-rate-limit</code></td>
                 <td>Add rate limiting</td>
                 <td><span class="badge badge-neutral">pending</span></td>
                 <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:24</td>
               </tr>
               <tr>
-                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">fix-cors</code></td>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:4px;font-size:11px">fix-cors</code></td>
                 <td>Fix CORS configuration</td>
                 <td><span class="badge badge-danger">blocked</span></td>
                 <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:25</td>
               </tr>
               <tr>
-                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">write-tests</code></td>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:4px;font-size:11px">write-tests</code></td>
                 <td>Write integration tests</td>
                 <td><span class="badge badge-neutral">pending</span></td>
                 <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:26</td>
               </tr>
               <tr>
-                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;font-size:11px">update-docs</code></td>
+                <td><code style="color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:4px;font-size:11px">update-docs</code></td>
                 <td>Update API documentation</td>
                 <td><span class="badge badge-neutral">pending</span></td>
                 <td style="color:var(--text-secondary);font-family:monospace;font-size:11px">2025-01-15 10:27</td>
@@ -1578,11 +1622,11 @@ update-docs    | Update API documentation   | pending     | 2025-01-15 10:27:00
           </div>
           <div class="agent-card-body">
             <!-- Prompt -->
-            <div class="collapsible-trigger" onclick="toggleCollapsible(this)" style="margin-bottom:12px;">
+            <button class="collapsible-trigger" type="button" onclick="toggleCollapsible(this)" aria-expanded="false" style="margin-bottom:12px;">
               <span class="chevron">▶</span>
               <span style="font-size:12px;color:var(--text-tertiary);font-weight:500;">Prompt</span>
-            </div>
-            <div class="collapsible-content collapsed" style="max-height:200px;">
+            </button>
+            <div class="collapsible-content collapsed">
               <div style="padding:8px 12px;margin-bottom:12px;background:var(--canvas-default);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);font-size:12px;color:var(--text-secondary);line-height:1.6;">
                 Find all authentication-related patterns in the codebase. Look for JWT usage, session handling, middleware, and any security-related code. Report file paths, key functions, and how they connect.
               </div>
@@ -1720,10 +1764,11 @@ Sources:
             The authentication module can use either JWT tokens stored in httpOnly cookies or session-based auth with server-side storage. Which approach do you prefer?
           </div>
           <div class="choice-buttons">
-            <button class="choice-btn selected">✓ JWT with httpOnly cookies</button>
-            <button class="choice-btn">Session-based with Redis</button>
-            <button class="choice-btn">OAuth 2.0 with external provider</button>
+            <button class="choice-btn selected" type="button" onclick="selectChoice(this)">✓ JWT with httpOnly cookies</button>
+            <button class="choice-btn" type="button" onclick="selectChoice(this)">Session-based with Redis</button>
+            <button class="choice-btn" type="button" onclick="selectChoice(this)">OAuth 2.0 with external provider</button>
           </div>
+          <div class="choice-feedback" id="choice-feedback"></div>
         </div>
       </div>
     </div>
@@ -1824,26 +1869,24 @@ Sources:
 <div class="copy-toast" id="copy-toast">Copied to clipboard!</div>
 
 <script>
-// ── Sidebar active state on scroll ──
+// ── Sidebar active state via IntersectionObserver ── (#10)
 const sections = document.querySelectorAll('.section');
 const navLinks = document.querySelectorAll('.sidebar a');
 
-function updateActiveNav() {
-  let current = '';
-  sections.forEach(section => {
-    const top = section.offsetTop - 80;
-    if (window.scrollY >= top) {
-      current = section.getAttribute('id');
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.getAttribute('id');
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+      });
     }
   });
-  navLinks.forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') === '#' + current) {
-      link.classList.add('active');
-    }
-  });
-}
-window.addEventListener('scroll', updateActiveNav);
+}, {
+  rootMargin: '-68px 0px -50% 0px',
+  threshold: [0, 0.5, 1]
+});
+sections.forEach(section => sectionObserver.observe(section));
 
 // ── Smooth scroll for nav links ──
 navLinks.forEach(link => {
@@ -1856,13 +1899,17 @@ navLinks.forEach(link => {
   });
 });
 
-// ── Diff mode toggle ──
+// ── Diff mode toggle ── (#13 ARIA)
 document.querySelectorAll('.diff-tab-bar').forEach(bar => {
   const target = bar.dataset.target;
   bar.querySelectorAll('.btn-sm').forEach(btn => {
     btn.addEventListener('click', () => {
-      bar.querySelectorAll('.btn-sm').forEach(b => b.classList.remove('active'));
+      bar.querySelectorAll('.btn-sm').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
       const mode = btn.dataset.mode;
       const splitEl = document.getElementById(target + '-split');
       const unifiedEl = document.getElementById(target + '-unified');
@@ -1877,51 +1924,80 @@ document.querySelectorAll('.diff-tab-bar').forEach(bar => {
   });
 });
 
-// ── Collapsible toggle ──
+// ── Collapsible toggle ── (#4 + #12)
 function toggleCollapsible(trigger) {
   const content = trigger.nextElementSibling;
   const isCollapsed = content.classList.contains('collapsed');
   if (isCollapsed) {
+    // Expand: measure scrollHeight, animate from 0 to scrollHeight, then set to none
     content.classList.remove('collapsed');
+    content.style.maxHeight = content.scrollHeight + 'px';
     content.classList.add('expanded');
     trigger.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    content.addEventListener('transitionend', function handler() {
+      content.style.maxHeight = 'none';
+      content.removeEventListener('transitionend', handler);
+    });
   } else {
+    // Collapse: set current height first, force reflow, then animate to 0
+    content.style.maxHeight = content.scrollHeight + 'px';
+    content.offsetHeight; // force reflow
     content.classList.add('collapsed');
     content.classList.remove('expanded');
+    content.style.maxHeight = '';
     trigger.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
   }
 }
 
-// ── File tree toggle ──
+// ── File tree toggle ── (#6 + #11)
 function toggleTree(dirItem) {
   const children = dirItem.nextElementSibling;
   if (!children || !children.hasAttribute('data-tree-children')) return;
   const chevron = dirItem.querySelector('.chevron');
-  if (children.classList.contains('collapsed')) {
+  const isCollapsed = children.classList.contains('collapsed');
+  if (isCollapsed) {
     children.classList.remove('collapsed');
-    children.style.maxHeight = children.scrollHeight + 'px';
+    children.style.maxHeight = '2000px';
+    dirItem.setAttribute('aria-expanded', 'true');
     if (chevron) chevron.textContent = '▼';
   } else {
     children.classList.add('collapsed');
     children.style.maxHeight = '0';
+    dirItem.setAttribute('aria-expanded', 'false');
     if (chevron) chevron.textContent = '▶';
+  }
+}
+
+// ── Tree keyboard navigation ── (#11)
+function treeKeydown(e, dirItem) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    toggleTree(dirItem);
+  } else if (e.key === 'ArrowRight') {
+    const children = dirItem.nextElementSibling;
+    if (children && children.classList.contains('collapsed')) {
+      toggleTree(dirItem);
+    }
+  } else if (e.key === 'ArrowLeft') {
+    const children = dirItem.nextElementSibling;
+    if (children && !children.classList.contains('collapsed')) {
+      toggleTree(dirItem);
+    }
   }
 }
 
 function expandAllTree() {
   document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
     el.classList.remove('collapsed');
-    el.style.maxHeight = el.scrollHeight + 'px';
+    el.style.maxHeight = '2000px';
   });
-  document.querySelectorAll('#file-tree .dir .chevron').forEach(ch => {
-    ch.textContent = '▼';
+  document.querySelectorAll('#file-tree .dir').forEach(dir => {
+    dir.setAttribute('aria-expanded', 'true');
+    const ch = dir.querySelector('.chevron');
+    if (ch) ch.textContent = '▼';
   });
-  // Recalculate after expand
-  setTimeout(() => {
-    document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
-      el.style.maxHeight = el.scrollHeight + 'px';
-    });
-  }, 50);
 }
 
 function collapseAllTree() {
@@ -1929,23 +2005,52 @@ function collapseAllTree() {
     el.classList.add('collapsed');
     el.style.maxHeight = '0';
   });
-  document.querySelectorAll('#file-tree .dir .chevron').forEach(ch => {
-    ch.textContent = '▶';
+  document.querySelectorAll('#file-tree .dir').forEach(dir => {
+    dir.setAttribute('aria-expanded', 'false');
+    const ch = dir.querySelector('.chevron');
+    if (ch) ch.textContent = '▶';
   });
 }
 
-// ── Copy toast ──
+// ── Copy toast ── (#7 debounce)
+let toastTimeout = null;
 function showToast(msg) {
   const toast = document.getElementById('copy-toast');
+  if (toastTimeout) {
+    clearTimeout(toastTimeout);
+    toast.classList.remove('show');
+  }
   toast.textContent = msg;
+  // Force reflow so re-adding 'show' triggers transition
+  toast.offsetHeight;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2000);
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove('show');
+    toastTimeout = null;
+  }, 2000);
+}
+
+// ── Choice button handler ── (#2)
+function selectChoice(btn) {
+  const container = btn.closest('.choice-buttons');
+  container.querySelectorAll('.choice-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.textContent = b.textContent.replace(/^✓ /, '');
+  });
+  btn.classList.add('selected');
+  if (!btn.textContent.startsWith('✓ ')) {
+    btn.textContent = '✓ ' + btn.textContent;
+  }
+  const feedback = document.getElementById('choice-feedback');
+  if (feedback) {
+    feedback.textContent = 'Selected: ' + btn.textContent.replace(/^✓ /, '');
+  }
 }
 
 // ── Init tree heights ──
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#file-tree [data-tree-children]').forEach(el => {
-    el.style.maxHeight = el.scrollHeight + 'px';
+    el.style.maxHeight = '2000px';
   });
 });
 </script>
