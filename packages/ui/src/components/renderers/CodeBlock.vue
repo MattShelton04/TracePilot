@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * CodeBlock — a lightweight syntax-highlighted code display.
+ * CodeBlock — syntax-highlighted code display with line numbers.
  *
- * Shows code with line numbers, optional file path header, and language badge.
- * Uses CSS-only styling with monospace font; no external highlighting library.
- * Can be enhanced with Shiki later via the `highlighted` slot.
+ * Uses a lightweight regex-based tokenizer (syntaxHighlight.ts) to
+ * produce colored tokens. The `.syn-*` CSS classes are defined in this
+ * component's scoped styles.
  */
 import { computed } from "vue";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
+import { highlightLine } from "../../utils/syntaxHighlight";
 
 const props = withDefaults(defineProps<{
   code: string;
@@ -36,16 +37,20 @@ const start = computed(() => props.startLine);
 
 const lines = computed(() => {
   const raw = props.code.split("\n");
-  // Remove trailing empty line (common in file content)
   if (raw.length > 1 && raw[raw.length - 1] === "") raw.pop();
   return raw;
 });
 
+/** Pre-highlighted HTML for each visible line. */
+const highlightedLines = computed(() =>
+  lines.value.map(line => highlightLine(line, lang.value))
+);
+
 const visibleLines = computed(() => {
   if (props.maxLines && props.maxLines > 0 && lines.value.length > props.maxLines) {
-    return lines.value.slice(0, props.maxLines);
+    return highlightedLines.value.slice(0, props.maxLines);
   }
-  return lines.value;
+  return highlightedLines.value;
 });
 
 const isCollapsed = computed(() =>
@@ -77,11 +82,12 @@ function fileName(path: string): string {
     <div class="code-block-content">
       <table class="code-block-table" role="presentation">
         <tbody>
-          <tr v-for="(line, i) in visibleLines" :key="i" class="code-line">
+          <tr v-for="(lineHtml, i) in visibleLines" :key="i" class="code-line">
             <td v-if="showNumbers" class="code-line-number" :style="{ width: lineNumberWidth + 'ch' }">
               {{ start + i }}
             </td>
-            <td class="code-line-content"><pre>{{ line }}</pre></td>
+            <!-- eslint-disable-next-line vue/no-v-html -- input is HTML-escaped by highlightLine -->
+            <td class="code-line-content"><pre v-html="lineHtml"></pre></td>
           </tr>
         </tbody>
       </table>
@@ -151,6 +157,7 @@ function fileName(path: string): string {
 .code-line-content {
   padding: 0 12px;
   white-space: pre;
+  color: var(--text-secondary);
 }
 .code-line-content pre {
   margin: 0;
@@ -165,4 +172,20 @@ function fileName(path: string): string {
   background: var(--canvas-inset);
   border-top: 1px solid var(--border-muted);
 }
+
+/* ── Syntax highlighting tokens ── */
+.code-line-content :deep(.syn-keyword)  { color: #c084fc; }
+.code-line-content :deep(.syn-type)     { color: #38bdf8; }
+.code-line-content :deep(.syn-string)   { color: #34d399; }
+.code-line-content :deep(.syn-number)   { color: #fb923c; }
+.code-line-content :deep(.syn-comment)  { color: var(--text-tertiary); font-style: italic; }
+.code-line-content :deep(.syn-func)     { color: #fbbf24; }
+.code-line-content :deep(.syn-const)    { color: #818cf8; }
+.code-line-content :deep(.syn-param)    { color: #f472b6; }
+.code-line-content :deep(.syn-operator) { color: var(--text-tertiary); }
+.code-line-content :deep(.syn-tag)      { color: #fb7185; }
+.code-line-content :deep(.syn-attr)     { color: #38bdf8; }
+.code-line-content :deep(.syn-punct)    { color: var(--text-tertiary); }
+.code-line-content :deep(.syn-prop)     { color: #93c5fd; }
+.code-line-content :deep(.syn-regex)    { color: #fb923c; }
 </style>

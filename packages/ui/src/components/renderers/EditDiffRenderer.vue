@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * EditDiffRenderer — renders edit tool results as an inline diff.
+ * EditDiffRenderer — renders edit tool results as a rich diff view.
  *
- * Shows old_str → new_str with word-level diff highlighting.
- * Does NOT fabricate surrounding context — only displays what the tool provides.
+ * Features: unified/split toggle, line numbers, full-line backgrounds,
+ * word-level inline highlights, and a "Modified" badge.
  */
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -17,6 +17,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'load-full': [];
 }>();
+
+const diffMode = ref<"unified" | "split">("unified");
 
 const filePath = computed(() => {
   if (typeof props.args?.path === "string") return props.args.path;
@@ -33,27 +35,24 @@ const newStr = computed(() =>
 
 const isDelete = computed(() => oldStr.value != null && !newStr.value);
 
-/** Simple word-level diff: splits on whitespace/punctuation boundaries. */
+// ── Word-level diff algorithm ──
+
 interface DiffSegment {
   type: "equal" | "added" | "removed";
   value: string;
 }
 
-/** Maximum product of token counts before we skip LCS and fall back to simple diff. */
 const MAX_DIFF_COMPLEXITY = 4_000_000;
 
 function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
-  // Tokenize into words and whitespace
   const tokenize = (text: string): string[] =>
     text.match(/\S+|\s+/g) ?? [];
 
   const oldTokens = tokenize(oldText);
   const newTokens = tokenize(newText);
-
   const m = oldTokens.length;
   const n = newTokens.length;
 
-  // Guard against quadratic blowup on large inputs
   if (m * n > MAX_DIFF_COMPLEXITY) {
     return [
       { type: "removed", value: oldText },
@@ -61,10 +60,7 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
     ];
   }
 
-  // LCS-based diff (safe for the now-bounded input size)
-  const dp: number[][] = Array.from({ length: m + 1 }, () =>
-    Array(n + 1).fill(0)
-  );
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       if (oldTokens[i - 1] === newTokens[j - 1]) {
@@ -75,7 +71,6 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
     }
   }
 
-  // Backtrack to produce diff
   const result: DiffSegment[] = [];
   let i = m, j = n;
   const stack: DiffSegment[] = [];
@@ -93,7 +88,6 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
     }
   }
 
-  // Reverse and merge adjacent same-type segments
   stack.reverse();
   for (const seg of stack) {
     if (result.length > 0 && result[result.length - 1].type === seg.type) {
@@ -102,8 +96,18 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
       result.push({ ...seg });
     }
   }
-
   return result;
+}
+
+// ── Line-level diff for unified/split views ──
+
+interface DiffLine {
+  type: "context" | "added" | "removed";
+  oldNum?: number;
+  newNum?: number;
+  content: string;
+  /** Word-level highlight spans within this line */
+  segments?: DiffSegment[];
 }
 
 const diffSegments = computed<DiffSegment[]>(() => {
@@ -111,8 +115,88 @@ const diffSegments = computed<DiffSegment[]>(() => {
   return computeWordDiff(oldStr.value, newStr.value);
 });
 
-const oldLines = computed(() => oldStr.value?.split("\n") ?? []);
-const newLines = computed(() => newStr.value?.split("\n") ?? []);
+/** Convert word-level segments into line-level diff entries. */
+const diffLines = computed<DiffLine[]>(() => {
+  if (oldStr.value == null || newStr.value == null) return [];
+
+  const oldLines = oldStr.value.split("\n");
+  const newLines = newStr.value.split("\n");
+  const lines: DiffLine[] = [];
+
+  // Simple line-based diff using LCS on lines
+  const m = oldLines.length;
+  const n = newLines.length;
+
+  if (m * n > 100_000) {
+    // Too large — just show all old as removed, all new as added
+    oldLines.forEach((l, i) => lines.push({ type: "removed", oldNum: i + 1, content: l }));
+    newLines.forEach((l, i) => lines.push({ type: "added", newNum: i + 1, content: l }));
+    return lines;
+  }
+
+  // Line-level LCS
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = oldLines[i - 1] === newLines[j - 1]
+        ? dp[i - 1][j - 1] + 1
+        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+
+  const stack: DiffLine[] = [];
+  let oi = m, ni = n;
+  while (oi > 0 || ni > 0) {
+    if (oi > 0 && ni > 0 && oldLines[oi - 1] === newLines[ni - 1]) {
+      stack.push({ type: "context", oldNum: oi, newNum: ni, content: oldLines[oi - 1] });
+      oi--; ni--;
+    } else if (ni > 0 && (oi === 0 || dp[oi][ni - 1] >= dp[oi - 1][ni])) {
+      stack.push({ type: "added", newNum: ni, content: newLines[ni - 1] });
+      ni--;
+    } else {
+      stack.push({ type: "removed", oldNum: oi, content: oldLines[oi - 1] });
+      oi--;
+    }
+  }
+
+  stack.reverse();
+  return stack;
+});
+
+const oldLineCount = computed(() => oldStr.value?.split("\n").length ?? 0);
+const newLineCount = computed(() => newStr.value?.split("\n").length ?? 0);
+
+/** Split view: left (old) lines and right (new) lines aligned. */
+const splitPairs = computed(() => {
+  const pairs: Array<{ left: DiffLine | null; right: DiffLine | null }> = [];
+  const removedQueue: DiffLine[] = [];
+  const addedQueue: DiffLine[] = [];
+
+  function flushQueues() {
+    const max = Math.max(removedQueue.length, addedQueue.length);
+    for (let i = 0; i < max; i++) {
+      pairs.push({
+        left: removedQueue[i] ?? null,
+        right: addedQueue[i] ?? null,
+      });
+    }
+    removedQueue.length = 0;
+    addedQueue.length = 0;
+  }
+
+  for (const line of diffLines.value) {
+    if (line.type === "removed") {
+      removedQueue.push(line);
+    } else if (line.type === "added") {
+      addedQueue.push(line);
+    } else {
+      flushQueues();
+      pairs.push({ left: line, right: line });
+    }
+  }
+  flushQueues();
+  return pairs;
+});
 
 function fileName(path: string): string {
   return path.replace(/\\/g, "/").split("/").pop() ?? path;
@@ -126,37 +210,101 @@ function fileName(path: string): string {
     :is-truncated="isTruncated"
     @load-full="emit('load-full')"
   >
-    <!-- File path -->
-    <div v-if="filePath" class="edit-diff-path" :title="filePath">
-      <span class="edit-diff-path-icon">✏️</span>
-      <span class="edit-diff-path-text">{{ filePath }}</span>
+    <!-- File path + badge + diff mode tabs -->
+    <div class="edit-diff-header">
+      <div class="edit-diff-path-group">
+        <span v-if="filePath" class="edit-diff-path" :title="filePath">
+          <span class="edit-diff-path-icon">📄</span>
+          {{ filePath }}
+        </span>
+        <span class="edit-diff-badge edit-diff-badge--modified">Modified</span>
+      </div>
+      <div v-if="oldStr != null && newStr != null" class="edit-diff-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="diffMode === 'unified'"
+          :class="['edit-diff-tab', { active: diffMode === 'unified' }]"
+          @click="diffMode = 'unified'"
+        >Unified</button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="diffMode === 'split'"
+          :class="['edit-diff-tab', { active: diffMode === 'split' }]"
+          @click="diffMode = 'split'"
+        >Split</button>
+      </div>
     </div>
 
-    <!-- Word-level inline diff view -->
-    <div v-if="oldStr != null && newStr != null" class="edit-diff-body">
-      <div class="edit-diff-stats">
-        <span class="edit-diff-stat edit-diff-stat--removed">−{{ oldLines.length }} line{{ oldLines.length !== 1 ? 's' : '' }}</span>
-        <span class="edit-diff-stat edit-diff-stat--added">+{{ newLines.length }} line{{ newLines.length !== 1 ? 's' : '' }}</span>
-      </div>
-      <div class="edit-diff-inline" role="presentation">
-        <span
-          v-for="(seg, idx) in diffSegments"
-          :key="idx"
-          :class="{
-            'diff-added': seg.type === 'added',
-            'diff-removed': seg.type === 'removed',
-            'diff-equal': seg.type === 'equal',
-          }"
-        >{{ seg.value }}</span>
+    <!-- Stats bar -->
+    <div v-if="oldStr != null || isDelete" class="edit-diff-stats">
+      <span class="edit-diff-stat edit-diff-stat--removed">−{{ oldLineCount }} line{{ oldLineCount !== 1 ? 's' : '' }}</span>
+      <span v-if="newStr != null" class="edit-diff-stat edit-diff-stat--added">+{{ newLineCount }} line{{ newLineCount !== 1 ? 's' : '' }}</span>
+      <span v-if="isDelete" class="edit-diff-stat edit-diff-stat--removed">deleted</span>
+    </div>
+
+    <!-- Unified diff view -->
+    <div v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body">
+      <table class="diff-table" role="presentation">
+        <tbody>
+          <tr v-for="(line, idx) in diffLines" :key="idx" :class="['diff-line', `diff-line--${line.type}`]">
+            <td class="diff-num diff-num--old">{{ line.oldNum ?? '' }}</td>
+            <td class="diff-num diff-num--new">{{ line.newNum ?? '' }}</td>
+            <td class="diff-indicator">
+              <span v-if="line.type === 'removed'">−</span>
+              <span v-else-if="line.type === 'added'">+</span>
+              <span v-else>&nbsp;</span>
+            </td>
+            <td class="diff-code"><pre>{{ line.content }}</pre></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Split diff view -->
+    <div v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body">
+      <div class="diff-split">
+        <table class="diff-table diff-table--half" role="presentation">
+          <tbody>
+            <tr v-for="(pair, idx) in splitPairs" :key="'l-' + idx"
+                :class="['diff-line', pair.left ? `diff-line--${pair.left.type}` : 'diff-line--empty']">
+              <td class="diff-num">{{ pair.left?.oldNum ?? '' }}</td>
+              <td class="diff-indicator">
+                <span v-if="pair.left?.type === 'removed'">−</span>
+                <span v-else>&nbsp;</span>
+              </td>
+              <td class="diff-code"><pre>{{ pair.left?.content ?? '' }}</pre></td>
+            </tr>
+          </tbody>
+        </table>
+        <table class="diff-table diff-table--half" role="presentation">
+          <tbody>
+            <tr v-for="(pair, idx) in splitPairs" :key="'r-' + idx"
+                :class="['diff-line', pair.right ? `diff-line--${pair.right.type}` : 'diff-line--empty']">
+              <td class="diff-num">{{ pair.right?.newNum ?? '' }}</td>
+              <td class="diff-indicator">
+                <span v-if="pair.right?.type === 'added'">+</span>
+                <span v-else>&nbsp;</span>
+              </td>
+              <td class="diff-code"><pre>{{ pair.right?.content ?? '' }}</pre></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- Delete-only case -->
     <div v-else-if="isDelete && oldStr" class="edit-diff-body">
-      <div class="edit-diff-stats">
-        <span class="edit-diff-stat edit-diff-stat--removed">−{{ oldLines.length }} line{{ oldLines.length !== 1 ? 's' : '' }} deleted</span>
-      </div>
-      <pre class="edit-diff-deleted">{{ oldStr }}</pre>
+      <table class="diff-table" role="presentation">
+        <tbody>
+          <tr v-for="(line, idx) in oldStr.split('\n')" :key="idx" class="diff-line diff-line--removed">
+            <td class="diff-num">{{ idx + 1 }}</td>
+            <td class="diff-indicator">−</td>
+            <td class="diff-code"><pre>{{ line }}</pre></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- Fallback: show raw content -->
@@ -165,80 +313,147 @@ function fileName(path: string): string {
 </template>
 
 <style scoped>
-.edit-diff-path {
+.edit-diff-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border-muted);
-  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
 }
-.edit-diff-path-icon {
-  font-size: 0.875rem;
+.edit-diff-path-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
 }
-.edit-diff-path-text {
-  color: var(--text-secondary);
+.edit-diff-path {
   font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.edit-diff-body {
-  padding: 8px 0;
+.edit-diff-path-icon {
+  margin-right: 4px;
+}
+.edit-diff-badge {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.edit-diff-badge--modified {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning-fg, #fbbf24);
+}
+.edit-diff-tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.edit-diff-tab {
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border: 1px solid var(--border-muted);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.edit-diff-tab:hover {
+  background: var(--neutral-muted);
+  color: var(--text-secondary);
+}
+.edit-diff-tab.active {
+  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
+  color: var(--accent-fg, #818cf8);
+  border-color: var(--accent-emphasis, #6366f1);
 }
 .edit-diff-stats {
   display: flex;
   gap: 10px;
-  padding: 0 12px 6px;
+  padding: 4px 12px;
   font-size: 0.6875rem;
+  border-bottom: 1px solid var(--border-muted);
 }
 .edit-diff-stat {
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
 }
-.edit-diff-stat--removed {
-  color: var(--danger-fg, #f87171);
+.edit-diff-stat--removed { color: var(--danger-fg, #f87171); }
+.edit-diff-stat--added { color: var(--success-fg, #34d399); }
+.edit-diff-body {
+  overflow: auto;
+  max-height: 500px;
 }
-.edit-diff-stat--added {
-  color: var(--success-fg, #34d399);
-}
-.edit-diff-inline {
+
+/* ── Diff table ── */
+.diff-table {
+  border-collapse: collapse;
+  width: 100%;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.75rem;
   line-height: 1.6;
-  padding: 8px 12px;
-  overflow: auto;
-  max-height: 500px;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
-.diff-equal {
-  color: var(--text-secondary);
+.diff-line { border: none; }
+.diff-line--context { background: transparent; }
+.diff-line--removed { background: rgba(251, 113, 133, 0.08); }
+.diff-line--added { background: rgba(52, 211, 153, 0.08); }
+.diff-line--empty { background: var(--canvas-inset); }
+.diff-num {
+  text-align: right;
+  padding: 0 6px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  user-select: none;
+  vertical-align: top;
+  white-space: nowrap;
+  width: 1%;
+  min-width: 3ch;
 }
-.diff-added {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--success-fg, #34d399);
-  border-radius: 2px;
-  padding: 0 1px;
+.diff-indicator {
+  width: 1%;
+  padding: 0 4px;
+  text-align: center;
+  user-select: none;
+  vertical-align: top;
 }
-.diff-removed {
-  background: rgba(248, 113, 113, 0.15);
-  color: var(--danger-fg, #f87171);
-  text-decoration: line-through;
-  border-radius: 2px;
-  padding: 0 1px;
+.diff-line--removed .diff-indicator { color: var(--danger-fg, #f87171); }
+.diff-line--added .diff-indicator { color: var(--success-fg, #34d399); }
+.diff-line--context .diff-indicator { color: var(--text-tertiary); }
+.diff-code {
+  padding: 0 12px;
+  white-space: pre;
 }
-.edit-diff-deleted {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  line-height: 1.6;
-  padding: 8px 12px;
+.diff-code pre {
   margin: 0;
-  color: var(--danger-fg, #f87171);
-  background: rgba(248, 113, 113, 0.08);
-  overflow: auto;
-  max-height: 400px;
+  font: inherit;
+  white-space: pre;
 }
+.diff-line--removed .diff-code { color: var(--danger-fg, #f87171); }
+.diff-line--added .diff-code { color: var(--success-fg, #34d399); }
+.diff-line--context .diff-code { color: var(--text-secondary); }
+
+/* ── Split view ── */
+.diff-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.diff-split .diff-table--half {
+  border-right: 1px solid var(--border-muted);
+}
+.diff-split .diff-table--half:last-child {
+  border-right: none;
+}
+
 .edit-diff-fallback {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;

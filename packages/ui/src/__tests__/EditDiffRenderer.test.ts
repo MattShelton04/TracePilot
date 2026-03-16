@@ -13,8 +13,8 @@ describe("EditDiffRenderer", () => {
       },
     });
     expect(wrapper.find(".edit-diff-body").exists()).toBe(true);
-    expect(wrapper.find(".edit-diff-inline").exists()).toBe(true);
-    // Should show removed and added segments
+    // New line-based diff table
+    expect(wrapper.find(".diff-table").exists()).toBe(true);
     const html = wrapper.html();
     expect(html).toContain("world");
     expect(html).toContain("universe");
@@ -27,7 +27,8 @@ describe("EditDiffRenderer", () => {
         args: { path: "/file.ts", old_str: "removed code" },
       },
     });
-    expect(wrapper.find(".edit-diff-deleted").exists()).toBe(true);
+    // Delete view now uses diff-table with diff-line--removed rows
+    expect(wrapper.find(".diff-line--removed").exists()).toBe(true);
     expect(wrapper.text()).toContain("removed code");
   });
 
@@ -38,15 +39,15 @@ describe("EditDiffRenderer", () => {
         args: { path: "/file.ts" },
       },
     });
-    expect(wrapper.find(".edit-diff-inline").exists()).toBe(false);
-    expect(wrapper.find(".edit-diff-deleted").exists()).toBe(false);
+    expect(wrapper.find(".diff-table").exists()).toBe(false);
     expect(wrapper.find(".edit-diff-fallback").exists()).toBe(true);
   });
 
   it("falls back to simple blocks for very large inputs", () => {
-    // Create inputs large enough to exceed MAX_DIFF_COMPLEXITY (4M)
-    const largeOld = Array.from({ length: 3000 }, (_, i) => `word${i}`).join(" ");
-    const largeNew = Array.from({ length: 3000 }, (_, i) => `changed${i}`).join(" ");
+    // Create multiline input that exceeds line-level LCS threshold (100K)
+    const lines = Array.from({ length: 500 }, (_, i) => `line ${i} content here`);
+    const largeOld = lines.join("\n");
+    const largeNew = lines.map((l, i) => `changed ${i} content here`).join("\n");
 
     const wrapper = mount(EditDiffRenderer, {
       props: {
@@ -57,11 +58,39 @@ describe("EditDiffRenderer", () => {
 
     // Should still render without crashing
     expect(wrapper.find(".edit-diff-body").exists()).toBe(true);
-    // Falls back to simple removed/added blocks (whole old text removed, whole new text added)
-    const removedSegments = wrapper.findAll(".diff-removed");
-    const addedSegments = wrapper.findAll(".diff-added");
-    expect(removedSegments.length).toBeGreaterThan(0);
-    expect(addedSegments.length).toBeGreaterThan(0);
+    // Line-based diff should show removed and added lines
+    const removedLines = wrapper.findAll(".diff-line--removed");
+    const addedLines = wrapper.findAll(".diff-line--added");
+    expect(removedLines.length).toBeGreaterThan(0);
+    expect(addedLines.length).toBeGreaterThan(0);
+  });
+
+  it("supports unified and split diff modes", async () => {
+    const wrapper = mount(EditDiffRenderer, {
+      props: {
+        content: "File edited",
+        args: baseArgs,
+      },
+    });
+    // Default is unified
+    const tabs = wrapper.findAll(".edit-diff-tab");
+    expect(tabs.length).toBe(2);
+    expect(tabs[0].text()).toBe("Unified");
+    expect(tabs[1].text()).toBe("Split");
+    // Click split
+    await tabs[1].trigger("click");
+    expect(wrapper.find(".diff-split").exists()).toBe(true);
+  });
+
+  it("shows Modified badge", () => {
+    const wrapper = mount(EditDiffRenderer, {
+      props: {
+        content: "File edited",
+        args: baseArgs,
+      },
+    });
+    expect(wrapper.find(".edit-diff-badge--modified").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Modified");
   });
 
   it("handles truncated content with load-full event", () => {
