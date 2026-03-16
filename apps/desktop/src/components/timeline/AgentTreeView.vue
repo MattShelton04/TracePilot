@@ -58,6 +58,35 @@ const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
 const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
+// Live-ticking timer for in-progress agent durations
+const nowMs = ref(Date.now());
+let tickInterval: ReturnType<typeof setInterval> | null = null;
+
+function startTick() {
+  if (!tickInterval) {
+    tickInterval = setInterval(() => {
+      nowMs.value = Date.now();
+    }, 1000);
+  }
+}
+function stopTick() {
+  if (tickInterval) {
+    clearInterval(tickInterval);
+    tickInterval = null;
+  }
+}
+
+/** Returns live elapsed ms for in-progress nodes, or the static durationMs for completed ones. */
+function liveDuration(node: AgentNode): number | undefined {
+  if (node.status === "in-progress" && node.toolCallRef?.startedAt) {
+    return nowMs.value - new Date(node.toolCallRef.startedAt).getTime();
+  }
+  if (node.status === "in-progress" && node.type === "main" && currentTurn.value?.timestamp) {
+    return nowMs.value - new Date(currentTurn.value.timestamp).getTime();
+  }
+  return node.durationMs;
+}
+
 // ---------------------------------------------------------------------------
 // Turn Filtering — only turns that have subagents
 // ---------------------------------------------------------------------------
@@ -138,6 +167,9 @@ function inferAgentType(
 
 function agentStatusFromToolCall(tc: TurnToolCall): "completed" | "failed" | "in-progress" {
   if (!tc.isComplete) return "in-progress";
+  // A subagent marked complete by ToolExecComplete but missing SubagentCompleted/Failed
+  // will have success == null — treat as still in-progress
+  if (tc.isSubagent && tc.success == null) return "in-progress";
   if (tc.success === false) return "failed";
   return "completed";
 }
@@ -202,6 +234,9 @@ const treeData = computed<TreeData | null>(() => {
   const directTools = turn.toolCalls.filter(
     (tc) => !tc.isSubagent && !tc.parentToolCallId,
   );
+  // Include subagent-spawning tool calls so they appear in the main agent's tool list
+  const subagentSpawnTools = turn.toolCalls.filter((tc) => tc.isSubagent);
+  const mainToolCalls = [...subagentSpawnTools, ...directTools];
   const totalToolCount = turn.toolCalls.length;
 
   const mainStatus: "completed" | "failed" | "in-progress" = !turn.isComplete
@@ -216,7 +251,7 @@ const treeData = computed<TreeData | null>(() => {
     durationMs: turn.durationMs,
     toolCount: totalToolCount,
     status: mainStatus,
-    toolCalls: directTools,
+    toolCalls: mainToolCalls,
     children: [],
   };
 
@@ -548,7 +583,24 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeydown);
+  stopTick();
 });
+
+// Start/stop live timer based on whether any node is in-progress
+const hasInProgress = computed(() => {
+  if (!treeData.value) return false;
+  const { root, children } = treeData.value;
+  if (root.status === "in-progress") return true;
+  function check(nodes: AgentNode[]): boolean {
+    return nodes.some((n) => n.status === "in-progress" || (n.children?.length && check(n.children)));
+  }
+  return check(children);
+});
+
+watch(hasInProgress, (val) => {
+  if (val) startTick();
+  else stopTick();
+}, { immediate: true });
 
 // Reset index when turns change
 watch(
@@ -624,6 +676,7 @@ watch(
             :class="{
               'agent-node--main': ln.node.type === 'main',
               'agent-node--selected': selectedNodeId === ln.node.id,
+              'agent-node--in-progress': ln.node.status === 'in-progress',
             }"
             :style="{
               left: `${ln.x}px`,
@@ -658,11 +711,11 @@ watch(
             </div>
 
             <div class="agent-node-meta">
-              <span v-if="ln.node.durationMs != null">
-                {{ formatDuration(ln.node.durationMs) }}
+              <span v-if="liveDuration(ln.node) != null">
+                {{ formatDuration(liveDuration(ln.node)) }}
               </span>
               <span>{{ ln.node.toolCount }} tool{{ ln.node.toolCount !== 1 ? "s" : "" }}</span>
-              <span class="agent-node-status">
+              <span class="agent-node-status" :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }">
                 {{ STATUS_ICONS[ln.node.status] }}
               </span>
             </div>
@@ -715,7 +768,7 @@ watch(
               <div class="detail-info-item">
                 <span class="detail-label">Duration</span>
                 <span class="detail-value">
-                  {{ formatDuration(selectedNode.durationMs) || "—" }}
+                  {{ formatDuration(liveDuration(selectedNode)) || "—" }}
                 </span>
               </div>
               <div class="detail-info-item">
@@ -732,7 +785,7 @@ watch(
           <!-- Tool calls list -->
           <div class="detail-tools">
             <h4 class="detail-tools-heading">
-              {{ selectedNode.type === "main" ? "Direct Tools" : "Tool Calls" }}
+              {{ selectedNode.type === "main" ? "Tools & Agents" : "Tool Calls" }}
               <span class="detail-tools-count">({{ selectedNode.toolCalls.length }})</span>
             </h4>
 
@@ -755,7 +808,8 @@ watch(
                 >
                   <span class="detail-tool-idx">{{ idx + 1 }}.</span>
                   <span class="detail-tool-icon">{{ toolIcon(tc.toolName) }}</span>
-                  <span class="detail-tool-name">{{ tc.toolName }}</span>
+                  <span class="detail-tool-name">{{ tc.isSubagent && tc.agentDisplayName ? tc.agentDisplayName : tc.toolName }}</span>
+                  <Badge v-if="tc.isSubagent" variant="neutral" class="detail-agent-badge">agent</Badge>
                   <span
                     v-if="tc.intentionSummary"
                     class="tool-call-intent"
@@ -969,6 +1023,16 @@ watch(
   );
 }
 
+.agent-node--in-progress {
+  border-color: var(--node-color, var(--accent-fg));
+  animation: node-pulse 2s ease-in-out infinite;
+}
+
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+}
+
 .agent-node:focus-visible {
   outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
@@ -1033,6 +1097,15 @@ watch(
   margin-left: auto;
   font-size: 0.8125rem;
   line-height: 1;
+}
+
+.agent-node-status--in-progress {
+  animation: pulse-in-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-in-progress {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1209,6 +1282,11 @@ watch(
 .detail-tool-name {
   font-weight: 500;
   white-space: nowrap;
+}
+
+.detail-agent-badge {
+  font-size: 0.625rem;
+  flex-shrink: 0;
 }
 
 .detail-tool-args {

@@ -403,4 +403,86 @@ describe("AgentTreeView", () => {
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("Review the auth module for vulnerabilities");
   });
+
+  it("in-progress subagent shows ⏳ and pulsing node class", () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "explore",
+      isSubagent: true,
+      isComplete: false,
+      success: undefined,
+      toolCallId: "agent-ip",
+      agentDisplayName: "Running Agent",
+      startedAt: "2025-01-01T00:00:00.000Z",
+      completedAt: undefined,
+      durationMs: undefined,
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    expect(wrapper.text()).toContain("⏳");
+    const nodes = wrapper.findAll(".agent-node");
+    const inProgressNode = nodes.find(n => n.text().includes("Running Agent"));
+    expect(inProgressNode).toBeDefined();
+    expect(inProgressNode!.classes()).toContain("agent-node--in-progress");
+  });
+
+  it("main agent tool list includes subagent-spawning tool calls with agent badge", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-spawn-1",
+      agentDisplayName: "Explore Agent",
+      arguments: { agent_type: "explore", prompt: "Find auth code" },
+    });
+    const directTool = makeTurnToolCall({
+      toolName: "view",
+      isSubagent: false,
+      toolCallId: "tc-view-1",
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Click main agent node to open detail panel
+    const mainNode = wrapper.findAll(".agent-node").find(n => n.text().includes("Main Agent"));
+    expect(mainNode).toBeDefined();
+    await mainNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    expect(detailPanel.exists()).toBe(true);
+    // Should show both the subagent tool call and the direct tool
+    expect(detailPanel.text()).toContain("Explore Agent");
+    expect(detailPanel.text()).toContain("view");
+    // Subagent tool call should have an "agent" badge
+    const agentBadges = wrapper.findAll(".detail-agent-badge");
+    expect(agentBadges.length).toBe(1);
+  });
+
+  it("in-progress node status icon has pulsing animation class", () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "explore",
+      isSubagent: true,
+      isComplete: false,
+      success: undefined,
+      toolCallId: "agent-pulse",
+      agentDisplayName: "Pulsing Agent",
+      startedAt: "2025-01-01T00:00:00.000Z",
+      completedAt: undefined,
+      durationMs: undefined,
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const statusIcons = wrapper.findAll(".agent-node-status--in-progress");
+    expect(statusIcons.length).toBeGreaterThan(0);
+  });
 });

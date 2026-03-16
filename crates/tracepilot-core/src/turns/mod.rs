@@ -156,7 +156,8 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                         tool_call.duration_ms =
                             duration_ms(tool_call.started_at, tool_call.completed_at);
                     }
-                    tool_call.is_complete = true;
+                    // Don't mark subagents complete here — wait for SubagentCompleted/Failed
+                    tool_call.is_complete = !tool_call.is_subagent;
                     if data.model.is_some() {
                         tool_call.model = data.model.clone();
                     }
@@ -197,6 +198,11 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                 // Helper closure to enrich an existing entry with subagent metadata
                 fn enrich_subagent(existing: &mut TurnToolCall, data: &crate::models::event_types::SubagentStartedData) {
                     existing.is_subagent = true;
+                    // If ToolExecComplete already set is_complete before we knew this was
+                    // a subagent, reset it — only SubagentCompleted/Failed should finalize.
+                    if existing.success.is_none() {
+                        existing.is_complete = false;
+                    }
                     existing.agent_display_name = data.agent_display_name.clone();
                     existing.agent_description = data.agent_description.clone();
                     if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
