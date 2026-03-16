@@ -23,7 +23,7 @@ const query = computed(() =>
 /** Extract URLs from markdown link format. */
 const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
   if (!props.content) return [];
-  const matches = props.content.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g);
+  const matches = props.content.matchAll(/\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g);
   const seen = new Set<string>();
   const results: Array<{ title: string; url: string; domain: string }> = [];
   for (const m of matches) {
@@ -64,9 +64,9 @@ const renderedBody = computed(() => {
     '<span class="ws-citation">$1</span>'
   );
 
-  // Markdown links → clickable
+  // Markdown links → clickable (handles one level of nested parentheses in URL)
   html = html.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    /\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g,
     '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>'
   );
 

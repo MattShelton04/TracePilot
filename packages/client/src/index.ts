@@ -82,7 +82,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
       const toolCallId = typeof args?.toolCallId === "string" ? args.toolCallId : "";
       for (const turn of MOCK_TURNS) {
         const tc = turn.toolCalls?.find(t => t.toolCallId === toolCallId);
-        if (tc?.resultContent) return tc.resultContent;
+        if (tc && tc.resultContent != null) return tc.resultContent;
       }
       return null;
     })(),

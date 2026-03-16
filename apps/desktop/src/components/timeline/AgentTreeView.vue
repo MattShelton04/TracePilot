@@ -822,24 +822,9 @@ watch(
                       :content="fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent ?? ''"
                       :rich-enabled="prefs.isRichRenderingEnabled(tc.toolName)"
                       :is-truncated="!!(tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId))"
+                      :loading="!!(tc.toolCallId && loadingResults.has(tc.toolCallId))"
+                      @load-full="loadFullResult(tc.toolCallId!)"
                     />
-                    <div v-if="tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId)" class="tool-result-actions">
-                      <button
-                        v-if="!failedResults.has(tc.toolCallId)"
-                        class="tool-result-btn"
-                        :disabled="loadingResults.has(tc.toolCallId)"
-                        @click="loadFullResult(tc.toolCallId)"
-                      >
-                        {{ loadingResults.has(tc.toolCallId) ? 'Loading…' : 'Show Full Output' }}
-                      </button>
-                      <button
-                        v-else
-                        class="tool-result-btn tool-result-btn--retry"
-                        @click="retryFullResult(tc.toolCallId)"
-                      >
-                        ⚠ Load failed — Retry
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>

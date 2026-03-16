@@ -601,24 +601,9 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     :content="fullResults.get(selectedTool.toolCallId ?? '') ?? selectedTool.resultContent ?? ''"
                     :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)"
                     :is-truncated="!!(selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId))"
+                    :loading="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"
+                    @load-full="loadFullResult(selectedTool.toolCallId!)"
                   />
-                  <div v-if="selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId)" class="tool-result-actions">
-                    <button
-                      v-if="!failedResults.has(selectedTool.toolCallId)"
-                      class="tool-result-btn"
-                      :disabled="loadingResults.has(selectedTool.toolCallId)"
-                      @click="loadFullResult(selectedTool.toolCallId)"
-                    >
-                      {{ loadingResults.has(selectedTool.toolCallId) ? 'Loading…' : 'Show Full Output' }}
-                    </button>
-                    <button
-                      v-else
-                      class="tool-result-btn tool-result-btn--retry"
-                      @click="retryFullResult(selectedTool.toolCallId)"
-                    >
-                      ⚠ Load failed — Retry
-                    </button>
-                  </div>
                 </div>
                 <div v-if="selectedTool.error" class="detail-error">
                   <span class="detail-error-label">Error</span>

@@ -35,11 +35,12 @@ const formattedJson = computed(() => {
   return JSON.stringify(props.tc.arguments, null, 2);
 });
 
-/** True when the rich result renderer already shows the args info. */
+/** True when the rich result renderer already shows the args info AND a result exists. */
 const shouldHideCompletely = computed(() =>
   props.richEnabled
   && shouldHideArgsWithRichResult(props.tc.toolName)
   && hasResultRenderer(props.tc.toolName)
+  && (!!props.tc.resultContent || props.tc.isComplete === true)
 );
 </script>
 

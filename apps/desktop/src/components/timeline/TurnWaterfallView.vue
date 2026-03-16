@@ -829,24 +829,9 @@ function rowArgsSummary(row: WaterfallRow): string {
               :content="fullResults.get(pinnedRow.call.toolCallId ?? '') ?? pinnedRow.call.resultContent ?? ''"
               :rich-enabled="prefs.isRichRenderingEnabled(pinnedRow.call.toolName)"
               :is-truncated="!!(pinnedRow.call.toolCallId && pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId))"
+              :loading="!!(pinnedRow.call.toolCallId && loadingResults.has(pinnedRow.call.toolCallId))"
+              @load-full="loadFullResult(pinnedRow.call.toolCallId!)"
             />
-            <div v-if="pinnedRow.call.toolCallId && pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId)" class="tool-result-actions">
-              <button
-                v-if="!failedResults.has(pinnedRow.call.toolCallId)"
-                class="tool-result-btn"
-                :disabled="loadingResults.has(pinnedRow.call.toolCallId)"
-                @click="loadFullResult(pinnedRow.call.toolCallId)"
-              >
-                {{ loadingResults.has(pinnedRow.call.toolCallId) ? 'Loading…' : 'Show Full Output' }}
-              </button>
-              <button
-                v-else
-                class="tool-result-btn tool-result-btn--retry"
-                @click="retryFullResult(pinnedRow.call.toolCallId)"
-              >
-                ⚠ Load failed — Retry
-              </button>
-            </div>
           </div>
 
           <!-- Error -->
