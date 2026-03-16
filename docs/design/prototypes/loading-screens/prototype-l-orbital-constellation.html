@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype L: Orbital Constellation</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── Orbital Field ── */
+    .orbital-field {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── SVG layer for orbital paths & connections ── */
+    .orbital-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .orbital-svg line {
+      stroke-linecap: round;
+    }
+
+    .orbital-svg ellipse {
+      fill: none;
+      stroke-width: 1;
+    }
+
+    /* ── Center Logo Hub ── */
+    .logo-hub {
+      position: absolute;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      opacity: 0;
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .logo-hub.visible {
+      opacity: 1;
+    }
+
+    .logo-hub.fade-up {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+
+    .logo-hub .logo-icon {
+      width: 70px;
+      height: 70px;
+      position: relative;
+    }
+
+    .logo-hub .logo-icon svg {
+      width: 70px;
+      height: 70px;
+    }
+
+    .logo-hub .logo-glow {
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 70%);
+      animation: logoGlowPulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes logoGlowPulse {
+      0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+      50%      { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    }
+
+    .logo-hub .phase-text {
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+
+    .logo-hub .session-counter {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--accent-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Orbiting Mini-Card Nodes ── */
+    .orbit-node {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    /* Dot state (initial) */
+    .orbit-node .node-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--node-color, #818cf8);
+      box-shadow: 0 0 10px 3px var(--node-glow, rgba(129, 140, 248, 0.4));
+      transform: scale(0);
+      opacity: 0;
+    }
+
+    .orbit-node.active .node-dot {
+      animation: dotPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes dotPop {
+      0%   { transform: scale(0); opacity: 0; }
+      50%  { transform: scale(1.8); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Mini card state (expanded from dot) */
+    .orbit-node .mini-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 3px solid var(--node-color, #818cf8);
+      border-radius: 8px;
+      padding: 5px 10px;
+      white-space: nowrap;
+      pointer-events: auto;
+      min-width: 100px;
+      max-width: 140px;
+      transition: transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1),
+                  opacity 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 12px var(--node-glow, rgba(129, 140, 248, 0.15));
+    }
+
+    .orbit-node .mini-card.visible {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    .orbit-node .mini-card .mc-repo {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #e6edf3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .orbit-node .mini-card .mc-repo-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--node-color, #818cf8);
+      flex-shrink: 0;
+    }
+
+    .orbit-node .mini-card .mc-branch {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #7d8590;
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Pulse ripple from center ── */
+    @keyframes ripplePulse {
+      0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+    }
+
+    .pulse-ripple {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      border: 1px solid var(--accent-fg);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+    }
+
+    .pulse-ripple.active {
+      animation: ripplePulse 1.2s ease-out forwards;
+    }
+
+    /* ── Stats Panel (bottom center) ── */
+    .stats-panel {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-6);
+      background: rgba(22, 27, 34, 0.7);
+      backdrop-filter: blur(20px) saturate(1.3);
+      -webkit-backdrop-filter: blur(20px) saturate(1.3);
+      border: 1px solid var(--color-border-muted);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      opacity: 0;
+      transform: translateX(-50%) translateY(12px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .stats-panel.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .stats-row .stat-item {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .stats-row .stat-item-label {
+      font-size: var(--text-xs);
+      color: var(--color-fg-muted);
+    }
+
+    .stats-row .stat-item-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-row .stat-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--color-border-muted);
+    }
+
+    .stats-mini-bar {
+      width: 100%;
+      height: 3px;
+      background: var(--color-border-muted);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .stats-mini-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg));
+      border-radius: 2px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+
+    .repo-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .repo-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--color-fg-muted);
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .repo-legend-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .repo-legend-item .legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── App Chrome (morph target) ── */
+    .app-chrome {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .app-chrome.visible {
+      pointer-events: auto;
+      opacity: 1;
+    }
+
+    .app-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      z-index: 52;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      transform: translateY(-100%);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .app-header.visible {
+      transform: translateY(0);
+    }
+
+    .app-header .header-logo {
+      width: 28px;
+      height: 28px;
+    }
+
+    .app-header .header-logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .app-header .header-title {
+      font-size: var(--text-md);
+      font-weight: 600;
+      color: var(--color-fg);
+    }
+
+    .app-header .header-search {
+      margin-left: auto;
+      width: 260px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: var(--text-sm);
+      color: var(--color-fg-subtle);
+    }
+
+    .app-sidebar {
+      position: fixed;
+      top: 52px;
+      left: 0;
+      bottom: 0;
+      width: 220px;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      z-index: 51;
+      padding: 16px 0;
+      transform: translateX(-100%);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .app-sidebar.visible {
+      transform: translateX(0);
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 20px;
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+    }
+
+    .sidebar-item.active {
+      color: var(--color-fg);
+      background: rgba(99, 102, 241, 0.1);
+      border-right: 2px solid var(--accent-fg);
+    }
+
+    .sidebar-item .sidebar-icon {
+      font-size: 14px;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* ── Session grid (morph target) ── */
+    .session-grid-container {
+      position: fixed;
+      top: 52px;
+      left: 220px;
+      right: 0;
+      bottom: 0;
+      padding: 24px;
+      z-index: 50;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .session-grid-container.visible {
+      opacity: 1;
+    }
+
+    .grid-header {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-fg);
+      margin-bottom: 16px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .grid-header.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Final session cards ── */
+    .session-card-final {
+      position: absolute;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 3px solid var(--card-color, #818cf8);
+      border-radius: 10px;
+      padding: 14px 16px;
+      width: var(--card-w, 280px);
+      opacity: 0;
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .session-card-final.placed {
+      opacity: 1;
+    }
+
+    .session-card-final .card-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 8px;
+    }
+
+    .session-card-final .card-title .title-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .session-card-final .card-badges {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .session-card-final .badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 500;
+    }
+
+    .session-card-final .badge-branch {
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    .session-card-final .badge-model {
+      background: rgba(167, 139, 250, 0.15);
+      color: #a78bfa;
+      border: 1px solid rgba(167, 139, 250, 0.25);
+    }
+
+    .session-card-final .card-stats {
+      font-size: 11px;
+      color: #7d8590;
+      margin-bottom: 4px;
+    }
+
+    .session-card-final .card-time {
+      font-size: 10px;
+      color: #484f58;
+    }
+
+    /* ── Shimmer wave ── */
+    @keyframes shimmerWave {
+      0%   { left: -100%; }
+      100% { left: 200%; }
+    }
+
+    .shimmer-overlay {
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    .session-card-final.shimmer .shimmer-overlay {
+      animation: shimmerWave 0.8s ease-out forwards;
+    }
+
+    /* ── Completion flash ── */
+    @keyframes completionPulse {
+      0%   { opacity: 0; }
+      30%  { opacity: 0.06; }
+      100% { opacity: 0; }
+    }
+
+    .completion-flash {
+      position: fixed;
+      inset: 0;
+      background: var(--accent-fg);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 45;
+    }
+
+    .completion-flash.active {
+      animation: completionPulse 1s ease-out forwards;
+    }
+
+    /* ── Morph state on orbit nodes ── */
+    .orbit-node.morphing {
+      transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                  top 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.3s ease !important;
+      z-index: 40;
+      will-change: left, top;
+    }
+
+    /* ── Progress bar visibility ── */
+    .progress-bar-track {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .progress-bar-track.visible {
+      opacity: 1;
+    }
+
+    /* ── Ambient particles ── */
+    .ambient-particle {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent-fg);
+      opacity: 0;
+      pointer-events: none;
+      animation: particleDrift linear infinite;
+    }
+
+    @keyframes particleDrift {
+      0%   { opacity: 0; transform: translate(0, 0); }
+      15%  { opacity: 0.1; }
+      85%  { opacity: 0.1; }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top progress bar -->
+  <div class="progress-bar-track" id="progress-track">
+    <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+  </div>
+
+  <!-- Orbital field -->
+  <div class="orbital-field" id="orbital-field">
+
+    <!-- Ambient particles -->
+    <div id="ambient-particles"></div>
+
+    <!-- SVG layer: orbital paths + connection lines -->
+    <svg class="orbital-svg" id="orbital-svg"></svg>
+
+    <!-- Center logo hub -->
+    <div class="logo-hub" id="logo-hub">
+      <div class="logo-icon">
+        <div class="logo-glow"></div>
+        <div id="logo-svg"></div>
+      </div>
+      <div class="phase-text" id="phase-text">Preparing…</div>
+      <div class="session-counter" id="session-counter"></div>
+    </div>
+  </div>
+
+  <!-- Stats panel -->
+  <div class="stats-panel" id="stats-panel">
+    <div class="stats-row">
+      <div class="stat-item">
+        <span class="stat-item-label">Sessions:</span>
+        <span class="stat-item-value"><span id="stat-sessions">0</span>/<span id="stat-sessions-total">0</span></span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-item-label">Tokens:</span>
+        <span class="stat-item-value" id="stat-tokens">0</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-item-label">Events:</span>
+        <span class="stat-item-value" id="stat-events">0</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-item-label">Repos:</span>
+        <span class="stat-item-value" id="stat-repos">0</span>
+      </div>
+    </div>
+    <div class="stats-mini-bar">
+      <div class="stats-mini-fill" id="stats-mini-fill"></div>
+    </div>
+    <div class="repo-legend" id="repo-legend"></div>
+  </div>
+
+  <!-- App chrome (morph target) -->
+  <div class="app-chrome" id="app-chrome">
+    <div class="app-header" id="app-header">
+      <div class="header-logo" id="header-logo"></div>
+      <span class="header-title">TracePilot</span>
+      <div class="header-search">⌘K  Search sessions…</div>
+    </div>
+    <div class="app-sidebar" id="app-sidebar">
+      <div class="sidebar-item active"><span class="sidebar-icon">📋</span> Sessions</div>
+      <div class="sidebar-item"><span class="sidebar-icon">📊</span> Analytics</div>
+      <div class="sidebar-item"><span class="sidebar-icon">⏱️</span> Timeline</div>
+      <div class="sidebar-item"><span class="sidebar-icon">🔧</span> Tools</div>
+      <div class="sidebar-item"><span class="sidebar-icon">💻</span> Code Impact</div>
+      <div class="sidebar-item"><span class="sidebar-icon">⚙️</span> Settings</div>
+    </div>
+    <div class="session-grid-container" id="session-grid-container">
+      <div class="grid-header" id="grid-header">All Sessions</div>
+    </div>
+  </div>
+
+  <!-- Completion flash -->
+  <div class="completion-flash" id="completion-flash"></div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ── Repo colors ──
+    const REPO_COLORS = {
+      'frontend-app':  '#818cf8',
+      'api-server':    '#34d399',
+      'data-pipeline': '#fbbf24',
+      'mobile-app':    '#f87171',
+      'infra-config':  '#a78bfa',
+      'ml-service':    '#38bdf8',
+      'docs-site':     '#fb923c',
+    };
+
+    const PHASE_LABELS = {
+      idle:        'Preparing…',
+      discovering: 'Discovering sessions…',
+      indexing:    'Indexing sessions…',
+      finalizing:  'Building search index…',
+      complete:    'Ready — launching TracePilot',
+    };
+
+    const TIME_LABELS = ['just now', '5 min ago', '1 hour ago', '2 hours ago', '3 hours ago', 'yesterday', '2 days ago', 'last week'];
+
+    // ── Orbital lane definitions ──
+    // Tilted ellipses for depth. Token thresholds assign sessions to lanes.
+    const LANES = [
+      { rx: 150, ry: 100, period: 12, tiltDeg: 15,  label: 'inner',  tokenMax: 30000 },
+      { rx: 250, ry: 165, period: 20, tiltDeg: -10, label: 'middle', tokenMax: 100000 },
+      { rx: 360, ry: 235, period: 30, tiltDeg: 8,   label: 'outer',  tokenMax: Infinity },
+    ];
+
+    // ── State ──
+    let nodes = [];
+    let connections = [];
+    let simulator = null;
+    let animating = false;
+    let morphing = false;
+    let orbitsRunning = true;
+    let globalSpeedMult = 1;
+    let discoveredRepos = new Set();
+    let legendItems = {};
+    let nodeIndex = 0;
+    let sessionsPulsed = 0;
+    let fieldW, fieldH, cx, cy;
+
+    // ── DOM refs ──
+    const orbitalField = document.getElementById('orbital-field');
+    const svgLayer = document.getElementById('orbital-svg');
+    const logoHub = document.getElementById('logo-hub');
+    const phaseText = document.getElementById('phase-text');
+    const sessionCounter = document.getElementById('session-counter');
+    const progressTrack = document.getElementById('progress-track');
+    const progressBar = document.getElementById('progress-bar');
+    const statsPanel = document.getElementById('stats-panel');
+    const statMiniFill = document.getElementById('stats-mini-fill');
+    const repoLegend = document.getElementById('repo-legend');
+    const completionFlash = document.getElementById('completion-flash');
+    const appChrome = document.getElementById('app-chrome');
+    const appHeader = document.getElementById('app-header');
+    const appSidebar = document.getElementById('app-sidebar');
+    const gridContainer = document.getElementById('session-grid-container');
+    const gridHeader = document.getElementById('grid-header');
+
+    // Logo injection
+    document.getElementById('logo-svg').innerHTML = TRACEPILOT_LOGO_SVG;
+    document.getElementById('header-logo').innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // Animated counters
+    const sessionsCounter = new AnimatedCounter(document.getElementById('stat-sessions'), {
+      format: n => String(Math.round(n)),
+    });
+    const tokenCounter = new AnimatedCounter(document.getElementById('stat-tokens'), { format: formatTokens });
+    const eventCounter = new AnimatedCounter(document.getElementById('stat-events'), { format: formatTokens });
+    const repoCounter = new AnimatedCounter(document.getElementById('stat-repos'), {
+      format: n => String(Math.round(n)),
+    });
+
+    // ── Measure viewport ──
+    function measureField() {
+      fieldW = window.innerWidth;
+      fieldH = window.innerHeight;
+      cx = fieldW / 2;
+      cy = fieldH / 2;
+      svgLayer.setAttribute('viewBox', `0 0 ${fieldW} ${fieldH}`);
+    }
+
+    // ── Ambient particles ──
+    function createAmbientParticles(count) {
+      const container = document.getElementById('ambient-particles');
+      container.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'ambient-particle';
+        const size = 1 + Math.random() * 1.5;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const dx = (Math.random() - 0.5) * 60;
+        const dy = (Math.random() - 0.5) * 60;
+        const dur = 20 + Math.random() * 30;
+        const delay = Math.random() * dur;
+        p.style.cssText = `
+          width:${size}px; height:${size}px;
+          left:${x}%; top:${y}%;
+          --dx:${dx}px; --dy:${dy}px;
+          animation-duration:${dur}s;
+          animation-delay:-${delay}s;
+        `;
+        container.appendChild(p);
+      }
+    }
+
+    // ── Draw orbital path ellipses in SVG ──
+    let laneEllipses = [];
+
+    function drawLaneEllipses() {
+      laneEllipses.forEach(el => el.remove());
+      laneEllipses = [];
+
+      LANES.forEach(lane => {
+        const el = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        el.setAttribute('cx', cx);
+        el.setAttribute('cy', cy);
+        el.setAttribute('rx', lane.rx);
+        el.setAttribute('ry', lane.ry);
+        el.setAttribute('stroke', '#6366f1');
+        el.setAttribute('stroke-opacity', '0');
+        el.setAttribute('stroke-width', '1');
+        el.setAttribute('fill', 'none');
+        el.setAttribute('transform', `rotate(${lane.tiltDeg} ${cx} ${cy})`);
+        el.style.transition = 'stroke-opacity 0.8s ease';
+        // Stroke dash animation for draw-in effect
+        const circumference = Math.PI * 2 * Math.max(lane.rx, lane.ry);
+        el.setAttribute('stroke-dasharray', circumference);
+        el.setAttribute('stroke-dashoffset', circumference);
+        el.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke-opacity 0.8s ease';
+        svgLayer.appendChild(el);
+        laneEllipses.push(el);
+      });
+    }
+
+    function showLaneEllipses() {
+      laneEllipses.forEach((el, i) => {
+        setTimeout(() => {
+          el.setAttribute('stroke-opacity', '0.12');
+          el.setAttribute('stroke-dashoffset', '0');
+        }, i * 300);
+      });
+    }
+
+    // ── Assign lane by token count ──
+    function assignLane(tokens) {
+      for (let i = 0; i < LANES.length; i++) {
+        if (tokens <= LANES[i].tokenMax) return i;
+      }
+      return LANES.length - 1;
+    }
+
+    // ── Compute position on tilted ellipse ──
+    function getOrbitalPos(angle, lane) {
+      const tiltRad = (lane.tiltDeg * Math.PI) / 180;
+      const ex = lane.rx * Math.cos(angle);
+      const ey = lane.ry * Math.sin(angle);
+      const x = cx + ex * Math.cos(tiltRad) - ey * Math.sin(tiltRad);
+      const y = cy + ex * Math.sin(tiltRad) + ey * Math.cos(tiltRad);
+      return { x, y };
+    }
+
+    // ── Create an orbiting node ──
+    function createNode(session, index) {
+      const laneIdx = assignLane(session.tokens);
+      const lane = LANES[laneIdx];
+      const color = REPO_COLORS[session.repo] || '#818cf8';
+      const startAngle = Math.random() * Math.PI * 2;
+      const speedJitter = 0.85 + Math.random() * 0.3;
+
+      // Branch name truncation
+      const branchDisplay = session.branch.length > 14
+        ? session.branch.slice(0, 12) + '…'
+        : session.branch;
+
+      const el = document.createElement('div');
+      el.className = 'orbit-node';
+      el.style.setProperty('--node-color', color);
+      el.style.setProperty('--node-glow', color + '55');
+
+      // Dot
+      const dot = document.createElement('div');
+      dot.className = 'node-dot';
+      el.appendChild(dot);
+
+      // Mini card (hidden initially)
+      const card = document.createElement('div');
+      card.className = 'mini-card';
+      card.style.setProperty('--node-color', color);
+      card.innerHTML = `
+        <div class="mc-repo">
+          <span class="mc-repo-dot"></span>
+          ${session.repo}
+        </div>
+        <div class="mc-branch">${branchDisplay}</div>
+      `;
+      el.appendChild(card);
+
+      orbitalField.appendChild(el);
+
+      // Trigger dot pop
+      requestAnimationFrame(() => el.classList.add('active'));
+
+      const node = {
+        el, dot, card, laneIdx, lane, color, session,
+        angle: startAngle,
+        speedJitter,
+        expanded: false,
+        index,
+        alive: true,
+      };
+      nodes.push(node);
+
+      // Expand to mini-card after 0.8s
+      setTimeout(() => {
+        if (!morphing && node.alive) {
+          node.expanded = true;
+          card.classList.add('visible');
+          dot.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          dot.style.opacity = '0.3';
+          dot.style.transform = 'scale(0.5)';
+        }
+      }, 800);
+
+      // Register repo in legend
+      if (!discoveredRepos.has(session.repo)) {
+        discoveredRepos.add(session.repo);
+        addRepoLegendItem(session.repo, color);
+        repoCounter.set(discoveredRepos.size);
+      }
+
+      return node;
+    }
+
+    // ── Repo legend ──
+    function addRepoLegendItem(repo, color) {
+      if (legendItems[repo]) return;
+      const item = document.createElement('div');
+      item.className = 'repo-legend-item';
+      item.innerHTML = `<span class="legend-dot" style="background:${color}"></span>${repo}`;
+      repoLegend.appendChild(item);
+      legendItems[repo] = item;
+      requestAnimationFrame(() => item.classList.add('visible'));
+    }
+
+    // ── Connection lines (same repo, same or adjacent lanes) ──
+    function findConnections(newNode) {
+      const results = [];
+      for (const existing of nodes) {
+        if (existing === newNode) continue;
+        if (existing.session.repo !== newNode.session.repo) continue;
+        // Only same or adjacent lanes
+        if (Math.abs(existing.laneIdx - newNode.laneIdx) > 1) continue;
+        results.push(existing);
+      }
+      return results.slice(0, 2); // max 2 connections per new node
+    }
+
+    function createConnection(nodeA, nodeB) {
+      const color = nodeA.color;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-opacity', '0');
+      line.setAttribute('stroke-width', '0.8');
+      line.setAttribute('stroke-linecap', 'round');
+      line.style.transition = 'stroke-opacity 0.6s ease';
+
+      svgLayer.appendChild(line);
+
+      // Fade in
+      requestAnimationFrame(() => {
+        line.setAttribute('stroke-opacity', '0.2');
+      });
+
+      const conn = { a: nodeA, b: nodeB, el: line, color };
+      connections.push(conn);
+      return conn;
+    }
+
+    // ── Update connection endpoints each frame ──
+    function updateConnections() {
+      connections.forEach(conn => {
+        if (!conn.a.alive || !conn.b.alive) return;
+        const posA = getOrbitalPos(conn.a.angle, conn.a.lane);
+        const posB = getOrbitalPos(conn.b.angle, conn.b.lane);
+        conn.el.setAttribute('x1', posA.x);
+        conn.el.setAttribute('y1', posA.y);
+        conn.el.setAttribute('x2', posB.x);
+        conn.el.setAttribute('y2', posB.y);
+      });
+    }
+
+    // ── Pulse ripple from center ──
+    function emitPulse() {
+      const ripple = document.createElement('div');
+      ripple.className = 'pulse-ripple';
+      ripple.style.left = cx + 'px';
+      ripple.style.top = cy + 'px';
+      orbitalField.appendChild(ripple);
+      requestAnimationFrame(() => ripple.classList.add('active'));
+      setTimeout(() => ripple.remove(), 1300);
+
+      // Briefly brighten lane ellipses
+      laneEllipses.forEach(el => {
+        el.setAttribute('stroke-opacity', '0.25');
+        setTimeout(() => el.setAttribute('stroke-opacity', '0.12'), 600);
+      });
+    }
+
+    // ── Main animation loop ──
+    let lastTime = 0;
+
+    function animate(timestamp) {
+      if (!animating) return;
+      if (!lastTime) lastTime = timestamp;
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      if (orbitsRunning && !morphing) {
+        nodes.forEach(node => {
+          const angularSpeed = (Math.PI * 2) / node.lane.period;
+          node.angle += angularSpeed * dt * node.speedJitter * globalSpeedMult;
+
+          const pos = getOrbitalPos(node.angle, node.lane);
+          // Position the node; keep card horizontal (no rotation)
+          node.el.style.left = (pos.x - 4) + 'px';
+          node.el.style.top = (pos.y - 4) + 'px';
+        });
+
+        updateConnections();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // ── Morph Sequence ──
+    function startMorphSequence() {
+      morphing = true;
+
+      const gridCols = 3;
+      const gridTop = 52 + 24 + 36;
+      const gridLeft = 220 + 24;
+      const gridRight = fieldW - 24;
+      const availW = gridRight - gridLeft;
+      const cardW = Math.min(280, (availW - (gridCols - 1) * 16) / gridCols);
+      const cardH = 120;
+      const gapX = 16;
+      const gapY = 16;
+
+      const gridPositions = nodes.map((_, i) => {
+        const col = i % gridCols;
+        const row = Math.floor(i / gridCols);
+        return {
+          x: gridLeft + col * (cardW + gapX),
+          y: gridTop + row * (cardH + gapY),
+        };
+      });
+
+      // === Step 0: Orbits stop (0.3s) ===
+      orbitsRunning = false;
+      // Decelerate to zero
+      let decStart = performance.now();
+      function decelerate() {
+        const elapsed = performance.now() - decStart;
+        const t = Math.min(elapsed / 300, 1);
+        globalSpeedMult = 1 - t;
+        if (t < 1) {
+          // Update positions during deceleration
+          const dt = 0.016; // ~60fps
+          nodes.forEach(node => {
+            const angularSpeed = (Math.PI * 2) / node.lane.period;
+            node.angle += angularSpeed * dt * node.speedJitter * globalSpeedMult;
+            const pos = getOrbitalPos(node.angle, node.lane);
+            node.el.style.left = (pos.x - 4) + 'px';
+            node.el.style.top = (pos.y - 4) + 'px';
+          });
+          updateConnections();
+          requestAnimationFrame(decelerate);
+        } else {
+          // Orbits fully stopped — fade connections
+          connections.forEach(c => {
+            c.el.style.transition = 'stroke-opacity 0.3s ease';
+            c.el.setAttribute('stroke-opacity', '0');
+          });
+          // Fade lane ellipses
+          laneEllipses.forEach(el => {
+            el.style.transition = 'stroke-opacity 0.4s ease';
+            el.setAttribute('stroke-opacity', '0');
+          });
+
+          // === Step 1: Grid formation (0.8s) ===
+          setTimeout(() => moveToGrid(gridPositions, cardW, cardH), 300);
+        }
+      }
+      requestAnimationFrame(decelerate);
+
+      // Hide stats and logo hub
+      statsPanel.classList.remove('visible');
+      logoHub.classList.add('fade-up');
+      progressTrack.classList.remove('visible');
+    }
+
+    function moveToGrid(gridPositions, cardW, cardH) {
+      // Move nodes to grid positions with CSS transition
+      nodes.forEach((node, i) => {
+        if (i >= gridPositions.length) {
+          node.el.style.opacity = '0';
+          return;
+        }
+        const target = gridPositions[i];
+        node.el.classList.add('morphing');
+        // Offset to center the node-dot area on the target
+        node.el.style.left = target.x + 'px';
+        node.el.style.top = target.y + 'px';
+      });
+
+      // === Step 2: Card transformation (after 0.8s) ===
+      setTimeout(() => transformCards(gridPositions, cardW), 800);
+    }
+
+    function transformCards(gridPositions, cardW) {
+      nodes.forEach((node, i) => {
+        if (i >= gridPositions.length) return;
+        const target = gridPositions[i];
+        const s = node.session;
+        const color = REPO_COLORS[s.repo] || '#818cf8';
+        const timeLabel = TIME_LABELS[i % TIME_LABELS.length];
+
+        const finalCard = document.createElement('div');
+        finalCard.className = 'session-card-final';
+        finalCard.style.setProperty('--card-w', cardW + 'px');
+        finalCard.style.setProperty('--card-color', color);
+        finalCard.style.left = target.x + 'px';
+        finalCard.style.top = target.y + 'px';
+        finalCard.innerHTML = `
+          <div class="card-title">
+            <span class="title-dot" style="background:${color}"></span>
+            ${s.repo}
+          </div>
+          <div class="card-badges">
+            <span class="badge badge-branch">${s.branch}</span>
+            <span class="badge badge-model">${s.model.replace('claude-', '').replace('gpt-', 'gpt')}</span>
+          </div>
+          <div class="card-stats">${s.turns} turns · ${formatTokens(s.tokens)} tokens</div>
+          <div class="card-time">${timeLabel}</div>
+          <div class="shimmer-overlay"></div>
+        `;
+        gridContainer.appendChild(finalCard);
+
+        // Stagger fade-in
+        setTimeout(() => finalCard.classList.add('placed'), i * 30);
+
+        // Hide orbital node
+        node.el.style.transition = 'opacity 0.3s ease';
+        node.el.style.opacity = '0';
+      });
+
+      // === Step 3: Chrome appears (after 0.5s) ===
+      setTimeout(() => showChrome(), 500);
+    }
+
+    function showChrome() {
+      appChrome.classList.add('visible');
+      appHeader.classList.add('visible');
+      gridContainer.classList.add('visible');
+
+      setTimeout(() => appSidebar.classList.add('visible'), 100);
+      setTimeout(() => gridHeader.classList.add('visible'), 250);
+
+      // === Step 4: Polish (after 0.4s) ===
+      setTimeout(() => polish(), 400);
+    }
+
+    function polish() {
+      // Shimmer wave
+      const cards = gridContainer.querySelectorAll('.session-card-final');
+      cards.forEach((card, i) => {
+        setTimeout(() => card.classList.add('shimmer'), i * 60);
+      });
+
+      // Scale 0.98 → 1.0
+      gridContainer.style.transition = 'transform 0.3s ease';
+      gridContainer.style.transform = 'scale(0.98)';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          gridContainer.style.transform = 'scale(1)';
+        });
+      });
+
+      // Clean up orbital SVG
+      setTimeout(() => {
+        svgLayer.innerHTML = '';
+        connections = [];
+        laneEllipses = [];
+        orbitalField.style.pointerEvents = 'none';
+      }, 500);
+    }
+
+    // ── Clear all state ──
+    function clearAll() {
+      morphing = false;
+      orbitsRunning = true;
+      globalSpeedMult = 1;
+      animating = false;
+      lastTime = 0;
+
+      nodes.forEach(n => n.el.remove());
+      nodes = [];
+      connections.forEach(c => c.el.remove());
+      connections = [];
+      laneEllipses.forEach(el => el.remove());
+      laneEllipses = [];
+      nodeIndex = 0;
+      sessionsPulsed = 0;
+      discoveredRepos.clear();
+      legendItems = {};
+      repoLegend.innerHTML = '';
+
+      svgLayer.innerHTML = '';
+
+      // Reset UI
+      logoHub.classList.remove('visible', 'fade-up');
+      logoHub.style.transform = '';
+      progressTrack.classList.remove('visible');
+      progressBar.style.width = '0%';
+      statsPanel.classList.remove('visible');
+      statMiniFill.style.width = '0%';
+      completionFlash.classList.remove('active');
+
+      // Reset chrome
+      appChrome.classList.remove('visible');
+      appHeader.classList.remove('visible');
+      appSidebar.classList.remove('visible');
+      gridContainer.classList.remove('visible');
+      gridHeader.classList.remove('visible');
+      gridContainer.querySelectorAll('.session-card-final').forEach(el => el.remove());
+      gridContainer.style.transform = '';
+
+      orbitalField.style.pointerEvents = '';
+      orbitalField.style.opacity = '1';
+
+      // Remove any lingering pulse ripples
+      orbitalField.querySelectorAll('.pulse-ripple').forEach(el => el.remove());
+    }
+
+    // ── Main simulation ──
+    function startSimulation(durationS, totalSessions) {
+      clearAll();
+      measureField();
+      drawLaneEllipses();
+      createAmbientParticles(35);
+
+      // Start animation loop
+      animating = true;
+      orbitsRunning = true;
+      globalSpeedMult = 1;
+      lastTime = 0;
+      requestAnimationFrame(animate);
+
+      // Reset counters
+      document.getElementById('stat-sessions-total').textContent = totalSessions;
+      sessionsCounter.set(0);
+      tokenCounter.set(0);
+      eventCounter.set(0);
+      repoCounter.set(0);
+      sessionCounter.textContent = '';
+      phaseText.textContent = PHASE_LABELS.idle;
+
+      if (simulator) simulator.stop();
+
+      simulator = new LoadingSimulator({
+        totalSessions,
+        durationMs: durationS * 1000,
+
+        onPhaseChange(phase) {
+          phaseText.textContent = PHASE_LABELS[phase] || '';
+
+          if (phase === 'discovering') {
+            // Phase 1: Logo + orbital lanes draw in
+            logoHub.classList.add('visible');
+            progressTrack.classList.add('visible');
+            showLaneEllipses();
+          }
+
+          if (phase === 'indexing') {
+            // Phase 2: Sessions start appearing, stats visible
+            statsPanel.classList.add('visible');
+          }
+
+          if (phase === 'finalizing') {
+            // Phase 3: Full constellation — slow orbits
+            globalSpeedMult = 0.5;
+            // Brighten lanes briefly
+            laneEllipses.forEach(el => {
+              el.setAttribute('stroke-opacity', '0.2');
+            });
+          }
+
+          if (phase === 'complete') {
+            // Brief pause to appreciate, then morph
+            completionFlash.classList.remove('active');
+            void completionFlash.offsetWidth;
+            completionFlash.classList.add('active');
+
+            setTimeout(() => startMorphSequence(), 500);
+          }
+        },
+
+        onProgress(progress) {
+          const pct = (progress * 100).toFixed(1) + '%';
+          progressBar.style.width = pct;
+          statMiniFill.style.width = pct;
+        },
+
+        onSessionProcessed({ current, total, session }) {
+          sessionsCounter.set(current);
+          sessionCounter.textContent = `${current} / ${total}`;
+
+          const node = createNode(session, nodeIndex++);
+
+          // Find and draw connections
+          const targets = findConnections(node);
+          targets.forEach(t => createConnection(node, t));
+
+          // Pulse every ~10 sessions
+          sessionsPulsed++;
+          if (sessionsPulsed % 10 === 0) {
+            emitPulse();
+          }
+        },
+
+        onStatsUpdate(stats) {
+          tokenCounter.set(stats.totalTokens);
+          eventCounter.set(stats.totalEvents);
+        },
+
+        onComplete() {
+          // Handled by onPhaseChange('complete')
+        },
+      });
+
+      simulator.start();
+    }
+
+    // ── Handle resize ──
+    window.addEventListener('resize', () => {
+      measureField();
+      // Redraw lane ellipses at new center
+      laneEllipses.forEach((el, i) => {
+        const lane = LANES[i];
+        el.setAttribute('cx', cx);
+        el.setAttribute('cy', cy);
+        el.setAttribute('transform', `rotate(${lane.tiltDeg} ${cx} ${cy})`);
+      });
+      svgLayer.setAttribute('viewBox', `0 0 ${fieldW} ${fieldH}`);
+    });
+
+    // ── Initialize ──
+    measureField();
+
+    // ── Demo controls ──
+    createDemoControls(document.body, {
+      defaultDuration: 12,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (simulator) simulator.stop();
+        clearAll();
+        sessionsCounter.set(0);
+        tokenCounter.set(0);
+        eventCounter.set(0);
+        repoCounter.set(0);
+      },
+    });
+
+    // Auto-start
+    setTimeout(() => startSimulation(12, 20), 500);
+  </script>
+</body>
+</html>

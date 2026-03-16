@@ -56,10 +56,29 @@ pub struct ValidateSessionDirResult {
     pub error: Option<String>,
 }
 
+/// Enriched indexing progress payload emitted via Tauri events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexingProgressPayload {
+    pub current: usize,
+    pub total: usize,
+    /// Per-session info (None if this session was skipped or failed).
+    pub session_repo: Option<String>,
+    pub session_branch: Option<String>,
+    pub session_model: Option<String>,
+    pub session_tokens: u64,
+    pub session_events: usize,
+    pub session_turns: usize,
+    /// Running totals across all indexed sessions so far.
+    pub total_tokens: u64,
+    pub total_events: u64,
+    pub total_repos: usize,
+}
+
 mod commands {
     use super::{
-        config, EventItem, EventsResponse, SessionListItem, SharedConfig, TodosResponse,
-        TracePilotConfig, ValidateSessionDirResult,
+        config, EventItem, EventsResponse, IndexingProgressPayload, SessionListItem,
+        SharedConfig, TodosResponse, TracePilotConfig, ValidateSessionDirResult,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -67,6 +86,45 @@ mod commands {
     use tokio::sync::Semaphore;
 
     const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
+
+    /// Convert an `IndexingProgress` from the indexer into our Tauri event payload and emit it.
+    fn emit_indexing_progress(
+        app: &tauri::AppHandle,
+        progress: &tracepilot_indexer::IndexingProgress,
+    ) {
+        let payload = IndexingProgressPayload {
+            current: progress.current,
+            total: progress.total,
+            session_repo: progress
+                .session_info
+                .as_ref()
+                .and_then(|s| s.repository.clone()),
+            session_branch: progress
+                .session_info
+                .as_ref()
+                .and_then(|s| s.branch.clone()),
+            session_model: progress
+                .session_info
+                .as_ref()
+                .and_then(|s| s.current_model.clone()),
+            session_tokens: progress
+                .session_info
+                .as_ref()
+                .map_or(0, |s| s.total_tokens),
+            session_events: progress
+                .session_info
+                .as_ref()
+                .map_or(0, |s| s.event_count),
+            session_turns: progress
+                .session_info
+                .as_ref()
+                .map_or(0, |s| s.turn_count),
+            total_tokens: progress.running_tokens,
+            total_events: progress.running_events,
+            total_repos: progress.running_repos,
+        };
+        let _ = app.emit("indexing-progress", payload);
+    }
 
     /// Read config from shared state, falling back to defaults.
     fn read_config(state: &SharedConfig) -> TracePilotConfig {
@@ -463,25 +521,20 @@ mod commands {
 
         let result = tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            match tracepilot_indexer::reindex_incremental_with_progress(
+            let app_fallback = app_handle.clone();
+            match tracepilot_indexer::reindex_incremental_with_rich_progress(
                 &session_state_dir,
                 &index_path,
-                |current, total| {
-                    let _ = app_handle.emit(
-                        "indexing-progress",
-                        serde_json::json!({ "current": current, "total": total }),
-                    );
+                |progress| {
+                    emit_indexing_progress(&app_handle, progress);
                 },
             ) {
                 Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
-                Err(_) => tracepilot_indexer::reindex_all_with_progress(
+                Err(_) => tracepilot_indexer::reindex_all_with_rich_progress(
                     &session_state_dir,
                     &index_path,
-                    |current, total| {
-                        let _ = app_handle.emit(
-                            "indexing-progress",
-                            serde_json::json!({ "current": current, "total": total }),
-                        );
+                    |progress| {
+                        emit_indexing_progress(&app_fallback, progress);
                     },
                 )
                 .map(|n| (n, n))
@@ -529,14 +582,11 @@ mod commands {
                 let _ = std::fs::remove_file(&shm);
             }
 
-            tracepilot_indexer::reindex_all_with_progress(
+            tracepilot_indexer::reindex_all_with_rich_progress(
                 &session_state_dir,
                 &index_path,
-                |current, total| {
-                    let _ = app_handle.emit(
-                        "indexing-progress",
-                        serde_json::json!({ "current": current, "total": total }),
-                    );
+                |progress| {
+                    emit_indexing_progress(&app_handle, progress);
                 },
             )
             .map(|n| (n, n))

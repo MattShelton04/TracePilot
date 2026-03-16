@@ -468,3 +468,20 @@ export interface ValidateSessionDirResult {
   sessionCount: number;
   error?: string;
 }
+
+/** Enriched indexing progress payload emitted per session during reindexing. */
+export interface IndexingProgressPayload {
+  current: number;
+  total: number;
+  /** Per-session info (null/undefined if skipped or failed). */
+  sessionRepo: string | null;
+  sessionBranch: string | null;
+  sessionModel: string | null;
+  sessionTokens: number;
+  sessionEvents: number;
+  sessionTurns: number;
+  /** Running totals across all indexed sessions so far. */
+  totalTokens: number;
+  totalEvents: number;
+  totalRepos: number;
+}

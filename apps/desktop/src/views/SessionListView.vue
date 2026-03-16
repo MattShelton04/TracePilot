@@ -5,11 +5,12 @@ import { useSessionsStore, type SortOption } from "@/stores/sessions";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { IndexingProgressPayload } from '@tracepilot/types';
 
 const router = useRouter();
 const store = useSessionsStore();
 
-const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const unlisteners: UnlistenFn[] = [];
 
 const repoOptions= computed(() => store.repositories as string[]);
@@ -27,7 +28,7 @@ function onSelect(sessionId: string) {
 
 onMounted(async () => {
   unlisteners.push(
-    await listen<{ current: number; total: number }>('indexing-progress', (event) => {
+    await listen<IndexingProgressPayload>('indexing-progress', (event) => {
       indexingProgress.value = event.payload;
     }),
     await listen('indexing-started', () => {

@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype H: Data Assembler</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* === Loading Screen Override === */
+    .loading-screen {
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* === Fragment Base === */
+    .fragment {
+      position: absolute;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      will-change: transform, opacity;
+      z-index: 2;
+    }
+    .fragment.visible { opacity: 1; }
+    .fragment.settling {
+      transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.6s ease;
+    }
+    .fragment.settled {
+      transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.5s ease;
+    }
+
+    /* === Fragment Types === */
+    .frag-code {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--accent-fg);
+      opacity: 0.5;
+      background: var(--accent-subtle);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+    }
+    .frag-data {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-fg-muted);
+      background: rgba(125, 133, 144, 0.08);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+    }
+    .frag-badge {
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+    }
+    .frag-badge.badge-indigo {
+      color: var(--accent-fg);
+      background: var(--accent-subtle);
+      border-color: var(--accent-muted);
+    }
+    .frag-badge.badge-emerald {
+      color: var(--success-fg);
+      background: var(--success-subtle);
+      border-color: var(--success-muted);
+    }
+    .frag-badge.badge-violet {
+      color: var(--done-fg);
+      background: rgba(167, 139, 250, 0.1);
+      border-color: rgba(167, 139, 250, 0.3);
+    }
+    .frag-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .frag-chart .bar {
+      width: 5px;
+      border-radius: 1px 1px 0 0;
+      background: var(--accent-fg);
+      opacity: 0.4;
+    }
+    .frag-chart-dots {
+      display: grid;
+      grid-template-columns: repeat(3, 5px);
+      gap: 3px;
+    }
+    .frag-chart-dots .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--success-fg);
+      opacity: 0.35;
+    }
+    .frag-chart-arc {
+      width: 22px;
+      height: 22px;
+    }
+    .frag-file {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-fg-subtle);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background: rgba(72, 79, 88, 0.12);
+      border: 1px solid transparent;
+    }
+
+    /* === Center Logo (Scatter Phase) === */
+    .center-logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      z-index: 10;
+      transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .center-logo .logo-svg {
+      width: 56px;
+      height: 56px;
+      filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.4));
+      transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .center-logo .logo-text {
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      transition: opacity 0.4s ease, transform 0.6s ease;
+    }
+    .center-logo.in-header {
+      top: 20px;
+      left: 110px;
+      transform: translate(-50%, 0);
+    }
+    .center-logo.in-header .logo-svg {
+      width: 28px;
+      height: 28px;
+    }
+    .center-logo.in-header .logo-text {
+      opacity: 0;
+      transform: translateY(-8px);
+      position: absolute;
+    }
+
+    /* === App Layout Panels === */
+    .app-layout {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .panel {
+      position: absolute;
+      border: 1px solid transparent;
+      border-radius: var(--radius-lg);
+      background: transparent;
+      transition: border-color 0.8s ease,
+                  background 0.8s ease,
+                  box-shadow 0.8s ease,
+                  opacity 0.5s ease;
+      overflow: hidden;
+    }
+    .panel.materialized {
+      border-color: var(--color-border);
+      background: var(--color-canvas-subtle);
+    }
+    .panel.sharpened {
+      background: var(--color-canvas-subtle);
+      border-color: var(--color-border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Panel label */
+    .panel-label {
+      position: absolute;
+      top: var(--space-2);
+      left: var(--space-3);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-fg-subtle);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      font-family: var(--font-mono);
+    }
+    .panel.materialized .panel-label { opacity: 1; }
+
+    /* Panel zones */
+    .panel-header {
+      top: 0; left: 0; right: 0;
+      height: 52px;
+      border-radius: 0;
+      border-bottom: 1px solid transparent;
+    }
+    .panel-header.materialized {
+      border-bottom-color: var(--color-border);
+      background: var(--color-canvas-subtle);
+    }
+    .panel-header .header-inner {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 var(--space-4);
+      gap: var(--space-3);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    .panel-header.materialized .header-inner { opacity: 1; }
+    .header-title-text {
+      font-size: var(--text-md);
+      font-weight: 600;
+      color: var(--color-fg);
+    }
+    .header-search {
+      margin-left: auto;
+      width: 180px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+    }
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+    }
+
+    .panel-sidebar {
+      top: 52px; left: 0; bottom: 0;
+      width: 180px;
+      border-radius: 0;
+      border-right: 1px solid transparent;
+    }
+    .panel-sidebar.materialized {
+      border-right-color: var(--color-border);
+      background: var(--color-canvas-subtle);
+    }
+    .sidebar-nav {
+      padding: var(--space-4) var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    .panel-sidebar.materialized .sidebar-nav { opacity: 1; }
+    .nav-item {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      transition: background 0.2s;
+    }
+    .nav-item.active {
+      background: var(--accent-subtle);
+      color: var(--accent-fg);
+    }
+
+    .panel-stats {
+      top: 68px; left: 196px; right: 16px;
+      height: 80px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 100%;
+      align-items: center;
+      text-align: center;
+      padding: 0 var(--space-4);
+    }
+
+    .panel-sessions {
+      top: 164px; left: 196px;
+      width: calc(60% - 100px);
+      height: 220px;
+    }
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+      padding: var(--space-8) var(--space-3) var(--space-3);
+    }
+    .session-card-mock {
+      height: 42px;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border-muted);
+      border-radius: var(--radius-sm);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-3);
+      gap: var(--space-2);
+    }
+    .session-card-mock.visible { opacity: 1; }
+    .session-card-mock .card-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-fg);
+      flex-shrink: 0;
+    }
+    .session-card-mock .card-line {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--color-border);
+      flex: 1;
+    }
+
+    .panel-chart {
+      top: 164px;
+      right: 16px;
+      width: calc(40% - 112px);
+      height: 220px;
+    }
+    .chart-placeholder {
+      padding: var(--space-8) var(--space-3) var(--space-3);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      flex: 1;
+      padding-top: var(--space-4);
+    }
+    .chart-bar {
+      flex: 1;
+      background: var(--accent-emphasis);
+      border-radius: 2px 2px 0 0;
+      opacity: 0.5;
+      min-height: 4px;
+      transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .chart-donut-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    .panel-timeline {
+      top: 400px; left: 196px; right: 16px;
+      height: 120px;
+    }
+    .timeline-bars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: var(--space-8) var(--space-3) var(--space-3);
+      height: 100%;
+    }
+    .timeline-bar {
+      height: 18px;
+      border-radius: 2px;
+      opacity: 0;
+      transition: opacity 0.4s ease, width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .timeline-bar.visible { opacity: 0.6; }
+
+    /* === Shimmer Wave === */
+    @keyframes shimmer-wave {
+      0%   { left: -30%; }
+      100% { left: 130%; }
+    }
+    .shimmer-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 20;
+      overflow: hidden;
+      opacity: 0;
+    }
+    .shimmer-overlay.active { opacity: 1; }
+    .shimmer-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 30%;
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(99, 102, 241, 0.06),
+        rgba(129, 140, 248, 0.12),
+        rgba(99, 102, 241, 0.06),
+        transparent);
+      animation: shimmer-wave 1.2s ease-in-out forwards;
+    }
+
+    /* === Final Reveal === */
+    .app-layout.revealing {
+      animation: reveal-scale 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes reveal-scale {
+      from { transform: scale(0.95); opacity: 0.85; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* === Progress Bar Glow (active) === */
+    .progress-bar-fill.active {
+      box-shadow: 0 0 12px var(--accent-muted), 0 0 4px var(--accent-emphasis);
+    }
+
+    /* === Reduced Motion === */
+    @media (prefers-reduced-motion: reduce) {
+      .fragment, .panel, .center-logo, .center-logo .logo-svg,
+      .panel-label, .session-card-mock, .timeline-bar, .chart-bar {
+        transition-duration: 0.01ms !important;
+      }
+      .shimmer-bar { animation-duration: 0.01ms !important; }
+    }
+
+    /* === Responsive === */
+    @media (max-width: 700px) {
+      .panel-sidebar { width: 0; overflow: hidden; opacity: 0; }
+      .panel-stats,
+      .panel-sessions,
+      .panel-chart,
+      .panel-timeline {
+        left: 16px;
+      }
+      .panel-sessions { width: calc(55% - 16px); }
+      .panel-chart { width: calc(45% - 24px); }
+      .center-logo.in-header { left: 60px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Progress bar -->
+  <div class="progress-bar-track">
+    <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+  </div>
+
+  <!-- Loading screen container -->
+  <div class="loading-screen" id="loading-screen">
+
+    <!-- Floating fragments (created by JS) -->
+    <div id="fragment-container"></div>
+
+    <!-- Center logo (moves to header in final phase) -->
+    <div class="center-logo" id="center-logo">
+      <div class="logo-svg" id="logo-svg"></div>
+      <div class="logo-text" id="logo-text">Gathering session data…</div>
+    </div>
+
+    <!-- App layout panels (invisible initially) -->
+    <div class="app-layout" id="app-layout">
+      <!-- Header -->
+      <div class="panel panel-header" id="panel-header">
+        <div class="header-inner">
+          <span class="header-title-text" style="margin-left: 44px">TracePilot</span>
+          <div class="header-search"></div>
+          <div class="header-icon"></div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="panel panel-sidebar" id="panel-sidebar">
+        <div class="sidebar-nav">
+          <div class="nav-item active">Sessions</div>
+          <div class="nav-item">Analytics</div>
+          <div class="nav-item">Timeline</div>
+          <div class="nav-item">Tools</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="panel panel-stats" id="panel-stats">
+        <span class="panel-label">Overview</span>
+        <div class="stats-grid">
+          <div>
+            <div class="stat-value" id="stat-sessions">0</div>
+            <div class="stat-label">Sessions</div>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-tokens">0</div>
+            <div class="stat-label">Tokens</div>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-events">0</div>
+            <div class="stat-label">Events</div>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-tools">0</div>
+            <div class="stat-label">Tools</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sessions -->
+      <div class="panel panel-sessions" id="panel-sessions">
+        <span class="panel-label">Sessions</span>
+        <div class="sessions-grid" id="sessions-grid"></div>
+      </div>
+
+      <!-- Chart -->
+      <div class="panel panel-chart" id="panel-chart">
+        <span class="panel-label">Analytics</span>
+        <div class="chart-placeholder">
+          <div class="chart-bars" id="chart-bars"></div>
+          <div class="chart-donut-wrap">
+            <svg width="44" height="44" viewBox="0 0 44 44" id="chart-donut" style="opacity:0; transition: opacity 0.6s ease;">
+              <circle cx="22" cy="22" r="16" fill="none" stroke="var(--color-border-muted)" stroke-width="5"/>
+              <circle cx="22" cy="22" r="16" fill="none" stroke="var(--accent-fg)" stroke-width="5"
+                stroke-dasharray="70 100.5" stroke-dashoffset="0" stroke-linecap="round" opacity="0.7"
+                transform="rotate(-90 22 22)"/>
+              <circle cx="22" cy="22" r="16" fill="none" stroke="var(--success-fg)" stroke-width="5"
+                stroke-dasharray="30 100.5" stroke-dashoffset="-70" stroke-linecap="round" opacity="0.7"
+                transform="rotate(-90 22 22)"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="panel panel-timeline" id="panel-timeline">
+        <span class="panel-label">Timeline</span>
+        <div class="timeline-bars" id="timeline-bars"></div>
+      </div>
+    </div>
+
+    <!-- Shimmer overlay -->
+    <div class="shimmer-overlay" id="shimmer-overlay">
+      <div class="shimmer-bar"></div>
+    </div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ============================================================
+    // Fragment definitions
+    // ============================================================
+    const FRAGMENT_DEFS = [
+      // Code fragments → stats zone
+      { type: 'code', text: 'fn parse()', zone: 'stats' },
+      { type: 'code', text: 'async/await', zone: 'sessions' },
+      { type: 'code', text: 'SELECT * FROM', zone: 'timeline' },
+      { type: 'code', text: 'import { ref }', zone: 'sessions' },
+      { type: 'code', text: '.filter()', zone: 'chart' },
+      { type: 'code', text: 'pub struct', zone: 'stats' },
+      // Data fragments → stats zone
+      { type: 'data', text: '"tokens": 45K', zone: 'stats' },
+      { type: 'data', text: '"turns": 18', zone: 'stats' },
+      { type: 'data', text: '"cost": $0.42', zone: 'chart' },
+      { type: 'data', text: '"events": 312', zone: 'stats' },
+      { type: 'data', text: '"tools": 89', zone: 'timeline' },
+      { type: 'data', text: '"model": "claude"', zone: 'sessions' },
+      // Badge fragments → sessions zone
+      { type: 'badge', color: 'indigo', text: 'main', zone: 'sessions' },
+      { type: 'badge', color: 'indigo', text: 'develop', zone: 'sessions' },
+      { type: 'badge', color: 'emerald', text: 'feat/auth', zone: 'sessions' },
+      { type: 'badge', color: 'violet', text: 'claude-sonnet-4', zone: 'sessions' },
+      { type: 'badge', color: 'violet', text: 'gpt-4.1', zone: 'chart' },
+      { type: 'badge', color: 'emerald', text: 'fix/perf', zone: 'sessions' },
+      // Chart fragments → chart zone
+      { type: 'chart-bars', bars: [12, 20, 8], zone: 'chart' },
+      { type: 'chart-bars', bars: [18, 10, 22], zone: 'chart' },
+      { type: 'chart-dots', zone: 'chart' },
+      { type: 'chart-arc', zone: 'chart' },
+      // File fragments → various zones
+      { type: 'file', text: 'auth.ts', zone: 'sessions' },
+      { type: 'file', text: 'index.vue', zone: 'sessions' },
+      { type: 'file', text: 'Cargo.toml', zone: 'timeline' },
+      { type: 'file', text: 'events.jsonl', zone: 'timeline' },
+      { type: 'file', text: 'package.json', zone: 'stats' },
+      { type: 'file', text: 'schema.sql', zone: 'chart' },
+      // Extra variety
+      { type: 'code', text: 'computed(() =>', zone: 'chart' },
+      { type: 'data', text: '"repos": 5', zone: 'stats' },
+    ];
+
+    // ============================================================
+    // Zone target rectangles (% of viewport)
+    // ============================================================
+    function getZoneRect(zone) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const zones = {
+        stats:    { x: w * 0.20, y: h * 0.11, w: w * 0.75, h: h * 0.12 },
+        sessions: { x: w * 0.20, y: h * 0.28, w: w * 0.38, h: h * 0.32 },
+        chart:    { x: w * 0.62, y: h * 0.28, w: w * 0.34, h: h * 0.32 },
+        timeline: { x: w * 0.20, y: h * 0.65, w: w * 0.75, h: h * 0.18 },
+      };
+      return zones[zone] || zones.stats;
+    }
+
+    // ============================================================
+    // Create fragment DOM elements
+    // ============================================================
+    const $container = document.getElementById('fragment-container');
+    const fragments = [];
+
+    function createFragmentEl(def) {
+      const el = document.createElement('div');
+      el.classList.add('fragment');
+
+      if (def.type === 'code') {
+        el.classList.add('frag-code');
+        el.textContent = def.text;
+      } else if (def.type === 'data') {
+        el.classList.add('frag-data');
+        el.textContent = def.text;
+      } else if (def.type === 'badge') {
+        el.classList.add('frag-badge', `badge-${def.color}`);
+        el.textContent = def.text;
+      } else if (def.type === 'chart-bars') {
+        el.classList.add('frag-chart');
+        def.bars.forEach(h => {
+          const bar = document.createElement('div');
+          bar.classList.add('bar');
+          bar.style.height = h + 'px';
+          el.appendChild(bar);
+        });
+      } else if (def.type === 'chart-dots') {
+        el.classList.add('frag-chart-dots');
+        for (let i = 0; i < 6; i++) {
+          const d = document.createElement('div');
+          d.classList.add('dot');
+          if (Math.random() > 0.5) d.style.opacity = '0.15';
+          el.appendChild(d);
+        }
+      } else if (def.type === 'chart-arc') {
+        el.classList.add('frag-chart-arc');
+        el.innerHTML = `<svg viewBox="0 0 22 22" width="22" height="22">
+          <circle cx="11" cy="11" r="8" fill="none" stroke="var(--accent-fg)" stroke-width="3"
+            stroke-dasharray="28 22" stroke-linecap="round" opacity="0.4" transform="rotate(-90 11 11)"/>
+        </svg>`;
+      } else if (def.type === 'file') {
+        el.classList.add('frag-file');
+        el.textContent = def.text;
+      }
+
+      $container.appendChild(el);
+      return el;
+    }
+
+    // Initialize all fragments with random positions
+    function initFragments() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      FRAGMENT_DEFS.forEach((def, i) => {
+        const el = createFragmentEl(def);
+        const x = Math.random() * (w - 100);
+        const y = Math.random() * (h - 40);
+        const rot = (Math.random() - 0.5) * 20;
+        const vx = (Math.random() - 0.5) * 0.4;
+        const vy = (Math.random() - 0.5) * 0.3;
+        const vr = (Math.random() - 0.5) * 0.15;
+
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+
+        fragments.push({
+          el, def,
+          x, y, rot,
+          vx, vy, vr,
+          targetX: 0, targetY: 0,
+          settled: false,
+        });
+      });
+    }
+
+    // ============================================================
+    // Float animation (scatter phase)
+    // ============================================================
+    let floatActive = true;
+    let lastFrameTime = 0;
+    const GRAVITY_STRENGTH = 0.02;
+
+    function floatLoop(time) {
+      if (!floatActive) return;
+      if (!lastFrameTime) lastFrameTime = time;
+      const dt = Math.min(time - lastFrameTime, 32);
+      lastFrameTime = time;
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      fragments.forEach(f => {
+        if (f.settled) return;
+
+        if (f.gravitating) {
+          // Gravitating toward zone
+          const dx = f.targetX - f.x;
+          const dy = f.targetY - f.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const pull = GRAVITY_STRENGTH * f.gravityStrength;
+          f.vx += (dx / (dist + 1)) * pull * dt;
+          f.vy += (dy / (dist + 1)) * pull * dt;
+          // Dampen
+          f.vx *= 0.97;
+          f.vy *= 0.97;
+          f.vr *= 0.96;
+        }
+
+        f.x += f.vx * (dt / 16);
+        f.y += f.vy * (dt / 16);
+        f.rot += f.vr * (dt / 16);
+
+        // Soft wrap
+        if (f.x < -80) f.x = w + 40;
+        if (f.x > w + 80) f.x = -40;
+        if (f.y < -40) f.y = h + 20;
+        if (f.y > h + 40) f.y = -20;
+
+        f.el.style.transform = `translate(${f.x}px, ${f.y}px) rotate(${f.rot}deg)`;
+      });
+
+      requestAnimationFrame(floatLoop);
+    }
+
+    // ============================================================
+    // Phase transitions
+    // ============================================================
+    const $progressFill = document.getElementById('progress-fill');
+    const $screen = document.getElementById('loading-screen');
+    const $logoText = document.getElementById('logo-text');
+    const $centerLogo = document.getElementById('center-logo');
+    const $logoSvg = document.getElementById('logo-svg');
+    const $appLayout = document.getElementById('app-layout');
+    const $shimmer = document.getElementById('shimmer-overlay');
+
+    // Insert logo SVG
+    $logoSvg.innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // Panels
+    const panels = {
+      header: document.getElementById('panel-header'),
+      sidebar: document.getElementById('panel-sidebar'),
+      stats: document.getElementById('panel-stats'),
+      sessions: document.getElementById('panel-sessions'),
+      chart: document.getElementById('panel-chart'),
+      timeline: document.getElementById('panel-timeline'),
+    };
+
+    // Animated counters
+    const counters = {
+      sessions: new AnimatedCounter(document.getElementById('stat-sessions'), {
+        format: n => n.toLocaleString(),
+      }),
+      tokens: new AnimatedCounter(document.getElementById('stat-tokens'), {
+        format: formatTokens,
+      }),
+      events: new AnimatedCounter(document.getElementById('stat-events'), {
+        format: n => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString(),
+      }),
+      tools: new AnimatedCounter(document.getElementById('stat-tools'), {
+        format: n => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString(),
+      }),
+    };
+
+    // Create chart bars
+    const $chartBars = document.getElementById('chart-bars');
+    const chartBarEls = [];
+    for (let i = 0; i < 10; i++) {
+      const bar = document.createElement('div');
+      bar.classList.add('chart-bar');
+      bar.style.height = '4px';
+      $chartBars.appendChild(bar);
+      chartBarEls.push(bar);
+    }
+
+    // Create session card mocks
+    const $sessionsGrid = document.getElementById('sessions-grid');
+    const sessionCardEls = [];
+    for (let i = 0; i < 4; i++) {
+      const card = document.createElement('div');
+      card.classList.add('session-card-mock');
+      card.innerHTML = `<div class="card-dot"></div><div class="card-line" style="width:${40 + Math.random() * 40}%"></div>`;
+      $sessionsGrid.appendChild(card);
+      sessionCardEls.push(card);
+    }
+
+    // Create timeline bars
+    const $timelineBars = document.getElementById('timeline-bars');
+    const timelineBarEls = [];
+    const timelineColors = ['var(--accent-emphasis)', 'var(--success-emphasis)', 'var(--warning-emphasis)', 'var(--done-emphasis)', 'var(--danger-emphasis)'];
+    for (let i = 0; i < 12; i++) {
+      const bar = document.createElement('div');
+      bar.classList.add('timeline-bar');
+      bar.style.width = (20 + Math.random() * 80) + 'px';
+      bar.style.background = timelineColors[i % timelineColors.length];
+      $timelineBars.appendChild(bar);
+      timelineBarEls.push(bar);
+    }
+
+    // ============================================================
+    // State
+    // ============================================================
+    let simulator = null;
+    let currentPhase = 'idle';
+    let organizeStarted = false;
+
+    const PHASE_TEXT = {
+      idle: 'Gathering session data…',
+      discovering: 'Gathering session data…',
+      indexing: 'Indexing sessions…',
+      finalizing: 'Assembling interface…',
+      complete: 'Ready',
+    };
+
+    // ============================================================
+    // Start gravitating fragments toward zones
+    // ============================================================
+    function startGravitating() {
+      fragments.forEach(f => {
+        const rect = getZoneRect(f.def.zone);
+        f.targetX = rect.x + Math.random() * rect.w;
+        f.targetY = rect.y + Math.random() * rect.h;
+        f.gravitating = true;
+        f.gravityStrength = 0.6 + Math.random() * 0.8;
+      });
+    }
+
+    // ============================================================
+    // Settle fragments (snap to final position)
+    // ============================================================
+    function settleFragments() {
+      fragments.forEach((f, i) => {
+        const rect = getZoneRect(f.def.zone);
+        f.targetX = rect.x + Math.random() * rect.w;
+        f.targetY = rect.y + Math.random() * rect.h;
+        f.settled = true;
+
+        f.el.classList.add('settling');
+        setTimeout(() => {
+          f.el.style.transform = `translate(${f.targetX}px, ${f.targetY}px) rotate(0deg)`;
+          f.el.style.opacity = '0.35';
+        }, i * 20);
+      });
+    }
+
+    // ============================================================
+    // Materialize panels
+    // ============================================================
+    function materializePanels() {
+      const order = ['header', 'sidebar', 'stats', 'sessions', 'chart', 'timeline'];
+      order.forEach((id, i) => {
+        setTimeout(() => {
+          panels[id].classList.add('materialized');
+        }, i * 120);
+      });
+    }
+
+    // ============================================================
+    // Solidify phase — sharpen panels, show content
+    // ============================================================
+    function solidifyPanels() {
+      Object.values(panels).forEach(p => p.classList.add('sharpened'));
+
+      // Show session cards staggered
+      sessionCardEls.forEach((card, i) => {
+        setTimeout(() => card.classList.add('visible'), i * 100);
+      });
+
+      // Animate chart bars to random heights
+      chartBarEls.forEach((bar, i) => {
+        setTimeout(() => {
+          bar.style.height = (20 + Math.random() * 80) + '%';
+        }, i * 60);
+      });
+
+      // Show chart donut
+      setTimeout(() => {
+        document.getElementById('chart-donut').style.opacity = '1';
+      }, 400);
+
+      // Show timeline bars staggered
+      timelineBarEls.forEach((bar, i) => {
+        setTimeout(() => bar.classList.add('visible'), i * 50);
+      });
+    }
+
+    // ============================================================
+    // Final reveal
+    // ============================================================
+    function revealApp() {
+      // Move logo to header
+      $centerLogo.classList.add('in-header');
+
+      // Fade fragments out
+      fragments.forEach(f => {
+        f.el.classList.add('settled');
+        f.el.style.opacity = '0';
+      });
+
+      // Reveal scale animation
+      setTimeout(() => {
+        $appLayout.classList.add('revealing');
+      }, 300);
+
+      // Intensify panel colors
+      setTimeout(() => {
+        Object.values(panels).forEach(p => {
+          p.style.borderColor = 'var(--color-border)';
+          p.style.boxShadow = 'var(--shadow-md)';
+        });
+      }, 500);
+
+      // Shimmer wave
+      setTimeout(() => {
+        $shimmer.classList.add('active');
+      }, 700);
+
+      // Remove shimmer after animation
+      setTimeout(() => {
+        $shimmer.classList.remove('active');
+      }, 2000);
+    }
+
+    // ============================================================
+    // Reset everything
+    // ============================================================
+    function resetUI() {
+      // Remove fragments
+      $container.innerHTML = '';
+      fragments.length = 0;
+
+      // Reset panels
+      Object.values(panels).forEach(p => {
+        p.classList.remove('materialized', 'sharpened');
+        p.style.borderColor = '';
+        p.style.boxShadow = '';
+      });
+
+      // Reset logo
+      $centerLogo.classList.remove('in-header');
+      $logoText.textContent = PHASE_TEXT.idle;
+
+      // Reset progress
+      $progressFill.style.width = '0%';
+      $progressFill.classList.remove('active');
+
+      // Reset app layout
+      $appLayout.classList.remove('revealing');
+      $shimmer.classList.remove('active');
+
+      // Reset session cards
+      sessionCardEls.forEach(c => c.classList.remove('visible'));
+
+      // Reset chart
+      chartBarEls.forEach(b => { b.style.height = '4px'; });
+      document.getElementById('chart-donut').style.opacity = '0';
+
+      // Reset timeline
+      timelineBarEls.forEach(b => b.classList.remove('visible'));
+
+      // Reset counters
+      counters.sessions.set(0);
+      counters.tokens.set(0);
+      counters.events.set(0);
+      counters.tools.set(0);
+
+      // Reset state
+      currentPhase = 'idle';
+      organizeStarted = false;
+      floatActive = false;
+      lastFrameTime = 0;
+    }
+
+    // ============================================================
+    // Main simulation
+    // ============================================================
+    function startSimulation(durationSec, sessionCount) {
+      resetUI();
+
+      // Create fresh fragments
+      initFragments();
+
+      // Make fragments visible with stagger
+      fragments.forEach((f, i) => {
+        setTimeout(() => f.el.classList.add('visible'), i * 40);
+      });
+
+      // Start floating
+      floatActive = true;
+      requestAnimationFrame(floatLoop);
+
+      $progressFill.classList.add('active');
+
+      simulator = new LoadingSimulator({
+        totalSessions: sessionCount,
+        durationMs: durationSec * 1000,
+
+        onProgress(progress, phase) {
+          $progressFill.style.width = (progress * 100) + '%';
+
+          // Phase 2: Start gravitating at 15%
+          if (progress > 0.15 && !organizeStarted) {
+            organizeStarted = true;
+            startGravitating();
+          }
+
+          // Increase gravity over time
+          if (progress > 0.15 && progress < 0.75) {
+            const orgProgress = (progress - 0.15) / 0.60;
+            fragments.forEach(f => {
+              if (f.gravitating && !f.settled) {
+                f.gravityStrength = 0.6 + orgProgress * 2.5;
+              }
+            });
+          }
+
+          // Phase 3: Solidify at 75%
+          if (progress > 0.75 && currentPhase !== 'solidifying') {
+            if (currentPhase !== 'solidifying' && currentPhase !== 'complete') {
+              currentPhase = 'solidifying';
+              settleFragments();
+              materializePanels();
+              setTimeout(solidifyPanels, 600);
+            }
+          }
+
+          // Phase 4: Reveal at 90%
+          if (progress > 0.90 && currentPhase !== 'revealing' && currentPhase !== 'complete') {
+            currentPhase = 'revealing';
+            revealApp();
+          }
+        },
+
+        onPhaseChange(phase) {
+          const text = PHASE_TEXT[phase] || '';
+          $logoText.textContent = text;
+        },
+
+        onSessionProcessed({ current, total }) {
+          if (currentPhase !== 'solidifying' && currentPhase !== 'revealing' && currentPhase !== 'complete') {
+            $logoText.textContent = `Indexing ${current} / ${total} sessions…`;
+          }
+        },
+
+        onStatsUpdate(stats) {
+          counters.sessions.set(stats.sessionsProcessed);
+          counters.tokens.set(stats.totalTokens);
+          counters.events.set(stats.totalEvents);
+          counters.tools.set(stats.totalToolCalls);
+        },
+
+        onComplete() {
+          currentPhase = 'complete';
+          $progressFill.classList.remove('active');
+          floatActive = false;
+        },
+      });
+
+      simulator.start();
+    }
+
+    // ============================================================
+    // Demo controls
+    // ============================================================
+    createDemoControls(document.body, {
+      defaultDuration: 12,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (simulator) simulator.stop();
+        resetUI();
+      },
+    });
+
+    // Auto-start on load
+    startSimulation(12, 20);
+  </script>
+</body>
+</html>

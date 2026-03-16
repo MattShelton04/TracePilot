@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Prototype B: Feature Showcase Carousel</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ===== Layout ===== */
+    .loading-screen {
+      justify-content: flex-start;
+      padding-top: 48px;
+      gap: 0;
+    }
+
+    /* ===== Header ===== */
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-8);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .header .logo-svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .header-title {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .header-subtitle {
+      font-size: var(--text-md);
+      color: var(--color-fg-muted);
+    }
+
+    /* ===== Carousel ===== */
+    .carousel {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      flex: 0 0 auto;
+    }
+
+    .carousel-viewport {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--color-border);
+      background: var(--color-canvas-subtle);
+      box-shadow: var(--shadow-lg);
+      min-height: 340px;
+    }
+
+    .carousel-card {
+      position: absolute;
+      inset: 0;
+      padding: var(--space-6) var(--space-8);
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateX(40px);
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .carousel-card.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    .carousel-card.exiting {
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .card-icon {
+      font-size: 1.5rem;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-md);
+      background: var(--accent-subtle);
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+    }
+
+    .card-description {
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+      margin-bottom: var(--space-5);
+      line-height: 1.5;
+    }
+
+    .card-preview {
+      flex: 1;
+      border-radius: var(--radius-md);
+      background: var(--color-canvas-inset);
+      border: 1px solid var(--color-border-muted);
+      overflow: hidden;
+      position: relative;
+      min-height: 180px;
+    }
+
+    /* ===== Dot Indicators ===== */
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-2);
+      margin-top: var(--space-5);
+    }
+
+    .carousel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-border);
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.3s ease, transform 0.3s ease;
+    }
+
+    .carousel-dot:hover {
+      background: var(--color-fg-muted);
+    }
+
+    .carousel-dot.active {
+      background: var(--accent-fg);
+      transform: scale(1.3);
+    }
+
+    /* ===== Progress Footer ===== */
+    .progress-footer {
+      margin-top: var(--space-8);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .progress-stats {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-fg-muted);
+    }
+
+    .progress-stats .stat-highlight {
+      color: var(--accent-fg);
+      font-weight: 500;
+    }
+
+    .progress-phase {
+      font-size: var(--text-xs);
+      color: var(--color-fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* ============================
+       Card Preview Animations
+       ============================ */
+
+    /* --- Card 1: Conversation Viewer --- */
+    .preview-chat {
+      padding: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      height: 100%;
+    }
+
+    .chat-msg {
+      display: flex;
+      gap: var(--space-2);
+      opacity: 0;
+      transform: translateY(8px);
+      max-width: 88%;
+    }
+
+    .chat-msg.visible {
+      animation: chatMsgIn 0.4s ease forwards;
+    }
+
+    .chat-msg.user { align-self: flex-start; }
+    .chat-msg.assistant { align-self: flex-end; flex-direction: row-reverse; }
+
+    .chat-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    .chat-msg.user .chat-avatar { background: var(--accent-muted); color: var(--accent-fg); }
+    .chat-msg.assistant .chat-avatar { background: var(--success-muted); color: var(--success-fg); }
+
+    .chat-bubble {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      line-height: 1.45;
+      color: var(--color-fg);
+    }
+
+    .chat-msg.user .chat-bubble {
+      background: var(--accent-subtle);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+    }
+
+    .chat-msg.assistant .chat-bubble {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-muted);
+    }
+
+    @keyframes chatMsgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Card 2: Analytics Dashboard --- */
+    .preview-analytics {
+      padding: var(--space-4);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      height: 100%;
+      align-items: end;
+    }
+
+    .analytics-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 100%;
+      padding-top: var(--space-3);
+    }
+
+    .analytics-bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      min-height: 0;
+      transition: height 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .analytics-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      height: 100%;
+    }
+
+    .donut-ring {
+      fill: none;
+      stroke: var(--color-border-muted);
+      stroke-width: 6;
+    }
+
+    .donut-segment {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dasharray 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+      transform-origin: center;
+      transform: rotate(-90deg);
+    }
+
+    .analytics-counter {
+      font-family: var(--font-mono);
+      font-size: var(--text-lg);
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .analytics-counter-label {
+      font-size: var(--text-xs);
+      color: var(--color-fg-muted);
+      text-align: center;
+    }
+
+    /* --- Card 3: Session Timeline --- */
+    .preview-timeline {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      height: 16px;
+    }
+
+    .timeline-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--color-fg-muted);
+      width: 55px;
+      text-align: right;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .timeline-track {
+      flex: 1;
+      height: 12px;
+      position: relative;
+      border-radius: 2px;
+    }
+
+    .timeline-bar {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-radius: 2px;
+      width: 0;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* --- Card 4: Tool Analysis --- */
+    .preview-tools {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .tool-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .tool-name {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--color-fg-muted);
+      width: 70px;
+      text-align: right;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tool-bar-track {
+      flex: 1;
+      height: 14px;
+      background: var(--color-border-muted);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .tool-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      width: 0;
+      transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .tool-pct {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--color-fg-muted);
+      width: 30px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* --- Card 5: Code Impact --- */
+    .preview-diff {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      height: 100%;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .diff-file {
+      color: var(--color-fg-muted);
+      font-size: 9px;
+      margin-top: 4px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .diff-file.visible { opacity: 1; }
+
+    .diff-line {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 1px var(--space-2);
+      border-radius: 2px;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .diff-line.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .diff-line.add {
+      background: rgba(52, 211, 153, 0.08);
+      color: var(--success-fg);
+    }
+
+    .diff-line.del {
+      background: rgba(248, 113, 113, 0.08);
+      color: var(--danger-fg);
+    }
+
+    .diff-counters {
+      display: flex;
+      gap: var(--space-4);
+      margin-top: 6px;
+      font-size: 10px;
+    }
+
+    .diff-counter-add { color: var(--success-fg); }
+    .diff-counter-del { color: var(--danger-fg); }
+
+    /* --- Card 6: Full-Text Search --- */
+    .preview-search {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      height: 100%;
+    }
+
+    .search-input-box {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-fg);
+    }
+
+    .search-icon {
+      color: var(--color-fg-muted);
+      font-size: 11px;
+    }
+
+    .search-typed-text {
+      flex: 1;
+    }
+
+    .search-cursor {
+      display: inline-block;
+      width: 1px;
+      height: 13px;
+      background: var(--accent-fg);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    .search-results {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      flex: 1;
+    }
+
+    .search-result {
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-muted);
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+      line-height: 1.5;
+      color: var(--color-fg-muted);
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .search-result.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .search-result .file-path {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--accent-fg);
+      margin-bottom: 2px;
+    }
+
+    .search-highlight {
+      background: rgba(251, 191, 36, 0.25);
+      color: var(--warning-fg);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Progress Bar -->
+  <div class="progress-bar-track">
+    <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+  </div>
+
+  <div class="loading-screen">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-brand">
+        <div class="logo-svg" id="logo-mount"></div>
+        <span class="header-title">TracePilot</span>
+      </div>
+      <span class="header-subtitle" id="phase-text">Setting up your analytics workspace</span>
+    </div>
+
+    <!-- Carousel -->
+    <div class="carousel">
+      <div class="carousel-viewport" id="carousel-viewport">
+        <!-- Cards injected by JS -->
+      </div>
+      <div class="carousel-dots" id="carousel-dots"></div>
+    </div>
+
+    <!-- Progress Footer -->
+    <div class="progress-footer">
+      <div class="progress-stats" id="progress-stats">
+        Preparing to index sessions…
+      </div>
+      <div class="progress-phase" id="progress-phase"></div>
+    </div>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    // ============================================================
+    // Initialize
+    // ============================================================
+
+    document.getElementById('logo-mount').innerHTML = TRACEPILOT_LOGO_SVG;
+
+    // ============================================================
+    // Feature Card Definitions (preview builders)
+    // ============================================================
+
+    const featureCards = FEATURES.map((f, i) => ({
+      ...f,
+      buildPreview: [
+        buildChatPreview,
+        buildAnalyticsPreview,
+        buildTimelinePreview,
+        buildToolsPreview,
+        buildDiffPreview,
+        buildSearchPreview,
+      ][i],
+    }));
+
+    // ============================================================
+    // Carousel Renderer
+    // ============================================================
+
+    const viewport = document.getElementById('carousel-viewport');
+    const dotsContainer = document.getElementById('carousel-dots');
+    let activeIndex = 0;
+    let carouselTimer = null;
+    let previewCleanups = [];
+    const CAROUSEL_INTERVAL = 4500;
+
+    function renderCarousel() {
+      viewport.innerHTML = '';
+      dotsContainer.innerHTML = '';
+
+      featureCards.forEach((card, i) => {
+        // Card element
+        const el = document.createElement('div');
+        el.className = 'carousel-card' + (i === 0 ? ' active' : '');
+        el.dataset.index = i;
+        el.innerHTML = `
+          <div class="card-header">
+            <div class="card-icon" style="background: ${card.color}22;">${card.icon}</div>
+            <div class="card-title" style="color: ${card.color}">${card.title}</div>
+          </div>
+          <div class="card-description">${card.description}</div>
+          <div class="card-preview" id="preview-${i}"></div>
+        `;
+        viewport.appendChild(el);
+
+        // Dot
+        const dot = document.createElement('button');
+        dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+        dot.setAttribute('aria-label', `Show ${card.title}`);
+        dot.addEventListener('click', () => goToCard(i));
+        dotsContainer.appendChild(dot);
+      });
+
+      startPreview(0);
+      resetCarouselTimer();
+    }
+
+    function goToCard(index) {
+      if (index === activeIndex) return;
+      const cards = viewport.querySelectorAll('.carousel-card');
+      const dots = dotsContainer.querySelectorAll('.carousel-dot');
+
+      // Clean up current preview
+      cleanupPreview();
+
+      // Animate out
+      cards[activeIndex].classList.remove('active');
+      cards[activeIndex].classList.add('exiting');
+
+      // Animate in
+      cards[index].classList.remove('exiting');
+      cards[index].classList.add('active');
+
+      dots[activeIndex].classList.remove('active');
+      dots[index].classList.add('active');
+
+      setTimeout(() => {
+        cards[activeIndex]?.classList.remove('exiting');
+        activeIndex = index;
+        startPreview(index);
+      }, 500);
+
+      // temporarily update activeIndex for timer reset
+      const prev = activeIndex;
+      activeIndex = index;
+      resetCarouselTimer();
+    }
+
+    function nextCard() {
+      goToCard((activeIndex + 1) % featureCards.length);
+    }
+
+    function resetCarouselTimer() {
+      clearInterval(carouselTimer);
+      carouselTimer = setInterval(nextCard, CAROUSEL_INTERVAL);
+    }
+
+    function cleanupPreview() {
+      previewCleanups.forEach(fn => fn());
+      previewCleanups = [];
+    }
+
+    function startPreview(index) {
+      cleanupPreview();
+      const container = document.getElementById(`preview-${index}`);
+      if (!container) return;
+      container.innerHTML = '';
+      const cleanup = featureCards[index].buildPreview(container);
+      if (cleanup) previewCleanups.push(cleanup);
+    }
+
+    // ============================================================
+    // Preview Builders
+    // ============================================================
+
+    /* Card 1: Conversation Viewer */
+    function buildChatPreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-chat';
+      container.appendChild(wrap);
+
+      const msgs = MOCK_CONVERSATIONS.slice(0, 6);
+      const timers = [];
+
+      msgs.forEach((msg, i) => {
+        const el = document.createElement('div');
+        el.className = `chat-msg ${msg.role}`;
+        const avatar = msg.role === 'user' ? 'U' : 'A';
+        el.innerHTML = `
+          <div class="chat-avatar">${avatar}</div>
+          <div class="chat-bubble">${truncate(msg.text, 60)}</div>
+        `;
+        wrap.appendChild(el);
+
+        timers.push(setTimeout(() => el.classList.add('visible'), 400 + i * 550));
+      });
+
+      return () => timers.forEach(clearTimeout);
+    }
+
+    /* Card 2: Analytics Dashboard */
+    function buildAnalyticsPreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-analytics';
+      container.appendChild(wrap);
+
+      // Bar chart
+      const barsWrap = document.createElement('div');
+      barsWrap.className = 'analytics-bars';
+      const barColors = ['var(--accent-fg)', 'var(--success-fg)', 'var(--warning-fg)', 'var(--done-fg)', 'var(--accent-fg)', 'var(--success-fg)'];
+      const barHeights = [65, 85, 45, 92, 55, 78];
+      const barEls = [];
+
+      barHeights.forEach((h, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'analytics-bar';
+        bar.style.background = barColors[i];
+        bar.style.opacity = '0.8';
+        bar.style.height = '0%';
+        barsWrap.appendChild(bar);
+        barEls.push(bar);
+      });
+      wrap.appendChild(barsWrap);
+
+      // Donut + counter
+      const rightWrap = document.createElement('div');
+      rightWrap.className = 'analytics-right';
+
+      const svgNs = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNs, 'svg');
+      svg.setAttribute('width', '80');
+      svg.setAttribute('height', '80');
+      svg.setAttribute('viewBox', '0 0 42 42');
+
+      const ring = document.createElementNS(svgNs, 'circle');
+      ring.setAttribute('class', 'donut-ring');
+      ring.setAttribute('cx', '21');
+      ring.setAttribute('cy', '21');
+      ring.setAttribute('r', '16');
+      svg.appendChild(ring);
+
+      const circumf = 2 * Math.PI * 16;
+      const segments = [
+        { pct: 0.40, color: 'var(--accent-fg)' },
+        { pct: 0.25, color: 'var(--success-fg)' },
+        { pct: 0.20, color: 'var(--warning-fg)' },
+        { pct: 0.15, color: 'var(--done-fg)' },
+      ];
+
+      let offset = 0;
+      segments.forEach(seg => {
+        const circle = document.createElementNS(svgNs, 'circle');
+        circle.setAttribute('class', 'donut-segment');
+        circle.setAttribute('cx', '21');
+        circle.setAttribute('cy', '21');
+        circle.setAttribute('r', '16');
+        circle.setAttribute('stroke', seg.color);
+        circle.setAttribute('stroke-dasharray', `0 ${circumf}`);
+        circle.setAttribute('stroke-dashoffset', `${-offset}`);
+        circle.style.transformOrigin = 'center';
+        circle.style.transform = 'rotate(-90deg)';
+        svg.appendChild(circle);
+        circle._targetLen = seg.pct * circumf;
+        circle._circumf = circumf;
+        offset += seg.pct * circumf;
+      });
+
+      rightWrap.appendChild(svg);
+
+      const counter = document.createElement('div');
+      counter.className = 'analytics-counter';
+      counter.textContent = '0';
+      rightWrap.appendChild(counter);
+
+      const counterLabel = document.createElement('div');
+      counterLabel.className = 'analytics-counter-label';
+      counterLabel.textContent = 'sessions';
+      rightWrap.appendChild(counterLabel);
+
+      wrap.appendChild(rightWrap);
+
+      // Animate
+      const t1 = setTimeout(() => {
+        barEls.forEach((bar, i) => {
+          bar.style.height = barHeights[i] + '%';
+        });
+        svg.querySelectorAll('.donut-segment').forEach(c => {
+          const len = c._targetLen;
+          c.setAttribute('stroke-dasharray', `${len} ${c._circumf - len}`);
+        });
+        animateNumber(counter, 0, 148, 1500);
+      }, 200);
+
+      return () => clearTimeout(t1);
+    }
+
+    /* Card 3: Session Timeline */
+    function buildTimelinePreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-timeline';
+      container.appendChild(wrap);
+
+      const rows = [
+        { label: 'read_file', left: 0, width: 40, color: 'var(--accent-fg)' },
+        { label: 'edit_file', left: 15, width: 50, color: 'var(--success-fg)' },
+        { label: 'run_cmd', left: 30, width: 35, color: 'var(--warning-fg)' },
+        { label: 'grep', left: 10, width: 25, color: 'var(--done-fg)' },
+        { label: 'edit_file', left: 45, width: 40, color: 'var(--success-fg)' },
+        { label: 'test_run', left: 55, width: 30, color: 'var(--danger-fg)' },
+        { label: 'read_file', left: 20, width: 35, color: 'var(--accent-fg)' },
+        { label: 'git_diff', left: 60, width: 30, color: 'var(--done-fg)' },
+        { label: 'edit_file', left: 35, width: 45, color: 'var(--success-fg)' },
+        { label: 'run_cmd', left: 70, width: 25, color: 'var(--warning-fg)' },
+      ];
+
+      const barEls = [];
+      rows.forEach(row => {
+        const el = document.createElement('div');
+        el.className = 'timeline-row';
+        el.innerHTML = `
+          <div class="timeline-label">${row.label}</div>
+          <div class="timeline-track">
+            <div class="timeline-bar" style="left:${row.left}%;background:${row.color};opacity:0.7;"></div>
+          </div>
+        `;
+        wrap.appendChild(el);
+        barEls.push(el.querySelector('.timeline-bar'));
+      });
+
+      const timers = barEls.map((bar, i) =>
+        setTimeout(() => {
+          bar.style.width = rows[i].width + '%';
+        }, 150 + i * 120)
+      );
+
+      return () => timers.forEach(clearTimeout);
+    }
+
+    /* Card 4: Tool Analysis */
+    function buildToolsPreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-tools';
+      container.appendChild(wrap);
+
+      const tools = [
+        { name: 'edit_file', pct: 92, width: 95, color: 'var(--accent-fg)' },
+        { name: 'read_file', pct: 88, width: 88, color: 'var(--success-fg)' },
+        { name: 'run_cmd', pct: 73, width: 73, color: 'var(--warning-fg)' },
+        { name: 'grep_search', pct: 96, width: 60, color: 'var(--done-fg)' },
+        { name: 'git_diff', pct: 100, width: 45, color: 'var(--success-fg)' },
+        { name: 'test_runner', pct: 67, width: 38, color: 'var(--danger-fg)' },
+        { name: 'web_search', pct: 81, width: 25, color: 'var(--accent-fg)' },
+      ];
+
+      const barEls = [];
+      const pctEls = [];
+
+      tools.forEach(tool => {
+        const row = document.createElement('div');
+        row.className = 'tool-row';
+        row.innerHTML = `
+          <div class="tool-name">${tool.name}</div>
+          <div class="tool-bar-track">
+            <div class="tool-bar-fill" style="background:${tool.color};opacity:0.75;"></div>
+          </div>
+          <div class="tool-pct">0%</div>
+        `;
+        wrap.appendChild(row);
+        barEls.push(row.querySelector('.tool-bar-fill'));
+        pctEls.push({ el: row.querySelector('.tool-pct'), target: tool.pct });
+      });
+
+      const timers = tools.map((tool, i) =>
+        setTimeout(() => {
+          barEls[i].style.width = tool.width + '%';
+          animateNumber(pctEls[i].el, 0, pctEls[i].target, 1000, v => v + '%');
+        }, 150 + i * 100)
+      );
+
+      return () => timers.forEach(clearTimeout);
+    }
+
+    /* Card 5: Code Impact */
+    function buildDiffPreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-diff';
+      container.appendChild(wrap);
+
+      const lines = [
+        { type: 'file', text: 'src/auth/middleware.ts' },
+        { type: 'add', text: '+ import { verifyJWT } from "./jwt";' },
+        { type: 'add', text: '+ const token = req.headers.authorization;' },
+        { type: 'del', text: '- const session = getSession(req);' },
+        { type: 'file', text: 'src/api/routes.ts' },
+        { type: 'add', text: '+ router.post("/refresh", refreshHandler);' },
+        { type: 'del', text: '- router.get("/session", legacyAuth);' },
+        { type: 'add', text: '+ export { authRouter };' },
+      ];
+
+      const els = [];
+      lines.forEach(line => {
+        const el = document.createElement('div');
+        el.className = line.type === 'file' ? 'diff-file' : `diff-line ${line.type === 'add' ? 'add' : 'del'}`;
+        el.textContent = line.text;
+        wrap.appendChild(el);
+        els.push(el);
+      });
+
+      // Counters
+      const counters = document.createElement('div');
+      counters.className = 'diff-counters';
+      counters.innerHTML = `
+        <span class="diff-counter-add">+<span id="diff-add-count">0</span> additions</span>
+        <span class="diff-counter-del">−<span id="diff-del-count">0</span> deletions</span>
+      `;
+      wrap.appendChild(counters);
+
+      const timers = els.map((el, i) =>
+        setTimeout(() => el.classList.add('visible'), 200 + i * 250)
+      );
+
+      const t2 = setTimeout(() => {
+        const addEl = counters.querySelector('#diff-add-count');
+        const delEl = counters.querySelector('#diff-del-count');
+        animateNumber(addEl, 0, 47, 1200);
+        animateNumber(delEl, 0, 18, 1200);
+      }, 400);
+
+      timers.push(t2);
+      return () => timers.forEach(clearTimeout);
+    }
+
+    /* Card 6: Full-Text Search */
+    function buildSearchPreview(container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-search';
+      container.appendChild(wrap);
+
+      const inputBox = document.createElement('div');
+      inputBox.className = 'search-input-box';
+      inputBox.innerHTML = `<span class="search-icon">🔍</span><span class="search-typed-text"></span><span class="search-cursor"></span>`;
+      wrap.appendChild(inputBox);
+
+      const resultsWrap = document.createElement('div');
+      resultsWrap.className = 'search-results';
+      wrap.appendChild(resultsWrap);
+
+      const query = 'refactor auth';
+      const textEl = inputBox.querySelector('.search-typed-text');
+
+      const results = [
+        { file: 'session/a1b2c3d4/turn-3', text: 'Can you <hl>refactor</hl> the <hl>auth</hl>entication module to use JWT?' },
+        { file: 'session/e5f6g7h8/turn-12', text: 'I\'ll <hl>refactor</hl> the <hl>auth</hl> middleware and add proper token validation.' },
+        { file: 'session/i9j0k1l2/turn-7', text: 'The <hl>auth</hl> <hl>refactor</hl> is complete. All tests passing.' },
+      ];
+
+      // Type out the query
+      let charIndex = 0;
+      const timers = [];
+
+      function typeNext() {
+        if (charIndex < query.length) {
+          textEl.textContent = query.substring(0, charIndex + 1);
+          charIndex++;
+          timers.push(setTimeout(typeNext, 80 + Math.random() * 40));
+        } else {
+          // Show results
+          results.forEach((r, i) => {
+            timers.push(setTimeout(() => {
+              const el = document.createElement('div');
+              el.className = 'search-result';
+              el.innerHTML = `<div class="file-path">${r.file}</div><div>${r.text.replace(/<hl>/g, '<span class="search-highlight">').replace(/<\/hl>/g, '</span>')}</div>`;
+              resultsWrap.appendChild(el);
+              requestAnimationFrame(() => el.classList.add('visible'));
+            }, 300 + i * 350));
+          });
+        }
+      }
+
+      timers.push(setTimeout(typeNext, 300));
+      return () => timers.forEach(clearTimeout);
+    }
+
+    // ============================================================
+    // Utilities
+    // ============================================================
+
+    function truncate(str, len) {
+      return str.length > len ? str.substring(0, len) + '…' : str;
+    }
+
+    function animateNumber(el, from, to, duration, fmt) {
+      const start = performance.now();
+      const format = fmt || (v => String(v));
+      function tick(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const val = Math.round(from + (to - from) * eased);
+        el.textContent = format(val);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // ============================================================
+    // Loading Simulator Integration
+    // ============================================================
+
+    const progressBar = document.getElementById('progress-bar');
+    const phaseText = document.getElementById('phase-text');
+    const progressStats = document.getElementById('progress-stats');
+    const progressPhase = document.getElementById('progress-phase');
+
+    const phaseLabels = {
+      idle: 'Setting up your analytics workspace',
+      discovering: 'Discovering sessions on disk…',
+      indexing: 'Indexing and analyzing sessions…',
+      finalizing: 'Building search index and aggregations…',
+      complete: 'Ready — launching TracePilot',
+    };
+
+    let simulator = null;
+
+    function startSimulation(duration, sessions) {
+      if (simulator) simulator.stop();
+
+      progressBar.style.width = '0%';
+      progressStats.textContent = 'Preparing to index sessions…';
+      progressPhase.textContent = '';
+      phaseText.textContent = phaseLabels.idle;
+
+      simulator = new LoadingSimulator({
+        totalSessions: sessions,
+        durationMs: duration * 1000,
+        onProgress(pct) {
+          progressBar.style.width = (pct * 100).toFixed(1) + '%';
+        },
+        onPhaseChange(phase) {
+          phaseText.textContent = phaseLabels[phase] || '';
+          progressPhase.textContent = phase !== 'idle' ? phase.toUpperCase() : '';
+        },
+        onStatsUpdate(stats) {
+          progressStats.innerHTML = `Indexing <span class="stat-highlight">${stats.sessionsProcessed}/${simulator.totalSessions}</span> sessions • <span class="stat-highlight">${formatTokens(stats.totalTokens)}</span> tokens processed`;
+        },
+        onComplete(stats) {
+          progressStats.innerHTML = `<span class="stat-highlight">${stats.sessionsProcessed}</span> sessions indexed • <span class="stat-highlight">${formatTokens(stats.totalTokens)}</span> tokens`;
+        },
+      });
+
+      simulator.start();
+    }
+
+    // ============================================================
+    // Demo Controls
+    // ============================================================
+
+    createDemoControls(document.body, {
+      defaultDuration: 12,
+      onStart(duration, sessions) {
+        startSimulation(duration, sessions);
+      },
+      onReset() {
+        if (simulator) simulator.stop();
+        progressBar.style.width = '0%';
+        progressStats.textContent = 'Preparing to index sessions…';
+        progressPhase.textContent = '';
+        phaseText.textContent = phaseLabels.idle;
+      },
+    });
+
+    // ============================================================
+    // Boot
+    // ============================================================
+
+    renderCarousel();
+    startSimulation(12, 20);
+  </script>
+</body>
+</html>

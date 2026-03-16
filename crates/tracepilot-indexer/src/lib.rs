@@ -10,6 +10,21 @@ use std::path::{Path, PathBuf};
 
 pub mod index_db;
 
+pub use index_db::SessionIndexInfo;
+
+/// Accumulated progress info emitted per session during indexing.
+#[derive(Debug, Clone)]
+pub struct IndexingProgress {
+    pub current: usize,
+    pub total: usize,
+    /// Info about the session just processed (None if indexing failed for this session).
+    pub session_info: Option<SessionIndexInfo>,
+    /// Running totals across all successfully indexed sessions so far.
+    pub running_tokens: u64,
+    pub running_events: u64,
+    pub running_repos: usize,
+}
+
 /// Default path for the TracePilot index database.
 pub fn default_index_db_path() -> PathBuf {
     let home = if cfg!(windows) {
@@ -28,11 +43,22 @@ pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usi
     reindex_all_with_progress(session_state_dir, index_db_path, |_, _| {})
 }
 
-/// Full reindex with a progress callback invoked as `on_progress(current, total)`.
+/// Full reindex with a simple progress callback invoked as `on_progress(current, total)`.
 pub fn reindex_all_with_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
     mut on_progress: impl FnMut(usize, usize),
+) -> Result<usize> {
+    reindex_all_with_rich_progress(session_state_dir, index_db_path, |p| {
+        on_progress(p.current, p.total);
+    })
+}
+
+/// Full reindex with enriched progress callback including per-session data.
+pub fn reindex_all_with_rich_progress(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
@@ -41,15 +67,36 @@ pub fn reindex_all_with_progress(
         sessions.iter().map(|s| s.id.clone()).collect();
 
     let total = sessions.len();
+    let mut running_tokens: u64 = 0;
+    let mut running_events: u64 = 0;
+    let mut seen_repos = std::collections::HashSet::new();
+
     db.begin_transaction()?;
     let mut indexed = 0;
     for (i, session) in sessions.iter().enumerate() {
-        if let Err(e) = db.upsert_session(&session.path) {
-            tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
-        } else {
-            indexed += 1;
-        }
-        on_progress(i + 1, total);
+        let info = match db.upsert_session(&session.path) {
+            Ok(info) => {
+                indexed += 1;
+                running_tokens += info.total_tokens;
+                running_events += info.event_count as u64;
+                if let Some(ref repo) = info.repository {
+                    seen_repos.insert(repo.clone());
+                }
+                Some(info)
+            }
+            Err(e) => {
+                tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+                None
+            }
+        };
+        on_progress(&IndexingProgress {
+            current: i + 1,
+            total,
+            session_info: info,
+            running_tokens,
+            running_events,
+            running_repos: seen_repos.len(),
+        });
     }
     db.commit_transaction()?;
 
@@ -75,11 +122,22 @@ pub fn reindex_incremental(
     reindex_incremental_with_progress(session_state_dir, index_db_path, |_, _| {})
 }
 
-/// Incremental reindex with a progress callback invoked as `on_progress(current, total)`.
+/// Incremental reindex with a simple progress callback invoked as `on_progress(current, total)`.
 pub fn reindex_incremental_with_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
     mut on_progress: impl FnMut(usize, usize),
+) -> Result<(usize, usize)> {
+    reindex_incremental_with_rich_progress(session_state_dir, index_db_path, |p| {
+        on_progress(p.current, p.total);
+    })
+}
+
+/// Incremental reindex with enriched progress callback including per-session data.
+pub fn reindex_incremental_with_rich_progress(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<(usize, usize)> {
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
@@ -90,17 +148,39 @@ pub fn reindex_incremental_with_progress(
     let total = sessions.len();
     let mut indexed = 0;
     let mut skipped = 0;
+    let mut running_tokens: u64 = 0;
+    let mut running_events: u64 = 0;
+    let mut seen_repos = std::collections::HashSet::new();
+
     for (i, session) in sessions.iter().enumerate() {
-        if db.needs_reindex(&session.id, &session.path) {
-            if let Err(e) = db.upsert_session(&session.path) {
-                tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
-            } else {
-                indexed += 1;
+        let info = if db.needs_reindex(&session.id, &session.path) {
+            match db.upsert_session(&session.path) {
+                Ok(info) => {
+                    indexed += 1;
+                    running_tokens += info.total_tokens;
+                    running_events += info.event_count as u64;
+                    if let Some(ref repo) = info.repository {
+                        seen_repos.insert(repo.clone());
+                    }
+                    Some(info)
+                }
+                Err(e) => {
+                    tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+                    None
+                }
             }
         } else {
             skipped += 1;
-        }
-        on_progress(i + 1, total);
+            None
+        };
+        on_progress(&IndexingProgress {
+            current: i + 1,
+            total,
+            session_info: info,
+            running_tokens,
+            running_events,
+            running_repos: seen_repos.len(),
+        });
     }
 
     // Prune sessions that no longer exist on disk
