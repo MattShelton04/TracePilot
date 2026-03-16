@@ -5,6 +5,7 @@ import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/typ
 import { FormSwitch } from '@tracepilot/ui';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
+import { browseForDirectory, browseForSavePath } from '@/composables/useBrowseDirectory';
 
 const emit = defineEmits<{ 'setup-complete': [] }>();
 
@@ -127,53 +128,24 @@ async function validateDir() {
 }
 
 // ── Browse (Tauri dialog) ──────────────────────────────────────
-// Uses the tauri-plugin-dialog for native file explorer.
-// Falls back to prompt() outside Tauri.
+// Uses shared composable for native file explorer / prompt fallback.
 async function browseSessionDir() {
-  if (!('__TAURI_INTERNALS__' in window)) {
-    const input = prompt('Enter session-state directory path:', sessionDir.value);
-    if (input) {
-      sessionDir.value = input;
-      await validateDir();
-    }
-    return;
-  }
-  try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
-      directory: true,
-      title: 'Select session-state directory',
-    });
-    if (selected) {
-      sessionDir.value = selected;
-      await validateDir();
-    }
-  } catch {
-    const input = prompt('Enter session-state directory path:', sessionDir.value);
-    if (input) {
-      sessionDir.value = input;
-      await validateDir();
-    }
+  const selected = await browseForDirectory({
+    title: 'Select session-state directory',
+    defaultPath: sessionDir.value,
+  });
+  if (selected) {
+    sessionDir.value = selected;
+    await validateDir();
   }
 }
 
 async function browseDbPath() {
-  if (!('__TAURI_INTERNALS__' in window)) {
-    const input = prompt('Enter database file path:', dbPath.value);
-    if (input) dbPath.value = input;
-    return;
-  }
-  try {
-    const { save } = await import('@tauri-apps/plugin-dialog');
-    const selected = await save({
-      title: 'Choose database location',
-      defaultPath: dbPath.value,
-    });
-    if (selected) dbPath.value = selected;
-  } catch {
-    const input = prompt('Enter database file path:', dbPath.value);
-    if (input) dbPath.value = input;
-  }
+  const selected = await browseForSavePath({
+    title: 'Choose database location',
+    defaultPath: dbPath.value,
+  });
+  if (selected) dbPath.value = selected;
 }
 
 // ── Skip setup ─────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
   getDbSize,
   getSessionCount as getSessionCountApi,
   factoryReset as factoryResetApi,
+  saveConfig,
 } from '@tracepilot/client';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -26,6 +27,7 @@ import {
 import type { RichRenderableToolName } from '@tracepilot/types';
 import StubBanner from '@/components/StubBanner.vue';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
+import { browseForDirectory } from '@/composables/useBrowseDirectory';
 
 const preferences = usePreferencesStore();
 const sessionsStore = useSessionsStore();
@@ -50,12 +52,29 @@ const autoRefresh = ref(false);
 const autoRefreshInterval = ref(30);
 
 // ── Data & Storage ───────────────────────────────────────────
-// STUB: Browse button should open Tauri native file dialog (dialog.open)
-// STUB: Currently shows a text input — wire to Tauri fs dialog in production
 const sessionsDirectory = ref('~/.copilot/sessions/');
 const databasePath = ref('');
 const databaseSize = ref('—');
 const indexedSessionCount = ref(0);
+
+async function browseSessionDir() {
+  const selected = await browseForDirectory({
+    title: 'Select session-state directory',
+    defaultPath: sessionsDirectory.value,
+  });
+  if (selected) {
+    sessionsDirectory.value = selected;
+    await persistSessionDir();
+  }
+}
+
+async function persistSessionDir() {
+  try {
+    const config = await getConfig();
+    config.paths.sessionStateDir = sessionsDirectory.value;
+    await saveConfig(config);
+  } catch { /* non-fatal — local UI still updates */ }
+}
 
 const autoIndexOnLaunch = ref(true);
 const reindexing = ref(false);
@@ -170,7 +189,8 @@ onMounted(async () => {
     indexedSessionCount.value = await getSessionCountApi();
   } catch { /* keep 0 */ }
 });
-
+
+
 // ── Tool Visualization ──────────────────────────────────────
 const registeredRenderers = getRegisteredRenderers();
 
@@ -328,6 +348,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
               @update:model-value="preferences.cliCommand = String($event)"
               type="text"
               placeholder="copilot"
+              style="width: 240px"
             />
           </div>
         </SectionPanel>
@@ -348,9 +369,9 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
               <FormInput
                 v-model="sessionsDirectory"
                 style="width: 240px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem"
+                @blur="persistSessionDir"
               />
-              <!-- STUB: Browse button should open Tauri native file dialog (dialog.open) -->
-              <ActionButton size="sm" @click="() => {}">Browse…</ActionButton>
+              <ActionButton size="sm" @click="browseSessionDir">Browse…</ActionButton>
             </div>
           </div>
 
