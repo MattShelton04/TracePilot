@@ -661,11 +661,16 @@ impl IndexDb {
         limit: Option<usize>,
         filter_repo: Option<&str>,
         filter_branch: Option<&str>,
+        hide_empty: bool,
     ) -> Result<Vec<IndexedSession>> {
         let mut sql = String::from(
             "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model FROM sessions WHERE 1=1",
         );
         let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
+
+        if hide_empty {
+            sql.push_str(" AND turn_count IS NOT NULL AND turn_count > 0");
+        }
 
         if let Some(repo) = filter_repo {
             sql.push_str(" AND repository = ?");
@@ -775,8 +780,9 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        hide_empty: bool,
     ) -> Result<AnalyticsData> {
-        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo);
+        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
         // Aggregate session-level stats
         let agg_sql = format!(
@@ -897,8 +903,9 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        hide_empty: bool,
     ) -> Result<ToolAnalysisData> {
-        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo);
+        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
         // Per-tool aggregation (include calls_with_duration for accurate averaging)
         let sql = format!(
@@ -1023,8 +1030,9 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        hide_empty: bool,
     ) -> Result<CodeImpactData> {
-        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo);
+        let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
         // Aggregate lines
         let agg_sql = format!(
@@ -1216,9 +1224,14 @@ fn build_date_repo_filter(
     from_date: Option<&str>,
     to_date: Option<&str>,
     repo: Option<&str>,
+    hide_empty: bool,
 ) -> (String, Vec<String>) {
     let mut clause = String::from(" WHERE 1=1");
     let mut values: Vec<String> = Vec::new();
+
+    if hide_empty {
+        clause.push_str(" AND s.turn_count IS NOT NULL AND s.turn_count > 0");
+    }
 
     if let Some(from) = from_date {
         values.push(from.to_string());
@@ -1551,15 +1564,15 @@ updated_at: "2026-03-11T07:15:00Z"
         db.upsert_session(&s1).unwrap();
         db.upsert_session(&s2).unwrap();
 
-        let repo_filtered = db.list_sessions(None, Some("org/repo-a"), None).unwrap();
+        let repo_filtered = db.list_sessions(None, Some("org/repo-a"), None, false).unwrap();
         assert_eq!(repo_filtered.len(), 1);
         assert_eq!(repo_filtered[0].id, "33333333-3333-3333-3333-333333333333");
 
-        let branch_filtered = db.list_sessions(None, None, Some("dev")).unwrap();
+        let branch_filtered = db.list_sessions(None, None, Some("dev"), false).unwrap();
         assert_eq!(branch_filtered.len(), 1);
         assert_eq!(branch_filtered[0].id, "44444444-4444-4444-4444-444444444444");
 
-        let limited = db.list_sessions(Some(1), None, None).unwrap();
+        let limited = db.list_sessions(Some(1), None, None, false).unwrap();
         assert_eq!(limited.len(), 1);
     }
 
@@ -1599,7 +1612,7 @@ updated_at: "2026-03-11T07:15:00Z"
         assert_eq!(pruned, 1);
         assert_eq!(db.session_count().unwrap(), 1);
 
-        let remaining = db.list_sessions(None, None, None).unwrap();
+        let remaining = db.list_sessions(None, None, None, false).unwrap();
         assert_eq!(remaining.len(), 1);
         assert_eq!(remaining[0].id, "55555555-5555-5555-5555-555555555555");
 
@@ -1692,7 +1705,7 @@ updated_at: "{updated_at}"
         db.upsert_session(&s1).unwrap();
         db.upsert_session(&s2).unwrap();
 
-        let result = db.query_analytics(None, None, None).unwrap();
+        let result = db.query_analytics(None, None, None, false).unwrap();
         assert_eq!(result.total_sessions, 2);
         assert!(result.sessions_per_day.len() >= 1);
     }
@@ -1717,10 +1730,10 @@ updated_at: "{updated_at}"
         db.upsert_session(&s1).unwrap();
         db.upsert_session(&s2).unwrap();
 
-        let filtered = db.query_analytics(None, None, Some("org/repo-a")).unwrap();
+        let filtered = db.query_analytics(None, None, Some("org/repo-a"), false).unwrap();
         assert_eq!(filtered.total_sessions, 1);
 
-        let all = db.query_analytics(None, None, None).unwrap();
+        let all = db.query_analytics(None, None, None, false).unwrap();
         assert_eq!(all.total_sessions, 2);
     }
 
@@ -1737,7 +1750,7 @@ updated_at: "{updated_at}"
         );
         db.upsert_session(&s).unwrap();
 
-        let result = db.query_tool_analysis(None, None, None).unwrap();
+        let result = db.query_tool_analysis(None, None, None, false).unwrap();
         assert_eq!(result.total_calls, 2, "should count 2 tool calls");
         assert!(result.tools.len() >= 2, "should have read_file and edit_file entries");
 
@@ -1758,7 +1771,7 @@ updated_at: "{updated_at}"
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
 
         // No sessions → zero impact
-        let result = db.query_code_impact(None, None, None).unwrap();
+        let result = db.query_code_impact(None, None, None, false).unwrap();
         assert_eq!(result.files_modified, 0);
         assert_eq!(result.lines_added, 0);
         assert_eq!(result.lines_removed, 0);
@@ -1867,15 +1880,15 @@ updated_at: "{updated_at}"
         db.upsert_session(&s2).unwrap();
 
         // Only sessions from/after March 15
-        let after = db.query_analytics(Some("2026-03-15"), None, None).unwrap();
+        let after = db.query_analytics(Some("2026-03-15"), None, None, false).unwrap();
         assert_eq!(after.total_sessions, 1);
 
         // Only sessions before March 15
-        let before = db.query_analytics(None, Some("2026-03-15"), None).unwrap();
+        let before = db.query_analytics(None, Some("2026-03-15"), None, false).unwrap();
         assert_eq!(before.total_sessions, 1);
 
         // All sessions in range
-        let all = db.query_analytics(Some("2026-03-01"), Some("2026-03-31"), None).unwrap();
+        let all = db.query_analytics(Some("2026-03-01"), Some("2026-03-31"), None, false).unwrap();
         assert_eq!(all.total_sessions, 2);
     }
 

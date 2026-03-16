@@ -94,15 +94,18 @@ fn load_single_full_session(
 /// Load summaries with optional date range and repository filtering.
 ///
 /// Sessions outside the date range or not matching the repository are excluded.
+/// When `hide_empty` is true, sessions with `turn_count == Some(0)` are excluded.
 pub fn load_session_summaries_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
     to_date: Option<&str>,
     repo: Option<&str>,
+    hide_empty: bool,
 ) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let inputs = load_session_summaries(sessions_dir)?;
     let filtered = filter_by_date_range(inputs, from_date, to_date);
-    Ok(filter_by_repo(filtered, repo))
+    let filtered = filter_by_repo(filtered, repo);
+    Ok(filter_empty(filtered, hide_empty))
 }
 
 /// Load full sessions with optional date range and repository filtering.
@@ -111,10 +114,12 @@ pub fn load_full_sessions_filtered(
     from_date: Option<&str>,
     to_date: Option<&str>,
     repo: Option<&str>,
+    hide_empty: bool,
 ) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let inputs = load_full_sessions(sessions_dir)?;
     let filtered = filter_by_date_range(inputs, from_date, to_date);
-    Ok(filter_by_repo(filtered, repo))
+    let filtered = filter_by_repo(filtered, repo);
+    Ok(filter_empty(filtered, hide_empty))
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).
@@ -168,6 +173,21 @@ fn filter_by_repo(
             .filter(|input| input.summary.repository.as_deref() == Some(repo))
             .collect(),
     }
+}
+
+/// Filter out empty sessions (turn_count == Some(0)).
+/// Sessions with turn_count == None (unknown) are kept.
+fn filter_empty(
+    inputs: Vec<SessionAnalyticsInput>,
+    hide_empty: bool,
+) -> Vec<SessionAnalyticsInput> {
+    if !hide_empty {
+        return inputs;
+    }
+    inputs
+        .into_iter()
+        .filter(|input| input.summary.turn_count != Some(0))
+        .collect()
 }
 
 #[cfg(test)]

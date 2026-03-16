@@ -79,6 +79,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_session_count: 47,
     factory_reset: undefined,
     get_tool_result: null,
+    resume_session_in_terminal: undefined,
   };
   if (!(cmd in mocks)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
@@ -143,11 +144,13 @@ export async function getAnalytics(options?: {
   fromDate?: string;
   toDate?: string;
   repo?: string;
+  hideEmpty?: boolean;
 }): Promise<AnalyticsData> {
   return invoke<AnalyticsData>("get_analytics", {
     fromDate: options?.fromDate,
     toDate: options?.toDate,
     repo: options?.repo,
+    hideEmpty: options?.hideEmpty,
   });
 }
 
@@ -156,11 +159,13 @@ export async function getToolAnalysis(options?: {
   fromDate?: string;
   toDate?: string;
   repo?: string;
+  hideEmpty?: boolean;
 }): Promise<ToolAnalysisData> {
   return invoke<ToolAnalysisData>("get_tool_analysis", {
     fromDate: options?.fromDate,
     toDate: options?.toDate,
     repo: options?.repo,
+    hideEmpty: options?.hideEmpty,
   });
 }
 
@@ -169,11 +174,13 @@ export async function getCodeImpact(options?: {
   fromDate?: string;
   toDate?: string;
   repo?: string;
+  hideEmpty?: boolean;
 }): Promise<CodeImpactData> {
   return invoke<CodeImpactData>("get_code_impact", {
     fromDate: options?.fromDate,
     toDate: options?.toDate,
     repo: options?.repo,
+    hideEmpty: options?.hideEmpty,
   });
 }
 
@@ -247,6 +254,11 @@ export async function getToolResult(
   toolCallId: string,
 ): Promise<unknown | null> {
   return invoke<unknown | null>("get_tool_result", { sessionId, toolCallId });
+}
+
+/** Open a new terminal window running `gh copilot-cli --resume <sessionId>`. */
+export async function resumeSessionInTerminal(sessionId: string): Promise<void> {
+  return invoke<void>("resume_session_in_terminal", { sessionId });
 }
 
 export type { SessionHealth };

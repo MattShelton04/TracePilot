@@ -2,8 +2,12 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
+import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
+
+/** Deduplicate concurrent indexing calls. */
+let indexingPromise: Promise<[number, number]> | null = null;
 
 export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionListItem[]>([]);
@@ -16,7 +20,12 @@ export const useSessionsStore = defineStore("sessions", () => {
   const sortBy = ref<SortOption>("updated");
 
   const filteredSessions = computed(() => {
+    const prefs = usePreferencesStore();
     let result = sessions.value;
+
+    if (prefs.hideEmptySessions) {
+      result = result.filter(s => s.turnCount !== 0);
+    }
 
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
@@ -65,6 +74,10 @@ export const useSessionsStore = defineStore("sessions", () => {
     return [...br].sort();
   });
 
+  const emptySessionCount = computed(() => {
+    return sessions.value.filter(s => s.turnCount === 0).length;
+  });
+
   async function fetchSessions() {
     loading.value = true;
     error.value = null;
@@ -79,15 +92,34 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   /** Reindex sessions in the background, then refresh the list. */
   async function reindex() {
+    if (indexingPromise) {
+      // Deduplicate: wait for the in-flight indexing call
+      try {
+        await indexingPromise;
+        sessions.value = await listSessions();
+      } catch (e) {
+        const msg = String(e);
+        if (msg !== "ALREADY_INDEXING") {
+          error.value = msg;
+        }
+      }
+      return;
+    }
+
     indexing.value = true;
     error.value = null;
     try {
-      await reindexSessions();
+      indexingPromise = reindexSessions();
+      await indexingPromise;
       // After reindex completes, refresh the list from the now-updated index
       sessions.value = await listSessions();
     } catch (e) {
-      error.value = String(e);
+      const msg = String(e);
+      if (msg !== "ALREADY_INDEXING") {
+        error.value = msg;
+      }
     } finally {
+      indexingPromise = null;
       indexing.value = false;
     }
   }
@@ -98,11 +130,20 @@ export const useSessionsStore = defineStore("sessions", () => {
    * the session list when done. Does not show loading/indexing states.
    */
   async function ensureIndex() {
+    if (indexingPromise) {
+      try { await indexingPromise; } catch { /* already running */ }
+      try { sessions.value = await listSessions(); } catch { /* silent */ }
+      return;
+    }
+
     try {
-      await reindexSessions();
+      indexingPromise = reindexSessions();
+      await indexingPromise;
       sessions.value = await listSessions();
     } catch {
       // Silent — this is a background optimization, not user-initiated
+    } finally {
+      indexingPromise = null;
     }
   }
 
@@ -118,6 +159,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     filteredSessions,
     repositories,
     branches,
+    emptySessionCount,
     fetchSessions,
     reindex,
     ensureIndex,

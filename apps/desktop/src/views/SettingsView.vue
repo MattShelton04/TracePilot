@@ -2,7 +2,7 @@
 // STUB: Settings beyond theme are stored in local component state.
 // STUB: Wire to usePreferencesStore or a dedicated settings API for persistence.
 
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePreferencesStore, type ThemeOption, type ModelWholesalePrice, DEFAULT_WHOLESALE_PRICES } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 import { useAnalyticsStore } from '@/stores/analytics';
@@ -14,6 +14,7 @@ import {
   getSessionCount as getSessionCountApi,
   factoryReset as factoryResetApi,
 } from '@tracepilot/client';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   BtnGroup,
   FormSwitch,
@@ -60,6 +61,28 @@ const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
 const resetConfirm = ref(false);
 
+// ── Indexing progress ────────────────────────────────────────
+const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const unlisteners: UnlistenFn[] = [];
+
+onMounted(async () => {
+  unlisteners.push(
+    await listen<{ current: number; total: number }>('indexing-progress', (event) => {
+      indexingProgress.value = event.payload;
+    }),
+    await listen('indexing-started', () => {
+      indexingProgress.value = null;
+    }),
+    await listen('indexing-finished', () => {
+      indexingProgress.value = null;
+    }),
+  );
+});
+
+onUnmounted(() => {
+  for (const unlisten of unlisteners) unlisten();
+});
+
 async function reindexSessions() {
   reindexing.value = true;
   reindexResult.value = null;
@@ -72,7 +95,12 @@ async function reindexSessions() {
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
-    reindexResult.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'ALREADY_INDEXING') {
+      reindexResult.value = 'Indexing already in progress…';
+    } else {
+      reindexResult.value = `Error: ${msg}`;
+    }
   } finally {
     reindexing.value = false;
   }
@@ -258,6 +286,22 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
               <span v-if="autoRefresh" class="setting-unit">sec</span>
             </div>
           </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Hide empty sessions</div>
+              <div class="setting-description">
+                Filter out sessions with no conversation turns (e.g., auto-created sessions).
+                <span v-if="sessionsStore.emptySessionCount > 0" class="empty-count-hint">
+                  {{ sessionsStore.emptySessionCount }} empty session{{ sessionsStore.emptySessionCount !== 1 ? 's' : '' }} currently filtered out
+                </span>
+              </div>
+            </div>
+            <FormSwitch
+              :model-value="preferences.hideEmptySessions"
+              @update:model-value="preferences.hideEmptySessions = $event"
+            />
+          </div>
         </SectionPanel>
       </div>
 
@@ -313,12 +357,24 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <div class="setting-actions">
               <ActionButton
                 size="sm"
-                :disabled="reindexing"
+                :disabled="reindexing || clearing"
                 @click="reindexSessions"
               >
                 {{ reindexing ? 'Reindexing…' : 'Reindex' }}
               </ActionButton>
               <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
+            </div>
+          </div>
+
+          <div v-if="indexingProgress" class="setting-row indexing-progress-row">
+            <div class="setting-info">
+              <div class="setting-label setting-label-sm">Progress</div>
+              <div class="setting-description">
+                {{ indexingProgress.current }} / {{ indexingProgress.total }} sessions
+              </div>
+            </div>
+            <div class="indexing-progress-bar-container">
+              <div class="indexing-progress-bar" :style="{ width: (indexingProgress.total > 0 ? (indexingProgress.current / indexingProgress.total * 100) : 0) + '%' }" />
             </div>
           </div>
 
@@ -329,7 +385,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
                 Clear all cached analytics data and recompute from scratch. Use this if analytics appear stale or incorrect.
               </div>
             </div>
-            <ActionButton size="sm" class="btn-danger" :disabled="clearing" @click="clearCache">
+            <ActionButton size="sm" class="btn-danger" :disabled="clearing || reindexing" @click="clearCache">
               {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
             </ActionButton>
           </div>
@@ -697,6 +753,11 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
   margin-top: 1px;
 }
 
+.empty-count-hint {
+  color: var(--text-placeholder);
+  font-style: italic;
+}
+
 .setting-control-group {
   display: flex;
   align-items: center;
@@ -972,5 +1033,31 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
   border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: flex-end;
+}
+
+/* ── Indexing progress bar ─────────────────────────────────── */
+.indexing-progress-row {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.setting-label-sm {
+  font-size: 0.75rem;
+}
+
+.indexing-progress-bar-container {
+  width: 160px;
+  height: 6px;
+  background: var(--bg-tertiary, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.indexing-progress-bar {
+  height: 100%;
+  background: var(--accent-fg, #3b82f6);
+  border-radius: 3px;
+  transition: width 0.15s ease-out;
 }
 </style>
