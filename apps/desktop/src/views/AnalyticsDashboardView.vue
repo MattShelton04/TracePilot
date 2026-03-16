@@ -130,7 +130,8 @@ const donutSegments = computed(() => {
 // ── Cost Trend Area Chart ────────────────────────────────────
 const costChart = computed(() => {
   if (!data.value) return null;
-  const pts = data.value.costByDay;
+  const rate = prefs.costPerPremiumRequest;
+  const pts = data.value.costByDay.map(p => ({ date: p.date, cost: p.cost * rate }));
   if (pts.length < 2) return null;
   const max = Math.max(...pts.map((p) => p.cost), 0.01);
   const step = CHART_W / (pts.length - 1);
