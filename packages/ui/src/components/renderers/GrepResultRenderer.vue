@@ -87,7 +87,6 @@ const matchCount = computed(() => {
 function highlightPattern(text: string): string {
   if (!pattern.value) return escapeHtml(text);
   try {
-    const regex = new RegExp(`(${escapeRegex(pattern.value)})`, "gi");
     return escapeHtml(text).replace(
       new RegExp(`(${escapeRegex(escapeHtml(pattern.value))})`, "gi"),
       '<span class="grep-highlight">$1</span>'

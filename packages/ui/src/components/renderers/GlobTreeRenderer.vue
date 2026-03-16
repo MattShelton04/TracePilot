@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * GlobTreeRenderer — renders glob results as a hierarchical collapsible
- * file tree with depth-based indentation and directory grouping.
+ * file tree with unlimited depth via a flattened list approach.
  */
 import { computed, reactive } from "vue";
 import RendererShell from "./RendererShell.vue";
@@ -33,99 +33,56 @@ interface TreeNode {
   path: string;
   isDir: boolean;
   children: TreeNode[];
-  fileCount: number;
 }
 
-const tree = computed<TreeNode[]>(() => {
-  const root: Record<string, TreeNode> = {};
+function buildTree(paths: string[]): TreeNode[] {
+  const root: TreeNode = { name: "", path: "", isDir: true, children: [] };
 
-  for (const filePath of files.value) {
+  for (const filePath of paths) {
     const parts = filePath.replace(/\\/g, "/").split("/").filter(Boolean);
     let current = root;
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isLast = i === parts.length - 1;
-      const fullPath = parts.slice(0, i + 1).join("/");
+      let child = current.children.find(c => c.name === part);
 
-      if (!current[part]) {
-        current[part] = {
+      if (!child) {
+        child = {
           name: part,
-          path: fullPath,
+          path: parts.slice(0, i + 1).join("/"),
           isDir: !isLast,
           children: [],
-          fileCount: 0,
         };
+        current.children.push(child);
       }
 
-      if (isLast) {
-        current[part].fileCount++;
-      } else {
-        current[part].isDir = true;
-        // Build children map
-        if (!current[part].children.length) {
-          current[part].children = [];
-        }
-        const childMap: Record<string, TreeNode> = {};
-        for (const c of current[part].children) {
-          childMap[c.name] = c;
-        }
-        // Recurse into next level
-        const remaining = parts.slice(i + 1);
-        let node = current[part];
-        // Build remaining path
-        let childCurrent = childMap;
-        // Simple approach: insert into children list
-        let found = node.children.find(c => c.name === parts[i + 1]);
-        if (!found) {
-          found = {
-            name: parts[i + 1],
-            path: parts.slice(0, i + 2).join("/"),
-            isDir: i + 1 < parts.length - 1,
-            children: [],
-            fileCount: 0,
-          };
-          node.children.push(found);
-        }
-        if (i + 1 === parts.length - 1) {
-          found.fileCount++;
-        } else {
-          found.isDir = true;
-        }
-        // Continue building deeper levels
-        let parent = found;
-        for (let j = i + 2; j < parts.length; j++) {
-          let child = parent.children.find(c => c.name === parts[j]);
-          if (!child) {
-            child = {
-              name: parts[j],
-              path: parts.slice(0, j + 1).join("/"),
-              isDir: j < parts.length - 1,
-              children: [],
-              fileCount: 0,
-            };
-            parent.children.push(child);
-          }
-          if (j === parts.length - 1) {
-            child.fileCount++;
-          } else {
-            child.isDir = true;
-          }
-          parent = child;
-        }
-        break;
+      if (!isLast) {
+        child.isDir = true;
+        current = child;
       }
     }
   }
 
-  // Convert root map to sorted array
-  return Object.values(root).sort((a, b) => {
+  return sortNodes(root.children);
+}
+
+function sortNodes(nodes: TreeNode[]): TreeNode[] {
+  return [...nodes].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
     return a.name.localeCompare(b.name);
-  });
-});
+  }).map(n => n.isDir ? { ...n, children: sortNodes(n.children) } : n);
+}
 
-// Collapse state
+const tree = computed(() => buildTree(files.value));
+
+// ── Flatten tree into a renderable list with depth ──
+
+interface FlatNode {
+  node: TreeNode;
+  depth: number;
+}
+
 const collapsed = reactive(new Set<string>());
 
 function toggleDir(path: string) {
@@ -136,24 +93,27 @@ function toggleDir(path: string) {
   }
 }
 
-function isCollapsed(path: string): boolean {
-  return collapsed.has(path);
-}
+const flatList = computed<FlatNode[]>(() => {
+  const result: FlatNode[] = [];
+  function walk(nodes: TreeNode[], depth: number) {
+    for (const node of nodes) {
+      result.push({ node, depth });
+      if (node.isDir && !collapsed.has(node.path)) {
+        walk(node.children, depth + 1);
+      }
+    }
+  }
+  walk(tree.value, 0);
+  return result;
+});
 
 function countFiles(node: TreeNode): number {
   if (!node.isDir) return 1;
-  let count = node.fileCount;
+  let count = 0;
   for (const child of node.children) {
     count += countFiles(child);
   }
   return count;
-}
-
-function sortChildren(children: TreeNode[]): TreeNode[] {
-  return [...children].sort((a, b) => {
-    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
 }
 
 function fileIcon(name: string): string {
@@ -179,67 +139,25 @@ function fileIcon(name: string): string {
         <span class="glob-stat">📁 {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} matched</span>
       </div>
       <div class="glob-list" role="tree">
-        <!-- Recursive tree rendering via template recursion -->
-        <template v-for="node in tree" :key="node.path">
-          <component :is="'div'" /><!-- spacer for v-for key -->
+        <div v-for="item in flatList" :key="item.node.path"
+             :class="['glob-node', item.node.isDir ? 'glob-dir' : 'glob-file']"
+             :style="{ paddingLeft: (12 + item.depth * 16) + 'px' }"
+             :role="item.node.isDir ? 'treeitem' : undefined"
+             :aria-expanded="item.node.isDir ? !collapsed.has(item.node.path) : undefined"
+             @click="item.node.isDir && toggleDir(item.node.path)">
           <!-- Directory -->
-          <div v-if="node.isDir"
-               class="glob-node glob-dir"
-               role="treeitem"
-               :aria-expanded="!isCollapsed(node.path)"
-               @click="toggleDir(node.path)"
-               :style="{ paddingLeft: '12px' }">
-            <span class="glob-dir-arrow" :class="{ 'glob-dir-arrow--collapsed': isCollapsed(node.path) }">▶</span>
+          <template v-if="item.node.isDir">
+            <span class="glob-dir-arrow" :class="{ 'glob-dir-arrow--collapsed': collapsed.has(item.node.path) }">▶</span>
             <span class="glob-dir-icon">📁</span>
-            <span class="glob-dir-name">{{ node.name }}</span>
-            <span class="glob-dir-count">{{ countFiles(node) }}</span>
-          </div>
-          <!-- Children of directory -->
-          <template v-if="node.isDir && !isCollapsed(node.path)">
-            <!-- Only render 1 level deep inline — deeper nesting uses flat indentation -->
-            <template v-for="child in sortChildren(node.children)" :key="child.path">
-              <div v-if="child.isDir"
-                   class="glob-node glob-dir"
-                   role="treeitem"
-                   :aria-expanded="!isCollapsed(child.path)"
-                   @click="toggleDir(child.path)"
-                   :style="{ paddingLeft: '28px' }">
-                <span class="glob-dir-arrow" :class="{ 'glob-dir-arrow--collapsed': isCollapsed(child.path) }">▶</span>
-                <span class="glob-dir-icon">📁</span>
-                <span class="glob-dir-name">{{ child.name }}</span>
-                <span class="glob-dir-count">{{ countFiles(child) }}</span>
-              </div>
-              <template v-if="child.isDir && !isCollapsed(child.path)">
-                <template v-for="gc in sortChildren(child.children)" :key="gc.path">
-                  <div v-if="gc.isDir"
-                       class="glob-node glob-dir"
-                       role="treeitem"
-                       :aria-expanded="!isCollapsed(gc.path)"
-                       @click="toggleDir(gc.path)"
-                       :style="{ paddingLeft: '44px' }">
-                    <span class="glob-dir-arrow" :class="{ 'glob-dir-arrow--collapsed': isCollapsed(gc.path) }">▶</span>
-                    <span class="glob-dir-icon">📁</span>
-                    <span class="glob-dir-name">{{ gc.name }}</span>
-                    <span class="glob-dir-count">{{ countFiles(gc) }}</span>
-                  </div>
-                  <div v-else class="glob-node glob-file" :style="{ paddingLeft: '44px' }">
-                    <span class="glob-file-icon">{{ fileIcon(gc.name) }}</span>
-                    <span class="glob-file-name">{{ gc.name }}</span>
-                  </div>
-                </template>
-              </template>
-              <div v-if="!child.isDir" class="glob-node glob-file" :style="{ paddingLeft: '28px' }">
-                <span class="glob-file-icon">{{ fileIcon(child.name) }}</span>
-                <span class="glob-file-name">{{ child.name }}</span>
-              </div>
-            </template>
+            <span class="glob-dir-name">{{ item.node.name }}</span>
+            <span class="glob-dir-count">{{ countFiles(item.node) }}</span>
           </template>
-          <!-- File at root -->
-          <div v-if="!node.isDir" class="glob-node glob-file" :style="{ paddingLeft: '12px' }">
-            <span class="glob-file-icon">{{ fileIcon(node.name) }}</span>
-            <span class="glob-file-name">{{ node.name }}</span>
-          </div>
-        </template>
+          <!-- File -->
+          <template v-else>
+            <span class="glob-file-icon">{{ fileIcon(item.node.name) }}</span>
+            <span class="glob-file-name">{{ item.node.name }}</span>
+          </template>
+        </div>
       </div>
     </div>
   </RendererShell>

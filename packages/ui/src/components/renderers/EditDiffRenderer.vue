@@ -106,28 +106,28 @@ interface DiffLine {
   oldNum?: number;
   newNum?: number;
   content: string;
-  /** Word-level highlight spans within this line */
-  segments?: DiffSegment[];
 }
 
-const diffSegments = computed<DiffSegment[]>(() => {
-  if (oldStr.value == null || newStr.value == null) return [];
-  return computeWordDiff(oldStr.value, newStr.value);
-});
+/** Strip trailing empty entry from split (common for content ending with \n). */
+function splitLines(text: string): string[] {
+  const lines = text.split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
 
 /** Convert word-level segments into line-level diff entries. */
 const diffLines = computed<DiffLine[]>(() => {
   if (oldStr.value == null || newStr.value == null) return [];
 
-  const oldLines = oldStr.value.split("\n");
-  const newLines = newStr.value.split("\n");
+  const oldLines = splitLines(oldStr.value);
+  const newLines = splitLines(newStr.value);
   const lines: DiffLine[] = [];
 
   // Simple line-based diff using LCS on lines
   const m = oldLines.length;
   const n = newLines.length;
 
-  if (m * n > 100_000) {
+  if (m * n > 1_000_000) {
     // Too large — just show all old as removed, all new as added
     oldLines.forEach((l, i) => lines.push({ type: "removed", oldNum: i + 1, content: l }));
     newLines.forEach((l, i) => lines.push({ type: "added", newNum: i + 1, content: l }));
@@ -163,8 +163,8 @@ const diffLines = computed<DiffLine[]>(() => {
   return stack;
 });
 
-const oldLineCount = computed(() => oldStr.value?.split("\n").length ?? 0);
-const newLineCount = computed(() => newStr.value?.split("\n").length ?? 0);
+const oldLineCount = computed(() => oldStr.value ? splitLines(oldStr.value).length : 0);
+const newLineCount = computed(() => newStr.value ? splitLines(newStr.value).length : 0);
 
 /** Split view: left (old) lines and right (new) lines aligned. */
 const splitPairs = computed(() => {

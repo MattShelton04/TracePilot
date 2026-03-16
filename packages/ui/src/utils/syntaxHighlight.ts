@@ -4,7 +4,8 @@
  * Produces HTML spans with `.syn-*` classes. No external dependencies.
  * NOT a full parser — just good-enough tokenization for visual polish.
  *
- * Security: Input is HTML-escaped before tokenization, so v-html is safe.
+ * Security: Tokenization runs on RAW text; each segment is HTML-escaped
+ * individually before wrapping in spans, so v-html output is safe.
  */
 
 /** Escape HTML entities to prevent XSS when using v-html. */
@@ -105,14 +106,14 @@ interface Token {
   className: string;
 }
 
-function tokenize(escaped: string, rules: TokenRule[]): Token[] {
+function tokenize(raw: string, rules: TokenRule[]): Token[] {
   const tokens: Token[] = [];
-  const used = new Uint8Array(escaped.length); // track covered positions
+  const used = new Uint8Array(raw.length); // track covered positions
 
   for (const rule of rules) {
     rule.pattern.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = rule.pattern.exec(escaped)) !== null) {
+    while ((m = rule.pattern.exec(raw)) !== null) {
       const start = m.index;
       const end = start + m[0].length;
       // Check if any part of this match is already taken
@@ -131,21 +132,22 @@ function tokenize(escaped: string, rules: TokenRule[]): Token[] {
   return tokens;
 }
 
-function applyTokens(escaped: string, tokens: Token[]): string {
-  if (tokens.length === 0) return escaped;
+/** Build output by escaping each segment individually (gaps and tokens). */
+function applyTokensWithEscape(raw: string, tokens: Token[]): string {
+  if (tokens.length === 0) return escapeHtml(raw);
 
   let result = "";
   let pos = 0;
 
   for (const tok of tokens) {
     if (tok.start > pos) {
-      result += escaped.slice(pos, tok.start);
+      result += escapeHtml(raw.slice(pos, tok.start));
     }
-    result += wrap(tok.className, escaped.slice(tok.start, tok.end));
+    result += wrap(tok.className, escapeHtml(raw.slice(tok.start, tok.end)));
     pos = tok.end;
   }
-  if (pos < escaped.length) {
-    result += escaped.slice(pos);
+  if (pos < raw.length) {
+    result += escapeHtml(raw.slice(pos));
   }
   return result;
 }
@@ -181,7 +183,7 @@ function rustRules(): TokenRule[] {
     { pattern: makeKeywordPattern(RUST_KEYWORDS), className: "keyword" },
     { pattern: /\b[A-Z][a-zA-Z0-9]*\b/g, className: "type" },
     { pattern: /\b[a-z_]\w*(?=\s*[(<])/g, className: "func" },
-    { pattern: /(?:&amp;|&amp;mut\s)/g, className: "keyword" },
+    { pattern: /(?:&mut\s|&)/g, className: "keyword" },
     { pattern: /[+\-*/%=!<>&|^~?:]+/g, className: "operator" },
     { pattern: /[{}[\]();,]/g, className: "punct" },
   ];
@@ -273,11 +275,11 @@ function goRules(): TokenRule[] {
 
 function htmlRules(): TokenRule[] {
   return [
-    { pattern: /&lt;!--[\s\S]*?--&gt;/g, className: "comment" },
+    { pattern: /<!--[\s\S]*?-->/g, className: "comment" },
     { pattern: /"(?:\\.|[^"\\])*"/g, className: "string" },
     { pattern: /'(?:\\.|[^'\\])*'/g, className: "string" },
-    { pattern: /&lt;\/?[a-zA-Z][\w-]*/g, className: "tag" },
-    { pattern: /\/?&gt;/g, className: "tag" },
+    { pattern: /<\/?[a-zA-Z][\w-]*/g, className: "tag" },
+    { pattern: /\/?>/g, className: "tag" },
     { pattern: /\b[a-zA-Z-]+(?==)/g, className: "attr" },
   ];
 }
@@ -362,16 +364,15 @@ const LANG_RULES: Record<string, () => TokenRule[]> = {
  *
  * @param line The raw (unescaped) line of code
  * @param language The language identifier
- * @returns HTML string with `.syn-*` spans. Safe for v-html (input is escaped first).
+ * @returns HTML string with `.syn-*` spans. Safe for v-html (each segment is escaped).
  */
 export function highlightLine(line: string, language: string): string {
-  const escaped = escapeHtml(line);
   const rulesFn = LANG_RULES[language];
-  if (!rulesFn) return escaped;
+  if (!rulesFn) return escapeHtml(line);
 
   const rules = rulesFn();
-  const tokens = tokenize(escaped, rules);
-  return applyTokens(escaped, tokens);
+  const tokens = tokenize(line, rules);
+  return applyTokensWithEscape(line, tokens);
 }
 
 /**

@@ -45,15 +45,17 @@ const renderedBody = computed(() => {
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="ws-inline-code">$1</code>');
-  // Markdown links → clickable
-  html = html.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>'
-  );
-  // Citation references like [1], [2]
+  // Citation references like [1], [2] — BEFORE link conversion to avoid
+  // corrupting URLs that contain bracketed numbers (e.g. ?a=[1])
   html = html.replace(
     /\[(\d+)\]/g,
     '<span class="ws-citation">$1</span>'
+  );
+  // Markdown links → clickable (after citations, so [text](url) still works
+  // because link text won't be purely numeric like citation refs)
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>'
   );
   // Line breaks
   html = html.replace(/\n/g, '<br>');

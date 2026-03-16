@@ -41,17 +41,17 @@ const lines = computed(() => {
   return raw;
 });
 
-/** Pre-highlighted HTML for each visible line. */
-const highlightedLines = computed(() =>
-  lines.value.map(line => highlightLine(line, lang.value))
-);
-
-const visibleLines = computed(() => {
+/** Pre-highlighted HTML for each visible line (sliced first for performance). */
+const visibleRawLines = computed(() => {
   if (props.maxLines && props.maxLines > 0 && lines.value.length > props.maxLines) {
-    return highlightedLines.value.slice(0, props.maxLines);
+    return lines.value.slice(0, props.maxLines);
   }
-  return highlightedLines.value;
+  return lines.value;
 });
+
+const visibleLines = computed(() =>
+  visibleRawLines.value.map(line => highlightLine(line, lang.value))
+);
 
 const isCollapsed = computed(() =>
   props.maxLines ? lines.value.length > props.maxLines : false
