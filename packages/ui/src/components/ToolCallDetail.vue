@@ -79,7 +79,7 @@ const isRichEnabled = computed(() => props.richEnabled !== false);
         :loading="loadingFullResult"
         @load-full="emit('load-full-result', $event)"
       />
-      <div v-if="isTruncated && !isRichEnabled" class="tool-result-actions">
+      <div v-if="isTruncated" class="tool-result-actions">
         <button
           v-if="!failedFullResult"
           class="tool-result-btn"

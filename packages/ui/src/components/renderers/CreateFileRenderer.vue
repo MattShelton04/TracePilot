@@ -20,8 +20,14 @@ const filePath = computed(() =>
   typeof props.args?.path === "string" ? props.args.path : undefined
 );
 
+/** The actual file content from args, falling back to result content. */
+const fileContent = computed(() => {
+  if (typeof props.args?.file_text === "string") return props.args.file_text;
+  return props.content;
+});
+
 const lineCount = computed(() => {
-  const lines = props.content.split("\n");
+  const lines = fileContent.value.split("\n");
   return lines[lines.length - 1] === "" ? lines.length - 1 : lines.length;
 });
 </script>
@@ -29,7 +35,7 @@ const lineCount = computed(() => {
 <template>
   <RendererShell
     :label="filePath ?? 'Create'"
-    :copy-content="content"
+    :copy-content="fileContent"
     :is-truncated="isTruncated"
     @load-full="emit('load-full')"
   >
@@ -38,7 +44,7 @@ const lineCount = computed(() => {
       <span class="create-file-badge">{{ lineCount }} line{{ lineCount !== 1 ? 's' : '' }}</span>
     </div>
     <CodeBlock
-      :code="content"
+      :code="fileContent"
       :file-path="filePath"
       :max-lines="2000"
       :show-language-badge="true"

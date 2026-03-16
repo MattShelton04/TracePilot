@@ -39,6 +39,9 @@ interface DiffSegment {
   value: string;
 }
 
+/** Maximum product of token counts before we skip LCS and fall back to simple diff. */
+const MAX_DIFF_COMPLEXITY = 4_000_000;
+
 function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
   // Tokenize into words and whitespace
   const tokenize = (text: string): string[] =>
@@ -47,11 +50,18 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
   const oldTokens = tokenize(oldText);
   const newTokens = tokenize(newText);
 
-  // Simple LCS-based diff (sufficient for the typically small old_str/new_str)
   const m = oldTokens.length;
   const n = newTokens.length;
 
-  // Build LCS table
+  // Guard against quadratic blowup on large inputs
+  if (m * n > MAX_DIFF_COMPLEXITY) {
+    return [
+      { type: "removed", value: oldText },
+      { type: "added", value: newText },
+    ];
+  }
+
+  // LCS-based diff (safe for the now-bounded input size)
   const dp: number[][] = Array.from({ length: m + 1 }, () =>
     Array(n + 1).fill(0)
   );

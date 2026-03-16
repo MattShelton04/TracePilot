@@ -35,14 +35,19 @@ const parsedMatches = computed<GrepMatch[]>(() => {
   const lines = props.content.split("\n").filter(l => l.trim());
 
   return lines.map(line => {
-    // Try to parse "file:line:content" format
+    // Try to parse "file:line:content" format (handles Windows drive letters)
     const match = line.match(/^(.+?):(\d+):(.*)$/);
     if (match) {
       return { file: match[1], lineNum: parseInt(match[2]), text: match[3] };
     }
-    // Try "file:content" (no line numbers)
+    // Try Windows drive-letter paths first: "C:\...:content"
+    const winMatch = line.match(/^([A-Za-z]:\\.+?):(.+)$/);
+    if (winMatch) {
+      return { file: winMatch[1], text: winMatch[2] };
+    }
+    // Try "file:content" (no line numbers) — require path separators
     const match2 = line.match(/^(.+?):(.+)$/);
-    if (match2 && match2[1].includes("/") || match2 && match2[1].includes("\\")) {
+    if (match2 && (match2[1].includes("/") || match2[1].includes("\\"))) {
       return { file: match2[1], text: match2[2] };
     }
     // Plain file path
@@ -61,7 +66,16 @@ const groupedByFile = computed(() => {
 });
 
 const fileCount = computed(() => Object.keys(groupedByFile.value).length);
-const matchCount = computed(() => parsedMatches.value.length);
+const matchCount = computed(() => {
+  if (outputMode.value === "count") {
+    // In count mode, text contains the per-file count — sum them
+    return parsedMatches.value.reduce((sum, m) => {
+      const n = parseInt(m.text);
+      return sum + (isNaN(n) ? 1 : n);
+    }, 0);
+  }
+  return parsedMatches.value.length;
+});
 </script>
 
 <template>
@@ -78,7 +92,7 @@ const matchCount = computed(() => parsedMatches.value.length);
         <span v-if="outputMode !== 'files_with_matches'" class="grep-mode-badge">{{ outputMode }}</span>
       </div>
 
-      <!-- File-grouped results -->
+      <!-- File-grouped results (content mode) -->
       <div v-if="outputMode === 'content'" class="grep-groups">
         <div v-for="(matches, file) in groupedByFile" :key="file" class="grep-file-group">
           <div class="grep-file-header">
@@ -95,7 +109,16 @@ const matchCount = computed(() => parsedMatches.value.length);
         </div>
       </div>
 
-      <!-- File list mode -->
+      <!-- Count mode: show per-file match counts -->
+      <div v-else-if="outputMode === 'count'" class="grep-file-list">
+        <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
+          <span class="grep-file-icon">📄</span>
+          <span class="grep-file-path">{{ m.file }}</span>
+          <span v-if="m.text" class="grep-file-count">{{ m.text }}</span>
+        </div>
+      </div>
+
+      <!-- File list mode (files_with_matches) -->
       <div v-else class="grep-file-list">
         <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
           <span class="grep-file-icon">📄</span>

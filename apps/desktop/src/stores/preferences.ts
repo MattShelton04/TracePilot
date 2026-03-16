@@ -45,7 +45,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
   const hideEmptySessions = ref(true);
   const cliCommand = ref('copilot');
-  const toolRendering = ref<ToolRenderingPreferences>({ ...DEFAULT_TOOL_RENDERING_PREFS });
+  const toolRendering = ref<ToolRenderingPreferences>({
+    enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
+    toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
+  });
   let mediaQuery: MediaQueryList | null = null;
   let mediaHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
@@ -160,7 +163,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   /** Reset tool rendering preferences to defaults. */
   function resetToolRendering() {
-    toolRendering.value = { ...DEFAULT_TOOL_RENDERING_PREFS };
+    toolRendering.value = {
+      enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
+      toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
+    };
   }
 
   return {
