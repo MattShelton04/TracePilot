@@ -6,7 +6,7 @@
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
   if (ms == null || ms < 0) return "";
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${Math.round(ms * 100) / 100}ms`;
   const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

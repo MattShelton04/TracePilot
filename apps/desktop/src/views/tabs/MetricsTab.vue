@@ -26,10 +26,11 @@ const modelEntries = computed(() => {
       const outputTokens = data.usage?.outputTokens ?? 0;
       const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
       const wholesaleCost = prefs.computeWholesaleCost(name, inputTokens, cacheReadTokens, outputTokens);
+      const premiumRequests = data.requests?.cost ?? 0;
       return {
         name,
         requests: data.requests?.count ?? 0,
-        cost: data.requests?.cost ?? 0,
+        copilotCost: premiumRequests * prefs.costPerPremiumRequest,
         inputTokens,
         outputTokens,
         cacheReadTokens,
@@ -68,7 +69,7 @@ const cacheHitRatio = computed(() => {
 const modelColumns = [
   { key: "name", label: "Model", align: "left" as const },
   { key: "requests", label: "Requests", align: "right" as const },
-  { key: "cost", label: "Cost", align: "right" as const },
+  { key: "copilotCost", label: "Copilot Cost", align: "right" as const },
   { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
   { key: "inputTokens", label: "Input Tokens", align: "right" as const },
   { key: "outputTokens", label: "Output Tokens", align: "right" as const },
@@ -118,7 +119,7 @@ const modelColumns = [
         <template #cell-requests="{ value }">
           <span class="text-[var(--text-primary)]">{{ value }}</span>
         </template>
-        <template #cell-cost="{ value }">
+        <template #cell-copilotCost="{ value }">
           <span class="text-[var(--warning-fg)]">{{ formatCost(value as number) }}</span>
         </template>
         <template #cell-wholesaleCost="{ value }">
