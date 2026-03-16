@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getConfig, saveConfig, validateSessionDir, reindexSessions } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
 import { FormSwitch } from '@tracepilot/ui';
+import LogoIcon from '@/components/icons/LogoIcon.vue';
 
 const emit = defineEmits<{ 'setup-complete': [] }>();
 
@@ -267,11 +268,7 @@ onUnmounted(() => {
           <div class="slide-content slide-welcome">
             <div class="logo-wrapper">
               <div class="logo-icon" aria-hidden="true">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <path d="M20 6L32 14V26L20 34L8 26V14L20 6Z" fill="url(#logo-grad)" opacity="0.9"/>
-                  <path d="M14 16L20 12L26 16V24L20 28L14 24V16Z" fill="white" opacity="0.15"/>
-                  <defs><linearGradient id="logo-grad" x1="8" y1="6" x2="32" y2="34"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs>
-                </svg>
+                <LogoIcon :size="64" />
               </div>
             </div>
             <h1 class="welcome-title" tabindex="-1">TracePilot</h1>
@@ -591,6 +588,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white;
   box-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
   animation: pulse-glow 3s ease-in-out infinite;
 }
