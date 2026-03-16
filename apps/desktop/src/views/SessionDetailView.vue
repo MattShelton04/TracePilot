@@ -138,15 +138,15 @@ onUnmounted(() => {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-secondary, #1e1e2e);
-  border: 1px solid var(--border-primary, #3b3b4f);
-  border-radius: 6px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: all var(--transition-fast);
 }
 .resume-btn:hover {
-  background: var(--bg-tertiary, #2a2a3d);
-  border-color: var(--accent-border, #5b5bd6);
+  background: var(--neutral-subtle);
+  border-color: var(--border-accent);
 }
 .detail-tab-content {
   padding-top: 4px;
