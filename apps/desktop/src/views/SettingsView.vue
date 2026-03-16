@@ -22,6 +22,7 @@ import {
   SectionPanel,
 } from '@tracepilot/ui';
 import StubBanner from '@/components/StubBanner.vue';
+import LogoIcon from '@/components/icons/LogoIcon.vue';
 
 const preferences = usePreferencesStore();
 const sessionsStore = useSessionsStore();
@@ -608,7 +609,9 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
         <SectionPanel>
           <div class="about-content">
             <div class="about-brand">
-              <div class="about-brand-icon" aria-hidden="true">⏱</div>
+              <div class="about-brand-icon" aria-hidden="true">
+                <LogoIcon :size="40" />
+              </div>
               <div>
                 <div class="about-app-name">TracePilot</div>
                 <div class="about-tagline">
@@ -843,7 +846,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  color: white;
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }
 

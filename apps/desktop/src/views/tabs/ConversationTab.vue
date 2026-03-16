@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
   ExpandChevron, ToolCallItem, ToolCallDetail,
-  formatDuration, formatTime, truncateText,
+  formatDuration, formatTime, formatNumber, truncateText,
   toolIcon, toolCategory, categoryColor, formatArgsSummary,
   useSessionTabLoader, useToggleSet,
 } from "@tracepilot/ui";
@@ -12,7 +13,12 @@ import {
 const store = useSessionDetailStore();
 const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
+const expandedReasoning = useToggleSet<number>();
 const activeView = ref("chat");
+
+const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
+  () => store.sessionId
+);
 
 const viewModes = [
   { value: "chat", label: "Chat" },
@@ -27,6 +33,7 @@ useSessionTabLoader(
     onClear() {
       expandedTools.clear();
       expandedToolDetails.clear();
+      expandedReasoning.clear();
     },
   }
 );
@@ -87,6 +94,24 @@ const totalDurationMs = computed(() =>
           </div>
         </div>
 
+        <!-- Reasoning (thinking) — after user message, before assistant response -->
+        <div v-if="turn.reasoningTexts && turn.reasoningTexts.length > 0" class="turn-reasoning">
+          <button
+            class="reasoning-toggle"
+            :aria-expanded="expandedReasoning.has(turn.turnIndex)"
+            @click="expandedReasoning.toggle(turn.turnIndex)"
+          >
+            <ExpandChevron :expanded="expandedReasoning.has(turn.turnIndex)" />
+            💭 {{ turn.reasoningTexts.length }} reasoning block{{ turn.reasoningTexts.length !== 1 ? 's' : '' }}
+          </button>
+          <div v-if="expandedReasoning.has(turn.turnIndex)" class="reasoning-content" tabindex="0">
+            <template v-for="(text, rIdx) in turn.reasoningTexts" :key="rIdx">
+              <hr v-if="rIdx > 0" class="reasoning-divider" />
+              {{ text }}
+            </template>
+          </div>
+        </div>
+
         <!-- Assistant messages -->
         <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="turn-item">
           <div class="turn-avatar assistant">🤖</div>
@@ -99,6 +124,11 @@ const totalDurationMs = computed(() =>
             </div>
             <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
           </div>
+        </div>
+
+        <!-- Token badge (once per turn, outside assistant messages loop) -->
+        <div v-if="turn.outputTokens" class="turn-reasoning">
+          <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
         </div>
 
         <!-- Tool calls section -->
@@ -131,7 +161,12 @@ const totalDurationMs = computed(() =>
                 :tc="tc"
                 :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
                 :expanded="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
+                :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+                :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
                 @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${tcIdx}`)"
+                @load-full-result="handleLoadFullResult"
+                @retry-full-result="handleRetryResult"
               />
             </div>
           </div>
@@ -146,6 +181,7 @@ const totalDurationMs = computed(() =>
           <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+          <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
             {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
           </span>
@@ -188,7 +224,13 @@ const totalDurationMs = computed(() =>
                 <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
                 <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="tool-call-args" style="font-family: var(--font-mono, monospace);">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
               </div>
-              <ToolCallDetail :tc="tc" :show-metadata="false" />
+              <ToolCallDetail
+                :tc="tc"
+                :show-metadata="false"
+                :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+                :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                @load-full-result="handleLoadFullResult"
+              />
             </div>
           </template>
         </div>
@@ -205,6 +247,7 @@ const totalDurationMs = computed(() =>
           <div class="timeline-meta">
             <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
             <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+            <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
             <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
             <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tools</span>
             <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
@@ -213,6 +256,24 @@ const totalDurationMs = computed(() =>
           <div v-if="turn.userMessage" class="timeline-block user">
             <div class="timeline-block-label user">User</div>
             <div class="timeline-block-text">{{ truncateText(turn.userMessage, 500) }}</div>
+          </div>
+
+          <!-- Reasoning (timeline) -->
+          <div v-if="turn.reasoningTexts && turn.reasoningTexts.length > 0">
+            <button
+              class="reasoning-toggle"
+              :aria-expanded="expandedReasoning.has(turn.turnIndex)"
+              @click="expandedReasoning.toggle(turn.turnIndex)"
+            >
+              <ExpandChevron :expanded="expandedReasoning.has(turn.turnIndex)" />
+              💭 {{ turn.reasoningTexts.length }} reasoning block{{ turn.reasoningTexts.length !== 1 ? 's' : '' }}
+            </button>
+            <div v-if="expandedReasoning.has(turn.turnIndex)" class="reasoning-content" tabindex="0">
+              <template v-for="(text, rIdx) in turn.reasoningTexts" :key="rIdx">
+                <hr v-if="rIdx > 0" class="reasoning-divider" />
+                {{ text }}
+              </template>
+            </div>
           </div>
 
           <!-- Tool calls (timeline) -->
@@ -224,7 +285,12 @@ const totalDurationMs = computed(() =>
               variant="compact"
               :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
               :expanded="expandedToolDetails.has(`tl-${turn.turnIndex}-${tcIdx}`)"
+              :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+              :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+              :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
               @toggle="expandedToolDetails.toggle(`tl-${turn.turnIndex}-${tcIdx}`)"
+              @load-full-result="handleLoadFullResult"
+              @retry-full-result="handleRetryResult"
             />
           </div>
 

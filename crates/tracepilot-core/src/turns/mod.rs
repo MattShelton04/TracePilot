@@ -1,5 +1,7 @@
 //! Conversation turn reconstruction from flat typed event streams.
 
+use std::collections::HashMap;
+
 use crate::models::conversation::{ConversationTurn, TurnToolCall};
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{TypedEvent, TypedEventData};
@@ -20,6 +22,7 @@ pub struct TurnStats {
 pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
     let mut turns = Vec::new();
     let mut current_turn: Option<ConversationTurn> = None;
+    let mut intention_summaries: HashMap<String, String> = HashMap::new();
 
     for event in events {
         match (&event.event_type, &event.typed_data) {
@@ -31,6 +34,8 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     event.raw.timestamp,
                     data.interaction_id.clone(),
                     data.content.clone(),
+                    data.transformed_content.clone(),
+                    data.attachments.clone(),
                 ));
             }
             (SessionEventType::AssistantTurnStart, TypedEventData::TurnStart(data)) => {
@@ -52,9 +57,35 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                         turn.assistant_messages.push(content.clone());
                     }
                 }
+                if let Some(reasoning) = &data.reasoning_text {
+                    if !reasoning.trim().is_empty() {
+                        turn.reasoning_texts.push(reasoning.clone());
+                    }
+                }
+                if let Some(tokens) = data.output_tokens {
+                    *turn.output_tokens.get_or_insert(0) += tokens;
+                }
+                if let Some(requests) = &data.tool_requests {
+                    for req in requests {
+                        if let (Some(id), Some(summary)) = (
+                            req.get("toolCallId").and_then(|v| v.as_str()),
+                            req.get("intentionSummary").and_then(|v| v.as_str()),
+                        ) {
+                            if !summary.trim().is_empty() {
+                                intention_summaries
+                                    .insert(id.to_string(), summary.to_string());
+                            }
+                        }
+                    }
+                }
             }
             (SessionEventType::ToolExecutionStart, TypedEventData::ToolExecutionStart(data)) => {
                 let turn = ensure_current_turn(&mut current_turn, turns.len(), event.raw.timestamp);
+                let intention = data
+                    .tool_call_id
+                    .as_ref()
+                    .and_then(|id| intention_summaries.get(id))
+                    .cloned();
                 turn.tool_calls.push(TurnToolCall {
                     tool_call_id: data.tool_call_id.clone(),
                     parent_tool_call_id: data.parent_tool_call_id.clone(),
@@ -75,6 +106,8 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     agent_display_name: None,
                     agent_description: None,
                     model: None,
+                    intention_summary: intention,
+                    result_content: None,
                 });
             }
             (
@@ -122,6 +155,12 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     }
                     if tool_call.parent_tool_call_id.is_none() {
                         tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
+                    }
+                    // Always update result — last completion wins (matches timestamp logic)
+                    if let Some(result) = &data.result {
+                        if let Some(preview) = extract_result_preview(result) {
+                            tool_call.result_content = Some(preview);
+                        }
                     }
                 }
 
@@ -190,6 +229,8 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                         agent_display_name: data.agent_display_name.clone(),
                         agent_description: data.agent_description.clone(),
                         model: None,
+                        intention_summary: None,
+                        result_content: None,
                     });
                 }
             }
@@ -284,6 +325,8 @@ fn new_turn(
     timestamp: Option<DateTime<Utc>>,
     interaction_id: Option<String>,
     user_message: Option<String>,
+    transformed_user_message: Option<String>,
+    attachments: Option<Vec<serde_json::Value>>,
 ) -> ConversationTurn {
     ConversationTurn {
         turn_index,
@@ -297,6 +340,10 @@ fn new_turn(
         tool_calls: Vec::new(),
         duration_ms: None,
         is_complete: false,
+        reasoning_texts: Vec::new(),
+        output_tokens: None,
+        transformed_user_message,
+        attachments,
     }
 }
 
@@ -305,7 +352,7 @@ fn ensure_current_turn(
     turn_index: usize,
     timestamp: Option<DateTime<Utc>>,
 ) -> &mut ConversationTurn {
-    current_turn.get_or_insert_with(|| new_turn(turn_index, timestamp, None, None))
+    current_turn.get_or_insert_with(|| new_turn(turn_index, timestamp, None, None, None, None))
 }
 
 fn finalize_current_turn(
@@ -350,6 +397,51 @@ fn json_value_to_string(value: &serde_json::Value) -> String {
         .as_str()
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| value.to_string())
+}
+
+const RESULT_PREVIEW_MAX_BYTES: usize = 1024;
+
+/// Truncate a string to a maximum byte length, respecting UTF-8 boundaries.
+fn truncate_str(s: &str, max_bytes: usize) -> String {
+    if s.len() <= max_bytes {
+        return s.to_string();
+    }
+    let truncate_at = s
+        .char_indices()
+        .map(|(idx, _)| idx)
+        .take_while(|idx| *idx <= max_bytes)
+        .last()
+        .unwrap_or(0);
+    format!("{}…[truncated]", &s[..truncate_at])
+}
+
+/// Extract a truncated result preview from a polymorphic `result` field.
+/// The result can be a plain string, an object with `content`/`detailedContent`, or other shapes.
+fn extract_result_preview(result: &serde_json::Value) -> Option<String> {
+    match result {
+        serde_json::Value::String(s) => {
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(truncate_str(s, RESULT_PREVIEW_MAX_BYTES))
+            }
+        }
+        serde_json::Value::Object(obj) => {
+            // Prefer `content` (the summarized output), fall back to `detailedContent`.
+            // Treat empty/whitespace `content` as absent so `detailedContent` is considered.
+            let text = obj
+                .get("content")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| {
+                    obj.get("detailedContent")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                });
+            text.map(|s| truncate_str(s, RESULT_PREVIEW_MAX_BYTES))
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -400,6 +492,19 @@ mod tests {
             TypedEventData::SubagentStarted(value) => serde_json::to_value(value).unwrap(),
             TypedEventData::SubagentCompleted(value) => serde_json::to_value(value).unwrap(),
             TypedEventData::SubagentFailed(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::CompactionComplete(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::CompactionStart(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::ModelChange(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::SessionError(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::SessionResume(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::SystemNotification(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::SkillInvoked(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::Abort(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::PlanChanged(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::SessionInfo(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::ContextChanged(value) => value.clone(),
+            TypedEventData::WorkspaceFileChanged(value) => serde_json::to_value(value).unwrap(),
+            TypedEventData::ToolUserRequested(value) => serde_json::to_value(value).unwrap(),
             TypedEventData::Other(value) => value.clone(),
         }
     }
@@ -439,6 +544,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.000Z",
@@ -545,6 +652,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.000Z",
@@ -591,6 +700,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-7",
                 "2026-03-10T07:14:55.000Z",
@@ -651,6 +762,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.000Z",
@@ -699,6 +812,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.000Z",
@@ -713,6 +828,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-4",
                 "2026-03-10T07:14:52.500Z",
@@ -852,6 +969,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-2",
                 "2026-03-10T07:14:52.000Z",
@@ -918,6 +1037,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-7",
                 "2026-03-10T07:14:55.000Z",
@@ -1318,6 +1439,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": "tc-1", "name": "grep"})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.000Z",
@@ -1363,6 +1486,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": "tc-2", "name": "view"})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-6",
                 "2026-03-10T07:14:53.100Z",
@@ -1408,6 +1533,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: Some(42),
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-9",
                 "2026-03-10T07:14:54.100Z",
@@ -1464,6 +1591,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-2",
                 "2026-03-10T07:14:52.000Z",
@@ -1478,6 +1607,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:52.100Z",
@@ -1492,6 +1623,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-4",
                 "2026-03-10T07:14:52.200Z",
@@ -1530,6 +1663,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": "tc-1"})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-2",
                 "2026-03-10T07:14:52.000Z",
@@ -1544,6 +1679,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:53.000Z",
@@ -1602,6 +1739,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": format!("tc-{round}"), "name": tool_name})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 &format!("evt-{evt_counter}"),
                 &format!("2026-03-10T07:14:{}.000Z", base_ts + round * 2),
@@ -1654,6 +1793,8 @@ mod tests {
                 tool_requests: None,
                 output_tokens: Some(150),
                 parent_tool_call_id: None,
+                reasoning_text: None,
+                reasoning_opaque: None,
             }),
             &format!("evt-{evt_counter}"),
             "2026-03-10T07:15:02.000Z",
@@ -1718,6 +1859,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": "tc-1"})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-2",
                 "2026-03-10T07:14:52.000Z",
@@ -1732,6 +1875,8 @@ mod tests {
                     tool_requests: Some(vec![json!({"id": "tc-2"})]),
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-3",
                 "2026-03-10T07:14:53.000Z",
@@ -1746,6 +1891,8 @@ mod tests {
                     tool_requests: None,
                     output_tokens: None,
                     parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
                 }),
                 "evt-4",
                 "2026-03-10T07:14:54.000Z",
@@ -1766,5 +1913,405 @@ mod tests {
         let stats = turn_stats(&turns);
         // Only 1 real message, not 3
         assert_eq!(stats.total_messages, 1);
+    }
+
+    #[test]
+    fn collects_reasoning_texts_from_assistant_messages() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Explain X".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: Some(100),
+                    parent_tool_call_id: None,
+                    reasoning_text: Some("Let me think about this...".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("Here is the explanation.".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: Some(50),
+                    parent_tool_call_id: None,
+                    reasoning_text: Some("Now I should summarize.".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-4",
+                "2026-03-10T07:14:54.000Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        let turn = &turns[0];
+        // Both reasoning texts collected
+        assert_eq!(turn.reasoning_texts.len(), 2);
+        assert_eq!(turn.reasoning_texts[0], "Let me think about this...");
+        assert_eq!(turn.reasoning_texts[1], "Now I should summarize.");
+        // Output tokens accumulated
+        assert_eq!(turn.output_tokens, Some(150));
+        // Only non-empty message kept
+        assert_eq!(turn.assistant_messages.len(), 1);
+        assert_eq!(turn.assistant_messages[0], "Here is the explanation.");
+    }
+
+    #[test]
+    fn extracts_intention_summary_for_tool_calls() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Fix the bug".to_string()),
+                    transformed_content: Some("[[datetime]] Fix the bug [[reminders]]".to_string()),
+                    attachments: Some(vec![json!({"type": "file", "path": "src/main.rs"})]),
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: Some(vec![json!({
+                        "toolCallId": "tc-1",
+                        "name": "view",
+                        "intentionSummary": "view the file at src/main.rs",
+                        "arguments": {"path": "src/main.rs"}
+                    })]),
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("view".to_string()),
+                    arguments: Some(json!({"path": "src/main.rs"})),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.100Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: Some(json!({"content": "fn main() { println!(\"hello\"); }", "detailedContent": "1. fn main() {\n2.     println!(\"hello\");\n3. }"})),
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-4",
+                "2026-03-10T07:14:52.500Z",
+                Some("evt-3"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        let turn = &turns[0];
+
+        // Transformed user message and attachments preserved
+        assert_eq!(
+            turn.transformed_user_message.as_deref(),
+            Some("[[datetime]] Fix the bug [[reminders]]")
+        );
+        assert!(turn.attachments.is_some());
+        assert_eq!(turn.attachments.as_ref().unwrap().len(), 1);
+
+        // Tool call has intention summary
+        assert_eq!(turn.tool_calls.len(), 1);
+        let tc = &turn.tool_calls[0];
+        assert_eq!(
+            tc.intention_summary.as_deref(),
+            Some("view the file at src/main.rs")
+        );
+
+        // Tool call has result preview (from object with content field)
+        assert!(tc.result_content.is_some());
+        assert!(tc.result_content.as_ref().unwrap().contains("fn main()"));
+    }
+
+    #[test]
+    fn handles_polymorphic_result_string() {
+        // result can be a plain string (not an object)
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do something".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("read_file".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: None,
+                    success: Some(true),
+                    result: Some(json!("file contents here")),
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.500Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+        assert_eq!(tc.result_content.as_deref(), Some("file contents here"));
+    }
+
+    #[test]
+    fn truncates_large_result_content() {
+        let long_result = "x".repeat(2000);
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Go".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("view".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: None,
+                    success: Some(true),
+                    result: Some(json!(long_result)),
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.500Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+        let content = tc.result_content.as_ref().unwrap();
+        // Should be truncated to ~1024 bytes + truncation marker
+        assert!(
+            content.len() < 1100,
+            "Content should be truncated, got {} bytes",
+            content.len()
+        );
+        assert!(content.contains("…[truncated]"));
+    }
+
+    #[test]
+    fn skips_empty_reasoning_text() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("Hi!".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: Some("".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-2".to_string()),
+                    content: Some("More info".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: Some("   ".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-1"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        // Empty and whitespace-only reasoning should be skipped
+        assert!(turns[0].reasoning_texts.is_empty());
+    }
+
+    #[test]
+    fn falls_back_to_detailed_content_when_content_empty() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Go".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("view".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: None,
+                    success: Some(true),
+                    result: Some(json!({"content": "", "detailedContent": "1. fn main() {}\n2. }"})),
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.500Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+        // Should fall back to detailedContent when content is empty
+        assert_eq!(tc.result_content.as_deref(), Some("1. fn main() {}\n2. }"));
     }
 }

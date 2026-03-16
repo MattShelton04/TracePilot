@@ -78,6 +78,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_db_size: 44564480,
     get_session_count: 47,
     factory_reset: undefined,
+    get_tool_result: null,
   };
   if (!(cmd in mocks)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
@@ -238,6 +239,14 @@ export async function getSessionCount(): Promise<number> {
 export async function factoryReset(): Promise<void> {
   if (!isTauri()) return;
   return invoke<void>("factory_reset");
+}
+
+/** Lazy-load the full result of a specific tool call. */
+export async function getToolResult(
+  sessionId: string,
+  toolCallId: string,
+): Promise<unknown | null> {
+  return invoke<unknown | null>("get_tool_result", { sessionId, toolCallId });
 }
 
 export type { SessionHealth };

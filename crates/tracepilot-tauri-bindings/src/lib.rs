@@ -737,6 +737,47 @@ mod commands {
         *guard = None;
         Ok(())
     }
+
+    /// Lazy-load the full result payload for a specific tool call.
+    ///
+    /// Tool result previews in `TurnToolCall.result_content` are truncated to 1 KB.
+    /// This command returns the complete `result` field from the matching
+    /// `tool.execution_complete` event, allowing the frontend to fetch it on demand.
+    #[tauri::command]
+    pub async fn get_tool_result(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+        tool_call_id: String,
+    ) -> Result<Option<serde_json::Value>, String> {
+        let session_state_dir = read_config(&state).session_state_dir();
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let events_path = path.join("events.jsonl");
+            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                .map_err(|e| e.to_string())?;
+
+            // Return the last matching completion event (latest wins for duplicate completions)
+            let mut last_result: Option<serde_json::Value> = None;
+            for event in &events {
+                if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(
+                    ref data,
+                ) = event.typed_data
+                {
+                    if data.tool_call_id.as_deref() == Some(&tool_call_id) {
+                        last_result = data.result.clone();
+                    }
+                }
+            }
+            Ok(last_result)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -763,6 +804,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_db_size,
             commands::get_session_count,
             commands::factory_reset,
+            commands::get_tool_result,
         ])
         .build()
 }

@@ -209,6 +209,10 @@ pub struct AssistantMessageData {
     pub tool_requests: Option<Vec<serde_json::Value>>,
     pub output_tokens: Option<u64>,
     pub parent_tool_call_id: Option<String>,
+    /// Visible chain-of-thought reasoning text.
+    pub reasoning_text: Option<String>,
+    /// Encrypted/opaque reasoning blob (not human-readable).
+    pub reasoning_opaque: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,4 +277,116 @@ pub struct SubagentFailedData {
     pub agent_name: Option<String>,
     pub agent_display_name: Option<String>,
     pub error: Option<String>,
+}
+
+// ── New typed event data structs ──────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactionCompleteData {
+    pub success: Option<bool>,
+    pub error: Option<String>,
+    pub pre_compaction_tokens: Option<u64>,
+    pub pre_compaction_messages_length: Option<u64>,
+    pub summary_content: Option<String>,
+    pub checkpoint_number: Option<u64>,
+    pub checkpoint_path: Option<String>,
+    pub compaction_tokens_used: Option<CompactionTokenUsage>,
+    pub request_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactionTokenUsage {
+    pub input: Option<u64>,
+    pub output: Option<u64>,
+    pub cached_input: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactionStartData {
+    // Typically empty — value is in the timestamp.
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelChangeData {
+    pub previous_model: Option<String>,
+    pub new_model: Option<String>,
+    pub previous_reasoning_effort: Option<String>,
+    pub reasoning_effort: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionErrorData {
+    pub error_type: Option<String>,
+    pub message: Option<String>,
+    pub stack: Option<String>,
+    pub status_code: Option<u16>,
+    pub provider_call_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionResumeData {
+    pub resume_time: Option<String>,
+    pub event_count: Option<u64>,
+    pub selected_model: Option<String>,
+    pub reasoning_effort: Option<String>,
+    pub context: Option<SessionContext>,
+    pub already_in_use: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemNotificationData {
+    pub content: Option<String>,
+    pub kind: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillInvokedData {
+    pub name: Option<String>,
+    pub path: Option<String>,
+    pub content: Option<String>,
+    pub allowed_tools: Option<Vec<String>>,
+    pub plugin_name: Option<String>,
+    pub plugin_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AbortData {
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanChangedData {
+    pub operation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionInfoData {
+    pub info_type: Option<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceFileChangedData {
+    pub path: Option<String>,
+    pub operation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolUserRequestedData {
+    pub tool_call_id: Option<String>,
+    pub tool_name: Option<String>,
+    pub arguments: Option<serde_json::Value>,
 }

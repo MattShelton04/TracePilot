@@ -12,10 +12,18 @@ const props = defineProps<{
   expanded: boolean;
   /** "full" = clickable row with chevron; "compact" = small row */
   variant?: "full" | "compact";
+  /** Full (un-truncated) tool result, loaded on demand. */
+  fullResult?: string;
+  /** Whether the full result is currently being loaded. */
+  loadingFullResult?: boolean;
+  /** Whether the full result load has failed. */
+  failedFullResult?: boolean;
 }>();
 
 const emit = defineEmits<{
   toggle: [];
+  'load-full-result': [toolCallId: string];
+  'retry-full-result': [toolCallId: string];
 }>();
 
 const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
@@ -37,17 +45,31 @@ const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.a
     >
       <span class="tool-call-icon">{{ toolIcon(tc.toolName) }}</span>
 
-      <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">
-        {{ tc.toolName }}
-      </span>
+      <!-- With intention: stacked name + intent -->
+      <template v-if="tc.intentionSummary">
+        <span class="tool-call-name-group">
+          <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">
+            {{ tc.toolName }}
+          </span>
+          <span class="tool-call-intent" :title="tc.intentionSummary">
+            {{ tc.intentionSummary }}
+          </span>
+        </span>
+      </template>
 
-      <span
-        v-if="summary"
-        class="tool-call-args font-mono"
-        :title="summary"
-      >
-        {{ summary }}
-      </span>
+      <!-- Without intention: flat layout -->
+      <template v-else>
+        <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">
+          {{ tc.toolName }}
+        </span>
+        <span
+          v-if="summary"
+          class="tool-call-args font-mono"
+          :title="summary"
+        >
+          {{ summary }}
+        </span>
+      </template>
 
       <span v-if="tc.mcpServerName" class="tool-call-args">
         via {{ tc.mcpServerName }}{{ tc.mcpToolName ? ` → ${tc.mcpToolName}` : "" }}
@@ -68,6 +90,14 @@ const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.a
     </button>
 
     <!-- Expandable detail -->
-    <ToolCallDetail v-if="expanded" :tc="tc" />
+    <ToolCallDetail
+      v-if="expanded"
+      :tc="tc"
+      :full-result="fullResult"
+      :loading-full-result="loadingFullResult"
+      :failed-full-result="failedFullResult"
+      @load-full-result="emit('load-full-result', $event)"
+      @retry-full-result="emit('retry-full-result', $event)"
+    />
   </div>
 </template>

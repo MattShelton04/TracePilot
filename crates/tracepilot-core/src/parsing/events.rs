@@ -5,9 +5,11 @@
 
 use crate::error::{Result, TracePilotError};
 use crate::models::event_types::{
-    AssistantMessageData, SessionEventType, SessionStartData, ShutdownData, SubagentCompletedData,
-    SubagentFailedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData, TurnEndData,
-    TurnStartData, UserMessageData,
+    AbortData, AssistantMessageData, CompactionCompleteData, CompactionStartData, ModelChangeData,
+    PlanChangedData, SessionErrorData, SessionEventType, SessionInfoData, SessionResumeData,
+    SessionStartData, ShutdownData, SkillInvokedData, SubagentCompletedData, SubagentFailedData,
+    SubagentStartedData, SystemNotificationData, ToolExecCompleteData, ToolExecStartData,
+    ToolUserRequestedData, TurnEndData, TurnStartData, UserMessageData, WorkspaceFileChangedData,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -49,6 +51,19 @@ pub enum TypedEventData {
     SubagentStarted(SubagentStartedData),
     SubagentCompleted(SubagentCompletedData),
     SubagentFailed(SubagentFailedData),
+    CompactionComplete(CompactionCompleteData),
+    CompactionStart(CompactionStartData),
+    ModelChange(ModelChangeData),
+    SessionError(SessionErrorData),
+    SessionResume(SessionResumeData),
+    SystemNotification(SystemNotificationData),
+    SkillInvoked(SkillInvokedData),
+    Abort(AbortData),
+    PlanChanged(PlanChangedData),
+    SessionInfo(SessionInfoData),
+    ContextChanged(serde_json::Value),
+    WorkspaceFileChanged(WorkspaceFileChangedData),
+    ToolUserRequested(ToolUserRequestedData),
     Other(Value),
 }
 
@@ -133,6 +148,46 @@ fn typed_data_from_raw(event_type: &SessionEventType, data: &Value) -> TypedEven
             .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
         SessionEventType::SubagentFailed => serde_json::from_value(data.clone())
             .map(TypedEventData::SubagentFailed)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionCompactionComplete => serde_json::from_value(data.clone())
+            .map(TypedEventData::CompactionComplete)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionCompactionStart => serde_json::from_value(data.clone())
+            .map(TypedEventData::CompactionStart)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionModelChange => serde_json::from_value(data.clone())
+            .map(TypedEventData::ModelChange)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionError => serde_json::from_value(data.clone())
+            .map(TypedEventData::SessionError)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionResume => serde_json::from_value(data.clone())
+            .map(TypedEventData::SessionResume)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SystemNotification => serde_json::from_value(data.clone())
+            .map(TypedEventData::SystemNotification)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SkillInvoked => serde_json::from_value(data.clone())
+            .map(TypedEventData::SkillInvoked)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::Abort => serde_json::from_value(data.clone())
+            .map(TypedEventData::Abort)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionPlanChanged => serde_json::from_value(data.clone())
+            .map(TypedEventData::PlanChanged)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionInfo => serde_json::from_value(data.clone())
+            .map(TypedEventData::SessionInfo)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::SessionContextChanged => {
+            // Reuses SessionContext — just store raw Value since it's the same shape
+            TypedEventData::ContextChanged(data.clone())
+        }
+        SessionEventType::SessionWorkspaceFileChanged => serde_json::from_value(data.clone())
+            .map(TypedEventData::WorkspaceFileChanged)
+            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
+        SessionEventType::ToolUserRequested => serde_json::from_value(data.clone())
+            .map(TypedEventData::ToolUserRequested)
             .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
         _ => TypedEventData::Other(data.clone()),
     }

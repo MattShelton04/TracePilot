@@ -726,6 +726,8 @@ mod tests {
             agent_display_name: None,
             agent_description: None,
             model: None,
+            intention_summary: None,
+            result_content: None,
         }
     }
 
@@ -744,6 +746,10 @@ mod tests {
             tool_calls,
             duration_ms: None,
             is_complete: true,
+            reasoning_texts: Vec::new(),
+            output_tokens: None,
+            transformed_user_message: None,
+            attachments: None,
         }
     }
 

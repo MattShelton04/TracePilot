@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" width="80" alt="TracePilot logo" />
+</p>
+
 # TracePilot: Visualize, audit, and inspect GitHub Copilot CLI sessions
 
 TracePilot reads the session data stored by GitHub Copilot CLI at `~/.copilot/session-state/` and provides both a desktop GUI and a terminal CLI for exploring sessions, viewing conversation turns, analyzing tool usage, and reviewing cost metrics.

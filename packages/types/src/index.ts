@@ -71,6 +71,14 @@ export interface ConversationTurn {
   toolCalls: TurnToolCall[];
   durationMs?: number;
   isComplete: boolean;
+  /** Reasoning/thinking texts emitted during this turn (may have multiple). */
+  reasoningTexts?: string[];
+  /** Total output tokens consumed during this turn. */
+  outputTokens?: number;
+  /** The transformed/enriched user message content (includes system-injected context). */
+  transformedUserMessage?: string;
+  /** File attachments provided with the user message. */
+  attachments?: unknown[];
 }
 
 /** A tool call within a turn */
@@ -95,6 +103,10 @@ export interface TurnToolCall {
   agentDescription?: string;
   /** The model used for this specific tool call. */
   model?: string;
+  /** AI-generated summary of what this tool call intends to do. */
+  intentionSummary?: string;
+  /** Truncated preview of the tool result (≤1 KB). Use getToolResult() for full content. */
+  resultContent?: string;
 }
 
 /** Session health assessment */

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSessionsStore } from '@/stores/sessions';
 import { usePreferencesStore } from '@/stores/preferences';
+import LogoIcon from '@/components/icons/LogoIcon.vue';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
@@ -37,11 +38,8 @@ const advancedNav = [
   <aside class="sidebar" role="navigation" aria-label="Main navigation">
     <!-- Brand -->
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="8" cy="8" r="5.5" />
-          <polyline points="8,4 8,8 11,9.5" />
-        </svg>
+      <div class="sidebar-brand-icon" aria-hidden="true">
+        <LogoIcon :size="24" />
       </div>
       <span class="sidebar-brand-text">TracePilot</span>
     </div>

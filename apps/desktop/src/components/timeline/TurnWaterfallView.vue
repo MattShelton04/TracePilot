@@ -15,6 +15,7 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
 
 /* ------------------------------------------------------------------ */
 /*  Store & data                                                      */
@@ -23,6 +24,9 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 const store = useSessionDetailStore();
 const turns = computed(() => store.turns);
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
+  () => store.sessionId
+);
 
 /* ------------------------------------------------------------------ */
 /*  Turn navigation                                                   */
@@ -725,6 +729,10 @@ function rowArgsSummary(row: WaterfallRow): string {
             {{ truncateText(rowArgsSummary(tooltipRow), 200) }}
           </div>
 
+          <div v-if="tooltipRow.call.intentionSummary" class="tip-args" style="font-style: italic;">
+            💭 {{ tooltipRow.call.intentionSummary }}
+          </div>
+
           <div class="tip-meta">
             <span v-if="tooltipRow.call.durationMs != null">
               Duration: {{ formatDuration(tooltipRow.call.durationMs) }}
@@ -815,6 +823,12 @@ function rowArgsSummary(row: WaterfallRow): string {
             <pre class="detail-prompt">{{ extractPrompt(pinnedRow.call.arguments) }}</pre>
           </div>
 
+          <!-- Intention summary -->
+          <div v-if="pinnedRow.call.intentionSummary" class="detail-field" style="margin-bottom: 6px;">
+            <span class="field-label">Intent</span>
+            <span class="field-value" style="font-style: italic;">{{ pinnedRow.call.intentionSummary }}</span>
+          </div>
+
           <!-- Arguments (collapsible) -->
           <div class="detail-args-section">
             <button class="detail-args-toggle" @click="argsExpanded = !argsExpanded">
@@ -826,6 +840,29 @@ function rowArgsSummary(row: WaterfallRow): string {
             </div>
             <div v-else class="detail-args-preview">
               {{ truncateText(formatArgsJson(pinnedRow.call.arguments), 500) }}
+            </div>
+          </div>
+
+          <!-- Result preview -->
+          <div v-if="pinnedRow.call.resultContent || (pinnedRow.call.toolCallId && fullResults.has(pinnedRow.call.toolCallId))" class="tool-result-section">
+            <div class="tool-result-label">Result{{ pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId ?? '') ? ' Preview' : '' }}</div>
+            <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(pinnedRow.call.toolCallId ?? '') ?? pinnedRow.call.resultContent }}</pre>
+            <div v-if="pinnedRow.call.toolCallId && pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId)" class="tool-result-actions">
+              <button
+                v-if="!failedResults.has(pinnedRow.call.toolCallId)"
+                class="tool-result-btn"
+                :disabled="loadingResults.has(pinnedRow.call.toolCallId)"
+                @click="loadFullResult(pinnedRow.call.toolCallId)"
+              >
+                {{ loadingResults.has(pinnedRow.call.toolCallId) ? 'Loading…' : 'Show Full Output' }}
+              </button>
+              <button
+                v-else
+                class="tool-result-btn tool-result-btn--retry"
+                @click="retryFullResult(pinnedRow.call.toolCallId)"
+              >
+                ⚠ Load failed — Retry
+              </button>
             </div>
           </div>
 
