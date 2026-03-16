@@ -13,11 +13,15 @@ import {
   categoryColor,
   formatArgsSummary,
   useToggleSet,
+  ToolArgsRenderer,
+  ToolResultRenderer,
 } from "@tracepilot/ui";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
   () => store.sessionId
 );
@@ -41,7 +45,6 @@ function selectTool(tc: TurnToolCall) {
     selectedTool.value = null;
   } else {
     selectedTool.value = tc;
-    showFullArgs.value = false;
   }
 }
 
@@ -62,14 +65,6 @@ function formatDetailTime(iso?: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
 }
-
-function truncateArgs(args: unknown, limit = 500): { text: string; truncated: boolean } {
-  const raw = JSON.stringify(args, null, 2) ?? "";
-  if (raw.length <= limit) return { text: raw, truncated: false };
-  return { text: raw.slice(0, limit), truncated: true };
-}
-
-const showFullArgs = ref(false);
 
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 
@@ -596,44 +591,19 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     </div>
                   </template>
                 </div>
-                <template v-if="selectedTool.arguments">
-                  <div class="detail-section">
-                    <div class="detail-section-title" @click="showFullArgs = !showFullArgs" style="cursor: pointer;">
-                      Arguments
-                      <span class="detail-section-toggle">{{ showFullArgs ? '▾' : '▸' }}</span>
-                    </div>
-                    <pre v-if="showFullArgs" class="detail-args">{{ JSON.stringify(selectedTool.arguments, null, 2) }}</pre>
-                    <pre v-else class="detail-args">{{ truncateArgs(selectedTool.arguments).text }}{{ truncateArgs(selectedTool.arguments).truncated ? '\n…' : '' }}</pre>
-                    <button
-                      v-if="!showFullArgs && truncateArgs(selectedTool.arguments).truncated"
-                      class="detail-show-more"
-                      @click.stop="showFullArgs = true"
-                    >
-                      Show more
-                    </button>
-                  </div>
-                </template>
-                <!-- Result preview -->
+                <!-- Arguments (rich renderer) -->
+                <ToolArgsRenderer :tc="selectedTool" :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)" />
+
+                <!-- Result (rich renderer) -->
                 <div v-if="selectedTool.resultContent || (selectedTool.toolCallId && fullResults.has(selectedTool.toolCallId))" class="tool-result-section">
-                  <div class="tool-result-label">Result{{ selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId ?? '') ? ' Preview' : '' }}</div>
-                  <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(selectedTool.toolCallId ?? '') ?? selectedTool.resultContent }}</pre>
-                  <div v-if="selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId)" class="tool-result-actions">
-                    <button
-                      v-if="!failedResults.has(selectedTool.toolCallId)"
-                      class="tool-result-btn"
-                      :disabled="loadingResults.has(selectedTool.toolCallId)"
-                      @click="loadFullResult(selectedTool.toolCallId)"
-                    >
-                      {{ loadingResults.has(selectedTool.toolCallId) ? 'Loading…' : 'Show Full Output' }}
-                    </button>
-                    <button
-                      v-else
-                      class="tool-result-btn tool-result-btn--retry"
-                      @click="retryFullResult(selectedTool.toolCallId)"
-                    >
-                      ⚠ Load failed — Retry
-                    </button>
-                  </div>
+                  <ToolResultRenderer
+                    :tc="selectedTool"
+                    :content="fullResults.get(selectedTool.toolCallId ?? '') ?? selectedTool.resultContent ?? ''"
+                    :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)"
+                    :is-truncated="!!(selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId))"
+                    :loading="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"
+                    @load-full="loadFullResult(selectedTool.toolCallId!)"
+                  />
                 </div>
                 <div v-if="selectedTool.error" class="detail-error">
                   <span class="detail-error-label">Error</span>

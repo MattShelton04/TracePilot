@@ -18,7 +18,7 @@ watch(
 );
 
 // ── View mode toggle ─────────────────────────────────────────
-const activeView = ref('swimlanes');
+const activeView = ref('agent-tree');
 
 const viewModes = [
   { value: 'swimlanes', label: 'Swimlanes' },

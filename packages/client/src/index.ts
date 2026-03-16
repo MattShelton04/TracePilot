@@ -78,7 +78,14 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_db_size: 44564480,
     get_session_count: 47,
     factory_reset: undefined,
-    get_tool_result: null,
+    get_tool_result: (() => {
+      const toolCallId = typeof args?.toolCallId === "string" ? args.toolCallId : "";
+      for (const turn of MOCK_TURNS) {
+        const tc = turn.toolCalls?.find(t => t.toolCallId === toolCallId);
+        if (tc && tc.resultContent != null) return tc.resultContent;
+      }
+      return null;
+    })(),
     resume_session_in_terminal: undefined,
   };
   if (!(cmd in mocks)) {

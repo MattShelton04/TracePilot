@@ -39,7 +39,7 @@ function relativeTime(dateStr?: string): string {
       {{ session.summary || 'Untitled Session' }}
     </h3>
 
-    <div class="flex flex-wrap gap-1.5 mb-3">
+    <div class="flex flex-wrap gap-1.5 mb-3 min-w-0">
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
       <Badge v-if="session.hostType" variant="neutral">{{ session.hostType }}</Badge>

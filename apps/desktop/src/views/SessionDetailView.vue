@@ -123,6 +123,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+  min-width: 0;
 }
 .detail-actions {
   display: flex;

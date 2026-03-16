@@ -857,8 +857,15 @@ mod commands {
     }
 
     /// Open a new terminal window and run the configured CLI resume command.
+    ///
+    /// The terminal opens in the session's original working directory (from
+    /// workspace.yaml) so the resumed CLI has the correct project context.
     #[tauri::command]
-    pub async fn resume_session_in_terminal(session_id: String, cli_command: Option<String>) -> Result<(), String> {
+    pub async fn resume_session_in_terminal(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+        cli_command: Option<String>,
+    ) -> Result<(), String> {
         // Validate UUID format to prevent command injection
         uuid::Uuid::parse_str(&session_id)
             .map_err(|_| "Invalid session ID format".to_string())?;
@@ -870,23 +877,52 @@ mod commands {
             return Err("CLI command contains invalid characters".to_string());
         }
 
+        // Resolve the session's original working directory from workspace.yaml
+        let session_state_dir = read_config(&state).session_state_dir();
+        let sid = session_id.clone();
+        let session_cwd = tokio::task::spawn_blocking(move || {
+            let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &sid,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let workspace_path = session_path.join("workspace.yaml");
+            let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)
+                .map_err(|e| e.to_string())?;
+            Ok::<Option<std::path::PathBuf>, String>(
+                metadata.cwd.map(std::path::PathBuf::from).filter(|p| p.is_dir()),
+            )
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+
         let cmd = format!("{} --resume {}", cli, session_id);
 
         #[cfg(windows)]
         {
-            std::process::Command::new("cmd")
-                .args(["/c", "start", "cmd", "/k", &cmd])
+            let mut command = std::process::Command::new("cmd");
+            command.args(["/c", "start", "cmd", "/k", &cmd]);
+            if let Some(ref cwd) = session_cwd {
+                command.current_dir(cwd);
+            }
+            command
                 .spawn()
                 .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
         #[cfg(target_os = "macos")]
         {
+            let script = if let Some(ref cwd) = session_cwd {
+                let escaped_cwd = cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
+                format!(
+                    "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
+                    escaped_cwd, cmd
+                )
+            } else {
+                format!("tell app \"Terminal\" to do script \"{}\"", cmd)
+            };
             std::process::Command::new("osascript")
-                .args([
-                    "-e",
-                    &format!("tell app \"Terminal\" to do script \"{}\"", cmd),
-                ])
+                .args(["-e", &script])
                 .spawn()
                 .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
@@ -902,11 +938,12 @@ mod commands {
             ];
             let mut launched = false;
             for term in &terminals {
-                if std::process::Command::new(term)
-                    .args(["-e", &cmd])
-                    .spawn()
-                    .is_ok()
-                {
+                let mut command = std::process::Command::new(term);
+                command.args(["-e", &cmd]);
+                if let Some(ref cwd) = session_cwd {
+                    command.current_dir(cwd);
+                }
+                if command.spawn().is_ok() {
                     launched = true;
                     break;
                 }
