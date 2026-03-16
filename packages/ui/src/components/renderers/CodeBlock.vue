@@ -9,7 +9,7 @@
 import { computed } from "vue";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   code: string;
   /** File path — used for language detection and display. */
   filePath?: string;
@@ -23,12 +23,16 @@ const props = defineProps<{
   maxLines?: number;
   /** Whether to show the language badge (default: true). */
   showLanguageBadge?: boolean;
-}>();
+}>(), {
+  lineNumbers: true,
+  startLine: 1,
+  showLanguageBadge: true,
+});
 
 const lang = computed(() => props.language ?? detectLanguage(props.filePath ?? ""));
 const langDisplay = computed(() => languageDisplayName(lang.value));
-const showNumbers = computed(() => props.lineNumbers !== false);
-const start = computed(() => props.startLine ?? 1);
+const showNumbers = computed(() => props.lineNumbers);
+const start = computed(() => props.startLine);
 
 const lines = computed(() => {
   const raw = props.code.split("\n");
@@ -64,11 +68,11 @@ function fileName(path: string): string {
 
 <template>
   <div class="code-block" :data-language="lang">
-    <div v-if="filePath || showLanguageBadge !== false" class="code-block-header">
+    <div v-if="filePath || showLanguageBadge" class="code-block-header">
       <span v-if="filePath" class="code-block-path" :title="filePath">
         {{ fileName(filePath) }}
       </span>
-      <span v-if="showLanguageBadge !== false" class="code-block-lang">{{ langDisplay }}</span>
+      <span v-if="showLanguageBadge" class="code-block-lang">{{ langDisplay }}</span>
     </div>
     <div class="code-block-content">
       <table class="code-block-table" role="presentation">
