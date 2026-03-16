@@ -35,7 +35,10 @@ export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 // Utilities
 export * from "./utils/formatters";
 export * from "./utils/toolCall";
+export * from "./utils/languageDetection";
 
 // Composables
 export * from "./composables";
 
+// Renderers
+export * from "./components/renderers";
