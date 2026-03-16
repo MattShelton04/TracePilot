@@ -8,6 +8,18 @@ use std::path::{Path, PathBuf};
 use tracepilot_core::analytics::types::*;
 use tracepilot_core::parsing::events::TypedEventData;
 
+/// Lightweight per-session info returned after indexing a session.
+/// Used to enrich progress events with live stats.
+#[derive(Debug, Clone)]
+pub struct SessionIndexInfo {
+    pub repository: Option<String>,
+    pub branch: Option<String>,
+    pub current_model: Option<String>,
+    pub total_tokens: u64,
+    pub event_count: usize,
+    pub turn_count: usize,
+}
+
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 const CURRENT_ANALYTICS_VERSION: i64 = 2;
@@ -194,7 +206,7 @@ impl IndexDb {
     }
 
     /// Insert or update a session in the index, computing analytics from events.
-    pub fn upsert_session(&self, session_path: &Path) -> Result<()> {
+    pub fn upsert_session(&self, session_path: &Path) -> Result<SessionIndexInfo> {
         let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)
             .with_context(|| {
                 format!(
@@ -421,6 +433,19 @@ impl IndexDb {
             }
         }
 
+        // Build the lightweight info to return to callers.
+        let index_info = SessionIndexInfo {
+            repository: summary.repository.clone(),
+            branch: summary.branch.clone(),
+            current_model: summary
+                .shutdown_metrics
+                .as_ref()
+                .and_then(|m| m.current_model.clone()),
+            total_tokens: total_tokens.max(0) as u64,
+            event_count: summary.event_count.unwrap_or(0),
+            turn_count: summary.turn_count.unwrap_or(0),
+        };
+
         // ── Write everything in a SAVEPOINT transaction ──────────────
         self.conn.execute_batch("SAVEPOINT upsert_session")?;
 
@@ -569,7 +594,7 @@ impl IndexDb {
         match result {
             Ok(()) => {
                 self.conn.execute_batch("RELEASE upsert_session")?;
-                Ok(())
+                Ok(index_info)
             }
             Err(e) => {
                 let _ = self.conn.execute_batch("ROLLBACK TO upsert_session");

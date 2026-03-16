@@ -4,33 +4,49 @@ import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
 import SetupWizard from '@/components/SetupWizard.vue';
+import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import { useSessionsStore } from '@/stores/sessions';
 import { usePreferencesStore } from '@/stores/preferences';
 import { checkConfigExists } from '@tracepilot/client';
+
+type AppPhase = 'loading' | 'setup' | 'indexing' | 'app';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 
-const showSetup = ref(true);
-const appReady = ref(false);
+const phase = ref<AppPhase>('loading');
+const expectedSessionCount = ref(0);
 
 onMounted(async () => {
   try {
     const exists = await checkConfigExists();
     if (exists) {
-      showSetup.value = false;
+      phase.value = 'app';
       sessionsStore.fetchSessions();
+    } else {
+      phase.value = 'setup';
     }
   } catch {
-    showSetup.value = false;
+    phase.value = 'app';
     sessionsStore.fetchSessions();
   }
-  appReady.value = true;
 });
 
+function onSetupSaved(sessionCount: number) {
+  expectedSessionCount.value = sessionCount;
+  phase.value = 'indexing';
+  // Indexing is triggered by the loading screen component itself
+  // after it registers its event listeners (prevents race condition).
+}
+
 function onSetupComplete() {
-  showSetup.value = false;
+  phase.value = 'app';
+  sessionsStore.fetchSessions();
+}
+
+function onIndexingComplete() {
+  phase.value = 'app';
   sessionsStore.fetchSessions();
 }
 
@@ -63,8 +79,17 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <SetupWizard v-if="appReady && showSetup" @setup-complete="onSetupComplete" />
-  <div v-else-if="appReady" class="app-layout">
+  <SetupWizard
+    v-if="phase === 'setup'"
+    @setup-saved="onSetupSaved"
+    @setup-complete="onSetupComplete"
+  />
+  <IndexingLoadingScreen
+    v-else-if="phase === 'indexing'"
+    :total-sessions="expectedSessionCount"
+    @complete="onIndexingComplete"
+  />
+  <div v-else-if="phase === 'app'" class="app-layout">
     <!-- Ambient background (matches setup wizard aesthetic) -->
     <div class="app-bg" aria-hidden="true">
       <div class="app-dot-grid" />
