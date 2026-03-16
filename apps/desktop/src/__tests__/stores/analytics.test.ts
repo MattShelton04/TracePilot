@@ -153,6 +153,7 @@ describe('useAnalyticsStore', () => {
       expect(mockGetAnalytics).toHaveBeenCalledWith({
         fromDate: '2025-01-01',
         toDate: '2025-01-31',
+        hideEmpty: true,
       });
     });
 
@@ -311,7 +312,7 @@ describe('useAnalyticsStore', () => {
 
       await store.refreshAll({ fromDate: '2025-03-01', toDate: '2025-03-31' });
 
-      const expected = { fromDate: '2025-03-01', toDate: '2025-03-31' };
+      const expected = { fromDate: '2025-03-01', toDate: '2025-03-31', hideEmpty: true };
       expect(mockGetAnalytics).toHaveBeenCalledWith(expected);
       expect(mockGetToolAnalysis).toHaveBeenCalledWith(expected);
       expect(mockGetCodeImpact).toHaveBeenCalledWith(expected);

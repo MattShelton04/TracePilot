@@ -86,6 +86,13 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     .as_ref()
                     .and_then(|id| intention_summaries.get(id))
                     .cloned();
+                // Extract model hint from tool call arguments (subagents specify model in arguments)
+                let model_from_args = data
+                    .arguments
+                    .as_ref()
+                    .and_then(|args| args.get("model"))
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string());
                 turn.tool_calls.push(TurnToolCall {
                     tool_call_id: data.tool_call_id.clone(),
                     parent_tool_call_id: data.parent_tool_call_id.clone(),
@@ -105,7 +112,7 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
                     is_subagent: false,
                     agent_display_name: None,
                     agent_description: None,
-                    model: None,
+                    model: model_from_args,
                     intention_summary: intention,
                     result_content: None,
                 });
@@ -298,6 +305,56 @@ pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
     }
 
     finalize_current_turn(&mut current_turn, &mut turns, false, None);
+
+    // Post-process: infer subagent models from their child tool calls
+    loop {
+        let mut changed = false;
+        for turn in turns.iter_mut() {
+            // Build map: tool_call_id -> first child model found
+            let mut child_models: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            for tc in turn.tool_calls.iter() {
+                if let (Some(model), Some(parent_id)) =
+                    (&tc.model, &tc.parent_tool_call_id)
+                {
+                    child_models
+                        .entry(parent_id.clone())
+                        .or_insert_with(|| model.clone());
+                }
+            }
+            // Propagate to subagents — always prefer the child model over the
+            // parent model that ToolExecComplete may have incorrectly set.
+            // For childless subagents, fall back to the model from arguments.
+            for tc in turn.tool_calls.iter_mut() {
+                if tc.is_subagent {
+                    if let Some(ref id) = tc.tool_call_id {
+                        if let Some(model) = child_models.get(id) {
+                            if tc.model.as_deref() != Some(model.as_str()) {
+                                tc.model = Some(model.clone());
+                                changed = true;
+                            }
+                        } else {
+                            // No child tool calls — use model from arguments as fallback
+                            let args_model = tc.arguments.as_ref()
+                                .and_then(|a| a.get("model"))
+                                .and_then(|m| m.as_str())
+                                .map(|s| s.to_string());
+                            if let Some(ref m) = args_model {
+                                if tc.model.as_deref() != Some(m.as_str()) {
+                                    tc.model = args_model;
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
     turns
 }
 
@@ -2313,5 +2370,450 @@ mod tests {
         let tc = &turns[0].tool_calls[0];
         // Should fall back to detailedContent when content is empty
         assert_eq!(tc.result_content.as_deref(), Some("1. fn main() {}\n2. }"));
+    }
+
+    #[test]
+    fn infers_subagent_model_from_child_tool_calls() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Run agent".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            // Subagent with children that have a model
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-2",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-1"),
+            ),
+            // Child tool call under sub-1 with a known model
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-child-1".to_string()),
+                    tool_name: Some("grep".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: Some("sub-1".to_string()),
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T07:14:52.500Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-child-1".to_string()),
+                    parent_tool_call_id: Some("sub-1".to_string()),
+                    model: Some("claude-haiku-4.5".to_string()),
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-4",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-3"),
+            ),
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T07:14:54.000Z",
+                Some("evt-2"),
+            ),
+            // Subagent without any children (model stays None)
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("sub-2".to_string()),
+                    agent_name: Some("task".to_string()),
+                    agent_display_name: Some("Task Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-6",
+                "2026-03-10T07:14:55.000Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("sub-2".to_string()),
+                    agent_name: Some("task".to_string()),
+                    agent_display_name: Some("Task Agent".to_string()),
+                }),
+                "evt-7",
+                "2026-03-10T07:14:56.000Z",
+                Some("evt-6"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        // sub-1 should have model inferred from its child tool call
+        let sub1 = turns[0]
+            .tool_calls
+            .iter()
+            .find(|tc| tc.tool_call_id.as_deref() == Some("sub-1"))
+            .expect("sub-1 not found");
+        assert!(sub1.is_subagent);
+        assert_eq!(sub1.model.as_deref(), Some("claude-haiku-4.5"));
+
+        // sub-2 has no children, so model stays None
+        let sub2 = turns[0]
+            .tool_calls
+            .iter()
+            .find(|tc| tc.tool_call_id.as_deref() == Some("sub-2"))
+            .expect("sub-2 not found");
+        assert!(sub2.is_subagent);
+        assert_eq!(sub2.model, None);
+    }
+
+    /// Real-world event order: ToolExecStart → ToolExecComplete (with wrong parent model)
+    /// → SubagentStarted → child ToolExecStart → child ToolExecComplete (correct model).
+    /// The subagent's model must be the child's model, not the parent's.
+    #[test]
+    fn subagent_model_overrides_wrong_parent_model() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Review code".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-04-01T10:00:00.000Z",
+                None,
+            ),
+            // 1. ToolExecStart for the subagent tool call (arguments contain the real model)
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({
+                        "agent_type": "code-review",
+                        "model": "gemini-3-pro-preview",
+                        "prompt": "Review the diff"
+                    })),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-2",
+                "2026-04-01T10:00:01.000Z",
+                Some("evt-1"),
+            ),
+            // 2. ToolExecComplete for the subagent — model is WRONG (parent's model)
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: Some(json!({
+                        "properties": {
+                            "model": "gemini-3-pro-preview"
+                        }
+                    })),
+                }),
+                "evt-3",
+                "2026-04-01T10:00:02.000Z",
+                Some("evt-2"),
+            ),
+            // 3. SubagentStarted enriches the tool call
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: Some("code-review".to_string()),
+                    agent_display_name: Some("Code Review Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-4",
+                "2026-04-01T10:00:03.000Z",
+                Some("evt-2"),
+            ),
+            // 4. Child ToolExecStart under the subagent
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-child-1".to_string()),
+                    tool_name: Some("grep".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: Some("sub-1".to_string()),
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-5",
+                "2026-04-01T10:00:04.000Z",
+                Some("evt-4"),
+            ),
+            // 5. Child ToolExecComplete with the CORRECT subagent model
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-child-1".to_string()),
+                    parent_tool_call_id: Some("sub-1".to_string()),
+                    model: Some("gemini-3-pro-preview".to_string()),
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-6",
+                "2026-04-01T10:00:05.000Z",
+                Some("evt-5"),
+            ),
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: Some("code-review".to_string()),
+                    agent_display_name: Some("Code Review Agent".to_string()),
+                }),
+                "evt-7",
+                "2026-04-01T10:00:06.000Z",
+                Some("evt-4"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        let sub1 = turns[0]
+            .tool_calls
+            .iter()
+            .find(|tc| tc.tool_call_id.as_deref() == Some("sub-1"))
+            .expect("sub-1 not found");
+        assert!(sub1.is_subagent);
+        // Must be the child's model, NOT the parent's "claude-opus-4.6"
+        assert_eq!(
+            sub1.model.as_deref(),
+            Some("gemini-3-pro-preview"),
+            "subagent model should be overridden by child model, not the parent's model"
+        );
+    }
+
+    /// Nested subagents: outer subagent launches an inner subagent. The iterative
+    /// propagation loop should set models bottom-up across multiple levels.
+    #[test]
+    fn nested_subagent_model_propagation() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Deep task".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-05-01T12:00:00.000Z",
+                None,
+            ),
+            // Outer subagent: ToolExecStart
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("outer-sub".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({"agent_type": "general-purpose"})),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-2",
+                "2026-05-01T12:00:01.000Z",
+                Some("evt-1"),
+            ),
+            // Outer subagent: ToolExecComplete with wrong parent model
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("outer-sub".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("claude-opus-4.6".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-3",
+                "2026-05-01T12:00:02.000Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("outer-sub".to_string()),
+                    agent_name: Some("general-purpose".to_string()),
+                    agent_display_name: Some("General Purpose Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-4",
+                "2026-05-01T12:00:03.000Z",
+                Some("evt-2"),
+            ),
+            // Inner subagent (child of outer): ToolExecStart
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("inner-sub".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({"agent_type": "explore"})),
+                    parent_tool_call_id: Some("outer-sub".to_string()),
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-5",
+                "2026-05-01T12:00:04.000Z",
+                Some("evt-4"),
+            ),
+            // Inner subagent: ToolExecComplete with outer's model (wrong for inner)
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("inner-sub".to_string()),
+                    parent_tool_call_id: Some("outer-sub".to_string()),
+                    model: Some("claude-sonnet-4.5".to_string()),
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-6",
+                "2026-05-01T12:00:05.000Z",
+                Some("evt-5"),
+            ),
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("inner-sub".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-7",
+                "2026-05-01T12:00:06.000Z",
+                Some("evt-5"),
+            ),
+            // Leaf tool call under inner subagent
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("leaf-tc".to_string()),
+                    tool_name: Some("view".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: Some("inner-sub".to_string()),
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-8",
+                "2026-05-01T12:00:07.000Z",
+                Some("evt-7"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("leaf-tc".to_string()),
+                    parent_tool_call_id: Some("inner-sub".to_string()),
+                    model: Some("claude-haiku-4.5".to_string()),
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-9",
+                "2026-05-01T12:00:08.000Z",
+                Some("evt-8"),
+            ),
+            // Complete inner, then outer
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("inner-sub".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                }),
+                "evt-10",
+                "2026-05-01T12:00:09.000Z",
+                Some("evt-7"),
+            ),
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("outer-sub".to_string()),
+                    agent_name: Some("general-purpose".to_string()),
+                    agent_display_name: Some("General Purpose Agent".to_string()),
+                }),
+                "evt-11",
+                "2026-05-01T12:00:10.000Z",
+                Some("evt-4"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+
+        // Inner subagent should get its model from the leaf tool call
+        let inner = turns[0]
+            .tool_calls
+            .iter()
+            .find(|tc| tc.tool_call_id.as_deref() == Some("inner-sub"))
+            .expect("inner-sub not found");
+        assert!(inner.is_subagent);
+        assert_eq!(
+            inner.model.as_deref(),
+            Some("claude-haiku-4.5"),
+            "inner subagent model should come from its leaf child"
+        );
+
+        // Outer subagent should get its model from the inner subagent (after inner was resolved)
+        let outer = turns[0]
+            .tool_calls
+            .iter()
+            .find(|tc| tc.tool_call_id.as_deref() == Some("outer-sub"))
+            .expect("outer-sub not found");
+        assert!(outer.is_subagent);
+        assert_eq!(
+            outer.model.as_deref(),
+            Some("claude-haiku-4.5"),
+            "outer subagent model should propagate from inner subagent's resolved model"
+        );
     }
 }

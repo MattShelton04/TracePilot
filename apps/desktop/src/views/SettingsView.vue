@@ -63,6 +63,7 @@ const resetConfirm = ref(false);
 
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const isIndexing = ref(false);
 const unlisteners: UnlistenFn[] = [];
 
 onMounted(async () => {
@@ -72,9 +73,11 @@ onMounted(async () => {
     }),
     await listen('indexing-started', () => {
       indexingProgress.value = null;
+      isIndexing.value = true;
     }),
     await listen('indexing-finished', () => {
       indexingProgress.value = null;
+      isIndexing.value = false;
     }),
   );
 });
@@ -118,7 +121,12 @@ async function clearCache() {
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
-    reindexResult.value = `Error: ${e instanceof Error ? e.message : String(e)}`;
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'ALREADY_INDEXING') {
+      reindexResult.value = 'Indexing already in progress…';
+    } else {
+      reindexResult.value = `Error: ${msg}`;
+    }
   } finally {
     clearing.value = false;
   }
@@ -302,6 +310,21 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
               @update:model-value="preferences.hideEmptySessions = $event"
             />
           </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">CLI Command</div>
+              <div class="setting-description">
+                The command used to resume Copilot sessions (e.g., <code>copilot</code> or <code>gh copilot-cli</code>)
+              </div>
+            </div>
+            <FormInput
+              :model-value="preferences.cliCommand"
+              @update:model-value="preferences.cliCommand = String($event)"
+              type="text"
+              placeholder="copilot"
+            />
+          </div>
         </SectionPanel>
       </div>
 
@@ -357,7 +380,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <div class="setting-actions">
               <ActionButton
                 size="sm"
-                :disabled="reindexing || clearing"
+                :disabled="reindexing || clearing || isIndexing"
                 @click="reindexSessions"
               >
                 {{ reindexing ? 'Reindexing…' : 'Reindex' }}
@@ -385,7 +408,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
                 Clear all cached analytics data and recompute from scratch. Use this if analytics appear stale or incorrect.
               </div>
             </div>
-            <ActionButton size="sm" class="btn-danger" :disabled="clearing || reindexing" @click="clearCache">
+            <ActionButton size="sm" class="btn-danger" :disabled="clearing || reindexing || isIndexing" @click="clearCache">
               {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
             </ActionButton>
           </div>

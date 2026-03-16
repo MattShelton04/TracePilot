@@ -1,13 +1,33 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { usePreferencesStore } from "@/stores/preferences";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
+import { resumeSessionInTerminal } from "@tracepilot/client";
 
 const route = useRoute();
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 
 const sessionId = computed(() => route.params.id as string);
+const resolvedSessionId = computed(() => store.detail?.id ?? sessionId.value);
+const copied = ref(false);
+
+async function copyResumeCommand() {
+  const text = `${prefs.cliCommand} --resume ${resolvedSessionId.value}`;
+  await navigator.clipboard.writeText(text);
+  copied.value = true;
+  setTimeout(() => { copied.value = false; }, 2000);
+}
+
+async function resumeInTerminal() {
+  try {
+    await resumeSessionInTerminal(resolvedSessionId.value, prefs.cliCommand);
+  } catch (e) {
+    console.error('Failed to open terminal:', e);
+  }
+}
 
 const tabs = computed(() => [
   { name: "overview", routeName: "session-overview", label: "Overview" },
@@ -62,6 +82,23 @@ onUnmounted(() => {
           <Badge variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
         </div>
 
+        <div class="detail-actions">
+          <button
+            class="resume-btn"
+            @click="copyResumeCommand"
+            :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
+          >
+            {{ copied ? '✓ Copied!' : '📋 Copy Resume Command' }}
+          </button>
+          <button
+            class="resume-btn"
+            @click="resumeInTerminal"
+            :title="`Resume session ${sessionId} in a new terminal`"
+          >
+            ▶ Resume in Terminal
+          </button>
+        </div>
+
         <TabNav :tabs="tabs" />
 
         <div class="detail-tab-content">
@@ -85,7 +122,31 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-bottom: 12px;
+}
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 20px;
+}
+.resume-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-secondary, #1e1e2e);
+  border: 1px solid var(--border-primary, #3b3b4f);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.resume-btn:hover {
+  background: var(--bg-tertiary, #2a2a3d);
+  border-color: var(--accent-border, #5b5bd6);
 }
 .detail-tab-content {
   padding-top: 4px;

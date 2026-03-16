@@ -24,7 +24,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     let result = sessions.value;
 
     if (prefs.hideEmptySessions) {
-      result = result.filter(s => s.turnCount !== 0);
+      result = result.filter(s => (s.turnCount ?? 0) !== 0);
     }
 
     if (searchQuery.value) {
@@ -75,7 +75,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const emptySessionCount = computed(() => {
-    return sessions.value.filter(s => s.turnCount === 0).length;
+    return sessions.value.filter(s => (s.turnCount ?? 0) === 0).length;
   });
 
   async function fetchSessions() {

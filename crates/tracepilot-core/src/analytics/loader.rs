@@ -175,8 +175,7 @@ fn filter_by_repo(
     }
 }
 
-/// Filter out empty sessions (turn_count == Some(0)).
-/// Sessions with turn_count == None (unknown) are kept.
+/// Filter out empty sessions (turn_count == 0 or None).
 fn filter_empty(
     inputs: Vec<SessionAnalyticsInput>,
     hide_empty: bool,
@@ -186,7 +185,7 @@ fn filter_empty(
     }
     inputs
         .into_iter()
-        .filter(|input| input.summary.turn_count != Some(0))
+        .filter(|input| input.summary.turn_count.unwrap_or(0) > 0)
         .collect()
 }
 

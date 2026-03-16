@@ -88,12 +88,13 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
 }
 
 export async function listSessions(
-  options?: { limit?: number; repo?: string; branch?: string }
+  options?: { limit?: number; repo?: string; branch?: string; hideEmpty?: boolean }
 ): Promise<SessionListItem[]> {
   return invoke<SessionListItem[]>("list_sessions", options ? {
     limit: options.limit,
     repo: options.repo,
     branch: options.branch,
+    hideEmpty: options.hideEmpty,
   } : undefined);
 }
 
@@ -256,9 +257,9 @@ export async function getToolResult(
   return invoke<unknown | null>("get_tool_result", { sessionId, toolCallId });
 }
 
-/** Open a new terminal window running `gh copilot-cli --resume <sessionId>`. */
-export async function resumeSessionInTerminal(sessionId: string): Promise<void> {
-  return invoke<void>("resume_session_in_terminal", { sessionId });
+/** Open a new terminal window running the configured CLI resume command. */
+export async function resumeSessionInTerminal(sessionId: string, cliCommand?: string): Promise<void> {
+  return invoke<void>("resume_session_in_terminal", { sessionId, cliCommand });
 }
 
 export type { SessionHealth };

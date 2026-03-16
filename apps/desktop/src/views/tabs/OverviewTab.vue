@@ -21,6 +21,7 @@ const metrics = computed(() => store.shutdownMetrics);
 const sessionInfoItems = computed(() => {
   const d = detail.value;
   return [
+    { label: "Session ID", value: d?.id ?? "—" },
     { label: "Repository", value: d?.repository ?? "—" },
     { label: "Branch", value: d?.branch ?? "—" },
     { label: "Model", value: metrics.value?.currentModel ?? "—" },

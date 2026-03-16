@@ -200,7 +200,7 @@ mod commands {
                 {
                     continue;
                 }
-                if should_hide_empty && item.turn_count == Some(0) {
+                if should_hide_empty && item.turn_count.unwrap_or(0) == 0 {
                     continue;
                 }
 
@@ -489,10 +489,10 @@ mod commands {
             }
         })
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string());
 
         let _ = app.emit("indexing-finished", ());
-        result
+        result?
     }
 
     /// Full reindex: delete the index DB and rebuild from scratch.
@@ -503,13 +503,11 @@ mod commands {
         semaphore: tauri::State<'_, Arc<Semaphore>>,
         app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
-        // Blocking wait — user explicitly requested a full rebuild
-        let permit = semaphore
-            .inner()
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|_| "Semaphore closed".to_string())?;
+        // Non-blocking: reject duplicate rebuilds instead of queuing them
+        let permit = match semaphore.inner().clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        };
 
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
@@ -545,10 +543,10 @@ mod commands {
             .map_err(|e| e.to_string())
         })
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string());
 
         let _ = app.emit("indexing-finished", ());
-        result
+        result?
     }
 
     // ── Analytics Commands ────────────────────────────────────────────
@@ -858,14 +856,21 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
-    /// Open a new terminal window and run `gh copilot-cli --resume <id>`.
+    /// Open a new terminal window and run the configured CLI resume command.
     #[tauri::command]
-    pub async fn resume_session_in_terminal(session_id: String) -> Result<(), String> {
+    pub async fn resume_session_in_terminal(session_id: String, cli_command: Option<String>) -> Result<(), String> {
         // Validate UUID format to prevent command injection
         uuid::Uuid::parse_str(&session_id)
             .map_err(|_| "Invalid session ID format".to_string())?;
 
-        let cmd = format!("gh copilot-cli --resume {}", session_id);
+        let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
+
+        // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, and spaces
+        if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
+            return Err("CLI command contains invalid characters".to_string());
+        }
+
+        let cmd = format!("{} --resume {}", cli, session_id);
 
         #[cfg(windows)]
         {

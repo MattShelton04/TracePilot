@@ -574,6 +574,7 @@ mod tests {
                         ]),
                     }),
                     model_metrics,
+                    shutdown_count: None,
                 }),
             },
             turns: None,
