@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getConfig, saveConfig, validateSessionDir, reindexSessions } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
 import { FormSwitch } from '@tracepilot/ui';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
 
 const emit = defineEmits<{ 'setup-complete': [] }>();
@@ -33,6 +34,28 @@ const validationError = ref('');
 
 // ── Saving state ───────────────────────────────────────────────
 const saving = ref(false);
+
+// ── Indexing progress ──────────────────────────────────────────
+const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const progressUnlisteners: UnlistenFn[] = [];
+
+onMounted(async () => {
+  progressUnlisteners.push(
+    await listen<{ current: number; total: number }>('indexing-progress', (event) => {
+      indexingProgress.value = event.payload;
+    }),
+    await listen('indexing-started', () => {
+      indexingProgress.value = null;
+    }),
+    await listen('indexing-finished', () => {
+      indexingProgress.value = null;
+    }),
+  );
+});
+
+onUnmounted(() => {
+  for (const unlisten of progressUnlisteners) unlisten();
+});
 
 // ── Animation tracking ─────────────────────────────────────────
 // Tracks which feature cards have finished their entrance animation
@@ -438,7 +461,8 @@ onUnmounted(() => {
             <button class="btn-accent btn-lg btn-glow" :disabled="saving" @click="finishSetup">
               <span v-if="saving" class="btn-loading">
                 <span class="spinner spinner-white" />
-                Indexing sessions…
+                <span v-if="indexingProgress">Indexing {{ indexingProgress.current }}/{{ indexingProgress.total }} sessions…</span>
+                <span v-else>Indexing sessions…</span>
               </span>
               <span v-else>Launch TracePilot</span>
             </button>

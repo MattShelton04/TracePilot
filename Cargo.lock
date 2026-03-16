@@ -4040,6 +4040,7 @@ dependencies = [
  "tracepilot-core",
  "tracepilot-export",
  "tracepilot-indexer",
+ "uuid",
 ]
 
 [[package]]

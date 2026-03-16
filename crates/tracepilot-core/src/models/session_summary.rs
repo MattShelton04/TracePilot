@@ -38,6 +38,10 @@ pub struct SessionSummary {
 }
 
 /// Metrics extracted from `session.shutdown` events.
+///
+/// When a session is resumed, multiple shutdown events exist with per-instance
+/// (not cumulative) metrics. All numeric fields here represent the **sum** across
+/// all shutdown events. See `shutdown_count` for how many were combined.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownMetrics {
@@ -49,4 +53,6 @@ pub struct ShutdownMetrics {
     pub code_changes: Option<CodeChanges>,
     #[serde(default)]
     pub model_metrics: HashMap<String, ModelMetricDetail>,
+    /// Number of shutdown events that were combined (>1 means resumed session).
+    pub shutdown_count: Option<u32>,
 }

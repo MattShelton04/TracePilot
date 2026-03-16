@@ -6,6 +6,7 @@ pub mod config;
 
 use config::{SharedConfig, TracePilotConfig};
 use serde::Serialize;
+use tauri::Manager;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +62,9 @@ mod commands {
         TracePilotConfig, ValidateSessionDirResult,
     };
     use std::path::Path;
+    use std::sync::Arc;
+    use tauri::Emitter;
+    use tokio::sync::Semaphore;
 
     const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 
@@ -129,6 +133,7 @@ mod commands {
         limit: Option<u32>,
         repo: Option<String>,
         branch: Option<String>,
+        hide_empty: Option<bool>,
     ) -> Result<Vec<SessionListItem>, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
@@ -148,6 +153,7 @@ mod commands {
                             limit.map(|l| l as usize),
                             repo.as_deref(),
                             branch.as_deref(),
+                            hide_empty.unwrap_or(false),
                         )
                         .map_err(|e| e.to_string())?;
 
@@ -175,6 +181,7 @@ mod commands {
                     .map_err(|e| e.to_string())?;
 
             let mut items = Vec::new();
+            let should_hide_empty = hide_empty.unwrap_or(false);
             for session in sessions {
                 let item = match load_summary_list_item(&session.path) {
                     Ok(item) => item,
@@ -191,6 +198,9 @@ mod commands {
                     .as_ref()
                     .is_some_and(|value| item.branch.as_deref() != Some(value.as_str()))
                 {
+                    continue;
+                }
+                if should_hide_empty && item.turn_count.unwrap_or(0) == 0 {
                     continue;
                 }
 
@@ -374,9 +384,10 @@ mod commands {
             let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
                 .map_err(|e| e.to_string())?;
-            Ok(tracepilot_core::parsing::events::extract_shutdown_data(
+            Ok(tracepilot_core::parsing::events::extract_combined_shutdown_data(
                 &events,
-            ))
+            )
+            .map(|(data, _count)| data))
         })
         .await
         .map_err(|e| e.to_string())?
@@ -435,21 +446,53 @@ mod commands {
     #[tauri::command]
     pub async fn reindex_sessions(
         state: tauri::State<'_, SharedConfig>,
+        semaphore: tauri::State<'_, Arc<Semaphore>>,
+        app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
+        let permit = match semaphore.inner().clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        };
+
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
         let index_path = cfg.index_db_path();
+        let app_handle = app.clone();
 
-        tokio::task::spawn_blocking(move || {
-            match tracepilot_indexer::reindex_incremental(&session_state_dir, &index_path) {
+        let _ = app.emit("indexing-started", ());
+
+        let result = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            match tracepilot_indexer::reindex_incremental_with_progress(
+                &session_state_dir,
+                &index_path,
+                |current, total| {
+                    let _ = app_handle.emit(
+                        "indexing-progress",
+                        serde_json::json!({ "current": current, "total": total }),
+                    );
+                },
+            ) {
                 Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
-                Err(_) => tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
-                    .map(|n| (n, n))
-                    .map_err(|e| e.to_string()),
+                Err(_) => tracepilot_indexer::reindex_all_with_progress(
+                    &session_state_dir,
+                    &index_path,
+                    |current, total| {
+                        let _ = app_handle.emit(
+                            "indexing-progress",
+                            serde_json::json!({ "current": current, "total": total }),
+                        );
+                    },
+                )
+                .map(|n| (n, n))
+                .map_err(|e| e.to_string()),
             }
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string());
+
+        let _ = app.emit("indexing-finished", ());
+        result?
     }
 
     /// Full reindex: delete the index DB and rebuild from scratch.
@@ -457,12 +500,25 @@ mod commands {
     #[tauri::command]
     pub async fn reindex_sessions_full(
         state: tauri::State<'_, SharedConfig>,
+        semaphore: tauri::State<'_, Arc<Semaphore>>,
+        app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
+        // Non-blocking: reject duplicate rebuilds instead of queuing them
+        let permit = match semaphore.inner().clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        };
+
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
         let index_path = cfg.index_db_path();
+        let app_handle = app.clone();
 
-        tokio::task::spawn_blocking(move || {
+        let _ = app.emit("indexing-started", ());
+
+        let result = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+
             // Delete existing DB to force a clean rebuild
             if index_path.exists() {
                 let _ = std::fs::remove_file(&index_path);
@@ -473,12 +529,24 @@ mod commands {
                 let _ = std::fs::remove_file(&shm);
             }
 
-            tracepilot_indexer::reindex_all(&session_state_dir, &index_path)
-                .map(|n| (n, n))
-                .map_err(|e| e.to_string())
+            tracepilot_indexer::reindex_all_with_progress(
+                &session_state_dir,
+                &index_path,
+                |current, total| {
+                    let _ = app_handle.emit(
+                        "indexing-progress",
+                        serde_json::json!({ "current": current, "total": total }),
+                    );
+                },
+            )
+            .map(|n| (n, n))
+            .map_err(|e| e.to_string())
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string());
+
+        let _ = app.emit("indexing-finished", ());
+        result?
     }
 
     // ── Analytics Commands ────────────────────────────────────────────
@@ -492,6 +560,7 @@ mod commands {
         from_date: Option<String>,
         to_date: Option<String>,
         repo: Option<String>,
+        hide_empty: Option<bool>,
     ) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
@@ -504,6 +573,7 @@ mod commands {
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
+                    hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
                     Err(e) => eprintln!("Analytics SQL fast path failed, falling back to disk scan: {e}"),
@@ -516,6 +586,7 @@ mod commands {
                 from_date.as_deref(),
                 to_date.as_deref(),
                 repo.as_deref(),
+                hide_empty.unwrap_or(false),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_analytics(&inputs))
@@ -530,6 +601,7 @@ mod commands {
         from_date: Option<String>,
         to_date: Option<String>,
         repo: Option<String>,
+        hide_empty: Option<bool>,
     ) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
@@ -542,6 +614,7 @@ mod commands {
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
+                    hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
                     Err(e) => eprintln!("Tool analysis SQL fast path failed, falling back to disk scan: {e}"),
@@ -554,6 +627,7 @@ mod commands {
                 from_date.as_deref(),
                 to_date.as_deref(),
                 repo.as_deref(),
+                hide_empty.unwrap_or(false),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
@@ -568,6 +642,7 @@ mod commands {
         from_date: Option<String>,
         to_date: Option<String>,
         repo: Option<String>,
+        hide_empty: Option<bool>,
     ) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
@@ -580,6 +655,7 @@ mod commands {
                     from_date.as_deref(),
                     to_date.as_deref(),
                     repo.as_deref(),
+                    hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
                     Err(e) => eprintln!("Code impact SQL fast path failed, falling back to disk scan: {e}"),
@@ -592,6 +668,7 @@ mod commands {
                 from_date.as_deref(),
                 to_date.as_deref(),
                 repo.as_deref(),
+                hide_empty.unwrap_or(false),
             )
             .map_err(|e| e.to_string())?;
             Ok(tracepilot_core::analytics::compute_code_impact(&inputs))
@@ -778,11 +855,80 @@ mod commands {
         .await
         .map_err(|e| e.to_string())?
     }
+
+    /// Open a new terminal window and run the configured CLI resume command.
+    #[tauri::command]
+    pub async fn resume_session_in_terminal(session_id: String, cli_command: Option<String>) -> Result<(), String> {
+        // Validate UUID format to prevent command injection
+        uuid::Uuid::parse_str(&session_id)
+            .map_err(|_| "Invalid session ID format".to_string())?;
+
+        let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
+
+        // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, and spaces
+        if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
+            return Err("CLI command contains invalid characters".to_string());
+        }
+
+        let cmd = format!("{} --resume {}", cli, session_id);
+
+        #[cfg(windows)]
+        {
+            std::process::Command::new("cmd")
+                .args(["/c", "start", "cmd", "/k", &cmd])
+                .spawn()
+                .map_err(|e| format!("Failed to open terminal: {}", e))?;
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("osascript")
+                .args([
+                    "-e",
+                    &format!("tell app \"Terminal\" to do script \"{}\"", cmd),
+                ])
+                .spawn()
+                .map_err(|e| format!("Failed to open terminal: {}", e))?;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let terminals = [
+                "x-terminal-emulator",
+                "gnome-terminal",
+                "konsole",
+                "xfce4-terminal",
+                "xterm",
+            ];
+            let mut launched = false;
+            for term in &terminals {
+                if std::process::Command::new(term)
+                    .args(["-e", &cmd])
+                    .spawn()
+                    .is_ok()
+                {
+                    launched = true;
+                    break;
+                }
+            }
+            if !launched {
+                return Err(
+                    "No terminal emulator found. Please run the command manually.".to_string(),
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Get the plugin to register all commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
+        .setup(|app, _api| {
+            app.manage(std::sync::Arc::new(tokio::sync::Semaphore::new(1)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::list_sessions,
             commands::get_session_detail,
@@ -805,6 +951,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_session_count,
             commands::factory_reset,
             commands::get_tool_result,
+            commands::resume_session_in_terminal,
         ])
         .build()
 }
