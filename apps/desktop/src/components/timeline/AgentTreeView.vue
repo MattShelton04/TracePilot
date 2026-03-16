@@ -497,6 +497,23 @@ function bezierPath(line: SvgLine): string {
   return `M ${line.x1} ${line.y1} C ${line.x1} ${midY}, ${line.x2} ${midY}, ${line.x2} ${line.y2}`;
 }
 
+/** Resolve the color for a connector line based on the child node's agent type. */
+function lineColor(line: SvgLine): string {
+  if (!treeData.value) return AGENT_COLORS.main;
+  // Search treeData for the child node to find its type
+  function findType(nodes: AgentNode[]): string | undefined {
+    for (const n of nodes) {
+      if (n.id === line.childId) return AGENT_COLORS[n.type];
+      if (n.children?.length) {
+        const found = findType(n.children);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  return findType(treeData.value.children) ?? AGENT_COLORS.main;
+}
+
 // ---------------------------------------------------------------------------
 // Node Selection & Detail
 // ---------------------------------------------------------------------------
@@ -611,11 +628,21 @@ watch(
             :height="canvasHeight"
             :viewBox="`0 0 ${layout.width} ${canvasHeight}`"
           >
+            <!-- Static base line (subtle, behind the animated one) -->
             <path
               v-for="(line, i) in displayLines"
-              :key="i"
+              :key="`base-${i}`"
               :d="bezierPath(line)"
-              class="tree-connector"
+              class="tree-connector tree-connector--base"
+              :style="{ stroke: lineColor(line) }"
+            />
+            <!-- Animated flowing dash overlay -->
+            <path
+              v-for="(line, i) in displayLines"
+              :key="`flow-${i}`"
+              :d="bezierPath(line)"
+              class="tree-connector tree-connector--flow"
+              :style="{ stroke: lineColor(line) }"
             />
           </svg>
 
@@ -915,9 +942,25 @@ watch(
 }
 
 .tree-connector {
-  stroke: var(--border-default);
   stroke-width: 2;
   fill: none;
+}
+
+.tree-connector--base {
+  opacity: 0.18;
+}
+
+.tree-connector--flow {
+  stroke-dasharray: 8 14;
+  stroke-dashoffset: 0;
+  animation: connector-flow 1.2s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes connector-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
 }
 
 /* ------------------------------------------------------------------ */
