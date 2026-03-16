@@ -13,15 +13,19 @@ import {
   categoryColor,
   formatArgsSummary,
   useToggleSet,
+  ToolArgsRenderer,
+  ToolResultRenderer,
 } from "@tracepilot/ui";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 
 /* ------------------------------------------------------------------ */
 /*  Store & data                                                      */
 /* ------------------------------------------------------------------ */
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 const turns = computed(() => store.turns);
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
@@ -360,19 +364,15 @@ function isRowVisible(row: WaterfallRow): boolean {
 const selectedRowId = ref<string | null>(null);
 const hoveredRowId = ref<string | null>(null);
 const pinnedRowId = ref<string | null>(null);
-const argsExpanded = ref(false);
 
 function selectRow(id: string) {
   selectedRowId.value = selectedRowId.value === id ? null : id;
-  // Pin/unpin the detail panel on click
   pinnedRowId.value = pinnedRowId.value === id ? null : id;
-  argsExpanded.value = false;
 }
 
 function dismissDetail() {
   pinnedRowId.value = null;
   selectedRowId.value = null;
-  argsExpanded.value = false;
 }
 
 const pinnedRow = computed<WaterfallRow | null>(() => {
@@ -384,16 +384,6 @@ const pinnedRow = computed<WaterfallRow | null>(() => {
 function childToolCount(row: WaterfallRow): number {
   if (!row.call.isSubagent || !row.call.toolCallId) return 0;
   return rows.value.filter((r) => r.parentId === row.call.toolCallId).length;
-}
-
-/** Format arguments as indented JSON string. */
-function formatArgsJson(args: unknown): string {
-  if (args == null) return "(none)";
-  try {
-    return JSON.stringify(args, null, 2);
-  } catch {
-    return String(args);
-  }
 }
 
 function extractPrompt(args: unknown): string | null {
@@ -829,24 +819,17 @@ function rowArgsSummary(row: WaterfallRow): string {
             <span class="field-value" style="font-style: italic;">{{ pinnedRow.call.intentionSummary }}</span>
           </div>
 
-          <!-- Arguments (collapsible) -->
-          <div class="detail-args-section">
-            <button class="detail-args-toggle" @click="argsExpanded = !argsExpanded">
-              <ExpandChevron :expanded="argsExpanded" size="sm" />
-              Arguments
-            </button>
-            <div v-if="argsExpanded" class="detail-args-body">
-              <pre class="detail-args-pre">{{ formatArgsJson(pinnedRow.call.arguments) }}</pre>
-            </div>
-            <div v-else class="detail-args-preview">
-              {{ truncateText(formatArgsJson(pinnedRow.call.arguments), 500) }}
-            </div>
-          </div>
+          <!-- Arguments (rich renderer) -->
+          <ToolArgsRenderer :tc="pinnedRow.call" :rich-enabled="prefs.isRichRenderingEnabled(pinnedRow.call.toolName)" />
 
-          <!-- Result preview -->
+          <!-- Result (rich renderer) -->
           <div v-if="pinnedRow.call.resultContent || (pinnedRow.call.toolCallId && fullResults.has(pinnedRow.call.toolCallId))" class="tool-result-section">
-            <div class="tool-result-label">Result{{ pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId ?? '') ? ' Preview' : '' }}</div>
-            <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(pinnedRow.call.toolCallId ?? '') ?? pinnedRow.call.resultContent }}</pre>
+            <ToolResultRenderer
+              :tc="pinnedRow.call"
+              :content="fullResults.get(pinnedRow.call.toolCallId ?? '') ?? pinnedRow.call.resultContent ?? ''"
+              :rich-enabled="prefs.isRichRenderingEnabled(pinnedRow.call.toolName)"
+              :is-truncated="!!(pinnedRow.call.toolCallId && pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId))"
+            />
             <div v-if="pinnedRow.call.toolCallId && pinnedRow.call.resultContent?.includes('…[truncated]') && !fullResults.has(pinnedRow.call.toolCallId)" class="tool-result-actions">
               <button
                 v-if="!failedResults.has(pinnedRow.call.toolCallId)"

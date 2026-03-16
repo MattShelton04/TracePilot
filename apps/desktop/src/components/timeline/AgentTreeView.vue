@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue"
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 import {
   Badge,
   EmptyState,
@@ -12,6 +13,8 @@ import {
   toolIcon,
   formatArgsSummary,
   useToggleSet,
+  ToolArgsRenderer,
+  ToolResultRenderer,
 } from "@tracepilot/ui";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +51,7 @@ interface ParallelGroup {
 // ---------------------------------------------------------------------------
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
   () => store.sessionId
 );
@@ -808,17 +812,17 @@ watch(
                       <span class="detail-value font-mono">{{ tc.toolCallId }}</span>
                     </div>
                   </div>
-                  <div
-                    v-if="tc.arguments && typeof tc.arguments === 'object' && Object.keys(tc.arguments as Record<string, unknown>).length > 0"
-                    class="detail-tool-arguments"
-                  >
-                    <div class="detail-label">Arguments</div>
-                    <pre class="detail-tool-args-body">{{ JSON.stringify(tc.arguments, null, 2) }}</pre>
-                  </div>
-                  <!-- Result preview -->
+                  <!-- Arguments (rich renderer) -->
+                  <ToolArgsRenderer :tc="tc" :rich-enabled="prefs.isRichRenderingEnabled(tc.toolName)" />
+
+                  <!-- Result (rich renderer) -->
                   <div v-if="tc.resultContent || (tc.toolCallId && fullResults.has(tc.toolCallId))" class="tool-result-section">
-                    <div class="tool-result-label">Result{{ tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId ?? '') ? ' Preview' : '' }}</div>
-                    <pre class="tool-result-preview" tabindex="0">{{ fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent }}</pre>
+                    <ToolResultRenderer
+                      :tc="tc"
+                      :content="fullResults.get(tc.toolCallId ?? '') ?? tc.resultContent ?? ''"
+                      :rich-enabled="prefs.isRichRenderingEnabled(tc.toolName)"
+                      :is-truncated="!!(tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId))"
+                    />
                     <div v-if="tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResults.has(tc.toolCallId)" class="tool-result-actions">
                       <button
                         v-if="!failedResults.has(tc.toolCallId)"
