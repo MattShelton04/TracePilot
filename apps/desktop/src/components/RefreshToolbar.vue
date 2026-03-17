@@ -38,20 +38,16 @@ watch(() => props.refreshing, (isRefreshing) => {
   }
 });
 
-const sliderValue = computed({
-  get: () => {
-    const idx = INTERVAL_STOPS.indexOf(props.intervalSeconds);
-    return idx >= 0 ? idx : 1; // default to index 1 (5s)
-  },
-  set: (idx: number) => {
-    emit("update:intervalSeconds", INTERVAL_STOPS[idx] ?? 5);
-  },
-});
-
 const intervalLabel = computed(() => {
   const s = props.intervalSeconds;
   return s >= 60 ? `${s / 60}m` : `${s}s`;
 });
+
+function cycleInterval() {
+  const idx = INTERVAL_STOPS.indexOf(props.intervalSeconds);
+  const nextIdx = (idx + 1) % INTERVAL_STOPS.length;
+  emit("update:intervalSeconds", INTERVAL_STOPS[nextIdx]);
+}
 
 onUnmounted(() => {
   if (spinTimer) clearTimeout(spinTimer);
@@ -71,10 +67,7 @@ onUnmounted(() => {
         <path d="M14 8A6 6 0 1 1 8 2" stroke-linecap="round" />
         <path d="M14 2v4h-4" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      <span v-if="showSpinner" class="refresh-label">Refreshing…</span>
     </button>
-
-    <div class="refresh-divider" />
 
     <label class="auto-toggle">
       <input
@@ -85,17 +78,14 @@ onUnmounted(() => {
       <span class="auto-toggle-label">Auto</span>
     </label>
 
-    <div v-if="autoRefreshEnabled" class="interval-control">
-      <input
-        type="range"
-        :min="0"
-        :max="INTERVAL_STOPS.length - 1"
-        :value="sliderValue"
-        class="interval-slider"
-        @input="sliderValue = Number(($event.target as HTMLInputElement).value)"
-      />
-      <span class="interval-label">{{ intervalLabel }}</span>
-    </div>
+    <button
+      v-if="autoRefreshEnabled"
+      class="interval-cycle-btn"
+      :title="`Auto-refresh every ${intervalLabel} (click to change)`"
+      @click="cycleInterval"
+    >
+      {{ intervalLabel }}
+    </button>
   </div>
 </template>
 
@@ -103,8 +93,8 @@ onUnmounted(() => {
 .refresh-toolbar {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -114,7 +104,6 @@ onUnmounted(() => {
 .refresh-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   border: none;
   background: none;
   color: var(--text-secondary);
@@ -149,17 +138,6 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-.refresh-label {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.refresh-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border-default);
-}
-
 .auto-toggle {
   display: inline-flex;
   align-items: center;
@@ -181,38 +159,21 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
-.interval-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.interval-slider {
-  width: 60px;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--border-default);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-
-.interval-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent-fg);
-  cursor: pointer;
-}
-
-.interval-label {
+.interval-cycle-btn {
+  border: none;
+  background: var(--canvas-overlay, rgba(255,255,255,0.06));
+  color: var(--accent-fg);
   font-size: 0.625rem;
   font-weight: 600;
-  color: var(--accent-fg);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
   min-width: 24px;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  transition: background var(--transition-fast);
+}
+.interval-cycle-btn:hover {
+  background: var(--neutral-subtle);
 }
 </style>

@@ -923,11 +923,11 @@ const parallelAgentIds = computed<Set<string>>(() => {
 }
 
 /* ── Expandable swimlane messages ──────────────────────── */
-.swimlane-bar--expandable {
+.nested-swimlanes .swimlane-bar.swimlane-bar--expandable {
   cursor: pointer;
   transition: filter 0.15s ease;
 }
-.swimlane-bar--expandable:hover {
+.nested-swimlanes .swimlane-bar.swimlane-bar--expandable:hover {
   filter: brightness(1.15);
 }
 

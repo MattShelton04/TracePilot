@@ -73,8 +73,8 @@ onUnmounted(() => {
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; position: sticky; top: 0; z-index: 10; background: var(--canvas-default); padding: 8px 0;">
-        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" shortcut-hint="⌘K" />
+      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; position: sticky; top: 0; z-index: 10; background: var(--canvas-default); padding: 8px 12px; border-radius: var(--radius-md, 8px);">
+        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
         <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
         <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
         <select
@@ -138,14 +138,22 @@ onUnmounted(() => {
           v-for="session in store.filteredSessions"
           :key="session.id"
           :to="{ name: 'session-overview', params: { id: session.id } }"
-          class="card card-interactive"
+          class="card card-interactive session-card"
           :class="{ 'card--active': session.isRunning }"
           style="text-decoration: none; color: inherit;"
         >
+          <Transition name="active-pop">
+            <span v-if="session.isRunning" class="active-pop-wrapper active-badge-topright">
+              <Badge variant="success" class="active-badge">Active</Badge>
+            </span>
+          </Transition>
           <div class="session-card-title">
-            <span v-if="session.isRunning" class="active-dot" title="Session is currently active" />
+            <Transition name="active-pop">
+              <span v-if="session.isRunning" class="active-pop-wrapper">
+                <span class="active-dot" title="Session is currently active" />
+              </span>
+            </Transition>
             {{ session.summary || 'Untitled Session' }}
-            <Badge v-if="session.isRunning" variant="success" class="active-badge">Active</Badge>
           </div>
           <div class="session-card-badges">
             <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
@@ -182,6 +190,14 @@ onUnmounted(() => {
   margin-left: auto;
   white-space: nowrap;
 }
+.session-card {
+  position: relative;
+}
+.active-badge-topright {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
 .session-card-title {
   display: flex;
   align-items: center;
@@ -190,7 +206,29 @@ onUnmounted(() => {
 .card--active {
   border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  animation: card-active-pulse 2s ease-in-out infinite;
 }
+@keyframes card-active-pulse {
+  0%, 100% {
+    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  }
+  50% {
+    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
+    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+  }
+}
+/* Animate active indicator in/out */
+.active-pop-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+.active-pop-enter-active,
+.active-pop-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.active-pop-enter-from { opacity: 0; transform: scale(0); }
+.active-pop-leave-to { opacity: 0; transform: scale(0); }
 .active-dot {
   width: 8px;
   height: 8px;
@@ -198,18 +236,18 @@ onUnmounted(() => {
   background: var(--success-fg);
   flex-shrink: 0;
   margin-left: 2px;
-  animation: pulse-dot 2s ease-in-out infinite;
   overflow: visible;
   position: relative;
+  /* Sync with card border: same duration, timing, and phase */
+  animation: dot-sync-pulse 2s ease-in-out infinite;
 }
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(0.85); }
+@keyframes dot-sync-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
 }
 .active-badge {
   flex-shrink: 0;
   font-size: 0.625rem;
-  margin-left: auto;
 }
 .session-card-stats {
   display: flex;

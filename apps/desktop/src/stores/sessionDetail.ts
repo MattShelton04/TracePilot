@@ -193,8 +193,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       );
     }
 
-    // Note: events are skipped in refreshAll because the EventsTab manages its own
-    // pagination state. Refreshing events here would reset the user's page position.
+    // Events are intentionally skipped — the EventsTab manages its own pagination
+    // state (currentPage, pageSize). Refreshing here would overwrite the user's
+    // current page position.
 
     if (sections.has("todos")) {
       promises.push(

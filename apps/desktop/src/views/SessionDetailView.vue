@@ -39,7 +39,7 @@ const { refreshing, refresh } = useAutoRefresh({
   onRefresh: async () => {
     await Promise.all([store.refreshAll(), checkRunning()]);
   },
-  enabled: computed(() => prefs.autoRefreshEnabled && isSessionActive.value),
+  enabled: computed(() => prefs.autoRefreshEnabled),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });
 
@@ -133,11 +133,15 @@ onUnmounted(() => {
       <template v-if="store.detail">
         <h1 class="detail-title">
           <Transition name="active-indicator">
-            <span v-if="isSessionActive" class="active-dot" title="Session is currently active" />
+            <span v-if="isSessionActive" class="active-indicator-group">
+              <span class="active-dot" title="Session is currently active" />
+            </span>
           </Transition>
           {{ store.detail.summary || 'Untitled Session' }}
           <Transition name="active-indicator">
-            <Badge v-if="isSessionActive" variant="success" class="active-badge-inline">● Active</Badge>
+            <span v-if="isSessionActive" class="active-indicator-group">
+              <Badge variant="success" class="active-badge-inline">● Active</Badge>
+            </span>
           </Transition>
         </h1>
         <div class="detail-badges">
@@ -240,6 +244,10 @@ onUnmounted(() => {
 }
 
 /* Animate active indicator in/out */
+.active-indicator-group {
+  display: inline-flex;
+  align-items: center;
+}
 .active-indicator-enter-active,
 .active-indicator-leave-active {
   transition: opacity 0.4s ease, transform 0.4s ease;
@@ -271,7 +279,8 @@ onUnmounted(() => {
   top: 0;
   z-index: 10;
   background: var(--canvas-default);
-  padding: 8px 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
 }
 .detail-actions-left {
   display: flex;
