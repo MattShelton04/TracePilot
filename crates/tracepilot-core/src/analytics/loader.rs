@@ -74,7 +74,7 @@ fn load_single_full_session(
     let turns = if session.has_events_jsonl {
         let events_path = session.path.join("events.jsonl");
         match crate::parsing::events::parse_typed_events(&events_path) {
-            Ok(events) => Some(crate::turns::reconstruct_turns(&events)),
+            Ok(parsed) => Some(crate::turns::reconstruct_turns(&parsed.events)),
             Err(e) => {
                 warn!(
                     session_id = %session.id,

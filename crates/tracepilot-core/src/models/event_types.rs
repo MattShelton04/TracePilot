@@ -1,101 +1,142 @@
 //! Typed event types and data structs matching the real Copilot CLI event schema.
+//!
+//! ## Event Type Registry
+//!
+//! [`SessionEventType`] enumerates all known Copilot CLI event types using their
+//! wire-format strings (e.g. `"session.start"`, `"user.message"`). The enum uses
+//! [`strum`] derives for zero-boilerplate string conversion:
+//!
+//! - `EnumString` — parse from wire string: `"session.start".parse::<SessionEventType>()`
+//! - `Display` / `IntoStaticStr` — render back to wire string
+//!
+//! Unrecognized event types are captured as `Unknown(String)` rather than failing,
+//! enabling graceful handling of new events from evolving Copilot CLI versions.
+//!
+//! ## Adding a New Event Type
+//!
+//! 1. Add a data struct below (all fields `Option<T>` for forward compat)
+//! 2. Add a variant to [`SessionEventType`] with `#[strum(serialize = "wire.name")]`
+//! 3. Add a corresponding variant to [`TypedEventData`]
+//! 4. Add a match arm in [`typed_data_from_raw`]
+//! 5. Handle the new variant in `turns/mod.rs` if it affects turn state
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use strum::{EnumString, IntoStaticStr};
 
-/// All known session event types, plus an Unknown catch-all.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// All known session event types, plus an `Unknown` catch-all for forward compatibility.
+///
+/// Wire-format strings are specified via `#[strum(serialize = "...")]` attributes.
+/// Use `.to_string()` to get the wire string, or `"wire.name".parse()` to convert.
+///
+/// The `Unknown` variant with `#[strum(default)]` captures any unrecognized string,
+/// ensuring forward compatibility with new Copilot CLI event types.
+#[derive(Debug, Clone, PartialEq, Eq, EnumString, IntoStaticStr)]
 pub enum SessionEventType {
+    #[strum(serialize = "session.start")]
     SessionStart,
+    #[strum(serialize = "session.shutdown")]
     SessionShutdown,
+    #[strum(serialize = "session.compaction_start")]
     SessionCompactionStart,
+    #[strum(serialize = "session.compaction_complete")]
     SessionCompactionComplete,
+    #[strum(serialize = "session.plan_changed")]
     SessionPlanChanged,
+    #[strum(serialize = "session.model_change")]
     SessionModelChange,
+    #[strum(serialize = "session.info")]
     SessionInfo,
+    #[strum(serialize = "session.context_changed")]
     SessionContextChanged,
+    #[strum(serialize = "session.error")]
     SessionError,
+    #[strum(serialize = "session.resume")]
     SessionResume,
+    #[strum(serialize = "session.workspace_file_changed")]
     SessionWorkspaceFileChanged,
+    #[strum(serialize = "user.message")]
     UserMessage,
+    #[strum(serialize = "assistant.message")]
     AssistantMessage,
+    #[strum(serialize = "assistant.turn_start")]
     AssistantTurnStart,
+    #[strum(serialize = "assistant.turn_end")]
     AssistantTurnEnd,
+    #[strum(serialize = "tool.execution_start")]
     ToolExecutionStart,
+    #[strum(serialize = "tool.execution_complete")]
     ToolExecutionComplete,
+    #[strum(serialize = "tool.user_requested")]
     ToolUserRequested,
+    #[strum(serialize = "subagent.started")]
     SubagentStarted,
+    #[strum(serialize = "subagent.completed")]
     SubagentCompleted,
+    #[strum(serialize = "subagent.failed")]
     SubagentFailed,
+    #[strum(serialize = "system.notification")]
     SystemNotification,
+    #[strum(serialize = "skill.invoked")]
     SkillInvoked,
+    #[strum(serialize = "abort")]
     Abort,
+    /// Catch-all for unrecognized event types from newer Copilot CLI versions.
+    /// The contained string is the original wire-format type name.
+    #[strum(default)]
     Unknown(String),
 }
 
-impl From<&str> for SessionEventType {
-    fn from(s: &str) -> Self {
-        match s {
-            "session.start" => Self::SessionStart,
-            "session.shutdown" => Self::SessionShutdown,
-            "session.compaction_start" => Self::SessionCompactionStart,
-            "session.compaction_complete" => Self::SessionCompactionComplete,
-            "session.plan_changed" => Self::SessionPlanChanged,
-            "session.model_change" => Self::SessionModelChange,
-            "session.info" => Self::SessionInfo,
-            "session.context_changed" => Self::SessionContextChanged,
-            "session.error" => Self::SessionError,
-            "session.resume" => Self::SessionResume,
-            "session.workspace_file_changed" => Self::SessionWorkspaceFileChanged,
-            "user.message" => Self::UserMessage,
-            "assistant.message" => Self::AssistantMessage,
-            "assistant.turn_start" => Self::AssistantTurnStart,
-            "assistant.turn_end" => Self::AssistantTurnEnd,
-            "tool.execution_start" => Self::ToolExecutionStart,
-            "tool.execution_complete" => Self::ToolExecutionComplete,
-            "tool.user_requested" => Self::ToolUserRequested,
-            "subagent.started" => Self::SubagentStarted,
-            "subagent.completed" => Self::SubagentCompleted,
-            "subagent.failed" => Self::SubagentFailed,
-            "system.notification" => Self::SystemNotification,
-            "skill.invoked" => Self::SkillInvoked,
-            "abort" => Self::Abort,
-            other => Self::Unknown(other.to_string()),
+/// All known event type wire strings, for runtime introspection and validation.
+pub const KNOWN_EVENT_TYPES: &[&str] = &[
+    "session.start",
+    "session.shutdown",
+    "session.compaction_start",
+    "session.compaction_complete",
+    "session.plan_changed",
+    "session.model_change",
+    "session.info",
+    "session.context_changed",
+    "session.error",
+    "session.resume",
+    "session.workspace_file_changed",
+    "user.message",
+    "assistant.message",
+    "assistant.turn_start",
+    "assistant.turn_end",
+    "tool.execution_start",
+    "tool.execution_complete",
+    "tool.user_requested",
+    "subagent.started",
+    "subagent.completed",
+    "subagent.failed",
+    "system.notification",
+    "skill.invoked",
+    "abort",
+];
+
+impl fmt::Display for SessionEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unknown(s) => write!(f, "{}", s),
+            // For known variants, strum's IntoStaticStr gives us the wire string
+            other => {
+                let s: &'static str = other.into();
+                write!(f, "{}", s)
+            }
         }
     }
 }
 
-impl fmt::Display for SessionEventType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::SessionStart => "session.start",
-            Self::SessionShutdown => "session.shutdown",
-            Self::SessionCompactionStart => "session.compaction_start",
-            Self::SessionCompactionComplete => "session.compaction_complete",
-            Self::SessionPlanChanged => "session.plan_changed",
-            Self::SessionModelChange => "session.model_change",
-            Self::SessionInfo => "session.info",
-            Self::SessionContextChanged => "session.context_changed",
-            Self::SessionError => "session.error",
-            Self::SessionResume => "session.resume",
-            Self::SessionWorkspaceFileChanged => "session.workspace_file_changed",
-            Self::UserMessage => "user.message",
-            Self::AssistantMessage => "assistant.message",
-            Self::AssistantTurnStart => "assistant.turn_start",
-            Self::AssistantTurnEnd => "assistant.turn_end",
-            Self::ToolExecutionStart => "tool.execution_start",
-            Self::ToolExecutionComplete => "tool.execution_complete",
-            Self::ToolUserRequested => "tool.user_requested",
-            Self::SubagentStarted => "subagent.started",
-            Self::SubagentCompleted => "subagent.completed",
-            Self::SubagentFailed => "subagent.failed",
-            Self::SystemNotification => "system.notification",
-            Self::SkillInvoked => "skill.invoked",
-            Self::Abort => "abort",
-            Self::Unknown(s) => s.as_str(),
-        };
-        write!(f, "{}", s)
+/// Parse a wire-format event type string (e.g. `"session.start"`) into a
+/// [`SessionEventType`]. Unknown strings are captured as `Unknown(s)`.
+///
+/// This is infallible because `#[strum(default)]` on `Unknown` catches all
+/// unrecognized input.
+impl SessionEventType {
+    pub fn parse_wire(s: &str) -> Self {
+        s.parse().expect("strum default variant makes this infallible")
     }
 }
 
@@ -114,7 +155,7 @@ impl<'de> Deserialize<'de> for SessionEventType {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(SessionEventType::from(s.as_str()))
+        Ok(SessionEventType::parse_wire(s.as_str()))
     }
 }
 

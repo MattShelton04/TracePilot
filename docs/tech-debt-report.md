@@ -86,7 +86,7 @@ TracePilot is a well-architected monorepo with clean separation between Rust bac
 
 | Severity | Issue | Location | Fix |
 |----------|-------|----------|-----|
-| 🟠 High | Stringly-typed `status` in `ToolTransaction` | `models/tool_transaction.rs:15` | Enum `ToolStatus::Success \| Failure \| Unknown` |
+| 🟠 High | Stringly-typed `status` in `ToolTransaction` | `models/tool_transaction.rs:15` | ~~Enum `ToolStatus::Success \| Failure \| Unknown`~~ **RESOLVED: ToolTransaction removed (dead code)** |
 | 🟠 High | Stringly-typed `shutdown_type` | `models/event_types.rs:153`, `models/session_summary.rs:44` | Enum `ShutdownType::Routine \| Error \| ...` |
 | 🟠 High | Stringly-typed `category` in `HealthFlag` | `health/mod.rs:18` | Enum `HealthCategory::Size \| ErrorRate \| ...` |
 | 🟡 Medium | `RewindSnapshot::timestamp` is `Option<String>` not `DateTime<Utc>` | `parsing/rewind_snapshots.rs:22` | Parse to `DateTime<Utc>` |
@@ -105,9 +105,9 @@ TracePilot is a well-architected monorepo with clean separation between Rust bac
 | Item | Location | Notes |
 |------|----------|-------|
 | `count_events()` | `parsing/events.rs:86` | Public but never called anywhere |
-| `ToolTransaction` struct | `models/tool_transaction.rs` | Exported, never instantiated or used |
+| `ToolTransaction` struct | `models/tool_transaction.rs` | ~~Exported, never instantiated or used~~ **RESOLVED: Removed** |
 | `col_count` dead variable | `parsing/session_db.rs:181,192` | `let _ = col_count;` silences warning |
-| TODO: health heuristics | `health/mod.rs:47` | Module is a stub with 1 check and 0 tests |
+| TODO: health heuristics | `health/mod.rs:47` | ~~Module is a stub with 1 check and 0 tests~~ **RESOLVED: Enhanced with diagnostics-based heuristics and 6 tests** |
 
 > **Correction**: `read_todo_deps()` was initially listed as dead code but is actually consumed by tauri-bindings. It is NOT dead code.
 
@@ -645,7 +645,7 @@ Tauri commands are async and can execute concurrently. Without managed state (si
 | 14 | **Fix session-detail silent failures** — set user-visible error state in `sessionDetail` store, not just `console.error` | Small | Users see broken tabs with no indication |
 | 15 | **Replace 67+ hardcoded hex colors** with CSS variable references (provide hex→token mapping table) | Medium | Design system consistency + light theme support |
 | 16 | **Resolve CSS paradigm conflict** — remove hand-rolled utilities from `styles.css:1384-1406` that conflict with Tailwind; document intended strategy: Tailwind utilities for layout, design tokens for colors, scoped CSS for complex components only | Medium | Eliminates `.mb-4` value conflicts |
-| 17 | **Promote stringly-typed fields to enums** — `ToolTransaction.status`, `shutdown_type`, `HealthFlag.category` | Small | Type safety |
+| 17 | **Promote stringly-typed fields to enums** — ~~`ToolTransaction.status`~~, `shutdown_type`, `HealthFlag.category` | Small | Type safety (ToolTransaction removed) |
 | 18 | **Add contract tests** between Rust Tauri commands and `@tracepilot/client` command names/payloads | Medium | Prevents silent IPC breakage |
 | 19 | **Remove `apps/cli/dist/` from git** — `git rm --cached apps/cli/dist/` | Tiny | Clean VCS |
 | 20 | **Fix wrong Settings path** — `SettingsView.vue:44` shows `~/.copilot/sessions/` but should be `~/.copilot/session-state/` | Tiny | Product bug |
@@ -680,7 +680,7 @@ Tauri commands are async and can execute concurrently. Without managed state (si
 | # | Item | Effort | Impact |
 |---|------|--------|--------|
 | 41 | Add doc comments to `ConversationTurn`, `SessionSummary`, `analytics/types.rs` fields | Small | Developer experience |
-| 42 | Remove dead code: `count_events()`, `ToolTransaction`, unused Vue components (`ThemeToggle`, `StubView`) | Small | Cleanliness |
+| 42 | ~~Remove dead code: `count_events()`, `ToolTransaction`, unused Vue components (`ThemeToggle`, `StubView`)~~ **Partially resolved: `ToolTransaction` removed; `count_events()` internalized** | Small | Cleanliness |
 | 43 | Remove unused workspace deps (`clap`) | Tiny | Cleanliness |
 | 44 | Migrate `serde_yaml` 0.9 → `serde_yml` (deprecated crate) | Small | Maintenance |
 | 45 | Add LICENSE file, CONTRIBUTING.md, CHANGELOG.md, SECURITY.md | Small | Legal + onboarding |

@@ -43,6 +43,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         let health = health::compute_health(
             summary.event_count,
             summary.shutdown_metrics.as_ref(),
+            None,
         );
         health_score_sum += health.score;
 
