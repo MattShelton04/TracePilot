@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Dashboard Customizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .toolbar-spacer { flex: 1; }
+    .toggle-btn { display: flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: var(--radius-full); font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all var(--transition-normal); border: 1px solid var(--border-default); background: var(--canvas-raised); color: var(--text-primary); }
+    .toggle-btn.active { background: var(--accent-emphasis); border-color: var(--accent-emphasis); color: #fff; box-shadow: var(--shadow-glow-accent); }
+    .toggle-btn .icon { font-size: 1rem; }
+    .btn-toolbar { padding: 7px 14px; border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border-default); background: var(--canvas-raised); color: var(--text-secondary); transition: all var(--transition-fast); }
+    .btn-toolbar:hover { background: var(--canvas-overlay); color: var(--text-primary); }
+    .btn-toolbar.primary { background: var(--gradient-accent); border-color: transparent; color: #fff; }
+
+    /* Widget Grid */
+    .widget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; min-height: 500px; }
+    .widget { background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden; transition: all var(--transition-normal); position: relative; }
+    .widget.span-2 { grid-column: span 2; }
+    .widget.span-v2 { grid-row: span 2; }
+    .widget:hover { border-color: var(--border-accent); }
+    .widget.dragging { opacity: 0.4; border: 2px dashed var(--accent-fg); }
+    .widget.drag-over { border: 2px solid var(--accent-fg); background: var(--accent-subtle); box-shadow: var(--shadow-glow-accent); }
+
+    /* Edit mode */
+    .edit-mode .widget { border-style: dashed; cursor: grab; }
+    .edit-mode .widget:active { cursor: grabbing; }
+    .widget-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border-muted); min-height: 40px; }
+    .widget-drag-handle { cursor: grab; color: var(--text-tertiary); font-size: 1rem; display: none; user-select: none; line-height: 1; }
+    .edit-mode .widget-drag-handle { display: inline; }
+    .widget-title { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; text-transform: uppercase; flex: 1; }
+    .widget-actions { display: flex; gap: 4px; }
+    .widget-action-btn { width: 22px; height: 22px; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: var(--radius-sm); font-size: 0.75rem; display: flex; align-items: center; justify-content: center; transition: all var(--transition-fast); }
+    .widget-action-btn:hover { background: var(--neutral-muted); color: var(--text-primary); }
+    .widget-action-btn.remove { display: none; }
+    .edit-mode .widget-action-btn.remove { display: flex; }
+    .edit-mode .widget-action-btn.remove:hover { color: var(--danger-fg); background: var(--danger-subtle); }
+    .widget-body { padding: 14px; min-height: 120px; }
+    .widget-body.minimized { display: none; }
+
+    /* Size buttons */
+    .size-btns { display: none; gap: 2px; }
+    .edit-mode .size-btns { display: flex; }
+    .size-btn { width: 18px; height: 18px; border: 1px solid var(--border-default); background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: 3px; font-size: 0.5rem; display: flex; align-items: center; justify-content: center; }
+    .size-btn:hover, .size-btn.active { background: var(--accent-muted); border-color: var(--accent-fg); color: var(--accent-fg); }
+
+    /* Add Widget Panel */
+    .add-panel { position: fixed; top: 0; right: -380px; width: 360px; height: 100vh; background: var(--canvas-subtle); border-left: 1px solid var(--border-default); z-index: var(--z-overlay); transition: right var(--transition-slow); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+    .add-panel.open { right: 0; }
+    .add-panel-header { padding: 18px 20px; border-bottom: 1px solid var(--border-default); display: flex; align-items: center; justify-content: space-between; }
+    .add-panel-header h3 { font-size: 0.9375rem; font-weight: 600; }
+    .close-btn { width: 28px; height: 28px; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: var(--radius-sm); font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+    .close-btn:hover { background: var(--neutral-muted); color: var(--text-primary); }
+    .add-panel-body { flex: 1; overflow-y: auto; padding: 14px; }
+    .widget-option { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-default); border-radius: var(--radius-md); margin-bottom: 10px; cursor: pointer; transition: all var(--transition-fast); background: var(--canvas-raised); }
+    .widget-option:hover { border-color: var(--accent-fg); background: var(--accent-subtle); }
+    .widget-option .wo-icon { font-size: 1.5rem; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--accent-subtle); border-radius: var(--radius-md); flex-shrink: 0; }
+    .widget-option .wo-info h4 { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+    .widget-option .wo-info p { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .widget-option .wo-add { margin-left: auto; font-size: 1.25rem; color: var(--accent-fg); font-weight: 700; }
+
+    /* Overlay */
+    .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: calc(var(--z-overlay) - 1); opacity: 0; pointer-events: none; transition: opacity var(--transition-slow); }
+    .panel-overlay.visible { opacity: 1; pointer-events: auto; }
+
+    /* Mini Chart Styles */
+    .mini-stat { text-align: center; padding: 8px 0; }
+    .mini-stat .big-num { font-size: 2rem; font-weight: 700; color: var(--accent-fg); letter-spacing: -0.03em; }
+    .mini-stat .label { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 4px; }
+    .mini-list { list-style: none; }
+    .mini-list li { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.75rem; }
+    .mini-list li:last-child { border: none; }
+    .mini-list .name { color: var(--text-secondary); }
+    .mini-list .val { color: var(--text-primary); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 0.6875rem; }
+    .quick-actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .qa-btn { padding: 10px 6px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--canvas-raised); cursor: pointer; text-align: center; font-size: 0.6875rem; color: var(--text-secondary); transition: all var(--transition-fast); }
+    .qa-btn:hover { border-color: var(--accent-fg); color: var(--accent-fg); background: var(--accent-subtle); }
+    .qa-btn .qa-icon { font-size: 1.25rem; margin-bottom: 4px; display: block; }
+    .alert-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); align-items: flex-start; }
+    .alert-item:last-child { border: none; }
+    .alert-item .a-icon { font-size: 0.875rem; margin-top: 2px; }
+    .alert-item .a-text { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
+    .alert-item .a-time { font-size: 0.625rem; color: var(--text-tertiary); margin-top: 2px; }
+    .health-ring { position: relative; display: flex; align-items: center; justify-content: center; }
+    .health-ring .ring-label { position: absolute; text-align: center; }
+    .health-ring .ring-label .val { font-size: 1.75rem; font-weight: 700; color: var(--success-fg); }
+    .health-ring .ring-label .desc { font-size: 0.625rem; color: var(--text-tertiary); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Dashboard Customizer</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <div>
+              <h1 class="page-title">My Dashboard</h1>
+              <p class="page-subtitle">Drag widgets to rearrange, resize, or add new ones</p>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <button class="toggle-btn" id="customizeToggle" onclick="toggleEditMode()">
+              <span class="icon">✏️</span> Customize
+            </button>
+            <button class="btn-toolbar" onclick="resetLayout()">↺ Reset Default</button>
+            <button class="btn-toolbar primary" onclick="openAddPanel()">+ Add Widget</button>
+          </div>
+
+          <!-- Widget Grid -->
+          <div class="widget-grid" id="widgetGrid">
+
+            <!-- Widget: Token Usage Chart (2x1) -->
+            <div class="widget span-2" draggable="false" data-widget-id="token-chart" data-size="2x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle" title="Drag to reorder">⠿</span>
+                <span class="widget-title">Token Usage (7-day)</span>
+                <div class="size-btns">
+                  <button class="size-btn" onclick="resizeWidget(this,'1x1')" title="1×1">▪</button>
+                  <button class="size-btn active" onclick="resizeWidget(this,'2x1')" title="2×1">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)" title="Minimize">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)" title="Remove">✕</button>
+                </div>
+              </div>
+              <div class="widget-body">
+                <svg viewBox="0 0 540 140" width="100%" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.01"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M30,90 L110,70 L190,80 L270,40 L350,55 L430,35 L510,50 L510,130 L30,130 Z" fill="url(#areaGrad)"/>
+                  <polyline points="30,90 110,70 190,80 270,40 350,55 430,35 510,50" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="30" cy="90" r="3.5" fill="#6366f1"/><circle cx="110" cy="70" r="3.5" fill="#6366f1"/>
+                  <circle cx="190" cy="80" r="3.5" fill="#6366f1"/><circle cx="270" cy="40" r="3.5" fill="#6366f1"/>
+                  <circle cx="350" cy="55" r="3.5" fill="#6366f1"/><circle cx="430" cy="35" r="3.5" fill="#818cf8"/>
+                  <circle cx="510" cy="50" r="3.5" fill="#818cf8"/>
+                  <text x="30" y="130" class="axis-label" text-anchor="middle" font-size="9">Mon</text>
+                  <text x="110" y="130" class="axis-label" text-anchor="middle" font-size="9">Tue</text>
+                  <text x="190" y="130" class="axis-label" text-anchor="middle" font-size="9">Wed</text>
+                  <text x="270" y="130" class="axis-label" text-anchor="middle" font-size="9">Thu</text>
+                  <text x="350" y="130" class="axis-label" text-anchor="middle" font-size="9">Fri</text>
+                  <text x="430" y="130" class="axis-label" text-anchor="middle" font-size="9">Sat</text>
+                  <text x="510" y="130" class="axis-label" text-anchor="middle" font-size="9">Sun</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Widget: Sessions Today -->
+            <div class="widget" draggable="false" data-widget-id="sessions-today" data-size="1x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle">⠿</span>
+                <span class="widget-title">Sessions Today</span>
+                <div class="size-btns">
+                  <button class="size-btn active" onclick="resizeWidget(this,'1x1')">▪</button>
+                  <button class="size-btn" onclick="resizeWidget(this,'2x1')">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+                </div>
+              </div>
+              <div class="widget-body">
+                <div class="mini-stat">
+                  <div class="big-num">4</div>
+                  <div class="label">sessions completed today</div>
+                  <div style="margin-top:8px;font-size:0.6875rem;color:var(--success-fg);">↑ 33% vs yesterday</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Widget: Recent Sessions -->
+            <div class="widget" draggable="false" data-widget-id="recent-sessions" data-size="1x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle">⠿</span>
+                <span class="widget-title">Recent Sessions</span>
+                <div class="size-btns">
+                  <button class="size-btn active" onclick="resizeWidget(this,'1x1')">▪</button>
+                  <button class="size-btn" onclick="resizeWidget(this,'2x1')">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+                </div>
+              </div>
+              <div class="widget-body">
+                <ul class="mini-list">
+                  <li><span class="name">OAuth login impl</span><span class="val">42m</span></li>
+                  <li><span class="name">DB pooling fix</span><span class="val">22m</span></li>
+                  <li><span class="name">Payment tests</span><span class="val">48m</span></li>
+                  <li><span class="name">GraphQL migration</span><span class="val">55m</span></li>
+                  <li><span class="name">XSS vuln fix</span><span class="val">12m</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Widget: Model Distribution -->
+            <div class="widget" draggable="false" data-widget-id="model-dist" data-size="1x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle">⠿</span>
+                <span class="widget-title">Model Distribution</span>
+                <div class="size-btns">
+                  <button class="size-btn active" onclick="resizeWidget(this,'1x1')">▪</button>
+                  <button class="size-btn" onclick="resizeWidget(this,'2x1')">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+                </div>
+              </div>
+              <div class="widget-body" style="display:flex;align-items:center;justify-content:center;">
+                <svg viewBox="0 0 120 120" width="110" height="110">
+                  <circle cx="60" cy="60" r="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="16"/>
+                  <circle cx="60" cy="60" r="42" fill="none" stroke="#6366f1" stroke-width="16" stroke-dasharray="100 164" stroke-dashoffset="66"/>
+                  <circle cx="60" cy="60" r="42" fill="none" stroke="#818cf8" stroke-width="16" stroke-dasharray="79 185" stroke-dashoffset="-34"/>
+                  <circle cx="60" cy="60" r="42" fill="none" stroke="#a78bfa" stroke-width="16" stroke-dasharray="53 211" stroke-dashoffset="-113"/>
+                  <text x="60" y="57" text-anchor="middle" fill="var(--text-primary)" font-size="14" font-weight="700">4</text>
+                  <text x="60" y="70" text-anchor="middle" fill="var(--text-tertiary)" font-size="7">models</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Widget: Cost Gauge -->
+            <div class="widget" draggable="false" data-widget-id="cost-gauge" data-size="1x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle">⠿</span>
+                <span class="widget-title">Weekly Cost</span>
+                <div class="size-btns">
+                  <button class="size-btn active" onclick="resizeWidget(this,'1x1')">▪</button>
+                  <button class="size-btn" onclick="resizeWidget(this,'2x1')">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+                </div>
+              </div>
+              <div class="widget-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <svg viewBox="0 0 120 80" width="120" height="80">
+                  <path d="M10,70 A50,50 0 0,1 110,70" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M10,70 A50,50 0 0,1 95,30" fill="none" stroke="#34d399" stroke-width="12" stroke-linecap="round"/>
+                  <text x="60" y="62" text-anchor="middle" fill="var(--text-primary)" font-size="16" font-weight="700">$42.30</text>
+                  <text x="60" y="76" text-anchor="middle" fill="var(--text-tertiary)" font-size="7">of $48 budget</text>
+                </svg>
+                <div style="font-size:0.6875rem;color:var(--success-fg);margin-top:4px;">12% under budget ✓</div>
+              </div>
+            </div>
+
+            <!-- Widget: Activity Heatmap -->
+            <div class="widget" draggable="false" data-widget-id="activity-heatmap" data-size="1x1">
+              <div class="widget-header">
+                <span class="widget-drag-handle">⠿</span>
+                <span class="widget-title">Activity Heatmap</span>
+                <div class="size-btns">
+                  <button class="size-btn active" onclick="resizeWidget(this,'1x1')">▪</button>
+                  <button class="size-btn" onclick="resizeWidget(this,'2x1')">▬</button>
+                </div>
+                <div class="widget-actions">
+                  <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+                  <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+                </div>
+              </div>
+              <div class="widget-body" id="heatmapBody">
+                <!-- Generated by JS -->
+              </div>
+            </div>
+
+          </div><!-- end widgetGrid -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Widget Panel -->
+  <div class="panel-overlay" id="panelOverlay" onclick="closeAddPanel()"></div>
+  <div class="add-panel" id="addPanel">
+    <div class="add-panel-header">
+      <h3>Add Widget</h3>
+      <button class="close-btn" onclick="closeAddPanel()">✕</button>
+    </div>
+    <div class="add-panel-body" id="addPanelBody"></div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+      renderHeatmap();
+      renderAddPanel();
+      loadLayout();
+    });
+
+    const AVAILABLE_WIDGETS = [
+      { id:'token-chart', icon:'📈', name:'Token Usage Chart', desc:'7-day line chart of token usage', size:'2x1' },
+      { id:'sessions-today', icon:'🎯', name:'Sessions Today', desc:'Count of sessions completed today', size:'1x1' },
+      { id:'recent-sessions', icon:'📋', name:'Recent Sessions', desc:'List of recent sessions', size:'1x1' },
+      { id:'model-dist', icon:'🍩', name:'Model Distribution', desc:'Donut chart of model usage', size:'1x1' },
+      { id:'cost-gauge', icon:'💰', name:'Cost Gauge', desc:'Circular budget gauge', size:'1x1' },
+      { id:'activity-heatmap', icon:'🔥', name:'Activity Heatmap', desc:'Hourly activity grid', size:'1x1' },
+      { id:'health-score', icon:'💚', name:'Health Score', desc:'System health ring indicator', size:'1x1' },
+      { id:'tool-freq', icon:'🔧', name:'Tool Frequency', desc:'Bar chart of tool usage', size:'1x1' },
+      { id:'quick-actions', icon:'⚡', name:'Quick Actions', desc:'Button grid for common tasks', size:'1x1' },
+      { id:'alerts', icon:'🔔', name:'Alerts & Anomalies', desc:'Recent alerts and warnings', size:'1x1' },
+    ];
+
+    let editMode = false;
+
+    function toggleEditMode() {
+      editMode = !editMode;
+      const grid = document.getElementById('widgetGrid');
+      const btn = document.getElementById('customizeToggle');
+      grid.classList.toggle('edit-mode', editMode);
+      btn.classList.toggle('active', editMode);
+      btn.innerHTML = editMode ? '<span class="icon">✓</span> Done' : '<span class="icon">✏️</span> Customize';
+      grid.querySelectorAll('.widget').forEach(w => {
+        w.setAttribute('draggable', editMode ? 'true' : 'false');
+      });
+      if (editMode) initDragDrop();
+    }
+
+    let dragSrc = null;
+    function initDragDrop() {
+      const widgets = document.querySelectorAll('.widget');
+      widgets.forEach(w => {
+        w.removeEventListener('dragstart', onDragStart);
+        w.removeEventListener('dragover', onDragOver);
+        w.removeEventListener('dragleave', onDragLeave);
+        w.removeEventListener('drop', onDrop);
+        w.removeEventListener('dragend', onDragEnd);
+        w.addEventListener('dragstart', onDragStart);
+        w.addEventListener('dragover', onDragOver);
+        w.addEventListener('dragleave', onDragLeave);
+        w.addEventListener('drop', onDrop);
+        w.addEventListener('dragend', onDragEnd);
+      });
+    }
+    function onDragStart(e) { dragSrc = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', this.dataset.widgetId); }
+    function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (this !== dragSrc) this.classList.add('drag-over'); }
+    function onDragLeave() { this.classList.remove('drag-over'); }
+    function onDrop(e) {
+      e.preventDefault(); this.classList.remove('drag-over');
+      if (dragSrc && this !== dragSrc) {
+        const grid = document.getElementById('widgetGrid');
+        const allW = [...grid.children];
+        const fromIdx = allW.indexOf(dragSrc);
+        const toIdx = allW.indexOf(this);
+        if (fromIdx < toIdx) this.after(dragSrc); else this.before(dragSrc);
+        saveLayout();
+      }
+    }
+    function onDragEnd() { document.querySelectorAll('.widget').forEach(w => { w.classList.remove('dragging','drag-over'); }); dragSrc = null; }
+
+    function toggleMinimize(btn) {
+      const body = btn.closest('.widget').querySelector('.widget-body');
+      body.classList.toggle('minimized');
+      btn.textContent = body.classList.contains('minimized') ? '+' : '−';
+    }
+
+    function removeWidget(btn) {
+      const widget = btn.closest('.widget');
+      widget.style.transform = 'scale(0.8)'; widget.style.opacity = '0';
+      setTimeout(() => { widget.remove(); saveLayout(); }, 200);
+    }
+
+    function resizeWidget(btn, size) {
+      const widget = btn.closest('.widget');
+      widget.classList.remove('span-2','span-v2');
+      if (size === '2x1') widget.classList.add('span-2');
+      else if (size === '1x2') widget.classList.add('span-v2');
+      widget.dataset.size = size;
+      btn.closest('.size-btns').querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveLayout();
+    }
+
+    function renderAddPanel() {
+      const body = document.getElementById('addPanelBody');
+      body.innerHTML = AVAILABLE_WIDGETS.map(w => `
+        <div class="widget-option" onclick="addWidget('${w.id}')">
+          <div class="wo-icon">${w.icon}</div>
+          <div class="wo-info"><h4>${w.name}</h4><p>${w.desc}</p></div>
+          <div class="wo-add">+</div>
+        </div>
+      `).join('');
+    }
+
+    function addWidget(id) {
+      const grid = document.getElementById('widgetGrid');
+      const w = AVAILABLE_WIDGETS.find(x => x.id === id);
+      if (!w) return;
+      const el = document.createElement('div');
+      el.className = 'widget' + (w.size === '2x1' ? ' span-2' : '');
+      el.dataset.widgetId = w.id + '-' + Date.now();
+      el.dataset.size = w.size;
+      el.setAttribute('draggable', editMode ? 'true' : 'false');
+      el.innerHTML = `
+        <div class="widget-header">
+          <span class="widget-drag-handle">⠿</span>
+          <span class="widget-title">${w.name}</span>
+          <div class="size-btns">
+            <button class="size-btn ${w.size==='1x1'?'active':''}" onclick="resizeWidget(this,'1x1')">▪</button>
+            <button class="size-btn ${w.size==='2x1'?'active':''}" onclick="resizeWidget(this,'2x1')">▬</button>
+          </div>
+          <div class="widget-actions">
+            <button class="widget-action-btn" onclick="toggleMinimize(this)">−</button>
+            <button class="widget-action-btn remove" onclick="removeWidget(this)">✕</button>
+          </div>
+        </div>
+        <div class="widget-body"><div class="mini-stat"><div class="big-num">${w.icon}</div><div class="label">${w.name} — Added</div></div></div>`;
+      grid.appendChild(el);
+      if (editMode) initDragDrop();
+      saveLayout();
+      closeAddPanel();
+    }
+
+    function openAddPanel() { document.getElementById('addPanel').classList.add('open'); document.getElementById('panelOverlay').classList.add('visible'); }
+    function closeAddPanel() { document.getElementById('addPanel').classList.remove('open'); document.getElementById('panelOverlay').classList.remove('visible'); }
+
+    function saveLayout() {
+      const grid = document.getElementById('widgetGrid');
+      const order = [...grid.children].map(w => ({ id: w.dataset.widgetId, size: w.dataset.size }));
+      localStorage.setItem('tp-dashboard-layout', JSON.stringify(order));
+    }
+
+    function loadLayout() {
+      const saved = localStorage.getItem('tp-dashboard-layout');
+      if (!saved) return;
+      try {
+        const order = JSON.parse(saved);
+        const grid = document.getElementById('widgetGrid');
+        const widgets = [...grid.children];
+        const map = {};
+        widgets.forEach(w => { map[w.dataset.widgetId] = w; });
+        order.forEach(item => {
+          const el = map[item.id];
+          if (el) {
+            el.classList.remove('span-2','span-v2');
+            if (item.size === '2x1') el.classList.add('span-2');
+            else if (item.size === '1x2') el.classList.add('span-v2');
+            el.dataset.size = item.size;
+            grid.appendChild(el);
+          }
+        });
+      } catch(e) { /* ignore corrupt state */ }
+    }
+
+    function resetLayout() {
+      localStorage.removeItem('tp-dashboard-layout');
+      location.reload();
+    }
+
+    function renderHeatmap() {
+      const hours = ['6a','8a','10a','12p','2p','4p','6p','8p','10p'];
+      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const data = [
+        [0,1,2,3,2,1,0,0,0],[0,2,3,2,3,2,1,0,0],[1,1,1,2,1,0,0,1,0],
+        [0,3,4,3,4,3,2,1,0],[1,2,3,2,2,1,0,0,0],[0,0,1,1,0,0,0,0,0],[0,0,0,1,0,0,0,0,0]
+      ];
+      const colors = ['rgba(99,102,241,0.05)','rgba(99,102,241,0.2)','rgba(99,102,241,0.4)','rgba(99,102,241,0.6)','rgba(99,102,241,0.85)'];
+      let html = '<div style="display:grid;grid-template-columns:30px repeat(9,1fr);gap:3px;font-size:0.5625rem;">';
+      html += '<div></div>' + hours.map(h => `<div style="text-align:center;color:var(--text-tertiary)">${h}</div>`).join('');
+      days.forEach((d,di) => {
+        html += `<div style="color:var(--text-tertiary);display:flex;align-items:center">${d}</div>`;
+        data[di].forEach(v => { html += `<div style="background:${colors[v]};border-radius:3px;height:16px;" title="${v} sessions"></div>`; });
+      });
+      html += '</div>';
+      document.getElementById('heatmapBody').innerHTML = html;
+    }
+  </script>
+</body>
+</html>

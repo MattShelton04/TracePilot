@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Model Comparison</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* --- Model Cards Row --- */
+    .model-cards-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 1200px) { .model-cards-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) { .model-cards-row { grid-template-columns: repeat(2, 1fr); } }
+
+    .model-card {
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+    }
+    .model-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .model-card-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      margin-bottom: 12px;
+    }
+    .model-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .model-card-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .model-card-stat-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .model-card-stat-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 24px;
+    }
+    .sparkline-bar {
+      flex: 1;
+      border-radius: 2px;
+      min-width: 4px;
+      transition: opacity var(--transition-fast);
+    }
+    .sparkline:hover .sparkline-bar { opacity: 0.7; }
+    .sparkline:hover .sparkline-bar:hover { opacity: 1; }
+
+    /* --- Comparison Table --- */
+    .sort-header {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .sort-header:hover { color: var(--accent-fg); }
+    .sort-arrow { font-size: 0.6rem; margin-left: 4px; opacity: 0.5; }
+    .sort-header:hover .sort-arrow { opacity: 1; }
+    .best-cell {
+      background: rgba(52, 211, 153, 0.08);
+      border-radius: var(--radius-sm);
+      padding: 2px 6px;
+      margin: -2px -6px;
+      display: inline-block;
+    }
+    .inline-progress {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .inline-progress-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--neutral-subtle);
+      border-radius: 3px;
+      overflow: hidden;
+      min-width: 60px;
+    }
+    .inline-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width var(--transition-slow);
+    }
+
+    /* --- Spider Chart --- */
+    .spider-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .spider-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .spider-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+    .spider-legend-swatch {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* --- Scatter Plot --- */
+    .scatter-label {
+      font-size: 10px;
+      fill: var(--text-secondary);
+    }
+    .scatter-dot {
+      transition: r var(--transition-fast);
+      cursor: pointer;
+    }
+    .scatter-dot:hover { r: 16; }
+
+    /* --- Usage Trend --- */
+    .trend-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .trend-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .trend-legend-line {
+      width: 20px; height: 3px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* --- Side-by-Side Comparison --- */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+    }
+    .comparison-col {
+      padding: 16px 20px;
+    }
+    .comparison-col-header {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .comparison-divider {
+      width: 1px;
+      background: var(--border-default);
+    }
+    .comparison-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .comparison-metric:last-child { border-bottom: none; }
+    .comparison-metric-label {
+      color: var(--text-tertiary);
+      font-weight: 500;
+      text-align: center;
+      min-width: 120px;
+    }
+    .comparison-metric-value {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .delta-up { color: #34d399; }
+    .delta-down { color: #fb7185; }
+    .delta-indicator {
+      font-size: 0.75rem;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+
+    /* --- Section spacing --- */
+    .section-gap { margin-bottom: 20px; }
+
+    /* --- Page header --- */
+    .page-hero-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .page-hero-sub {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+    }
+
+    /* --- Select controls --- */
+    .model-select {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      font-size: 0.8125rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+    }
+    .model-select:hover { border-color: var(--border-accent); }
+    .model-select:focus { outline: none; box-shadow: var(--shadow-glow-accent); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Model Comparison</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- 1. Page Header -->
+          <div class="section-gap">
+            <h1 class="page-hero-title">Model Comparison</h1>
+            <p class="page-hero-sub">Head-to-head analysis across all models</p>
+          </div>
+
+          <!-- 2. Model Cards Row -->
+          <div class="model-cards-row section-gap" id="modelCards"></div>
+
+          <!-- 3. Comparison Table -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span class="text-title-sm">Performance Matrix</span>
+            </div>
+            <div class="section-panel-body" style="padding:0;">
+              <table class="data-table" id="comparisonTable">
+                <thead>
+                  <tr>
+                    <th class="sort-header">Model <span class="sort-arrow">▲</span></th>
+                    <th class="sort-header">Sessions <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">Total Tokens <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">Total Cost <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">Avg Duration <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">Success Rate <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">Cache Hit % <span class="sort-arrow">▼</span></th>
+                    <th class="sort-header">In/Out Ratio <span class="sort-arrow">▼</span></th>
+                  </tr>
+                </thead>
+                <tbody id="comparisonBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4. Spider Chart + 5. Scatter Plot (side by side on large screens) -->
+          <div class="grid-2 section-gap">
+            <!-- Spider Chart -->
+            <div class="section-panel">
+              <div class="section-panel-header">
+                <span class="text-title-sm">Capability Radar</span>
+              </div>
+              <div class="section-panel-body">
+                <div class="spider-container" id="spiderChart"></div>
+              </div>
+            </div>
+
+            <!-- Scatter Plot -->
+            <div class="section-panel">
+              <div class="section-panel-header">
+                <span class="text-title-sm">Cost vs Performance</span>
+              </div>
+              <div class="section-panel-body">
+                <div id="scatterPlot"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Usage Trend -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span class="text-title-sm">Usage Share Over Time</span>
+            </div>
+            <div class="section-panel-body">
+              <div id="usageTrend"></div>
+            </div>
+          </div>
+
+          <!-- 7. Side-by-Side Comparison -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header" style="display:flex; align-items:center; gap:12px;">
+              <span class="text-title-sm">Side-by-Side Comparison</span>
+              <select class="model-select" id="selectModelA">
+                <option selected>Claude Sonnet 4</option>
+                <option>Claude Opus 4</option>
+                <option>GPT-4.1</option>
+                <option>Claude Haiku</option>
+                <option>GPT-5.1-Codex</option>
+              </select>
+              <span style="color:var(--text-tertiary); font-size:0.75rem;">vs</span>
+              <select class="model-select" id="selectModelB">
+                <option>Claude Sonnet 4</option>
+                <option selected>Claude Opus 4</option>
+                <option>GPT-4.1</option>
+                <option>Claude Haiku</option>
+                <option>GPT-5.1-Codex</option>
+              </select>
+            </div>
+            <div class="section-panel-body" style="padding:0;">
+              <div id="sideBySide"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+
+      // --- Model Data ---
+      const models = [
+        { name: 'Claude Sonnet 4', color: '#6366f1', sessions: 18, tokens: 892000, costPerSession: 2.51, success: 96.2, cache: 81, avgDuration: '14m 22s', totalCost: 45.18, ioRatio: '3.2:1', spark: [5,8,12,10,15,18,14,11] },
+        { name: 'Claude Opus 4',   color: '#a78bfa', sessions: 12, tokens: 1200000, costPerSession: 3.18, success: 98.1, cache: 88, avgDuration: '18m 45s', totalCost: 38.16, ioRatio: '2.8:1', spark: [3,5,4,7,8,10,12,9] },
+        { name: 'GPT-4.1',         color: '#34d399', sessions: 11, tokens: 456000, costPerSession: 2.07, success: 94.8, cache: 65, avgDuration: '11m 08s', totalCost: 22.77, ioRatio: '3.6:1', spark: [6,4,7,5,8,9,11,8] },
+        { name: 'Claude Haiku',    color: '#fbbf24', sessions: 8,  tokens: 234000, costPerSession: 1.56, success: 92.3, cache: 72, avgDuration: '8m 34s',  totalCost: 12.48, ioRatio: '4.1:1', spark: [2,3,4,3,5,4,6,5] },
+        { name: 'GPT-5.1-Codex',   color: '#fb7185', sessions: 4,  tokens: 178000, costPerSession: 2.20, success: 95.0, cache: 58, avgDuration: '12m 51s', totalCost: 8.80,  ioRatio: '3.4:1', spark: [0,0,1,1,2,2,3,4] },
+      ];
+
+      function fmtTokens(n) { return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : (n / 1000).toFixed(0) + 'K'; }
+
+      // --- 2. Model Cards ---
+      const cardsHtml = models.map(m => {
+        const maxSpark = Math.max(...m.spark);
+        const bars = m.spark.map(v =>
+          `<div class="sparkline-bar" style="height:${Math.max(3, (v / maxSpark) * 100)}%; background:${m.color};"></div>`
+        ).join('');
+        return `
+          <div class="model-card">
+            <div class="model-card-name">
+              <span class="model-dot" style="background:${m.color};"></span>
+              ${m.name}
+            </div>
+            <div class="model-card-stats">
+              <div><div class="model-card-stat-label">Sessions</div><div class="model-card-stat-value">${m.sessions}</div></div>
+              <div><div class="model-card-stat-label">Total Tokens</div><div class="model-card-stat-value">${fmtTokens(m.tokens)}</div></div>
+              <div><div class="model-card-stat-label">Avg Cost/Session</div><div class="model-card-stat-value">$${m.costPerSession.toFixed(2)}</div></div>
+              <div><div class="model-card-stat-label">Success Rate</div><div class="model-card-stat-value">${m.success}%</div></div>
+            </div>
+            <div class="sparkline">${bars}</div>
+          </div>`;
+      }).join('');
+      document.getElementById('modelCards').innerHTML = cardsHtml;
+
+      // --- 3. Comparison Table ---
+      const bestSession = Math.max(...models.map(m => m.sessions));
+      const bestSuccess = Math.max(...models.map(m => m.success));
+      const lowestCost = Math.min(...models.map(m => m.totalCost));
+      const bestCache = Math.max(...models.map(m => m.cache));
+
+      const tableRows = models.map(m => {
+        const successColor = m.success >= 96 ? '#34d399' : m.success >= 94 ? '#fbbf24' : '#fb7185';
+        return `<tr>
+          <td style="font-weight:600;"><span class="model-dot" style="background:${m.color}; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:8px; vertical-align:middle;"></span>${m.name}</td>
+          <td>${m.sessions === bestSession ? '<span class="best-cell">' + m.sessions + '</span>' : m.sessions}</td>
+          <td>${fmtTokens(m.tokens)}</td>
+          <td>${m.totalCost === lowestCost ? '<span class="best-cell">$' + m.totalCost.toFixed(2) + '</span>' : '$' + m.totalCost.toFixed(2)}</td>
+          <td>${m.avgDuration}</td>
+          <td><div class="inline-progress">
+            <span>${m.success === bestSuccess ? '<span class="best-cell">' + m.success + '%</span>' : m.success + '%'}</span>
+            <div class="inline-progress-bar"><div class="inline-progress-fill" style="width:${m.success}%; background:${successColor};"></div></div>
+          </div></td>
+          <td>${m.cache === bestCache ? '<span class="best-cell">' + m.cache + '%</span>' : m.cache + '%'}</td>
+          <td>${m.ioRatio}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('comparisonBody').innerHTML = tableRows;
+
+      // --- 4. Spider / Radar Chart ---
+      const radarModels = [
+        { name: 'Claude Sonnet 4', color: '#6366f1', values: [78, 72, 96, 81, 74] },
+        { name: 'Claude Opus 4',   color: '#a78bfa', values: [62, 55, 98, 88, 68] },
+        { name: 'GPT-4.1',         color: '#34d399', values: [85, 80, 95, 65, 82] },
+      ];
+      const axes = ['Speed', 'Cost Efficiency', 'Success Rate', 'Cache Efficiency', 'Token Efficiency'];
+      const cx = 200, cy = 200, maxR = 150;
+      const angleOffset = -Math.PI / 2;
+
+      function polarX(angle, r) { return cx + r * Math.cos(angle); }
+      function polarY(angle, r) { return cy + r * Math.sin(angle); }
+      function polyPoints(values) {
+        return values.map((v, i) => {
+          const angle = angleOffset + (2 * Math.PI * i) / 5;
+          return `${polarX(angle, (v / 100) * maxR)},${polarY(angle, (v / 100) * maxR)}`;
+        }).join(' ');
+      }
+
+      let spiderSvg = `<svg viewBox="0 0 400 400" width="400" height="400" style="max-width:100%;">`;
+      // Concentric rings
+      [20, 40, 60, 80, 100].forEach(pct => {
+        const r = (pct / 100) * maxR;
+        const pts = Array.from({length: 5}, (_, i) => {
+          const angle = angleOffset + (2 * Math.PI * i) / 5;
+          return `${polarX(angle, r)},${polarY(angle, r)}`;
+        }).join(' ');
+        spiderSvg += `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+      });
+      // Axis lines
+      for (let i = 0; i < 5; i++) {
+        const angle = angleOffset + (2 * Math.PI * i) / 5;
+        spiderSvg += `<line x1="${cx}" y1="${cy}" x2="${polarX(angle, maxR)}" y2="${polarY(angle, maxR)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+      }
+      // Axis labels
+      const labelOffsets = [
+        { dx: 0, dy: -14, anchor: 'middle' },
+        { dx: 14, dy: 4, anchor: 'start' },
+        { dx: 10, dy: 14, anchor: 'start' },
+        { dx: -10, dy: 14, anchor: 'end' },
+        { dx: -14, dy: 4, anchor: 'end' },
+      ];
+      axes.forEach((label, i) => {
+        const angle = angleOffset + (2 * Math.PI * i) / 5;
+        const lx = polarX(angle, maxR + 18) + labelOffsets[i].dx;
+        const ly = polarY(angle, maxR + 18) + labelOffsets[i].dy;
+        spiderSvg += `<text x="${lx}" y="${ly}" fill="#a1a1aa" font-size="11" text-anchor="${labelOffsets[i].anchor}" font-family="Inter, sans-serif">${label}</text>`;
+      });
+      // Data polygons
+      radarModels.forEach(m => {
+        spiderSvg += `<polygon points="${polyPoints(m.values)}" fill="${m.color}" fill-opacity="0.15" stroke="${m.color}" stroke-opacity="0.8" stroke-width="2"/>`;
+        m.values.forEach((v, i) => {
+          const angle = angleOffset + (2 * Math.PI * i) / 5;
+          spiderSvg += `<circle cx="${polarX(angle, (v / 100) * maxR)}" cy="${polarY(angle, (v / 100) * maxR)}" r="3" fill="${m.color}"/>`;
+        });
+      });
+      spiderSvg += `</svg>`;
+
+      const legendHtml = radarModels.map(m =>
+        `<div class="spider-legend-item"><span class="spider-legend-swatch" style="background:${m.color};"></span>${m.name}</div>`
+      ).join('');
+
+      document.getElementById('spiderChart').innerHTML = `
+        <div>${spiderSvg}</div>
+        <div class="spider-legend">${legendHtml}</div>`;
+
+      // --- 5. Cost vs Performance Scatter ---
+      const scatterData = [
+        { name: 'Claude Haiku',    x: 0.002, y: 92.3, color: '#fbbf24' },
+        { name: 'GPT-4.1',         x: 0.008, y: 94.8, color: '#34d399' },
+        { name: 'GPT-5.1-Codex',   x: 0.010, y: 95.0, color: '#fb7185' },
+        { name: 'Claude Sonnet 4', x: 0.012, y: 96.2, color: '#6366f1' },
+        { name: 'Claude Opus 4',   x: 0.018, y: 98.1, color: '#a78bfa' },
+      ];
+      const sW = 560, sH = 280, sPad = { top: 20, right: 120, bottom: 40, left: 60 };
+      const sInnerW = sW - sPad.left - sPad.right, sInnerH = sH - sPad.top - sPad.bottom;
+      const xMin = 0, xMax = 0.020, yMin = 90, yMax = 100;
+      function sx(v) { return sPad.left + ((v - xMin) / (xMax - xMin)) * sInnerW; }
+      function sy(v) { return sPad.top + sInnerH - ((v - yMin) / (yMax - yMin)) * sInnerH; }
+
+      let scatterSvg = `<svg viewBox="0 0 ${sW} ${sH}" width="100%" style="max-width:${sW}px;">`;
+      // Ideal zone
+      scatterSvg += `<rect x="${sx(0)}" y="${sy(100)}" width="${sx(0.008) - sx(0)}" height="${sy(90) - sy(100)}" fill="rgba(52,211,153,0.04)" rx="4"/>`;
+      scatterSvg += `<text x="${sx(0.003)}" y="${sy(90.8)}" fill="rgba(52,211,153,0.25)" font-size="9" text-anchor="middle" font-family="Inter, sans-serif">Ideal Zone</text>`;
+      // Grid lines
+      for (let gx = 0; gx <= 0.020; gx += 0.004) {
+        scatterSvg += `<line x1="${sx(gx)}" y1="${sy(yMin)}" x2="${sx(gx)}" y2="${sy(yMax)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+        scatterSvg += `<text x="${sx(gx)}" y="${sH - 8}" fill="#71717a" font-size="10" text-anchor="middle" font-family="Inter, sans-serif">$${gx.toFixed(3)}</text>`;
+      }
+      for (let gy = 90; gy <= 100; gy += 2) {
+        scatterSvg += `<line x1="${sx(xMin)}" y1="${sy(gy)}" x2="${sx(xMax)}" y2="${sy(gy)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+        scatterSvg += `<text x="${sPad.left - 8}" y="${sy(gy) + 3}" fill="#71717a" font-size="10" text-anchor="end" font-family="Inter, sans-serif">${gy}%</text>`;
+      }
+      // Axes labels
+      scatterSvg += `<text x="${sPad.left + sInnerW / 2}" y="${sH - 0}" fill="#71717a" font-size="10" text-anchor="middle" font-family="Inter, sans-serif">Cost per 1K Tokens</text>`;
+      // Data points
+      scatterData.forEach(d => {
+        scatterSvg += `<circle class="scatter-dot" cx="${sx(d.x)}" cy="${sy(d.y)}" r="12" fill="${d.color}" fill-opacity="0.25" stroke="${d.color}" stroke-width="2"/>`;
+        scatterSvg += `<circle cx="${sx(d.x)}" cy="${sy(d.y)}" r="4" fill="${d.color}"/>`;
+        const labelX = sx(d.x) + 16, labelY = sy(d.y) + 4;
+        scatterSvg += `<text x="${labelX}" y="${labelY}" fill="#a1a1aa" font-size="10" font-family="Inter, sans-serif">${d.name}</text>`;
+      });
+      scatterSvg += `</svg>`;
+      document.getElementById('scatterPlot').innerHTML = scatterSvg;
+
+      // --- 6. Usage Trend ---
+      const tW = 800, tH = 200, tPad = { top: 10, right: 20, bottom: 30, left: 40 };
+      const tInnerW = tW - tPad.left - tPad.right, tInnerH = tH - tPad.top - tPad.bottom;
+
+      // Generate 30-day usage share data (percentages that sum ~100 per day)
+      function genTrend(base, variance, len) {
+        const arr = [];
+        let v = base;
+        for (let i = 0; i < len; i++) {
+          v = Math.max(2, Math.min(55, v + (Math.random() - 0.5) * variance));
+          arr.push(v);
+        }
+        return arr;
+      }
+      // Use seeded values for consistency
+      const trendData = [
+        { name: 'Claude Sonnet 4', color: '#6366f1', data: [32,34,31,35,33,36,34,38,35,37,34,36,38,35,37,39,36,38,35,37,36,38,40,37,36,38,35,37,36,35] },
+        { name: 'Claude Opus 4',   color: '#a78bfa', data: [22,21,23,20,22,21,23,20,22,21,23,22,20,22,23,21,22,20,23,22,21,23,20,22,23,21,22,20,22,21] },
+        { name: 'GPT-4.1',         color: '#34d399', data: [20,19,21,20,19,18,20,17,19,18,20,19,18,20,17,18,19,20,18,17,19,16,17,18,19,18,20,19,20,21] },
+        { name: 'Claude Haiku',    color: '#fbbf24', data: [16,16,15,15,16,15,14,15,14,14,13,14,14,13,14,12,13,12,14,14,14,13,13,13,12,13,13,14,12,13] },
+        { name: 'GPT-5.1-Codex',   color: '#fb7185', data: [10,10,10,10,10,10,9,10,10,10,10,9,10,10,9,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10] },
+      ];
+
+      const maxTrendY = 55;
+      function ttx(i) { return tPad.left + (i / 29) * tInnerW; }
+      function tty(v) { return tPad.top + tInnerH - (v / maxTrendY) * tInnerH; }
+
+      let trendSvg = `<svg viewBox="0 0 ${tW} ${tH}" width="100%" style="max-width:${tW}px;">`;
+      // Grid
+      for (let gy = 0; gy <= 50; gy += 10) {
+        trendSvg += `<line x1="${tPad.left}" y1="${tty(gy)}" x2="${tPad.left + tInnerW}" y2="${tty(gy)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+        trendSvg += `<text x="${tPad.left - 6}" y="${tty(gy) + 3}" fill="#71717a" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${gy}%</text>`;
+      }
+      // X-axis labels
+      [0, 7, 14, 21, 29].forEach(i => {
+        trendSvg += `<text x="${ttx(i)}" y="${tH - 6}" fill="#71717a" font-size="9" text-anchor="middle" font-family="Inter, sans-serif">Day ${i + 1}</text>`;
+      });
+      // Area fill for top model
+      const topData = trendData[0].data;
+      let areaPath = `M${ttx(0)},${tty(topData[0])}`;
+      topData.forEach((v, i) => { if (i > 0) areaPath += ` L${ttx(i)},${tty(v)}`; });
+      areaPath += ` L${ttx(29)},${tty(0)} L${ttx(0)},${tty(0)} Z`;
+      trendSvg += `<path d="${areaPath}" fill="${trendData[0].color}" fill-opacity="0.06"/>`;
+      // Lines
+      trendData.forEach(series => {
+        let path = `M${ttx(0)},${tty(series.data[0])}`;
+        series.data.forEach((v, i) => { if (i > 0) path += ` L${ttx(i)},${tty(v)}`; });
+        trendSvg += `<path d="${path}" fill="none" stroke="${series.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      });
+      trendSvg += `</svg>`;
+
+      const trendLegend = trendData.map(s =>
+        `<div class="trend-legend-item"><span class="trend-legend-line" style="background:${s.color};"></span>${s.name}</div>`
+      ).join('');
+
+      document.getElementById('usageTrend').innerHTML = `
+        <div class="trend-legend">${trendLegend}</div>
+        ${trendSvg}`;
+
+      // --- 7. Side-by-Side Comparison ---
+      const mA = models[0]; // Claude Sonnet 4
+      const mB = models[1]; // Claude Opus 4
+
+      const metrics = [
+        { label: 'Cost / Session',   a: '$' + mA.costPerSession.toFixed(2), b: '$' + mB.costPerSession.toFixed(2), aBetter: mA.costPerSession < mB.costPerSession },
+        { label: 'Success Rate',     a: mA.success + '%', b: mB.success + '%', aBetter: mA.success > mB.success },
+        { label: 'Avg Latency',      a: mA.avgDuration,   b: mB.avgDuration,   aBetter: true },
+        { label: 'Cache Hit Rate',   a: mA.cache + '%',   b: mB.cache + '%',   aBetter: mA.cache > mB.cache },
+        { label: 'Tokens / Session', a: fmtTokens(Math.round(mA.tokens / mA.sessions)), b: fmtTokens(Math.round(mB.tokens / mB.sessions)), aBetter: (mA.tokens / mA.sessions) < (mB.tokens / mB.sessions) },
+      ];
+      const deltas = [
+        { val: (mB.costPerSession - mA.costPerSession).toFixed(2), pct: '+' + (((mB.costPerSession - mA.costPerSession) / mA.costPerSession) * 100).toFixed(0) + '%' },
+        { val: (mB.success - mA.success).toFixed(1), pct: '+' + (mB.success - mA.success).toFixed(1) + 'pp' },
+        { val: '', pct: '+31%' },
+        { val: (mB.cache - mA.cache), pct: '+' + (mB.cache - mA.cache) + 'pp' },
+        { val: '', pct: '+' + (((mB.tokens / mB.sessions) - (mA.tokens / mA.sessions)) / (mA.tokens / mA.sessions) * 100).toFixed(0) + '%' },
+      ];
+
+      let sbs = `<div class="comparison-grid">`;
+      // Left column - Model A
+      sbs += `<div class="comparison-col">
+        <div class="comparison-col-header"><span class="model-dot" style="background:${mA.color};"></span>${mA.name}</div>`;
+      metrics.forEach((m, i) => {
+        const cls = m.aBetter ? 'delta-up' : '';
+        sbs += `<div class="comparison-metric">
+          <span class="comparison-metric-value ${cls}">${m.a}</span>
+          ${m.aBetter ? '<span class="delta-indicator delta-up">✓ better</span>' : ''}
+        </div>`;
+      });
+      sbs += `</div>`;
+      // Center labels
+      sbs += `<div class="comparison-divider" style="display:flex; flex-direction:column; padding:0 16px;">
+        <div style="height:40px;"></div>`;
+      metrics.forEach(m => {
+        sbs += `<div class="comparison-metric" style="border:none; justify-content:center; min-height:45px;">
+          <span class="comparison-metric-label">${m.label}</span>
+        </div>`;
+      });
+      sbs += `</div>`;
+      // Right column - Model B
+      sbs += `<div class="comparison-col" style="text-align:right;">
+        <div class="comparison-col-header" style="justify-content:flex-end;">${mB.name}<span class="model-dot" style="background:${mB.color};"></span></div>`;
+      metrics.forEach((m, i) => {
+        const cls = !m.aBetter ? 'delta-up' : '';
+        sbs += `<div class="comparison-metric" style="justify-content:flex-end;">
+          ${!m.aBetter ? '<span class="delta-indicator delta-up">✓ better</span>' : ''}
+          <span class="comparison-metric-value ${cls}">${m.b}</span>
+        </div>`;
+      });
+      sbs += `</div></div>`;
+
+      document.getElementById('sideBySide').innerHTML = sbs;
+    });
+  </script>
+</body>
+</html>

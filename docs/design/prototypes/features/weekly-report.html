@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Weekly Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .report-header { text-align: center; padding: 32px 0 24px; border-bottom: 1px solid var(--border-default); margin-bottom: 24px; }
+    .report-header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+    .report-header .date-range { font-size: 1rem; color: var(--accent-fg); font-weight: 600; margin-bottom: 8px; }
+    .report-header .generated { font-size: 0.75rem; color: var(--text-tertiary); }
+    .executive-summary { background: var(--accent-subtle); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px; }
+    .executive-summary h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-fg); margin-bottom: 10px; font-weight: 600; }
+    .executive-summary p { font-size: 0.875rem; line-height: 1.7; color: var(--text-secondary); }
+    .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+    .stat-card .delta { font-size: 0.6875rem; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+    .delta.positive { color: var(--success-fg); }
+    .delta.negative { color: var(--danger-fg); }
+    .chart-container { position: relative; }
+    .chart-container svg { width: 100%; display: block; }
+    .chart-title { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; }
+    .insight-card { padding: 14px 18px; border-radius: var(--radius-md); margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+    .insight-card .icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
+    .insight-card .text { font-size: 0.8125rem; line-height: 1.6; }
+    .insight-card .text strong { font-weight: 600; color: var(--text-primary); }
+    .insight-warning { background: var(--warning-subtle); border: 1px solid rgba(251,191,36,0.2); }
+    .insight-warning .text { color: var(--warning-fg); }
+    .insight-tip { background: var(--accent-subtle); border: 1px solid rgba(99,102,241,0.2); }
+    .insight-tip .text { color: var(--accent-fg); }
+    .insight-stat { background: var(--success-subtle); border: 1px solid rgba(52,211,153,0.2); }
+    .insight-stat .text { color: var(--success-fg); }
+    .print-btn { position: fixed; bottom: 24px; right: 24px; z-index: 100; background: var(--gradient-accent); color: #fff; border: none; border-radius: var(--radius-full); padding: 12px 24px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 8px; transition: transform var(--transition-fast); }
+    .print-btn:hover { transform: scale(1.05); }
+    .print-btn svg { width: 16px; height: 16px; }
+    .donut-container { display: flex; align-items: center; gap: 20px; }
+    .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+    .donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-secondary); }
+    .donut-legend-item .swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .bar-label { font-size: 0.6875rem; fill: var(--text-secondary); font-family: 'Inter', sans-serif; }
+    .bar-value { font-size: 0.6875rem; fill: var(--text-primary); font-weight: 600; font-family: 'Inter', sans-serif; }
+    .axis-label { font-size: 0.625rem; fill: var(--text-tertiary); font-family: 'Inter', sans-serif; }
+    .section-divider { border: none; border-top: 1px solid var(--border-muted); margin: 28px 0; }
+
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      body { background: #fff !important; color: #111 !important; font-size: 11px; }
+      .sidebar, .print-btn, .page-header-bar { display: none !important; }
+      .app-layout { display: block !important; }
+      .main-content { margin: 0 !important; padding: 0 !important; }
+      .page-content { padding: 20px !important; overflow: visible !important; }
+      .page-content-inner { max-width: 100% !important; }
+      .section-panel { break-inside: avoid; border: 1px solid #ddd !important; background: #fff !important; }
+      .stat-card { background: #f8f8f8 !important; border: 1px solid #ddd !important; }
+      .report-header { border-bottom: 2px solid #333 !important; }
+      .grid-6 { grid-template-columns: repeat(6, 1fr) !important; }
+      .grid-2 { grid-template-columns: repeat(2, 1fr) !important; }
+      .executive-summary { background: #f0f0ff !important; border: 1px solid #99c !important; }
+      .insight-warning, .insight-tip, .insight-stat { background: #f8f8f8 !important; }
+      h1, h2, h3, .stat-card-value, .chart-title { color: #111 !important; }
+      .stat-card-label, .text-secondary { color: #555 !important; }
+      a { color: #333 !important; text-decoration: none !important; }
+    }
+    @media print and (orientation: portrait) {
+      .grid-2 { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Weekly Report</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Report Header -->
+          <div class="report-header">
+            <h1>📊 TracePilot Weekly Report</h1>
+            <div class="date-range">March 10 – 16, 2026</div>
+            <div class="generated">Generated on Mar 17, 2026 at 08:00 AM · Covering 7 days of activity</div>
+          </div>
+
+          <!-- Executive Summary -->
+          <div class="executive-summary">
+            <h2>Executive Summary</h2>
+            <p>This week you completed <strong>18 sessions</strong> across <strong>3 repositories</strong>. Total spend was <strong>$42.30</strong> (12% under budget). Error rate improved to <strong>2.1%</strong> from last week's 4.5%, indicating more stable workflows and better tool-chain efficiency.</p>
+          </div>
+
+          <!-- Key Metrics Strip -->
+          <div class="grid-6 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">18</div>
+              <div class="stat-card-label">Sessions</div>
+              <div class="delta positive">↑ 3 (+20%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:var(--done-fg)">12.3M</div>
+              <div class="stat-card-label">Total Tokens</div>
+              <div class="delta positive">↑ 1.8M (+17%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">$42.30</div>
+              <div class="stat-card-label">Total Cost</div>
+              <div class="delta positive">↓ $5.70 (−12%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value warning">28m</div>
+              <div class="stat-card-label">Avg Duration</div>
+              <div class="delta negative">↑ 4m (+17%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value accent">342</div>
+              <div class="stat-card-label">Tool Calls</div>
+              <div class="delta positive">↑ 48 (+16%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">97.8%</div>
+              <div class="stat-card-label">Success Rate</div>
+              <div class="delta positive">↑ 2.4%</div>
+            </div>
+          </div>
+
+          <hr class="section-divider">
+
+          <!-- Sessions by Repository & Daily Activity -->
+          <div class="grid-2 mb-6">
+            <!-- Sessions by Repository -->
+            <div class="section-panel">
+              <div class="section-panel-header">Sessions by Repository</div>
+              <div class="section-panel-body">
+                <div class="chart-container">
+                  <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Grid lines -->
+                    <line x1="140" y1="20" x2="380" y2="20" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                    <line x1="140" y1="60" x2="380" y2="60" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                    <line x1="140" y1="100" x2="380" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                    <line x1="140" y1="140" x2="380" y2="140" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                    <line x1="140" y1="180" x2="380" y2="180" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                    <!-- Axis labels -->
+                    <text x="380" y="192" class="axis-label" text-anchor="end">0</text>
+                    <text x="380" y="152" class="axis-label" text-anchor="end">3</text>
+                    <text x="380" y="112" class="axis-label" text-anchor="end">6</text>
+                    <text x="380" y="72" class="axis-label" text-anchor="end">9</text>
+                    <text x="380" y="32" class="axis-label" text-anchor="end">12</text>
+                    <!-- Bars -->
+                    <text x="130" y="50" class="bar-label" text-anchor="end">acme/web-platform</text>
+                    <rect x="140" y="34" width="192" height="28" rx="4" fill="#6366f1" opacity="0.85"/>
+                    <text x="338" y="52" class="bar-value" dx="6">10 · $24.10</text>
+                    <text x="130" y="100" class="bar-label" text-anchor="end">acme/api-server</text>
+                    <rect x="140" y="84" width="115" height="28" rx="4" fill="#818cf8" opacity="0.85"/>
+                    <text x="261" y="102" class="bar-value" dx="6">6 · $13.50</text>
+                    <text x="130" y="150" class="bar-label" text-anchor="end">acme/infrastructure</text>
+                    <rect x="140" y="134" width="38" height="28" rx="4" fill="#a78bfa" opacity="0.85"/>
+                    <text x="184" y="152" class="bar-value" dx="6">2 · $4.70</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daily Activity -->
+            <div class="section-panel">
+              <div class="section-panel-header">Daily Activity (Sessions + Tokens)</div>
+              <div class="section-panel-body">
+                <div class="chart-container">
+                  <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="tokenGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#34d399" stop-opacity="0.3"/>
+                        <stop offset="100%" stop-color="#34d399" stop-opacity="0.02"/>
+                      </linearGradient>
+                    </defs>
+                    <!-- Grid -->
+                    <line x1="40" y1="30" x2="380" y2="30" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="110" x2="380" y2="110" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="150" x2="380" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <!-- Token area (dual axis) -->
+                    <path d="M60,80 L108,60 L156,90 L204,45 L252,70 L300,55 L348,85 L348,170 L60,170 Z" fill="url(#tokenGrad)"/>
+                    <polyline points="60,80 108,60 156,90 204,45 252,70 300,55 348,85" fill="none" stroke="#34d399" stroke-width="2" opacity="0.7"/>
+                    <!-- Session bars -->
+                    <rect x="46" y="110" width="28" height="60" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="94" y="90" width="28" height="80" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="142" y="120" width="28" height="50" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="190" y="70" width="28" height="100" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="238" y="100" width="28" height="70" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="286" y="80" width="28" height="90" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <rect x="334" y="130" width="28" height="40" rx="3" fill="#6366f1" opacity="0.85"/>
+                    <!-- Day labels -->
+                    <text x="60" y="190" class="axis-label" text-anchor="middle">Mon</text>
+                    <text x="108" y="190" class="axis-label" text-anchor="middle">Tue</text>
+                    <text x="156" y="190" class="axis-label" text-anchor="middle">Wed</text>
+                    <text x="204" y="190" class="axis-label" text-anchor="middle">Thu</text>
+                    <text x="252" y="190" class="axis-label" text-anchor="middle">Fri</text>
+                    <text x="300" y="190" class="axis-label" text-anchor="middle">Sat</text>
+                    <text x="348" y="190" class="axis-label" text-anchor="middle">Sun</text>
+                    <!-- Session counts -->
+                    <text x="60" y="105" class="bar-value" text-anchor="middle">2</text>
+                    <text x="108" y="85" class="bar-value" text-anchor="middle">3</text>
+                    <text x="156" y="115" class="bar-value" text-anchor="middle">2</text>
+                    <text x="204" y="65" class="bar-value" text-anchor="middle">4</text>
+                    <text x="252" y="95" class="bar-value" text-anchor="middle">3</text>
+                    <text x="300" y="75" class="bar-value" text-anchor="middle">3</text>
+                    <text x="348" y="125" class="bar-value" text-anchor="middle">1</text>
+                    <!-- Legend -->
+                    <rect x="40" y="5" width="8" height="8" rx="2" fill="#6366f1"/>
+                    <text x="52" y="13" class="axis-label">Sessions</text>
+                    <rect x="100" y="5" width="8" height="8" rx="2" fill="#34d399"/>
+                    <text x="112" y="13" class="axis-label">Tokens (M)</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Tools -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Top Tools Used</div>
+            <div class="section-panel-body">
+              <div class="chart-container">
+                <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Tool bars -->
+                  <text x="75" y="22" class="bar-label" text-anchor="end">grep</text>
+                  <rect x="80" y="10" width="340" height="18" rx="3" fill="#6366f1" opacity="0.85"/>
+                  <text x="426" y="24" class="bar-value" dx="4">87 calls</text>
+
+                  <text x="75" y="47" class="bar-label" text-anchor="end">view</text>
+                  <rect x="80" y="35" width="296" height="18" rx="3" fill="#818cf8" opacity="0.8"/>
+                  <text x="382" y="49" class="bar-value" dx="4">76 calls</text>
+
+                  <text x="75" y="72" class="bar-label" text-anchor="end">edit</text>
+                  <rect x="80" y="60" width="236" height="18" rx="3" fill="#a78bfa" opacity="0.75"/>
+                  <text x="322" y="74" class="bar-value" dx="4">60 calls</text>
+
+                  <text x="75" y="97" class="bar-label" text-anchor="end">powershell</text>
+                  <rect x="80" y="85" width="178" height="18" rx="3" fill="#c4b5fd" opacity="0.7"/>
+                  <text x="264" y="99" class="bar-value" dx="4">45 calls</text>
+
+                  <text x="75" y="122" class="bar-label" text-anchor="end">create</text>
+                  <rect x="80" y="110" width="118" height="18" rx="3" fill="#ddd6fe" opacity="0.5"/>
+                  <text x="204" y="124" class="bar-value" dx="4">30 calls</text>
+
+                  <text x="75" y="147" class="bar-label" text-anchor="end">glob</text>
+                  <rect x="80" y="135" width="86" height="18" rx="3" fill="#e9e5ff" opacity="0.4"/>
+                  <text x="172" y="149" class="bar-value" dx="4">22 calls</text>
+
+                  <text x="75" y="172" class="bar-label" text-anchor="end">task</text>
+                  <rect x="80" y="160" width="55" height="18" rx="3" fill="#f0ecff" opacity="0.35"/>
+                  <text x="141" y="174" class="bar-value" dx="4">14 calls</text>
+
+                  <text x="75" y="197" class="bar-label" text-anchor="end">sql</text>
+                  <rect x="80" y="185" width="31" height="18" rx="3" fill="#f5f3ff" opacity="0.3"/>
+                  <text x="117" y="199" class="bar-value" dx="4">8 calls</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <hr class="section-divider">
+
+          <!-- Anomalies & Model Donut -->
+          <div class="grid-2 mb-6">
+            <!-- Anomalies & Insights -->
+            <div class="section-panel">
+              <div class="section-panel-header">Anomalies &amp; Insights</div>
+              <div class="section-panel-body">
+                <div class="insight-card insight-warning">
+                  <div class="icon">⚠️</div>
+                  <div class="text"><strong>High error rate on Thursday.</strong> 3 sessions had unusually high error rates (12%+). All involved the <code>acme/api-server</code> repository and the GraphQL migration branch.</div>
+                </div>
+                <div class="insight-card insight-tip">
+                  <div class="icon">💡</div>
+                  <div class="text"><strong>Faster tool chains.</strong> Your grep → view → edit chain is 20% faster than last week, averaging 3.2s per cycle vs 4.0s previously.</div>
+                </div>
+                <div class="insight-card insight-stat">
+                  <div class="icon">📊</div>
+                  <div class="text"><strong>Best cache efficiency.</strong> Claude Sonnet 4 cached 45% of input tokens this week — the highest cache hit ratio across all models used.</div>
+                </div>
+                <div class="insight-card insight-tip">
+                  <div class="icon">🔄</div>
+                  <div class="text"><strong>Session resume pattern.</strong> 4 sessions were resumed within 10 minutes of shutdown, suggesting accidental closures. Consider enabling auto-save checkpoints.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model Usage Donut -->
+            <div class="section-panel">
+              <div class="section-panel-header">Model Usage Distribution</div>
+              <div class="section-panel-body">
+                <div class="donut-container" style="justify-content:center; padding: 16px 0;">
+                  <svg viewBox="0 0 160 160" width="150" height="150" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <clipPath id="donutClip"><circle cx="80" cy="80" r="60"/></clipPath>
+                    </defs>
+                    <!-- Background ring -->
+                    <circle cx="80" cy="80" r="54" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="22"/>
+                    <!-- Opus 4.6: 38% = 214deg -->
+                    <circle cx="80" cy="80" r="54" fill="none" stroke="#6366f1" stroke-width="22"
+                            stroke-dasharray="129 210" stroke-dashoffset="85" stroke-linecap="round"/>
+                    <!-- Sonnet 4.6: 30% = 168deg -->
+                    <circle cx="80" cy="80" r="54" fill="none" stroke="#818cf8" stroke-width="22"
+                            stroke-dasharray="102 237" stroke-dashoffset="-44" stroke-linecap="round"/>
+                    <!-- GPT-5.4: 22% = 124deg -->
+                    <circle cx="80" cy="80" r="54" fill="none" stroke="#a78bfa" stroke-width="22"
+                            stroke-dasharray="74 265" stroke-dashoffset="-146" stroke-linecap="round"/>
+                    <!-- Haiku 4.5: 10% = 56deg -->
+                    <circle cx="80" cy="80" r="54" fill="none" stroke="#34d399" stroke-width="22"
+                            stroke-dasharray="34 305" stroke-dashoffset="-220" stroke-linecap="round"/>
+                    <!-- Center text -->
+                    <text x="80" y="76" text-anchor="middle" fill="var(--text-primary)" font-size="16" font-weight="700" font-family="Inter">4</text>
+                    <text x="80" y="92" text-anchor="middle" fill="var(--text-tertiary)" font-size="8" font-family="Inter">models</text>
+                  </svg>
+                  <div class="donut-legend">
+                    <div class="donut-legend-item"><div class="swatch" style="background:#6366f1"></div>Claude Opus 4.6 — 38%</div>
+                    <div class="donut-legend-item"><div class="swatch" style="background:#818cf8"></div>Claude Sonnet 4.6 — 30%</div>
+                    <div class="donut-legend-item"><div class="swatch" style="background:#a78bfa"></div>GPT-5.4 — 22%</div>
+                    <div class="donut-legend-item"><div class="swatch" style="background:#34d399"></div>Claude Haiku 4.5 — 10%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Breakdown Table -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Session Details</div>
+            <div class="section-panel-body" style="padding:0;">
+              <table class="data-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th>Session</th>
+                    <th>Repository</th>
+                    <th>Model</th>
+                    <th>Turns</th>
+                    <th>Tokens</th>
+                    <th>Cost</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>OAuth login implementation</td><td><span class="badge badge-accent">web-platform</span></td><td>Opus 4.6</td><td>12</td><td>1.2M</td><td>$4.80</td><td>42m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>DB connection pooling fix</td><td><span class="badge badge-done">api-server</span></td><td>GPT-5.4</td><td>8</td><td>680K</td><td>$2.10</td><td>22m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Payment module tests</td><td><span class="badge badge-accent">web-platform</span></td><td>Sonnet 4.6</td><td>18</td><td>1.8M</td><td>$5.40</td><td>48m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>GraphQL migration</td><td><span class="badge badge-done">api-server</span></td><td>Opus 4.6</td><td>22</td><td>2.1M</td><td>$7.20</td><td>55m</td><td><span class="badge badge-warning">⚠</span></td></tr>
+                  <tr><td>XSS vulnerability fix</td><td><span class="badge badge-accent">web-platform</span></td><td>Opus 4.6</td><td>5</td><td>320K</td><td>$1.20</td><td>12m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>CI/CD pipeline setup</td><td><span class="badge badge-neutral">infrastructure</span></td><td>GPT-5.4</td><td>10</td><td>890K</td><td>$2.80</td><td>35m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>WebSocket notifications</td><td><span class="badge badge-accent">web-platform</span></td><td>Opus 4.6</td><td>15</td><td>1.4M</td><td>$5.10</td><td>38m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Dashboard analytics</td><td><span class="badge badge-accent">web-platform</span></td><td>Sonnet 4.6</td><td>20</td><td>1.6M</td><td>$4.90</td><td>45m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Webpack optimization</td><td><span class="badge badge-accent">web-platform</span></td><td>GPT-5.4</td><td>7</td><td>450K</td><td>$1.40</td><td>18m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>API rate limiting</td><td><span class="badge badge-done">api-server</span></td><td>Sonnet 4.6</td><td>9</td><td>520K</td><td>$1.60</td><td>20m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Error boundary components</td><td><span class="badge badge-accent">web-platform</span></td><td>Haiku 4.5</td><td>6</td><td>280K</td><td>$0.40</td><td>10m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Monitoring dashboard</td><td><span class="badge badge-neutral">infrastructure</span></td><td>Opus 4.6</td><td>14</td><td>1.1M</td><td>$3.80</td><td>32m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>REST → GraphQL endpoint 2</td><td><span class="badge badge-done">api-server</span></td><td>Opus 4.6</td><td>11</td><td>920K</td><td>$3.20</td><td>28m</td><td><span class="badge badge-danger">✗</span></td></tr>
+                  <tr><td>User search feature</td><td><span class="badge badge-accent">web-platform</span></td><td>Sonnet 4.6</td><td>13</td><td>780K</td><td>$2.40</td><td>25m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Database migration v3</td><td><span class="badge badge-done">api-server</span></td><td>GPT-5.4</td><td>8</td><td>510K</td><td>$1.60</td><td>19m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Notification preferences</td><td><span class="badge badge-accent">web-platform</span></td><td>Haiku 4.5</td><td>4</td><td>190K</td><td>$0.30</td><td>8m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Cache invalidation logic</td><td><span class="badge badge-done">api-server</span></td><td>Sonnet 4.6</td><td>16</td><td>1.3M</td><td>$3.90</td><td>40m</td><td><span class="badge badge-success">✓</span></td></tr>
+                  <tr><td>Load testing scripts</td><td><span class="badge badge-accent">web-platform</span></td><td>Haiku 4.5</td><td>3</td><td>140K</td><td>$0.20</td><td>6m</td><td><span class="badge badge-success">✓</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align:center; padding: 20px 0 40px; color:var(--text-tertiary); font-size:0.75rem;">
+            TracePilot v0.2.0 · Report covers Mar 10–16, 2026 · Next report: Mar 24, 2026
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print Button -->
+  <button class="print-btn" onclick="window.print()" title="Print this report">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print Report
+  </button>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+    });
+  </script>
+</body>
+</html>

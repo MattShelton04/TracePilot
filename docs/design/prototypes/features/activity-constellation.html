@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Activity Constellation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .constellation-wrapper {
+      position: relative;
+      width: 100%;
+      height: 560px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-default);
+    }
+    #starCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* Session tooltip */
+    .star-tooltip {
+      position: absolute;
+      display: none;
+      background: rgba(17,17,19,0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      min-width: 240px;
+      pointer-events: none;
+      z-index: 20;
+      box-shadow: var(--shadow-lg);
+    }
+    .star-tooltip.visible { display: block; }
+    .tooltip-summary {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .tooltip-meta {
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .tooltip-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tooltip-meta .label { color: var(--text-tertiary); min-width: 50px; }
+
+    /* Session detail card */
+    .star-detail-card {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 300px;
+      background: rgba(17,17,19,0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: none;
+      z-index: 25;
+      box-shadow: var(--shadow-lg);
+    }
+    .star-detail-card.visible { display: block; }
+    .detail-close {
+      position: absolute;
+      top: 10px; right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .detail-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      padding-right: 24px;
+      line-height: 1.4;
+    }
+    .detail-repo-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .detail-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .detail-metric {
+      background: var(--canvas-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      text-align: center;
+    }
+    .detail-metric-val {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .detail-metric-lbl {
+      font-size: 0.5625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Controls bar */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      flex-wrap: wrap;
+    }
+    .control-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+    .control-toggle input[type="checkbox"] {
+      accent-color: var(--accent-fg);
+    }
+    .repo-filter-btn {
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .repo-filter-btn.active {
+      background: var(--accent-muted);
+      border-color: var(--accent-fg);
+      color: var(--accent-fg);
+    }
+    .time-slider-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .time-slider-container label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .time-slider {
+      width: 160px;
+      accent-color: var(--accent-fg);
+    }
+
+    /* Legend */
+    .constellation-legend {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+    }
+    .constellation-legend .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .constellation-legend .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Activity Constellation</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <div style="margin-bottom: 24px;">
+            <h1 class="text-display" style="margin-bottom: 4px;">Activity Constellation</h1>
+            <p class="text-body" style="color: var(--text-secondary);">A celestial map of your coding sessions. Each star is a session — brightness by tokens, size by duration.</p>
+          </div>
+
+          <!-- Controls -->
+          <div class="controls-bar" style="margin-bottom: 16px;">
+            <label class="control-toggle">
+              <input type="checkbox" id="toggleLines" checked> Constellation lines
+            </label>
+            <div style="border-left: 1px solid var(--border-default); height: 20px;"></div>
+            <span style="font-size: 0.6875rem; color: var(--text-tertiary);">Filter:</span>
+            <button class="repo-filter-btn active" data-repo="all">All</button>
+            <button class="repo-filter-btn" data-repo="acme/web-platform">acme/web-platform</button>
+            <button class="repo-filter-btn" data-repo="acme/api-server">acme/api-server</button>
+            <button class="repo-filter-btn" data-repo="acme/infrastructure">acme/infrastructure</button>
+            <div class="time-slider-container">
+              <label>Last <span id="daysLabel">30</span> days</label>
+              <input type="range" class="time-slider" id="timeRange" min="7" max="30" value="30">
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="constellation-legend" style="margin-bottom: 12px;">
+            <span style="font-weight: 600; color: var(--text-primary);">Constellations:</span>
+            <div class="legend-item"><div class="legend-dot" style="background: #818cf8;"></div> acme/web-platform</div>
+            <div class="legend-item"><div class="legend-dot" style="background: #34d399;"></div> acme/api-server</div>
+            <div class="legend-item"><div class="legend-dot" style="background: #fbbf24;"></div> acme/infrastructure</div>
+            <span style="margin-left: 16px; color: var(--text-tertiary);">★ size = duration · brightness = tokens</span>
+          </div>
+
+          <!-- Canvas -->
+          <div class="constellation-wrapper" id="constellationWrapper">
+            <canvas id="starCanvas"></canvas>
+            <div class="star-tooltip" id="starTooltip">
+              <div class="tooltip-summary" id="tipSummary">—</div>
+              <div class="tooltip-meta">
+                <span><span class="label">Repo:</span> <span id="tipRepo">—</span></span>
+                <span><span class="label">Branch:</span> <span id="tipBranch">—</span></span>
+                <span><span class="label">Tokens:</span> <span id="tipTokens">—</span></span>
+                <span><span class="label">Cost:</span> <span id="tipCost">—</span></span>
+                <span><span class="label">Duration:</span> <span id="tipDuration">—</span></span>
+              </div>
+            </div>
+            <div class="star-detail-card" id="starDetail">
+              <button class="detail-close" id="detailClose">✕</button>
+              <div class="detail-title" id="detailTitle">—</div>
+              <div class="detail-repo-badge" id="detailRepoBadge">—</div>
+              <div class="detail-metrics">
+                <div class="detail-metric"><div class="detail-metric-val" id="detailTokens">—</div><div class="detail-metric-lbl">Tokens</div></div>
+                <div class="detail-metric"><div class="detail-metric-val" id="detailCost">—</div><div class="detail-metric-lbl">Cost</div></div>
+                <div class="detail-metric"><div class="detail-metric-val" id="detailDuration">—</div><div class="detail-metric-lbl">Duration</div></div>
+                <div class="detail-metric"><div class="detail-metric-val" id="detailTurns">—</div><div class="detail-metric-lbl">Turns</div></div>
+                <div class="detail-metric"><div class="detail-metric-val" id="detailTools">—</div><div class="detail-metric-lbl">Tool Calls</div></div>
+                <div class="detail-metric"><div class="detail-metric-val" id="detailModel">—</div><div class="detail-metric-lbl">Model</div></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+
+    const REPOS = {
+      'acme/web-platform':   { color: '#818cf8', glow: 'rgba(129,140,248,0.35)' },
+      'acme/api-server':     { color: '#34d399', glow: 'rgba(52,211,153,0.35)' },
+      'acme/infrastructure': { color: '#fbbf24', glow: 'rgba(251,191,36,0.35)' },
+    };
+    const repoNames = Object.keys(REPOS);
+
+    // Generate 45 mock sessions
+    const SESSIONS = [];
+    const summaries = [
+      'Implemented OAuth login flow', 'Refactored DB connection pooling', 'Added payment tests',
+      'Migrated REST to GraphQL', 'Fixed XSS vulnerability', 'Set up CI/CD pipeline',
+      'WebSocket notifications', 'Dashboard analytics widgets', 'Webpack optimization',
+      'User profile page redesign', 'Redis caching layer', 'Error boundary components',
+      'API rate limiting middleware', 'Docker compose setup', 'TypeScript migration',
+      'Unit tests for auth module', 'Search indexing service', 'Email notification system',
+      'Database migration scripts', 'Monitoring dashboard', 'Load balancer config',
+      'Feature flag system', 'Audit logging', 'Password reset flow',
+      'SSO integration', 'GraphQL subscriptions', 'PDF report generator',
+      'Accessibility audit fixes', 'Dark mode implementation', 'Performance profiling',
+      'API versioning strategy', 'Terraform modules', 'Kubernetes deployment',
+      'Log aggregation pipeline', 'Alert rules configuration', 'Secrets management',
+      'Data export API', 'Batch processing queue', 'CDN configuration',
+      'Mobile responsive layout', 'i18n setup', 'A/B testing framework',
+      'Code coverage improvements', 'Dependency upgrades', 'Security headers',
+    ];
+    const models = ['claude-opus-4.6', 'claude-sonnet-4.6', 'gpt-5.4', 'gpt-5.1'];
+    const branches = ['feat/', 'fix/', 'perf/', 'test/', 'chore/'];
+
+    for (let i = 0; i < 45; i++) {
+      const repo = repoNames[i % 3 === 2 ? 2 : (i % 3)];
+      const dayOffset = Math.floor(Math.random() * 30);
+      const tokens = 8000 + Math.floor(Math.random() * 85000);
+      const durationMin = 10 + Math.floor(Math.random() * 170);
+      const turns = 3 + Math.floor(Math.random() * 20);
+      const toolCalls = turns * (2 + Math.floor(Math.random() * 5));
+      const cost = (tokens / 1000 * 0.015 + Math.random() * 2).toFixed(2);
+      SESSIONS.push({
+        id: i,
+        summary: summaries[i % summaries.length],
+        repo,
+        branch: branches[Math.floor(Math.random() * branches.length)] + summaries[i % summaries.length].toLowerCase().replace(/\s+/g, '-').slice(0, 20),
+        tokens,
+        durationMin,
+        turns,
+        toolCalls,
+        cost: parseFloat(cost),
+        model: models[Math.floor(Math.random() * models.length)],
+        dayOffset,
+      });
+    }
+
+    const canvas = document.getElementById('starCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('constellationWrapper');
+    let W, H;
+    let showLines = true;
+    let activeRepo = 'all';
+    let maxDays = 30;
+    let hoveredStar = null;
+    let animFrame;
+
+    function resize() {
+      W = wrapper.clientWidth;
+      H = wrapper.clientHeight;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', () => { resize(); });
+
+    // Background stars (static)
+    const bgStars = [];
+    for (let i = 0; i < 200; i++) {
+      bgStars.push({
+        x: Math.random(), y: Math.random(),
+        r: 0.3 + Math.random() * 1.2,
+        base: 0.15 + Math.random() * 0.35,
+        speed: 0.5 + Math.random() * 2,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    function getFilteredSessions() {
+      return SESSIONS.filter(s => {
+        if (activeRepo !== 'all' && s.repo !== activeRepo) return false;
+        if (s.dayOffset > maxDays) return false;
+        return true;
+      });
+    }
+
+    function sessionPos(s) {
+      const pad = 60;
+      const x = pad + ((maxDays - s.dayOffset) / maxDays) * (W - pad * 2);
+      const maxTok = 93000;
+      const y = pad + (1 - s.tokens / maxTok) * (H - pad * 2);
+      return { x, y };
+    }
+
+    function sessionRadius(s) {
+      return 3 + (s.durationMin / 180) * 8;
+    }
+    function sessionBrightness(s) {
+      return 0.35 + (s.tokens / 93000) * 0.65;
+    }
+
+    // ── Draw ──
+    let time = 0;
+    function draw() {
+      time += 0.016;
+      ctx.clearRect(0, 0, W, H);
+
+      // Deep space gradient
+      const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+      grad.addColorStop(0, '#0d0d12');
+      grad.addColorStop(0.5, '#09090b');
+      grad.addColorStop(1, '#050508');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Background stars with twinkle
+      bgStars.forEach(s => {
+        const twinkle = s.base + Math.sin(time * s.speed + s.phase) * 0.2;
+        ctx.globalAlpha = Math.max(0.05, Math.min(1, twinkle));
+        ctx.fillStyle = '#e4e4e7';
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      const sessions = getFilteredSessions();
+
+      // Nebula clouds behind dense clusters
+      const clusterCenters = {};
+      sessions.forEach(s => {
+        if (!clusterCenters[s.repo]) clusterCenters[s.repo] = { sx: 0, sy: 0, n: 0 };
+        const p = sessionPos(s);
+        clusterCenters[s.repo].sx += p.x;
+        clusterCenters[s.repo].sy += p.y;
+        clusterCenters[s.repo].n++;
+      });
+      Object.entries(clusterCenters).forEach(([repo, c]) => {
+        if (c.n < 2) return;
+        const cx = c.sx / c.n, cy = c.sy / c.n;
+        const ng = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+        ng.addColorStop(0, REPOS[repo].glow.replace('0.35', '0.06'));
+        ng.addColorStop(1, 'transparent');
+        ctx.fillStyle = ng;
+        ctx.fillRect(cx - 140, cy - 140, 280, 280);
+      });
+
+      // Constellation lines
+      if (showLines) {
+        Object.keys(REPOS).forEach(repo => {
+          const repoSessions = sessions.filter(s => s.repo === repo);
+          if (repoSessions.length < 2) return;
+          // Sort by dayOffset for ordered connections
+          repoSessions.sort((a, b) => b.dayOffset - a.dayOffset);
+          ctx.strokeStyle = REPOS[repo].color;
+          ctx.lineWidth = 0.6;
+          ctx.globalAlpha = 0.2;
+          for (let i = 0; i < repoSessions.length - 1; i++) {
+            const p1 = sessionPos(repoSessions[i]);
+            const p2 = sessionPos(repoSessions[i + 1]);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      // Session stars
+      sessions.forEach(s => {
+        const p = sessionPos(s);
+        const r = sessionRadius(s);
+        const bright = sessionBrightness(s);
+        const col = REPOS[s.repo].color;
+
+        // Glow
+        const sg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
+        sg.addColorStop(0, col.replace(')', `, ${bright * 0.3})`).replace('rgb', 'rgba'));
+        sg.addColorStop(1, 'transparent');
+        ctx.fillStyle = sg;
+        ctx.fillRect(p.x - r * 3, p.y - r * 3, r * 6, r * 6);
+
+        // Star dot
+        ctx.globalAlpha = bright;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bright core
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = bright * 0.6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Store for hit detection
+        s._x = p.x; s._y = p.y; s._r = r;
+      });
+
+      // X axis labels
+      ctx.fillStyle = '#52525b';
+      ctx.font = '10px Inter';
+      ctx.textAlign = 'center';
+      for (let d = 0; d <= maxDays; d += Math.ceil(maxDays / 5)) {
+        const x = 60 + ((maxDays - d) / maxDays) * (W - 120);
+        ctx.fillText(d === 0 ? 'Today' : `${d}d ago`, x, H - 16);
+      }
+      // Y axis label
+      ctx.save();
+      ctx.translate(14, H / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('Tokens →', 0, 0);
+      ctx.restore();
+
+      animFrame = requestAnimationFrame(draw);
+    }
+    draw();
+
+    // ── Hover ──
+    const tooltip = document.getElementById('starTooltip');
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const sessions = getFilteredSessions();
+      hoveredStar = null;
+      for (const s of sessions) {
+        const dx = mx - s._x, dy = my - s._y;
+        if (Math.sqrt(dx * dx + dy * dy) < s._r + 6) {
+          hoveredStar = s;
+          break;
+        }
+      }
+      if (hoveredStar) {
+        const s = hoveredStar;
+        document.getElementById('tipSummary').textContent = s.summary;
+        document.getElementById('tipRepo').textContent = s.repo;
+        document.getElementById('tipBranch').textContent = s.branch;
+        document.getElementById('tipTokens').textContent = s.tokens.toLocaleString();
+        document.getElementById('tipCost').textContent = '$' + s.cost.toFixed(2);
+        document.getElementById('tipDuration').textContent = s.durationMin + ' min';
+        tooltip.classList.add('visible');
+        let tx = mx + 16, ty = my - 10;
+        if (tx + 260 > W) tx = mx - 260;
+        if (ty + 120 > H) ty = my - 120;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+      } else {
+        tooltip.classList.remove('visible');
+      }
+    });
+
+    // ── Click ──
+    const detail = document.getElementById('starDetail');
+    canvas.addEventListener('click', () => {
+      if (!hoveredStar) { detail.classList.remove('visible'); return; }
+      const s = hoveredStar;
+      document.getElementById('detailTitle').textContent = s.summary;
+      const badge = document.getElementById('detailRepoBadge');
+      badge.textContent = s.repo;
+      badge.style.background = REPOS[s.repo].glow;
+      badge.style.color = REPOS[s.repo].color;
+      document.getElementById('detailTokens').textContent = (s.tokens / 1000).toFixed(1) + 'K';
+      document.getElementById('detailCost').textContent = '$' + s.cost.toFixed(2);
+      document.getElementById('detailDuration').textContent = s.durationMin + 'm';
+      document.getElementById('detailTurns').textContent = s.turns;
+      document.getElementById('detailTools').textContent = s.toolCalls;
+      document.getElementById('detailModel').textContent = s.model.split('-').slice(0, 2).join('-');
+      detail.classList.add('visible');
+    });
+    document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('visible'));
+
+    // ── Controls ──
+    document.getElementById('toggleLines').addEventListener('change', (e) => { showLines = e.target.checked; });
+    document.querySelectorAll('.repo-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.repo-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeRepo = btn.dataset.repo;
+      });
+    });
+    const slider = document.getElementById('timeRange');
+    slider.addEventListener('input', () => {
+      maxDays = parseInt(slider.value);
+      document.getElementById('daysLabel').textContent = maxDays;
+    });
+  });
+  </script>
+</body>
+</html>

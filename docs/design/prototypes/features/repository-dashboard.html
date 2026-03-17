@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Repository Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .repo-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .repo-selector label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+    }
+
+    .repo-header {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .repo-name {
+      font-size: 1.375rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+    .repo-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chart-panel {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .chart-panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .chart-panel-body {
+      padding: 16px;
+      min-height: 180px;
+    }
+
+    /* Bar chart */
+    .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .bar-label {
+      width: 140px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 18px;
+      background: var(--neutral-muted);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      display: flex;
+      align-items: center;
+      padding-left: 6px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      min-width: 24px;
+    }
+    .bar-value {
+      width: 36px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Donut chart */
+    .donut-container {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .donut-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .donut-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Area chart */
+    .area-chart-svg {
+      width: 100%;
+      height: 140px;
+    }
+
+    /* Mini session cards */
+    .recent-session {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+    .recent-session:hover { background: var(--neutral-subtle); }
+    .recent-session:last-child { border-bottom: none; }
+    .recent-session-info { flex: 1; min-width: 0; }
+    .recent-session-title {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .recent-session-meta {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Tool table */
+    .tool-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .tool-table th {
+      text-align: left;
+      padding: 6px 10px;
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .tool-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+    .success-rate-bar {
+      width: 60px;
+      height: 5px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .success-rate-fill { height: 100%; background: var(--success-fg); border-radius: var(--radius-full); }
+
+    /* File type pie */
+    .pie-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .pie-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 1000px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Repository Dashboard</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <!-- Repo Selector -->
+          <div class="repo-selector">
+            <label>Repository:</label>
+            <select class="filter-select" id="repo-select" onchange="switchRepo(this.value)">
+              <option value="0">acme/web-platform</option>
+              <option value="1">acme/api-server</option>
+              <option value="2">acme/infrastructure</option>
+            </select>
+          </div>
+
+          <!-- Repo Header -->
+          <div class="repo-header" id="repo-header"></div>
+
+          <!-- Stat Cards -->
+          <div class="grid-4 mb-6" id="stat-cards"></div>
+
+          <!-- Charts Row 1 -->
+          <div class="two-col mb-6">
+            <div class="chart-panel">
+              <div class="chart-panel-header">Branch Activity</div>
+              <div class="chart-panel-body" id="branch-chart"></div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-panel-header">Sessions / Day (30 days)</div>
+              <div class="chart-panel-body" id="activity-chart"></div>
+            </div>
+          </div>
+
+          <!-- Charts Row 2 -->
+          <div class="two-col mb-6">
+            <div class="chart-panel">
+              <div class="chart-panel-header">Model Usage</div>
+              <div class="chart-panel-body" id="model-chart"></div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-panel-header">Code Impact</div>
+              <div class="chart-panel-body" id="code-impact"></div>
+            </div>
+          </div>
+
+          <!-- Tool Usage Table -->
+          <div class="chart-panel mb-6">
+            <div class="chart-panel-header">Top Tools Used</div>
+            <div style="padding:0;" id="tool-table"></div>
+          </div>
+
+          <!-- Recent Sessions -->
+          <div class="chart-panel">
+            <div class="chart-panel-header">Recent Sessions</div>
+            <div id="recent-sessions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ── Mock Data for 3 Repos ──
+    const REPOS = [
+      {
+        name: 'acme/web-platform',
+        sessions: 18,
+        firstSession: '2026-02-12',
+        lastSession: '2026-03-14',
+        primaryBranch: 'main',
+        cost: 45.20,
+        tokens: 12340000,
+        avgDuration: 24,
+        branches: [
+          { name: 'feat/oauth-login', count: 4, recency: 1 },
+          { name: 'feat/dashboard', count: 3, recency: 0.8 },
+          { name: 'feat/ws-notifications', count: 3, recency: 0.6 },
+          { name: 'fix/xss-vuln', count: 2, recency: 0.9 },
+          { name: 'test/payments', count: 2, recency: 0.5 },
+          { name: 'perf/webpack-optimize', count: 2, recency: 0.3 },
+          { name: 'main', count: 2, recency: 0.2 },
+        ],
+        dailySessions: [0,1,0,0,2,1,0,0,0,1,2,0,1,0,0,1,0,0,2,1,0,0,1,0,1,2,0,1,1,0],
+        models: [
+          { name: 'claude-opus-4.6', count: 10, color: '#818cf8' },
+          { name: 'claude-sonnet-4.6', count: 4, color: '#a78bfa' },
+          { name: 'gpt-5.4', count: 3, color: '#34d399' },
+          { name: 'claude-haiku-4.5', count: 1, color: '#fbbf24' },
+        ],
+        tools: [
+          { name: 'edit', calls: 245, success: 97 },
+          { name: 'view', calls: 198, success: 100 },
+          { name: 'powershell', calls: 156, success: 88 },
+          { name: 'create', calls: 89, success: 99 },
+          { name: 'grep', calls: 78, success: 100 },
+          { name: 'glob', calls: 65, success: 100 },
+          { name: 'task', calls: 42, success: 91 },
+          { name: 'web_search', calls: 18, success: 95 },
+          { name: 'sql', calls: 12, success: 100 },
+          { name: 'github-mcp', calls: 8, success: 88 },
+        ],
+        recentSessions: [
+          { summary: 'Fixed critical XSS vulnerability in user input sanitization', branch: 'fix/xss-vuln', time: '2h ago', turns: 5 },
+          { summary: 'Implemented OAuth login with GitHub and Google providers', branch: 'feat/oauth-login', time: '4h ago', turns: 12 },
+          { summary: 'Designed and implemented user dashboard analytics widgets', branch: 'feat/dashboard', time: '1d ago', turns: 20 },
+          { summary: 'Implemented real-time WebSocket notifications system', branch: 'feat/ws-notifications', time: '2d ago', turns: 15 },
+          { summary: 'Optimized Webpack build configuration reducing bundle by 40%', branch: 'perf/webpack-optimize', time: '3d ago', turns: 7 },
+        ],
+        fileTypes: [
+          { ext: '.ts', lines: 2450, color: '#818cf8' },
+          { ext: '.vue', lines: 1210, color: '#34d399' },
+          { ext: '.css', lines: 315, color: '#fbbf24' },
+          { ext: '.json', lines: 45, color: '#fb7185' },
+          { ext: '.md', lines: 70, color: '#a78bfa' },
+        ],
+        netLines: '+2,840',
+      },
+      {
+        name: 'acme/api-server',
+        sessions: 22,
+        firstSession: '2026-01-28',
+        lastSession: '2026-03-14',
+        primaryBranch: 'main',
+        cost: 62.35,
+        tokens: 18920000,
+        avgDuration: 31,
+        branches: [
+          { name: 'feat/graphql-migration', count: 6, recency: 0.7 },
+          { name: 'fix/db-pooling', count: 5, recency: 1 },
+          { name: 'feat/api-v2', count: 4, recency: 0.5 },
+          { name: 'main', count: 3, recency: 0.3 },
+          { name: 'fix/n+1-queries', count: 2, recency: 0.6 },
+          { name: 'test/integration', count: 2, recency: 0.4 },
+        ],
+        dailySessions: [1,0,1,1,0,2,0,1,0,1,0,2,1,0,1,0,2,0,1,1,0,1,0,0,2,1,0,1,0,1],
+        models: [
+          { name: 'claude-opus-4.6', count: 12, color: '#818cf8' },
+          { name: 'gpt-5.4', count: 7, color: '#34d399' },
+          { name: 'claude-sonnet-4.6', count: 3, color: '#a78bfa' },
+        ],
+        tools: [
+          { name: 'edit', calls: 312, success: 96 },
+          { name: 'view', calls: 280, success: 100 },
+          { name: 'powershell', calls: 195, success: 85 },
+          { name: 'grep', calls: 120, success: 100 },
+          { name: 'create', calls: 95, success: 98 },
+          { name: 'glob', calls: 85, success: 100 },
+          { name: 'task', calls: 55, success: 89 },
+          { name: 'sql', calls: 45, success: 100 },
+          { name: 'web_search', calls: 22, success: 92 },
+          { name: 'github-mcp', calls: 15, success: 87 },
+        ],
+        recentSessions: [
+          { summary: 'Refactored database connection pooling for PostgreSQL', branch: 'fix/db-pooling', time: '3h ago', turns: 8 },
+          { summary: 'Migrated legacy REST endpoints to GraphQL schema', branch: 'feat/graphql-migration', time: '1d ago', turns: 22 },
+          { summary: 'Fixed N+1 query issues in user resolver', branch: 'fix/n+1-queries', time: '2d ago', turns: 6 },
+          { summary: 'Added comprehensive API v2 endpoint tests', branch: 'test/integration', time: '3d ago', turns: 14 },
+          { summary: 'Implemented API versioning middleware', branch: 'feat/api-v2', time: '4d ago', turns: 9 },
+        ],
+        fileTypes: [
+          { ext: '.ts', lines: 3890, color: '#818cf8' },
+          { ext: '.json', lines: 120, color: '#fb7185' },
+          { ext: '.sql', lines: 450, color: '#fbbf24' },
+          { ext: '.yml', lines: 85, color: '#34d399' },
+        ],
+        netLines: '+3,420',
+      },
+      {
+        name: 'acme/infrastructure',
+        sessions: 13,
+        firstSession: '2026-02-20',
+        lastSession: '2026-03-11',
+        primaryBranch: 'main',
+        cost: 18.90,
+        tokens: 5670000,
+        avgDuration: 18,
+        branches: [
+          { name: 'feat/ci-pipeline', count: 4, recency: 1 },
+          { name: 'feat/k8s-manifests', count: 3, recency: 0.7 },
+          { name: 'fix/docker-layers', count: 2, recency: 0.5 },
+          { name: 'main', count: 2, recency: 0.3 },
+          { name: 'feat/monitoring', count: 2, recency: 0.4 },
+        ],
+        dailySessions: [0,0,1,0,0,0,1,0,1,0,0,1,0,0,0,1,1,0,0,0,1,0,0,1,0,0,1,1,0,0],
+        models: [
+          { name: 'gpt-5.4', count: 7, color: '#34d399' },
+          { name: 'claude-opus-4.6', count: 4, color: '#818cf8' },
+          { name: 'claude-haiku-4.5', count: 2, color: '#fbbf24' },
+        ],
+        tools: [
+          { name: 'create', calls: 78, success: 99 },
+          { name: 'edit', calls: 65, success: 97 },
+          { name: 'view', calls: 55, success: 100 },
+          { name: 'powershell', calls: 90, success: 82 },
+          { name: 'glob', calls: 30, success: 100 },
+          { name: 'grep', calls: 25, success: 100 },
+          { name: 'web_search', calls: 15, success: 93 },
+          { name: 'task', calls: 12, success: 92 },
+          { name: 'github-mcp', calls: 10, success: 90 },
+          { name: 'sql', calls: 5, success: 100 },
+        ],
+        recentSessions: [
+          { summary: 'Set up CI/CD pipeline with GitHub Actions and Docker', branch: 'feat/ci-pipeline', time: '3d ago', turns: 10 },
+          { summary: 'Created Kubernetes deployment manifests', branch: 'feat/k8s-manifests', time: '5d ago', turns: 8 },
+          { summary: 'Optimized Docker image layers reducing size by 60%', branch: 'fix/docker-layers', time: '7d ago', turns: 6 },
+          { summary: 'Added Prometheus monitoring endpoints', branch: 'feat/monitoring', time: '9d ago', turns: 7 },
+          { summary: 'Configured staging environment variables', branch: 'main', time: '10d ago', turns: 4 },
+        ],
+        fileTypes: [
+          { ext: '.yml', lines: 680, color: '#34d399' },
+          { ext: 'Dockerfile', lines: 120, color: '#818cf8' },
+          { ext: '.sh', lines: 240, color: '#fbbf24' },
+          { ext: '.tf', lines: 180, color: '#a78bfa' },
+          { ext: '.md', lines: 95, color: '#fb7185' },
+        ],
+        netLines: '+1,180',
+      }
+    ];
+
+    let currentRepo = 0;
+
+    function switchRepo(idx) {
+      currentRepo = parseInt(idx);
+      renderAll();
+    }
+
+    function renderAll() {
+      const repo = REPOS[currentRepo];
+      renderHeader(repo);
+      renderStats(repo);
+      renderBranchChart(repo);
+      renderActivityChart(repo);
+      renderModelChart(repo);
+      renderCodeImpact(repo);
+      renderToolTable(repo);
+      renderRecentSessions(repo);
+    }
+
+    function renderHeader(repo) {
+      document.getElementById('repo-header').innerHTML = `
+        <div>
+          <div class="repo-name">${repo.name}</div>
+          <div class="repo-meta" style="margin-top:6px;">
+            <span class="badge badge-accent">${repo.sessions} sessions</span>
+            <span class="badge badge-neutral">${repo.firstSession} → ${repo.lastSession}</span>
+            <span class="badge badge-success">${repo.primaryBranch}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderStats(repo) {
+      document.getElementById('stat-cards').innerHTML = `
+        <div class="stat-card"><div class="stat-card-value success">$${repo.cost.toFixed(2)}</div><div class="stat-card-label">Total Cost</div></div>
+        <div class="stat-card"><div class="stat-card-value accent">${repo.sessions}</div><div class="stat-card-label">Sessions</div></div>
+        <div class="stat-card"><div class="stat-card-value" style="color:var(--done-fg)">${formatNumber(repo.tokens)}</div><div class="stat-card-label">Total Tokens</div></div>
+        <div class="stat-card"><div class="stat-card-value warning">${repo.avgDuration}m</div><div class="stat-card-label">Avg Duration</div></div>
+      `;
+    }
+
+    function renderBranchChart(repo) {
+      const maxCount = Math.max(...repo.branches.map(b => b.count));
+      let html = '<div class="bar-chart">';
+      repo.branches.forEach(b => {
+        const pct = (b.count / maxCount * 100).toFixed(0);
+        const opacity = 0.4 + b.recency * 0.6;
+        html += `
+          <div class="bar-row">
+            <div class="bar-label">${b.name}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${pct}%;background:rgba(99,102,241,${opacity})">${b.count}</div>
+            </div>
+            <div class="bar-value">${b.count}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      document.getElementById('branch-chart').innerHTML = html;
+    }
+
+    function renderActivityChart(repo) {
+      const data = repo.dailySessions;
+      const maxVal = Math.max(...data, 1);
+      const W = 100, H = 100;
+      const step = W / (data.length - 1);
+
+      let pathD = `M0,${H}`;
+      let lineD = '';
+      data.forEach((v, i) => {
+        const x = i * step;
+        const y = H - (v / maxVal) * (H - 10);
+        if (i === 0) lineD = `M${x},${y}`;
+        else lineD += ` L${x},${y}`;
+        if (i === data.length - 1) pathD = lineD + ` L${x},${H} L0,${H} Z`;
+      });
+      pathD = lineD + ` L${(data.length - 1) * step},${H} L0,${H} Z`;
+
+      let dotsHtml = '';
+      data.forEach((v, i) => {
+        if (v > 0) {
+          const x = i * step;
+          const y = H - (v / maxVal) * (H - 10);
+          dotsHtml += `<circle cx="${x}" cy="${y}" r="2" fill="var(--accent-fg)"/>`;
+        }
+      });
+
+      // X-axis labels
+      let labelsHtml = '';
+      [0, 7, 14, 21, 29].forEach(i => {
+        if (i < data.length) {
+          labelsHtml += `<text x="${i * step}" y="${H + 12}" fill="var(--text-placeholder)" font-size="7" text-anchor="middle">${30 - i}d</text>`;
+        }
+      });
+
+      document.getElementById('activity-chart').innerHTML = `
+        <svg viewBox="-5 -5 ${W + 10} ${H + 20}" class="area-chart-svg" preserveAspectRatio="none">
+          <path d="${pathD}" fill="url(#area-grad)" opacity="0.3"/>
+          <path d="${lineD}" fill="none" stroke="var(--accent-fg)" stroke-width="1.5"/>
+          ${dotsHtml}
+          ${labelsHtml}
+          <defs><linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent-fg)" stop-opacity="0.4"/><stop offset="1" stop-color="var(--accent-fg)" stop-opacity="0"/></linearGradient></defs>
+        </svg>
+      `;
+    }
+
+    function renderModelChart(repo) {
+      const total = repo.models.reduce((s, m) => s + m.count, 0);
+      let cumAngle = 0;
+      const R = 60, cx = 70, cy = 70;
+
+      let arcs = '';
+      repo.models.forEach(m => {
+        const frac = m.count / total;
+        const startAngle = cumAngle;
+        const endAngle = cumAngle + frac * Math.PI * 2;
+        const x1 = cx + R * Math.cos(startAngle);
+        const y1 = cy + R * Math.sin(startAngle);
+        const x2 = cx + R * Math.cos(endAngle - 0.01);
+        const y2 = cy + R * Math.sin(endAngle - 0.01);
+        const largeArc = frac > 0.5 ? 1 : 0;
+        arcs += `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${m.color}" opacity="0.8"/>`;
+        cumAngle = endAngle;
+      });
+
+      let legendHtml = '';
+      repo.models.forEach(m => {
+        legendHtml += `
+          <div class="donut-legend-item">
+            <div class="donut-swatch" style="background:${m.color}"></div>
+            <span>${m.name}</span>
+            <span style="color:var(--text-placeholder);margin-left:auto">${m.count} (${(m.count / total * 100).toFixed(0)}%)</span>
+          </div>
+        `;
+      });
+
+      document.getElementById('model-chart').innerHTML = `
+        <div class="donut-container">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            ${arcs}
+            <circle cx="${cx}" cy="${cy}" r="35" fill="var(--canvas-subtle)"/>
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--text-primary)" font-size="14" font-weight="700">${total}</text>
+            <text x="${cx}" y="${cy + 10}" text-anchor="middle" fill="var(--text-tertiary)" font-size="8">sessions</text>
+          </svg>
+          <div class="donut-legend">${legendHtml}</div>
+        </div>
+      `;
+    }
+
+    function renderCodeImpact(repo) {
+      const total = repo.fileTypes.reduce((s, f) => s + f.lines, 0);
+      let cumAngle = 0;
+      const R = 50, cx = 55, cy = 55;
+
+      let arcs = '';
+      repo.fileTypes.forEach(f => {
+        const frac = f.lines / total;
+        const startAngle = cumAngle;
+        const endAngle = cumAngle + frac * Math.PI * 2;
+        const x1 = cx + R * Math.cos(startAngle);
+        const y1 = cy + R * Math.sin(startAngle);
+        const x2 = cx + R * Math.cos(endAngle - 0.01);
+        const y2 = cy + R * Math.sin(endAngle - 0.01);
+        const largeArc = frac > 0.5 ? 1 : 0;
+        arcs += `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${f.color}" opacity="0.75"/>`;
+        cumAngle = endAngle;
+      });
+
+      let legend = '';
+      repo.fileTypes.forEach(f => {
+        legend += `<div class="pie-legend-item"><div class="donut-swatch" style="background:${f.color};width:8px;height:8px;"></div>${f.ext} (${f.lines})</div>`;
+      });
+
+      document.getElementById('code-impact').innerHTML = `
+        <div style="display:flex;align-items:center;gap:20px;">
+          <svg width="110" height="110" viewBox="0 0 110 110">${arcs}<circle cx="${cx}" cy="${cy}" r="25" fill="var(--canvas-subtle)"/></svg>
+          <div>
+            <div style="font-size:1.125rem;font-weight:700;color:var(--success-fg);">${repo.netLines}</div>
+            <div style="font-size:0.6875rem;color:var(--text-tertiary);margin-top:2px;">Net lines changed</div>
+            <div class="pie-legend" style="margin-top:8px;">${legend}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderToolTable(repo) {
+      const maxCalls = Math.max(...repo.tools.map(t => t.calls));
+      let rows = '';
+      repo.tools.forEach(t => {
+        rows += `
+          <tr>
+            <td><span style="font-weight:500;color:var(--text-primary);">${toolIcon(t.name)} ${t.name}</span></td>
+            <td style="font-variant-numeric:tabular-nums;">${t.calls}</td>
+            <td>
+              <div class="success-rate-bar"><div class="success-rate-fill" style="width:${t.success}%;${t.success < 90 ? 'background:var(--warning-fg)' : ''}"></div></div>
+              <span style="font-size:0.625rem;color:${t.success >= 95 ? 'var(--success-fg)' : t.success >= 85 ? 'var(--warning-fg)' : 'var(--danger-fg)'}">${t.success}%</span>
+            </td>
+          </tr>
+        `;
+      });
+      document.getElementById('tool-table').innerHTML = `
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Calls</th><th>Success Rate</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function renderRecentSessions(repo) {
+      let html = '';
+      repo.recentSessions.forEach(s => {
+        html += `
+          <div class="recent-session">
+            <div class="recent-session-info">
+              <div class="recent-session-title">${s.summary}</div>
+              <div class="recent-session-meta">
+                <span class="badge badge-neutral" style="font-size:0.5625rem;">${s.branch}</span>
+                <span>${s.time}</span>
+                <span>${s.turns} turns</span>
+              </div>
+            </div>
+            <span style="color:var(--text-placeholder)">${ICONS.chevronRight}</span>
+          </div>
+        `;
+      });
+      document.getElementById('recent-sessions').innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+      renderAll();
+    });
+  </script>
+</body>
+</html>

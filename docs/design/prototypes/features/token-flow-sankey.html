@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Token Flow</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .sankey-container {
+      position: relative;
+      width: 100%;
+      overflow: visible;
+    }
+    .sankey-container svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Ribbon base */
+    .ribbon {
+      transition: opacity 0.3s ease, filter 0.3s ease;
+      cursor: pointer;
+    }
+    .ribbon-dimmed { opacity: 0.06 !important; }
+    .ribbon-highlight { filter: brightness(1.3); }
+
+    /* Flowing particle paths */
+    .flow-particle {
+      fill: none;
+      stroke-linecap: round;
+      pointer-events: none;
+    }
+    @keyframes flowForward {
+      from { stroke-dashoffset: 40; }
+      to   { stroke-dashoffset: 0; }
+    }
+    .flow-particle.speed-fast   { animation: flowForward 0.8s linear infinite; }
+    .flow-particle.speed-medium { animation: flowForward 1.4s linear infinite; }
+    .flow-particle.speed-slow   { animation: flowForward 2.2s linear infinite; }
+
+    /* Node glow */
+    .sankey-node rect {
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+    .sankey-node:hover rect { filter: brightness(1.3); }
+    .sankey-node.node-dimmed rect { opacity: 0.25; }
+    .sankey-node.node-dimmed text { opacity: 0.25; }
+
+    /* Node labels */
+    .node-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--text-primary, #fafafa);
+      pointer-events: none;
+    }
+    .node-sublabel {
+      font-family: 'Inter', sans-serif;
+      font-size: 9.5px;
+      font-weight: 500;
+      fill: var(--text-secondary, #a1a1aa);
+      pointer-events: none;
+    }
+
+    /* Column headers */
+    .column-header {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      fill: var(--text-tertiary, #71717a);
+    }
+
+    /* Tooltip */
+    .sankey-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--canvas-overlay, #18181b);
+      border: 1px solid var(--border-default, rgba(255,255,255,0.10));
+      border-radius: var(--radius-md, 8px);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-primary, #fafafa);
+      box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.5));
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+      white-space: nowrap;
+      line-height: 1.6;
+    }
+    .sankey-tooltip.visible { opacity: 1; }
+    .sankey-tooltip .tt-row { display: flex; justify-content: space-between; gap: 18px; }
+    .sankey-tooltip .tt-label { color: var(--text-secondary, #a1a1aa); }
+    .sankey-tooltip .tt-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .sankey-tooltip .tt-color-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    /* Legend */
+    .legend-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 14px 0 4px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--text-secondary, #a1a1aa);
+    }
+    .legend-swatch {
+      width: 14px; height: 14px;
+      border-radius: 4px;
+    }
+
+    /* Fade-in */
+    .fade-in { animation: fadeIn 0.6s ease forwards; opacity: 0; }
+    @keyframes fadeIn { to { opacity: 1; } }
+    .fade-delay-1 { animation-delay: 0.1s; }
+    .fade-delay-2 { animation-delay: 0.25s; }
+    .fade-delay-3 { animation-delay: 0.4s; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Token Flow</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <h1 class="page-title fade-in" style="background: linear-gradient(135deg, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Token Flow
+          </h1>
+          <p class="page-subtitle fade-in fade-delay-1" style="color: var(--text-secondary); margin-bottom: 24px;">
+            How tokens flow through models during a complex coding session
+          </p>
+
+          <!-- Stat cards -->
+          <div class="grid-3 fade-in fade-delay-1" style="margin-bottom: 28px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent">498K</div>
+              <div class="stat-card-label">Total Tokens</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">332K</div>
+              <div class="stat-card-label">Input Tokens</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">166K</div>
+              <div class="stat-card-label">Output Tokens</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value warning">54.2%</div>
+              <div class="stat-card-label">Cache Hit Rate</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value accent">3</div>
+              <div class="stat-card-label">Models Used</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value danger">$4.18</div>
+              <div class="stat-card-label">Estimated Cost</div>
+            </div>
+          </div>
+
+          <!-- Sankey Diagram -->
+          <div class="section-panel fade-in fade-delay-2">
+            <div class="section-panel-header">Token Flow — Sankey Diagram</div>
+            <div class="section-panel-body" style="padding: 16px 12px 12px;">
+              <div class="sankey-container" id="sankeyContainer">
+                <svg id="sankeySvg" viewBox="0 0 960 520" preserveAspectRatio="xMidYMid meet"></svg>
+                <div class="sankey-tooltip" id="tooltip"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="section-panel fade-in fade-delay-3">
+            <div class="section-panel-header">Legend</div>
+            <div class="section-panel-body">
+              <div class="legend-bar" id="legend"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      // ── Color palette ──
+      const COLORS = {
+        emerald:  '#34d399',
+        amber:    '#fbbf24',
+        violet:   '#a78bfa',
+        neutral:  '#71717a',
+        indigo:   '#818cf8',
+        rose:     '#fb7185',
+      };
+
+      // ── Node definitions ──
+      const nodes = {
+        // Left — Input Sources
+        userMsg:    { col: 0, label: 'User Messages',  tokens: 45,  color: COLORS.emerald },
+        sysCtx:     { col: 0, label: 'System Context',  tokens: 12,  color: COLORS.neutral },
+        cached:     { col: 0, label: 'Cached Input',    tokens: 180, color: COLORS.violet  },
+        toolRes:    { col: 0, label: 'Tool Results',     tokens: 95,  color: COLORS.amber   },
+        // Middle — Models
+        sonnet:     { col: 1, label: 'Claude Sonnet 4', tokens: 250, color: COLORS.indigo  },
+        gpt41:      { col: 1, label: 'GPT-4.1',         tokens: 60,  color: COLORS.emerald },
+        haiku:      { col: 1, label: 'Claude Haiku 4.5',tokens: 22,  color: COLORS.violet  },
+        // Right — Output Destinations
+        assistTxt:  { col: 2, label: 'Assistant Text',   tokens: 35,  color: COLORS.indigo  },
+        toolCalls:  { col: 2, label: 'Tool Calls',       tokens: 18,  color: COLORS.amber   },
+        reasoning:  { col: 2, label: 'Reasoning',        tokens: 28,  color: COLORS.violet  },
+        cacheWr:    { col: 2, label: 'Cache Writes',     tokens: 85,  color: COLORS.neutral },
+      };
+
+      // ── Flow links (source → target → tokens in K) ──
+      const links = [
+        { src: 'userMsg', tgt: 'sonnet', value: 35 },
+        { src: 'userMsg', tgt: 'gpt41',  value: 8  },
+        { src: 'userMsg', tgt: 'haiku',  value: 2  },
+        { src: 'sysCtx',  tgt: 'sonnet', value: 8  },
+        { src: 'sysCtx',  tgt: 'gpt41',  value: 3  },
+        { src: 'sysCtx',  tgt: 'haiku',  value: 1  },
+        { src: 'cached',  tgt: 'sonnet', value: 140 },
+        { src: 'cached',  tgt: 'gpt41',  value: 30 },
+        { src: 'cached',  tgt: 'haiku',  value: 10 },
+        { src: 'toolRes', tgt: 'sonnet', value: 67 },
+        { src: 'toolRes', tgt: 'gpt41',  value: 19 },
+        { src: 'toolRes', tgt: 'haiku',  value: 9  },
+        { src: 'sonnet',  tgt: 'assistTxt', value: 28 },
+        { src: 'sonnet',  tgt: 'toolCalls', value: 12 },
+        { src: 'sonnet',  tgt: 'reasoning', value: 22 },
+        { src: 'sonnet',  tgt: 'cacheWr',   value: 65 },
+        // Sonnet: 28+12+22+65 = 127 output; remainder is internal/overhead
+        { src: 'gpt41',   tgt: 'assistTxt', value: 5  },
+        { src: 'gpt41',   tgt: 'toolCalls', value: 4  },
+        { src: 'gpt41',   tgt: 'reasoning', value: 4  },
+        { src: 'gpt41',   tgt: 'cacheWr',   value: 15 },
+        { src: 'haiku',   tgt: 'assistTxt', value: 2  },
+        { src: 'haiku',   tgt: 'toolCalls', value: 2  },
+        { src: 'haiku',   tgt: 'reasoning', value: 2  },
+        { src: 'haiku',   tgt: 'cacheWr',   value: 5  },
+      ];
+
+      const totalTokens = 498; // K
+
+      // ── Layout constants ──
+      const SVG_W = 960, SVG_H = 520;
+      const PAD_TOP = 44, PAD_BOT = 20;
+      const NODE_W = 18;
+      const COL_X = [80, 440, 820];
+      const NODE_GAP = 14;
+      const DRAW_H = SVG_H - PAD_TOP - PAD_BOT;
+
+      // ── Compute node positions ──
+      // Sum input/output per node to determine height
+      const nodeInflow  = {};
+      const nodeOutflow = {};
+      Object.keys(nodes).forEach(k => { nodeInflow[k] = 0; nodeOutflow[k] = 0; });
+      links.forEach(l => { nodeOutflow[l.src] += l.value; nodeInflow[l.tgt] += l.value; });
+
+      // Node throughput = max(inflow, outflow, declared tokens)
+      Object.keys(nodes).forEach(k => {
+        nodes[k].throughput = Math.max(nodeInflow[k], nodeOutflow[k], nodes[k].tokens);
+      });
+
+      // Group by column and compute heights
+      const columns = [[], [], []];
+      Object.entries(nodes).forEach(([id, n]) => columns[n.col].push(id));
+
+      // Scale: total height for a column = DRAW_H
+      columns.forEach(col => {
+        const totalThroughput = col.reduce((s, id) => s + nodes[id].throughput, 0);
+        const totalGap = NODE_GAP * (col.length - 1);
+        const scale = (DRAW_H - totalGap) / totalThroughput;
+
+        let y = PAD_TOP;
+        col.forEach(id => {
+          const n = nodes[id];
+          const h = Math.max(n.throughput * scale, 16);
+          n.x = COL_X[n.col] - NODE_W / 2;
+          n.y = y;
+          n.h = h;
+          n.w = NODE_W;
+          y += h + NODE_GAP;
+        });
+
+        // Center the column vertically
+        const usedH = y - NODE_GAP - PAD_TOP;
+        const offset = (DRAW_H - usedH) / 2;
+        col.forEach(id => { nodes[id].y += offset; });
+      });
+
+      // ── Compute ribbon connection offsets ──
+      // Track cumulative y offsets on each side of each node
+      const srcOffsets = {};
+      const tgtOffsets = {};
+      Object.keys(nodes).forEach(k => { srcOffsets[k] = 0; tgtOffsets[k] = 0; });
+
+      // Sort links for visual consistency
+      const leftToMid = links.filter(l => nodes[l.src].col === 0);
+      const midToRight = links.filter(l => nodes[l.src].col === 1);
+
+      function ribbonScale(nodeId, side) {
+        const n = nodes[nodeId];
+        const total = side === 'src'
+          ? links.filter(l => l.src === nodeId).reduce((s, l) => s + l.value, 0)
+          : links.filter(l => l.tgt === nodeId).reduce((s, l) => s + l.value, 0);
+        return total > 0 ? n.h / total : 1;
+      }
+
+      function computeRibbonPath(link) {
+        const sn = nodes[link.src], tn = nodes[link.tgt];
+        const sScale = ribbonScale(link.src, 'src');
+        const tScale = ribbonScale(link.tgt, 'tgt');
+        const ribbonH_src = link.value * sScale;
+        const ribbonH_tgt = link.value * tScale;
+
+        const y0 = sn.y + srcOffsets[link.src];
+        const y1 = tn.y + tgtOffsets[link.tgt];
+
+        srcOffsets[link.src] += ribbonH_src;
+        tgtOffsets[link.tgt] += ribbonH_tgt;
+
+        const x0 = sn.x + sn.w;
+        const x1 = tn.x;
+        const mx = (x0 + x1) / 2;
+
+        // Build cubic bezier ribbon (top edge + bottom edge)
+        const d = [
+          `M ${x0} ${y0}`,
+          `C ${mx} ${y0}, ${mx} ${y1}, ${x1} ${y1}`,
+          `L ${x1} ${y1 + ribbonH_tgt}`,
+          `C ${mx} ${y1 + ribbonH_tgt}, ${mx} ${y0 + ribbonH_src}, ${x0} ${y0 + ribbonH_src}`,
+          'Z'
+        ].join(' ');
+
+        // Center path for particle animation
+        const cy0 = y0 + ribbonH_src / 2;
+        const cy1 = y1 + ribbonH_tgt / 2;
+        const centerPath = `M ${x0} ${cy0} C ${mx} ${cy0}, ${mx} ${cy1}, ${x1} ${cy1}`;
+
+        return { d, centerPath, ribbonH: Math.max(ribbonH_src, ribbonH_tgt) };
+      }
+
+      // ── Ribbon color mapping ──
+      function ribbonColor(link) {
+        const sn = nodes[link.src];
+        if (sn.col === 0) return sn.color;      // Source-side: use input category color
+        return nodes[link.tgt].color;             // Model→Output: use destination color
+      }
+
+      // ── Build SVG ──
+      const svg = document.getElementById('sankeySvg');
+      const NS = 'http://www.w3.org/2000/svg';
+
+      // Defs for glow filters
+      const defs = document.createElementNS(NS, 'defs');
+      Object.entries(COLORS).forEach(([name, hex]) => {
+        const filter = document.createElementNS(NS, 'filter');
+        filter.setAttribute('id', `glow-${name}`);
+        filter.setAttribute('x', '-50%'); filter.setAttribute('y', '-50%');
+        filter.setAttribute('width', '200%'); filter.setAttribute('height', '200%');
+        const blur = document.createElementNS(NS, 'feGaussianBlur');
+        blur.setAttribute('stdDeviation', '4');
+        blur.setAttribute('result', 'blur');
+        const merge = document.createElementNS(NS, 'feMerge');
+        const m1 = document.createElementNS(NS, 'feMergeNode'); m1.setAttribute('in', 'blur');
+        const m2 = document.createElementNS(NS, 'feMergeNode'); m2.setAttribute('in', 'SourceGraphic');
+        merge.appendChild(m1); merge.appendChild(m2);
+        filter.appendChild(blur); filter.appendChild(merge);
+        defs.appendChild(filter);
+      });
+      svg.appendChild(defs);
+
+      // Column headers
+      const colHeaders = ['Input Sources', 'Models', 'Output Destinations'];
+      colHeaders.forEach((label, i) => {
+        const txt = document.createElementNS(NS, 'text');
+        txt.setAttribute('x', COL_X[i]);
+        txt.setAttribute('y', PAD_TOP - 16);
+        txt.setAttribute('text-anchor', 'middle');
+        txt.classList.add('column-header');
+        txt.textContent = label;
+        svg.appendChild(txt);
+      });
+
+      // ── Draw ribbons ──
+      const ribbonGroup = document.createElementNS(NS, 'g');
+      ribbonGroup.setAttribute('class', 'ribbons');
+      const particleGroup = document.createElementNS(NS, 'g');
+      particleGroup.setAttribute('class', 'particles');
+
+      const allRibbonEls = [];
+      const allParticleEls = [];
+      const ribbonData = [];
+
+      [...leftToMid, ...midToRight].forEach((link, i) => {
+        const { d, centerPath, ribbonH } = computeRibbonPath(link);
+        const color = ribbonColor(link);
+
+        // Fill ribbon
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', color);
+        path.setAttribute('opacity', '0.35');
+        path.setAttribute('class', 'ribbon');
+        path.dataset.index = i;
+        path.dataset.src = link.src;
+        path.dataset.tgt = link.tgt;
+        ribbonGroup.appendChild(path);
+        allRibbonEls.push(path);
+
+        // Particle flow line
+        const particle = document.createElementNS(NS, 'path');
+        particle.setAttribute('d', centerPath);
+        particle.setAttribute('stroke', color);
+        particle.setAttribute('stroke-width', Math.max(1.5, ribbonH * 0.12));
+        particle.setAttribute('stroke-dasharray', '3 37');
+        particle.setAttribute('opacity', '0.6');
+        particle.classList.add('flow-particle');
+        // Speed based on value
+        if (link.value >= 50)      particle.classList.add('speed-fast');
+        else if (link.value >= 15) particle.classList.add('speed-medium');
+        else                       particle.classList.add('speed-slow');
+        particle.dataset.index = i;
+        particleGroup.appendChild(particle);
+        allParticleEls.push(particle);
+
+        ribbonData.push({ link, el: path, particleEl: particle, color });
+      });
+
+      svg.appendChild(ribbonGroup);
+      svg.appendChild(particleGroup);
+
+      // ── Draw nodes ──
+      const nodeEls = {};
+      Object.entries(nodes).forEach(([id, n]) => {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'sankey-node');
+        g.dataset.nodeId = id;
+
+        // Glow filter name
+        const filterName = Object.entries(COLORS).find(([, v]) => v === n.color)?.[0] || 'indigo';
+
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('x', n.x);
+        rect.setAttribute('y', n.y);
+        rect.setAttribute('width', n.w);
+        rect.setAttribute('height', n.h);
+        rect.setAttribute('rx', 5);
+        rect.setAttribute('fill', n.color);
+        rect.setAttribute('filter', `url(#glow-${filterName})`);
+        rect.setAttribute('opacity', '0.9');
+        g.appendChild(rect);
+
+        // Label positioning: left col → left of node; right col → right of node; mid → on node
+        const isLeft = n.col === 0;
+        const isRight = n.col === 2;
+        const labelX = isLeft ? n.x - 8 : isRight ? n.x + n.w + 8 : n.x + n.w / 2;
+        const anchor = isLeft ? 'end' : isRight ? 'start' : 'middle';
+        const labelY = n.y + n.h / 2 - 2;
+
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('x', labelX);
+        label.setAttribute('y', labelY);
+        label.setAttribute('text-anchor', anchor);
+        label.setAttribute('dominant-baseline', 'auto');
+        label.classList.add('node-label');
+        label.textContent = n.label;
+        g.appendChild(label);
+
+        const sub = document.createElementNS(NS, 'text');
+        sub.setAttribute('x', labelX);
+        sub.setAttribute('y', labelY + 14);
+        sub.setAttribute('text-anchor', anchor);
+        sub.setAttribute('dominant-baseline', 'auto');
+        sub.classList.add('node-sublabel');
+        sub.textContent = `${n.tokens}K tokens`;
+        g.appendChild(sub);
+
+        svg.appendChild(g);
+        nodeEls[id] = g;
+      });
+
+      // ── Hover interactions ──
+      const tooltip = document.getElementById('tooltip');
+      const container = document.getElementById('sankeyContainer');
+
+      function highlightRibbon(index) {
+        allRibbonEls.forEach((el, j) => {
+          if (j === index) {
+            el.setAttribute('opacity', '0.7');
+            el.classList.add('ribbon-highlight');
+            el.classList.remove('ribbon-dimmed');
+          } else {
+            el.setAttribute('opacity', '0.06');
+            el.classList.add('ribbon-dimmed');
+            el.classList.remove('ribbon-highlight');
+          }
+        });
+        allParticleEls.forEach((el, j) => {
+          el.setAttribute('opacity', j === index ? '0.9' : '0.05');
+        });
+      }
+
+      function highlightNode(nodeId) {
+        const connected = new Set();
+        ribbonData.forEach((rd, i) => {
+          if (rd.link.src === nodeId || rd.link.tgt === nodeId) connected.add(i);
+        });
+        allRibbonEls.forEach((el, j) => {
+          if (connected.has(j)) {
+            el.setAttribute('opacity', '0.6');
+            el.classList.remove('ribbon-dimmed');
+          } else {
+            el.setAttribute('opacity', '0.06');
+            el.classList.add('ribbon-dimmed');
+          }
+        });
+        allParticleEls.forEach((el, j) => {
+          el.setAttribute('opacity', connected.has(j) ? '0.8' : '0.05');
+        });
+        Object.entries(nodeEls).forEach(([id, g]) => {
+          if (id !== nodeId && !connected.has(id)) {
+            const isConnected = ribbonData.some((rd, i) =>
+              connected.has(i) && (rd.link.src === id || rd.link.tgt === id));
+            g.classList.toggle('node-dimmed', !isConnected && id !== nodeId);
+          }
+        });
+      }
+
+      function resetHighlight() {
+        allRibbonEls.forEach(el => {
+          el.setAttribute('opacity', '0.35');
+          el.classList.remove('ribbon-dimmed', 'ribbon-highlight');
+        });
+        allParticleEls.forEach(el => el.setAttribute('opacity', '0.6'));
+        Object.values(nodeEls).forEach(g => g.classList.remove('node-dimmed'));
+        tooltip.classList.remove('visible');
+      }
+
+      function showTooltip(e, html) {
+        tooltip.innerHTML = html;
+        tooltip.classList.add('visible');
+        const rect = container.getBoundingClientRect();
+        const tx = e.clientX - rect.left + 14;
+        const ty = e.clientY - rect.top - 10;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+      }
+
+      // Ribbon hover
+      allRibbonEls.forEach((el, idx) => {
+        el.addEventListener('mouseenter', (e) => {
+          const rd = ribbonData[idx];
+          const srcNode = nodes[rd.link.src];
+          const tgtNode = nodes[rd.link.tgt];
+          const pct = ((rd.link.value / totalTokens) * 100).toFixed(1);
+          highlightRibbon(idx);
+          showTooltip(e, `
+            <div style="margin-bottom:4px;font-weight:600;">
+              <span class="tt-color-dot" style="background:${rd.color}"></span>
+              ${srcNode.label} → ${tgtNode.label}
+            </div>
+            <div class="tt-row"><span class="tt-label">Tokens</span><span class="tt-value">${rd.link.value}K</span></div>
+            <div class="tt-row"><span class="tt-label">Share</span><span class="tt-value">${pct}%</span></div>
+          `);
+        });
+        el.addEventListener('mousemove', (e) => {
+          const rect = container.getBoundingClientRect();
+          tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+          tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+        });
+        el.addEventListener('mouseleave', resetHighlight);
+      });
+
+      // Node hover
+      Object.entries(nodeEls).forEach(([id, g]) => {
+        g.addEventListener('mouseenter', (e) => {
+          const n = nodes[id];
+          const inLinks = links.filter(l => l.tgt === id);
+          const outLinks = links.filter(l => l.src === id);
+          highlightNode(id);
+
+          let details = '';
+          if (inLinks.length) {
+            details += '<div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">';
+            details += '<div class="tt-label" style="margin-bottom:3px;">Inflows:</div>';
+            inLinks.forEach(l => {
+              details += `<div class="tt-row"><span class="tt-label">${nodes[l.src].label}</span><span class="tt-value">${l.value}K</span></div>`;
+            });
+            details += '</div>';
+          }
+          if (outLinks.length) {
+            details += '<div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">';
+            details += '<div class="tt-label" style="margin-bottom:3px;">Outflows:</div>';
+            outLinks.forEach(l => {
+              details += `<div class="tt-row"><span class="tt-label">${nodes[l.tgt].label}</span><span class="tt-value">${l.value}K</span></div>`;
+            });
+            details += '</div>';
+          }
+          showTooltip(e, `
+            <div style="margin-bottom:2px;font-weight:600;">
+              <span class="tt-color-dot" style="background:${n.color}"></span>
+              ${n.label}
+            </div>
+            <div class="tt-row"><span class="tt-label">Throughput</span><span class="tt-value">${n.tokens}K tokens</span></div>
+            ${details}
+          `);
+        });
+        g.addEventListener('mousemove', (e) => {
+          const rect = container.getBoundingClientRect();
+          tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+          tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+        });
+        g.addEventListener('mouseleave', resetHighlight);
+      });
+
+      // ── Legend ──
+      const legendItems = [
+        { label: 'User Messages', color: COLORS.emerald },
+        { label: 'System Context', color: COLORS.neutral },
+        { label: 'Cached Input',   color: COLORS.violet },
+        { label: 'Tool Results',   color: COLORS.amber },
+        { label: 'Indigo (Model / Assistant)', color: COLORS.indigo },
+        { label: 'Danger / Cost',  color: COLORS.rose },
+      ];
+      const legendEl = document.getElementById('legend');
+      legendItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'legend-item';
+        div.innerHTML = `<span class="legend-swatch" style="background:${item.color}"></span>${item.label}`;
+        legendEl.appendChild(div);
+      });
+    });
+  </script>
+</body>
+</html>

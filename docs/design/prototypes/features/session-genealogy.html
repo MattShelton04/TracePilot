@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Genealogy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .view-toggle { display: flex; gap: 2px; background: var(--canvas-raised); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 3px; }
+    .view-toggle-btn { padding: 5px 14px; border: none; background: transparent; color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; cursor: pointer; border-radius: var(--radius-sm); transition: all var(--transition-fast); }
+    .view-toggle-btn.active { background: var(--accent-muted); color: var(--accent-fg); border: 1px solid var(--accent-emphasis); }
+    .view-toggle-btn:hover:not(.active) { color: var(--text-primary); }
+
+    /* Tree View */
+    .tree-view { overflow-x: auto; padding: 20px 0; }
+    .tree-svg { display: block; }
+    .tree-node { cursor: pointer; transition: opacity var(--transition-fast); }
+    .tree-node:hover { opacity: 0.85; }
+    .tree-node rect { rx: 8; ry: 8; }
+    .tree-node-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 600; fill: var(--text-primary); }
+    .tree-node-sub { font-family: 'JetBrains Mono', monospace; font-size: 8px; fill: var(--text-tertiary); }
+    .tree-badge { font-family: 'JetBrains Mono', monospace; font-size: 7px; font-weight: 600; }
+    .tree-connector { fill: none; stroke-width: 2; stroke-linecap: round; }
+    .chain-icon { font-size: 10px; }
+
+    /* Pulse animation for active nodes */
+    @keyframes nodePulse {
+      0%,100% { stroke-opacity: 0.6; }
+      50% { stroke-opacity: 1; }
+    }
+    .node-active { animation: nodePulse 2s ease-in-out infinite; }
+
+    /* Timeline View */
+    .timeline-view { display: none; overflow-x: auto; padding: 20px 0; }
+    .timeline-view.active { display: block; }
+    .tree-view.active { display: block; }
+    .tree-view:not(.active) { display: none; }
+
+    /* Detail Panel */
+    .detail-panel { background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 0; overflow: hidden; transition: all var(--transition-normal); }
+    .detail-panel.empty { border-style: dashed; }
+    .detail-panel-header { padding: 14px 18px; border-bottom: 1px solid var(--border-muted); display: flex; align-items: center; gap: 10px; }
+    .detail-panel-header .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .detail-panel-header h3 { font-size: 0.8125rem; font-weight: 600; flex: 1; }
+    .detail-panel-body { padding: 16px 18px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.75rem; }
+    .detail-row:last-child { border: none; }
+    .detail-row .d-label { color: var(--text-tertiary); }
+    .detail-row .d-value { color: var(--text-primary); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 0.6875rem; }
+    .detail-empty { padding: 40px 18px; text-align: center; color: var(--text-tertiary); font-size: 0.8125rem; }
+    .detail-empty .empty-icon { font-size: 2rem; margin-bottom: 8px; }
+
+    /* Resume pattern cards */
+    .pattern-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--canvas-raised); border: 1px solid var(--border-default); border-radius: var(--radius-md); margin-bottom: 8px; }
+    .pattern-card .p-icon { font-size: 1.25rem; flex-shrink: 0; }
+    .pattern-card .p-info { flex: 1; }
+    .pattern-card .p-info h4 { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }
+    .pattern-card .p-info p { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .pattern-card .p-count { font-size: 0.875rem; font-weight: 700; color: var(--accent-fg); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Session Genealogy</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+            <div style="flex:1;">
+              <h1 class="page-title">Session Genealogy</h1>
+              <p class="page-subtitle">Visualize session resume patterns and lineage chains</p>
+            </div>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" id="treeToggle" onclick="showView('tree')">🌳 Tree View</button>
+              <button class="view-toggle-btn" id="timelineToggle" onclick="showView('timeline')">📐 Timeline</button>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value accent">53</div>
+              <div class="stat-card-label">Total Sessions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:var(--done-fg)">12</div>
+              <div class="stat-card-label">Resumed (23%)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value warning">4</div>
+              <div class="stat-card-label">Max Resume Depth</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">1.4</div>
+              <div class="stat-card-label">Avg Resume Count</div>
+            </div>
+          </div>
+
+          <!-- Tree + Detail -->
+          <div class="grid-2 mb-6" style="grid-template-columns:2fr 1fr;">
+            <!-- Tree Visualization -->
+            <div class="section-panel">
+              <div class="section-panel-header">Resume Tree</div>
+              <div class="section-panel-body" style="padding:12px;overflow-x:auto;">
+                <!-- Tree View -->
+                <div class="tree-view active" id="treeView">
+                  <svg class="tree-svg" viewBox="0 0 900 560" width="100%" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Connection lines (curved) -->
+                    <!-- Chain 1: OAuth login (depth 4) -->
+                    <path d="M170,50 C220,50 220,50 270,50" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+                    <path d="M430,50 C480,50 480,50 530,50" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+                    <path d="M690,50 C730,50 730,80 770,80" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+                    <path d="M690,50 C730,50 730,130 770,130" class="tree-connector" stroke="#818cf8" opacity="0.4"/>
+
+                    <!-- Chain 2: GraphQL migration (depth 2) -->
+                    <path d="M170,160 C220,160 220,160 270,160" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+
+                    <!-- Chain 3: Payment tests (depth 3) -->
+                    <path d="M170,260 C220,260 220,260 270,260" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+                    <path d="M430,260 C480,260 480,260 530,260" class="tree-connector" stroke="#fb7185" opacity="0.4"/>
+
+                    <!-- Chain 4: CI/CD (depth 2) -->
+                    <path d="M170,360 C220,360 220,360 270,360" class="tree-connector" stroke="#34d399" opacity="0.4"/>
+
+                    <!-- === CHAIN 1: OAuth Login — depth 4 === -->
+                    <!-- Node 1.1: Root -->
+                    <g class="tree-node" data-node="oauth-1" onclick="selectNode(this)">
+                      <rect x="10" y="25" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="90" y="44" text-anchor="middle" class="tree-node-label">OAuth Login (1/4)</text>
+                      <text x="90" y="57" text-anchor="middle" class="tree-node-sub">32m · 6 turns · 420K tok</text>
+                      <text x="22" y="69" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <!-- Node 1.2: Resume 1 -->
+                    <g class="tree-node" data-node="oauth-2" onclick="selectNode(this)">
+                      <rect x="270" y="25" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="282" y="40" class="chain-icon">🔗</text>
+                      <text x="350" y="44" text-anchor="middle" class="tree-node-label">OAuth Login (2/4)</text>
+                      <text x="350" y="57" text-anchor="middle" class="tree-node-sub">18m · 4 turns · 280K tok</text>
+                      <text x="282" y="69" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <!-- Node 1.3: Resume 2 -->
+                    <g class="tree-node" data-node="oauth-3" onclick="selectNode(this)">
+                      <rect x="530" y="25" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="542" y="40" class="chain-icon">🔗</text>
+                      <text x="610" y="44" text-anchor="middle" class="tree-node-label">OAuth Login (3/4)</text>
+                      <text x="610" y="57" text-anchor="middle" class="tree-node-sub">22m · 5 turns · 350K tok</text>
+                      <text x="542" y="69" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <!-- Node 1.4a: Resume 3 (branch A) -->
+                    <g class="tree-node" data-node="oauth-4a" onclick="selectNode(this)">
+                      <rect x="770" y="55" width="120" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="782" y="70" class="chain-icon">🔗</text>
+                      <text x="830" y="74" text-anchor="middle" class="tree-node-label">OAuth (4a)</text>
+                      <text x="830" y="87" text-anchor="middle" class="tree-node-sub">8m · 2t · 120K</text>
+                      <text x="782" y="99" class="tree-badge" fill="var(--success-fg)">✓</text>
+                    </g>
+                    <!-- Node 1.4b: Resume 3 (branch B - active) -->
+                    <g class="tree-node" data-node="oauth-4b" onclick="selectNode(this)">
+                      <rect x="770" y="115" width="120" height="50" fill="var(--canvas-raised)" stroke="#818cf8" stroke-width="2.5" class="node-active"/>
+                      <text x="782" y="130" class="chain-icon">🔗</text>
+                      <text x="830" y="134" text-anchor="middle" class="tree-node-label" fill="#818cf8">OAuth (4b)</text>
+                      <text x="830" y="147" text-anchor="middle" class="tree-node-sub">3m · 1t · 45K</text>
+                      <text x="782" y="159" class="tree-badge" fill="#818cf8">● active</text>
+                    </g>
+
+                    <!-- === CHAIN 2: GraphQL — depth 2 === -->
+                    <g class="tree-node" data-node="gql-1" onclick="selectNode(this)">
+                      <rect x="10" y="135" width="160" height="50" fill="var(--canvas-raised)" stroke="#fb7185" stroke-width="2"/>
+                      <text x="90" y="154" text-anchor="middle" class="tree-node-label">GraphQL Migrate (1/2)</text>
+                      <text x="90" y="167" text-anchor="middle" class="tree-node-sub">55m · 22t · 2.1M tok</text>
+                      <text x="22" y="179" class="tree-badge" fill="var(--danger-fg)">✗ error</text>
+                    </g>
+                    <g class="tree-node" data-node="gql-2" onclick="selectNode(this)">
+                      <rect x="270" y="135" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="282" y="150" class="chain-icon">🔗</text>
+                      <text x="350" y="154" text-anchor="middle" class="tree-node-label">GraphQL Migrate (2/2)</text>
+                      <text x="350" y="167" text-anchor="middle" class="tree-node-sub">28m · 11t · 920K tok</text>
+                      <text x="282" y="179" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+
+                    <!-- === CHAIN 3: Payment Tests — depth 3 === -->
+                    <g class="tree-node" data-node="pay-1" onclick="selectNode(this)">
+                      <rect x="10" y="235" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="90" y="254" text-anchor="middle" class="tree-node-label">Payment Tests (1/3)</text>
+                      <text x="90" y="267" text-anchor="middle" class="tree-node-sub">20m · 8t · 680K tok</text>
+                      <text x="22" y="279" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <g class="tree-node" data-node="pay-2" onclick="selectNode(this)">
+                      <rect x="270" y="235" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="282" y="250" class="chain-icon">🔗</text>
+                      <text x="350" y="254" text-anchor="middle" class="tree-node-label">Payment Tests (2/3)</text>
+                      <text x="350" y="267" text-anchor="middle" class="tree-node-sub">18m · 6t · 520K tok</text>
+                      <text x="282" y="279" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <g class="tree-node" data-node="pay-3" onclick="selectNode(this)">
+                      <rect x="530" y="235" width="160" height="50" fill="var(--canvas-raised)" stroke="#fb7185" stroke-width="2"/>
+                      <text x="542" y="250" class="chain-icon">🔗</text>
+                      <text x="610" y="254" text-anchor="middle" class="tree-node-label">Payment Tests (3/3)</text>
+                      <text x="610" y="267" text-anchor="middle" class="tree-node-sub">10m · 4t · 320K tok</text>
+                      <text x="542" y="279" class="tree-badge" fill="var(--danger-fg)">✗ error</text>
+                    </g>
+
+                    <!-- === CHAIN 4: CI/CD — depth 2 === -->
+                    <g class="tree-node" data-node="cicd-1" onclick="selectNode(this)">
+                      <rect x="10" y="335" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="90" y="354" text-anchor="middle" class="tree-node-label">CI/CD Pipeline (1/2)</text>
+                      <text x="90" y="367" text-anchor="middle" class="tree-node-sub">25m · 7t · 560K tok</text>
+                      <text x="22" y="379" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+                    <g class="tree-node" data-node="cicd-2" onclick="selectNode(this)">
+                      <rect x="270" y="335" width="160" height="50" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="282" y="350" class="chain-icon">🔗</text>
+                      <text x="350" y="354" text-anchor="middle" class="tree-node-label">CI/CD Pipeline (2/2)</text>
+                      <text x="350" y="367" text-anchor="middle" class="tree-node-sub">10m · 3t · 280K tok</text>
+                      <text x="282" y="379" class="tree-badge" fill="var(--success-fg)">✓ completed</text>
+                    </g>
+
+                    <!-- Non-resumed sessions (compact) -->
+                    <g opacity="0.5">
+                      <rect x="10" y="420" width="880" height="30" rx="6" fill="var(--canvas-raised)" stroke="var(--border-muted)" stroke-width="1"/>
+                      <text x="450" y="440" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter" font-weight="500">+ 45 non-resumed sessions (single segment each)</text>
+                    </g>
+
+                    <!-- Legend -->
+                    <g transform="translate(10,475)">
+                      <text x="0" y="12" font-size="9" font-weight="600" fill="var(--text-tertiary)" font-family="Inter">LEGEND</text>
+                      <rect x="0" y="22" width="14" height="14" rx="3" fill="var(--canvas-raised)" stroke="#34d399" stroke-width="2"/>
+                      <text x="20" y="33" font-size="8" fill="var(--text-secondary)" font-family="Inter">Completed</text>
+                      <rect x="90" y="22" width="14" height="14" rx="3" fill="var(--canvas-raised)" stroke="#fb7185" stroke-width="2"/>
+                      <text x="110" y="33" font-size="8" fill="var(--text-secondary)" font-family="Inter">Error</text>
+                      <rect x="160" y="22" width="14" height="14" rx="3" fill="var(--canvas-raised)" stroke="#818cf8" stroke-width="2.5"/>
+                      <text x="180" y="33" font-size="8" fill="var(--text-secondary)" font-family="Inter">Active (pulsing)</text>
+                      <text x="270" y="33" font-size="10" fill="var(--text-secondary)" font-family="Inter">🔗 = resumed session</text>
+                    </g>
+                  </svg>
+                </div>
+
+                <!-- Timeline View -->
+                <div class="timeline-view" id="timelineView">
+                  <svg class="tree-svg" viewBox="0 0 900 320" width="100%" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Time axis -->
+                    <line x1="20" y1="280" x2="880" y2="280" stroke="var(--border-default)" stroke-width="1"/>
+                    <text x="50" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 10</text>
+                    <text x="180" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 11</text>
+                    <text x="310" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 12</text>
+                    <text x="440" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 13</text>
+                    <text x="570" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 14</text>
+                    <text x="700" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 15</text>
+                    <text x="830" y="300" font-size="8" fill="var(--text-tertiary)" font-family="Inter">Mar 16</text>
+
+                    <!-- Chain labels -->
+                    <text x="10" y="55" font-size="9" font-weight="600" fill="var(--text-secondary)" font-family="Inter">OAuth</text>
+                    <text x="10" y="115" font-size="9" font-weight="600" fill="var(--text-secondary)" font-family="Inter">GraphQL</text>
+                    <text x="10" y="175" font-size="9" font-weight="600" fill="var(--text-secondary)" font-family="Inter">Payment</text>
+                    <text x="10" y="235" font-size="9" font-weight="600" fill="var(--text-secondary)" font-family="Inter">CI/CD</text>
+
+                    <!-- OAuth chain (spans across multiple days) -->
+                    <rect x="60" y="38" width="100" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="110" y="54" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">32m</text>
+                    <line x1="160" y1="50" x2="200" y2="50" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="200" y="38" width="70" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="235" y="54" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">18m</text>
+                    <line x1="270" y1="50" x2="430" y2="50" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="430" y="38" width="80" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="470" y="54" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">22m</text>
+                    <line x1="510" y1="50" x2="600" y2="50" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="600" y="38" width="50" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="625" y="54" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">8m</text>
+                    <rect x="660" y="38" width="40" height="24" rx="5" fill="#818cf8" opacity="0.3" stroke="#818cf8" stroke-width="2"/>
+                    <text x="680" y="54" text-anchor="middle" font-size="8" fill="#818cf8" font-family="Inter" font-weight="600">●</text>
+
+                    <!-- GraphQL chain -->
+                    <rect x="310" y="98" width="120" height="24" rx="5" fill="#fb7185" opacity="0.25" stroke="#fb7185" stroke-width="1.5"/>
+                    <text x="370" y="114" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">55m ✗</text>
+                    <line x1="430" y1="110" x2="480" y2="110" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="480" y="98" width="90" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="525" y="114" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">28m ✓</text>
+
+                    <!-- Payment chain -->
+                    <rect x="440" y="158" width="70" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="475" y="174" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">20m</text>
+                    <line x1="510" y1="170" x2="540" y2="170" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="540" y="158" width="65" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="572" y="174" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">18m</text>
+                    <line x1="605" y1="170" x2="640" y2="170" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="640" y="158" width="55" height="24" rx="5" fill="#fb7185" opacity="0.25" stroke="#fb7185" stroke-width="1.5"/>
+                    <text x="668" y="174" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">10m ✗</text>
+
+                    <!-- CI/CD chain -->
+                    <rect x="180" y="218" width="80" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="220" y="234" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">25m</text>
+                    <line x1="260" y1="230" x2="300" y2="230" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+                    <rect x="300" y="218" width="50" height="24" rx="5" fill="#34d399" opacity="0.3" stroke="#34d399" stroke-width="1.5"/>
+                    <text x="325" y="234" text-anchor="middle" font-size="8" fill="var(--text-primary)" font-family="Inter" font-weight="600">10m</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail Panel -->
+            <div>
+              <div class="detail-panel" id="detailPanel">
+                <div class="detail-empty" id="detailEmpty">
+                  <div class="empty-icon">🔍</div>
+                  Click a node in the tree to see details
+                </div>
+                <div id="detailContent" style="display:none;">
+                  <div class="detail-panel-header">
+                    <div class="status-dot" id="detailDot"></div>
+                    <h3 id="detailTitle"></h3>
+                  </div>
+                  <div class="detail-panel-body" id="detailBody"></div>
+                </div>
+              </div>
+
+              <!-- Resume Patterns -->
+              <div class="section-panel" style="margin-top:16px;">
+                <div class="section-panel-header">Resume Patterns</div>
+                <div class="section-panel-body">
+                  <div class="pattern-card">
+                    <div class="p-icon">⚡</div>
+                    <div class="p-info">
+                      <h4>Quick Resume (&lt;5m gap)</h4>
+                      <p>Likely accidental shutdown</p>
+                    </div>
+                    <div class="p-count">4</div>
+                  </div>
+                  <div class="pattern-card">
+                    <div class="p-icon">🌅</div>
+                    <div class="p-info">
+                      <h4>Next Day Resume</h4>
+                      <p>Continued work after overnight break</p>
+                    </div>
+                    <div class="p-count">5</div>
+                  </div>
+                  <div class="pattern-card">
+                    <div class="p-icon">🌿</div>
+                    <div class="p-info">
+                      <h4>Different Branch Resume</h4>
+                      <p>Switched git branch between segments</p>
+                    </div>
+                    <div class="p-count">2</div>
+                  </div>
+                  <div class="pattern-card">
+                    <div class="p-icon">🔀</div>
+                    <div class="p-info">
+                      <h4>Fork Resume</h4>
+                      <p>Multiple resumes from same parent</p>
+                    </div>
+                    <div class="p-count">1</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+    });
+
+    // Node data
+    const NODE_DATA = {
+      'oauth-1': { title:'OAuth Login (Segment 1/4)', status:'completed', color:'#34d399', model:'Claude Opus 4.6', duration:'32m', turns:6, tokens:'420K', trigger:'User initiated', outcome:'Shutdown by user', branch:'feat/oauth-login', repo:'acme/web-platform', time:'Mar 10, 09:30 AM' },
+      'oauth-2': { title:'OAuth Login (Segment 2/4)', status:'completed', color:'#34d399', model:'Claude Opus 4.6', duration:'18m', turns:4, tokens:'280K', trigger:'Resumed after 2h gap', outcome:'Shutdown by user', branch:'feat/oauth-login', repo:'acme/web-platform', time:'Mar 10, 12:00 PM' },
+      'oauth-3': { title:'OAuth Login (Segment 3/4)', status:'completed', color:'#34d399', model:'Claude Opus 4.6', duration:'22m', turns:5, tokens:'350K', trigger:'Next day resume', outcome:'Completed successfully', branch:'feat/oauth-login', repo:'acme/web-platform', time:'Mar 12, 10:15 AM' },
+      'oauth-4a':{ title:'OAuth Login (Segment 4a)', status:'completed', color:'#34d399', model:'Claude Opus 4.6', duration:'8m', turns:2, tokens:'120K', trigger:'Quick resume (<5min)', outcome:'Finalized PR', branch:'feat/oauth-login', repo:'acme/web-platform', time:'Mar 14, 09:30 AM' },
+      'oauth-4b':{ title:'OAuth Login (Segment 4b)', status:'active', color:'#818cf8', model:'Claude Opus 4.6', duration:'3m (ongoing)', turns:1, tokens:'45K', trigger:'Fork resume from 3', outcome:'In progress…', branch:'feat/oauth-login-v2', repo:'acme/web-platform', time:'Mar 14, 10:00 AM' },
+      'gql-1':   { title:'GraphQL Migration (Segment 1/2)', status:'error', color:'#fb7185', model:'Claude Opus 4.6', duration:'55m', turns:22, tokens:'2.1M', trigger:'User initiated', outcome:'Context overflow error', branch:'feat/graphql-migration', repo:'acme/api-server', time:'Mar 12, 08:15 AM' },
+      'gql-2':   { title:'GraphQL Migration (Segment 2/2)', status:'completed', color:'#34d399', model:'Claude Opus 4.6', duration:'28m', turns:11, tokens:'920K', trigger:'Resumed after error recovery', outcome:'Completed successfully', branch:'feat/graphql-migration', repo:'acme/api-server', time:'Mar 14, 02:00 PM' },
+      'pay-1':   { title:'Payment Tests (Segment 1/3)', status:'completed', color:'#34d399', model:'Claude Sonnet 4.6', duration:'20m', turns:8, tokens:'680K', trigger:'User initiated', outcome:'Shutdown by user', branch:'test/payments', repo:'acme/web-platform', time:'Mar 13, 10:00 AM' },
+      'pay-2':   { title:'Payment Tests (Segment 2/3)', status:'completed', color:'#34d399', model:'Claude Sonnet 4.6', duration:'18m', turns:6, tokens:'520K', trigger:'Same day resume', outcome:'Completed batch 2', branch:'test/payments', repo:'acme/web-platform', time:'Mar 13, 11:30 AM' },
+      'pay-3':   { title:'Payment Tests (Segment 3/3)', status:'error', color:'#fb7185', model:'Claude Sonnet 4.6', duration:'10m', turns:4, tokens:'320K', trigger:'Quick resume (<5min)', outcome:'Compile error, abandoned', branch:'test/payments', repo:'acme/web-platform', time:'Mar 13, 01:00 PM' },
+      'cicd-1':  { title:'CI/CD Pipeline (Segment 1/2)', status:'completed', color:'#34d399', model:'GPT-5.4', duration:'25m', turns:7, tokens:'560K', trigger:'User initiated', outcome:'Shutdown for meeting', branch:'feat/ci-pipeline', repo:'acme/infrastructure', time:'Mar 11, 09:00 AM' },
+      'cicd-2':  { title:'CI/CD Pipeline (Segment 2/2)', status:'completed', color:'#34d399', model:'GPT-5.4', duration:'10m', turns:3, tokens:'280K', trigger:'Next day resume', outcome:'Pipeline finalized', branch:'feat/ci-pipeline', repo:'acme/infrastructure', time:'Mar 11, 02:00 PM' },
+    };
+
+    function selectNode(el) {
+      document.querySelectorAll('.tree-node rect').forEach(r => { r.style.filter = ''; });
+      const rect = el.querySelector('rect');
+      rect.style.filter = 'drop-shadow(0 0 8px rgba(99,102,241,0.5))';
+
+      const nodeId = el.dataset.node;
+      const d = NODE_DATA[nodeId];
+      if (!d) return;
+
+      document.getElementById('detailEmpty').style.display = 'none';
+      document.getElementById('detailContent').style.display = 'block';
+      document.getElementById('detailDot').style.background = d.color;
+      document.getElementById('detailTitle').textContent = d.title;
+
+      const statusMap = { completed:'✓ Completed', error:'✗ Error', active:'● Active' };
+      document.getElementById('detailBody').innerHTML = `
+        <div class="detail-row"><span class="d-label">Status</span><span class="d-value" style="color:${d.color}">${statusMap[d.status]}</span></div>
+        <div class="detail-row"><span class="d-label">Model</span><span class="d-value">${d.model}</span></div>
+        <div class="detail-row"><span class="d-label">Duration</span><span class="d-value">${d.duration}</span></div>
+        <div class="detail-row"><span class="d-label">Turns</span><span class="d-value">${d.turns}</span></div>
+        <div class="detail-row"><span class="d-label">Tokens</span><span class="d-value">${d.tokens}</span></div>
+        <div class="detail-row"><span class="d-label">Repository</span><span class="d-value">${d.repo}</span></div>
+        <div class="detail-row"><span class="d-label">Branch</span><span class="d-value">${d.branch}</span></div>
+        <div class="detail-row"><span class="d-label">Started</span><span class="d-value">${d.time}</span></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-muted);">
+          <div class="detail-row"><span class="d-label">Resume Trigger</span><span class="d-value" style="font-family:Inter;font-weight:500;">${d.trigger}</span></div>
+          <div class="detail-row"><span class="d-label">Outcome</span><span class="d-value" style="font-family:Inter;font-weight:500;color:${d.color}">${d.outcome}</span></div>
+        </div>
+      `;
+    }
+
+    function showView(view) {
+      document.getElementById('treeView').classList.toggle('active', view === 'tree');
+      document.getElementById('timelineView').classList.toggle('active', view === 'timeline');
+      document.getElementById('treeToggle').classList.toggle('active', view === 'tree');
+      document.getElementById('timelineToggle').classList.toggle('active', view === 'timeline');
+    }
+  </script>
+</body>
+</html>

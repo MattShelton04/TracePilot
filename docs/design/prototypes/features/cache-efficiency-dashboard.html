@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Cache Efficiency Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* Hero ring */
+    .hero-ring-section { display: flex; justify-content: center; margin-bottom: 28px; }
+    .hero-ring-card { display: flex; align-items: center; gap: 32px; padding: 32px 48px; background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-xl); }
+    .hero-ring { position: relative; width: 180px; height: 180px; }
+    .hero-ring-bg {
+      width: 180px; height: 180px; border-radius: 50%;
+      background: conic-gradient(
+        #34d399 0deg 245deg,
+        rgba(255,255,255,0.06) 245deg 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 20px), #000 calc(100% - 19px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 20px), #000 calc(100% - 19px));
+      animation: ringReveal 1.2s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes ringReveal {
+      from { background: conic-gradient(#34d399 0deg 0deg, rgba(255,255,255,0.06) 0deg 360deg); }
+      to { background: conic-gradient(#34d399 0deg 245deg, rgba(255,255,255,0.06) 245deg 360deg); }
+    }
+    .hero-ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+    .hero-ring-center .pct { font-size: 2.5rem; font-weight: 800; color: var(--success-fg); letter-spacing: -0.04em; }
+    .hero-ring-center .label { font-size: 0.75rem; color: var(--text-tertiary); }
+    .hero-ring-details { display: flex; flex-direction: column; gap: 12px; }
+    .hero-detail-row { display: flex; align-items: center; gap: 10px; }
+    .hero-detail-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .hero-detail-label { font-size: 0.8125rem; color: var(--text-secondary); }
+    .hero-detail-val { margin-left: auto; font-size: 0.875rem; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+    .savings-number { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #34d399, #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.03em; }
+
+    /* Model cache bars */
+    .model-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .model-bar-row .model-name { width: 130px; font-size: 0.75rem; color: var(--text-secondary); flex-shrink: 0; text-align: right; }
+    .model-bar-container { flex: 1; display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: var(--neutral-subtle); }
+    .model-bar-container .bar-seg { transition: width var(--transition-slow); }
+    .model-bar-pct { width: 42px; font-size: 0.6875rem; font-weight: 600; color: var(--text-primary); text-align: right; font-family: 'JetBrains Mono', monospace; }
+    .bar-legend { display: flex; gap: 16px; margin-bottom: 14px; }
+    .bar-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.6875rem; color: var(--text-secondary); }
+    .bar-legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* Cache miss cards */
+    .miss-card { padding: 14px 18px; background: var(--canvas-raised); border: 1px solid var(--border-default); border-radius: var(--radius-md); margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+    .miss-card .miss-icon { font-size: 1.25rem; flex-shrink: 0; }
+    .miss-card .miss-info h4 { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+    .miss-card .miss-info p { font-size: 0.75rem; color: var(--text-tertiary); line-height: 1.5; }
+    .miss-card .miss-badge { margin-left: auto; flex-shrink: 0; }
+
+    .projection-card { padding: 20px 24px; background: var(--success-subtle); border: 1px solid rgba(52,211,153,0.2); border-radius: var(--radius-lg); text-align: center; }
+    .projection-card .proj-amount { font-size: 1.75rem; font-weight: 800; color: var(--success-fg); letter-spacing: -0.03em; }
+    .projection-card .proj-label { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; }
+    .projection-card .proj-desc { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Cache Efficiency</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <div class="mb-4">
+            <h1 class="page-title">Cache Efficiency Dashboard</h1>
+            <p class="page-subtitle">Deep-dive into token caching performance across models and sessions</p>
+          </div>
+
+          <!-- Hero Ring -->
+          <div class="hero-ring-section">
+            <div class="hero-ring-card">
+              <div class="hero-ring">
+                <div class="hero-ring-bg"></div>
+                <div class="hero-ring-center">
+                  <div class="pct">68%</div>
+                  <div class="label">Cache Hit Rate</div>
+                </div>
+              </div>
+              <div class="hero-ring-details">
+                <div class="hero-detail-row">
+                  <div class="hero-detail-dot" style="background:#34d399"></div>
+                  <div class="hero-detail-label">Cache Reads</div>
+                  <div class="hero-detail-val">4.2M tokens</div>
+                </div>
+                <div class="hero-detail-row">
+                  <div class="hero-detail-dot" style="background:#6366f1"></div>
+                  <div class="hero-detail-label">Cache Writes</div>
+                  <div class="hero-detail-val">1.8M tokens</div>
+                </div>
+                <div class="hero-detail-row">
+                  <div class="hero-detail-dot" style="background:rgba(255,255,255,0.15)"></div>
+                  <div class="hero-detail-label">Fresh Input</div>
+                  <div class="hero-detail-val">2.0M tokens</div>
+                </div>
+                <div class="hero-detail-row" style="padding-top:8px;border-top:1px solid var(--border-muted);">
+                  <div class="hero-detail-dot" style="background:transparent"></div>
+                  <div class="hero-detail-label" style="font-weight:600;">Estimated Savings</div>
+                  <div class="hero-detail-val"><span class="savings-number" style="font-size:1.125rem;">$12.40</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat Cards -->
+          <div class="grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-card-value success">4.2M</div>
+              <div class="stat-card-label">Cache Reads</div>
+              <div class="stat-card-trend up">↑ 18% vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value accent">1.8M</div>
+              <div class="stat-card-label">Cache Writes</div>
+              <div class="stat-card-trend up">↑ 5% vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:var(--done-fg)">68%</div>
+              <div class="stat-card-label">Hit Rate</div>
+              <div class="stat-card-trend up">↑ 4% from 64%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">$12.40</div>
+              <div class="stat-card-label">Est. Savings</div>
+              <div class="stat-card-trend up">↑ $2.10 vs last week</div>
+            </div>
+          </div>
+
+          <!-- Cache by Model + Over Time -->
+          <div class="grid-2 mb-6">
+            <!-- Cache Efficiency by Model -->
+            <div class="section-panel">
+              <div class="section-panel-header">Cache Efficiency by Model</div>
+              <div class="section-panel-body">
+                <div class="bar-legend">
+                  <div class="bar-legend-item"><div class="bar-legend-swatch" style="background:#34d399"></div>Cache Read</div>
+                  <div class="bar-legend-item"><div class="bar-legend-swatch" style="background:#6366f1"></div>Cache Write</div>
+                  <div class="bar-legend-item"><div class="bar-legend-swatch" style="background:rgba(255,255,255,0.1)"></div>Fresh Input</div>
+                </div>
+                <!-- Claude Opus 4.6 -->
+                <div class="model-bar-row">
+                  <div class="model-name">Claude Opus 4.6</div>
+                  <div class="model-bar-container">
+                    <div class="bar-seg" style="width:55%;background:#34d399;"></div>
+                    <div class="bar-seg" style="width:20%;background:#6366f1;"></div>
+                    <div class="bar-seg" style="width:25%;background:rgba(255,255,255,0.1);"></div>
+                  </div>
+                  <div class="model-bar-pct">55%</div>
+                </div>
+                <!-- Claude Sonnet 4.6 -->
+                <div class="model-bar-row">
+                  <div class="model-name">Claude Sonnet 4.6</div>
+                  <div class="model-bar-container">
+                    <div class="bar-seg" style="width:72%;background:#34d399;"></div>
+                    <div class="bar-seg" style="width:12%;background:#6366f1;"></div>
+                    <div class="bar-seg" style="width:16%;background:rgba(255,255,255,0.1);"></div>
+                  </div>
+                  <div class="model-bar-pct">72%</div>
+                </div>
+                <!-- GPT-5.4 -->
+                <div class="model-bar-row">
+                  <div class="model-name">GPT-5.4</div>
+                  <div class="model-bar-container">
+                    <div class="bar-seg" style="width:48%;background:#34d399;"></div>
+                    <div class="bar-seg" style="width:22%;background:#6366f1;"></div>
+                    <div class="bar-seg" style="width:30%;background:rgba(255,255,255,0.1);"></div>
+                  </div>
+                  <div class="model-bar-pct">48%</div>
+                </div>
+                <!-- Claude Haiku 4.5 -->
+                <div class="model-bar-row">
+                  <div class="model-name">Claude Haiku 4.5</div>
+                  <div class="model-bar-container">
+                    <div class="bar-seg" style="width:82%;background:#34d399;"></div>
+                    <div class="bar-seg" style="width:8%;background:#6366f1;"></div>
+                    <div class="bar-seg" style="width:10%;background:rgba(255,255,255,0.1);"></div>
+                  </div>
+                  <div class="model-bar-pct">82%</div>
+                </div>
+                <div style="margin-top:14px;font-size:0.6875rem;color:var(--text-tertiary);">Haiku's smaller context window leads to higher cache reuse; Sonnet 4.6 shows strong caching with 45% cached inputs this week.</div>
+              </div>
+            </div>
+
+            <!-- Cache Efficiency Over Time -->
+            <div class="section-panel">
+              <div class="section-panel-header">Cache Efficiency Over Time (14 days)</div>
+              <div class="section-panel-body">
+                <svg viewBox="0 0 420 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="cacheAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#34d399" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Grid -->
+                  <line x1="40" y1="20" x2="400" y2="20" stroke="rgba(255,255,255,0.04)"/>
+                  <line x1="40" y1="56" x2="400" y2="56" stroke="rgba(255,255,255,0.04)"/>
+                  <line x1="40" y1="92" x2="400" y2="92" stroke="rgba(255,255,255,0.04)"/>
+                  <line x1="40" y1="128" x2="400" y2="128" stroke="rgba(255,255,255,0.04)"/>
+                  <line x1="40" y1="164" x2="400" y2="164" stroke="rgba(255,255,255,0.04)"/>
+                  <!-- Y axis -->
+                  <text x="36" y="168" text-anchor="end" class="axis-label" font-size="8">40%</text>
+                  <text x="36" y="132" text-anchor="end" class="axis-label" font-size="8">50%</text>
+                  <text x="36" y="96" text-anchor="end" class="axis-label" font-size="8">60%</text>
+                  <text x="36" y="60" text-anchor="end" class="axis-label" font-size="8">70%</text>
+                  <text x="36" y="24" text-anchor="end" class="axis-label" font-size="8">80%</text>
+                  <!-- Area -->
+                  <path d="M50,150 L76,145 L102,140 L128,132 L154,125 L180,118 L206,110 L232,100 L258,92 L284,85 L310,78 L336,72 L362,65 L388,56 L388,175 L50,175 Z" fill="url(#cacheAreaGrad)"/>
+                  <!-- Line -->
+                  <polyline points="50,150 76,145 102,140 128,132 154,125 180,118 206,110 232,100 258,92 284,85 310,78 336,72 362,65 388,56" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Dots for last week boundary -->
+                  <circle cx="180" cy="118" r="3" fill="#34d399"/>
+                  <circle cx="388" cy="56" r="4" fill="#34d399" stroke="#09090b" stroke-width="2"/>
+                  <!-- X labels (select days) -->
+                  <text x="50" y="190" class="axis-label" font-size="8" text-anchor="middle">Mar 3</text>
+                  <text x="128" y="190" class="axis-label" font-size="8" text-anchor="middle">Mar 6</text>
+                  <text x="206" y="190" class="axis-label" font-size="8" text-anchor="middle">Mar 9</text>
+                  <text x="284" y="190" class="axis-label" font-size="8" text-anchor="middle">Mar 12</text>
+                  <text x="362" y="190" class="axis-label" font-size="8" text-anchor="middle">Mar 15</text>
+                  <!-- Annotation -->
+                  <text x="395" y="52" fill="#34d399" font-size="9" font-weight="600" font-family="Inter">68%</text>
+                  <text x="46" y="146" fill="var(--text-tertiary)" font-size="8" font-family="Inter">42%</text>
+                  <!-- Week divider -->
+                  <line x1="206" y1="15" x2="206" y2="175" stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+                  <text x="208" y="12" fill="var(--text-tertiary)" font-size="7" font-family="Inter">← this week</text>
+                </svg>
+                <div style="margin-top:10px;font-size:0.6875rem;color:var(--text-tertiary);">Cache hit rate has improved steadily over 14 days, rising from 42% to 68% as session patterns stabilize.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Session Cache Breakdown Table -->
+          <div class="section-panel mb-6">
+            <div class="section-panel-header">Top Sessions by Cache Savings</div>
+            <div class="section-panel-body" style="padding:0;">
+              <table class="data-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th>Session</th>
+                    <th>Model</th>
+                    <th>Total Input</th>
+                    <th>Cached Input</th>
+                    <th>Cache %</th>
+                    <th>Cost Saved</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>GraphQL migration</td>
+                    <td><span class="badge badge-accent">Opus 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">2.1M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.7M</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:81%;height:100%;background:#34d399;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--success-fg);">81%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$2.40</td>
+                  </tr>
+                  <tr>
+                    <td>Payment module tests</td>
+                    <td><span class="badge badge-done">Sonnet 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.8M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.4M</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:78%;height:100%;background:#34d399;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--success-fg);">78%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$1.90</td>
+                  </tr>
+                  <tr>
+                    <td>WebSocket notifications</td>
+                    <td><span class="badge badge-accent">Opus 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.4M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.1M</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:79%;height:100%;background:#34d399;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--success-fg);">79%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$1.60</td>
+                  </tr>
+                  <tr>
+                    <td>Dashboard analytics</td>
+                    <td><span class="badge badge-done">Sonnet 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.6M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.2M</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:75%;height:100%;background:#34d399;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--success-fg);">75%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$1.40</td>
+                  </tr>
+                  <tr>
+                    <td>OAuth login implementation</td>
+                    <td><span class="badge badge-accent">Opus 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.2M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">840K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:70%;height:100%;background:#34d399;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--success-fg);">70%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$1.20</td>
+                  </tr>
+                  <tr>
+                    <td>Cache invalidation logic</td>
+                    <td><span class="badge badge-done">Sonnet 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.3M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">880K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:68%;height:100%;background:#fbbf24;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--warning-fg);">68%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$1.00</td>
+                  </tr>
+                  <tr>
+                    <td>CI/CD pipeline setup</td>
+                    <td><span class="badge badge-neutral">GPT-5.4</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">890K</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">490K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:55%;height:100%;background:#fbbf24;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--warning-fg);">55%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$0.80</td>
+                  </tr>
+                  <tr>
+                    <td>Monitoring dashboard</td>
+                    <td><span class="badge badge-accent">Opus 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">1.1M</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">550K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:50%;height:100%;background:#fbbf24;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--warning-fg);">50%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$0.70</td>
+                  </tr>
+                  <tr>
+                    <td>DB connection pooling fix</td>
+                    <td><span class="badge badge-neutral">GPT-5.4</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">680K</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">310K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:46%;height:100%;background:#fb7185;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--danger-fg);">46%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$0.50</td>
+                  </tr>
+                  <tr>
+                    <td>User search feature</td>
+                    <td><span class="badge badge-done">Sonnet 4.6</span></td>
+                    <td style="font-family:'JetBrains Mono',monospace;">780K</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">335K</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="flex:1;height:6px;background:var(--neutral-subtle);border-radius:3px;overflow:hidden;max-width:80px;"><div style="width:43%;height:100%;background:#fb7185;border-radius:3px;"></div></div>
+                        <span style="font-size:0.6875rem;font-weight:600;color:var(--danger-fg);">43%</span>
+                      </div>
+                    </td>
+                    <td style="font-weight:600;color:var(--success-fg);">$0.40</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Cache Miss Analysis + Projections -->
+          <div class="grid-2 mb-6">
+            <!-- Cache Miss Analysis -->
+            <div class="section-panel">
+              <div class="section-panel-header">Cache Miss Analysis</div>
+              <div class="section-panel-body">
+                <div class="miss-card">
+                  <div class="miss-icon">🆕</div>
+                  <div class="miss-info">
+                    <h4>New Repository Context</h4>
+                    <p>First session on a repo has no cached context. Cold start causes 100% cache miss for turn 1.</p>
+                  </div>
+                  <div class="miss-badge"><span class="badge badge-warning">12 sessions</span></div>
+                </div>
+                <div class="miss-card">
+                  <div class="miss-icon">🗜️</div>
+                  <div class="miss-info">
+                    <h4>Post-Compaction</h4>
+                    <p>After context compaction, the conversation prefix changes, invalidating cached prefixes.</p>
+                  </div>
+                  <div class="miss-badge"><span class="badge badge-danger">8 events</span></div>
+                </div>
+                <div class="miss-card">
+                  <div class="miss-icon">🔄</div>
+                  <div class="miss-info">
+                    <h4>Model Switch</h4>
+                    <p>Switching models resets the cache entirely. Each model maintains separate cache state.</p>
+                  </div>
+                  <div class="miss-badge"><span class="badge badge-done">6 events</span></div>
+                </div>
+                <div class="miss-card">
+                  <div class="miss-icon">📎</div>
+                  <div class="miss-info">
+                    <h4>Large Attachment Changes</h4>
+                    <p>Adding or removing attachments mid-session invalidates the prefix after the change point.</p>
+                  </div>
+                  <div class="miss-badge"><span class="badge badge-neutral">4 events</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Potential Savings -->
+            <div class="section-panel">
+              <div class="section-panel-header">Potential Savings Projections</div>
+              <div class="section-panel-body">
+                <div class="projection-card" style="margin-bottom:16px;">
+                  <div class="proj-amount">+$3.20 /month</div>
+                  <div class="proj-label">Additional savings if cache hit rate improves to 80%</div>
+                  <div class="proj-desc">Based on current usage patterns of 53 sessions/week and 12.3M tokens/week</div>
+                </div>
+                <div class="grid-2" style="gap:12px;">
+                  <div style="padding:14px;background:var(--canvas-raised);border:1px solid var(--border-default);border-radius:var(--radius-md);text-align:center;">
+                    <div style="font-size:1.25rem;font-weight:700;color:var(--accent-fg);">$49.60</div>
+                    <div style="font-size:0.6875rem;color:var(--text-tertiary);margin-top:4px;">Current monthly cost</div>
+                  </div>
+                  <div style="padding:14px;background:var(--canvas-raised);border:1px solid var(--border-default);border-radius:var(--radius-md);text-align:center;">
+                    <div style="font-size:1.25rem;font-weight:700;color:var(--success-fg);">$37.20</div>
+                    <div style="font-size:0.6875rem;color:var(--text-tertiary);margin-top:4px;">Projected at 80% cache</div>
+                  </div>
+                </div>
+                <div style="margin-top:16px;padding:12px 16px;background:var(--accent-subtle);border:1px solid var(--border-accent);border-radius:var(--radius-md);font-size:0.75rem;color:var(--text-secondary);line-height:1.6;">
+                  <strong style="color:var(--accent-fg);">💡 Tip:</strong> Minimize model switches and avoid compaction during cache-warm periods to maximize cache reuse. Sticking with a single model per session improves cache efficiency by ~15%.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+    });
+  </script>
+</body>
+</html>

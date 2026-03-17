@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Todo Dependency Graph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .progress-overview {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
+    }
+    .progress-overview-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+    .progress-overview-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      display: flex;
+    }
+    .progress-segment {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+    .progress-segment.done { background: var(--success-fg); }
+    .progress-segment.in-progress { background: var(--accent-fg); }
+    .progress-segment.blocked { background: var(--danger-fg); }
+    .progress-segment.pending { background: var(--neutral-emphasis); }
+    .progress-overview-pct {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .graph-panel {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      min-height: 440px;
+      position: relative;
+      overflow: auto;
+    }
+    .graph-svg {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Node styles */
+    .dag-node { cursor: pointer; transition: opacity 0.2s ease; }
+    .dag-node:hover .node-rect { filter: brightness(1.2); }
+    .dag-node.selected .node-rect { stroke-width: 2.5; }
+    .dag-node.faded { opacity: 0.25; }
+    .dag-node.highlighted { opacity: 1; }
+    .node-rect {
+      rx: 8;
+      ry: 8;
+      stroke-width: 1.5;
+      transition: filter 0.2s ease, stroke-width 0.2s ease;
+    }
+    .node-rect.done { fill: rgba(52,211,153,0.12); stroke: #34d399; }
+    .node-rect.in_progress { fill: rgba(99,102,241,0.12); stroke: #818cf8; }
+    .node-rect.pending { fill: rgba(161,161,170,0.08); stroke: rgba(255,255,255,0.15); }
+    .node-rect.blocked { fill: rgba(251,113,133,0.08); stroke: #fb7185; stroke-dasharray: 6 3; }
+    .node-title { font-size: 11px; font-weight: 600; fill: var(--text-primary); }
+    .node-desc { font-size: 9.5px; fill: var(--text-tertiary); }
+    .node-status-icon { font-size: 12px; }
+    .done-node { opacity: 0.7; }
+
+    .dag-edge {
+      fill: none;
+      stroke-width: 1.5;
+      transition: stroke 0.2s ease, opacity 0.2s ease;
+    }
+    .dag-edge.faded { opacity: 0.1; }
+    .dag-edge.highlighted { stroke-width: 2.5; opacity: 1; }
+    .edge-arrow { transition: fill 0.2s ease; }
+
+    .legend-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 16px;
+      margin-top: 14px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1.5px solid;
+    }
+    .legend-swatch.done { background: rgba(52,211,153,0.15); border-color: #34d399; }
+    .legend-swatch.in_progress { background: rgba(99,102,241,0.15); border-color: #818cf8; }
+    .legend-swatch.pending { background: rgba(161,161,170,0.08); border-color: rgba(255,255,255,0.2); }
+    .legend-swatch.blocked { background: rgba(251,113,133,0.08); border-color: #fb7185; border-style: dashed; }
+
+    .detail-panel {
+      margin-top: 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+    .detail-panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .detail-panel-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detail-panel-body {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+    .detail-section h4 {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .detail-description {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .dep-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .dep-list li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      padding: 4px 8px;
+      background: var(--canvas-default);
+      border-radius: var(--radius-sm);
+    }
+    .close-detail {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s;
+    }
+    .close-detail:hover { color: var(--text-primary); }
+
+    @media (max-width: 900px) {
+      .detail-panel-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="../variant-c/detail-todos.html" style="color:var(--text-tertiary);text-decoration:none;">Session c86fe…</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Todo Dependency Graph</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div style="margin-bottom:20px;">
+            <h1 class="page-title">Todo Dependency Graph</h1>
+            <p class="page-subtitle">Interactive DAG of todo items and their dependency relationships</p>
+          </div>
+
+          <!-- Stats Bar -->
+          <div class="grid-4 mb-6" id="stats-bar"></div>
+
+          <!-- Progress Overview -->
+          <div class="progress-overview" id="progress-bar"></div>
+
+          <!-- Graph -->
+          <div class="graph-panel" id="graph-container"></div>
+
+          <!-- Legend -->
+          <div class="legend-bar">
+            <div class="legend-item"><div class="legend-swatch done"></div> Done (✓)</div>
+            <div class="legend-item"><div class="legend-swatch in_progress"></div> In Progress (●)</div>
+            <div class="legend-item"><div class="legend-swatch pending"></div> Pending (○)</div>
+            <div class="legend-item"><div class="legend-swatch blocked"></div> Blocked (⊘)</div>
+            <div class="legend-item" style="margin-left:auto;color:var(--text-placeholder);">
+              <svg width="24" height="8"><path d="M0,4 C8,4 16,4 24,4" stroke="var(--text-placeholder)" stroke-width="1.5" fill="none" marker-end="url(#legend-arrow)"/></svg>
+              Dependency direction
+            </div>
+          </div>
+
+          <!-- Detail Panel -->
+          <div id="detail-panel" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ── Mock Data: 12 todos with a realistic dependency tree ──
+    const TODOS = [
+      { id: 'project-init',       title: 'Project initialization',             description: 'Set up Cargo workspace, pnpm monorepo, and configure base tooling (biome, clippy).', status: 'done' },
+      { id: 'db-schema',          title: 'Database schema design',             description: 'Design SQLite schema for sessions, events, turns, todos, and metrics tables.', status: 'done' },
+      { id: 'parser-core',        title: 'Core JSONL parser',                  description: 'Implement streaming JSONL parser for Copilot session logs with error recovery.', status: 'done' },
+      { id: 'event-extraction',   title: 'Event extraction pipeline',          description: 'Extract typed events from parsed JSONL: user messages, assistant turns, tool calls.', status: 'done' },
+      { id: 'todo-extraction',    title: 'Todo & dependency extraction',       description: 'Parse SQL-based todo operations and build dependency graph from session data.', status: 'done' },
+      { id: 'metrics-calc',       title: 'Metrics calculation engine',         description: 'Compute per-session and aggregate metrics: cost, tokens, duration, health scores.', status: 'done' },
+      { id: 'api-layer',          title: 'REST API layer',                     description: 'Build Axum HTTP API with routes for sessions, events, turns, todos, metrics, and search.', status: 'done' },
+      { id: 'frontend-shell',     title: 'Frontend app shell',                 description: 'Create Tauri + Vue 3 app shell with sidebar navigation and routing.', status: 'in_progress' },
+      { id: 'session-list-ui',    title: 'Session list view',                  description: 'Implement filterable, sortable session list with search, cards, and pagination.', status: 'in_progress' },
+      { id: 'detail-views',       title: 'Session detail views',               description: 'Build tabbed detail views: Overview, Conversation, Events, Todos, Metrics.', status: 'in_progress' },
+      { id: 'analytics-dash',     title: 'Analytics dashboard',                description: 'Aggregated analytics with charts: cost over time, model usage, tool frequency.', status: 'blocked' },
+      { id: 'export-feature',     title: 'Export & reporting',                 description: 'Export sessions to JSON/CSV/Markdown. Generate summary reports.', status: 'pending' },
+    ];
+
+    const DEPS = [
+      { from: 'project-init',     to: 'db-schema' },
+      { from: 'project-init',     to: 'parser-core' },
+      { from: 'parser-core',      to: 'event-extraction' },
+      { from: 'parser-core',      to: 'todo-extraction' },
+      { from: 'db-schema',        to: 'event-extraction' },
+      { from: 'event-extraction',  to: 'metrics-calc' },
+      { from: 'todo-extraction',   to: 'metrics-calc' },
+      { from: 'db-schema',        to: 'api-layer' },
+      { from: 'event-extraction',  to: 'api-layer' },
+      { from: 'metrics-calc',     to: 'api-layer' },
+      { from: 'api-layer',        to: 'frontend-shell' },
+      { from: 'frontend-shell',   to: 'session-list-ui' },
+      { from: 'frontend-shell',   to: 'detail-views' },
+      { from: 'api-layer',        to: 'analytics-dash' },
+      { from: 'detail-views',     to: 'analytics-dash' },
+      { from: 'api-layer',        to: 'export-feature' },
+      { from: 'analytics-dash',   to: 'export-feature' },
+    ];
+
+    // ── Topological Layout ──
+    function computeLevels(todos, deps) {
+      const idSet = new Set(todos.map(t => t.id));
+      const inDeg = {};
+      const adj = {};
+      todos.forEach(t => { inDeg[t.id] = 0; adj[t.id] = []; });
+      deps.forEach(d => {
+        if (idSet.has(d.from) && idSet.has(d.to)) {
+          adj[d.from].push(d.to);
+          inDeg[d.to]++;
+        }
+      });
+
+      const levels = {};
+      const queue = todos.filter(t => inDeg[t.id] === 0).map(t => t.id);
+      queue.forEach(id => levels[id] = 0);
+
+      let head = 0;
+      while (head < queue.length) {
+        const cur = queue[head++];
+        adj[cur].forEach(next => {
+          levels[next] = Math.max(levels[next] || 0, levels[cur] + 1);
+          inDeg[next]--;
+          if (inDeg[next] === 0) queue.push(next);
+        });
+      }
+      return levels;
+    }
+
+    function layoutNodes(todos, deps) {
+      const levels = computeLevels(todos, deps);
+      const maxLevel = Math.max(...Object.values(levels));
+      const byLevel = {};
+      todos.forEach(t => {
+        const lv = levels[t.id] ?? 0;
+        if (!byLevel[lv]) byLevel[lv] = [];
+        byLevel[lv].push(t);
+      });
+
+      const nodeW = 170, nodeH = 54;
+      const gapX = 60, gapY = 36;
+      const positions = {};
+      for (let lv = 0; lv <= maxLevel; lv++) {
+        const items = byLevel[lv] || [];
+        const totalW = items.length * nodeW + (items.length - 1) * gapX;
+        let startX = -totalW / 2;
+        items.forEach((t, i) => {
+          positions[t.id] = {
+            x: startX + i * (nodeW + gapX),
+            y: lv * (nodeH + gapY),
+            w: nodeW,
+            h: nodeH
+          };
+        });
+      }
+      return positions;
+    }
+
+    // ── Rendering ──
+    const statusIcon = { done: '✓', in_progress: '●', pending: '○', blocked: '⊘' };
+    const statusColor = {
+      done:        { stroke: '#34d399', fill: 'rgba(52,211,153,0.12)', text: '#34d399' },
+      in_progress: { stroke: '#818cf8', fill: 'rgba(99,102,241,0.12)', text: '#818cf8' },
+      pending:     { stroke: 'rgba(255,255,255,0.15)', fill: 'rgba(161,161,170,0.08)', text: '#a1a1aa' },
+      blocked:     { stroke: '#fb7185', fill: 'rgba(251,113,133,0.08)', text: '#fb7185' },
+    };
+
+    let selectedNode = null;
+    let hoveredNode = null;
+
+    function getDependencies(todoId) {
+      return DEPS.filter(d => d.to === todoId).map(d => d.from);
+    }
+    function getDependents(todoId) {
+      return DEPS.filter(d => d.from === todoId).map(d => d.to);
+    }
+    function getConnectedNodes(todoId) {
+      const set = new Set([todoId]);
+      DEPS.forEach(d => {
+        if (d.from === todoId || d.to === todoId) { set.add(d.from); set.add(d.to); }
+      });
+      return set;
+    }
+    function getConnectedEdges(todoId) {
+      return DEPS.filter(d => d.from === todoId || d.to === todoId);
+    }
+
+    function truncate(s, len) {
+      return s.length > len ? s.slice(0, len) + '…' : s;
+    }
+
+    function renderStats() {
+      const counts = { done: 0, in_progress: 0, pending: 0, blocked: 0 };
+      TODOS.forEach(t => counts[t.status]++);
+      document.getElementById('stats-bar').innerHTML = `
+        <div class="stat-card"><div class="stat-card-value accent">${TODOS.length}</div><div class="stat-card-label">Total Todos</div></div>
+        <div class="stat-card"><div class="stat-card-value success">${counts.done}</div><div class="stat-card-label">Completed</div></div>
+        <div class="stat-card"><div class="stat-card-value" style="color:var(--accent-fg)">${counts.in_progress}</div><div class="stat-card-label">In Progress</div></div>
+        <div class="stat-card"><div class="stat-card-value danger">${counts.blocked}</div><div class="stat-card-label">Blocked</div></div>
+      `;
+      const total = TODOS.length;
+      const donePct = (counts.done / total * 100).toFixed(0);
+      const ipPct = (counts.in_progress / total * 100).toFixed(0);
+      const blkPct = (counts.blocked / total * 100).toFixed(0);
+      const pendPct = (100 - donePct - ipPct - blkPct);
+      document.getElementById('progress-bar').innerHTML = `
+        <span class="progress-overview-label">Completion</span>
+        <div class="progress-overview-bar">
+          <div class="progress-segment done" style="width:${donePct}%"></div>
+          <div class="progress-segment in-progress" style="width:${ipPct}%"></div>
+          <div class="progress-segment blocked" style="width:${blkPct}%"></div>
+          <div class="progress-segment pending" style="width:${pendPct}%"></div>
+        </div>
+        <span class="progress-overview-pct">${donePct}%</span>
+      `;
+    }
+
+    function renderGraph() {
+      const positions = layoutNodes(TODOS, DEPS);
+      const allX = Object.values(positions).map(p => p.x);
+      const allY = Object.values(positions).map(p => p.y);
+      const minX = Math.min(...allX) - 30;
+      const maxX = Math.max(...allX.map((x, i) => x + Object.values(positions)[i].w)) + 30;
+      const minY = Math.min(...allY) - 20;
+      const maxY = Math.max(...allY.map((y, i) => y + Object.values(positions)[i].h)) + 20;
+      const svgW = maxX - minX;
+      const svgH = maxY - minY;
+
+      let svg = `<svg class="graph-svg" width="${svgW}" height="${svgH}" viewBox="${minX} ${minY} ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`;
+      svg += `<defs>`;
+      ['done','in_progress','pending','blocked'].forEach(s => {
+        svg += `<marker id="arrow-${s}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="${statusColor[s].stroke}" opacity="0.6" class="edge-arrow"/></marker>`;
+      });
+      svg += `<marker id="legend-arrow" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto"><polygon points="0 0, 6 2, 0 4" fill="var(--text-placeholder)"/></marker>`;
+      svg += `</defs>`;
+
+      // Edges
+      DEPS.forEach((d, i) => {
+        const from = positions[d.from];
+        const to = positions[d.to];
+        if (!from || !to) return;
+        const x1 = from.x + from.w / 2;
+        const y1 = from.y + from.h;
+        const x2 = to.x + to.w / 2;
+        const y2 = to.y;
+        const cy1 = y1 + (y2 - y1) * 0.4;
+        const cy2 = y1 + (y2 - y1) * 0.6;
+        const targetTodo = TODOS.find(t => t.id === d.to);
+        const color = statusColor[targetTodo?.status || 'pending'].stroke;
+        svg += `<path class="dag-edge" id="edge-${i}" d="M${x1},${y1} C${x1},${cy1} ${x2},${cy2} ${x2},${y2}" stroke="${color}" opacity="0.35" marker-end="url(#arrow-${targetTodo?.status || 'pending'})"/>`;
+      });
+
+      // Nodes
+      TODOS.forEach(t => {
+        const p = positions[t.id];
+        if (!p) return;
+        const c = statusColor[t.status];
+        const dasharray = t.status === 'blocked' ? 'stroke-dasharray="6 3"' : '';
+        const nodeClass = t.status === 'done' ? 'dag-node done-node' : 'dag-node';
+        svg += `<g class="${nodeClass}" data-id="${t.id}" id="node-${t.id}">`;
+        svg += `<rect class="node-rect ${t.status}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" ${dasharray}/>`;
+        svg += `<text class="node-status-icon" x="${p.x + 10}" y="${p.y + 20}" fill="${c.text}">${statusIcon[t.status]}</text>`;
+        svg += `<text class="node-title" x="${p.x + 26}" y="${p.y + 20}">${truncate(t.title, 18)}</text>`;
+        svg += `<text class="node-desc" x="${p.x + 10}" y="${p.y + 38}">${truncate(t.description, 28)}</text>`;
+        svg += `</g>`;
+      });
+
+      svg += `</svg>`;
+      document.getElementById('graph-container').innerHTML = svg;
+
+      // Attach event listeners
+      document.querySelectorAll('.dag-node').forEach(node => {
+        node.addEventListener('click', () => selectNode(node.dataset.id));
+        node.addEventListener('mouseenter', () => highlightNode(node.dataset.id));
+        node.addEventListener('mouseleave', () => clearHighlight());
+      });
+    }
+
+    function highlightNode(todoId) {
+      hoveredNode = todoId;
+      const connected = getConnectedNodes(todoId);
+      const connEdges = getConnectedEdges(todoId);
+      document.querySelectorAll('.dag-node').forEach(n => {
+        n.classList.toggle('faded', !connected.has(n.dataset.id));
+        n.classList.toggle('highlighted', connected.has(n.dataset.id));
+      });
+      DEPS.forEach((d, i) => {
+        const el = document.getElementById(`edge-${i}`);
+        if (!el) return;
+        const isConn = connEdges.some(e => e.from === d.from && e.to === d.to);
+        el.classList.toggle('faded', !isConn);
+        el.classList.toggle('highlighted', isConn);
+        if (isConn) el.setAttribute('opacity', '0.8');
+      });
+    }
+
+    function clearHighlight() {
+      hoveredNode = null;
+      document.querySelectorAll('.dag-node').forEach(n => {
+        n.classList.remove('faded', 'highlighted');
+      });
+      DEPS.forEach((d, i) => {
+        const el = document.getElementById(`edge-${i}`);
+        if (!el) return;
+        el.classList.remove('faded', 'highlighted');
+        el.setAttribute('opacity', '0.35');
+      });
+    }
+
+    function selectNode(todoId) {
+      selectedNode = todoId;
+      const todo = TODOS.find(t => t.id === todoId);
+      if (!todo) return;
+      const deps = getDependencies(todoId);
+      const dependents = getDependents(todoId);
+      const depsHtml = deps.length > 0
+        ? deps.map(did => { const dt = TODOS.find(t => t.id === did); return `<li>${getStatusIcon(dt?.status || 'pending')} ${dt?.title || did}</li>`; }).join('')
+        : '<li style="color:var(--text-placeholder)">No dependencies</li>';
+      const depsOfHtml = dependents.length > 0
+        ? dependents.map(did => { const dt = TODOS.find(t => t.id === did); return `<li>${getStatusIcon(dt?.status || 'pending')} ${dt?.title || did}</li>`; }).join('')
+        : '<li style="color:var(--text-placeholder)">No dependents</li>';
+
+      const panel = document.getElementById('detail-panel');
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div class="detail-panel">
+          <div class="detail-panel-header">
+            <div class="detail-panel-title">
+              ${getStatusIcon(todo.status)}
+              <span>${todo.title}</span>
+              <span class="badge ${getStatusBadgeClass(todo.status)}">${todo.status.replace('_', ' ')}</span>
+            </div>
+            <button class="close-detail" onclick="document.getElementById('detail-panel').style.display='none'">${ICONS.x}</button>
+          </div>
+          <div class="detail-panel-body">
+            <div class="detail-section">
+              <h4>Description</h4>
+              <p class="detail-description">${todo.description}</p>
+              <div style="margin-top:10px;">
+                <span style="font-size:0.6875rem;color:var(--text-placeholder)">ID: <code class="font-mono" style="color:var(--text-tertiary)">${todo.id}</code></span>
+              </div>
+            </div>
+            <div class="detail-section">
+              <h4>Dependencies (${deps.length})</h4>
+              <ul class="dep-list">${depsHtml}</ul>
+            </div>
+            <div class="detail-section">
+              <h4>Dependents (${dependents.length})</h4>
+              <ul class="dep-list">${depsOfHtml}</ul>
+            </div>
+          </div>
+        </div>
+      `;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      document.querySelectorAll('.dag-node').forEach(n => {
+        n.classList.toggle('selected', n.dataset.id === todoId);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+      renderStats();
+      renderGraph();
+    });
+  </script>
+</body>
+</html>

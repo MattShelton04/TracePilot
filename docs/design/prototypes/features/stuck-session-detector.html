@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Stuck Session Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .page-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .page-title-text {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .page-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+    .section-gap { margin-bottom: 24px; }
+
+    /* Pattern cards */
+    .patterns-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .pattern-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+    .pattern-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-1px);
+    }
+    .pattern-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .pattern-card-icon {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+    .pattern-card-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .pattern-card-count {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .pattern-card-count strong {
+      color: var(--danger-fg);
+      font-weight: 600;
+    }
+    .pattern-card-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+    .pattern-card-bar-fill {
+      height: 100%;
+      background: var(--danger-fg);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      opacity: 0.5;
+    }
+
+    /* Affected sessions table */
+    .session-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 500;
+    }
+    .status-recovered {
+      background: var(--success-muted);
+      color: var(--success-fg);
+    }
+    .status-abandoned {
+      background: var(--danger-muted);
+      color: var(--danger-fg);
+    }
+    .status-ongoing {
+      background: var(--warning-muted);
+      color: var(--warning-fg);
+    }
+    .pattern-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      background: var(--danger-subtle);
+      color: var(--danger-fg);
+    }
+    .wasted-tokens {
+      color: var(--danger-fg);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .wasted-time {
+      color: var(--danger-fg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Pattern Timeline */
+    .timeline-panel {
+      margin-top: 0;
+    }
+    .timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .timeline-session-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .timeline-track {
+      position: relative;
+      height: 48px;
+      background: var(--canvas-default);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
+    }
+    .timeline-segment {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      transition: opacity 0.15s ease;
+      cursor: pointer;
+    }
+    .timeline-segment.normal {
+      background: rgba(99, 102, 241, 0.15);
+    }
+    .timeline-segment.stuck {
+      background: rgba(251, 113, 133, 0.2);
+      border-left: 2px solid var(--danger-fg);
+      border-right: 2px solid var(--danger-fg);
+    }
+    .timeline-segment:hover {
+      opacity: 0.8;
+    }
+    .timeline-segment-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.5625rem;
+      font-weight: 600;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .timeline-segment.normal .timeline-segment-label { color: var(--accent-fg); }
+    .timeline-segment.stuck .timeline-segment-label { color: var(--danger-fg); }
+    .timeline-turn-markers {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+    }
+    .timeline-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .timeline-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .timeline-legend-dot.normal { background: rgba(99,102,241,0.3); }
+    .timeline-legend-dot.stuck { background: rgba(251,113,133,0.3); border: 1px solid var(--danger-fg); }
+
+    /* Recommendations */
+    .rec-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .rec-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px 14px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      transition: border-color var(--transition-fast);
+    }
+    .rec-item:hover { border-color: var(--border-accent); }
+    .rec-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+    .rec-text {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .rec-text strong { color: var(--text-primary); font-weight: 600; }
+    .rec-text .metric { color: var(--accent-fg); font-weight: 600; }
+
+    /* Severity indicator */
+    .severity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .severity-high { background: var(--danger-fg); }
+    .severity-medium { background: var(--warning-fg); }
+    .severity-low { background: var(--success-fg); }
+
+    /* Table row click highlight */
+    .data-table tbody tr.row-selected {
+      background: var(--accent-subtle);
+    }
+    .data-table tbody tr {
+      cursor: pointer;
+    }
+
+    .clickable-row:hover td {
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Stuck Session Detector</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <div class="page-title-row">
+            <div>
+              <div class="page-title-text">Stuck Session Detector</div>
+              <div class="page-subtitle">Identifies sessions with unproductive patterns — diagnostic view</div>
+            </div>
+            <span class="badge badge-danger">8 issues detected</span>
+          </div>
+
+          <!-- Stat Cards -->
+          <div class="grid-4 section-gap" id="statCards"></div>
+
+          <!-- Stuck Patterns -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">Detected Patterns</div>
+            <div class="section-panel-body">
+              <div class="patterns-grid" id="patternsGrid"></div>
+            </div>
+          </div>
+
+          <!-- Affected Sessions Table -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">Affected Sessions</div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="sessionsTable">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Session</th>
+                    <th>Pattern</th>
+                    <th>Turns Affected</th>
+                    <th>Wasted Tokens</th>
+                    <th>Time Wasted</th>
+                    <th>Resolution</th>
+                  </tr>
+                </thead>
+                <tbody id="sessionsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Pattern Timeline -->
+          <div class="section-panel section-gap" id="timelinePanel">
+            <div class="section-panel-header">Pattern Timeline</div>
+            <div class="section-panel-body timeline-panel" id="timelineContent">
+              <div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:0.8125rem;">
+                Click a session row above to view its timeline
+              </div>
+            </div>
+          </div>
+
+          <!-- Recommendations -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">Recommendations</div>
+            <div class="section-panel-body">
+              <div class="rec-list" id="recommendations"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    const STUCK_PATTERNS = [
+      { id: 'retry-loops', icon: '🔄', title: 'Tool Retry Loops', count: 5, desc: 'Same tool called 3+ times consecutively with failures', severity: 'high', pct: 62 },
+      { id: 'model-thrash', icon: '🔀', title: 'Model Thrashing', count: 2, desc: 'Frequent model switches without resolution', severity: 'medium', pct: 25 },
+      { id: 'dead-subagent', icon: '💀', title: 'Dead-End Subagents', count: 3, desc: 'Subagent invoked but result never used', severity: 'medium', pct: 37 },
+      { id: 'stalled', icon: '⏱️', title: 'Stalled Turns', count: 1, desc: 'Turn lasting >5 minutes with no tool calls', severity: 'low', pct: 12 },
+      { id: 'compaction', icon: '🔁', title: 'Compaction Churn', count: 2, desc: 'Multiple compactions in short period', severity: 'medium', pct: 25 },
+    ];
+
+    const STUCK_SESSIONS = [
+      { name: 'GraphQL migration endpoint handlers', pattern: 'retry-loops', patternIcon: '🔄', turns: '8–14', wastedTokens: 124000, timeWasted: '12m', resolution: 'recovered', severity: 'high',
+        timeline: [
+          { type: 'normal', start: 0, end: 30, label: 'Turns 1–7' },
+          { type: 'stuck', start: 30, end: 70, label: 'Retry loop (T8–14)' },
+          { type: 'normal', start: 70, end: 100, label: 'Turns 15–22' },
+        ]
+      },
+      { name: 'Payment webhook error handling', pattern: 'retry-loops', patternIcon: '🔄', turns: '4–8', wastedTokens: 89000, timeWasted: '8m', resolution: 'recovered', severity: 'high',
+        timeline: [
+          { type: 'normal', start: 0, end: 20, label: 'Turns 1–3' },
+          { type: 'stuck', start: 20, end: 55, label: 'Retry loop (T4–8)' },
+          { type: 'normal', start: 55, end: 100, label: 'Turns 9–15' },
+        ]
+      },
+      { name: 'CSS grid layout for dashboard', pattern: 'retry-loops', patternIcon: '🔄', turns: '3–6', wastedTokens: 56000, timeWasted: '5m', resolution: 'abandoned', severity: 'medium',
+        timeline: [
+          { type: 'normal', start: 0, end: 25, label: 'Turns 1–2' },
+          { type: 'stuck', start: 25, end: 75, label: 'Retry loop (T3–6)' },
+          { type: 'normal', start: 75, end: 100, label: 'Turns 7–8' },
+        ]
+      },
+      { name: 'Docker compose networking fix', pattern: 'retry-loops', patternIcon: '🔄', turns: '5–9', wastedTokens: 78000, timeWasted: '7m', resolution: 'recovered', severity: 'high',
+        timeline: [
+          { type: 'normal', start: 0, end: 30, label: 'Turns 1–4' },
+          { type: 'stuck', start: 30, end: 65, label: 'Retry loop (T5–9)' },
+          { type: 'normal', start: 65, end: 100, label: 'Turns 10–12' },
+        ]
+      },
+      { name: 'TypeScript strict mode migration', pattern: 'retry-loops', patternIcon: '🔄', turns: '12–18', wastedTokens: 142000, timeWasted: '15m', resolution: 'abandoned', severity: 'high',
+        timeline: [
+          { type: 'normal', start: 0, end: 40, label: 'Turns 1–11' },
+          { type: 'stuck', start: 40, end: 85, label: 'Retry loop (T12–18)' },
+          { type: 'normal', start: 85, end: 100, label: 'Turns 19–20' },
+        ]
+      },
+      { name: 'API rate limiter configuration', pattern: 'model-thrash', patternIcon: '🔀', turns: '6–10', wastedTokens: 98000, timeWasted: '10m', resolution: 'recovered', severity: 'medium',
+        timeline: [
+          { type: 'normal', start: 0, end: 35, label: 'Turns 1–5' },
+          { type: 'stuck', start: 35, end: 70, label: 'Model thrash (T6–10)' },
+          { type: 'normal', start: 70, end: 100, label: 'Turns 11–14' },
+        ]
+      },
+      { name: 'OAuth token refresh logic', pattern: 'model-thrash', patternIcon: '🔀', turns: '3–7', wastedTokens: 112000, timeWasted: '11m', resolution: 'ongoing', severity: 'medium',
+        timeline: [
+          { type: 'normal', start: 0, end: 20, label: 'Turns 1–2' },
+          { type: 'stuck', start: 20, end: 60, label: 'Model thrash (T3–7)' },
+          { type: 'normal', start: 60, end: 100, label: 'Turns 8–10' },
+        ]
+      },
+      { name: 'Redis session store implementation', pattern: 'dead-subagent', patternIcon: '💀', turns: '9–11', wastedTokens: 67000, timeWasted: '6m', resolution: 'recovered', severity: 'medium',
+        timeline: [
+          { type: 'normal', start: 0, end: 50, label: 'Turns 1–8' },
+          { type: 'stuck', start: 50, end: 75, label: 'Dead subagent (T9–11)' },
+          { type: 'normal', start: 75, end: 100, label: 'Turns 12–15' },
+        ]
+      },
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('health');
+
+      // --- Stat Cards ---
+      document.getElementById('statCards').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-card-value accent">53</div>
+          <div class="stat-card-label">Sessions Analyzed</div>
+          <div class="stat-card-trend">Last 30 days</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value danger">8</div>
+          <div class="stat-card-label">Stuck Detected</div>
+          <div class="stat-card-trend down">↑ 2 from last month</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value warning">4.2</div>
+          <div class="stat-card-label">Avg Recovery (turns)</div>
+          <div class="stat-card-trend up">↓ improved from 5.8</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value" style="font-size:1rem;">🔄 Retry Loops</div>
+          <div class="stat-card-label">Most Common Issue</div>
+          <div class="stat-card-trend">62% of stuck sessions</div>
+        </div>
+      `;
+
+      // --- Pattern Cards ---
+      const maxCount = Math.max(...STUCK_PATTERNS.map(p => p.count));
+      document.getElementById('patternsGrid').innerHTML = STUCK_PATTERNS.map(p => `
+        <div class="pattern-card" data-pattern="${p.id}">
+          <div class="pattern-card-icon">${p.icon}</div>
+          <div class="pattern-card-title">${p.title}</div>
+          <div class="pattern-card-count"><strong>${p.count} sessions</strong> · ${p.desc}</div>
+          <div class="pattern-card-bar"><div class="pattern-card-bar-fill" style="width:${p.pct}%"></div></div>
+        </div>
+      `).join('');
+
+      // Pattern card click → filter table
+      let activePattern = null;
+      document.getElementById('patternsGrid').addEventListener('click', (e) => {
+        const card = e.target.closest('.pattern-card');
+        if (!card) return;
+        const pattern = card.dataset.pattern;
+        document.querySelectorAll('.pattern-card').forEach(c => c.classList.remove('selected'));
+        if (activePattern === pattern) {
+          activePattern = null;
+          renderTable(STUCK_SESSIONS);
+        } else {
+          activePattern = pattern;
+          card.classList.add('selected');
+          renderTable(STUCK_SESSIONS.filter(s => s.pattern === pattern));
+        }
+      });
+
+      // --- Sessions Table ---
+      function renderTable(sessions) {
+        document.getElementById('sessionsBody').innerHTML = sessions.map((s, i) => {
+          const severityClass = s.severity === 'high' ? 'severity-high' : s.severity === 'medium' ? 'severity-medium' : 'severity-low';
+          const resClass = s.resolution === 'recovered' ? 'status-recovered' : s.resolution === 'abandoned' ? 'status-abandoned' : 'status-ongoing';
+          const resIcon = s.resolution === 'recovered' ? '✓' : s.resolution === 'abandoned' ? '✗' : '⟳';
+          return `
+            <tr class="clickable-row" data-idx="${i}" data-session='${JSON.stringify(s)}'>
+              <td><span class="severity-dot ${severityClass}"></span></td>
+              <td style="font-weight:500;">${s.name}</td>
+              <td><span class="pattern-badge">${s.patternIcon} ${s.pattern.replace('-', ' ')}</span></td>
+              <td style="font-variant-numeric:tabular-nums;">Turns ${s.turns}</td>
+              <td><span class="wasted-tokens">${(s.wastedTokens / 1000).toFixed(0)}K</span></td>
+              <td><span class="wasted-time">${s.timeWasted}</span></td>
+              <td><span class="session-status-badge ${resClass}">${resIcon} ${s.resolution}</span></td>
+            </tr>
+          `;
+        }).join('');
+
+        // Click row to show timeline
+        document.querySelectorAll('.clickable-row').forEach(row => {
+          row.addEventListener('click', () => {
+            document.querySelectorAll('.clickable-row').forEach(r => r.classList.remove('row-selected'));
+            row.classList.add('row-selected');
+            const session = JSON.parse(row.dataset.session);
+            renderTimeline(session);
+          });
+        });
+      }
+      renderTable(STUCK_SESSIONS);
+
+      // --- Timeline ---
+      function renderTimeline(session) {
+        const content = document.getElementById('timelineContent');
+        const segments = session.timeline;
+        let segHtml = segments.map(seg => `
+          <div class="timeline-segment ${seg.type}" style="left:${seg.start}%;width:${seg.end - seg.start}%;">
+            <span class="timeline-segment-label">${seg.label}</span>
+          </div>
+        `).join('');
+
+        // Turn number markers
+        const totalTurns = 20;
+        let markersHtml = '';
+        for (let t = 0; t <= totalTurns; t += 5) {
+          markersHtml += `<span style="position:absolute;left:${(t / totalTurns) * 100}%;">T${t}</span>`;
+        }
+
+        content.innerHTML = `
+          <div class="timeline-header">
+            <span class="timeline-session-name">${session.name}</span>
+            <span class="pattern-badge">${session.patternIcon} ${session.pattern.replace('-', ' ')}</span>
+            <span class="session-status-badge ${session.resolution === 'recovered' ? 'status-recovered' : session.resolution === 'abandoned' ? 'status-abandoned' : 'status-ongoing'}">${session.resolution}</span>
+          </div>
+          <div class="timeline-track">${segHtml}</div>
+          <div class="timeline-turn-markers" style="position:relative;height:16px;">${markersHtml}</div>
+          <div class="timeline-legend">
+            <span><span class="timeline-legend-dot normal"></span>Normal activity</span>
+            <span><span class="timeline-legend-dot stuck"></span>Stuck period</span>
+            <span style="margin-left:auto;color:var(--danger-fg);font-weight:500;">
+              Wasted: ${(session.wastedTokens / 1000).toFixed(0)}K tokens · ${session.timeWasted}
+            </span>
+          </div>
+        `;
+
+        document.getElementById('timelinePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      // Auto-show first session timeline
+      renderTimeline(STUCK_SESSIONS[0]);
+      document.querySelector('.clickable-row')?.classList.add('row-selected');
+
+      // --- Recommendations ---
+      document.getElementById('recommendations').innerHTML = `
+        <div class="rec-item">
+          <span class="rec-icon">🎯</span>
+          <div class="rec-text"><strong>Use a specific model for complex tasks.</strong> Sessions using <span class="metric">claude-opus-4.6</span> had 40% fewer retry loops than those using lighter models for the same task type.</div>
+        </div>
+        <div class="rec-item">
+          <span class="rec-icon">✂️</span>
+          <div class="rec-text"><strong>Break requests into smaller subtasks.</strong> Sessions with >15 turns were <span class="metric">3× more likely</span> to hit retry loops. Consider splitting complex migrations into focused steps.</div>
+        </div>
+        <div class="rec-item">
+          <span class="rec-icon">🔧</span>
+          <div class="rec-text"><strong>Avoid switching models mid-session.</strong> Model thrashing wasted an average of <span class="metric">105K tokens</span> per occurrence. Commit to one model per task.</div>
+        </div>
+        <div class="rec-item">
+          <span class="rec-icon">🤖</span>
+          <div class="rec-text"><strong>Review subagent results before continuing.</strong> Dead-end subagents often result from not checking the returned output. Consider explicit result validation steps.</div>
+        </div>
+        <div class="rec-item">
+          <span class="rec-icon">⏸️</span>
+          <div class="rec-text"><strong>Set a retry limit of 3 attempts.</strong> Tool retry loops beyond 3 attempts rarely succeed. Consider rephrasing the request or trying a different approach after 3 failures.</div>
+        </div>
+        <div class="rec-item">
+          <span class="rec-icon">📊</span>
+          <div class="rec-text"><strong>Monitor compaction frequency.</strong> More than <span class="metric">2 compactions in 10 minutes</span> indicates context overflow. Reduce context by closing unrelated files or summarizing earlier work.</div>
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — MCP Server Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* Server cards */
+    .server-card {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      cursor: pointer;
+      transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+    }
+    .server-card:hover,
+    .server-card.selected {
+      border-color: var(--accent-fg);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .server-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .server-status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d39966;
+      flex-shrink: 0;
+    }
+    .server-status-dot.warning { background: #fbbf24; box-shadow: 0 0 6px #fbbf2466; }
+    .server-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .server-tools-badge {
+      margin-left: auto;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: var(--neutral-muted);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+    }
+    .server-metrics-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .server-metric {
+      text-align: center;
+    }
+    .server-metric-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .server-metric-label {
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Success rate ring (tiny) */
+    .mini-ring {
+      position: relative;
+      width: 40px; height: 40px;
+      margin: 0 auto 4px;
+    }
+    .mini-ring svg { width: 40px; height: 40px; transform: rotate(-90deg); }
+    .mini-ring-bg { fill: none; stroke: var(--border-muted); stroke-width: 4; }
+    .mini-ring-fg { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
+
+    /* Sparkline container */
+    .sparkline-container { height: 32px; margin-top: 8px; }
+    .sparkline-container svg { width: 100%; height: 100%; }
+    .sparkline-line { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sparkline-area { opacity: 0.15; }
+
+    /* Latency chart */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .chart-container svg { width: 100%; height: 100%; }
+
+    /* Bar chart */
+    .bar-chart-container { position: relative; width: 100%; height: 220px; }
+    .bar-chart-container svg { width: 100%; height: 100%; }
+
+    /* Error log table */
+    .error-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--danger-muted);
+      color: var(--danger-fg);
+    }
+    .error-badge.timeout { background: var(--warning-muted); color: var(--warning-fg); }
+
+    /* Heatmap */
+    .heatmap-grid {
+      display: grid;
+      gap: 3px;
+      grid-template-columns: 100px repeat(7, 1fr);
+    }
+    .heatmap-label {
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      padding-right: 8px;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      min-height: 28px;
+      transition: transform 0.15s ease;
+      position: relative;
+    }
+    .heatmap-cell:hover { transform: scale(1.15); z-index: 2; }
+    .heatmap-day-label {
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: 4px 0;
+    }
+
+    /* Tooltip for heatmap */
+    .heatmap-cell[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--canvas-overlay);
+      color: var(--text-primary);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.625rem;
+      white-space: nowrap;
+      border: 1px solid var(--border-default);
+      z-index: 10;
+    }
+
+    .section-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">MCP Server Analytics</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Title -->
+          <div style="margin-bottom: 24px;">
+            <h1 class="text-display" style="margin-bottom: 4px;">MCP Server Analytics</h1>
+            <p class="text-body" style="color: var(--text-secondary);">Monitor Model Context Protocol server health, usage, and tool distribution.</p>
+          </div>
+
+          <!-- Stat cards -->
+          <div class="grid-4" style="margin-bottom: 24px;">
+            <div class="stat-card">
+              <div class="stat-label">Active MCP Servers</div>
+              <div class="stat-value">4</div>
+              <div class="stat-trend trend-up">All healthy</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total MCP Calls</div>
+              <div class="stat-value">89</div>
+              <div class="stat-trend trend-up">+14 vs last week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg Latency</div>
+              <div class="stat-value">340ms</div>
+              <div class="stat-trend trend-down">−22ms improvement</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Success Rate</div>
+              <div class="stat-value" style="color: var(--success-fg);">96.6%</div>
+              <div class="stat-trend">3 errors this period</div>
+            </div>
+          </div>
+
+          <!-- Server Cards -->
+          <div class="section-label">MCP Servers</div>
+          <div class="grid-4" style="margin-bottom: 24px;" id="serverCards"></div>
+
+          <!-- Tool Distribution + Latency Timeline -->
+          <div class="grid-2" style="margin-bottom: 24px;">
+            <div class="section-panel">
+              <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+                <h2 class="text-title-md">Tool Distribution</h2>
+                <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Tool usage for <strong id="selectedServerName" style="color: var(--accent-fg);">github-mcp-server</strong></p>
+              </div>
+              <div style="padding: 16px 20px;">
+                <div class="bar-chart-container" id="toolDistChart"></div>
+              </div>
+            </div>
+            <div class="section-panel">
+              <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+                <h2 class="text-title-md">Latency Timeline</h2>
+                <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">MCP call latency over 30 days per server</p>
+              </div>
+              <div style="padding: 16px 20px;">
+                <div class="chart-container" id="latencyChart"></div>
+                <div style="display: flex; gap: 16px; margin-top: 8px; justify-content: center;" id="latencyLegend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error Log -->
+          <div class="section-panel" style="margin-bottom: 24px;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+              <h2 class="text-title-md">Error Log</h2>
+              <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Recent MCP errors across all servers</p>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Server</th>
+                  <th>Tool</th>
+                  <th>Type</th>
+                  <th>Error Message</th>
+                </tr>
+              </thead>
+              <tbody id="errorLog"></tbody>
+            </table>
+          </div>
+
+          <!-- Server Health Heatmap -->
+          <div class="section-panel">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+              <h2 class="text-title-md">Server Health Matrix</h2>
+              <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Call volume per server per day (last 7 days)</p>
+            </div>
+            <div style="padding: 20px;" id="heatmapContainer"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('tools');
+
+    // ── Mock MCP Servers ──
+    const SERVERS = [
+      {
+        name: 'github-mcp-server', status: 'healthy', toolCount: 12,
+        calls: 38, successRate: 97.4, avgLatency: 310,
+        sparkline: [3,5,4,6,7,5,8],
+        color: '#818cf8',
+        tools: [
+          { name: 'search_code', calls: 8 },
+          { name: 'get_file_contents', calls: 7 },
+          { name: 'list_commits', calls: 5 },
+          { name: 'search_issues', calls: 4 },
+          { name: 'list_pull_requests', calls: 3 },
+          { name: 'get_commit', calls: 3 },
+          { name: 'issue_read', calls: 2 },
+          { name: 'pull_request_read', calls: 2 },
+          { name: 'search_repositories', calls: 1 },
+          { name: 'list_branches', calls: 1 },
+          { name: 'search_users', calls: 1 },
+          { name: 'actions_list', calls: 1 },
+        ],
+      },
+      {
+        name: 'filesystem-server', status: 'healthy', toolCount: 6,
+        calls: 28, successRate: 96.4, avgLatency: 120,
+        sparkline: [4,3,5,4,6,3,3],
+        color: '#34d399',
+        tools: [
+          { name: 'read_file', calls: 10 },
+          { name: 'write_file', calls: 7 },
+          { name: 'list_directory', calls: 5 },
+          { name: 'move_file', calls: 3 },
+          { name: 'search_files', calls: 2 },
+          { name: 'get_file_info', calls: 1 },
+        ],
+      },
+      {
+        name: 'database-server', status: 'healthy', toolCount: 4,
+        calls: 15, successRate: 93.3, avgLatency: 520,
+        sparkline: [1,2,3,2,2,3,2],
+        color: '#a78bfa',
+        tools: [
+          { name: 'query', calls: 8 },
+          { name: 'list_tables', calls: 4 },
+          { name: 'describe_table', calls: 2 },
+          { name: 'execute', calls: 1 },
+        ],
+      },
+      {
+        name: 'docker-server', status: 'warning', toolCount: 5,
+        calls: 8, successRate: 100, avgLatency: 680,
+        sparkline: [0,1,2,1,1,2,1],
+        color: '#22d3ee',
+        tools: [
+          { name: 'list_containers', calls: 3 },
+          { name: 'container_logs', calls: 2 },
+          { name: 'run_container', calls: 1 },
+          { name: 'stop_container', calls: 1 },
+          { name: 'build_image', calls: 1 },
+        ],
+      },
+    ];
+
+    let selectedServer = 0;
+
+    // ── Render server cards ──
+    function renderServerCards() {
+      const container = document.getElementById('serverCards');
+      container.innerHTML = SERVERS.map((s, i) => {
+        const circ = 2 * Math.PI * 16;
+        const offset = circ - (s.successRate / 100) * circ;
+        const sparkMax = Math.max(...s.sparkline);
+        const points = s.sparkline.map((v, idx) =>
+          `${(idx / (s.sparkline.length - 1)) * 100},${32 - (v / sparkMax) * 28}`
+        ).join(' ');
+        const areaPoints = points + ` 100,32 0,32`;
+        return `
+          <div class="server-card${i === selectedServer ? ' selected' : ''}" data-idx="${i}">
+            <div class="server-header">
+              <span class="server-status-dot${s.status === 'warning' ? ' warning' : ''}"></span>
+              <span class="server-name">${s.name}</span>
+              <span class="server-tools-badge">${s.toolCount} tools</span>
+            </div>
+            <div class="server-metrics-row">
+              <div class="server-metric">
+                <div class="server-metric-value">${s.calls}</div>
+                <div class="server-metric-label">Calls</div>
+              </div>
+              <div class="server-metric">
+                <div class="mini-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="mini-ring-bg" cx="18" cy="18" r="16"/>
+                    <circle class="mini-ring-fg" cx="18" cy="18" r="16"
+                      stroke="${s.color}" stroke-dasharray="${circ}"
+                      stroke-dashoffset="${offset}"/>
+                  </svg>
+                </div>
+                <div class="server-metric-label">${s.successRate}%</div>
+              </div>
+              <div class="server-metric">
+                <div class="server-metric-value">${s.avgLatency}<span style="font-size: 0.625rem; font-weight: 400; color: var(--text-tertiary);">ms</span></div>
+                <div class="server-metric-label">Latency</div>
+              </div>
+            </div>
+            <div class="sparkline-container">
+              <svg viewBox="0 0 100 32" preserveAspectRatio="none">
+                <polygon class="sparkline-area" points="${areaPoints}" fill="${s.color}"/>
+                <polyline class="sparkline-line" points="${points}" stroke="${s.color}"/>
+              </svg>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.server-card').forEach(card => {
+        card.addEventListener('click', () => {
+          selectedServer = parseInt(card.dataset.idx);
+          renderServerCards();
+          renderToolDist();
+          document.getElementById('selectedServerName').textContent = SERVERS[selectedServer].name;
+        });
+      });
+    }
+
+    // ── Tool distribution bar chart ──
+    function renderToolDist() {
+      const server = SERVERS[selectedServer];
+      const tools = server.tools;
+      const maxCalls = Math.max(...tools.map(t => t.calls));
+      const chartEl = document.getElementById('toolDistChart');
+      const barH = 18, gap = 6, labelW = 110, chartW = 400;
+      const totalH = tools.length * (barH + gap);
+
+      chartEl.innerHTML = `<svg viewBox="0 0 ${chartW} ${totalH}" style="width:100%;height:${totalH}px;">
+        ${tools.map((t, i) => {
+          const y = i * (barH + gap);
+          const bw = (t.calls / maxCalls) * (chartW - labelW - 50);
+          return `
+            <text x="${labelW - 8}" y="${y + barH / 2 + 1}" text-anchor="end" fill="#a1a1aa"
+              font-size="10" font-family="Inter" dominant-baseline="central">${t.name}</text>
+            <rect x="${labelW}" y="${y + 2}" width="${bw}" height="${barH - 4}"
+              rx="4" fill="${server.color}" opacity="0.7"/>
+            <text x="${labelW + bw + 6}" y="${y + barH / 2 + 1}" fill="#fafafa"
+              font-size="10" font-family="Inter" font-weight="600" dominant-baseline="central">${t.calls}</text>
+          `;
+        }).join('')}
+      </svg>`;
+    }
+
+    // ── Latency timeline ──
+    function renderLatencyChart() {
+      const container = document.getElementById('latencyChart');
+      const W = 500, H = 180, pad = { top: 10, right: 20, bottom: 30, left: 40 };
+      const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+
+      // 30 days of mock latency data per server
+      const latencyData = SERVERS.map(s => {
+        const data = [];
+        let base = s.avgLatency;
+        for (let d = 0; d < 30; d++) {
+          data.push(Math.max(50, base + (Math.random() - 0.5) * base * 0.6));
+        }
+        return data;
+      });
+      const allVals = latencyData.flat();
+      const maxL = Math.max(...allVals), minL = Math.min(...allVals);
+
+      function toPath(data) {
+        return data.map((v, i) => {
+          const x = pad.left + (i / 29) * cw;
+          const y = pad.top + ch - ((v - minL) / (maxL - minL)) * ch;
+          return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+      }
+
+      // Y axis ticks
+      const yTicks = [minL, (minL + maxL) / 2, maxL].map(v => Math.round(v));
+      const yTicksSvg = yTicks.map(v => {
+        const y = pad.top + ch - ((v - minL) / (maxL - minL)) * ch;
+        return `
+          <line x1="${pad.left}" x2="${pad.left + cw}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
+          <text x="${pad.left - 6}" y="${y + 3}" text-anchor="end" fill="#71717a" font-size="9" font-family="Inter">${v}ms</text>
+        `;
+      }).join('');
+
+      // X axis
+      const days = ['D-30','D-20','D-10','Today'];
+      const xTicksSvg = days.map((d, i) => {
+        const x = pad.left + (i / 3) * cw;
+        return `<text x="${x}" y="${H - 6}" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">${d}</text>`;
+      }).join('');
+
+      container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        ${yTicksSvg}${xTicksSvg}
+        ${latencyData.map((data, i) =>
+          `<path d="${toPath(data)}" fill="none" stroke="${SERVERS[i].color}" stroke-width="1.5" opacity="0.85"/>`
+        ).join('')}
+      </svg>`;
+
+      document.getElementById('latencyLegend').innerHTML = SERVERS.map(s => `
+        <div style="display:flex;align-items:center;gap:5px;font-size:0.6875rem;color:var(--text-secondary);">
+          <span style="width:10px;height:10px;border-radius:50%;background:${s.color};display:inline-block;"></span>
+          ${s.name.replace('-server', '')}
+        </div>
+      `).join('');
+    }
+
+    // ── Error log ──
+    function renderErrorLog() {
+      const errors = [
+        { ts: '2026-03-14 15:42', server: 'database-server', tool: 'query', type: 'timeout', msg: 'Query execution timed out after 30s — SELECT * FROM analytics WHERE...' },
+        { ts: '2026-03-13 09:18', server: 'github-mcp-server', tool: 'search_code', type: 'error', msg: 'API rate limit exceeded (403) — retry after 60s' },
+        { ts: '2026-03-12 11:05', server: 'filesystem-server', tool: 'write_file', type: 'error', msg: 'Permission denied: /etc/hosts is read-only' },
+        { ts: '2026-03-10 14:33', server: 'database-server', tool: 'execute', type: 'error', msg: 'Syntax error near "DELECT" — did you mean DELETE?' },
+        { ts: '2026-03-08 16:21', server: 'github-mcp-server', tool: 'get_file_contents', type: 'timeout', msg: 'Connection timed out — server unreachable for 15s' },
+      ];
+      document.getElementById('errorLog').innerHTML = errors.map(e => `
+        <tr>
+          <td style="font-variant-numeric: tabular-nums; color: var(--text-tertiary); font-size: 0.75rem;">${e.ts}</td>
+          <td style="font-weight: 500;">${e.server}</td>
+          <td><code style="font-size: 0.75rem; color: var(--accent-fg);">${e.tool}</code></td>
+          <td><span class="error-badge${e.type === 'timeout' ? ' timeout' : ''}">${e.type}</span></td>
+          <td style="font-size: 0.75rem; color: var(--text-secondary); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.msg}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ── Heatmap ──
+    function renderHeatmap() {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const heatData = SERVERS.map(s => {
+        return days.map(() => Math.floor(Math.random() * 12) + 1);
+      });
+      const maxVal = Math.max(...heatData.flat());
+
+      let html = '<div class="heatmap-grid">';
+      // Header row
+      html += '<div></div>';
+      days.forEach(d => html += `<div class="heatmap-day-label">${d}</div>`);
+      // Server rows
+      SERVERS.forEach((s, si) => {
+        html += `<div class="heatmap-label">${s.name.replace('-server', '')}</div>`;
+        heatData[si].forEach((val, di) => {
+          const intensity = val / maxVal;
+          const alpha = 0.1 + intensity * 0.8;
+          html += `<div class="heatmap-cell" data-tooltip="${val} calls"
+            style="background: ${s.color}; opacity: ${alpha.toFixed(2)};"></div>`;
+        });
+      });
+      html += '</div>';
+      document.getElementById('heatmapContainer').innerHTML = html;
+    }
+
+    // ── Initialize ──
+    renderServerCards();
+    renderToolDist();
+    renderLatencyChart();
+    renderErrorLog();
+    renderHeatmap();
+  });
+  </script>
+</body>
+</html>

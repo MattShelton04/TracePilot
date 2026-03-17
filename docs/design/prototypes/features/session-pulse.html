@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Pulse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── CRT / Oscilloscope Canvas ────────────────────────────── */
+    .pulse-canvas-wrap {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #050506;
+    }
+    .pulse-canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 340px;
+    }
+    /* Scanline overlay */
+    .pulse-canvas-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      z-index: 2;
+    }
+    /* CRT vignette */
+    .pulse-canvas-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+      z-index: 3;
+    }
+
+    /* ── Controls bar ─────────────────────────────────────────── */
+    .pulse-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--canvas-subtle);
+      border-top: 1px solid var(--border-default);
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+    }
+    .pulse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      background: var(--canvas-overlay);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .pulse-btn:hover { background: var(--canvas-raised); color: var(--text-primary); }
+    .pulse-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--accent-emphasis);
+    }
+    .pulse-btn svg { width: 14px; height: 14px; }
+    .pulse-controls .spacer { flex: 1; }
+    .pulse-time-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Legend ────────────────────────────────────────────────── */
+    .pulse-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .pulse-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .pulse-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Timeline strip ───────────────────────────────────────── */
+    .timeline-strip {
+      position: relative;
+      height: 32px;
+      background: var(--canvas-inset);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .timeline-strip-marker {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .timeline-strip-marker:hover {
+      transform: translate(-50%, -50%) scale(1.5);
+      box-shadow: 0 0 8px currentColor;
+    }
+    .timeline-strip-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent-fg);
+      box-shadow: 0 0 6px var(--accent-fg);
+      z-index: 2;
+      transition: left 0.05s linear;
+    }
+
+    /* ── Hover tooltip ────────────────────────────────────────── */
+    .pulse-tooltip {
+      position: absolute;
+      z-index: 10;
+      pointer-events: none;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      min-width: 180px;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transition: opacity .12s;
+      font-size: 12px;
+    }
+    .pulse-tooltip.visible { opacity: 1; }
+    .pulse-tooltip-type {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .pulse-tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 2px 0;
+      color: var(--text-secondary);
+    }
+    .pulse-tooltip-row span:last-child {
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Fade-in ──────────────────────────────────────────────── */
+    .fade-in { animation: fadeInUp .5s ease both; }
+    .fade-in-d1 { animation-delay: .08s; }
+    .fade-in-d2 { animation-delay: .16s; }
+    .fade-in-d3 { animation-delay: .24s; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Metadata badges row ──────────────────────────────────── */
+    .meta-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .meta-badges .badge { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Session Pulse</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- ── Session Header ──────────────────────────────── -->
+          <div class="fade-in" style="margin-bottom: 20px;">
+            <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 4px;">
+              <span style="background: linear-gradient(135deg, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Session Pulse</span>
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 13px; margin: 0 0 14px;">
+              ECG-style activity trace — <span class="font-mono" style="color:var(--text-tertiary)">feat/oauth-login</span>
+            </p>
+            <div class="meta-badges">
+              <span class="badge badge-accent">acme/web-platform</span>
+              <span class="badge badge-accent">feat/oauth-login</span>
+              <span class="badge badge-done">claude-sonnet-4.6</span>
+              <span class="badge badge-success">32 min</span>
+              <span class="badge badge-warning">15 turns</span>
+            </div>
+          </div>
+
+          <!-- ── Stat Cards ──────────────────────────────────── -->
+          <div class="grid-4 fade-in fade-in-d1" style="margin-bottom: 20px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent">15</div>
+              <div class="stat-card-label">Turns</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">42</div>
+              <div class="stat-card-label">Tool Calls</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value danger">2</div>
+              <div class="stat-card-label">Errors</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value done">1</div>
+              <div class="stat-card-label">Model Switch</div>
+            </div>
+          </div>
+
+          <!-- ── Pulse Canvas ────────────────────────────────── -->
+          <div class="section-panel fade-in fade-in-d2" style="margin-bottom: 20px;">
+            <div class="section-panel-header" style="display:flex; align-items:center; justify-content:space-between;">
+              <span>Activity Trace</span>
+              <div class="pulse-legend">
+                <span class="pulse-legend-item"><span class="pulse-legend-dot" style="background:#34d399"></span>User</span>
+                <span class="pulse-legend-item"><span class="pulse-legend-dot" style="background:#818cf8"></span>Assistant</span>
+                <span class="pulse-legend-item"><span class="pulse-legend-dot" style="background:#fbbf24"></span>Tool Call</span>
+                <span class="pulse-legend-item"><span class="pulse-legend-dot" style="background:#fb7185"></span>Error</span>
+                <span class="pulse-legend-item"><span class="pulse-legend-dot" style="background:#a78bfa"></span>Model Switch</span>
+              </div>
+            </div>
+            <div class="section-panel-body" style="padding:0; position:relative;">
+              <div class="pulse-canvas-wrap">
+                <canvas id="pulseCanvas"></canvas>
+                <!-- Hover tooltip -->
+                <div class="pulse-tooltip" id="pulseTooltip">
+                  <div class="pulse-tooltip-type" id="ttType"></div>
+                  <div class="pulse-tooltip-row"><span>Time</span><span id="ttTime"></span></div>
+                  <div class="pulse-tooltip-row"><span>Intensity</span><span id="ttIntensity"></span></div>
+                  <div class="pulse-tooltip-row"><span>Detail</span><span id="ttDetail"></span></div>
+                </div>
+              </div>
+              <!-- Timeline strip -->
+              <div class="timeline-strip" id="timelineStrip">
+                <div class="timeline-strip-playhead" id="playhead"></div>
+              </div>
+              <!-- Controls -->
+              <div class="pulse-controls">
+                <button class="pulse-btn active" id="btnPlay" title="Play / Pause">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><polygon id="playIcon" points="4,2 14,8 4,14"/></svg>
+                </button>
+                <button class="pulse-btn" id="btnReset" title="Reset">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 1.76 4.24"/><polyline points="2 12 2 8 6 8" fill="none"/></svg>
+                </button>
+                <div style="display:flex; gap:4px;">
+                  <button class="pulse-btn speed-btn active" data-speed="1">1×</button>
+                  <button class="pulse-btn speed-btn" data-speed="2">2×</button>
+                  <button class="pulse-btn speed-btn" data-speed="4">4×</button>
+                </div>
+                <div class="spacer"></div>
+                <span class="pulse-time-label" id="timeLabel">00:00 / 32:00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Event Log (compact) ─────────────────────────── -->
+          <div class="section-panel fade-in fade-in-d3">
+            <div class="section-panel-header">Event Log</div>
+            <div class="section-panel-body" style="padding:0;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                  <tr style="color:var(--text-tertiary); text-align:left; border-bottom:1px solid var(--border-default);">
+                    <th style="padding:8px 14px; font-weight:500;">Time</th>
+                    <th style="padding:8px 14px; font-weight:500;">Type</th>
+                    <th style="padding:8px 14px; font-weight:500;">Label</th>
+                    <th style="padding:8px 14px; font-weight:500;">Intensity</th>
+                  </tr>
+                </thead>
+                <tbody id="eventLogBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // ════════════════════════════════════════════════════════════
+    //  COLOR MAP
+    // ════════════════════════════════════════════════════════════
+    const COLORS = {
+      user:        '#34d399',
+      assistant:   '#818cf8',
+      tool:        '#fbbf24',
+      error:       '#fb7185',
+      modelSwitch: '#a78bfa',
+      baseline:    '#1a3a2a',
+      grid:        'rgba(52,211,153,0.06)',
+      gridStrong:  'rgba(52,211,153,0.12)',
+    };
+
+    // ════════════════════════════════════════════════════════════
+    //  MOCK DATA — 30-min session, 15 turns, ~42 tool calls
+    // ════════════════════════════════════════════════════════════
+    const SESSION_DURATION = 32 * 60 * 1000; // 32 min in ms
+    const events = [
+      // Turn 1 — user describes task, assistant reads repo
+      { time:   0,     type: 'user',      intensity: 0.35, label: 'User message',     details: 'Add OAuth login flow to the app' },
+      { time:   8000,  type: 'assistant',  intensity: 0.30, label: 'Planning',         details: 'Reading codebase to understand auth structure' },
+      { time:  15000,  type: 'tool',       intensity: 0.50, label: 'glob',             details: 'glob src/**/*.ts — 47 matches' },
+      { time:  18000,  type: 'tool',       intensity: 0.40, label: 'view',             details: 'view src/auth/index.ts' },
+      { time:  22000,  type: 'tool',       intensity: 0.42, label: 'view',             details: 'view src/config/oauth.ts' },
+      // Turn 2 — implement provider
+      { time:  45000,  type: 'user',      intensity: 0.30, label: 'User message',     details: 'Start with Google OAuth provider' },
+      { time:  52000,  type: 'assistant',  intensity: 0.55, label: 'Generating code',  details: 'Creating GoogleOAuthProvider class' },
+      { time:  58000,  type: 'tool',       intensity: 0.65, label: 'create',           details: 'create src/auth/providers/google.ts' },
+      { time:  62000,  type: 'tool',       intensity: 0.48, label: 'edit',             details: 'edit src/auth/index.ts — add Google export' },
+      // Turn 3 — write tests
+      { time:  90000,  type: 'user',      intensity: 0.25, label: 'User message',     details: 'Write unit tests' },
+      { time:  97000,  type: 'assistant',  intensity: 0.45, label: 'Writing tests',    details: 'Creating test suite for GoogleOAuthProvider' },
+      { time: 105000,  type: 'tool',       intensity: 0.60, label: 'create',           details: 'create src/auth/__tests__/google.test.ts' },
+      { time: 112000,  type: 'tool',       intensity: 0.72, label: 'powershell',       details: 'npm run test -- --filter google' },
+      { time: 120000,  type: 'error',      intensity: 0.90, label: 'Test failure',     details: 'FAIL: 3 of 8 tests — missing mock for fetch' },
+      // Turn 4 — fix tests
+      { time: 140000,  type: 'user',      intensity: 0.28, label: 'User message',     details: 'Fix the failing tests' },
+      { time: 148000,  type: 'assistant',  intensity: 0.50, label: 'Fixing mocks',     details: 'Adding global fetch mock to test setup' },
+      { time: 155000,  type: 'tool',       intensity: 0.55, label: 'edit',             details: 'edit src/auth/__tests__/google.test.ts' },
+      { time: 162000,  type: 'tool',       intensity: 0.68, label: 'powershell',       details: 'npm run test -- --filter google' },
+      // Turn 5 — quiet success, add token refresh
+      { time: 200000,  type: 'user',      intensity: 0.22, label: 'User message',     details: 'Add token refresh logic' },
+      { time: 210000,  type: 'assistant',  intensity: 0.40, label: 'Implementing',     details: 'Token refresh with retry + exponential backoff' },
+      { time: 218000,  type: 'tool',       intensity: 0.52, label: 'edit',             details: 'edit src/auth/providers/google.ts — add refreshToken()' },
+      { time: 224000,  type: 'tool',       intensity: 0.38, label: 'view',             details: 'view src/utils/retry.ts' },
+      { time: 230000,  type: 'tool',       intensity: 0.44, label: 'edit',             details: 'edit src/auth/providers/google.ts — wire retry' },
+      // Turn 6 — add route handlers
+      { time: 280000,  type: 'user',      intensity: 0.32, label: 'User message',     details: 'Create API route handlers' },
+      { time: 290000,  type: 'assistant',  intensity: 0.60, label: 'Creating routes',  details: 'Building /auth/google and /auth/callback routes' },
+      { time: 298000,  type: 'tool',       intensity: 0.70, label: 'create',           details: 'create src/routes/auth/google.ts' },
+      { time: 305000,  type: 'tool',       intensity: 0.65, label: 'create',           details: 'create src/routes/auth/callback.ts' },
+      { time: 312000,  type: 'tool',       intensity: 0.48, label: 'edit',             details: 'edit src/routes/index.ts — register auth routes' },
+      { time: 318000,  type: 'tool',       intensity: 0.42, label: 'grep',             details: 'grep "middleware" src/routes/**' },
+      // Turn 7 — burst of tool activity (middleware)
+      { time: 380000,  type: 'user',      intensity: 0.30, label: 'User message',     details: 'Add auth middleware' },
+      { time: 388000,  type: 'assistant',  intensity: 0.55, label: 'Middleware',       details: 'Creating withAuth middleware + session cookie logic' },
+      { time: 396000,  type: 'tool',       intensity: 0.60, label: 'create',           details: 'create src/middleware/withAuth.ts' },
+      { time: 402000,  type: 'tool',       intensity: 0.45, label: 'edit',             details: 'edit src/middleware/index.ts' },
+      { time: 408000,  type: 'tool',       intensity: 0.50, label: 'view',             details: 'view package.json — check cookie dep' },
+      { time: 414000,  type: 'tool',       intensity: 0.62, label: 'powershell',       details: 'npm install cookie-signature' },
+      { time: 420000,  type: 'tool',       intensity: 0.48, label: 'edit',             details: 'edit src/middleware/withAuth.ts — use cookie-signature' },
+      // Turn 8 — MODEL SWITCH
+      { time: 500000,  type: 'user',      intensity: 0.35, label: 'User message',     details: 'Switch to gpt-4.1 for the UI components' },
+      { time: 502000,  type: 'modelSwitch', intensity: 0.95, label: 'Model → gpt-4.1', details: 'Switched from claude-sonnet-4.6 to gpt-4.1' },
+      { time: 510000,  type: 'assistant',  intensity: 0.50, label: 'Generating UI',    details: 'Creating login button component with gpt-4.1' },
+      { time: 520000,  type: 'tool',       intensity: 0.58, label: 'create',           details: 'create src/components/LoginButton.tsx' },
+      { time: 528000,  type: 'tool',       intensity: 0.52, label: 'create',           details: 'create src/components/AuthCallback.tsx' },
+      { time: 534000,  type: 'tool',       intensity: 0.45, label: 'view',             details: 'view src/components/index.ts' },
+      { time: 540000,  type: 'tool',       intensity: 0.40, label: 'edit',             details: 'edit src/components/index.ts — exports' },
+      // Turn 9 — still on gpt-4.1, styling
+      { time: 600000,  type: 'user',      intensity: 0.28, label: 'User message',     details: 'Style the login page' },
+      { time: 608000,  type: 'assistant',  intensity: 0.42, label: 'Styling',          details: 'Tailwind classes for login page layout' },
+      { time: 616000,  type: 'tool',       intensity: 0.50, label: 'edit',             details: 'edit src/pages/login.tsx — add styling' },
+      { time: 622000,  type: 'tool',       intensity: 0.55, label: 'powershell',       details: 'npm run build' },
+      { time: 630000,  type: 'error',      intensity: 0.85, label: 'Build failure',    details: 'TS2307: Cannot find module cookie-signature types' },
+      // Turn 10 — fix build, switch back
+      { time: 660000,  type: 'user',      intensity: 0.30, label: 'User message',     details: 'Fix the build error' },
+      { time: 668000,  type: 'assistant',  intensity: 0.45, label: 'Fixing types',     details: 'Adding @types/cookie-signature' },
+      { time: 674000,  type: 'tool',       intensity: 0.60, label: 'powershell',       details: 'npm install -D @types/cookie-signature' },
+      { time: 682000,  type: 'tool',       intensity: 0.55, label: 'powershell',       details: 'npm run build — success' },
+      { time: 690000,  type: 'modelSwitch', intensity: 0.90, label: 'Model → sonnet',  details: 'Switched back to claude-sonnet-4.6' },
+      // Turn 11 — integration tests
+      { time: 750000,  type: 'user',      intensity: 0.32, label: 'User message',     details: 'Write integration tests for the auth flow' },
+      { time: 760000,  type: 'assistant',  intensity: 0.58, label: 'Integration tests', details: 'End-to-end auth flow test with mock OAuth server' },
+      { time: 770000,  type: 'tool',       intensity: 0.65, label: 'create',           details: 'create src/__tests__/auth-flow.integration.ts' },
+      { time: 780000,  type: 'tool',       intensity: 0.70, label: 'powershell',       details: 'npm run test:integration' },
+      { time: 790000,  type: 'tool',       intensity: 0.45, label: 'view',             details: 'view test output — 5/5 passed' },
+      // Turn 12 — docs
+      { time: 860000,  type: 'user',      intensity: 0.20, label: 'User message',     details: 'Update the README with auth docs' },
+      { time: 870000,  type: 'assistant',  intensity: 0.35, label: 'Documentation',    details: 'Adding OAuth setup instructions to README' },
+      { time: 878000,  type: 'tool',       intensity: 0.42, label: 'edit',             details: 'edit README.md — add auth section' },
+      { time: 885000,  type: 'tool',       intensity: 0.38, label: 'create',           details: 'create docs/auth-setup.md' },
+      // Turn 13 — env configuration
+      { time: 960000,  type: 'user',      intensity: 0.25, label: 'User message',     details: 'Add env variable validation' },
+      { time: 970000,  type: 'assistant',  intensity: 0.40, label: 'Env validation',   details: 'Zod schema for required OAuth env vars' },
+      { time: 978000,  type: 'tool',       intensity: 0.50, label: 'edit',             details: 'edit src/config/env.ts — add OAuth vars' },
+      { time: 985000,  type: 'tool',       intensity: 0.44, label: 'edit',             details: 'edit .env.example — add OAuth placeholders' },
+      // Turn 14 — error handling edge cases
+      { time: 1080000, type: 'user',      intensity: 0.30, label: 'User message',     details: 'Handle edge cases — expired tokens, revoked access' },
+      { time: 1090000, type: 'assistant',  intensity: 0.52, label: 'Error handling',   details: 'Adding retry logic and graceful degradation' },
+      { time: 1100000, type: 'tool',       intensity: 0.58, label: 'edit',             details: 'edit src/auth/providers/google.ts — error cases' },
+      { time: 1108000, type: 'tool',       intensity: 0.55, label: 'edit',             details: 'edit src/middleware/withAuth.ts — 401 handling' },
+      { time: 1116000, type: 'tool',       intensity: 0.62, label: 'powershell',       details: 'npm run test — all 24 tests pass' },
+      // Turn 15 — final review and commit
+      { time: 1200000, type: 'user',      intensity: 0.28, label: 'User message',     details: 'Review everything and commit' },
+      { time: 1210000, type: 'assistant',  intensity: 0.45, label: 'Final review',     details: 'Reviewing all changes for consistency' },
+      { time: 1220000, type: 'tool',       intensity: 0.40, label: 'grep',             details: 'grep "TODO|FIXME" src/' },
+      { time: 1228000, type: 'tool',       intensity: 0.50, label: 'powershell',       details: 'npm run lint && npm run build && npm run test' },
+      { time: 1240000, type: 'tool',       intensity: 0.55, label: 'powershell',       details: 'git add -A && git commit' },
+      { time: 1250000, type: 'assistant',  intensity: 0.30, label: 'Summary',          details: 'All done — OAuth login feature complete' },
+    ];
+
+    // ════════════════════════════════════════════════════════════
+    //  CANVAS SETUP
+    // ════════════════════════════════════════════════════════════
+    const canvas = document.getElementById('pulseCanvas');
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+    const PADDING = { top: 30, right: 24, bottom: 30, left: 50 };
+    let W, H, plotW, plotH;
+
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      W = rect.width;
+      H = 340;
+      canvas.width = W * DPR;
+      canvas.height = H * DPR;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      plotW = W - PADDING.left - PADDING.right;
+      plotH = H - PADDING.top - PADDING.bottom;
+    }
+    resize();
+    window.addEventListener('resize', () => { resize(); });
+
+    // ════════════════════════════════════════════════════════════
+    //  HELPERS
+    // ════════════════════════════════════════════════════════════
+    function timeToX(t) { return PADDING.left + (t / SESSION_DURATION) * plotW; }
+    function intensityToY(v) { return PADDING.top + plotH * (1 - v); }
+    function colorFor(type) { return COLORS[type] || COLORS.assistant; }
+
+    function formatTime(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
+
+    // Build a continuous waveform path including spikes at event times
+    function buildWaveform() {
+      const pts = [];
+      const step = 800; // sample every 800ms
+      for (let t = 0; t <= SESSION_DURATION; t += step) {
+        // baseline hum
+        let val = 0.04 + Math.sin(t * 0.0003) * 0.02 + Math.sin(t * 0.0011) * 0.015;
+        // find nearby events and contribute their intensity as gaussian bumps
+        for (const e of events) {
+          const dist = Math.abs(t - e.time);
+          const sigma = e.type === 'error' || e.type === 'modelSwitch' ? 5000 : 3500;
+          if (dist < sigma * 3) {
+            val += e.intensity * Math.exp(-0.5 * (dist / sigma) ** 2);
+          }
+        }
+        val = Math.min(val, 1.05);
+        pts.push({ t, val, x: timeToX(t), y: intensityToY(val) });
+      }
+      return pts;
+    }
+
+    let waveform = buildWaveform();
+    window.addEventListener('resize', () => { waveform = buildWaveform(); });
+
+    // ════════════════════════════════════════════════════════════
+    //  DRAWING
+    // ════════════════════════════════════════════════════════════
+    function drawGrid() {
+      ctx.save();
+      // Vertical minute markers
+      for (let m = 0; m <= 32; m += 2) {
+        const x = timeToX(m * 60000);
+        ctx.strokeStyle = m % 10 === 0 ? COLORS.gridStrong : COLORS.grid;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, PADDING.top);
+        ctx.lineTo(x, PADDING.top + plotH);
+        ctx.stroke();
+        if (m % 4 === 0) {
+          ctx.fillStyle = 'rgba(52,211,153,0.25)';
+          ctx.font = '10px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(m + 'm', x, PADDING.top + plotH + 16);
+        }
+      }
+      // Horizontal intensity lines
+      for (let i = 0; i <= 4; i++) {
+        const y = PADDING.top + plotH * (i / 4);
+        ctx.strokeStyle = COLORS.grid;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PADDING.left, y);
+        ctx.lineTo(PADDING.left + plotW, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawTrace(progress) {
+      const maxIdx = Math.floor(progress * (waveform.length - 1));
+      if (maxIdx < 1) return;
+
+      // Multi-pass glow
+      const passes = [
+        { blur: 20, alpha: 0.10, width: 8 },
+        { blur: 12, alpha: 0.18, width: 5 },
+        { blur: 6,  alpha: 0.30, width: 3 },
+        { blur: 0,  alpha: 0.90, width: 2 },
+      ];
+
+      for (const pass of passes) {
+        ctx.save();
+        ctx.globalAlpha = pass.alpha;
+        ctx.shadowColor = '#34d399';
+        ctx.shadowBlur = pass.blur;
+        ctx.lineWidth = pass.width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(waveform[0].x, waveform[0].y);
+        for (let i = 1; i <= maxIdx; i++) {
+          const prev = waveform[i - 1];
+          const cur = waveform[i];
+          const cpx = (prev.x + cur.x) / 2;
+          ctx.quadraticCurveTo(prev.x, prev.y, cpx, (prev.y + cur.y) / 2);
+        }
+        // last segment
+        ctx.lineTo(waveform[maxIdx].x, waveform[maxIdx].y);
+
+        // Color segments based on dominant event
+        ctx.strokeStyle = '#34d399';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Draw colored highlight segments near events
+      const currentTimeMs = progress * SESSION_DURATION;
+      for (const e of events) {
+        if (e.time > currentTimeMs) continue;
+        const cx = timeToX(e.time);
+        const cy = intensityToY(e.intensity);
+        const col = colorFor(e.type);
+
+        // Glow dot
+        ctx.save();
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 14;
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Spike line segment (short colored line at event)
+        ctx.save();
+        ctx.strokeStyle = col;
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2.5;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(cx, intensityToY(0.02));
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Leading dot (bright point at trace head)
+      if (progress < 1) {
+        const head = waveform[maxIdx];
+        ctx.save();
+        ctx.shadowColor = '#34d399';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#5eead4';
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawYAxis() {
+      ctx.save();
+      ctx.fillStyle = 'rgba(52,211,153,0.3)';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = 1 - i / 4;
+        const y = PADDING.top + plotH * (i / 4);
+        ctx.fillText(v.toFixed(1), PADDING.left - 8, y + 3);
+      }
+      ctx.restore();
+    }
+
+    function render(progress) {
+      ctx.clearRect(0, 0, W, H);
+      // Dark background
+      ctx.fillStyle = '#050506';
+      ctx.fillRect(0, 0, W, H);
+      drawGrid();
+      drawYAxis();
+      drawTrace(progress);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  ANIMATION CONTROLLER
+    // ════════════════════════════════════════════════════════════
+    let playing = false;
+    let progress = 0;       // 0..1
+    let speed = 1;
+    let lastFrameTime = 0;
+    const ANIM_BASE_DURATION = 16000; // 16s at 1× to draw 32 min
+
+    const btnPlay = document.getElementById('btnPlay');
+    const btnReset = document.getElementById('btnReset');
+    const playIcon = document.getElementById('playIcon');
+    const timeLabel = document.getElementById('timeLabel');
+    const playhead = document.getElementById('playhead');
+
+    function setPlaying(v) {
+      playing = v;
+      playIcon.setAttribute('points', playing ? '4,2 4,14 7,14 7,2 9,2 9,14 12,14 12,2' : '4,2 14,8 4,14');
+    }
+
+    btnPlay.addEventListener('click', () => {
+      if (progress >= 1) { progress = 0; }
+      setPlaying(!playing);
+      if (playing) { lastFrameTime = performance.now(); requestAnimationFrame(tick); }
+    });
+
+    btnReset.addEventListener('click', () => {
+      setPlaying(false);
+      progress = 0;
+      render(0);
+      updateTimeUI(0);
+    });
+
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        speed = parseInt(btn.dataset.speed);
+      });
+    });
+
+    function updateTimeUI(p) {
+      const cur = p * SESSION_DURATION;
+      timeLabel.textContent = formatTime(cur) + ' / 32:00';
+      playhead.style.left = (p * 100) + '%';
+    }
+
+    function tick(now) {
+      if (!playing) return;
+      const dt = now - lastFrameTime;
+      lastFrameTime = now;
+      progress += (dt / ANIM_BASE_DURATION) * speed;
+      if (progress >= 1) { progress = 1; setPlaying(false); }
+      render(progress);
+      updateTimeUI(progress);
+      if (playing) requestAnimationFrame(tick);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  TIMELINE STRIP MARKERS
+    // ════════════════════════════════════════════════════════════
+    const strip = document.getElementById('timelineStrip');
+    events.forEach(e => {
+      const marker = document.createElement('div');
+      marker.className = 'timeline-strip-marker';
+      marker.style.left = ((e.time / SESSION_DURATION) * 100) + '%';
+      marker.style.background = colorFor(e.type);
+      marker.style.borderColor = colorFor(e.type);
+      marker.style.color = colorFor(e.type);
+      marker.title = e.label + ' — ' + formatTime(e.time);
+      strip.appendChild(marker);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  HOVER TOOLTIP
+    // ════════════════════════════════════════════════════════════
+    const tooltip = document.getElementById('pulseTooltip');
+    const ttType = document.getElementById('ttType');
+    const ttTime = document.getElementById('ttTime');
+    const ttIntensity = document.getElementById('ttIntensity');
+    const ttDetail = document.getElementById('ttDetail');
+
+    canvas.addEventListener('mousemove', (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = ev.clientX - rect.left;
+      const my = ev.clientY - rect.top;
+      const currentTimeMs = progress * SESSION_DURATION;
+
+      let closest = null;
+      let closestDist = Infinity;
+      for (const e of events) {
+        if (e.time > currentTimeMs) continue;
+        const ex = timeToX(e.time);
+        const ey = intensityToY(e.intensity);
+        const d = Math.hypot(mx - ex, my - ey);
+        if (d < closestDist && d < 30) {
+          closestDist = d;
+          closest = e;
+        }
+      }
+
+      if (closest) {
+        const col = colorFor(closest.type);
+        ttType.textContent = closest.label;
+        ttType.style.color = col;
+        ttTime.textContent = formatTime(closest.time);
+        ttIntensity.textContent = (closest.intensity * 100).toFixed(0) + '%';
+        ttDetail.textContent = closest.details;
+
+        let tx = mx + 16;
+        let ty = my - 20;
+        if (tx + 200 > W) tx = mx - 200;
+        if (ty < 0) ty = 10;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+        tooltip.classList.add('visible');
+        canvas.style.cursor = 'crosshair';
+      } else {
+        tooltip.classList.remove('visible');
+        canvas.style.cursor = 'default';
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+      canvas.style.cursor = 'default';
+    });
+
+    // Click on canvas to seek
+    canvas.addEventListener('click', (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = ev.clientX - rect.left;
+      const p = Math.max(0, Math.min(1, (mx - PADDING.left) / plotW));
+      progress = p;
+      render(progress);
+      updateTimeUI(progress);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  EVENT LOG TABLE
+    // ════════════════════════════════════════════════════════════
+    const logBody = document.getElementById('eventLogBody');
+    const badgeClass = { user: 'badge-success', assistant: 'badge-accent', tool: 'badge-warning', error: 'badge-danger', modelSwitch: 'badge-done' };
+    events.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border-default)';
+      tr.innerHTML = `
+        <td style="padding:6px 14px;" class="font-mono">${formatTime(e.time)}</td>
+        <td style="padding:6px 14px;"><span class="badge ${badgeClass[e.type] || 'badge-accent'}">${e.type}</span></td>
+        <td style="padding:6px 14px; color:var(--text-primary);">${e.label}</td>
+        <td style="padding:6px 14px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <div style="flex:1; height:4px; border-radius:2px; background:var(--border-default);">
+              <div style="width:${e.intensity * 100}%; height:100%; border-radius:2px; background:${colorFor(e.type)};"></div>
+            </div>
+            <span class="font-mono" style="font-size:11px; color:var(--text-tertiary); min-width:32px; text-align:right;">${(e.intensity * 100).toFixed(0)}%</span>
+          </div>
+        </td>
+      `;
+      logBody.appendChild(tr);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  INITIAL RENDER — draw full trace, then auto-play
+    // ════════════════════════════════════════════════════════════
+    progress = 1;
+    render(1);
+    updateTimeUI(1);
+
+    // Auto-play on load after brief delay
+    setTimeout(() => {
+      progress = 0;
+      setPlaying(true);
+      lastFrameTime = performance.now();
+      requestAnimationFrame(tick);
+    }, 600);
+  });
+  </script>
+</body>
+</html>

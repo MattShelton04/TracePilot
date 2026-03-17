@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Agent Effectiveness Scorecard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* Agent cards */
+    .agent-card {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .agent-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .agent-icon {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+      flex-shrink: 0;
+    }
+    .agent-type-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .agent-type-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .agent-metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .agent-metric {
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: var(--radius-sm);
+      background: var(--canvas-overlay);
+    }
+    .agent-metric-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .agent-metric-lbl {
+      font-size: 0.5625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Mini success/fail bar */
+    .sf-bar {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .sf-bar .success { background: var(--success-fg); }
+    .sf-bar .failure { background: var(--danger-fg); }
+    .sf-bar-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Health ring */
+    .health-ring {
+      width: 56px; height: 56px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .health-ring svg { width: 56px; height: 56px; transform: rotate(-90deg); }
+    .health-ring-bg { fill: none; stroke: var(--border-muted); stroke-width: 5; }
+    .health-ring-fg { fill: none; stroke-width: 5; stroke-linecap: round; }
+    .health-ring-label {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Comparison table highlights */
+    .best-cell { background: rgba(52,211,153,0.08); }
+    .worst-cell { background: rgba(251,191,36,0.08); }
+
+    /* Stacked area chart */
+    .stacked-chart { position: relative; width: 100%; height: 220px; }
+    .stacked-chart svg { width: 100%; height: 100%; }
+
+    /* Scatter plot */
+    .scatter-chart { position: relative; width: 100%; height: 260px; }
+    .scatter-chart svg { width: 100%; height: 100%; }
+    .scatter-dot {
+      cursor: pointer;
+      transition: r 0.15s ease;
+    }
+    .scatter-dot:hover { r: 7; }
+
+    /* Delegation table */
+    .delegation-outcome {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 600;
+    }
+    .outcome-success { background: var(--success-muted); color: var(--success-fg); }
+    .outcome-fail { background: var(--danger-muted); color: var(--danger-fg); }
+    .outcome-partial { background: var(--warning-muted); color: var(--warning-fg); }
+
+    .agent-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 600;
+    }
+
+    .legend-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 8px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    .legend-row .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Agent Effectiveness Scorecard</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <div style="margin-bottom: 24px;">
+            <h1 class="text-display" style="margin-bottom: 4px;">Agent Effectiveness Scorecard</h1>
+            <p class="text-body" style="color: var(--text-secondary);">Compare sub-agent types across invocations, performance, and cost efficiency.</p>
+          </div>
+
+          <!-- Agent cards -->
+          <div class="grid-4" style="margin-bottom: 24px;" id="agentCards"></div>
+
+          <!-- Comparison table -->
+          <div class="section-panel" style="margin-bottom: 24px;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+              <h2 class="text-title-lg">Side-by-Side Comparison</h2>
+            </div>
+            <table class="data-table" id="comparisonTable"></table>
+          </div>
+
+          <!-- Stacked area + Scatter -->
+          <div class="grid-2" style="margin-bottom: 24px;">
+            <div class="section-panel">
+              <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+                <h2 class="text-title-md">Usage Over Time</h2>
+                <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Agent type usage evolution (30 days)</p>
+              </div>
+              <div style="padding: 16px 20px;">
+                <div class="stacked-chart" id="stackedChart"></div>
+                <div class="legend-row" id="stackedLegend"></div>
+              </div>
+            </div>
+            <div class="section-panel">
+              <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+                <h2 class="text-title-md">Performance Scatter</h2>
+                <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Duration vs Tokens per invocation</p>
+              </div>
+              <div style="padding: 16px 20px;">
+                <div class="scatter-chart" id="scatterChart"></div>
+                <div class="legend-row" id="scatterLegend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delegation patterns -->
+          <div class="section-panel">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-default);">
+              <h2 class="text-title-lg">Delegation Patterns</h2>
+              <p class="text-body-sm" style="color: var(--text-secondary); margin-top: 2px;">Which tasks get delegated to which agent type</p>
+            </div>
+            <table class="data-table" id="delegationTable"></table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('tools');
+
+    const AGENTS = [
+      { type: 'explore',        icon: '🔍', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',
+        invocations: 45, successRate: 93.3, avgDuration: '8.2s', avgTokens: 12400, cost: '$2.18',
+        failCount: 3, avgToolCalls: 4.1, score: 91 },
+      { type: 'task',           icon: '⚡', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',
+        invocations: 32, successRate: 87.5, avgDuration: '22.4s', avgTokens: 8200, cost: '$1.44',
+        failCount: 4, avgToolCalls: 6.8, score: 84 },
+      { type: 'general-purpose',icon: '🧠', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)',
+        invocations: 18, successRate: 88.9, avgDuration: '45.1s', avgTokens: 32600, cost: '$5.72',
+        failCount: 2, avgToolCalls: 12.3, score: 78 },
+      { type: 'code-review',    icon: '📋', color: '#fb7185', bg: 'rgba(251,113,133,0.12)',
+        invocations: 12, successRate: 91.7, avgDuration: '15.8s', avgTokens: 18900, cost: '$3.32',
+        failCount: 1, avgToolCalls: 5.2, score: 88 },
+    ];
+
+    // ── Agent cards ──
+    const cardsEl = document.getElementById('agentCards');
+    cardsEl.innerHTML = AGENTS.map(a => {
+      const circ = 2 * Math.PI * 22;
+      const offset = circ - (a.score / 100) * circ;
+      const successCount = Math.round(a.invocations * a.successRate / 100);
+      const failCount = a.invocations - successCount;
+      const sPct = (successCount / a.invocations * 100).toFixed(0);
+      return `
+        <div class="agent-card">
+          <div class="agent-card-header">
+            <div class="agent-icon" style="background: ${a.bg}; color: ${a.color};">${a.icon}</div>
+            <div>
+              <div class="agent-type-name">${a.type}</div>
+              <div class="agent-type-desc">${a.invocations} invocations</div>
+            </div>
+          </div>
+          <div class="agent-metrics-grid">
+            <div class="agent-metric">
+              <div class="agent-metric-val">${a.successRate}%</div>
+              <div class="agent-metric-lbl">Success</div>
+            </div>
+            <div class="agent-metric">
+              <div class="agent-metric-val">${a.avgDuration}</div>
+              <div class="agent-metric-lbl">Avg Duration</div>
+            </div>
+            <div class="agent-metric">
+              <div class="agent-metric-val">${(a.avgTokens / 1000).toFixed(1)}K</div>
+              <div class="agent-metric-lbl">Avg Tokens</div>
+            </div>
+            <div class="agent-metric">
+              <div class="agent-metric-val">${a.cost}</div>
+              <div class="agent-metric-lbl">Total Cost</div>
+            </div>
+          </div>
+          <div>
+            <div class="sf-bar">
+              <div class="success" style="width: ${sPct}%;"></div>
+              <div class="failure" style="width: ${100 - sPct}%;"></div>
+            </div>
+            <div class="sf-bar-legend">
+              <span>✓ ${successCount} succeeded</span>
+              <span>✗ ${failCount} failed</span>
+            </div>
+          </div>
+          <div class="health-ring">
+            <svg viewBox="0 0 48 48">
+              <circle class="health-ring-bg" cx="24" cy="24" r="22"/>
+              <circle class="health-ring-fg" cx="24" cy="24" r="22"
+                stroke="${a.color}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
+            </svg>
+            <span class="health-ring-label">${a.score}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // ── Comparison table ──
+    const metrics = [
+      { label: 'Invocations',          key: 'invocations',   best: 'max', fmt: v => v },
+      { label: 'Success Rate',         key: 'successRate',   best: 'max', fmt: v => v + '%' },
+      { label: 'Avg Duration',         key: 'avgDuration',   best: 'min', fmt: v => v, raw: a => parseFloat(a.avgDuration) },
+      { label: 'Avg Tokens',           key: 'avgTokens',     best: 'min', fmt: v => (v/1000).toFixed(1)+'K' },
+      { label: 'Total Cost',           key: 'cost',          best: 'min', fmt: v => v, raw: a => parseFloat(a.cost.replace('$','')) },
+      { label: 'Failed Count',         key: 'failCount',     best: 'min', fmt: v => v },
+      { label: 'Avg Tool Calls / Run', key: 'avgToolCalls',  best: 'max', fmt: v => v },
+    ];
+    const table = document.getElementById('comparisonTable');
+    let thead = '<thead><tr><th>Metric</th>';
+    AGENTS.forEach(a => thead += `<th style="text-align:center;"><span style="color:${a.color};">●</span> ${a.type}</th>`);
+    thead += '</tr></thead>';
+
+    let tbody = '<tbody>';
+    metrics.forEach(m => {
+      const vals = AGENTS.map(a => m.raw ? m.raw(a) : (typeof a[m.key] === 'number' ? a[m.key] : parseFloat(a[m.key])));
+      const bestVal = m.best === 'max' ? Math.max(...vals) : Math.min(...vals);
+      const worstVal = m.best === 'max' ? Math.min(...vals) : Math.max(...vals);
+      tbody += `<tr><td style="font-weight:500;">${m.label}</td>`;
+      AGENTS.forEach((a, i) => {
+        const v = vals[i];
+        let cls = '';
+        if (v === bestVal) cls = 'best-cell';
+        else if (v === worstVal) cls = 'worst-cell';
+        tbody += `<td class="${cls}" style="text-align:center;font-variant-numeric:tabular-nums;">${m.fmt(a[m.key])}</td>`;
+      });
+      tbody += '</tr>';
+    });
+    tbody += '</tbody>';
+    table.innerHTML = thead + tbody;
+
+    // ── Stacked area chart ──
+    (function renderStackedArea() {
+      const el = document.getElementById('stackedChart');
+      const W = 500, H = 200, pad = { top: 10, right: 10, bottom: 30, left: 35 };
+      const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+
+      // 30 days of data per agent
+      const data = AGENTS.map(a => {
+        const arr = [];
+        const base = a.invocations / 30;
+        for (let d = 0; d < 30; d++) arr.push(Math.max(0, Math.round(base + (Math.random() - 0.5) * base * 1.5)));
+        return arr;
+      });
+      // Compute cumulative stacks
+      const stacked = data.map((_, dayIdx) => {
+        return data.map(agentData => agentData[dayIdx]);
+      });
+      const maxStack = Math.max(...stacked.map(day => day.reduce((s, v) => s + v, 0)));
+
+      function areaPath(agentIdx) {
+        let top = [], bottom = [];
+        for (let d = 0; d < 30; d++) {
+          const x = pad.left + (d / 29) * cw;
+          let yBase = 0;
+          for (let a = 0; a < agentIdx; a++) yBase += data[a][d];
+          const yTop = yBase + data[agentIdx][d];
+          const yBaseScaled = pad.top + ch - (yBase / maxStack) * ch;
+          const yTopScaled = pad.top + ch - (yTop / maxStack) * ch;
+          top.push(`${x.toFixed(1)},${yTopScaled.toFixed(1)}`);
+          bottom.unshift(`${x.toFixed(1)},${yBaseScaled.toFixed(1)}`);
+        }
+        return `M${top.join(' L')} L${bottom.join(' L')}Z`;
+      }
+
+      let svgContent = '';
+      // Grid lines
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.top + (i / 4) * ch;
+        svgContent += `<line x1="${pad.left}" x2="${pad.left+cw}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4"/>`;
+      }
+      // Areas (bottom-to-top)
+      for (let i = 0; i < AGENTS.length; i++) {
+        svgContent += `<path d="${areaPath(i)}" fill="${AGENTS[i].color}" opacity="0.5"/>`;
+      }
+      // X labels
+      ['D-30','D-20','D-10','Now'].forEach((l, i) => {
+        const x = pad.left + (i / 3) * cw;
+        svgContent += `<text x="${x}" y="${H - 6}" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter">${l}</text>`;
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`;
+      document.getElementById('stackedLegend').innerHTML = AGENTS.map(a => `
+        <div class="legend-item"><span style="width:10px;height:10px;border-radius:50%;background:${a.color};display:inline-block;"></span>${a.type}</div>
+      `).join('');
+    })();
+
+    // ── Scatter plot ──
+    (function renderScatter() {
+      const el = document.getElementById('scatterChart');
+      const W = 500, H = 240, pad = { top: 10, right: 10, bottom: 40, left: 50 };
+      const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+
+      // Generate scatter points per agent
+      const points = [];
+      AGENTS.forEach(a => {
+        const dur = parseFloat(a.avgDuration);
+        for (let i = 0; i < a.invocations; i++) {
+          const d = Math.max(1, dur + (Math.random() - 0.5) * dur * 1.2);
+          const t = Math.max(500, a.avgTokens + (Math.random() - 0.5) * a.avgTokens * 0.8);
+          points.push({ dur: d, tokens: t, color: a.color, type: a.type });
+        }
+      });
+      const maxDur = Math.max(...points.map(p => p.dur));
+      const maxTok = Math.max(...points.map(p => p.tokens));
+
+      let svgContent = '';
+      // Grid
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.top + (i / 4) * ch;
+        const v = Math.round(maxTok * (1 - i / 4) / 1000);
+        svgContent += `<line x1="${pad.left}" x2="${pad.left+cw}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4"/>`;
+        svgContent += `<text x="${pad.left - 6}" y="${y + 3}" text-anchor="end" fill="#71717a" font-size="8" font-family="Inter">${v}K</text>`;
+      }
+      // X axis
+      for (let i = 0; i <= 4; i++) {
+        const x = pad.left + (i / 4) * cw;
+        const v = Math.round(maxDur * i / 4);
+        svgContent += `<text x="${x}" y="${H - 10}" text-anchor="middle" fill="#71717a" font-size="8" font-family="Inter">${v}s</text>`;
+      }
+      svgContent += `<text x="${pad.left + cw / 2}" y="${H}" text-anchor="middle" fill="#52525b" font-size="9" font-family="Inter">Duration</text>`;
+      svgContent += `<text x="10" y="${pad.top + ch / 2}" text-anchor="middle" fill="#52525b" font-size="9" font-family="Inter" transform="rotate(-90 10 ${pad.top + ch/2})">Tokens</text>`;
+      // Dots
+      points.forEach(p => {
+        const x = pad.left + (p.dur / maxDur) * cw;
+        const y = pad.top + ch - (p.tokens / maxTok) * ch;
+        svgContent += `<circle class="scatter-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${p.color}" opacity="0.65"><title>${p.type}: ${p.dur.toFixed(1)}s, ${Math.round(p.tokens)} tokens</title></circle>`;
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`;
+      document.getElementById('scatterLegend').innerHTML = AGENTS.map(a => `
+        <div class="legend-item"><span style="width:10px;height:10px;border-radius:50%;background:${a.color};display:inline-block;"></span>${a.type}</div>
+      `).join('');
+    })();
+
+    // ── Delegation patterns ──
+    const DELEGATIONS = [
+      { task: 'Find all usages of AuthService', agent: 'explore', outcome: 'success', dur: '6.2s' },
+      { task: 'Run test suite and report results', agent: 'task', outcome: 'success', dur: '18.4s' },
+      { task: 'Refactor database module to async/await', agent: 'general-purpose', outcome: 'success', dur: '52.3s' },
+      { task: 'Review PR #247 security changes', agent: 'code-review', outcome: 'success', dur: '14.1s' },
+      { task: 'Search for unused imports', agent: 'explore', outcome: 'success', dur: '4.8s' },
+      { task: 'Install and configure ESLint', agent: 'task', outcome: 'fail', dur: '28.7s' },
+      { task: 'Implement caching layer for API routes', agent: 'general-purpose', outcome: 'partial', dur: '67.2s' },
+      { task: 'Check for XSS vulnerabilities in forms', agent: 'code-review', outcome: 'success', dur: '11.5s' },
+      { task: 'Find where env variables are loaded', agent: 'explore', outcome: 'success', dur: '3.9s' },
+      { task: 'Build Docker image and push to registry', agent: 'task', outcome: 'success', dur: '34.1s' },
+    ];
+    const agentColorMap = {};
+    AGENTS.forEach(a => agentColorMap[a.type] = { color: a.color, bg: a.bg });
+
+    document.getElementById('delegationTable').innerHTML = `
+      <thead><tr><th>Task Description</th><th>Agent</th><th>Duration</th><th>Outcome</th></tr></thead>
+      <tbody>${DELEGATIONS.map(d => `
+        <tr>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.task}</td>
+          <td><span class="agent-badge" style="background:${agentColorMap[d.agent].bg};color:${agentColorMap[d.agent].color};">${d.agent}</span></td>
+          <td style="font-variant-numeric:tabular-nums;color:var(--text-secondary);">${d.dur}</td>
+          <td><span class="delegation-outcome outcome-${d.outcome}">${d.outcome}</span></td>
+        </tr>
+      `).join('')}</tbody>
+    `;
+  });
+  </script>
+</body>
+</html>

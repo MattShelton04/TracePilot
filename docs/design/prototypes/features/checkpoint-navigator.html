@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Checkpoint Navigator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Session Header ── */
+    .session-header-bar {
+      display:flex; align-items:center; gap:12px; padding:16px 0; margin-bottom:8px;
+      border-bottom:1px solid var(--border-default);
+    }
+    .session-title { font-size:1rem; font-weight:700; letter-spacing:-0.02em; }
+    .session-badges { display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+
+    /* ── Memory Pressure Gauge ── */
+    .pressure-gauge {
+      background:var(--canvas-subtle); border:1px solid var(--border-default);
+      border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:24px;
+      display:flex; align-items:center; gap:20px;
+    }
+    .gauge-visual { position:relative; width:120px; height:60px; flex-shrink:0; }
+    .gauge-arc { fill:none; stroke-width:8; stroke-linecap:round; }
+    .gauge-bg { stroke:rgba(255,255,255,0.06); }
+    .gauge-fill { transition:stroke-dashoffset 600ms ease; }
+    .gauge-label { font-size:0.6875rem; color:var(--text-tertiary); margin-bottom:2px; }
+    .gauge-value { font-size:1.25rem; font-weight:700; }
+    .gauge-info { flex:1; }
+    .gauge-meta { font-size:0.75rem; color:var(--text-secondary); line-height:1.6; margin-top:4px; }
+
+    /* ── Vertical Timeline ── */
+    .timeline-container { position:relative; padding-left:40px; }
+    .timeline-line {
+      position:absolute; left:18px; top:0; bottom:0; width:2px;
+      background:linear-gradient(180deg,
+        var(--accent-emphasis) 0%, var(--accent-emphasis) 20%,
+        rgba(99,102,241,0.3) 50%,
+        var(--border-default) 100%
+      );
+    }
+
+    /* ── Activity Summary Strip ── */
+    .activity-strip {
+      position:relative; margin:0 0 0 -22px; padding:12px 0 12px 42px;
+    }
+    .activity-strip-inner {
+      display:flex; align-items:center; gap:12px; padding:8px 14px;
+      background:var(--canvas-inset); border:1px solid var(--border-subtle);
+      border-radius:var(--radius-sm); font-size:0.6875rem; color:var(--text-tertiary);
+    }
+    .activity-strip-inner .activity-stat {
+      display:flex; align-items:center; gap:4px;
+    }
+    .activity-strip-inner .activity-stat span { font-weight:600; color:var(--text-secondary); }
+    .activity-dot {
+      position:absolute; left:14px; top:50%; transform:translateY(-50%);
+      width:10px; height:10px; border-radius:50%; background:var(--canvas-inset);
+      border:2px solid var(--border-default);
+    }
+
+    /* ── Checkpoint Card ── */
+    .checkpoint-node { position:relative; margin-bottom:0; }
+    .checkpoint-circle {
+      position:absolute; left:-40px; top:16px; width:36px; height:36px;
+      border-radius:50%; display:flex; align-items:center; justify-content:center;
+      font-size:0.8125rem; font-weight:700; z-index:2;
+      background:var(--gradient-accent); color:#fff;
+      box-shadow:0 0 0 4px var(--canvas-default), 0 0 16px rgba(99,102,241,0.3);
+    }
+    .checkpoint-card {
+      background:var(--canvas-subtle); border:1px solid var(--border-default);
+      border-radius:var(--radius-lg); overflow:hidden; transition:all 200ms ease;
+      cursor:pointer;
+    }
+    .checkpoint-card:hover {
+      border-color:var(--border-accent); box-shadow:var(--shadow-md), 0 0 0 1px var(--border-glow);
+    }
+    .checkpoint-card.expanded { border-color:var(--accent-emphasis); box-shadow:var(--shadow-glow-accent); }
+    .checkpoint-header {
+      display:flex; align-items:center; gap:12px; padding:14px 18px;
+    }
+    .checkpoint-title { font-size:0.875rem; font-weight:600; flex:1; }
+    .checkpoint-filename {
+      font-size:0.6875rem; font-family:'JetBrains Mono',monospace; color:var(--text-tertiary);
+      background:var(--canvas-inset); padding:2px 8px; border-radius:var(--radius-sm);
+    }
+    .checkpoint-chevron {
+      width:16px; height:16px; color:var(--text-tertiary); transition:transform 200ms ease; flex-shrink:0;
+    }
+    .checkpoint-card.expanded .checkpoint-chevron { transform:rotate(90deg); }
+    .checkpoint-tokens {
+      display:flex; align-items:center; gap:8px; padding:0 18px 12px;
+      font-size:0.75rem; color:var(--text-secondary);
+    }
+    .token-before { color:var(--danger-fg); font-weight:600; font-variant-numeric:tabular-nums; }
+    .token-arrow { color:var(--text-tertiary); font-size:10px; }
+    .token-after { color:var(--success-fg); font-weight:600; font-variant-numeric:tabular-nums; }
+    .compression-badge {
+      display:inline-flex; align-items:center; gap:3px; padding:2px 8px;
+      border-radius:var(--radius-full); font-size:0.625rem; font-weight:600;
+      background:var(--success-muted); color:var(--success-fg);
+    }
+
+    /* ── Compaction Details ── */
+    .compaction-details {
+      border-top:1px solid var(--border-default); background:var(--canvas-inset);
+      padding:18px; display:none;
+    }
+    .checkpoint-card.expanded .compaction-details { display:block; }
+    .compaction-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px; }
+    .compact-stat {
+      text-align:center; padding:10px; background:var(--canvas-overlay);
+      border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+    }
+    .compact-stat-value { font-size:1rem; font-weight:700; color:var(--text-primary); }
+    .compact-stat-label { font-size:0.6875rem; color:var(--text-tertiary); margin-top:2px; }
+    .compaction-quote {
+      background:var(--canvas-overlay); border-left:3px solid var(--accent-emphasis);
+      padding:14px 16px; border-radius:0 var(--radius-md) var(--radius-md) 0;
+      font-size:0.8125rem; line-height:1.65; color:var(--text-secondary);
+      font-style:italic; margin-top:12px;
+    }
+    .compaction-quote-label {
+      font-size:0.6875rem; font-weight:600; color:var(--text-tertiary);
+      text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; font-style:normal;
+    }
+
+    /* Connecting line to card */
+    .connector-line {
+      position:absolute; left:-4px; top:34px; width:22px; height:2px;
+      background:var(--accent-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="../variant-c/session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="#">OAuth Login Implementation</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Checkpoints</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Session Header -->
+          <div class="session-header-bar">
+            <div class="session-title">Checkpoint Navigator</div>
+            <div class="session-badges">
+              <span class="badge badge-accent">claude-opus-4.6</span>
+              <span class="badge badge-neutral">2h 15m</span>
+              <span class="badge badge-neutral">12 turns</span>
+              <span class="badge badge-success">5 checkpoints</span>
+            </div>
+          </div>
+          <p style="font-size:0.8125rem; color:var(--text-secondary); margin-bottom:24px; line-height:1.6;">
+            Explore the session's memory through its checkpoints — moments when the context was compacted to fit more information into the model's working memory.
+          </p>
+
+          <!-- ═══════ Memory Pressure Gauge ═══════ -->
+          <div class="pressure-gauge">
+            <div class="gauge-visual">
+              <svg width="120" height="68" viewBox="0 0 120 68">
+                <path class="gauge-arc gauge-bg" d="M 10 60 A 50 50 0 0 1 110 60" />
+                <path class="gauge-arc gauge-fill" d="M 10 60 A 50 50 0 0 1 110 60"
+                  stroke="#fb7185" stroke-dasharray="157" stroke-dashoffset="28"
+                  style="filter:drop-shadow(0 0 6px rgba(251,113,133,0.4));" />
+                <text x="60" y="54" text-anchor="middle" fill="var(--text-primary)" font-size="20" font-weight="700">82%</text>
+              </svg>
+            </div>
+            <div class="gauge-info">
+              <div class="gauge-label">Peak Context Window Usage</div>
+              <div class="gauge-value" style="color:var(--danger-fg);">82% <span style="font-size:0.75rem; font-weight:400; color:var(--text-tertiary);">of 200K tokens</span></div>
+              <div class="gauge-meta">
+                Context window reached critical levels at turn 8, triggering checkpoint #4.
+                After compaction, usage dropped to 41% allowing the session to continue efficiently.
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════ Vertical Timeline ═══════ -->
+          <div class="timeline-container">
+            <div class="timeline-line"></div>
+
+            <!-- Checkpoint 1 -->
+            <div class="checkpoint-node" style="padding-top:8px; padding-bottom:16px;">
+              <div class="connector-line"></div>
+              <div class="checkpoint-circle">1</div>
+              <div class="checkpoint-card" onclick="toggleCheckpoint(this)">
+                <div class="checkpoint-header">
+                  <div class="checkpoint-title">Initial Project Scaffolding</div>
+                  <div class="checkpoint-filename">001-initial-scaffolding.md</div>
+                  <svg class="checkpoint-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,3 11,8 6,13"/></svg>
+                </div>
+                <div class="checkpoint-tokens">
+                  <span class="token-before">48,200</span>
+                  <span class="token-arrow">→</span>
+                  <span class="token-after">12,400</span>
+                  <span class="compression-badge">74% compressed</span>
+                </div>
+                <div class="compaction-details">
+                  <div class="compaction-grid">
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">48.2K</div>
+                      <div class="compact-stat-label">Pre-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">12.4K</div>
+                      <div class="compact-stat-label">Post-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--accent-fg);">8.1K / 2.3K</div>
+                      <div class="compact-stat-label">In / Out tokens</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">1.8s</div>
+                      <div class="compact-stat-label">Duration</div>
+                    </div>
+                  </div>
+                  <div class="compaction-quote">
+                    <div class="compaction-quote-label">Compaction Summary</div>
+                    The user requested OAuth login with GitHub and Google providers for an existing Express.js auth module.
+                    The assistant explored the project structure (src/auth/index.ts, providers/ directory, package.json)
+                    and identified the existing JWT-based auth pattern. The project uses TypeScript 5.3, Express 4.18,
+                    and has a clean modular structure. No OAuth dependencies existed yet.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity between 1 → 2 -->
+            <div class="activity-strip">
+              <div class="activity-dot"></div>
+              <div class="activity-strip-inner">
+                <div class="activity-stat">🔧 <span>5</span> tool calls</div>
+                <div class="activity-stat">💬 <span>2</span> turns</div>
+                <div class="activity-stat">📊 <span>34K</span> tokens used</div>
+                <div class="activity-stat">⏱ <span>8m</span></div>
+              </div>
+            </div>
+
+            <!-- Checkpoint 2 -->
+            <div class="checkpoint-node" style="padding-bottom:16px;">
+              <div class="connector-line"></div>
+              <div class="checkpoint-circle">2</div>
+              <div class="checkpoint-card" onclick="toggleCheckpoint(this)">
+                <div class="checkpoint-header">
+                  <div class="checkpoint-title">Auth Module Foundation</div>
+                  <div class="checkpoint-filename">002-auth-module.md</div>
+                  <svg class="checkpoint-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,3 11,8 6,13"/></svg>
+                </div>
+                <div class="checkpoint-tokens">
+                  <span class="token-before">72,500</span>
+                  <span class="token-arrow">→</span>
+                  <span class="token-after">18,900</span>
+                  <span class="compression-badge">74% compressed</span>
+                </div>
+                <div class="compaction-details">
+                  <div class="compaction-grid">
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">72.5K</div>
+                      <div class="compact-stat-label">Pre-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">18.9K</div>
+                      <div class="compact-stat-label">Post-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--accent-fg);">12.4K / 4.1K</div>
+                      <div class="compact-stat-label">In / Out tokens</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">2.4s</div>
+                      <div class="compact-stat-label">Duration</div>
+                    </div>
+                  </div>
+                  <div class="compaction-quote">
+                    <div class="compaction-quote-label">Compaction Summary</div>
+                    The callback URLs were refactored to use environment-based configuration via a new config.ts module.
+                    Both GitHub and Google providers now read OAUTH_CALLBACK_BASE from process.env with fallbacks.
+                    The API routes (/auth/login, /auth/callback, /auth/logout) were created in src/auth/routes.ts
+                    and registered in the main Express app. Provider parameter validation is implemented.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity between 2 → 3 -->
+            <div class="activity-strip">
+              <div class="activity-dot"></div>
+              <div class="activity-strip-inner">
+                <div class="activity-stat">🔧 <span>8</span> tool calls</div>
+                <div class="activity-stat">💬 <span>3</span> turns</div>
+                <div class="activity-stat">📊 <span>52K</span> tokens used</div>
+                <div class="activity-stat">⏱ <span>15m</span></div>
+              </div>
+            </div>
+
+            <!-- Checkpoint 3 -->
+            <div class="checkpoint-node" style="padding-bottom:16px;">
+              <div class="connector-line"></div>
+              <div class="checkpoint-circle">3</div>
+              <div class="checkpoint-card" onclick="toggleCheckpoint(this)">
+                <div class="checkpoint-header">
+                  <div class="checkpoint-title">OAuth Providers Integrated</div>
+                  <div class="checkpoint-filename">003-oauth-providers.md</div>
+                  <svg class="checkpoint-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,3 11,8 6,13"/></svg>
+                </div>
+                <div class="checkpoint-tokens">
+                  <span class="token-before">95,300</span>
+                  <span class="token-arrow">→</span>
+                  <span class="token-after">24,100</span>
+                  <span class="compression-badge">75% compressed</span>
+                </div>
+                <div class="compaction-details">
+                  <div class="compaction-grid">
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">95.3K</div>
+                      <div class="compact-stat-label">Pre-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">24.1K</div>
+                      <div class="compact-stat-label">Post-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--accent-fg);">18.2K / 5.8K</div>
+                      <div class="compact-stat-label">In / Out tokens</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">3.1s</div>
+                      <div class="compact-stat-label">Duration</div>
+                    </div>
+                  </div>
+                  <div class="compaction-quote">
+                    <div class="compaction-quote-label">Compaction Summary</div>
+                    Token refresh logic with sliding JWT expiry and Redis session persistence was implemented.
+                    Custom error types (AuthError, RateLimitError, TokenExpiredError) were added to src/auth/errors.ts.
+                    A sliding-window rate limiter (100 req/min) was created. The first test run for auth failed
+                    due to a missing mock, which was fixed on retry. All 12 auth tests now pass.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity between 3 → 4 -->
+            <div class="activity-strip">
+              <div class="activity-dot"></div>
+              <div class="activity-strip-inner">
+                <div class="activity-stat">🔧 <span>6</span> tool calls</div>
+                <div class="activity-stat">💬 <span>2</span> turns</div>
+                <div class="activity-stat">📊 <span>41K</span> tokens used</div>
+                <div class="activity-stat">⏱ <span>12m</span></div>
+              </div>
+            </div>
+
+            <!-- Checkpoint 4 (critical — triggered by memory pressure) -->
+            <div class="checkpoint-node" style="padding-bottom:16px;">
+              <div class="connector-line"></div>
+              <div class="checkpoint-circle" style="background:linear-gradient(135deg,#e11d48,#fb7185); box-shadow:0 0 0 4px var(--canvas-default), 0 0 16px rgba(251,113,133,0.3);">4</div>
+              <div class="checkpoint-card" onclick="toggleCheckpoint(this)">
+                <div class="checkpoint-header">
+                  <div class="checkpoint-title">
+                    Critical Compaction — Memory Pressure
+                    <span class="badge badge-danger" style="font-size:0.625rem; margin-left:6px;">82% usage</span>
+                  </div>
+                  <div class="checkpoint-filename">004-critical-compaction.md</div>
+                  <svg class="checkpoint-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,3 11,8 6,13"/></svg>
+                </div>
+                <div class="checkpoint-tokens">
+                  <span class="token-before">164,800</span>
+                  <span class="token-arrow">→</span>
+                  <span class="token-after">38,200</span>
+                  <span class="compression-badge" style="background:var(--danger-muted); color:var(--danger-fg);">77% compressed</span>
+                </div>
+                <div class="compaction-details">
+                  <div class="compaction-grid">
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--danger-fg);">164.8K</div>
+                      <div class="compact-stat-label">Pre-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--success-fg);">38.2K</div>
+                      <div class="compact-stat-label">Post-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--accent-fg);">28.4K / 8.2K</div>
+                      <div class="compact-stat-label">In / Out tokens</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">4.7s</div>
+                      <div class="compact-stat-label">Duration</div>
+                    </div>
+                  </div>
+                  <div class="compaction-quote" style="border-left-color:var(--danger-emphasis);">
+                    <div class="compaction-quote-label">Compaction Summary (Emergency)</div>
+                    This was a critical compaction triggered at 82% context window usage. The full integration test suite
+                    was written (tests/auth/oauth.test.ts, fixtures/mock-tokens.ts) covering GitHub flow, Google flow,
+                    error scenarios (invalid provider, expired token, rate limit exceeded), and edge cases. All 24 tests pass.
+                    The rate limiter was tuned from 100 to 150 req/min after load testing showed legitimate traffic patterns.
+                    Session middleware now properly handles Redis connection failures with graceful fallback to in-memory storage.
+                    Model was switched from claude-opus-4.6 to gpt-5.4 at turn 5 for faster iteration.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity between 4 → 5 -->
+            <div class="activity-strip">
+              <div class="activity-dot"></div>
+              <div class="activity-strip-inner">
+                <div class="activity-stat">🔧 <span>4</span> tool calls</div>
+                <div class="activity-stat">💬 <span>3</span> turns</div>
+                <div class="activity-stat">📊 <span>28K</span> tokens used</div>
+                <div class="activity-stat">⏱ <span>10m</span></div>
+              </div>
+            </div>
+
+            <!-- Checkpoint 5 (final) -->
+            <div class="checkpoint-node" style="padding-bottom:32px;">
+              <div class="connector-line"></div>
+              <div class="checkpoint-circle" style="background:linear-gradient(135deg,#059669,#34d399); box-shadow:0 0 0 4px var(--canvas-default), 0 0 16px rgba(52,211,153,0.3);">5</div>
+              <div class="checkpoint-card" onclick="toggleCheckpoint(this)">
+                <div class="checkpoint-header">
+                  <div class="checkpoint-title">
+                    Final Session Summary
+                    <span class="badge badge-success" style="font-size:0.625rem; margin-left:6px;">Session Complete</span>
+                  </div>
+                  <div class="checkpoint-filename">005-final-summary.md</div>
+                  <svg class="checkpoint-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,3 11,8 6,13"/></svg>
+                </div>
+                <div class="checkpoint-tokens">
+                  <span class="token-before">82,400</span>
+                  <span class="token-arrow">→</span>
+                  <span class="token-after">15,600</span>
+                  <span class="compression-badge">81% compressed</span>
+                </div>
+                <div class="compaction-details">
+                  <div class="compaction-grid">
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">82.4K</div>
+                      <div class="compact-stat-label">Pre-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">15.6K</div>
+                      <div class="compact-stat-label">Post-compaction</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value" style="color:var(--accent-fg);">14.8K / 3.6K</div>
+                      <div class="compact-stat-label">In / Out tokens</div>
+                    </div>
+                    <div class="compact-stat">
+                      <div class="compact-stat-value">2.1s</div>
+                      <div class="compact-stat-label">Duration</div>
+                    </div>
+                  </div>
+                  <div class="compaction-quote" style="border-left-color:var(--success-emphasis);">
+                    <div class="compaction-quote-label">Final Session Summary</div>
+                    Session completed successfully. OAuth login with GitHub and Google providers is fully implemented.
+                    Created 7 new files and modified 1 existing file. All 24 integration tests pass. Todo items completed:
+                    user-auth ✓, api-routes ✓, oauth-providers ✓, rate-limiting ✓, session-mgmt ✓, integration-tests ✓.
+                    Code review fixes applied: added input sanitization to callback handler, improved error messages
+                    for token refresh failures, added request ID tracking to auth middleware for debugging.
+                    Final code: +342 lines added, −56 lines removed across 8 files.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- end timeline-container -->
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+    });
+
+    function toggleCheckpoint(card) {
+      const wasExpanded = card.classList.contains('expanded');
+      // Close all
+      document.querySelectorAll('.checkpoint-card').forEach(c => c.classList.remove('expanded'));
+      // Toggle clicked
+      if (!wasExpanded) {
+        card.classList.add('expanded');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  </script>
+</body>
+</html>
