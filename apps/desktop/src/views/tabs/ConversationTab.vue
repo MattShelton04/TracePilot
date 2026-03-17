@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useAutoScroll } from "@/composables/useAutoScroll";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
   ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge,
@@ -26,6 +27,19 @@ const activeView = ref("chat");
 const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
   () => store.sessionId
 );
+
+// Auto-scroll: find the .page-content scroll container and track scroll state
+const scrollContainer = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  scrollContainer.value = document.querySelector('.page-content');
+});
+
+const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } = useAutoScroll({
+  containerRef: scrollContainer,
+  watchSource: () => store.turns,
+  viewModeSource: () => activeView.value,
+});
 
 const viewModes = [
   { value: "chat", label: "Chat" },
@@ -158,6 +172,7 @@ const totalDurationMs = computed(() =>
                   <span class="turn-author">Copilot</span>
                   <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
                   <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+                  <span v-if="turn.endTimestamp || turn.timestamp" class="turn-meta">{{ formatTime(turn.endTimestamp ?? turn.timestamp) }}</span>
                   <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
                 </div>
                 <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
@@ -308,6 +323,7 @@ const totalDurationMs = computed(() =>
           <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+          <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
           <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
             {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
@@ -473,6 +489,30 @@ const totalDurationMs = computed(() =>
         </div>
       </div>
     </div>
+
+    <!-- Floating scroll buttons -->
+    <Transition name="fab">
+      <div v-if="hasOverflow && (!isLockedToBottom || showScrollToTop)" class="scroll-fab-group">
+        <button
+          v-if="showScrollToTop"
+          class="scroll-fab"
+          aria-label="Scroll to top"
+          title="Jump to top"
+          @click="scrollToTop()"
+        >
+          ↑
+        </button>
+        <button
+          v-if="!isLockedToBottom"
+          class="scroll-fab scroll-fab--primary"
+          aria-label="Scroll to bottom"
+          title="Jump to bottom"
+          @click="scrollToBottom()"
+        >
+          ↓
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -535,5 +575,67 @@ const totalDurationMs = computed(() =>
   align-items: center;
   gap: 8px;
   margin: 6px 0 4px;
+}
+
+/* Floating scroll buttons */
+.scroll-fab-group {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: var(--z-fab, 55);
+}
+
+.scroll-fab {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+.scroll-fab:hover {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.scroll-fab:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+
+.scroll-fab--primary {
+  background: var(--accent-emphasis);
+  color: white;
+  border-color: transparent;
+}
+
+.scroll-fab--primary:hover {
+  opacity: 0.9;
+  box-shadow: var(--shadow-glow-accent);
+}
+
+/* FAB group transition */
+.fab-enter-active,
+.fab-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fab-enter-from,
+.fab-leave-to {
+  opacity: 0;
+  transform: scale(0.8) translateY(8px);
 }
 </style>

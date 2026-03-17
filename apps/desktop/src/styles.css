@@ -98,6 +98,7 @@
   /* --- Z-Index --- */
   --z-sidebar: 40;
   --z-header: 50;
+  --z-fab: 55;
   --z-overlay: 60;
   --z-modal: 70;
   --z-tooltip: 80;
@@ -696,7 +697,7 @@ body {
    CONVERSATION / CHAT
    ============================ */
 
-.turn-group { display: flex; flex-direction: column; gap: 20px; }
+.turn-group { display: flex; flex-direction: column; gap: 20px; padding-bottom: 120px; }
 
 .turn-item { display: flex; gap: 10px; }
 .turn-item + .turn-item { margin-top: 0; }
@@ -941,7 +942,7 @@ body {
 .compact-tool-pill.unknown { background: var(--neutral-muted); color: var(--text-tertiary); border-color: transparent; }
 
 /* Timeline view */
-.timeline-view { position: relative; padding-left: 32px; }
+.timeline-view { position: relative; padding-left: 32px; padding-bottom: 120px; }
 .timeline-turn { position: relative; padding-bottom: 24px; }
 .timeline-turn:last-child { padding-bottom: 0; }
 .timeline-connector {
