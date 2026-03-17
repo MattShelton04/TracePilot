@@ -11,7 +11,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
-tracepilot-export = { workspace = true }
 tracepilot-tauri-bindings = { path = "../../../crates/tracepilot-tauri-bindings" }
 tauri = { version = "2", features = [] }
 serde = { workspace = true }

@@ -84,40 +84,49 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     if events_path.exists() {
         summary.has_events = true;
 
-        if let Ok(parsed) = parse_typed_events(&events_path) {
-            let typed_events = parsed.events;
-            diagnostics_out = Some(parsed.diagnostics);
+        match parse_typed_events(&events_path) {
+            Ok(parsed) => {
+                let typed_events = parsed.events;
+                diagnostics_out = Some(parsed.diagnostics);
 
-            // Derive event count from parsed events (no separate count_events call)
-            summary.event_count = Some(typed_events.len());
+                // Derive event count from parsed events (no separate count_events call)
+                summary.event_count = Some(typed_events.len());
 
-            // Shutdown metrics (summed across all shutdown events for resumed sessions)
-            if let Some((sd, count)) = extract_combined_shutdown_data(&typed_events) {
-                summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
+                // Shutdown metrics (summed across all shutdown events for resumed sessions)
+                if let Some((sd, count)) = extract_combined_shutdown_data(&typed_events) {
+                    summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
+                }
+
+                // Turn count
+                let turns = reconstruct_turns(&typed_events);
+                let stats = turn_stats(&turns);
+                summary.turn_count = Some(stats.total_turns);
+
+                // Context enrichment from session.start event
+                if let Some(start_data) = extract_session_start(&typed_events)
+                    && let Some(ctx) = &start_data.context
+                {
+                    if summary.repository.is_none() {
+                        summary.repository = ctx.repository.clone();
+                    }
+                    if summary.branch.is_none() {
+                        summary.branch = ctx.branch.clone();
+                    }
+                    if summary.host_type.is_none() {
+                        summary.host_type = ctx.host_type.clone();
+                    }
+                }
+
+                if retain_events {
+                    typed_events_out = Some(typed_events);
+                }
             }
-
-            // Turn count
-            let turns = reconstruct_turns(&typed_events);
-            let stats = turn_stats(&turns);
-            summary.turn_count = Some(stats.total_turns);
-
-            // Context enrichment from session.start event
-            if let Some(start_data) = extract_session_start(&typed_events)
-                && let Some(ctx) = &start_data.context
-            {
-                if summary.repository.is_none() {
-                    summary.repository = ctx.repository.clone();
-                }
-                if summary.branch.is_none() {
-                    summary.branch = ctx.branch.clone();
-                }
-                if summary.host_type.is_none() {
-                    summary.host_type = ctx.host_type.clone();
-                }
-            }
-
-            if retain_events {
-                typed_events_out = Some(typed_events);
+            Err(e) => {
+                tracing::warn!(
+                    path = %events_path.display(),
+                    error = %e,
+                    "Failed to parse events.jsonl; proceeding without event data"
+                );
             }
         }
     }
