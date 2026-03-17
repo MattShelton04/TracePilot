@@ -4,10 +4,16 @@ import type { SessionDetail, ShutdownMetrics, ConversationTurn, SessionListItem 
 import { formatDuration, formatNumber, formatCost, Badge, SectionPanel, EmptyState, ErrorAlert, SkeletonLoader } from '@tracepilot/ui';
 import { getSessionDetail, getShutdownMetrics, getSessionTurns } from '@tracepilot/client';
 import { useSessionsStore } from '@/stores/sessions';
+import { usePreferencesStore } from '@/stores/preferences';
 
 // ── State ───────────────────────────────────────────────────────────
 
 const sessionsStore = useSessionsStore();
+const prefs = usePreferencesStore();
+
+type NormMode = 'raw' | 'per-turn' | 'per-minute';
+const normMode = ref<NormMode>('raw');
+
 const selectedA = ref('');
 const selectedB = ref('');
 const loading = ref(false);
@@ -92,6 +98,25 @@ function totalCacheRead(m: ShutdownMetrics | null): number {
 function totalCostVal(m: ShutdownMetrics | null): number {
   if (!m?.modelMetrics) return 0;
   return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.requests?.cost ?? 0), 0);
+}
+
+function wholesaleCost(m: ShutdownMetrics | null): number {
+  if (!m?.modelMetrics) return 0;
+  return Object.entries(m.modelMetrics).reduce((sum, [model, mm]) => {
+    const cost = prefs.computeWholesaleCost(
+      model,
+      mm.usage?.inputTokens ?? 0,
+      mm.usage?.cacheReadTokens ?? 0,
+      mm.usage?.outputTokens ?? 0,
+    );
+    return sum + (cost ?? 0);
+  }, 0);
+}
+
+function copilotCost(m: ShutdownMetrics | null): number {
+  if (!m?.modelMetrics) return 0;
+  const premiumReqs = Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.requests?.count ?? 0), 0);
+  return premiumReqs * prefs.costPerPremiumRequest;
 }
 
 function totalToolCalls(turns: ConversationTurn[]): number {
@@ -183,10 +208,23 @@ const metricsRows = computed<MetricRow[]>(() => {
   const durB = sessionDurationMs(dataB.detail);
   const turnsA = dataA.turns.length;
   const turnsB = dataB.turns.length;
+
+  let divA = 1;
+  let divB = 1;
+  if (normMode.value === 'per-turn') {
+    divA = Math.max(turnsA, 1);
+    divB = Math.max(turnsB, 1);
+  } else if (normMode.value === 'per-minute') {
+    divA = Math.max(durA / 60000, 0.01);
+    divB = Math.max(durB / 60000, 0.01);
+  }
+
   const tokA = totalTokens(dataA.metrics);
   const tokB = totalTokens(dataB.metrics);
-  const costA = totalCostVal(dataA.metrics);
-  const costB = totalCostVal(dataB.metrics);
+  const wcA = wholesaleCost(dataA.metrics);
+  const wcB = wholesaleCost(dataB.metrics);
+  const ccA = copilotCost(dataA.metrics);
+  const ccB = copilotCost(dataB.metrics);
   const tcA = totalToolCalls(dataA.turns);
   const tcB = totalToolCalls(dataB.turns);
   const srA = successRate(dataA.turns);
@@ -198,20 +236,27 @@ const metricsRows = computed<MetricRow[]>(() => {
   const hsA = healthScore(dataA.turns);
   const hsB = healthScore(dataB.turns);
 
+  const isNorm = normMode.value !== 'raw';
+  const suffix = normMode.value === 'per-turn' ? ' /turn' : normMode.value === 'per-minute' ? ' /min' : '';
+
   function row(label: string, va: number, vb: number, fmt: (v: number) => string, hib: boolean): MetricRow {
     const d = computeDelta(va, vb, hib);
     return { label, valueA: fmt(va), valueB: fmt(vb), rawA: va, rawB: vb, ...d };
   }
 
+  const fmtN = (v: number) => isNorm ? v.toFixed(1) : formatNumber(v);
+  const fmtInt = (v: number) => isNorm ? v.toFixed(1) : String(Math.round(v));
+
   return [
     row('Duration', durA, durB, (v) => formatDuration(v) || '0s', false),
     row('Turns', turnsA, turnsB, String, false),
-    row('Total Tokens', tokA, tokB, formatNumber, false),
-    row('Est. Cost', costA, costB, formatCost, false),
-    row('Tool Calls', tcA, tcB, String, false),
+    row('Total Tokens' + suffix, tokA / divA, tokB / divB, fmtN, false),
+    row('Est. Wholesale Cost' + suffix, wcA / divA, wcB / divB, formatCost, false),
+    row('Est. Copilot Cost' + suffix, ccA / divA, ccB / divB, formatCost, false),
+    row('Tool Calls' + suffix, tcA / divA, tcB / divB, fmtInt, false),
     row('Success Rate', srA, srB, fmtPercent, true),
     row('Files Modified', fmA, fmB, String, false),
-    row('Lines Changed', lcA, lcB, String, false),
+    row('Lines Changed' + suffix, lcA / divA, lcB / divB, fmtInt, false),
     row('Health Score', hsA, hsB, (v) => Math.round(v * 100).toString(), true),
   ];
 });
@@ -222,6 +267,8 @@ interface TokenBarRow {
   label: string;
   valueA: number;
   valueB: number;
+  cacheA: number;
+  cacheB: number;
   maxVal: number;
 }
 
@@ -233,11 +280,10 @@ const tokenBars = computed<TokenBarRow[]>(() => {
   const outB = totalOutputTokens(dataB.metrics);
   const crA = totalCacheRead(dataA.metrics);
   const crB = totalCacheRead(dataB.metrics);
-  const maxAll = Math.max(inA, inB, outA, outB, crA, crB, 1);
+  const maxAll = Math.max(inA, inB, outA, outB, 1);
   return [
-    { label: 'Input', valueA: inA, valueB: inB, maxVal: maxAll },
-    { label: 'Output', valueA: outA, valueB: outB, maxVal: maxAll },
-    { label: 'Cache Read', valueA: crA, valueB: crB, maxVal: maxAll },
+    { label: 'Input', valueA: inA, valueB: inB, cacheA: crA, cacheB: crB, maxVal: maxAll },
+    { label: 'Output', valueA: outA, valueB: outB, cacheA: 0, cacheB: 0, maxVal: maxAll },
   ];
 });
 
@@ -454,6 +500,20 @@ function exitLabel(m: ShutdownMetrics | null): string {
 
         <!-- ═══════ Metrics Delta Table ═══════ -->
         <SectionPanel title="Metrics Comparison">
+          <div class="norm-toggle">
+            <button
+              :class="['toggle-btn', { active: normMode === 'raw' }]"
+              @click="normMode = 'raw'"
+            >Raw</button>
+            <button
+              :class="['toggle-btn', { active: normMode === 'per-turn' }]"
+              @click="normMode = 'per-turn'"
+            >Per Turn</button>
+            <button
+              :class="['toggle-btn', { active: normMode === 'per-minute' }]"
+              @click="normMode = 'per-minute'"
+            >Per Minute</button>
+          </div>
           <div class="delta-table-wrap">
             <table class="delta-table" aria-label="Metrics comparison between sessions">
               <thead>
@@ -486,10 +546,17 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 <div class="bar-track">
                   <div
                     class="bar-fill bar-fill-a"
-                    :style="{ width: (bar.valueA / bar.maxVal * 100) + '%', opacity: bar.label === 'Cache Read' ? 0.6 : 1 }"
+                    :style="{ width: (bar.valueA / bar.maxVal * 100) + '%' }"
                   >
-                    <span class="bar-value">{{ formatNumber(bar.valueA) }}</span>
+                    <div
+                      v-if="bar.cacheA > 0 && bar.valueA > 0"
+                      class="bar-cache-inner"
+                      :style="{ width: (bar.cacheA / bar.valueA * 100) + '%' }"
+                      :title="'Cache Read: ' + formatNumber(bar.cacheA)"
+                    ></div>
+                    <span v-if="(bar.valueA / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueA) }}</span>
                   </div>
+                  <span v-if="bar.valueA > 0 && (bar.valueA / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueA) }}</span>
                 </div>
               </div>
             </div>
@@ -502,10 +569,17 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 <div class="bar-track">
                   <div
                     class="bar-fill bar-fill-b"
-                    :style="{ width: (bar.valueB / bar.maxVal * 100) + '%', opacity: bar.label === 'Cache Read' ? 0.6 : 1 }"
+                    :style="{ width: (bar.valueB / bar.maxVal * 100) + '%' }"
                   >
-                    <span class="bar-value">{{ formatNumber(bar.valueB) }}</span>
+                    <div
+                      v-if="bar.cacheB > 0 && bar.valueB > 0"
+                      class="bar-cache-inner"
+                      :style="{ width: (bar.cacheB / bar.valueB * 100) + '%' }"
+                      :title="'Cache Read: ' + formatNumber(bar.cacheB)"
+                    ></div>
+                    <span v-if="(bar.valueB / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueB) }}</span>
                   </div>
+                  <span v-if="bar.valueB > 0 && (bar.valueB / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueB) }}</span>
                 </div>
               </div>
             </div>
@@ -589,8 +663,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
             <div v-for="row in toolCompRows" :key="row.tool" class="tool-row">
               <span class="tool-label">{{ row.tool }}</span>
               <div class="tool-bars">
-                <div class="tool-bar tool-bar-a" :style="{ width: (row.countA / row.maxCount * 100) + '%' }">{{ row.countA }}</div>
-                <div class="tool-bar tool-bar-b" :style="{ width: (row.countB / row.maxCount * 100) + '%' }">{{ row.countB }}</div>
+                <div v-if="row.countA > 0" class="tool-bar tool-bar-a" :style="{ width: (row.countA / row.maxCount * 100) + '%' }">{{ row.countA }}</div>
+                <div v-if="row.countB > 0" class="tool-bar tool-bar-b" :style="{ width: (row.countB / row.maxCount * 100) + '%' }">{{ row.countB }}</div>
               </div>
             </div>
           </template>
@@ -683,7 +757,9 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .comp-select {
-  flex: 1;
+  flex: 0 1 340px;
+  min-width: 200px;
+  max-width: 340px;
   padding: 10px 14px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -921,6 +997,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
   flex: 1;
   height: 18px;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .bar-fill {
@@ -932,6 +1010,9 @@ function exitLabel(m: ShutdownMetrics | null): string {
   padding-right: 6px;
   transition: width 500ms ease;
   min-width: 2px;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bar-fill-a {
@@ -948,6 +1029,28 @@ function exitLabel(m: ShutdownMetrics | null): string {
   color: rgba(255, 255, 255, 0.9);
   font-family: 'JetBrains Mono', monospace;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.bar-cache-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px 0 0 3px;
+  pointer-events: none;
+}
+
+.bar-value-outside {
+  margin-left: 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Donut Charts ── */
@@ -1095,6 +1198,43 @@ function exitLabel(m: ShutdownMetrics | null): string {
   transition: width 300ms ease;
 }
 
+/* ── Normalization Toggle ── */
+.norm-toggle {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  width: fit-content;
+}
+
+.norm-toggle .toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.norm-toggle .toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.norm-toggle .toggle-btn.active {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
 /* ── Utilities ── */
 .no-data {
   font-size: 0.8125rem;
@@ -1110,6 +1250,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
   }
   .comp-select {
     width: 100%;
+    max-width: none;
   }
   .summary-pair,
   .chart-grid-2 {
