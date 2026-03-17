@@ -216,6 +216,7 @@ impl IndexDb {
             })?;
         let summary = load_result.summary;
         let typed_events = load_result.typed_events;
+        let diagnostics = load_result.diagnostics;
         let session_id = summary.id.clone();
 
         let shutdown_type = summary
@@ -308,6 +309,7 @@ impl IndexDb {
         let health = tracepilot_core::health::compute_health(
             summary.event_count,
             summary.shutdown_metrics.as_ref(),
+            diagnostics.as_ref(),
         );
         let health_score = health.score;
 

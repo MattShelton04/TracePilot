@@ -42,7 +42,7 @@ pub struct SessionSummary {
 /// When a session is resumed, multiple shutdown events exist with per-instance
 /// (not cumulative) metrics. All numeric fields here represent the **sum** across
 /// all shutdown events. See `shutdown_count` for how many were combined.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownMetrics {
     pub shutdown_type: Option<String>,
