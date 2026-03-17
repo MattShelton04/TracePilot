@@ -10,6 +10,8 @@ export interface SessionListItem {
   eventCount?: number;
   turnCount?: number;
   currentModel?: string;
+  /** Whether this session is currently running (has an `inuse.*.lock` file). */
+  isRunning?: boolean;
 }
 
 /** Full session detail from load_session_summary */

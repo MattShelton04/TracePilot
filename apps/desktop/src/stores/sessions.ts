@@ -90,6 +90,15 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  /** Silently refresh session list without triggering loading skeleton. */
+  async function refreshSessions() {
+    try {
+      sessions.value = await listSessions();
+    } catch (e) {
+      console.error("Silent refresh failed:", e);
+    }
+  }
+
   /** Reindex sessions in the background, then refresh the list. */
   async function reindex() {
     if (indexingPromise) {
@@ -161,6 +170,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     branches,
     emptySessionCount,
     fetchSessions,
+    refreshSessions,
     reindex,
     ensureIndex,
   };

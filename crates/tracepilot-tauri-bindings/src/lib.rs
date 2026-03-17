@@ -21,6 +21,8 @@ pub struct SessionListItem {
     pub event_count: Option<usize>,
     pub turn_count: Option<usize>,
     pub current_model: Option<String>,
+    /// Whether this session is currently running (has an `inuse.*.lock` file).
+    pub is_running: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,7 +148,8 @@ mod commands {
         s.truncate(truncate_at);
     }
 
-    fn summary_to_list_item(summary: tracepilot_core::SessionSummary) -> SessionListItem {
+    fn summary_to_list_item(summary: tracepilot_core::SessionSummary, session_path: &Path) -> SessionListItem {
+        let is_running = tracepilot_core::session::discovery::has_lock_file(session_path);
         SessionListItem {
             id: summary.id,
             summary: summary.summary,
@@ -161,12 +164,13 @@ mod commands {
                 .shutdown_metrics
                 .as_ref()
                 .and_then(|metrics| metrics.current_model.clone()),
+            is_running,
         }
     }
 
     fn load_summary_list_item(session_path: &Path) -> Result<SessionListItem, String> {
         tracepilot_core::summary::load_session_summary(session_path)
-            .map(summary_to_list_item)
+            .map(|s| summary_to_list_item(s, session_path))
             .map_err(|e| e.to_string())
     }
 
@@ -217,17 +221,23 @@ mod commands {
 
                     return Ok(indexed
                         .into_iter()
-                        .map(|s| SessionListItem {
-                            id: s.id,
-                            summary: s.summary,
-                            repository: s.repository,
-                            branch: s.branch,
-                            host_type: s.host_type,
-                            created_at: s.created_at,
-                            updated_at: s.updated_at,
-                            event_count: s.event_count.map(|v| v as usize),
-                            turn_count: s.turn_count.map(|v| v as usize),
-                            current_model: s.current_model,
+                        .map(|s| {
+                            let is_running = tracepilot_core::session::discovery::has_lock_file(
+                                std::path::Path::new(&s.path),
+                            );
+                            SessionListItem {
+                                id: s.id,
+                                summary: s.summary,
+                                repository: s.repository,
+                                branch: s.branch,
+                                host_type: s.host_type,
+                                created_at: s.created_at,
+                                updated_at: s.updated_at,
+                                event_count: s.event_count.map(|v| v as usize),
+                                turn_count: s.turn_count.map(|v| v as usize),
+                                current_model: s.current_model,
+                                is_running,
+                            }
                         })
                         .collect());
                 }
@@ -814,6 +824,26 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Check if a session is currently running by looking for `inuse.*.lock` files.
+    #[tauri::command]
+    pub async fn is_session_running(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+    ) -> Result<bool, String> {
+        let session_state_dir = read_config(&state).session_state_dir();
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(tracepilot_core::session::discovery::has_lock_file(&path))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     #[tauri::command]
     pub async fn get_session_count(
         state: tauri::State<'_, SharedConfig>,
@@ -1040,6 +1070,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::validate_session_dir,
             commands::get_db_size,
             commands::get_session_count,
+            commands::is_session_running,
             commands::factory_reset,
             commands::get_tool_result,
             commands::resume_session_in_terminal,

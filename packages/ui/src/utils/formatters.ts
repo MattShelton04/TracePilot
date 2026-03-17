@@ -67,3 +67,12 @@ export function truncateText(text: string, maxLen = 1000): string {
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}…`;
 }
+
+/** Format a live duration (in-progress timer) as clean whole seconds.
+ *  Floors to nearest second to avoid fractional ticking. */
+export function formatLiveDuration(ms?: number | null): string {
+  if (ms == null || ms < 0) return "";
+  // Floor to whole seconds for clean second-by-second ticking
+  const floored = Math.floor(ms / 1000) * 1000;
+  return formatDuration(floored);
+}

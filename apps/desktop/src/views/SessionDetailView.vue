@@ -3,8 +3,10 @@ import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
-import { resumeSessionInTerminal } from "@tracepilot/client";
+import { resumeSessionInTerminal, isSessionRunning } from "@tracepilot/client";
 
 const route = useRoute();
 const store = useSessionDetailStore();
@@ -14,19 +16,64 @@ const sessionId = computed(() => route.params.id as string);
 const resolvedSessionId = computed(() => store.detail?.id ?? sessionId.value);
 const copied = ref(false);
 
+// Track live "running" state via lock file check
+const isSessionActive = ref(false);
+
+// Resume confirmation state for active sessions
+const confirmingCopy = ref(false);
+const confirmingResume = ref(false);
+
+async function checkRunning() {
+  if (!sessionId.value) {
+    isSessionActive.value = false;
+    return;
+  }
+  try {
+    isSessionActive.value = await isSessionRunning(sessionId.value);
+  } catch {
+    isSessionActive.value = false;
+  }
+}
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: async () => {
+    await Promise.all([store.refreshAll(), checkRunning()]);
+  },
+  enabled: computed(() => prefs.autoRefreshEnabled),
+  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
+
 async function copyResumeCommand() {
+  if (isSessionActive.value && !confirmingCopy.value) {
+    confirmingCopy.value = true;
+    return;
+  }
+  confirmingCopy.value = false;
   const text = `${prefs.cliCommand} --resume ${resolvedSessionId.value}`;
   await navigator.clipboard.writeText(text);
   copied.value = true;
   setTimeout(() => { copied.value = false; }, 2000);
 }
 
+function cancelCopy() {
+  confirmingCopy.value = false;
+}
+
 async function resumeInTerminal() {
+  if (isSessionActive.value && !confirmingResume.value) {
+    confirmingResume.value = true;
+    return;
+  }
+  confirmingResume.value = false;
   try {
     await resumeSessionInTerminal(resolvedSessionId.value, prefs.cliCommand);
   } catch (e) {
     console.error('Failed to open terminal:', e);
   }
+}
+
+function cancelResume() {
+  confirmingResume.value = false;
 }
 
 const tabs = computed(() => [
@@ -42,13 +89,25 @@ const currentModel = computed(() =>
   store.detail?.shutdownMetrics?.currentModel ?? "",
 );
 
-onMounted(() => {
+onMounted(async () => {
   store.loadDetail(sessionId.value);
+  await checkRunning();
 });
 
-watch(sessionId, (newId) => {
+watch(sessionId, async (newId) => {
+  confirmingCopy.value = false;
+  confirmingResume.value = false;
   if (newId) {
     store.loadDetail(newId);
+    await checkRunning();
+  }
+});
+
+// Clear confirmation state when session becomes inactive
+watch(isSessionActive, (active) => {
+  if (!active) {
+    confirmingCopy.value = false;
+    confirmingResume.value = false;
   }
 });
 
@@ -73,7 +132,17 @@ onUnmounted(() => {
       <!-- Session header + tabs + content -->
       <template v-if="store.detail">
         <h1 class="detail-title">
+          <Transition name="active-indicator">
+            <span v-if="isSessionActive" class="active-indicator-group">
+              <span class="active-dot" title="Session is currently active" />
+            </span>
+          </Transition>
           {{ store.detail.summary || 'Untitled Session' }}
+          <Transition name="active-indicator">
+            <span v-if="isSessionActive" class="active-indicator-group">
+              <Badge variant="success" class="active-badge-inline">● Active</Badge>
+            </span>
+          </Transition>
         </h1>
         <div class="detail-badges">
           <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
@@ -83,20 +152,50 @@ onUnmounted(() => {
         </div>
 
         <div class="detail-actions">
-          <button
-            class="resume-btn"
-            @click="copyResumeCommand"
-            :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
-          >
-            {{ copied ? '✓ Copied!' : '📋 Copy Resume Command' }}
-          </button>
-          <button
-            class="resume-btn"
-            @click="resumeInTerminal"
-            :title="`Resume session ${sessionId} in a new terminal`"
-          >
-            ▶ Resume in Terminal
-          </button>
+          <div class="detail-actions-left">
+            <template v-if="confirmingCopy">
+              <span class="resume-warning">⚠ Session is active elsewhere</span>
+              <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
+                Copy Anyway
+              </button>
+              <button class="resume-btn resume-btn--cancel" @click="cancelCopy">Cancel</button>
+            </template>
+            <button
+              v-else
+              class="resume-btn"
+              @click="copyResumeCommand"
+              :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
+            >
+              {{ copied ? '✓ Copied!' : '📋 Copy Resume Command' }}
+            </button>
+
+            <template v-if="confirmingResume">
+              <span class="resume-warning">⚠ Session is active elsewhere</span>
+              <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
+                Resume Anyway
+              </button>
+              <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
+            </template>
+            <button
+              v-else
+              class="resume-btn"
+              @click="resumeInTerminal"
+              :title="`Resume session ${sessionId} in a new terminal`"
+            >
+              ▶ Resume in Terminal
+            </button>
+          </div>
+
+          <div class="detail-actions-right">
+            <RefreshToolbar
+              :refreshing="refreshing"
+              :auto-refresh-enabled="prefs.autoRefreshEnabled"
+              :interval-seconds="prefs.autoRefreshIntervalSeconds"
+              @refresh="refresh"
+              @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
+              @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
+            />
+          </div>
         </div>
 
         <TabNav :tabs="tabs" />
@@ -117,7 +216,51 @@ onUnmounted(() => {
   color: var(--text-primary);
   line-height: 1.3;
   margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.active-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  flex-shrink: 0;
+  margin-left: 2px;
+  animation: pulse-active 2s ease-in-out infinite;
+  overflow: visible;
+  position: relative;
+}
+
+@keyframes pulse-active {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
+}
+
+.active-badge-inline {
+  font-size: 0.6875rem;
+  flex-shrink: 0;
+}
+
+/* Animate active indicator in/out */
+.active-indicator-group {
+  display: inline-flex;
+  align-items: center;
+}
+.active-indicator-enter-active,
+.active-indicator-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.active-indicator-enter-from {
+  opacity: 0;
+  transform: scale(0);
+}
+.active-indicator-leave-to {
+  opacity: 0;
+  transform: scale(0);
+}
+
 .detail-badges {
   display: flex;
   flex-wrap: wrap;
@@ -127,9 +270,33 @@ onUnmounted(() => {
 }
 .detail-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--canvas-default);
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+}
+.detail-actions-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.detail-actions-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+.resume-warning {
+  font-size: 0.75rem;
+  color: var(--warning-fg, #d29922);
+  font-weight: 500;
 }
 .resume-btn {
   display: inline-flex;
@@ -148,6 +315,16 @@ onUnmounted(() => {
 .resume-btn:hover {
   background: var(--neutral-subtle);
   border-color: var(--border-accent);
+}
+.resume-btn--confirm {
+  color: var(--warning-fg, #d29922);
+  border-color: var(--warning-fg, #d29922);
+}
+.resume-btn--confirm:hover {
+  background: rgba(210, 153, 34, 0.1);
+}
+.resume-btn--cancel {
+  color: var(--text-secondary);
 }
 .detail-tab-content {
   padding-top: 4px;

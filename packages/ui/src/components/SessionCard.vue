@@ -24,20 +24,29 @@ function relativeTime(dateStr?: string): string {
   if (days < 30) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString();
 }
+
+function isActive(session: SessionListItem): boolean {
+  return session.isRunning === true;
+}
 </script>
 
 <template>
   <div
     class="card card-interactive cursor-pointer"
+    :class="{ 'card--active': isActive(session) }"
     role="button"
     tabindex="0"
     @click="emit('select', session.id)"
     @keydown.enter="emit('select', session.id)"
     @keydown.space.prevent="emit('select', session.id)"
   >
-    <h3 class="card-title text-sm font-semibold mb-2 truncate" style="color: var(--text-primary); transition: color var(--transition-fast);">
-      {{ session.summary || 'Untitled Session' }}
-    </h3>
+    <div class="flex items-center gap-2 mb-2">
+      <span v-if="isActive(session)" class="active-dot" title="Session is currently active" />
+      <h3 class="card-title text-sm font-semibold truncate" style="color: var(--text-primary); transition: color var(--transition-fast); flex: 1; margin: 0;">
+        {{ session.summary || 'Untitled Session' }}
+      </h3>
+      <Badge v-if="isActive(session)" variant="success" class="active-badge">Active</Badge>
+    </div>
 
     <div class="flex flex-wrap gap-1.5 mb-3 min-w-0">
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
@@ -61,3 +70,32 @@ function relativeTime(dateStr?: string): string {
     </div>
   </div>
 </template>
+
+<style scoped>
+.card--active {
+  border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+  box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+}
+
+.active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  flex-shrink: 0;
+  margin-left: 2px;
+  animation: pulse-dot 2s ease-in-out infinite;
+  overflow: visible;
+  position: relative;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
+}
+
+.active-badge {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+}
+</style>

@@ -16,3 +16,11 @@ defineProps<{
     <option v-for="opt in options" :key="opt" :value="opt">{{ opt }}</option>
   </select>
 </template>
+<style scoped>
+.filter-select {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

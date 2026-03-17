@@ -8,11 +8,13 @@ import {
   Badge,
   EmptyState,
   formatDuration,
+  formatLiveDuration,
   formatTime,
   truncateText,
   toolIcon,
   formatArgsSummary,
   useToggleSet,
+  useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
 } from "@tracepilot/ui";
@@ -62,23 +64,11 @@ const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
 const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
-// Live-ticking timer for in-progress agent durations
-const nowMs = ref(Date.now());
-let tickInterval: ReturnType<typeof setInterval> | null = null;
-
-function startTick() {
-  if (!tickInterval) {
-    tickInterval = setInterval(() => {
-      nowMs.value = Date.now();
-    }, 1000);
-  }
-}
-function stopTick() {
-  if (tickInterval) {
-    clearInterval(tickInterval);
-    tickInterval = null;
-  }
-}
+// Live-ticking timer for in-progress agent durations (started when hasInProgress is true)
+// Note: hasInProgress computed is declared later but used here via a ref bridge
+// because useLiveDuration needs the ref at setup time before hasInProgress is defined.
+const hasInProgressRef = ref(false);
+const { nowMs } = useLiveDuration(hasInProgressRef);
 
 /** Returns live elapsed ms for in-progress nodes, or the static durationMs for completed ones. */
 function liveDuration(node: AgentNode): number | undefined {
@@ -604,7 +594,6 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeydown);
-  stopTick();
 });
 
 // Start/stop live timer based on whether any node is in-progress
@@ -619,18 +608,38 @@ const hasInProgress = computed(() => {
 });
 
 watch(hasInProgress, (val) => {
-  if (val) startTick();
-  else stopTick();
+  hasInProgressRef.value = val;
 }, { immediate: true });
 
-// Reset index when turns change
+// Reset index when turns structurally change (new session loaded),
+// but preserve selection when turns are appended or soft-refreshed.
+let lastTurnKey = "";
 watch(
   () => store.turns,
-  () => {
-    agentTurnIndex.value = 0;
-    selectedNodeId.value = null;
-    expandedToolCalls.clear();
-    nodeRefs.value.clear();
+  (newTurns) => {
+    const newKey = newTurns.map(t => t.turnIndex).join(",");
+    if (newKey !== lastTurnKey) {
+      const oldKey = lastTurnKey;
+      lastTurnKey = newKey;
+
+      // If turns were only appended (new key starts with old key), preserve state
+      if (oldKey && newKey.startsWith(oldKey)) {
+        const maxIdx = agentTurns.value.length - 1;
+        if (agentTurnIndex.value > maxIdx) {
+          agentTurnIndex.value = Math.max(0, maxIdx);
+        }
+        return;
+      }
+
+      // Full structural change (new session or reorder) — reset everything
+      const maxIdx = agentTurns.value.length - 1;
+      if (agentTurnIndex.value > maxIdx) {
+        agentTurnIndex.value = Math.max(0, maxIdx);
+      }
+      selectedNodeId.value = null;
+      expandedToolCalls.clear();
+      nodeRefs.value.clear();
+    }
   },
 );
 </script>
@@ -743,7 +752,7 @@ watch(
 
             <div class="agent-node-meta">
               <span v-if="liveDuration(ln.node) != null">
-                {{ formatDuration(liveDuration(ln.node)) }}
+                {{ formatLiveDuration(liveDuration(ln.node)) }}
               </span>
               <span>{{ ln.node.toolCount }} tool{{ ln.node.toolCount !== 1 ? "s" : "" }}</span>
               <span class="agent-node-status" :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }">
@@ -799,7 +808,7 @@ watch(
               <div class="detail-info-item">
                 <span class="detail-label">Duration</span>
                 <span class="detail-value">
-                  {{ formatDuration(liveDuration(selectedNode)) || "—" }}
+                  {{ formatLiveDuration(liveDuration(selectedNode)) || "—" }}
                 </span>
               </div>
               <div class="detail-info-item">

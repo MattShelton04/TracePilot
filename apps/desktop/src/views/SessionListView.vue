@@ -2,6 +2,9 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore, type SortOption } from "@/stores/sessions";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -9,6 +12,13 @@ import type { IndexingProgressPayload } from '@tracepilot/types';
 
 const router = useRouter();
 const store = useSessionsStore();
+const prefs = usePreferencesStore();
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: () => store.refreshSessions(),
+  enabled: computed(() => prefs.autoRefreshEnabled),
+  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const unlisteners: UnlistenFn[] = [];
@@ -63,8 +73,8 @@ onUnmounted(() => {
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px;">
-        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" shortcut-hint="⌘K" />
+      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; position: sticky; top: 0; z-index: 10; background: var(--canvas-default); padding: 8px 12px; border-radius: var(--radius-md, 8px);">
+        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
         <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
         <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
         <select
@@ -78,6 +88,14 @@ onUnmounted(() => {
         <span class="session-count-label">
           {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
         </span>
+        <RefreshToolbar
+          :refreshing="refreshing"
+          :auto-refresh-enabled="prefs.autoRefreshEnabled"
+          :interval-seconds="prefs.autoRefreshIntervalSeconds"
+          @refresh="refresh"
+          @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
+          @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
+        />
       </div>
 
       <!-- Error state -->
@@ -120,10 +138,23 @@ onUnmounted(() => {
           v-for="session in store.filteredSessions"
           :key="session.id"
           :to="{ name: 'session-overview', params: { id: session.id } }"
-          class="card card-interactive"
+          class="card card-interactive session-card"
+          :class="{ 'card--active': session.isRunning }"
           style="text-decoration: none; color: inherit;"
         >
-          <div class="session-card-title">{{ session.summary || 'Untitled Session' }}</div>
+          <Transition name="active-pop">
+            <span v-if="session.isRunning" class="active-pop-wrapper active-badge-topright">
+              <Badge variant="success" class="active-badge">Active</Badge>
+            </span>
+          </Transition>
+          <div class="session-card-title">
+            <Transition name="active-pop">
+              <span v-if="session.isRunning" class="active-pop-wrapper">
+                <span class="active-dot" title="Session is currently active" />
+              </span>
+            </Transition>
+            {{ session.summary || 'Untitled Session' }}
+          </div>
           <div class="session-card-badges">
             <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
             <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
@@ -158,6 +189,65 @@ onUnmounted(() => {
   color: var(--text-tertiary);
   margin-left: auto;
   white-space: nowrap;
+}
+.session-card {
+  position: relative;
+}
+.active-badge-topright {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.session-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card--active {
+  border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+  box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  animation: card-active-pulse 2s ease-in-out infinite;
+}
+@keyframes card-active-pulse {
+  0%, 100% {
+    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  }
+  50% {
+    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
+    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+  }
+}
+/* Animate active indicator in/out */
+.active-pop-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+.active-pop-enter-active,
+.active-pop-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.active-pop-enter-from { opacity: 0; transform: scale(0); }
+.active-pop-leave-to { opacity: 0; transform: scale(0); }
+.active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  flex-shrink: 0;
+  margin-left: 2px;
+  overflow: visible;
+  position: relative;
+  /* Sync with card border: same duration, timing, and phase */
+  animation: dot-sync-pulse 2s ease-in-out infinite;
+}
+@keyframes dot-sync-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+.active-badge {
+  flex-shrink: 0;
+  font-size: 0.625rem;
 }
 .session-card-stats {
   display: flex;
