@@ -32,7 +32,6 @@ const STATUSES = ["done", "in_progress", "pending", "blocked"] as const;
 // ── State ──
 const selectedNodeId = ref<string | null>(null);
 const hoveredNodeId = ref<string | null>(null);
-const hasCycle = ref(false);
 
 // ── Edges normalised to { from, to } (dependsOn → todoId) ──
 const edges = computed(() =>
@@ -47,8 +46,9 @@ const edges = computed(() =>
 
 // ── Topological layout (Kahn's algorithm) ──
 interface NodePos { x: number; y: number; w: number; h: number }
+interface LayoutResult { positions: Record<string, NodePos>; hasCycle: boolean }
 
-const layout = computed(() => {
+const layoutResult = computed<LayoutResult>(() => {
   const todos = props.todos;
   const edgeList = edges.value;
 
@@ -86,7 +86,7 @@ const layout = computed(() => {
 
   // Detect cycle: any node not yet assigned a level
   const cycleNodes = todos.filter((t) => levels[t.id] === undefined);
-  hasCycle.value = cycleNodes.length > 0;
+  const detectedCycle = cycleNodes.length > 0;
 
   // Place cycle nodes in one extra row at the end
   const maxLevel = Math.max(0, ...Object.values(levels));
@@ -119,8 +119,11 @@ const layout = computed(() => {
     });
   }
 
-  return positions;
+  return { positions, hasCycle: detectedCycle };
 });
+
+const layout = computed(() => layoutResult.value.positions);
+const hasCycle = computed(() => layoutResult.value.hasCycle);
 
 // ── SVG viewBox ──
 const viewBox = computed(() => {

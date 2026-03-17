@@ -102,7 +102,14 @@ const sortedRows = computed(() => {
   const key = sortKey.value;
   return rows.sort((a, b) => {
     if (key === 'model') return dir * a.model.localeCompare(b.model);
-    if (key === 'cost') return dir * ((a.cost ?? 0) - (b.cost ?? 0));
+    if (key === 'cost') {
+      const ac = a.cost ?? Infinity;
+      const bc = b.cost ?? Infinity;
+      if (ac === Infinity && bc === Infinity) return 0;
+      if (ac === Infinity) return 1;
+      if (bc === Infinity) return -1;
+      return dir * (ac - bc);
+    }
     return dir * ((a[key] as number) - (b[key] as number));
   });
 });
@@ -394,18 +401,18 @@ function fmtPct(v: number): string {
                         </div>
                       </td>
                       <td class="num-cell">
-                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestIoIdx]) }">
+                        <span :class="{ 'best-cell': row.model === modelRows[bestIoIdx]?.model }">
                           {{ row.ioRatio.toFixed(2) }}
                         </span>
                       </td>
                       <td class="num-cell">
-                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestCacheIdx]) }">
+                        <span :class="{ 'best-cell': row.model === modelRows[bestCacheIdx]?.model }">
                           {{ fmtPct(row.cacheHitRate) }}
                         </span>
                       </td>
                       <td class="num-cell">
-                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestCostIdx]) }">
-                          {{ formatCost(row.cost) }}
+                        <span :class="{ 'best-cell': row.model === modelRows[bestCostIdx]?.model }">
+                          {{ row.cost != null ? formatCost(row.cost) : '—' }}
                         </span>
                       </td>
                     </tr>

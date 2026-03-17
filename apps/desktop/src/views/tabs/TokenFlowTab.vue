@@ -63,8 +63,13 @@ const estimatedToolResults = computed(() =>
   ),
 );
 const estimatedSystemContext = computed(() => {
-  const remainder = totalInputTokens.value - estimatedUserInput.value - totalCacheRead.value - estimatedToolResults.value;
-  return Math.max(0, remainder);
+  const rawSum = estimatedUserInput.value + totalCacheRead.value + estimatedToolResults.value;
+  if (rawSum >= totalInputTokens.value && rawSum > 0) {
+    // Estimates exceed total — normalize proportionally; system context gets at least 5%
+    const minSystem = Math.round(totalInputTokens.value * 0.05);
+    return minSystem;
+  }
+  return Math.max(0, totalInputTokens.value - rawSum);
 });
 
 // ── Estimate output destinations from turns ──
@@ -380,8 +385,15 @@ function showNodeTooltip(node: SankeyNode, event: MouseEvent) {
 }
 
 function positionTooltip(event: MouseEvent) {
-  tooltipX.value = event.clientX + 12;
-  tooltipY.value = event.clientY - 10;
+  const container = (event.currentTarget as Element)?.closest('.sankey-container');
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    tooltipX.value = event.clientX - rect.left + 12;
+    tooltipY.value = event.clientY - rect.top - 10;
+  } else {
+    tooltipX.value = event.clientX + 12;
+    tooltipY.value = event.clientY - 10;
+  }
 }
 
 function moveTooltip(event: MouseEvent) {
@@ -563,6 +575,8 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
         ℹ Token attribution is estimated from message content lengths
       </div>
     </template>
+
+    <EmptyState v-else message="No model usage data available for this session." />
   </div>
 </template>
 

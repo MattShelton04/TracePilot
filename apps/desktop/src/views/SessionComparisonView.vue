@@ -104,7 +104,7 @@ function successRate(turns: ConversationTurn[]): number {
   for (const t of turns) {
     for (const tc of t.toolCalls ?? []) {
       total++;
-      if (tc.success !== false) success++;
+      if (tc.success === true) success++;
     }
   }
   return total === 0 ? 1 : success / total;
@@ -171,7 +171,7 @@ function computeDelta(
   const base = Math.max(Math.abs(a), 1);
   const pct = Math.abs(diff / base) * 100;
   const isBetter = higherIsBetter ? diff > 0 : diff < 0;
-  const arrow = isBetter ? '↓' : '↑';
+  const arrow = diff > 0 ? '↑' : '↓';
   const cls = isBetter ? 'delta-positive' : 'delta-negative';
   const label = pct > 1 ? `${pct.toFixed(0)}%` : `${Math.abs(diff).toFixed(1)}`;
   return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
@@ -368,6 +368,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
         <select
           v-model="selectedA"
           class="comp-select"
+          :disabled="loading"
           aria-label="Select Session A"
         >
           <option value="" disabled>Select Session A…</option>
@@ -383,6 +384,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
         <select
           v-model="selectedB"
           class="comp-select"
+          :disabled="loading"
           aria-label="Select Session B"
         >
           <option value="" disabled>Select Session B…</option>
