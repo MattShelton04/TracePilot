@@ -9,7 +9,7 @@ use std::path::Path;
 use tracing::warn;
 
 use crate::session::discovery::{discover_sessions, DiscoveredSession};
-use crate::summary::load_session_summary;
+use crate::summary::{load_session_summary, load_session_summary_with_events};
 
 use super::types::SessionAnalyticsInput;
 
@@ -66,27 +66,19 @@ pub fn load_full_sessions(sessions_dir: &Path) -> crate::Result<Vec<SessionAnaly
 }
 
 /// Load a single session with full turn data.
+///
+/// Uses `load_session_summary_with_events` to parse events once, then reuses
+/// the parsed events for turn reconstruction (avoiding a double parse).
 fn load_single_full_session(
     session: &DiscoveredSession,
 ) -> crate::Result<SessionAnalyticsInput> {
-    let summary = load_session_summary(&session.path)?;
+    let result = load_session_summary_with_events(&session.path)?;
+    let summary = result.summary;
 
-    let turns = if session.has_events_jsonl {
-        let events_path = session.path.join("events.jsonl");
-        match crate::parsing::events::parse_typed_events(&events_path) {
-            Ok(parsed) => Some(crate::turns::reconstruct_turns(&parsed.events)),
-            Err(e) => {
-                warn!(
-                    session_id = %session.id,
-                    error = %e,
-                    "Failed to parse events for turn reconstruction"
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
+    let turns = result
+        .typed_events
+        .as_ref()
+        .map(|events| crate::turns::reconstruct_turns(events));
 
     Ok(SessionAnalyticsInput { summary, turns })
 }

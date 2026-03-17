@@ -35,27 +35,33 @@ pub struct CustomTableInfo {
     pub rows: Vec<HashMap<String, serde_json::Value>>,
 }
 
-/// Read all todo items from a session database (opened read-only).
-pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
-    let conn = Connection::open_with_flags(
+/// Open a session database in read-only mode.
+fn open_readonly(db_path: &Path) -> Result<Connection> {
+    Connection::open_with_flags(
         db_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|e| TracePilotError::ParseError {
         context: format!("Failed to open session db: {}", db_path.display()),
         source: Some(Box::new(e)),
-    })?;
+    })
+}
 
-    // Check if todos table exists
-    let table_exists: bool = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='todos'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
+/// Check whether a table exists in a SQLite database.
+fn table_exists(conn: &Connection, table_name: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        [table_name],
+        |row| row.get::<_, bool>(0),
+    )
+    .unwrap_or(false)
+}
 
-    if !table_exists {
+/// Read all todo items from a session database (opened read-only).
+pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
+    let conn = open_readonly(db_path)?;
+
+    if !table_exists(&conn, "todos") {
         return Ok(Vec::new());
     }
 
@@ -80,24 +86,9 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
 
 /// Read all todo dependencies from a session database (opened read-only).
 pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
-    let conn = Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open session db: {}", db_path.display()),
-        source: Some(Box::new(e)),
-    })?;
+    let conn = open_readonly(db_path)?;
 
-    let table_exists: bool = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='todo_deps'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if !table_exists {
+    if !table_exists(&conn, "todo_deps") {
         return Ok(Vec::new());
     }
 
@@ -116,14 +107,7 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
 
 /// List all table names in a session database (opened read-only).
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
-    let conn = Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open session db: {}", db_path.display()),
-        source: Some(Box::new(e)),
-    })?;
+    let conn = open_readonly(db_path)?;
 
     let mut stmt =
         conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
@@ -143,25 +127,9 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
 /// - NULL → Null
 /// - BLOB → skipped (set to Null)
 pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTableInfo> {
-    let conn = Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open session db: {}", db_path.display()),
-        source: Some(Box::new(e)),
-    })?;
+    let conn = open_readonly(db_path)?;
 
-    // Check table exists
-    let table_exists: bool = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-            [table_name],
-            |row| row.get(0),
-        )
-        .unwrap_or(false);
-
-    if !table_exists {
+    if !table_exists(&conn, table_name) {
         return Ok(CustomTableInfo {
             name: table_name.to_string(),
             columns: Vec::new(),
@@ -178,7 +146,6 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
 
     // Read all rows
     let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
-    let col_count = columns.len();
     let mut rows = Vec::new();
 
     let mut result_rows = select_stmt.query([])?;
@@ -188,8 +155,6 @@ pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTable
             let val = sqlite_value_to_json(row, i);
             map.insert(col_name.clone(), val);
         }
-        // Ignore rows with more columns than expected (shouldn't happen)
-        let _ = col_count;
         rows.push(map);
     }
 

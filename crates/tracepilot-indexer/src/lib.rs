@@ -152,16 +152,37 @@ pub fn reindex_incremental_with_rich_progress(
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
 
+    // Batch size for transaction grouping — amortizes WAL fsyncs while keeping
+    // lock duration reasonable for concurrent readers.
+    const BATCH_SIZE: usize = 100;
+    let mut batch_count = 0;
+    let mut in_transaction = false;
+
     for (i, session) in sessions.iter().enumerate() {
         let info = if db.needs_reindex(&session.id, &session.path) {
+            // Start a new batch transaction if needed
+            if !in_transaction {
+                db.begin_transaction()?;
+                in_transaction = true;
+                batch_count = 0;
+            }
+
             match db.upsert_session(&session.path) {
                 Ok(info) => {
                     indexed += 1;
+                    batch_count += 1;
                     running_tokens += info.total_tokens;
                     running_events += info.event_count as u64;
                     if let Some(ref repo) = info.repository {
                         seen_repos.insert(repo.clone());
                     }
+
+                    // Commit batch when reaching BATCH_SIZE
+                    if batch_count >= BATCH_SIZE {
+                        db.commit_transaction()?;
+                        in_transaction = false;
+                    }
+
                     Some(info)
                 }
                 Err(e) => {
@@ -181,6 +202,11 @@ pub fn reindex_incremental_with_rich_progress(
             running_events,
             running_repos: seen_repos.len(),
         });
+    }
+
+    // Commit any remaining batch
+    if in_transaction {
+        db.commit_transaction()?;
     }
 
     // Prune sessions that no longer exist on disk

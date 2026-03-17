@@ -5,26 +5,22 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 /// The canonical config file location.
-fn config_dir() -> PathBuf {
-    home_dir().join(".copilot").join("tracepilot")
+fn config_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".copilot").join("tracepilot"))
 }
 
-pub fn config_file_path() -> PathBuf {
-    config_dir().join("config.toml")
+pub fn config_file_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("config.toml"))
 }
 
-fn home_dir() -> PathBuf {
+fn home_dir() -> Option<PathBuf> {
     #[cfg(windows)]
     {
-        std::env::var("USERPROFILE")
-            .map(PathBuf::from)
-            .expect("USERPROFILE environment variable not set")
+        std::env::var("USERPROFILE").map(PathBuf::from).ok()
     }
     #[cfg(not(windows))]
     {
-        std::env::var("HOME")
-            .map(PathBuf::from)
-            .expect("HOME environment variable not set")
+        std::env::var("HOME").map(PathBuf::from).ok()
     }
 }
 
@@ -57,7 +53,9 @@ pub struct GeneralConfig {
 
 impl Default for TracePilotConfig {
     fn default() -> Self {
-        let home = home_dir();
+        // home_dir() can fail if env vars are missing; use empty strings as
+        // sentinel values — the setup wizard will prompt the user for paths.
+        let home = home_dir().unwrap_or_default();
         Self {
             version: 1,
             paths: PathsConfig {
@@ -83,14 +81,25 @@ impl Default for TracePilotConfig {
 impl TracePilotConfig {
     /// Load config from the standard location, or return None if it doesn't exist.
     pub fn load() -> Option<Self> {
-        let path = config_file_path();
+        let path = config_file_path()?;
         let content = std::fs::read_to_string(&path).ok()?;
-        toml::from_str(&content).ok()
+        match toml::from_str(&content) {
+            Ok(config) => Some(config),
+            Err(e) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %e,
+                    "Failed to parse config.toml; using defaults"
+                );
+                None
+            }
+        }
     }
 
     /// Save config to the standard location.
     pub fn save(&self) -> Result<(), String> {
-        let path = config_file_path();
+        let path = config_file_path()
+            .ok_or_else(|| "Cannot determine home directory for config file".to_string())?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create config directory: {e}"))?;

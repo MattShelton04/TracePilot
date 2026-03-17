@@ -744,7 +744,7 @@ mod commands {
 
     #[tauri::command]
     pub async fn check_config_exists() -> Result<bool, String> {
-        tokio::task::spawn_blocking(|| Ok(config::config_file_path().exists()))
+        tokio::task::spawn_blocking(|| Ok(config::config_file_path().is_some_and(|p| p.exists())))
             .await
             .map_err(|e| e.to_string())?
     }
@@ -886,7 +886,9 @@ mod commands {
             let _ = std::fs::remove_file(&shm);
 
             // Delete config file
-            let _ = std::fs::remove_file(&config_path);
+            if let Some(ref path) = config_path {
+                let _ = std::fs::remove_file(path);
+            }
             Ok::<(), String>(())
         })
         .await
