@@ -325,7 +325,8 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+                .events;
             Ok(tracepilot_core::turns::reconstruct_turns(&events))
         })
         .await
@@ -352,7 +353,8 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+                .events;
 
             let total_count = events.len();
             let offset = offset.unwrap_or(0) as usize;
@@ -451,7 +453,8 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+                .events;
             Ok(tracepilot_core::parsing::events::extract_combined_shutdown_data(
                 &events,
             )
@@ -916,7 +919,8 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+                .events;
 
             // Return the last matching completion event (latest wins for duplicate completions)
             let mut last_result: Option<serde_json::Value> = None;

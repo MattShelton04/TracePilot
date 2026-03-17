@@ -1,7 +1,18 @@
 //! Parser for `events.jsonl` — the line-delimited JSON event log.
 //!
+//! ## Pipeline
+//!
+//! ```text
+//! events.jsonl
+//!   → parse_events_jsonl()  → Vec<RawEvent>  (skip malformed lines)
+//!   → parse_typed_events()  → ParsedEvents { events: Vec<TypedEvent>, diagnostics }
+//! ```
+//!
 //! Each line is a JSON object with at minimum: `{ type, data, id, timestamp }`.
 //! Events form a tree via `parentId` and are linked by `interactionId`, `toolCallId`, `turnId`.
+//!
+//! Unknown event types and deserialization failures are tracked in [`ParseDiagnostics`]
+//! rather than being silently swallowed, enabling health scoring and debugging.
 
 use crate::error::{Result, TracePilotError};
 use crate::models::event_types::{
@@ -12,6 +23,7 @@ use crate::models::event_types::{
     SystemNotificationData, ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData,
     TurnEndData, TurnStartData, UsageMetrics, UserMessageData, WorkspaceFileChangedData,
 };
+use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -40,6 +52,13 @@ pub struct TypedEvent {
 }
 
 /// Typed variants for known event data, with `Other` as a catch-all.
+///
+/// Each variant corresponds to a [`SessionEventType`] and wraps a strongly-typed
+/// data struct. When deserialization of the typed struct fails (e.g. due to schema
+/// evolution), the raw JSON `Value` is preserved as `Other`.
+///
+/// `ContextChanged` is a special case — it stores raw `Value` by design since the
+/// `session.context_changed` event reuses `SessionContext` shape without a dedicated struct.
 #[derive(Debug, Clone)]
 pub enum TypedEventData {
     SessionStart(SessionStartData),
@@ -69,15 +88,30 @@ pub enum TypedEventData {
     Other(Value),
 }
 
-/// Parse all events from an `events.jsonl` file.
-/// Uses streaming to handle large files without loading everything into memory.
-pub fn parse_events_jsonl(path: &Path) -> Result<Vec<RawEvent>> {
+/// Result of parsing an `events.jsonl` file.
+///
+/// Contains both the typed events and parsing diagnostics (unknown event types,
+/// deserialization failures, malformed line counts). Callers that only need events
+/// can access `.events` directly.
+pub struct ParsedEvents {
+    /// The parsed and typed events.
+    pub events: Vec<TypedEvent>,
+    /// Diagnostics about parsing issues encountered.
+    pub diagnostics: ParseDiagnostics,
+}
+
+/// Parse all events from an `events.jsonl` file into raw envelopes.
+///
+/// Reads line-by-line, skipping empty lines and logging malformed JSON.
+/// Returns `(events, malformed_line_count)` so the caller can track parse quality.
+fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
     let file = std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
         context: format!("Failed to open {}", path.display()),
         source: Some(Box::new(e)),
     })?;
     let reader = BufReader::new(file);
     let mut events = Vec::new();
+    let mut malformed = 0usize;
 
     for (line_num, line) in reader.lines().enumerate() {
         let line = line.map_err(|e| TracePilotError::ParseError {
@@ -92,11 +126,12 @@ pub fn parse_events_jsonl(path: &Path) -> Result<Vec<RawEvent>> {
             Ok(event) => events.push(event),
             Err(e) => {
                 tracing::warn!(line = line_num + 1, error = %e, "Skipping malformed event line");
+                malformed += 1;
             }
         }
     }
 
-    Ok(events)
+    Ok((events, malformed))
 }
 
 /// Count events without fully parsing them (fast scan).
@@ -112,109 +147,156 @@ pub fn count_events(path: &Path) -> Result<usize> {
         .count())
 }
 
-/// Deserialize the `data` field of a `RawEvent` into the appropriate typed variant.
+/// Deserialize the `data` field of a [`RawEvent`] into the appropriate typed variant.
 ///
-/// Takes `data` by reference. Clones once for `from_value` deserialization;
-/// on failure falls back to `Other` using a second clone.
-fn typed_data_from_raw(event_type: &SessionEventType, data: &Value) -> TypedEventData {
+/// Returns `(typed_data, optional_warning)`. On success, the warning is `None`.
+/// On failure (unknown type or deserialization error), the raw JSON `Value` is
+/// preserved as [`TypedEventData::Other`] and a warning is returned.
+///
+/// The `ContextChanged` variant is a special case — it stores raw `Value` by design
+/// since `session.context_changed` reuses the `SessionContext` shape directly.
+pub(crate) fn typed_data_from_raw(
+    event_type: &SessionEventType,
+    data: &Value,
+) -> (TypedEventData, Option<EventParseWarning>) {
+    /// Helper: attempt deserialization, return warning on failure.
+    macro_rules! try_deser {
+        ($variant:ident, $data_type:ty, $wire:expr, $data:expr) => {{
+            match serde_json::from_value::<$data_type>($data.clone()) {
+                Ok(typed) => (TypedEventData::$variant(typed), None),
+                Err(e) => (
+                    TypedEventData::Other($data.clone()),
+                    Some(EventParseWarning::DeserializationFailed {
+                        event_type: $wire.to_string(),
+                        error: e.to_string(),
+                    }),
+                ),
+            }
+        }};
+    }
+
     match event_type {
-        SessionEventType::SessionStart => serde_json::from_value(data.clone())
-            .map(TypedEventData::SessionStart)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionShutdown => serde_json::from_value(data.clone())
-            .map(TypedEventData::SessionShutdown)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::UserMessage => serde_json::from_value(data.clone())
-            .map(TypedEventData::UserMessage)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::AssistantMessage => serde_json::from_value(data.clone())
-            .map(TypedEventData::AssistantMessage)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::AssistantTurnStart => serde_json::from_value(data.clone())
-            .map(TypedEventData::TurnStart)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::AssistantTurnEnd => serde_json::from_value(data.clone())
-            .map(TypedEventData::TurnEnd)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::ToolExecutionStart => serde_json::from_value(data.clone())
-            .map(TypedEventData::ToolExecutionStart)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::ToolExecutionComplete => serde_json::from_value(data.clone())
-            .map(TypedEventData::ToolExecutionComplete)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SubagentStarted => serde_json::from_value(data.clone())
-            .map(TypedEventData::SubagentStarted)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SubagentCompleted => serde_json::from_value(data.clone())
-            .map(TypedEventData::SubagentCompleted)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SubagentFailed => serde_json::from_value(data.clone())
-            .map(TypedEventData::SubagentFailed)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionCompactionComplete => serde_json::from_value(data.clone())
-            .map(TypedEventData::CompactionComplete)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionCompactionStart => serde_json::from_value(data.clone())
-            .map(TypedEventData::CompactionStart)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionModelChange => serde_json::from_value(data.clone())
-            .map(TypedEventData::ModelChange)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionError => serde_json::from_value(data.clone())
-            .map(TypedEventData::SessionError)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionResume => serde_json::from_value(data.clone())
-            .map(TypedEventData::SessionResume)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SystemNotification => serde_json::from_value(data.clone())
-            .map(TypedEventData::SystemNotification)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SkillInvoked => serde_json::from_value(data.clone())
-            .map(TypedEventData::SkillInvoked)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::Abort => serde_json::from_value(data.clone())
-            .map(TypedEventData::Abort)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionPlanChanged => serde_json::from_value(data.clone())
-            .map(TypedEventData::PlanChanged)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionInfo => serde_json::from_value(data.clone())
-            .map(TypedEventData::SessionInfo)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::SessionContextChanged => {
-            // Reuses SessionContext — just store raw Value since it's the same shape
-            TypedEventData::ContextChanged(data.clone())
+        SessionEventType::SessionStart => {
+            try_deser!(SessionStart, SessionStartData, "session.start", data)
         }
-        SessionEventType::SessionWorkspaceFileChanged => serde_json::from_value(data.clone())
-            .map(TypedEventData::WorkspaceFileChanged)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        SessionEventType::ToolUserRequested => serde_json::from_value(data.clone())
-            .map(TypedEventData::ToolUserRequested)
-            .unwrap_or_else(|_| TypedEventData::Other(data.clone())),
-        _ => TypedEventData::Other(data.clone()),
+        SessionEventType::SessionShutdown => {
+            try_deser!(SessionShutdown, ShutdownData, "session.shutdown", data)
+        }
+        SessionEventType::UserMessage => {
+            try_deser!(UserMessage, UserMessageData, "user.message", data)
+        }
+        SessionEventType::AssistantMessage => {
+            try_deser!(AssistantMessage, AssistantMessageData, "assistant.message", data)
+        }
+        SessionEventType::AssistantTurnStart => {
+            try_deser!(TurnStart, TurnStartData, "assistant.turn_start", data)
+        }
+        SessionEventType::AssistantTurnEnd => {
+            try_deser!(TurnEnd, TurnEndData, "assistant.turn_end", data)
+        }
+        SessionEventType::ToolExecutionStart => {
+            try_deser!(ToolExecutionStart, ToolExecStartData, "tool.execution_start", data)
+        }
+        SessionEventType::ToolExecutionComplete => {
+            try_deser!(ToolExecutionComplete, ToolExecCompleteData, "tool.execution_complete", data)
+        }
+        SessionEventType::SubagentStarted => {
+            try_deser!(SubagentStarted, SubagentStartedData, "subagent.started", data)
+        }
+        SessionEventType::SubagentCompleted => {
+            try_deser!(SubagentCompleted, SubagentCompletedData, "subagent.completed", data)
+        }
+        SessionEventType::SubagentFailed => {
+            try_deser!(SubagentFailed, SubagentFailedData, "subagent.failed", data)
+        }
+        SessionEventType::SessionCompactionComplete => {
+            try_deser!(CompactionComplete, CompactionCompleteData, "session.compaction_complete", data)
+        }
+        SessionEventType::SessionCompactionStart => {
+            try_deser!(CompactionStart, CompactionStartData, "session.compaction_start", data)
+        }
+        SessionEventType::SessionModelChange => {
+            try_deser!(ModelChange, ModelChangeData, "session.model_change", data)
+        }
+        SessionEventType::SessionError => {
+            try_deser!(SessionError, SessionErrorData, "session.error", data)
+        }
+        SessionEventType::SessionResume => {
+            try_deser!(SessionResume, SessionResumeData, "session.resume", data)
+        }
+        SessionEventType::SystemNotification => {
+            try_deser!(SystemNotification, SystemNotificationData, "system.notification", data)
+        }
+        SessionEventType::SkillInvoked => {
+            try_deser!(SkillInvoked, SkillInvokedData, "skill.invoked", data)
+        }
+        SessionEventType::Abort => {
+            try_deser!(Abort, AbortData, "abort", data)
+        }
+        SessionEventType::SessionPlanChanged => {
+            try_deser!(PlanChanged, PlanChangedData, "session.plan_changed", data)
+        }
+        SessionEventType::SessionInfo => {
+            try_deser!(SessionInfo, SessionInfoData, "session.info", data)
+        }
+        SessionEventType::SessionContextChanged => {
+            // Special case: stores raw Value (reuses SessionContext shape)
+            (TypedEventData::ContextChanged(data.clone()), None)
+        }
+        SessionEventType::SessionWorkspaceFileChanged => {
+            try_deser!(WorkspaceFileChanged, WorkspaceFileChangedData, "session.workspace_file_changed", data)
+        }
+        SessionEventType::ToolUserRequested => {
+            try_deser!(ToolUserRequested, ToolUserRequestedData, "tool.user_requested", data)
+        }
+        SessionEventType::Unknown(name) => (
+            TypedEventData::Other(data.clone()),
+            Some(EventParseWarning::UnknownEventType {
+                event_type: name.clone(),
+            }),
+        ),
     }
 }
 
-/// Parse events.jsonl into fully typed events.
+/// Parse `events.jsonl` into fully typed events with diagnostics.
 ///
-/// Reads the file line-by-line, parses each `RawEvent`, converts the string
-/// event type into `SessionEventType`, and deserializes data into the matching
-/// typed struct — falling back to `TypedEventData::Other` on failure.
-pub fn parse_typed_events(path: &Path) -> Result<Vec<TypedEvent>> {
-    let raw_events = parse_events_jsonl(path)?;
-    let typed = raw_events
-        .into_iter()
-        .map(|raw| {
-            let event_type = SessionEventType::from(raw.event_type.as_str());
-            let typed_data = typed_data_from_raw(&event_type, &raw.data);
-            TypedEvent {
-                raw,
-                event_type,
-                typed_data,
-            }
-        })
-        .collect();
-    Ok(typed)
+/// Reads the file line-by-line, parses each [`RawEvent`], converts the string
+/// event type into [`SessionEventType`], and deserializes data into the matching
+/// typed struct — falling back to [`TypedEventData::Other`] on failure.
+///
+/// Returns [`ParsedEvents`] containing both the events and parsing diagnostics
+/// (unknown event types, deserialization failures, malformed line counts).
+pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
+    let (raw_events, malformed) = parse_events_jsonl(path)?;
+    let mut diagnostics = ParseDiagnostics {
+        malformed_lines: malformed,
+        ..Default::default()
+    };
+    let mut events = Vec::with_capacity(raw_events.len());
+
+    for raw in raw_events {
+        let event_type = SessionEventType::parse_wire(raw.event_type.as_str());
+        let (typed_data, warning) = typed_data_from_raw(&event_type, &raw.data);
+
+        diagnostics.total_events += 1;
+        if matches!(typed_data, TypedEventData::Other(_)) {
+            diagnostics.fallback_events += 1;
+        } else {
+            diagnostics.typed_events += 1;
+        }
+        if let Some(ref w) = warning {
+            diagnostics.record_warning(w);
+        }
+
+        events.push(TypedEvent {
+            raw,
+            event_type,
+            typed_data,
+        });
+    }
+
+    diagnostics.log_summary();
+    Ok(ParsedEvents { events, diagnostics })
 }
 
 /// Extract shutdown data from the LAST `session.shutdown` event.
@@ -425,8 +507,9 @@ mod tests {
     fn test_parse_raw_events() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
-        let events = parse_events_jsonl(&path).unwrap();
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
         assert_eq!(events.len(), 8);
+        assert_eq!(malformed, 0);
         assert_eq!(events[0].event_type, "session.start");
         assert_eq!(events[1].event_type, "user.message");
         assert_eq!(events[4].event_type, "tool.execution_start");
@@ -438,8 +521,11 @@ mod tests {
     fn test_parse_typed_events() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
-        let events = parse_typed_events(&path).unwrap();
+        let parsed = parse_typed_events(&path).unwrap();
+        let events = &parsed.events;
         assert_eq!(events.len(), 8);
+        assert_eq!(parsed.diagnostics.total_events, 8);
+        assert_eq!(parsed.diagnostics.fallback_events, 0);
 
         // session.start
         assert_eq!(events[0].event_type, SessionEventType::SessionStart);
@@ -496,7 +582,7 @@ mod tests {
     fn test_extract_shutdown() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         #[allow(deprecated)]
         let shutdown = extract_shutdown_data(&events);
         assert!(shutdown.is_some());
@@ -513,7 +599,7 @@ mod tests {
     fn test_extract_session_start() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         let start = extract_session_start(&events);
         assert!(start.is_some());
         let sd = start.unwrap();
@@ -532,8 +618,9 @@ mod tests {
             "\n",
         );
         std::fs::write(&path, content).unwrap();
-        let events = parse_events_jsonl(&path).unwrap();
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
         assert_eq!(events.len(), 2);
+        assert_eq!(malformed, 1);
     }
 
     #[test]
@@ -541,11 +628,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
         std::fs::write(&path, "").unwrap();
-        let events = parse_events_jsonl(&path).unwrap();
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
         assert!(events.is_empty());
+        assert_eq!(malformed, 0);
 
-        let typed = parse_typed_events(&path).unwrap();
-        assert!(typed.is_empty());
+        let parsed = parse_typed_events(&path).unwrap();
+        assert!(parsed.events.is_empty());
+        assert_eq!(parsed.diagnostics.total_events, 0);
     }
 
     // ── Combined shutdown tests ──────────────────────────────────────
@@ -554,7 +643,7 @@ mod tests {
     fn test_extract_combined_shutdown_single() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         let (sd, count) = extract_combined_shutdown_data(&events).unwrap();
         assert_eq!(count, 1);
         assert_eq!(sd.shutdown_type.as_deref(), Some("routine"));
@@ -585,7 +674,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
         std::fs::write(&path, resumed_session_jsonl()).unwrap();
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         let (sd, count) = extract_combined_shutdown_data(&events).unwrap();
 
         assert_eq!(count, 2);
@@ -608,7 +697,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
         std::fs::write(&path, resumed_session_jsonl()).unwrap();
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         let (sd, _) = extract_combined_shutdown_data(&events).unwrap();
 
         let files = sd.code_changes.unwrap().files_modified.unwrap();
@@ -624,7 +713,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
         std::fs::write(&path, resumed_session_jsonl()).unwrap();
-        let events = parse_typed_events(&path).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
         let (sd, _) = extract_combined_shutdown_data(&events).unwrap();
 
         let metrics = sd.model_metrics.unwrap();

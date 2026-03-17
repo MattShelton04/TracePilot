@@ -9,19 +9,24 @@ use crate::error::{Result, TracePilotError};
 use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::checkpoints::parse_checkpoints;
+use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::{
     extract_combined_shutdown_data, extract_session_start, parse_typed_events, TypedEvent,
 };
 use crate::parsing::workspace::parse_workspace_yaml;
 use crate::turns::{reconstruct_turns, turn_stats};
 
-/// Result of loading a session — includes parsed events for reuse by the indexer.
+/// Result of loading a session — includes parsed events and diagnostics for reuse.
 ///
 /// The `typed_events` field allows callers (e.g., the indexer) to avoid re-parsing
 /// `events.jsonl` for conversation FTS indexing or tool call extraction.
+/// The `diagnostics` field exposes parsing quality info (unknown events, failures).
 pub struct SessionLoadResult {
     pub summary: SessionSummary,
     pub typed_events: Option<Vec<TypedEvent>>,
+    /// Parsing diagnostics (unknown event types, deserialization failures).
+    /// Present when events were parsed, `None` if `events.jsonl` was missing.
+    pub diagnostics: Option<ParseDiagnostics>,
 }
 
 /// Load a complete [`SessionSummary`] from a session directory.
@@ -74,11 +79,15 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     // 2–5. Events processing — parse ONCE, derive count from len()
     let events_path = session_dir.join("events.jsonl");
     let mut typed_events_out = None;
+    let mut diagnostics_out = None;
 
     if events_path.exists() {
         summary.has_events = true;
 
-        if let Ok(typed_events) = parse_typed_events(&events_path) {
+        if let Ok(parsed) = parse_typed_events(&events_path) {
+            let typed_events = parsed.events;
+            diagnostics_out = Some(parsed.diagnostics);
+
             // Derive event count from parsed events (no separate count_events call)
             summary.event_count = Some(typed_events.len());
 
@@ -128,6 +137,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     Ok(SessionLoadResult {
         summary,
         typed_events: typed_events_out,
+        diagnostics: diagnostics_out,
     })
 }
 
