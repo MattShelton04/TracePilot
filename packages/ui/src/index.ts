@@ -21,6 +21,7 @@ export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as ToolCallItem } from "./components/ToolCallItem.vue";
 export { default as ToolCallDetail } from "./components/ToolCallDetail.vue";
+export { default as AgentBadge } from "./components/AgentBadge.vue";
 
 // Visualization & layout components
 export { default as HealthRing } from "./components/HealthRing.vue";
@@ -37,6 +38,8 @@ export * from "./utils/formatters";
 export * from "./utils/toolCall";
 export * from "./utils/languageDetection";
 export * from "./utils/syntaxHighlight";
+export * from "./utils/agentTypes";
+export * from "./utils/agentGrouping";
 
 // Composables
 export * from "./composables";

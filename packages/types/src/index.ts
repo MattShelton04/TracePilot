@@ -60,21 +60,31 @@ export interface ModelMetricDetail {
   };
 }
 
+/** A message or reasoning text attributed to the agent that produced it. */
+export interface AttributedMessage {
+  content: string;
+  /** Links to the subagent's toolCallId, or undefined for the main agent. */
+  parentToolCallId?: string;
+  /** Denormalized display name of the owning agent (e.g. "Explore Agent"). */
+  agentDisplayName?: string;
+}
+
 /** A conversation turn */
 export interface ConversationTurn {
   turnIndex: number;
   turnId?: string;
   interactionId?: string;
   userMessage?: string;
-  assistantMessages: string[];
+  /** Assistant messages with agent attribution (who produced each message). */
+  assistantMessages: AttributedMessage[];
   model?: string;
   timestamp?: string;
   endTimestamp?: string;
   toolCalls: TurnToolCall[];
   durationMs?: number;
   isComplete: boolean;
-  /** Reasoning/thinking texts emitted during this turn (may have multiple). */
-  reasoningTexts?: string[];
+  /** Reasoning/thinking texts with agent attribution. */
+  reasoningTexts?: AttributedMessage[];
   /** Total output tokens consumed during this turn. */
   outputTokens?: number;
   /** The transformed/enriched user message content (includes system-injected context). */

@@ -492,7 +492,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
             </div>
 
             <!-- Assistant lane -->
-            <div v-if="turn.assistantMessages.some(m => m.trim())" class="swimlane">
+            <div v-if="turn.assistantMessages.some(m => m.content.trim())" class="swimlane">
               <div class="swimlane-label">Assistant</div>
               <div class="swimlane-track">
                 <!-- Collapsed bar -->
@@ -500,14 +500,14 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   v-if="!expandedMessages.has(`${turn.turnIndex}-assistant`)"
                   class="swimlane-bar swimlane-bar--assistant swimlane-bar--expandable"
                   :style="{ width: '80%' }"
-                  :title="turn.assistantMessages.find(m => m.trim())?.slice(0, 200)"
+                  :title="turn.assistantMessages.find(m => m.content.trim())?.content.slice(0, 200)"
                   role="button"
                   tabindex="0"
                   @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
                   @keydown.enter.space.prevent="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
                 >
-                  {{ truncateText(turn.assistantMessages.find(m => m.trim()) ?? "", 80) }}
-                  <span v-if="(turn.assistantMessages.find(m => m.trim()) ?? '').length > 80" class="expand-hint">⤢</span>
+                  {{ truncateText(turn.assistantMessages.find(m => m.content.trim())?.content ?? "", 80) }}
+                  <span v-if="(turn.assistantMessages.find(m => m.content.trim())?.content ?? '').length > 80" class="expand-hint">⤢</span>
                 </div>
                 <!-- Expanded content: shows ONE assistant message at a time with pagination -->
                 <div v-else class="swimlane-expanded swimlane-expanded--assistant">
@@ -518,7 +518,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     >
                       ▾ Collapse
                     </button>
-                    <div v-if="turn.assistantMessages.filter(m => m.trim()).length > 1" class="msg-pagination">
+                    <div v-if="turn.assistantMessages.filter(m => m.content.trim()).length > 1" class="msg-pagination">
                       <button
                         class="msg-nav-btn"
                         :disabled="getAssistantMsgIdx(turn.turnIndex) <= 0"
@@ -526,17 +526,17 @@ const parallelAgentIds = computed<Set<string>>(() => {
                         title="Previous message"
                       >‹</button>
                       <span class="msg-nav-label">
-                        {{ getAssistantMsgIdx(turn.turnIndex) + 1 }} / {{ turn.assistantMessages.filter(m => m.trim()).length }}
+                        {{ getAssistantMsgIdx(turn.turnIndex) + 1 }} / {{ turn.assistantMessages.filter(m => m.content.trim()).length }}
                       </span>
                       <button
                         class="msg-nav-btn"
-                        :disabled="getAssistantMsgIdx(turn.turnIndex) >= turn.assistantMessages.filter(m => m.trim()).length - 1"
+                        :disabled="getAssistantMsgIdx(turn.turnIndex) >= turn.assistantMessages.filter(m => m.content.trim()).length - 1"
                         @click="setAssistantMsgIdx(turn.turnIndex, getAssistantMsgIdx(turn.turnIndex) + 1)"
                         title="Next message"
                       >›</button>
                     </div>
                   </div>
-                  <div class="swimlane-expanded-content">{{ turn.assistantMessages.filter(m => m.trim())[getAssistantMsgIdx(turn.turnIndex)] }}</div>
+                  <div class="swimlane-expanded-content">{{ turn.assistantMessages.filter(m => m.content.trim())[getAssistantMsgIdx(turn.turnIndex)]?.content }}</div>
                 </div>
               </div>
             </div>

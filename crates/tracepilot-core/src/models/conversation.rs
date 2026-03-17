@@ -5,6 +5,20 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// A message or reasoning text attributed to the agent that produced it.
+///
+/// When `parent_tool_call_id` is `Some`, this content was produced by the subagent
+/// owning that tool call. When `None`, it belongs to the main (top-level) agent.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AttributedMessage {
+    pub content: String,
+    /// Links to the subagent's tool_call_id, or `None` for the main agent.
+    pub parent_tool_call_id: Option<String>,
+    /// Denormalized display name of the owning agent (e.g. "Explore Agent").
+    pub agent_display_name: Option<String>,
+}
+
 /// A single conversation turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,8 +27,9 @@ pub struct ConversationTurn {
     pub turn_id: Option<String>,
     pub interaction_id: Option<String>,
     pub user_message: Option<String>,
+    /// Assistant messages with agent attribution (who produced each message).
     #[serde(default)]
-    pub assistant_messages: Vec<String>,
+    pub assistant_messages: Vec<AttributedMessage>,
     pub model: Option<String>,
     pub timestamp: Option<DateTime<Utc>>,
     pub end_timestamp: Option<DateTime<Utc>>,
@@ -23,9 +38,9 @@ pub struct ConversationTurn {
     pub duration_ms: Option<u64>,
     #[serde(default)]
     pub is_complete: bool,
-    /// Visible chain-of-thought reasoning per assistant message (parallel to messages).
+    /// Visible chain-of-thought reasoning with agent attribution.
     #[serde(default)]
-    pub reasoning_texts: Vec<String>,
+    pub reasoning_texts: Vec<AttributedMessage>,
     /// Total output tokens across all assistant messages in this turn.
     pub output_tokens: Option<u64>,
     /// System-decorated version of the user message (includes datetime, reminders, SQL state).

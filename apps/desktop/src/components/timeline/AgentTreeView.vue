@@ -17,6 +17,10 @@ import {
   useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
+  inferAgentTypeFromToolCall,
+  AGENT_COLORS,
+  agentStatusFromToolCall,
+  STATUS_ICONS,
 } from "@tracepilot/ui";
 
 // ---------------------------------------------------------------------------
@@ -129,51 +133,6 @@ const AGENT_TYPE_ICONS: Record<string, string> = {
   main: "🤖",
 };
 
-const AGENT_COLORS: Record<string, string> = {
-  main: "#6366f1",
-  explore: "#22d3ee",
-  "general-purpose": "#a78bfa",
-  "code-review": "#f472b6",
-  task: "#fbbf24",
-};
-
-function inferAgentType(
-  tc: TurnToolCall,
-): "explore" | "general-purpose" | "code-review" | "task" {
-  const name = (tc.agentDisplayName ?? tc.toolName ?? "").toLowerCase();
-  if (name.includes("explore")) return "explore";
-  if (name.includes("code-review") || name.includes("code review"))
-    return "code-review";
-  if (name.includes("general") || name.includes("general-purpose"))
-    return "general-purpose";
-  // Check arguments for agent_type
-  if (tc.arguments && typeof tc.arguments === "object") {
-    const args = tc.arguments as Record<string, unknown>;
-    const agentType = String(args.agent_type ?? "").toLowerCase();
-    if (agentType.includes("explore")) return "explore";
-    if (agentType.includes("code-review") || agentType.includes("code_review"))
-      return "code-review";
-    if (agentType.includes("general")) return "general-purpose";
-    if (agentType.includes("task")) return "task";
-  }
-  return "task";
-}
-
-function agentStatusFromToolCall(tc: TurnToolCall): "completed" | "failed" | "in-progress" {
-  if (!tc.isComplete) return "in-progress";
-  // A subagent marked complete by ToolExecComplete but missing SubagentCompleted/Failed
-  // will have success == null — treat as still in-progress
-  if (tc.isSubagent && tc.success == null) return "in-progress";
-  if (tc.success === false) return "failed";
-  return "completed";
-}
-
-const STATUS_ICONS: Record<string, string> = {
-  completed: "✅",
-  failed: "❌",
-  "in-progress": "⏳",
-};
-
 // ---------------------------------------------------------------------------
 // Tree Data
 // ---------------------------------------------------------------------------
@@ -197,7 +156,7 @@ const treeData = computed<TreeData | null>(() => {
           (t) => t.parentToolCallId === tc.toolCallId && !t.isSubagent,
         )
       : [];
-    const agentType = inferAgentType(tc);
+    const agentType = inferAgentTypeFromToolCall(tc);
     nodeMap.set(nodeId, {
       id: nodeId,
       type: agentType,
