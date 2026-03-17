@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupTurnByAgent, hasSubagents, buildSubagentIndex } from "../utils/agentGrouping";
+import { groupTurnByAgent, hasSubagents, buildSubagentIndex, buildSubagentContentIndex } from "../utils/agentGrouping";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 
 function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
@@ -262,5 +262,126 @@ describe("hasSubagents", () => {
       toolCalls: [makeToolCall({ isSubagent: true })],
     });
     expect(hasSubagents(turn)).toBe(true);
+  });
+});
+
+// =========================================================================
+// buildSubagentContentIndex
+// =========================================================================
+describe("buildSubagentContentIndex", () => {
+  it("returns empty map for empty turns", () => {
+    expect(buildSubagentContentIndex([]).size).toBe(0);
+  });
+
+  it("returns empty map when no subagents exist", () => {
+    const turns = [
+      makeTurn({
+        assistantMessages: [{ content: "hello" }],
+        toolCalls: [makeToolCall({ toolCallId: "tc1", toolName: "grep" })],
+      }),
+    ];
+    expect(buildSubagentContentIndex(turns).size).toBe(0);
+  });
+
+  it("collects messages and reasoning for a single subagent", () => {
+    const turns = [
+      makeTurn({
+        assistantMessages: [
+          { content: "main msg" },
+          { content: "sub output", parentToolCallId: "sub-1" },
+        ],
+        reasoningTexts: [
+          { content: "sub thinking", parentToolCallId: "sub-1" },
+        ],
+        toolCalls: [
+          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
+        ],
+      }),
+    ];
+    const index = buildSubagentContentIndex(turns);
+    expect(index.size).toBe(1);
+    const content = index.get("sub-1")!;
+    expect(content.messages).toEqual(["sub output"]);
+    expect(content.reasoning).toEqual(["sub thinking"]);
+  });
+
+  it("aggregates content across multiple turns (cross-turn attribution)", () => {
+    const turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [
+          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
+        ],
+        assistantMessages: [
+          { content: "early output", parentToolCallId: "sub-1" },
+        ],
+      }),
+      makeTurn({
+        turnIndex: 1,
+        assistantMessages: [
+          { content: "late output", parentToolCallId: "sub-1" },
+        ],
+        reasoningTexts: [
+          { content: "late reasoning", parentToolCallId: "sub-1" },
+        ],
+      }),
+    ];
+    const index = buildSubagentContentIndex(turns);
+    const content = index.get("sub-1")!;
+    expect(content.messages).toEqual(["early output", "late output"]);
+    expect(content.reasoning).toEqual(["late reasoning"]);
+  });
+
+  it("separates content for multiple subagents", () => {
+    const turns = [
+      makeTurn({
+        assistantMessages: [
+          { content: "from agent A", parentToolCallId: "sub-a" },
+          { content: "from agent B", parentToolCallId: "sub-b" },
+        ],
+        toolCalls: [
+          makeToolCall({ toolCallId: "sub-a", toolName: "task", isSubagent: true }),
+          makeToolCall({ toolCallId: "sub-b", toolName: "task", isSubagent: true }),
+        ],
+      }),
+    ];
+    const index = buildSubagentContentIndex(turns);
+    expect(index.size).toBe(2);
+    expect(index.get("sub-a")!.messages).toEqual(["from agent A"]);
+    expect(index.get("sub-b")!.messages).toEqual(["from agent B"]);
+  });
+
+  it("excludes messages without parentToolCallId (main agent messages)", () => {
+    const turns = [
+      makeTurn({
+        assistantMessages: [
+          { content: "main agent says" },
+          { content: "sub says", parentToolCallId: "sub-1" },
+        ],
+        toolCalls: [
+          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
+        ],
+      }),
+    ];
+    const index = buildSubagentContentIndex(turns);
+    expect(index.get("sub-1")!.messages).toEqual(["sub says"]);
+  });
+
+  it("excludes orphan parentToolCallIds that don't match any subagent", () => {
+    const turns = [
+      makeTurn({
+        assistantMessages: [
+          { content: "orphaned msg", parentToolCallId: "unknown-id" },
+          { content: "valid msg", parentToolCallId: "sub-1" },
+        ],
+        toolCalls: [
+          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
+        ],
+      }),
+    ];
+    const index = buildSubagentContentIndex(turns);
+    expect(index.size).toBe(1);
+    expect(index.get("sub-1")!.messages).toEqual(["valid msg"]);
+    expect(index.has("unknown-id")).toBe(false);
   });
 });

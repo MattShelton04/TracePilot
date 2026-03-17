@@ -57,7 +57,7 @@ const displayName = computed(
   padding: 2px 8px;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--agent-color) 12%, transparent);
-  color: var(--text-primary, #e0e0e0);
+  color: var(--text-primary);
   white-space: nowrap;
   font-weight: 500;
 }
