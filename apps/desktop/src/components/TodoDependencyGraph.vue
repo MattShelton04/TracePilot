@@ -33,6 +33,40 @@ const STATUSES = ["done", "in_progress", "pending", "blocked"] as const;
 const selectedNodeId = ref<string | null>(null);
 const hoveredNodeId = ref<string | null>(null);
 
+// ── Pan & zoom ──
+const panX = ref(0);
+const panY = ref(0);
+const isPanning = ref(false);
+const panStartX = ref(0);
+const panStartY = ref(0);
+const zoomLevel = ref(1);
+
+function onPanStart(e: MouseEvent) {
+  isPanning.value = true;
+  panStartX.value = e.clientX - panX.value;
+  panStartY.value = e.clientY - panY.value;
+}
+
+function onPanMove(e: MouseEvent) {
+  if (!isPanning.value) return;
+  panX.value = e.clientX - panStartX.value;
+  panY.value = e.clientY - panStartY.value;
+}
+
+function onPanEnd() {
+  isPanning.value = false;
+}
+
+function zoomIn() { zoomLevel.value = Math.min(zoomLevel.value * 1.2, 3); }
+function zoomOut() { zoomLevel.value = Math.max(zoomLevel.value / 1.2, 0.3); }
+function resetView() { zoomLevel.value = 1; panX.value = 0; panY.value = 0; }
+
+function onWheel(e: WheelEvent) {
+  e.preventDefault();
+  if (e.deltaY < 0) zoomIn();
+  else zoomOut();
+}
+
 // ── Edges normalised to { from, to } (dependsOn → todoId) ──
 const edges = computed(() =>
   props.deps
@@ -258,13 +292,26 @@ watch(() => props.todos, () => {
 
     <!-- Graph panel -->
     <div class="graph-panel">
-      <svg
-        class="graph-svg"
-        :width="viewBox.width"
-        :height="viewBox.height"
-        :viewBox="`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`"
-        xmlns="http://www.w3.org/2000/svg"
+      <div class="zoom-controls">
+        <button class="zoom-btn" @click="zoomIn" title="Zoom in">+</button>
+        <button class="zoom-btn" @click="zoomOut" title="Zoom out">−</button>
+        <button class="zoom-btn" @click="resetView" title="Reset view">⟲</button>
+      </div>
+      <div class="graph-viewport"
+        @mousedown="onPanStart"
+        @mousemove="onPanMove"
+        @mouseup="onPanEnd"
+        @mouseleave="onPanEnd"
+        @wheel.prevent="onWheel"
       >
+        <div class="graph-transform" :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoomLevel})` }">
+          <svg
+            class="graph-svg"
+            :width="viewBox.width"
+            :height="viewBox.height"
+            :viewBox="`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`"
+            xmlns="http://www.w3.org/2000/svg"
+          >
         <defs>
           <marker
             v-for="s in STATUSES"
@@ -342,6 +389,8 @@ watch(() => props.todos, () => {
           >{{ truncate(todo.description ?? "", 28) }}</text>
         </g>
       </svg>
+        </div>
+      </div>
     </div>
 
     <!-- Legend -->
@@ -456,11 +505,49 @@ watch(() => props.todos, () => {
   padding: 20px;
   min-height: 440px;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
+}
+.graph-viewport {
+  overflow: hidden;
+  cursor: grab;
+  min-height: 440px;
+}
+.graph-viewport:active { cursor: grabbing; }
+.graph-transform {
+  transform-origin: center center;
+  transition: transform 0.1s ease;
+  display: flex;
+  justify-content: center;
 }
 .graph-svg {
   display: block;
   margin: 0 auto;
+}
+.zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+.zoom-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.zoom-btn:hover {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
 }
 
 /* Node styles */

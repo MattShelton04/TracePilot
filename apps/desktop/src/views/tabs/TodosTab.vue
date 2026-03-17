@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, StatusIcon, EmptyState, SectionPanel, ProgressBar, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, StatusIcon, EmptyState, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 
 const store = useSessionDetailStore();
@@ -20,7 +20,7 @@ const blockedCount = computed(() => todos.value.filter(t => t.status === 'blocke
 const pendingCount = computed(() => todos.value.filter(t => t.status !== 'done' && t.status !== 'in_progress' && t.status !== 'blocked').length);
 const progressPercent = computed(() => todos.value.length > 0 ? (completedCount.value / todos.value.length) * 100 : 0);
 
-const viewMode = ref<'list' | 'graph'>('list');
+const viewMode = ref<'list' | 'graph'>('graph');
 
 function statusBadgeVariant(status: string): 'done' | 'accent' | 'danger' | 'neutral' {
   switch (status) {
@@ -56,12 +56,18 @@ function getTodoTitle(id: string): string {
             {{ Math.round(progressPercent) }}%
           </span>
         </div>
-        <ProgressBar
-          :percent="progressPercent"
-          color="success"
-          class="progress-bar-todo"
+        <div class="segmented-progress-bar"
+          role="progressbar"
+          :aria-valuenow="Math.round(progressPercent)"
+          :aria-valuemin="0"
+          :aria-valuemax="100"
           :aria-label="`${completedCount} of ${todos.length} todos completed`"
-        />
+        >
+          <div class="seg seg-done" :style="{ width: `${(completedCount / todos.length) * 100}%` }" />
+          <div class="seg seg-progress" :style="{ width: `${(inProgressCount / todos.length) * 100}%` }" />
+          <div class="seg seg-blocked" :style="{ width: `${(blockedCount / todos.length) * 100}%` }" />
+          <div class="seg seg-pending" :style="{ width: `${(pendingCount / todos.length) * 100}%` }" />
+        </div>
         <div class="flex items-center gap-3 text-xs flex-wrap">
           <span class="text-[var(--success-fg)]">✓ {{ completedCount }} done</span>
           <span class="text-[var(--text-placeholder)]">·</span>
@@ -189,16 +195,23 @@ function getTodoTitle(id: string): string {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
-/* Override progress bar height and color to match variant-c */
-.progress-bar-todo {
-  margin-bottom: 10px;
+/* Segmented progress bar */
+.segmented-progress-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--canvas-overlay);
+  margin-bottom: 8px;
 }
-.progress-bar-todo :deep(.progress-bar) {
-  height: 8px;
+.seg {
+  height: 100%;
+  transition: width 0.3s ease;
 }
-.progress-bar-todo :deep(.progress-bar-fill) {
-  background: var(--success-fg);
-}
+.seg-done { background: var(--success-fg); }
+.seg-progress { background: var(--accent-fg); }
+.seg-blocked { background: var(--danger-fg); }
+.seg-pending { background: var(--text-placeholder); opacity: 0.3; }
 
 /* Remove section-panel-body padding so items render flush */
 :deep(.section-panel-body) {
