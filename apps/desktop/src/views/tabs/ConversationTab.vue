@@ -458,7 +458,7 @@ const totalDurationMs = computed(() =>
                 />
                 <span v-if="section.durationMs" class="turn-meta">{{ formatDuration(section.durationMs) }}</span>
               </div>
-              <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid ${AGENT_COLORS[section.agentType]}40` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
+              <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${AGENT_COLORS[section.agentType]} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
                   :key="tc.toolCallId ?? tc.toolName"
@@ -519,9 +519,9 @@ const totalDurationMs = computed(() =>
 <style scoped>
 .subagent-block {
   margin: 8px 0 8px 24px;
-  border-left: 3px solid var(--agent-border-color, #6366f1);
+  border-left: 3px solid var(--agent-border-color, var(--accent-emphasis));
   border-radius: 0 8px 8px 0;
-  background: color-mix(in srgb, var(--agent-border-color) 4%, var(--bg-secondary, #1a1a2e));
+  background: color-mix(in srgb, var(--agent-border-color) 4%, var(--canvas-subtle));
   overflow: hidden;
 }
 

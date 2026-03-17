@@ -145,10 +145,10 @@ function extractPrompt(args: unknown): string | null {
 // ── Subagent lane color map ──────────────────────────────────
 
 const AGENT_COLORS: Record<string, string> = {
-  explore: "#22d3ee",
-  "general-purpose": "#a78bfa",
-  "code-review": "#f472b6",
-  task: "#fbbf24",
+  explore: "var(--agent-color-explore)",
+  "general-purpose": "var(--agent-color-general-purpose)",
+  "code-review": "var(--agent-color-code-review)",
+  task: "var(--agent-color-task)",
 };
 
 function agentColor(toolName: string): string {
