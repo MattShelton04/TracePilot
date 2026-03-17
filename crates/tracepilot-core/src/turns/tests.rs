@@ -1,4 +1,5 @@
     use super::*;
+    use crate::models::conversation::AttributedMessage;
     use crate::models::event_types::{
         AbortData, AssistantMessageData, ModelChangeData, SubagentCompletedData,
         SubagentFailedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
@@ -6,6 +7,11 @@
     };
     use crate::parsing::events::{RawEvent, TypedEvent};
     use serde_json::{Value, json};
+
+    /// Helper: extract message content strings for easy assertion.
+    fn msg_contents(messages: &[AttributedMessage]) -> Vec<&str> {
+        messages.iter().map(|m| m.content.as_str()).collect()
+    }
 
     fn make_event(
         event_type: SessionEventType,
@@ -153,7 +159,7 @@
         assert_eq!(turn.turn_id.as_deref(), Some("turn-1"));
         assert_eq!(turn.interaction_id.as_deref(), Some("int-1"));
         assert_eq!(turn.user_message.as_deref(), Some("Hello"));
-        assert_eq!(turn.assistant_messages, vec!["Hi there!".to_string()]);
+        assert_eq!(msg_contents(&turn.assistant_messages), vec!["Hi there!"]);
         assert_eq!(turn.model.as_deref(), Some("claude-opus-4.6"));
         assert_eq!(turn.duration_ms, Some(2_000));
         assert!(turn.is_complete);
@@ -402,8 +408,8 @@
         let turns = reconstruct_turns(&events);
         assert_eq!(turns[0].assistant_messages.len(), 2);
         assert_eq!(
-            turns[0].assistant_messages,
-            vec!["Part one".to_string(), "Part two".to_string()]
+            msg_contents(&turns[0].assistant_messages),
+            vec!["Part one", "Part two"]
         );
     }
 
@@ -1111,7 +1117,7 @@
         // Should only contain the real message, not the empty strings
         assert_eq!(turn.assistant_messages.len(), 1);
         assert_eq!(
-            turn.assistant_messages[0],
+            turn.assistant_messages[0].content,
             "I fixed the bug by updating the handler."
         );
         // Tool calls should still be preserved
@@ -1187,7 +1193,7 @@
 
         let turns = reconstruct_turns(&events);
         assert_eq!(turns[0].assistant_messages.len(), 1);
-        assert_eq!(turns[0].assistant_messages[0], "Real response");
+        assert_eq!(turns[0].assistant_messages[0].content, "Real response");
     }
 
     #[test]
@@ -1243,7 +1249,7 @@
 
         let turns = reconstruct_turns(&events);
         assert_eq!(turns[0].assistant_messages.len(), 1);
-        assert_eq!(turns[0].assistant_messages[0], "Done!");
+        assert_eq!(turns[0].assistant_messages[0].content, "Done!");
     }
 
     #[test]
@@ -1378,7 +1384,7 @@
             turn.assistant_messages
         );
         assert_eq!(
-            turn.assistant_messages[0],
+            turn.assistant_messages[0].content,
             "I've refactored the auth module. Here's a summary of changes."
         );
         // All 5 tool calls should be preserved
@@ -1532,13 +1538,13 @@
         let turn = &turns[0];
         // Both reasoning texts collected
         assert_eq!(turn.reasoning_texts.len(), 2);
-        assert_eq!(turn.reasoning_texts[0], "Let me think about this...");
-        assert_eq!(turn.reasoning_texts[1], "Now I should summarize.");
+        assert_eq!(turn.reasoning_texts[0].content, "Let me think about this...");
+        assert_eq!(turn.reasoning_texts[1].content, "Now I should summarize.");
         // Output tokens accumulated
         assert_eq!(turn.output_tokens, Some(150));
         // Only non-empty message kept
         assert_eq!(turn.assistant_messages.len(), 1);
-        assert_eq!(turn.assistant_messages[0], "Here is the explanation.");
+        assert_eq!(turn.assistant_messages[0].content, "Here is the explanation.");
     }
 
     #[test]
@@ -2813,5 +2819,195 @@
             Some("claude-sonnet-4"),
             "turn should inherit session_model from prior model change"
         );
+    }
+
+    #[test]
+    fn attributed_messages_preserve_parent_tool_call_id() {
+        // Setup: main agent message + subagent message in same turn
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do a thing".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: None,
+                    source: None,
+                }),
+                "e1", "2026-01-01T00:00:00Z", None,
+            ),
+            // Main agent message (no parent)
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: None,
+                    content: Some("I'll handle this.".to_string()),
+                    interaction_id: None,
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
+                }),
+                "e2", "2026-01-01T00:00:01Z", None,
+            ),
+            // Subagent tool start
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-sub-1".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: Some(json!({"prompt": "explore"})),
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "e3", "2026-01-01T00:00:02Z", None,
+            ),
+            // Subagent started
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("tc-sub-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                    agent_description: Some("Explores the codebase".to_string()),
+                }),
+                "e4", "2026-01-01T00:00:02Z", None,
+            ),
+            // Subagent's message (has parent_tool_call_id)
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: None,
+                    content: Some("Found the relevant files.".to_string()),
+                    interaction_id: None,
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: Some("tc-sub-1".to_string()),
+                    reasoning_text: Some("Let me search for this...".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "e5", "2026-01-01T00:00:03Z", None,
+            ),
+            // Subagent completed
+            make_event(
+                SessionEventType::SubagentCompleted,
+                TypedEventData::SubagentCompleted(SubagentCompletedData {
+                    tool_call_id: Some("tc-sub-1".to_string()),
+                    agent_name: Some("explore".to_string()),
+                    agent_display_name: Some("Explore Agent".to_string()),
+                }),
+                "e6", "2026-01-01T00:00:04Z", None,
+            ),
+            // Main agent final message
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: None,
+                    content: Some("All done!".to_string()),
+                    interaction_id: None,
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
+                }),
+                "e7", "2026-01-01T00:00:05Z", None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "e8", "2026-01-01T00:00:06Z", None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        let turn = &turns[0];
+
+        // 3 messages total: 2 from main agent, 1 from subagent
+        assert_eq!(turn.assistant_messages.len(), 3);
+
+        // First message: main agent (no parent)
+        assert_eq!(turn.assistant_messages[0].content, "I'll handle this.");
+        assert!(turn.assistant_messages[0].parent_tool_call_id.is_none());
+        assert!(turn.assistant_messages[0].agent_display_name.is_none());
+
+        // Second message: subagent
+        assert_eq!(turn.assistant_messages[1].content, "Found the relevant files.");
+        assert_eq!(
+            turn.assistant_messages[1].parent_tool_call_id.as_deref(),
+            Some("tc-sub-1")
+        );
+        assert_eq!(
+            turn.assistant_messages[1].agent_display_name.as_deref(),
+            Some("Explore Agent")
+        );
+
+        // Third message: main agent (no parent)
+        assert_eq!(turn.assistant_messages[2].content, "All done!");
+        assert!(turn.assistant_messages[2].parent_tool_call_id.is_none());
+
+        // Reasoning: 1 block from subagent
+        assert_eq!(turn.reasoning_texts.len(), 1);
+        assert_eq!(turn.reasoning_texts[0].content, "Let me search for this...");
+        assert_eq!(
+            turn.reasoning_texts[0].parent_tool_call_id.as_deref(),
+            Some("tc-sub-1")
+        );
+        assert_eq!(
+            turn.reasoning_texts[0].agent_display_name.as_deref(),
+            Some("Explore Agent")
+        );
+    }
+
+    #[test]
+    fn messages_without_subagents_have_none_parent() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: None,
+                    source: None,
+                }),
+                "e1", "2026-01-01T00:00:00Z", None,
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: None,
+                    content: Some("World".to_string()),
+                    interaction_id: None,
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: Some("thinking...".to_string()),
+                    reasoning_opaque: None,
+                }),
+                "e2", "2026-01-01T00:00:01Z", None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
+                "e3", "2026-01-01T00:00:02Z", None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let turn = &turns[0];
+
+        assert_eq!(turn.assistant_messages.len(), 1);
+        assert!(turn.assistant_messages[0].parent_tool_call_id.is_none());
+        assert!(turn.assistant_messages[0].agent_display_name.is_none());
+
+        assert_eq!(turn.reasoning_texts.len(), 1);
+        assert!(turn.reasoning_texts[0].parent_tool_call_id.is_none());
+        assert!(turn.reasoning_texts[0].agent_display_name.is_none());
     }
 

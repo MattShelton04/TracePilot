@@ -1,26 +1,45 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useAutoScroll } from "@/composables/useAutoScroll";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
-  ExpandChevron, ToolCallItem, ToolCallDetail,
+  ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge,
   formatDuration, formatTime, formatNumber, truncateText,
   toolIcon, toolCategory, categoryColor, formatArgsSummary,
   useSessionTabLoader, useToggleSet,
+  groupTurnByAgent, buildSubagentIndex, hasSubagents,
+  type AgentSection,
+  AGENT_COLORS,
+  agentStatusFromToolCall,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 const preferences = usePreferencesStore();
 const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
-const expandedReasoning = useToggleSet<number>();
+const expandedReasoning = useToggleSet<string>();
+const collapsedSubagents = useToggleSet<string>();
 const activeView = ref("chat");
 
 const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
   () => store.sessionId
 );
+
+// Auto-scroll: find the .page-content scroll container and track scroll state
+const scrollContainer = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  scrollContainer.value = document.querySelector('.page-content');
+});
+
+const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } = useAutoScroll({
+  containerRef: scrollContainer,
+  watchSource: () => store.turns,
+  viewModeSource: () => activeView.value,
+});
 
 const viewModes = [
   { value: "chat", label: "Chat" },
@@ -36,6 +55,7 @@ useSessionTabLoader(
       expandedTools.clear();
       expandedToolDetails.clear();
       expandedReasoning.clear();
+      collapsedSubagents.clear();
     },
   }
 );
@@ -54,6 +74,32 @@ const argsSummaryCache = computed(() => {
 
 function getArgsSummary(turnIndex: number, tcIdx: number): string {
   return argsSummaryCache.value.get(`${turnIndex}-${tcIdx}`) || "";
+}
+
+// Pre-compute session-wide subagent index for cross-turn attribution
+const globalSubagentMap = computed(() => buildSubagentIndex(store.turns));
+
+// Pre-compute agent-grouped sections per turn
+const groupedSections = computed(() => {
+  const subMap = globalSubagentMap.value;
+  const map = new Map<number, AgentSection[]>();
+  for (const turn of store.turns) {
+    map.set(turn.turnIndex, groupTurnByAgent(turn, subMap));
+  }
+  return map;
+});
+
+function getSections(turnIndex: number): AgentSection[] {
+  return groupedSections.value.get(turnIndex) ?? [];
+}
+
+// Find the flat tool call index for a tool call within a section
+function findToolCallIndex(turn: typeof store.turns[0], tc: { toolCallId?: string; toolName: string }): number {
+  if (tc.toolCallId) {
+    const idx = turn.toolCalls.findIndex(t => t.toolCallId === tc.toolCallId);
+    if (idx >= 0) return idx;
+  }
+  return turn.toolCalls.indexOf(tc as typeof turn.toolCalls[0]);
 }
 
 const totalToolCalls = computed(() =>
@@ -96,83 +142,176 @@ const totalDurationMs = computed(() =>
           </div>
         </div>
 
-        <!-- Reasoning (thinking) — after user message, before assistant response -->
-        <div v-if="turn.reasoningTexts && turn.reasoningTexts.length > 0" class="turn-reasoning">
-          <button
-            class="reasoning-toggle"
-            :aria-expanded="expandedReasoning.has(turn.turnIndex)"
-            @click="expandedReasoning.toggle(turn.turnIndex)"
-          >
-            <ExpandChevron :expanded="expandedReasoning.has(turn.turnIndex)" />
-            💭 {{ turn.reasoningTexts.length }} reasoning block{{ turn.reasoningTexts.length !== 1 ? 's' : '' }}
-          </button>
-          <div v-if="expandedReasoning.has(turn.turnIndex)" class="reasoning-content" tabindex="0">
-            <template v-for="(text, rIdx) in turn.reasoningTexts" :key="rIdx">
-              <hr v-if="rIdx > 0" class="reasoning-divider" />
-              {{ text }}
-            </template>
-          </div>
-        </div>
-
-        <!-- Assistant messages -->
-        <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="turn-item">
-          <div class="turn-avatar assistant">🤖</div>
-          <div class="turn-body">
-            <div class="turn-header">
-              <span class="turn-author">Assistant</span>
-              <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
-              <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
-              <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
+        <!-- Agent-grouped content -->
+        <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="sIdx">
+          <!-- ── Main Agent Section ── -->
+          <template v-if="!section.agentId">
+            <!-- Reasoning (main agent) -->
+            <div v-if="section.reasoning.length > 0" class="turn-reasoning">
+              <button
+                class="reasoning-toggle"
+                :aria-expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)"
+                @click="expandedReasoning.toggle(`${turn.turnIndex}-main-${sIdx}`)"
+              >
+                <ExpandChevron :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)" />
+                💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
+              </button>
+              <div v-if="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)" class="reasoning-content" tabindex="0">
+                <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
+                  <hr v-if="rIdx > 0" class="reasoning-divider" />
+                  {{ text }}
+                </template>
+              </div>
             </div>
-            <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
-          </div>
-        </div>
 
-        <!-- Token badge (once per turn, outside assistant messages loop) -->
-        <div v-if="turn.outputTokens" class="turn-reasoning">
-          <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
-        </div>
+            <!-- Assistant messages (main agent) -->
+            <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`main-msg-${idx}`" class="turn-item">
+              <div class="turn-avatar assistant">🤖</div>
+              <div class="turn-body">
+                <div class="turn-header">
+                  <span class="turn-author">Copilot</span>
+                  <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
+                  <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+                  <span v-if="turn.endTimestamp || turn.timestamp" class="turn-meta">{{ formatTime(turn.endTimestamp ?? turn.timestamp) }}</span>
+                  <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
+                </div>
+                <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
+              </div>
+            </div>
 
-        <!-- Tool calls section -->
-        <div v-if="turn.toolCalls.length > 0" class="turn-tool-calls">
-          <div class="tool-calls-container">
-            <button
-              class="tool-call-header w-full"
-              :aria-expanded="expandedTools.has(turn.turnIndex)"
-              @click="expandedTools.toggle(turn.turnIndex)"
-            >
-              <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
-              <span>{{ turn.toolCalls.length }} tool call{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
-              <span style="margin-left: auto; display: flex; gap: 6px;">
-                <span class="tool-summary-badge tool-summary-pass">
-                  {{ turn.toolCalls.filter((tc) => tc.success === true).length }} passed
-                </span>
-                <span
-                  v-if="turn.toolCalls.some((tc) => tc.success === false)"
-                  class="tool-summary-badge tool-summary-fail"
+            <!-- Tool calls (main agent — includes subagent launch calls) -->
+            <div v-if="section.toolCalls.length > 0" class="turn-tool-calls">
+              <div class="tool-calls-container">
+                <button
+                  class="tool-call-header w-full"
+                  :aria-expanded="expandedTools.has(turn.turnIndex)"
+                  @click="expandedTools.toggle(turn.turnIndex)"
                 >
-                  {{ turn.toolCalls.filter((tc) => tc.success === false).length }} failed
-                </span>
+                  <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
+                  <span>{{ section.toolCalls.length }} tool call{{ section.toolCalls.length !== 1 ? "s" : "" }}</span>
+                  <span style="margin-left: auto; display: flex; gap: 6px;">
+                    <span class="tool-summary-badge tool-summary-pass">
+                      {{ section.toolCalls.filter((tc) => tc.success === true).length }} passed
+                    </span>
+                    <span
+                      v-if="section.toolCalls.some((tc) => tc.success === false)"
+                      class="tool-summary-badge tool-summary-fail"
+                    >
+                      {{ section.toolCalls.filter((tc) => tc.success === false).length }} failed
+                    </span>
+                  </span>
+                </button>
+
+                <div v-if="expandedTools.has(turn.turnIndex)">
+                  <ToolCallItem
+                    v-for="tc in section.toolCalls"
+                    :key="tc.toolCallId ?? tc.toolName"
+                    :tc="tc"
+                    :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
+                    :expanded="expandedToolDetails.has(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                    :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+                    :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                    :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
+                    :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
+                    @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                    @load-full-result="handleLoadFullResult"
+                    @retry-full-result="handleRetryResult"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- ── Subagent Section ── -->
+          <div
+            v-else
+            class="subagent-block"
+            :style="{ '--agent-border-color': AGENT_COLORS[section.agentType] ?? AGENT_COLORS.main }"
+          >
+            <button
+              class="subagent-header"
+              :aria-expanded="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)"
+              @click="collapsedSubagents.toggle(`${turn.turnIndex}-${section.agentId}`)"
+            >
+              <ExpandChevron :expanded="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)" />
+              <AgentBadge
+                :agent-name="section.agentDisplayName"
+                :agent-type="section.agentType"
+                :model="section.model"
+                :status="section.status"
+              />
+              <span v-if="section.durationMs" class="turn-meta">{{ formatDuration(section.durationMs) }}</span>
+              <span v-if="section.toolCalls.length" class="turn-meta">
+                · {{ section.toolCalls.length }} tool{{ section.toolCalls.length !== 1 ? 's' : '' }}
               </span>
             </button>
 
-            <div v-if="expandedTools.has(turn.turnIndex)">
-              <ToolCallItem
-                v-for="(tc, tcIdx) in turn.toolCalls"
-                :key="tcIdx"
-                :tc="tc"
-                :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
-                :expanded="expandedToolDetails.has(`${turn.turnIndex}-${tcIdx}`)"
-                :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
-                :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
-                :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
-                :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
-                @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${tcIdx}`)"
-                @load-full-result="handleLoadFullResult"
-                @retry-full-result="handleRetryResult"
-              />
+            <div v-if="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)" class="subagent-content">
+              <!-- Subagent reasoning -->
+              <div v-if="section.reasoning.length > 0" class="turn-reasoning">
+                <button
+                  class="reasoning-toggle"
+                  :aria-expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)"
+                  @click="expandedReasoning.toggle(`${turn.turnIndex}-${section.agentId}`)"
+                >
+                  <ExpandChevron :expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)" />
+                  💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
+                </button>
+                <div v-if="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)" class="reasoning-content" tabindex="0">
+                  <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
+                    <hr v-if="rIdx > 0" class="reasoning-divider" />
+                    {{ text }}
+                  </template>
+                </div>
+              </div>
+
+              <!-- Subagent messages -->
+              <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`sub-msg-${idx}`" class="turn-item subagent-message">
+                <div class="turn-avatar assistant" :style="{ fontSize: '0.9rem' }">
+                  {{ section.agentType === 'explore' ? '🔍' : section.agentType === 'code-review' ? '🔎' : section.agentType === 'general-purpose' ? '🛠️' : '📋' }}
+                </div>
+                <div class="turn-body">
+                  <div class="turn-header">
+                    <span class="turn-author" :style="{ color: AGENT_COLORS[section.agentType] }">{{ section.agentDisplayName }}</span>
+                    <Badge v-if="section.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ section.model }}</Badge>
+                  </div>
+                  <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
+                </div>
+              </div>
+
+              <!-- Subagent tool calls -->
+              <div v-if="section.toolCalls.length > 0" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                <ToolCallItem
+                  v-for="tc in section.toolCalls"
+                  :key="tc.toolCallId ?? tc.toolName"
+                  :tc="tc"
+                  variant="compact"
+                  :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
+                  :expanded="expandedToolDetails.has(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+                  :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                  :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
+                  :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
+                  @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  @load-full-result="handleLoadFullResult"
+                  @retry-full-result="handleRetryResult"
+                />
+              </div>
+
+              <!-- Empty state for subagents with no captured content -->
+              <div
+                v-if="section.messages.filter(m => m.trim()).length === 0 && section.reasoning.length === 0 && section.toolCalls.length === 0"
+                class="subagent-empty"
+              >
+                No content captured for this subagent
+              </div>
             </div>
           </div>
+        </template>
+
+        <!-- Token badge (once per turn) -->
+        <div v-if="turn.outputTokens" class="turn-reasoning">
+          <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
         </div>
       </div>
     </div>
@@ -184,6 +323,7 @@ const totalDurationMs = computed(() =>
           <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
+          <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
           <span v-if="turn.outputTokens" class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.toolCalls.length" style="margin-left: auto;" class="turn-meta">
             {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}
@@ -196,28 +336,51 @@ const totalDurationMs = computed(() =>
             <span class="compact-turn-label-prefix user">User:</span>
             {{ truncateText(turn.userMessage, 300) }}
           </div>
-          <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="compact-turn-label">
-            <span class="compact-turn-label-prefix assistant">Copilot:</span>
-            {{ truncateText(msg, 300) }}
-          </div>
 
-          <!-- Tool pills -->
-          <div v-if="turn.toolCalls.length > 0" class="compact-tool-pills">
-            <button
-              v-for="(tc, tcIdx) in turn.toolCalls"
-              :key="tcIdx"
-              class="compact-tool-pill"
-              :class="{
-                failed: tc.success === false,
-                unknown: tc.success == null,
-              }"
-              :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)"
-              @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${tcIdx}`)"
-            >
-              {{ toolIcon(tc.toolName) }} {{ tc.toolName }}
-              <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
-            </button>
-          </div>
+          <!-- Agent-grouped messages in compact view -->
+          <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`compact-s-${sIdx}`">
+            <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`compact-msg-${sIdx}-${idx}`" class="compact-turn-label">
+              <span class="compact-turn-label-prefix assistant">
+                <span
+                  v-if="section.agentId"
+                  class="compact-agent-dot"
+                  :style="{ backgroundColor: AGENT_COLORS[section.agentType] }"
+                  :title="section.agentDisplayName"
+                />
+                {{ section.agentId ? section.agentDisplayName + ':' : 'Copilot:' }}
+              </span>
+              {{ truncateText(msg, 300) }}
+            </div>
+          </template>
+
+          <!-- Tool pills grouped by agent -->
+          <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`pills-${sIdx}`">
+            <div v-if="section.toolCalls.length > 0" class="compact-tool-pills">
+              <AgentBadge
+                v-if="section.agentId"
+                :agent-name="section.agentDisplayName"
+                :agent-type="section.agentType"
+                :status="section.status"
+                compact
+              />
+              <button
+                v-for="tc in section.toolCalls"
+                :key="tc.toolCallId ?? tc.toolName"
+                class="compact-tool-pill"
+                :class="{
+                  failed: tc.success === false,
+                  unknown: tc.success == null,
+                }"
+                :style="section.agentId ? { borderLeft: `3px solid ${AGENT_COLORS[section.agentType]}` } : {}"
+                :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                :title="section.agentId ? `${section.agentDisplayName} → ${tc.toolName}` : tc.toolName"
+                @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+              >
+                {{ toolIcon(tc.toolName) }} {{ tc.toolName }}
+                <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
+              </button>
+            </div>
+          </template>
 
           <!-- Expanded tool detail (compact view) -->
           <template v-for="(tc, tcIdx) in turn.toolCalls" :key="`detail-${tcIdx}`">
@@ -262,49 +425,217 @@ const totalDurationMs = computed(() =>
             <div class="timeline-block-text">{{ truncateText(turn.userMessage, 500) }}</div>
           </div>
 
-          <!-- Reasoning (timeline) -->
-          <div v-if="turn.reasoningTexts && turn.reasoningTexts.length > 0">
-            <button
-              class="reasoning-toggle"
-              :aria-expanded="expandedReasoning.has(turn.turnIndex)"
-              @click="expandedReasoning.toggle(turn.turnIndex)"
-            >
-              <ExpandChevron :expanded="expandedReasoning.has(turn.turnIndex)" />
-              💭 {{ turn.reasoningTexts.length }} reasoning block{{ turn.reasoningTexts.length !== 1 ? 's' : '' }}
-            </button>
-            <div v-if="expandedReasoning.has(turn.turnIndex)" class="reasoning-content" tabindex="0">
-              <template v-for="(text, rIdx) in turn.reasoningTexts" :key="rIdx">
-                <hr v-if="rIdx > 0" class="reasoning-divider" />
-                {{ text }}
-              </template>
+          <!-- Agent-grouped content in timeline -->
+          <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`tl-s-${sIdx}`">
+            <!-- Reasoning -->
+            <div v-if="section.reasoning.length > 0">
+              <button
+                class="reasoning-toggle"
+                :aria-expanded="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+                @click="expandedReasoning.toggle(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+              >
+                <ExpandChevron :expanded="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)" />
+                <AgentBadge v-if="section.agentId" :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
+                💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
+              </button>
+              <div v-if="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)" class="reasoning-content" tabindex="0">
+                <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
+                  <hr v-if="rIdx > 0" class="reasoning-divider" />
+                  {{ text }}
+                </template>
+              </div>
             </div>
-          </div>
 
-          <!-- Tool calls (timeline) -->
-          <div v-if="turn.toolCalls.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
-            <ToolCallItem
-              v-for="(tc, tcIdx) in turn.toolCalls"
-              :key="tcIdx"
-              :tc="tc"
-              variant="compact"
-              :args-summary="getArgsSummary(turn.turnIndex, tcIdx)"
-              :expanded="expandedToolDetails.has(`tl-${turn.turnIndex}-${tcIdx}`)"
-              :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
-              :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
-              :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
-              :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
-              @toggle="expandedToolDetails.toggle(`tl-${turn.turnIndex}-${tcIdx}`)"
-              @load-full-result="handleLoadFullResult"
-              @retry-full-result="handleRetryResult"
-            />
-          </div>
+            <!-- Tool calls with agent context -->
+            <div v-if="section.toolCalls.length > 0">
+              <!-- Subagent separator -->
+              <div v-if="section.agentId" class="timeline-agent-separator">
+                <AgentBadge
+                  :agent-name="section.agentDisplayName"
+                  :agent-type="section.agentType"
+                  :model="section.model"
+                  :status="section.status"
+                />
+                <span v-if="section.durationMs" class="turn-meta">{{ formatDuration(section.durationMs) }}</span>
+              </div>
+              <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${AGENT_COLORS[section.agentType]} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
+                <ToolCallItem
+                  v-for="tc in section.toolCalls"
+                  :key="tc.toolCallId ?? tc.toolName"
+                  :tc="tc"
+                  variant="compact"
+                  :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
+                  :expanded="expandedToolDetails.has(`tl-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
+                  :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                  :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
+                  :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
+                  @toggle="expandedToolDetails.toggle(`tl-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  @load-full-result="handleLoadFullResult"
+                  @retry-full-result="handleRetryResult"
+                />
+              </div>
+            </div>
 
-          <div v-for="(msg, idx) in turn.assistantMessages.filter(m => m.trim())" :key="idx" class="timeline-block assistant">
-            <div class="timeline-block-label assistant">Copilot</div>
-            <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
-          </div>
+            <!-- Assistant messages with agent attribution -->
+            <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`tl-msg-${sIdx}-${idx}`" class="timeline-block assistant">
+              <div class="timeline-block-label assistant">
+                <AgentBadge v-if="section.agentId" :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
+                <template v-else>Copilot</template>
+              </div>
+              <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
+
+    <!-- Floating scroll buttons -->
+    <Transition name="fab">
+      <div v-if="hasOverflow && (!isLockedToBottom || showScrollToTop)" class="scroll-fab-group">
+        <button
+          v-if="showScrollToTop"
+          class="scroll-fab"
+          aria-label="Scroll to top"
+          title="Jump to top"
+          @click="scrollToTop()"
+        >
+          ↑
+        </button>
+        <button
+          v-if="!isLockedToBottom"
+          class="scroll-fab scroll-fab--primary"
+          aria-label="Scroll to bottom"
+          title="Jump to bottom"
+          @click="scrollToBottom()"
+        >
+          ↓
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.subagent-block {
+  margin: 8px 0 8px 24px;
+  border-left: 3px solid var(--agent-border-color, var(--accent-emphasis));
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--agent-border-color) 4%, var(--canvas-subtle));
+  overflow: hidden;
+}
+
+.subagent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.subagent-header:hover {
+  background: color-mix(in srgb, var(--agent-border-color) 8%, transparent);
+}
+
+.subagent-content {
+  padding: 4px 12px 12px;
+}
+
+.subagent-empty {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.subagent-message .turn-avatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  font-size: 0.85rem;
+}
+
+.compact-agent-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.timeline-agent-separator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+
+/* Floating scroll buttons */
+.scroll-fab-group {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: var(--z-fab, 55);
+}
+
+.scroll-fab {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+.scroll-fab:hover {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.scroll-fab:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+
+.scroll-fab--primary {
+  background: var(--accent-emphasis);
+  color: white;
+  border-color: transparent;
+}
+
+.scroll-fab--primary:hover {
+  opacity: 0.9;
+  box-shadow: var(--shadow-glow-accent);
+}
+
+/* FAB group transition */
+.fab-enter-active,
+.fab-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fab-enter-from,
+.fab-leave-to {
+  opacity: 0;
+  transform: scale(0.8) translateY(8px);
+}
+</style>

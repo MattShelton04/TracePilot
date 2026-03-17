@@ -98,6 +98,7 @@
   /* --- Z-Index --- */
   --z-sidebar: 40;
   --z-header: 50;
+  --z-fab: 55;
   --z-overlay: 60;
   --z-modal: 70;
   --z-tooltip: 80;
@@ -106,6 +107,13 @@
   --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
   --gradient-card: linear-gradient(145deg, var(--canvas-subtle), var(--canvas-default));
   --gradient-surface: linear-gradient(180deg, var(--canvas-subtle) 0%, var(--canvas-default) 100%);
+
+  /* --- Agent Colors --- */
+  --agent-color-main: #6366f1;
+  --agent-color-explore: #22d3ee;
+  --agent-color-general-purpose: #a78bfa;
+  --agent-color-code-review: #f472b6;
+  --agent-color-task: #fbbf24;
 
 }
 
@@ -168,6 +176,13 @@
 
   --gradient-card: linear-gradient(145deg, #ffffff, #f4f4f5);
   --gradient-surface: linear-gradient(180deg, #f4f4f5 0%, #ffffff 100%);
+
+  /* --- Agent Colors (darker for light backgrounds) --- */
+  --agent-color-main: #4f46e5;
+  --agent-color-explore: #0891b2;
+  --agent-color-general-purpose: #7c3aed;
+  --agent-color-code-review: #db2777;
+  --agent-color-task: #d97706;
 }
 
 /* ============================
@@ -696,7 +711,7 @@ body {
    CONVERSATION / CHAT
    ============================ */
 
-.turn-group { display: flex; flex-direction: column; gap: 20px; }
+.turn-group { display: flex; flex-direction: column; gap: 20px; padding-bottom: 120px; }
 
 .turn-item { display: flex; gap: 10px; }
 .turn-item + .turn-item { margin-top: 0; }
@@ -941,7 +956,7 @@ body {
 .compact-tool-pill.unknown { background: var(--neutral-muted); color: var(--text-tertiary); border-color: transparent; }
 
 /* Timeline view */
-.timeline-view { position: relative; padding-left: 32px; }
+.timeline-view { position: relative; padding-left: 32px; padding-bottom: 120px; }
 .timeline-turn { position: relative; padding-bottom: 24px; }
 .timeline-turn:last-child { padding-bottom: 0; }
 .timeline-connector {

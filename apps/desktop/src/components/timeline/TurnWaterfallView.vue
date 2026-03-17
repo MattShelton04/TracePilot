@@ -81,10 +81,10 @@ interface WaterfallRow {
 }
 
 const SUBAGENT_COLORS: Record<string, string> = {
-  explore: "#22d3ee",
-  "general-purpose": "#a78bfa",
-  "code-review": "#f472b6",
-  task: "#fbbf24",
+  explore: "var(--agent-color-explore)",
+  "general-purpose": "var(--agent-color-general-purpose)",
+  "code-review": "var(--agent-color-code-review)",
+  task: "var(--agent-color-task)",
 };
 
 function resolveSubagentColor(call: TurnToolCall): string {
@@ -93,7 +93,7 @@ function resolveSubagentColor(call: TurnToolCall): string {
   for (const [key, color] of Object.entries(SUBAGENT_COLORS)) {
     if (desc.includes(key)) return color;
   }
-  return "#a78bfa";
+  return "var(--agent-color-general-purpose)";
 }
 
 function barColor(call: TurnToolCall): string {
@@ -690,7 +690,7 @@ function rowArgsSummary(row: WaterfallRow): string {
         <div class="separator" />
 
         <!-- Assistant response row -->
-        <div class="wf-row message-row" v-if="currentTurn.assistantMessages.some(m => m.trim())">
+        <div class="wf-row message-row" v-if="currentTurn.assistantMessages.some(m => m.content.trim())">
           <div class="label-col">
             <span class="tool-icon">💬</span>
             <span class="tool-name assistant-label">Assistant response</span>

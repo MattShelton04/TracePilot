@@ -1,11 +1,39 @@
 # TracePilot Technical Debt & Improvement Report
 
 **Generated**: 2026-03-15
+**Last Updated**: 2026-03-17 — Rust backend optimization pass applied (see §1.1)
 **Scope**: Full codebase audit — Rust backend (4 crates), Vue/TypeScript frontend (desktop app + shared packages), infrastructure
 **Codebase size**: ~7,300 lines Rust, ~16,000 lines TS/Vue, ~1,400 lines global CSS
 **Review process**: Initial analysis by 6 parallel Opus 4.6 agents; reviewed by Claude Opus 4.6, GPT 5.4, GPT 5.3 Codex, and Gemini 3 Pro; findings consolidated and corrected.
 
 > **Confidence notes**: Counts marked with `~` are approximate. Line numbers are best-effort and may drift as the codebase evolves. All P0/P1 items were verified against source; P2/P3 items are high-confidence but less rigorously spot-checked.
+
+---
+
+### 1.1 Rust Backend Optimization (2026-03-17)
+
+The following debt items were addressed in a backend optimization pass:
+
+| Item | Status | Details |
+|------|--------|---------|
+| Double event parsing in `analytics/loader.rs` | ✅ Fixed | `load_single_full_session()` now uses `load_session_summary_with_events()` — single parse |
+| Dead code: `count_events()`, `extract_shutdown_data()` | ✅ Removed | Dead functions and test migrated to `extract_combined_shutdown_data()` |
+| 4× duplicated SQLite open in `session_db.rs` | ✅ DRY'd | Extracted `open_readonly()` and `table_exists()` helpers |
+| Duplicated resolve logic in `discovery.rs` | ✅ DRY'd | `resolve_session_path()` delegates to `resolve_session_path_in()` |
+| Manual temp dir in discovery tests | ✅ Fixed | Replaced with `tempfile::tempdir()` |
+| Silent error swallowing in `summary/mod.rs` | ✅ Fixed | `if let Ok` → `match` + `tracing::warn` on failure |
+| Unused `anyhow` dep in tracepilot-core | ✅ Removed | |
+| Two-pass event iteration in indexer | ✅ Fixed | Merged FTS content + tool stats into single pass |
+| Vec\<String\> + join for FTS content | ✅ Fixed | Streaming into single String with early 100KB cutoff |
+| Opaque 7-tuple in indexer model metrics | ✅ Fixed | Named `ModelMetricsRow` struct |
+| Unbounded IN clause in `prune_deleted()` | ✅ Fixed | Temp table approach with transactional atomicity |
+| No transaction batching in reindex | ✅ Fixed | 100-session batch transactions amortize WAL fsyncs |
+| Config panics on missing HOME/USERPROFILE | ✅ Fixed | `home_dir()` now returns `Option<PathBuf>` |
+| Silent TOML parse failure in config | ✅ Fixed | `tracing::warn` on parse error |
+| Unused `tracepilot-export` dep | ✅ Removed | From both tauri-bindings and desktop crates |
+| No benchmarks | ✅ Added | `tracepilot-bench` crate: 15 Criterion benchmarks + `scripts/bench.ps1` |
+
+**Review**: All changes reviewed by Opus 4.6, GPT 5.4, GPT 5.3 Codex, and Gemini 3 Pro. Zero issues from Opus/Codex/Gemini; GPT caught a config fallback safety issue (fixed).
 
 ---
 

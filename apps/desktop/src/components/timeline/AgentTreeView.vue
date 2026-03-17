@@ -7,6 +7,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import {
   Badge,
   EmptyState,
+  ExpandChevron,
   formatDuration,
   formatLiveDuration,
   formatTime,
@@ -17,6 +18,12 @@ import {
   useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
+  inferAgentTypeFromToolCall,
+  AGENT_COLORS,
+  agentStatusFromToolCall,
+  STATUS_ICONS,
+  buildSubagentContentIndex,
+  type SubagentContent,
 } from "@tracepilot/ui";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +43,10 @@ interface AgentNode {
   toolCallRef?: TurnToolCall; // The subagent tool call itself
   children?: AgentNode[];
   parallelGroup?: string;
+  /** Assistant messages attributed to this agent. */
+  messages: string[];
+  /** Reasoning/thinking texts attributed to this agent. */
+  reasoning: string[];
 }
 
 interface TreeData {
@@ -62,6 +73,7 @@ const agentTurnIndex = ref(0);
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
+const expandedReasoning = useToggleSet<string>();
 const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
 // Live-ticking timer for in-progress agent durations (started when hasInProgress is true)
@@ -106,6 +118,7 @@ function prevAgentTurn() {
     agentTurnIndex.value--;
     selectedNodeId.value = null;
     expandedToolCalls.clear();
+    expandedReasoning.clear();
   }
 }
 
@@ -114,6 +127,7 @@ function nextAgentTurn() {
     agentTurnIndex.value++;
     selectedNodeId.value = null;
     expandedToolCalls.clear();
+    expandedReasoning.clear();
   }
 }
 
@@ -129,56 +143,28 @@ const AGENT_TYPE_ICONS: Record<string, string> = {
   main: "🤖",
 };
 
-const AGENT_COLORS: Record<string, string> = {
-  main: "#6366f1",
-  explore: "#22d3ee",
-  "general-purpose": "#a78bfa",
-  "code-review": "#f472b6",
-  task: "#fbbf24",
-};
-
-function inferAgentType(
-  tc: TurnToolCall,
-): "explore" | "general-purpose" | "code-review" | "task" {
-  const name = (tc.agentDisplayName ?? tc.toolName ?? "").toLowerCase();
-  if (name.includes("explore")) return "explore";
-  if (name.includes("code-review") || name.includes("code review"))
-    return "code-review";
-  if (name.includes("general") || name.includes("general-purpose"))
-    return "general-purpose";
-  // Check arguments for agent_type
-  if (tc.arguments && typeof tc.arguments === "object") {
-    const args = tc.arguments as Record<string, unknown>;
-    const agentType = String(args.agent_type ?? "").toLowerCase();
-    if (agentType.includes("explore")) return "explore";
-    if (agentType.includes("code-review") || agentType.includes("code_review"))
-      return "code-review";
-    if (agentType.includes("general")) return "general-purpose";
-    if (agentType.includes("task")) return "task";
-  }
-  return "task";
-}
-
-function agentStatusFromToolCall(tc: TurnToolCall): "completed" | "failed" | "in-progress" {
-  if (!tc.isComplete) return "in-progress";
-  // A subagent marked complete by ToolExecComplete but missing SubagentCompleted/Failed
-  // will have success == null — treat as still in-progress
-  if (tc.isSubagent && tc.success == null) return "in-progress";
-  if (tc.success === false) return "failed";
-  return "completed";
-}
-
-const STATUS_ICONS: Record<string, string> = {
-  completed: "✅",
-  failed: "❌",
-  "in-progress": "⏳",
-};
-
 // ---------------------------------------------------------------------------
 // Tree Data
 // ---------------------------------------------------------------------------
 
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+
+// Session-wide index of subagent output content (messages + reasoning)
+const subagentContentIndex = computed(() => buildSubagentContentIndex(store.turns));
+
+// Session-wide set of all known subagent tool call IDs (for main-agent filtering).
+// Includes IDs from subagentContentIndex PLUS any subagents with no attributed content
+// yet (e.g., in-progress agents). This prevents main-agent messages from accidentally
+// including content that will later be attributed to a subagent.
+const allSubagentIds = computed(() => {
+  const ids = new Set<string>(subagentContentIndex.value.keys());
+  for (const turn of store.turns) {
+    for (const tc of turn.toolCalls) {
+      if (tc.isSubagent && tc.toolCallId) ids.add(tc.toolCallId);
+    }
+  }
+  return ids;
+});
 
 const treeData = computed<TreeData | null>(() => {
   const turn = currentTurn.value;
@@ -197,7 +183,8 @@ const treeData = computed<TreeData | null>(() => {
           (t) => t.parentToolCallId === tc.toolCallId && !t.isSubagent,
         )
       : [];
-    const agentType = inferAgentType(tc);
+    const agentType = inferAgentTypeFromToolCall(tc);
+    const content = subagentContentIndex.value.get(nodeId);
     nodeMap.set(nodeId, {
       id: nodeId,
       type: agentType,
@@ -210,6 +197,8 @@ const treeData = computed<TreeData | null>(() => {
       toolCalls: childTools,
       toolCallRef: tc,
       children: [],
+      messages: content?.messages ?? [],
+      reasoning: content?.reasoning ?? [],
     });
   }
 
@@ -237,6 +226,15 @@ const treeData = computed<TreeData | null>(() => {
     ? "in-progress"
     : "completed";
 
+  // Collect main-agent messages (exclude those attributed to any known subagent)
+  const knownSubagentIds = allSubagentIds.value;
+  const mainMessages = turn.assistantMessages
+    .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+    .map(m => m.content);
+  const mainReasoning = (turn.reasoningTexts ?? [])
+    .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+    .map(r => r.content);
+
   const root: AgentNode = {
     id: "main",
     type: "main",
@@ -247,6 +245,8 @@ const treeData = computed<TreeData | null>(() => {
     status: mainStatus,
     toolCalls: mainToolCalls,
     children: [],
+    messages: mainMessages,
+    reasoning: mainReasoning,
   };
 
   return { root, children: rootChildren };
@@ -819,6 +819,56 @@ watch(
                 <span class="detail-label">Model</span>
                 <Badge variant="done">{{ selectedNode.model }}</Badge>
               </div>
+            </div>
+          </div>
+
+          <!-- Agent Output -->
+          <div v-if="selectedNode.messages.filter(m => m.trim()).length > 0" class="detail-section">
+            <h4 class="detail-section-title">Output</h4>
+            <div class="detail-output">
+              <div
+                v-for="(msg, idx) in selectedNode.messages.filter(m => m.trim())"
+                :key="`output-msg-${idx}`"
+                class="detail-output-message"
+              >
+                {{ msg }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Subagent Result Content (tool result from the task/read_agent call) -->
+          <div
+            v-if="selectedNode.toolCallRef?.resultContent || (selectedNode.toolCallRef?.toolCallId && fullResults.has(selectedNode.toolCallRef.toolCallId))"
+            class="detail-section"
+          >
+            <h4 class="detail-section-title">Result</h4>
+            <div class="detail-output">
+              <ToolResultRenderer
+                :tc="selectedNode.toolCallRef!"
+                :content="fullResults.get(selectedNode.toolCallRef!.toolCallId ?? '') ?? selectedNode.toolCallRef!.resultContent ?? ''"
+                :rich-enabled="false"
+                :is-truncated="!!(selectedNode.toolCallRef!.toolCallId && selectedNode.toolCallRef!.resultContent?.includes('…[truncated]') && !fullResults.has(selectedNode.toolCallRef!.toolCallId ?? ''))"
+                :loading="!!(selectedNode.toolCallRef!.toolCallId && loadingResults.has(selectedNode.toolCallRef!.toolCallId))"
+                @load-full="loadFullResult(selectedNode.toolCallRef!.toolCallId!)"
+              />
+            </div>
+          </div>
+
+          <!-- Agent Reasoning -->
+          <div v-if="selectedNode.reasoning.length > 0" class="detail-section">
+            <button
+              class="reasoning-toggle"
+              :aria-expanded="expandedReasoning.has(selectedNode.id)"
+              @click="expandedReasoning.toggle(selectedNode.id)"
+            >
+              <ExpandChevron :expanded="expandedReasoning.has(selectedNode.id)" />
+              💭 {{ selectedNode.reasoning.length }} reasoning block{{ selectedNode.reasoning.length !== 1 ? "s" : "" }}
+            </button>
+            <div v-if="expandedReasoning.has(selectedNode.id)" class="reasoning-content" tabindex="0">
+              <template v-for="(text, rIdx) in selectedNode.reasoning" :key="`reasoning-${rIdx}`">
+                <hr v-if="rIdx > 0" class="reasoning-divider" />
+                {{ text }}
+              </template>
             </div>
           </div>
 
@@ -1451,5 +1501,69 @@ watch(
 .detail-panel-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+/* ------------------------------------------------------------------ */
+/* Agent Output & Reasoning                                            */
+/* ------------------------------------------------------------------ */
+.detail-output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+}
+
+.detail-output-message {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reasoning-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  width: 100%;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition-fast, 150ms);
+}
+
+.reasoning-toggle:hover {
+  background: var(--canvas-inset);
+}
+
+.reasoning-content {
+  margin-top: 6px;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.reasoning-divider {
+  border: none;
+  border-top: 1px solid var(--border-muted);
+  margin: 8px 0;
 }
 </style>
