@@ -4,8 +4,8 @@
 //! It is only compiled for `#[cfg(test)]`.
 
 use crate::models::event_types::SessionEventType;
-use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
-use chrono::{DateTime, TimeZone, Utc};
+use crate::parsing::events::{RawEvent, TypedEvent};
+use chrono::{TimeZone, Utc};
 
 /// Build a [`RawEvent`] with the given type string and data JSON.
 ///
