@@ -76,11 +76,11 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 0,
     userMessage: "Please implement the login feature with OAuth support. We need GitHub and Google providers.",
-    assistantMessages: ["I'll implement the login feature with OAuth support. Let me start by examining the current project structure and setting up the authentication module.\n\nFirst, I'll create the base auth module with JWT token handling, then add the OAuth provider integrations."],
+    assistantMessages: [{ content: "I'll implement the login feature with OAuth support. Let me start by examining the current project structure and setting up the authentication module.\n\nFirst, I'll create the base auth module with JWT token handling, then add the OAuth provider integrations." }],
     model: "claude-opus-4.6",
     reasoningTexts: [
-      "The user wants OAuth support with GitHub and Google. I need to:\n1. Check if there's an existing auth module\n2. Look for any OAuth libraries already installed\n3. Understand the project's middleware patterns\n\nI'll launch parallel explore agents — one for auth patterns, one for OAuth libraries — to gather context before making changes.",
-      "Based on the exploration results, the project already has a basic auth stub in src/auth/login.ts with a TODO comment. passport and passport-github2 are in package.json but not configured. I should:\n- Set up passport strategies for GitHub and Google\n- Wire them into the existing Express middleware chain\n- Create the callback routes\n- Add JWT token generation after successful OAuth flow"
+      { content: "The user wants OAuth support with GitHub and Google. I need to:\n1. Check if there's an existing auth module\n2. Look for any OAuth libraries already installed\n3. Understand the project's middleware patterns\n\nI'll launch parallel explore agents — one for auth patterns, one for OAuth libraries — to gather context before making changes." },
+      { content: "Based on the exploration results, the project already has a basic auth stub in src/auth/login.ts with a TODO comment. passport and passport-github2 are in package.json but not configured. I should:\n- Set up passport strategies for GitHub and Google\n- Wire them into the existing Express middleware chain\n- Create the callback routes\n- Add JWT token generation after successful OAuth flow" }
     ],
     outputTokens: 4820,
     toolCalls: [
@@ -109,10 +109,10 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 1,
     userMessage: "Great work! Now add unit tests for the login module and make sure all edge cases are covered.",
-    assistantMessages: ["I'll write comprehensive unit tests for the login module. Let me cover the main flows and edge cases including expired tokens, invalid credentials, and rate limiting."],
+    assistantMessages: [{ content: "I'll write comprehensive unit tests for the login module. Let me cover the main flows and edge cases including expired tokens, invalid credentials, and rate limiting." }],
     model: "claude-opus-4.6",
     reasoningTexts: [
-      "I need to write thorough unit tests. The login module handles:\n- Normal login flow\n- Expired tokens\n- Invalid credentials\n- Rate limiting\n- Missing fields\n\nI'll launch a general-purpose agent for the actual test writing, an explore agent to find existing test patterns, and a code-review agent to check the auth module for security concerns while I work."
+      { content: "I need to write thorough unit tests. The login module handles:\n- Normal login flow\n- Expired tokens\n- Invalid credentials\n- Rate limiting\n- Missing fields\n\nI'll launch a general-purpose agent for the actual test writing, an explore agent to find existing test patterns, and a code-review agent to check the auth module for security concerns while I work." }
     ],
     outputTokens: 6100,
     toolCalls: [
@@ -146,7 +146,7 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 2,
     userMessage: "Can you also add the session refresh endpoint?",
-    assistantMessages: ["Adding the session refresh endpoint now. This will handle token rotation with sliding window expiry."],
+    assistantMessages: [{ content: "Adding the session refresh endpoint now. This will handle token rotation with sliding window expiry." }],
     model: "gpt-5.4",
     outputTokens: 2150,
     toolCalls: [
@@ -162,12 +162,12 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 3,
     userMessage: "Now refactor the entire auth module to use a plugin architecture and ensure backward compatibility.",
-    assistantMessages: ["This is a significant refactor. I'll launch multiple agents in parallel to explore the codebase, implement changes, and review the result for quality."],
+    assistantMessages: [{ content: "This is a significant refactor. I'll launch multiple agents in parallel to explore the codebase, implement changes, and review the result for quality." }],
     model: "claude-opus-4.6",
     reasoningTexts: [
-      "This is a large refactor with backward compatibility requirements. I need to:\n1. Understand the current public API surface (what consumers depend on)\n2. Identify existing plugin/middleware patterns in the codebase\n3. Map all imports/exports from auth module\n4. Design a plugin registry that preserves the existing API",
-      "Four explore agents finished. Key findings:\n- src/plugins/index.ts has a basic plugin registry pattern I can extend\n- Auth module exports: login, logout, refresh, AuthProvider interface\n- 3 test files depend on auth: auth.test.ts, auth.integration.ts, e2e/login.spec.ts\n- The middleware chain uses express middleware pattern\n\nI'll create a plugin registry, refactor providers to be plugins, and keep the existing exports as facades.",
-      "The general-purpose agent completed the refactor and tests pass. The code review agent found one concern: the plugin registry doesn't validate duplicate registrations. I should add a guard for that. Otherwise the refactor looks solid — backward compat maintained via re-exports."
+      { content: "This is a large refactor with backward compatibility requirements. I need to:\n1. Understand the current public API surface (what consumers depend on)\n2. Identify existing plugin/middleware patterns in the codebase\n3. Map all imports/exports from auth module\n4. Design a plugin registry that preserves the existing API" },
+      { content: "Four explore agents finished. Key findings:\n- src/plugins/index.ts has a basic plugin registry pattern I can extend\n- Auth module exports: login, logout, refresh, AuthProvider interface\n- 3 test files depend on auth: auth.test.ts, auth.integration.ts, e2e/login.spec.ts\n- The middleware chain uses express middleware pattern\n\nI'll create a plugin registry, refactor providers to be plugins, and keep the existing exports as facades." },
+      { content: "The general-purpose agent completed the refactor and tests pass. The code review agent found one concern: the plugin registry doesn't validate duplicate registrations. I should add a guard for that. Otherwise the refactor looks solid — backward compat maintained via re-exports." }
     ],
     outputTokens: 12400,
     toolCalls: [
@@ -218,11 +218,11 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 4,
     userMessage: "Run a comprehensive audit: check all modules for security issues, performance bottlenecks, and missing tests.",
-    assistantMessages: ["I'll launch a full audit across the codebase with multiple specialized agents working in parallel batches."],
+    assistantMessages: [{ content: "I'll launch a full audit across the codebase with multiple specialized agents working in parallel batches." }],
     model: "claude-opus-4.6",
     reasoningTexts: [
-      "A comprehensive audit requires checking multiple dimensions in parallel. I'll split into two waves:\n- Wave 1: Security audit (auth, routes, DB queries) + performance audit (N+1 queries, blocking calls)\n- Wave 2: Test coverage gaps + error handling audit + run actual test suite\n\nThen synthesize with a general-purpose agent.",
-      "Wave 1 results are in. The security audit found no critical issues — the auth module uses parameterized queries. The DB queries explorer failed with context window exceeded (too many files), but the grep found no raw SQL. Performance audit flagged sequential await in a forEach loop in src/db/queries.ts. Moving to wave 2."
+      { content: "A comprehensive audit requires checking multiple dimensions in parallel. I'll split into two waves:\n- Wave 1: Security audit (auth, routes, DB queries) + performance audit (N+1 queries, blocking calls)\n- Wave 2: Test coverage gaps + error handling audit + run actual test suite\n\nThen synthesize with a general-purpose agent." },
+      { content: "Wave 1 results are in. The security audit found no critical issues — the auth module uses parameterized queries. The DB queries explorer failed with context window exceeded (too many files), but the grep found no raw SQL. Performance audit flagged sequential await in a forEach loop in src/db/queries.ts. Moving to wave 2." }
     ],
     outputTokens: 8900,
     toolCalls: [
@@ -265,7 +265,7 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 5,
     userMessage: "This is a demo turn for testing all rich tool renderers.",
-    assistantMessages: ["Here are examples of each tool type with rich result content for renderer testing."],
+    assistantMessages: [{ content: "Here are examples of each tool type with rich result content for renderer testing." }],
     model: "claude-opus-4.6",
     outputTokens: 500,
     toolCalls: [

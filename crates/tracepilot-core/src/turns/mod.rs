@@ -37,7 +37,7 @@
 
 use std::collections::HashMap;
 
-use crate::models::conversation::{ConversationTurn, TurnToolCall};
+use crate::models::conversation::{AttributedMessage, ConversationTurn, TurnToolCall};
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{TypedEvent, TypedEventData};
 use chrono::{DateTime, Utc};
@@ -153,12 +153,20 @@ impl TurnReconstructor {
                 }
                 if let Some(content) = &data.content {
                     if !content.trim().is_empty() {
-                        turn.assistant_messages.push(content.clone());
+                        turn.assistant_messages.push(AttributedMessage {
+                            content: content.clone(),
+                            parent_tool_call_id: data.parent_tool_call_id.clone(),
+                            agent_display_name: None, // resolved in finalize()
+                        });
                     }
                 }
                 if let Some(reasoning) = &data.reasoning_text {
                     if !reasoning.trim().is_empty() {
-                        turn.reasoning_texts.push(reasoning.clone());
+                        turn.reasoning_texts.push(AttributedMessage {
+                            content: reasoning.clone(),
+                            parent_tool_call_id: data.parent_tool_call_id.clone(),
+                            agent_display_name: None, // resolved in finalize()
+                        });
                     }
                 }
                 if let Some(tokens) = data.output_tokens {
@@ -386,6 +394,7 @@ impl TurnReconstructor {
     fn finalize(mut self) -> Vec<ConversationTurn> {
         self.finalize_current_turn(false, None);
         infer_subagent_models(&mut self.turns);
+        resolve_agent_display_names(&mut self.turns);
         self.turns
     }
 
@@ -603,6 +612,42 @@ fn infer_subagent_models(turns: &mut [ConversationTurn]) {
                 "infer_subagent_models hit iteration cap — possible cyclic parent_tool_call_id"
             );
             break;
+        }
+    }
+}
+
+/// Post-processing: resolve `agent_display_name` on attributed messages/reasoning.
+///
+/// For each `AttributedMessage` with a `parent_tool_call_id`, looks up the matching
+/// subagent tool call in the same turn and copies its `agent_display_name`.
+fn resolve_agent_display_names(turns: &mut [ConversationTurn]) {
+    for turn in turns.iter_mut() {
+        // Build lookup: tool_call_id → agent_display_name
+        let agent_names: HashMap<String, String> = turn
+            .tool_calls
+            .iter()
+            .filter(|tc| tc.is_subagent)
+            .filter_map(|tc| {
+                let id = tc.tool_call_id.as_ref()?;
+                let name = tc.agent_display_name.as_ref()?;
+                Some((id.clone(), name.clone()))
+            })
+            .collect();
+
+        if agent_names.is_empty() {
+            continue;
+        }
+
+        for msg in turn
+            .assistant_messages
+            .iter_mut()
+            .chain(turn.reasoning_texts.iter_mut())
+        {
+            if let Some(parent_id) = &msg.parent_tool_call_id {
+                if msg.agent_display_name.is_none() {
+                    msg.agent_display_name = agent_names.get(parent_id).cloned();
+                }
+            }
         }
     }
 }

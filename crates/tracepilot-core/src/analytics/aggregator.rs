@@ -741,7 +741,11 @@ mod tests {
             turn_id: None,
             interaction_id: None,
             user_message: Some("test".to_string()),
-            assistant_messages: vec!["response".to_string()],
+            assistant_messages: vec![crate::models::conversation::AttributedMessage {
+                content: "response".to_string(),
+                parent_tool_call_id: None,
+                agent_display_name: None,
+            }],
             model: Some("model".to_string()),
             timestamp: None,
             end_timestamp: None,

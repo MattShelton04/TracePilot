@@ -690,7 +690,7 @@ function rowArgsSummary(row: WaterfallRow): string {
         <div class="separator" />
 
         <!-- Assistant response row -->
-        <div class="wf-row message-row" v-if="currentTurn.assistantMessages.some(m => m.trim())">
+        <div class="wf-row message-row" v-if="currentTurn.assistantMessages.some(m => m.content.trim())">
           <div class="label-col">
             <span class="tool-icon">💬</span>
             <span class="tool-name assistant-label">Assistant response</span>

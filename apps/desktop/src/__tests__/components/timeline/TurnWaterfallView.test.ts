@@ -34,7 +34,7 @@ function makeTurn(overrides: Record<string, unknown> = {}) {
   return {
     turnIndex: 0,
     userMessage: "Fix the bug",
-    assistantMessages: ["Done."],
+    assistantMessages: [{ content: "Done." }],
     model: "gpt-4.1",
     toolCalls: [makeTurnToolCall()],
     durationMs: 5000,
