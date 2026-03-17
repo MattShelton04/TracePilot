@@ -276,10 +276,14 @@ function getDependents(todoId: string): TodoItem[] {
     .filter(Boolean) as TodoItem[];
 }
 
-// Reset selection when todos change
-watch(() => props.todos, () => {
-  selectedNodeId.value = null;
-  hoveredNodeId.value = null;
+// Preserve selection across refreshes — only clear if selected node no longer exists
+watch(() => props.todos, (newTodos) => {
+  if (selectedNodeId.value && !newTodos.some(t => t.id === selectedNodeId.value)) {
+    selectedNodeId.value = null;
+  }
+  if (hoveredNodeId.value && !newTodos.some(t => t.id === hoveredNodeId.value)) {
+    hoveredNodeId.value = null;
+  }
 });
 </script>
 

@@ -391,15 +391,9 @@ function showNodeTooltip(node: SankeyNode, event: MouseEvent) {
 }
 
 function positionTooltip(event: MouseEvent) {
-  const container = (event.currentTarget as Element)?.closest('.sankey-container');
-  if (container) {
-    const rect = container.getBoundingClientRect();
-    tooltipX.value = event.clientX - rect.left + 12;
-    tooltipY.value = event.clientY - rect.top - 10;
-  } else {
-    tooltipX.value = event.clientX + 12;
-    tooltipY.value = event.clientY - 10;
-  }
+  // Tooltip uses position:fixed, so use viewport coordinates directly
+  tooltipX.value = event.clientX + 12;
+  tooltipY.value = event.clientY - 10;
 }
 
 function moveTooltip(event: MouseEvent) {
@@ -512,7 +506,10 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
                 :opacity="linkOpacity(link) * 0.6"
                 :stroke-dasharray="`${Math.max(4, link.thickness * 0.5)} ${Math.max(8, link.thickness * 1.5)}`"
                 stroke-linecap="round"
-                :style="{ animationDuration: `${Math.max(1, 4 - link.thickness * 0.05)}s` }"
+                :style="{
+                  animationDuration: `${Math.max(1, 4 - link.thickness * 0.05)}s`,
+                  '--dash-total': `${Math.max(4, link.thickness * 0.5) + Math.max(8, link.thickness * 1.5)}`,
+                }"
                 class="particle-path"
               />
             </g>
@@ -625,7 +622,7 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
 
 @keyframes particle-flow {
   from {
-    stroke-dashoffset: 32;
+    stroke-dashoffset: calc(var(--dash-total) * 1px);
   }
   to {
     stroke-dashoffset: 0;
