@@ -82,6 +82,7 @@ const tabs = computed(() => [
   { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount },
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
+  { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },
   { name: "timeline", routeName: "session-timeline", label: "Timeline" },
 ]);
 

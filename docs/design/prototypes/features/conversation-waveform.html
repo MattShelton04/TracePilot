@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Conversation Waveform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .session-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .session-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    .session-badges {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Waveform Container */
+    .waveform-panel {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 0;
+      overflow: hidden;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .waveform-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .waveform-toolbar-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+    }
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .zoom-btn {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all var(--transition-fast);
+    }
+    .zoom-btn:hover {
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+    }
+    .zoom-level {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      min-width: 32px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .waveform-body {
+      padding: 20px 18px;
+      position: relative;
+      overflow-x: auto;
+    }
+    .waveform-svg-wrap {
+      position: relative;
+      min-width: 100%;
+    }
+    .waveform-svg {
+      display: block;
+      width: 100%;
+      height: 200px;
+    }
+
+    /* Tooltip */
+    .waveform-tooltip {
+      position: absolute;
+      z-index: var(--z-tooltip);
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      min-width: 200px;
+      box-shadow: var(--shadow-lg);
+    }
+    .waveform-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .tooltip-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .tooltip-turn {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+    }
+    .tooltip-role {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+    }
+    .tooltip-role.user { background: var(--success-muted); color: var(--success-fg); }
+    .tooltip-role.assistant { background: var(--accent-muted); color: var(--accent-fg); }
+    .tooltip-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-bottom: 6px;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tooltip-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+
+    /* Turn markers */
+    .turn-markers {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 18px 14px;
+      position: relative;
+    }
+    .turn-marker {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .turn-marker:hover {
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+      box-shadow: 0 0 8px rgba(99,102,241,0.3);
+    }
+    .turn-marker.active {
+      background: var(--accent-emphasis);
+      color: white;
+      border-color: var(--accent-emphasis);
+    }
+
+    /* Stats strip */
+    .waveform-stats {
+      display: flex;
+      border-top: 1px solid var(--border-default);
+    }
+    .waveform-stat {
+      flex: 1;
+      padding: 10px 18px;
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .waveform-stat:last-child { border-right: none; }
+    .waveform-stat-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .waveform-stat-value {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .waveform-stat-value.accent { color: var(--accent-fg); }
+    .waveform-stat-value.success { color: var(--success-fg); }
+
+    /* Legend */
+    .waveform-legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+    .legend-dot.user { background: #34d399; }
+    .legend-dot.assistant { background: #818cf8; }
+    .legend-dot.tool { background: #fbbf24; border-radius: 50%; }
+
+    /* Conversation preview below */
+    .conversation-preview {
+      margin-top: 20px;
+    }
+    .turn-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+    .turn-item:hover {
+      background: var(--neutral-subtle);
+    }
+    .turn-item.highlighted {
+      background: var(--accent-subtle);
+      border-left: 2px solid var(--accent-emphasis);
+    }
+    .turn-number {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      min-width: 24px;
+      text-align: center;
+      padding-top: 2px;
+    }
+    .turn-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .turn-role {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .turn-role.user-role { color: var(--success-fg); }
+    .turn-role.assistant-role { color: var(--accent-fg); }
+    .turn-text {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .turn-meta {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .turn-tools {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .turn-tool-chip {
+      font-size: 0.625rem;
+      padding: 1px 5px;
+      border-radius: var(--radius-sm);
+      background: var(--warning-subtle);
+      color: var(--warning-fg);
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="#" style="color:var(--text-tertiary);text-decoration:none;">Session</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Conversation Waveform</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Session Header -->
+          <div class="session-header">
+            <div>
+              <div class="session-title">Implemented OAuth login with GitHub and Google providers</div>
+            </div>
+            <div class="session-badges">
+              <span class="badge badge-accent">claude-opus-4.6</span>
+              <span class="badge badge-neutral">2h 15m</span>
+              <span class="badge badge-success">15 turns</span>
+              <span class="badge badge-done">acme/web-platform</span>
+            </div>
+          </div>
+
+          <!-- Waveform Panel -->
+          <div class="waveform-panel" id="waveformPanel">
+            <div class="waveform-toolbar">
+              <div class="waveform-toolbar-title">Conversation Waveform</div>
+              <div style="display:flex;align-items:center;gap:16px;">
+                <div class="waveform-legend">
+                  <div class="legend-item"><div class="legend-dot user"></div>User</div>
+                  <div class="legend-item"><div class="legend-dot assistant"></div>Assistant</div>
+                  <div class="legend-item"><div class="legend-dot tool"></div>Tool call</div>
+                </div>
+                <div class="zoom-controls">
+                  <button class="zoom-btn" id="zoomOut" title="Zoom out">−</button>
+                  <span class="zoom-level" id="zoomLevel">100%</span>
+                  <button class="zoom-btn" id="zoomIn" title="Zoom in">+</button>
+                  <button class="zoom-btn" id="zoomFit" title="Fit to view" style="font-size:11px;">⤢</button>
+                </div>
+              </div>
+            </div>
+            <div class="waveform-body">
+              <div class="waveform-svg-wrap" id="waveformWrap">
+                <svg class="waveform-svg" id="waveformSvg" preserveAspectRatio="none"></svg>
+              </div>
+              <div class="waveform-tooltip" id="waveformTooltip">
+                <div class="tooltip-header">
+                  <span class="tooltip-turn" id="ttTurn"></span>
+                  <span class="tooltip-role" id="ttRole"></span>
+                </div>
+                <div class="tooltip-text" id="ttText"></div>
+                <div class="tooltip-meta">
+                  <span id="ttChars"></span>
+                  <span id="ttDuration"></span>
+                  <span id="ttTools"></span>
+                </div>
+              </div>
+            </div>
+            <div class="turn-markers" id="turnMarkers"></div>
+            <div class="waveform-stats" id="waveformStats"></div>
+          </div>
+
+          <!-- Conversation Turn List -->
+          <div class="section-panel conversation-preview">
+            <div class="section-panel-header">Turn-by-Turn Breakdown</div>
+            <div id="turnList"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // Mock waveform data: 15 turns alternating user/assistant
+    const WAVEFORM_TURNS = [
+      { turn: 1, role: 'user', chars: 180, durationSec: 8, tools: 0, text: 'Please implement the login feature with OAuth support for GitHub and Google.' },
+      { turn: 2, role: 'assistant', chars: 620, durationSec: 45, tools: 3, text: "I'll implement OAuth login. Let me examine your auth module and add providers..." },
+      { turn: 3, role: 'user', chars: 95, durationSec: 5, tools: 0, text: 'Looks good. Can you add error handling and rate limiting?' },
+      { turn: 4, role: 'assistant', chars: 1450, durationSec: 89, tools: 7, text: 'Adding comprehensive error handling with custom error types and sliding window rate limiter...' },
+      { turn: 5, role: 'user', chars: 60, durationSec: 4, tools: 0, text: 'Perfect. Now write integration tests for the OAuth flow.' },
+      { turn: 6, role: 'assistant', chars: 980, durationSec: 67, tools: 3, text: 'Creating integration tests covering full OAuth flow for both providers...' },
+      { turn: 7, role: 'user', chars: 140, durationSec: 7, tools: 0, text: 'The tests pass but coverage is low on edge cases. Add more test scenarios.' },
+      { turn: 8, role: 'assistant', chars: 1820, durationSec: 102, tools: 5, text: 'Adding edge case tests: expired tokens, invalid scopes, network timeouts, malformed responses...' },
+      { turn: 9, role: 'user', chars: 45, durationSec: 3, tools: 0, text: 'Run the full test suite and fix any failures.' },
+      { turn: 10, role: 'assistant', chars: 560, durationSec: 38, tools: 4, text: 'Running npm test... found 2 failures in token refresh logic. Fixing now...' },
+      { turn: 11, role: 'user', chars: 110, durationSec: 6, tools: 0, text: 'Now add session management with Redis backend for token storage.' },
+      { turn: 12, role: 'assistant', chars: 1280, durationSec: 78, tools: 6, text: 'Implementing Redis-backed session store with TTL, refresh logic, and connection pooling...' },
+      { turn: 13, role: 'user', chars: 75, durationSec: 4, tools: 0, text: 'Add proper TypeScript types for all the new modules.' },
+      { turn: 14, role: 'assistant', chars: 920, durationSec: 52, tools: 4, text: 'Adding type definitions for OAuthConfig, SessionStore, TokenPayload, RateLimitConfig...' },
+      { turn: 15, role: 'user', chars: 30, durationSec: 2, tools: 0, text: 'Looks great, ship it!' },
+    ];
+
+    const maxChars = Math.max(...WAVEFORM_TURNS.map(t => t.chars));
+    const totalDurationSec = WAVEFORM_TURNS.reduce((s, t) => s + t.durationSec, 0);
+
+    function buildWaveform(zoomFactor) {
+      const svg = document.getElementById('waveformSvg');
+      const wrap = document.getElementById('waveformWrap');
+      const baseWidth = wrap.parentElement.clientWidth;
+      const width = baseWidth * zoomFactor;
+      const height = 200;
+      const midY = height / 2;
+      const maxAmp = midY - 16;
+      const padding = 30;
+      const usableWidth = width - padding * 2;
+
+      wrap.style.width = width + 'px';
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.style.width = width + 'px';
+
+      // Calculate x positions based on cumulative duration proportion
+      let cumDuration = 0;
+      const points = WAVEFORM_TURNS.map(t => {
+        const startX = padding + (cumDuration / totalDurationSec) * usableWidth;
+        cumDuration += t.durationSec;
+        const endX = padding + (cumDuration / totalDurationSec) * usableWidth;
+        const midX = (startX + endX) / 2;
+        const amp = (t.chars / maxChars) * maxAmp;
+        const y = t.role === 'user' ? midY - amp : midY + amp;
+        return { ...t, startX, endX, midX, y, amp };
+      });
+
+      // Build SVG content
+      let svgContent = '';
+
+      // Defs for gradients
+      svgContent += `
+        <defs>
+          <linearGradient id="userGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#34d399" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#34d399" stop-opacity="0.02"/>
+          </linearGradient>
+          <linearGradient id="assistantGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.02"/>
+            <stop offset="100%" stop-color="#818cf8" stop-opacity="0.6"/>
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
+      `;
+
+      // Center axis line
+      svgContent += `<line x1="${padding}" y1="${midY}" x2="${width - padding}" y2="${midY}" 
+        stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4,4"/>`;
+
+      // Build user path (above)
+      const userPts = points.filter(p => p.role === 'user');
+      const assistPts = points.filter(p => p.role === 'assistant');
+
+      // Smooth curves for user (above baseline)
+      if (userPts.length > 1) {
+        let userPath = `M ${userPts[0].midX} ${midY}`;
+        let userArea = `M ${userPts[0].midX} ${midY}`;
+        for (let i = 0; i < userPts.length; i++) {
+          const p = userPts[i];
+          if (i === 0) {
+            userPath += ` C ${p.midX} ${p.y}, ${p.midX} ${p.y}, ${p.midX} ${p.y}`;
+            userArea += ` C ${p.midX} ${p.y}, ${p.midX} ${p.y}, ${p.midX} ${p.y}`;
+          } else {
+            const prev = userPts[i - 1];
+            const cpx = (prev.midX + p.midX) / 2;
+            userPath += ` C ${cpx} ${prev.y}, ${cpx} ${p.y}, ${p.midX} ${p.y}`;
+            userArea += ` C ${cpx} ${prev.y}, ${cpx} ${p.y}, ${p.midX} ${p.y}`;
+          }
+        }
+        const lastU = userPts[userPts.length - 1];
+        userArea += ` L ${lastU.midX} ${midY} Z`;
+        svgContent += `<path d="${userArea}" fill="url(#userGrad)" opacity="0.8"/>`;
+        svgContent += `<path d="${userPath}" fill="none" stroke="#34d399" stroke-width="2" filter="url(#glow)"/>`;
+      }
+
+      // Smooth curves for assistant (below baseline)
+      if (assistPts.length > 1) {
+        let assistPath = `M ${assistPts[0].midX} ${midY}`;
+        let assistArea = `M ${assistPts[0].midX} ${midY}`;
+        for (let i = 0; i < assistPts.length; i++) {
+          const p = assistPts[i];
+          if (i === 0) {
+            assistPath += ` C ${p.midX} ${p.y}, ${p.midX} ${p.y}, ${p.midX} ${p.y}`;
+            assistArea += ` C ${p.midX} ${p.y}, ${p.midX} ${p.y}, ${p.midX} ${p.y}`;
+          } else {
+            const prev = assistPts[i - 1];
+            const cpx = (prev.midX + p.midX) / 2;
+            assistPath += ` C ${cpx} ${prev.y}, ${cpx} ${p.y}, ${p.midX} ${p.y}`;
+            assistArea += ` C ${cpx} ${prev.y}, ${cpx} ${p.y}, ${p.midX} ${p.y}`;
+          }
+        }
+        const lastA = assistPts[assistPts.length - 1];
+        assistArea += ` L ${lastA.midX} ${midY} Z`;
+        svgContent += `<path d="${assistArea}" fill="url(#assistantGrad)" opacity="0.8"/>`;
+        svgContent += `<path d="${assistPath}" fill="none" stroke="#818cf8" stroke-width="2" filter="url(#glow)"/>`;
+      }
+
+      // Combined interleaved smooth waveform
+      let fullPathAbove = `M ${padding} ${midY}`;
+      let fullPathBelow = `M ${padding} ${midY}`;
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (i === 0) {
+          if (p.role === 'user') {
+            fullPathAbove += ` Q ${p.midX} ${p.y}, ${p.endX} ${midY}`;
+          } else {
+            fullPathBelow += ` Q ${p.midX} ${p.y}, ${p.endX} ${midY}`;
+          }
+        } else {
+          if (p.role === 'user') {
+            fullPathAbove += ` Q ${p.midX} ${p.y}, ${p.endX} ${midY}`;
+          } else {
+            fullPathBelow += ` Q ${p.midX} ${p.y}, ${p.endX} ${midY}`;
+          }
+        }
+      }
+
+      // Tool call dots along center line
+      points.forEach(p => {
+        if (p.tools > 0) {
+          for (let t = 0; t < Math.min(p.tools, 5); t++) {
+            const tx = p.startX + ((p.endX - p.startX) / (p.tools + 1)) * (t + 1);
+            svgContent += `<circle cx="${tx}" cy="${midY}" r="3.5" fill="#fbbf24" opacity="0.85">
+              <animate attributeName="r" values="3.5;4.5;3.5" dur="2s" repeatCount="indefinite" begin="${t * 0.3}s"/>
+            </circle>`;
+          }
+        }
+      });
+
+      // Data point circles for hover
+      points.forEach((p, i) => {
+        const color = p.role === 'user' ? '#34d399' : '#818cf8';
+        svgContent += `<circle class="waveform-point" data-idx="${i}" cx="${p.midX}" cy="${p.y}" 
+          r="5" fill="${color}" stroke="${color}" stroke-width="2" stroke-opacity="0.3" 
+          style="cursor:pointer; transition: r 0.15s ease;" opacity="0.9"/>`;
+      });
+
+      // Subtle grid lines
+      for (let i = 1; i < 4; i++) {
+        const gy = midY - (maxAmp / 3) * i;
+        const gy2 = midY + (maxAmp / 3) * i;
+        svgContent += `<line x1="${padding}" y1="${gy}" x2="${width - padding}" y2="${gy}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+        svgContent += `<line x1="${padding}" y1="${gy2}" x2="${width - padding}" y2="${gy2}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+      }
+
+      svg.innerHTML = svgContent;
+
+      // Turn markers
+      const markersEl = document.getElementById('turnMarkers');
+      markersEl.innerHTML = points.map((p, i) => {
+        const pctLeft = ((p.midX / width) * 100);
+        return `<div class="turn-marker" data-idx="${i}" style="position:absolute;left:${pctLeft}%;transform:translateX(-50%)">${p.turn}</div>`;
+      }).join('');
+      markersEl.style.position = 'relative';
+      markersEl.style.height = '30px';
+
+      return points;
+    }
+
+    function buildStats() {
+      const totalTurns = WAVEFORM_TURNS.length;
+      const longest = WAVEFORM_TURNS.reduce((a, b) => a.chars > b.chars ? a : b);
+      const shortest = WAVEFORM_TURNS.reduce((a, b) => a.chars < b.chars ? a : b);
+      const userTurns = WAVEFORM_TURNS.filter(t => t.role === 'user').length;
+      const assistTurns = WAVEFORM_TURNS.filter(t => t.role === 'assistant').length;
+      const totalChars = WAVEFORM_TURNS.reduce((s, t) => s + t.chars, 0);
+      const totalTools = WAVEFORM_TURNS.reduce((s, t) => s + t.tools, 0);
+
+      document.getElementById('waveformStats').innerHTML = `
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">Total Turns</span>
+          <span class="waveform-stat-value accent">${totalTurns}</span>
+        </div>
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">Longest Turn</span>
+          <span class="waveform-stat-value">#${longest.turn} · ${longest.chars} chars</span>
+        </div>
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">Shortest Turn</span>
+          <span class="waveform-stat-value">#${shortest.turn} · ${shortest.chars} chars</span>
+        </div>
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">User / Assistant</span>
+          <span class="waveform-stat-value"><span style="color:var(--success-fg)">${userTurns}</span> / <span style="color:var(--accent-fg)">${assistTurns}</span></span>
+        </div>
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">Total Characters</span>
+          <span class="waveform-stat-value">${totalChars.toLocaleString()}</span>
+        </div>
+        <div class="waveform-stat">
+          <span class="waveform-stat-label">Tool Calls</span>
+          <span class="waveform-stat-value" style="color:var(--warning-fg)">${totalTools}</span>
+        </div>
+      `;
+    }
+
+    function buildTurnList() {
+      document.getElementById('turnList').innerHTML = WAVEFORM_TURNS.map((t, i) => `
+        <div class="turn-item" data-idx="${i}">
+          <div class="turn-number">${t.turn}</div>
+          <div class="turn-content">
+            <div class="turn-role ${t.role === 'user' ? 'user-role' : 'assistant-role'}">${t.role === 'user' ? '⬆ User' : '⬇ Assistant'}</div>
+            <div class="turn-text">${t.text}</div>
+            <div class="turn-meta">
+              <span>${t.chars} chars</span>
+              <span>${t.durationSec}s</span>
+              ${t.tools > 0 ? `<span>${t.tools} tool calls</span>` : ''}
+            </div>
+            ${t.tools > 0 ? `<div class="turn-tools">${Array(t.tools).fill(0).map((_, ti) => `<span class="turn-tool-chip">⚡ tool</span>`).join('')}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+      let zoomFactor = 1;
+      let points = buildWaveform(zoomFactor);
+      buildStats();
+      buildTurnList();
+
+      // Zoom controls
+      document.getElementById('zoomIn').addEventListener('click', () => {
+        zoomFactor = Math.min(zoomFactor + 0.25, 3);
+        points = buildWaveform(zoomFactor);
+        document.getElementById('zoomLevel').textContent = Math.round(zoomFactor * 100) + '%';
+      });
+      document.getElementById('zoomOut').addEventListener('click', () => {
+        zoomFactor = Math.max(zoomFactor - 0.25, 0.5);
+        points = buildWaveform(zoomFactor);
+        document.getElementById('zoomLevel').textContent = Math.round(zoomFactor * 100) + '%';
+      });
+      document.getElementById('zoomFit').addEventListener('click', () => {
+        zoomFactor = 1;
+        points = buildWaveform(zoomFactor);
+        document.getElementById('zoomLevel').textContent = '100%';
+      });
+
+      // Tooltip interaction
+      const tooltip = document.getElementById('waveformTooltip');
+      const svg = document.getElementById('waveformSvg');
+
+      svg.addEventListener('mousemove', (e) => {
+        const circle = e.target.closest('.waveform-point');
+        if (!circle) { tooltip.classList.remove('visible'); return; }
+        const idx = parseInt(circle.dataset.idx);
+        const t = WAVEFORM_TURNS[idx];
+        document.getElementById('ttTurn').textContent = `Turn ${t.turn}`;
+        const roleEl = document.getElementById('ttRole');
+        roleEl.textContent = t.role;
+        roleEl.className = `tooltip-role ${t.role}`;
+        document.getElementById('ttText').textContent = t.text;
+        document.getElementById('ttChars').textContent = `${t.chars} chars`;
+        document.getElementById('ttDuration').textContent = `${t.durationSec}s`;
+        document.getElementById('ttTools').textContent = t.tools > 0 ? `${t.tools} tools` : '';
+
+        const rect = svg.getBoundingClientRect();
+        const cx = parseFloat(circle.getAttribute('cx'));
+        const cy = parseFloat(circle.getAttribute('cy'));
+        const svgRect = svg.getBoundingClientRect();
+        const scaleX = svgRect.width / svg.viewBox.baseVal.width;
+        const scaleY = svgRect.height / svg.viewBox.baseVal.height;
+        tooltip.style.left = (cx * scaleX + 10) + 'px';
+        tooltip.style.top = (cy * scaleY - 30) + 'px';
+        tooltip.classList.add('visible');
+
+        circle.setAttribute('r', '7');
+      });
+
+      svg.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+        svg.querySelectorAll('.waveform-point').forEach(c => c.setAttribute('r', '5'));
+      });
+
+      svg.addEventListener('mouseout', (e) => {
+        if (e.target.classList && e.target.classList.contains('waveform-point')) {
+          e.target.setAttribute('r', '5');
+        }
+      });
+
+      // Turn marker click → highlight turn in list
+      document.getElementById('turnMarkers').addEventListener('click', (e) => {
+        const marker = e.target.closest('.turn-marker');
+        if (!marker) return;
+        const idx = parseInt(marker.dataset.idx);
+        document.querySelectorAll('.turn-marker').forEach(m => m.classList.remove('active'));
+        marker.classList.add('active');
+        document.querySelectorAll('.turn-item').forEach(t => t.classList.remove('highlighted'));
+        const turnItem = document.querySelectorAll('.turn-item')[idx];
+        if (turnItem) {
+          turnItem.classList.add('highlighted');
+          turnItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+
+      // Turn list hover → highlight marker
+      document.getElementById('turnList').addEventListener('mouseover', (e) => {
+        const item = e.target.closest('.turn-item');
+        if (!item) return;
+        const idx = parseInt(item.dataset.idx);
+        document.querySelectorAll('.turn-marker').forEach((m, i) => {
+          m.classList.toggle('active', i === idx);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

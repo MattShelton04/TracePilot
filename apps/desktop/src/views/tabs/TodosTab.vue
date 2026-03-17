@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, StatusIcon, EmptyState, SectionPanel, ProgressBar, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, StatusIcon, EmptyState, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
+import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 
 const store = useSessionDetailStore();
 
@@ -18,6 +19,8 @@ const inProgressCount = computed(() => todos.value.filter(t => t.status === 'in_
 const blockedCount = computed(() => todos.value.filter(t => t.status === 'blocked').length);
 const pendingCount = computed(() => todos.value.filter(t => t.status !== 'done' && t.status !== 'in_progress' && t.status !== 'blocked').length);
 const progressPercent = computed(() => todos.value.length > 0 ? (completedCount.value / todos.value.length) * 100 : 0);
+
+const viewMode = ref<'list' | 'graph'>('graph');
 
 function statusBadgeVariant(status: string): 'done' | 'accent' | 'danger' | 'neutral' {
   switch (status) {
@@ -53,12 +56,18 @@ function getTodoTitle(id: string): string {
             {{ Math.round(progressPercent) }}%
           </span>
         </div>
-        <ProgressBar
-          :percent="progressPercent"
-          color="success"
-          class="progress-bar-todo"
+        <div class="segmented-progress-bar"
+          role="progressbar"
+          :aria-valuenow="Math.round(progressPercent)"
+          :aria-valuemin="0"
+          :aria-valuemax="100"
           :aria-label="`${completedCount} of ${todos.length} todos completed`"
-        />
+        >
+          <div class="seg seg-done" :style="{ width: `${(completedCount / todos.length) * 100}%` }" />
+          <div class="seg seg-progress" :style="{ width: `${(inProgressCount / todos.length) * 100}%` }" />
+          <div class="seg seg-blocked" :style="{ width: `${(blockedCount / todos.length) * 100}%` }" />
+          <div class="seg seg-pending" :style="{ width: `${(pendingCount / todos.length) * 100}%` }" />
+        </div>
         <div class="flex items-center gap-3 text-xs flex-wrap">
           <span class="text-[var(--success-fg)]">✓ {{ completedCount }} done</span>
           <span class="text-[var(--text-placeholder)]">·</span>
@@ -70,8 +79,37 @@ function getTodoTitle(id: string): string {
         </div>
       </div>
 
+      <!-- View toggle -->
+      <div class="view-toggle">
+        <button
+          :class="['toggle-btn', { active: viewMode === 'list' }]"
+          @click="viewMode = 'list'"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 4h12v1H2V4zm0 4h12v1H2V8zm0 4h12v1H2v-1z"/>
+          </svg>
+          List
+        </button>
+        <button
+          :class="['toggle-btn', { active: viewMode === 'graph' }]"
+          @click="viewMode = 'graph'"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3 1a2 2 0 0 0-2 2v1a2 2 0 0 0 1.5 1.937V8.5a.5.5 0 0 0 .5.5h4v2.063A2 2 0 0 0 6 13v1a2 2 0 0 0 4 0v-1a2 2 0 0 0-1.5-1.937V9h4a.5.5 0 0 0 .5-.5V5.937A2 2 0 0 0 14.5 4V3a2 2 0 0 0-4 0v1a2 2 0 0 0 1.5 1.937V8H4V5.937A2 2 0 0 0 5.5 4V3a2 2 0 0 0-2-2H3z"/>
+          </svg>
+          Graph
+        </button>
+      </div>
+
+      <!-- Graph view -->
+      <TodoDependencyGraph
+        v-if="viewMode === 'graph'"
+        :todos="todos"
+        :deps="deps"
+      />
+
       <!-- Todo list -->
-      <SectionPanel title="Tasks">
+      <SectionPanel v-else title="Tasks">
         <template v-for="(todo, index) in todos" :key="todo.id">
           <div
             class="todo-item"
@@ -123,16 +161,57 @@ function getTodoTitle(id: string): string {
   margin-bottom: 20px;
 }
 
-/* Override progress bar height and color to match variant-c */
-.progress-bar-todo {
-  margin-bottom: 10px;
+/* View toggle */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  width: fit-content;
 }
-.progress-bar-todo :deep(.progress-bar) {
-  height: 8px;
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-.progress-bar-todo :deep(.progress-bar-fill) {
-  background: var(--success-fg);
+.toggle-btn:hover {
+  color: var(--text-secondary);
 }
+.toggle-btn.active {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Segmented progress bar */
+.segmented-progress-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--canvas-overlay);
+  margin-bottom: 8px;
+}
+.seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.seg-done { background: var(--success-fg); }
+.seg-progress { background: var(--accent-fg); }
+.seg-blocked { background: var(--danger-fg); }
+.seg-pending { background: var(--text-placeholder); opacity: 0.3; }
 
 /* Remove section-panel-body padding so items render flush */
 :deep(.section-panel-body) {

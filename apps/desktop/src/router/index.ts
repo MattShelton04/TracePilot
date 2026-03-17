@@ -12,6 +12,7 @@ const ConversationTab = () => import("@/views/tabs/ConversationTab.vue");
 const EventsTab = () => import("@/views/tabs/EventsTab.vue");
 const TodosTab = () => import("@/views/tabs/TodosTab.vue");
 const MetricsTab = () => import("@/views/tabs/MetricsTab.vue");
+const TokenFlowTab = () => import("@/views/tabs/TokenFlowTab.vue");
 
 const routes: RouteRecordRaw[] = [
   {
@@ -67,6 +68,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: "Metrics", sidebarId: "sessions" },
       },
       {
+        path: "token-flow",
+        name: "session-token-flow",
+        component: TokenFlowTab,
+        meta: { title: "Token Flow", sidebarId: "sessions" },
+      },
+      {
         path: "timeline",
         name: "session-timeline",
         component: () => import("@/views/SessionTimelineView.vue"),
@@ -112,6 +119,15 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Code Impact",
       sidebarId: "code",
+    },
+  },
+  {
+    path: "/models",
+    name: "model-comparison",
+    component: () => import("@/views/ModelComparisonView.vue"),
+    meta: {
+      title: "Model Comparison",
+      sidebarId: "models",
     },
   },
   {

@@ -27,6 +27,7 @@ const primaryNav = [
 ];
 
 const advancedNav = [
+  { id: 'models', label: 'Models', to: '/models', icon: 'models' },
   { id: 'compare', label: 'Compare', to: '/compare', icon: 'compare' },
   { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay' },
   { id: 'export', label: 'Export', to: '/export', icon: 'export' },
@@ -85,8 +86,10 @@ const advancedNav = [
         :class="{ active: activeSidebarId === item.id }"
       >
         <span class="nav-icon">
+          <!-- models -->
+          <svg v-if="item.icon === 'models'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="4" r="2.5"/><circle cx="12" cy="4" r="2.5"/><circle cx="8" cy="12" r="2.5"/><path d="M6 5l2 5M10 5l-2 5"/></svg>
           <!-- compare -->
-          <svg v-if="item.icon === 'compare'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5.5" height="14" rx="1"/><rect x="9.5" y="1" width="5.5" height="14" rx="1"/></svg>
+          <svg v-else-if="item.icon === 'compare'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5.5" height="14" rx="1"/><rect x="9.5" y="1" width="5.5" height="14" rx="1"/></svg>
           <!-- replay -->
           <svg v-else-if="item.icon === 'replay'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5,3 13,8 5,13" fill="currentColor" stroke="none"/></svg>
           <!-- export -->

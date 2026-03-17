@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Branch Activity Gantt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .gantt-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .gantt-controls label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+    }
+
+    .gantt-outer {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .gantt-header-row {
+      display: flex;
+      border-bottom: 1px solid var(--border-default);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--canvas-subtle);
+    }
+    .gantt-branch-header {
+      width: 180px;
+      min-width: 180px;
+      padding: 8px 14px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+    }
+    .gantt-timeline-header {
+      flex: 1;
+      overflow-x: auto;
+      display: flex;
+      position: relative;
+    }
+    .gantt-day-header {
+      min-width: 36px;
+      width: 36px;
+      text-align: center;
+      padding: 6px 0;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+      border-right: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .gantt-day-header.weekend { background: rgba(255,255,255,0.02); }
+    .gantt-day-header.today {
+      color: var(--accent-fg);
+      font-weight: 600;
+      background: var(--accent-subtle);
+    }
+
+    .gantt-body {
+      display: flex;
+      max-height: 440px;
+      overflow-y: auto;
+    }
+    .gantt-branch-col {
+      width: 180px;
+      min-width: 180px;
+      border-right: 1px solid var(--border-default);
+      flex-shrink: 0;
+    }
+    .gantt-branch-cell {
+      padding: 8px 14px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      height: 38px;
+      display: flex;
+      align-items: center;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .gantt-timeline-col {
+      flex: 1;
+      overflow-x: auto;
+    }
+    .gantt-timeline-row {
+      display: flex;
+      height: 38px;
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+    }
+    .gantt-day-cell {
+      min-width: 36px;
+      width: 36px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border-subtle);
+      position: relative;
+    }
+    .gantt-day-cell.weekend { background: rgba(255,255,255,0.015); }
+
+    .gantt-bar {
+      position: absolute;
+      top: 6px;
+      height: 26px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: filter 0.15s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+    }
+    .gantt-bar:hover {
+      filter: brightness(1.3);
+      box-shadow: 0 0 8px rgba(99,102,241,0.3);
+      z-index: 3;
+    }
+    .gantt-bar.selected {
+      box-shadow: 0 0 0 2px var(--accent-fg), 0 0 12px rgba(99,102,241,0.3);
+      z-index: 4;
+    }
+    .gantt-bar-label {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      pointer-events: none;
+    }
+
+    /* Today marker */
+    .today-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent-fg);
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .today-marker::before {
+      content: 'Today';
+      position: absolute;
+      top: -18px;
+      left: -14px;
+      font-size: 0.5625rem;
+      color: var(--accent-fg);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Tooltip */
+    .gantt-tooltip {
+      position: fixed;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+      z-index: 100;
+      min-width: 160px;
+      display: none;
+    }
+    .tooltip-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-tertiary);
+      font-size: 0.6875rem;
+      margin-top: 2px;
+    }
+    .tooltip-row span:last-child {
+      color: var(--text-primary);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Summary Strip */
+    .gantt-summary {
+      border-top: 1px solid var(--border-default);
+      display: flex;
+    }
+    .gantt-summary-label {
+      width: 180px;
+      min-width: 180px;
+      padding: 8px 14px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      align-items: flex-end;
+    }
+    .gantt-summary-chart {
+      flex: 1;
+      overflow-x: auto;
+      display: flex;
+      align-items: flex-end;
+      height: 50px;
+      padding: 4px 0;
+    }
+    .summary-bar-col {
+      min-width: 36px;
+      width: 36px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      height: 100%;
+    }
+    .summary-bar {
+      width: 20px;
+      border-radius: 2px 2px 0 0;
+      background: var(--accent-muted);
+      transition: height 0.3s ease;
+    }
+
+    /* Side panel for clicked bar */
+    .side-panel-overlay {
+      margin-top: 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+    .side-panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .side-panel-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .session-list-mini {
+      padding: 0;
+      list-style: none;
+    }
+    .session-list-mini li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .session-list-mini li:last-child { border-bottom: none; }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+    .close-btn:hover { color: var(--text-primary); }
+
+    /* Sync scroll */
+    .gantt-timeline-header,
+    .gantt-timeline-col,
+    .gantt-summary-chart {
+      scrollbar-width: none;
+    }
+    .gantt-timeline-header::-webkit-scrollbar,
+    .gantt-timeline-col::-webkit-scrollbar,
+    .gantt-summary-chart::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Branch Activity Gantt</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div style="margin-bottom:20px;">
+            <h1 class="page-title">Branch Activity Gantt</h1>
+            <p class="page-subtitle">Gantt-chart timeline of Copilot session activity across branches</p>
+          </div>
+
+          <div class="gantt-controls">
+            <label>Repository:</label>
+            <select class="filter-select" id="repo-select" onchange="switchRepo(this.value)">
+              <option value="0">acme/web-platform</option>
+              <option value="1">acme/api-server</option>
+            </select>
+            <div style="flex:1"></div>
+            <span style="font-size:0.6875rem;color:var(--text-placeholder);">30-day range · Hover bars for details</span>
+          </div>
+
+          <div class="gantt-outer" id="gantt-outer">
+            <!-- Header -->
+            <div class="gantt-header-row" id="gantt-header-row"></div>
+            <!-- Body -->
+            <div class="gantt-body" id="gantt-body"></div>
+            <!-- Summary -->
+            <div class="gantt-summary" id="gantt-summary"></div>
+          </div>
+
+          <!-- Tooltip -->
+          <div class="gantt-tooltip" id="gantt-tooltip"></div>
+
+          <!-- Side panel -->
+          <div id="side-panel" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ── Generate 30 dates ending today ──
+    function getLast30Days() {
+      const days = [];
+      const today = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        days.push(d);
+      }
+      return days;
+    }
+
+    const DAYS = getLast30Days();
+    const TODAY_IDX = 29;
+
+    // ── Mock Data: 2 repos ──
+    const REPO_DATA = [
+      { // acme/web-platform
+        name: 'acme/web-platform',
+        branches: [
+          { name: 'feat/oauth-login', activity: generateActivity([25,26,27,28], [3200,5400,4100,2800]) },
+          { name: 'feat/dashboard', activity: generateActivity([18,19,20,22,23], [2100,4600,3800,1900,2400]) },
+          { name: 'feat/ws-notifications', activity: generateActivity([14,15,16,17], [1800,3200,4500,2100]) },
+          { name: 'fix/xss-vuln', activity: generateActivity([27,28], [1200,890]) },
+          { name: 'test/payments', activity: generateActivity([20,21,22], [3400,5200,2100]) },
+          { name: 'perf/webpack-optimize', activity: generateActivity([10,11], [2800,1200]) },
+          { name: 'fix/form-validation', activity: generateActivity([5,6,7], [1500,2200,800]) },
+          { name: 'feat/i18n', activity: generateActivity([1,2,3,4], [900,1800,2400,1100]) },
+          { name: 'main', activity: generateActivity([8,15,22,29], [500,600,800,400]) },
+          { name: 'chore/deps-update', activity: generateActivity([12,13], [400,600]) },
+        ]
+      },
+      { // acme/api-server
+        name: 'acme/api-server',
+        branches: [
+          { name: 'feat/graphql-migration', activity: generateActivity([20,21,22,23,24,25], [4200,5800,6100,3400,4800,2200]) },
+          { name: 'fix/db-pooling', activity: generateActivity([26,27,28], [2800,3600,1890]) },
+          { name: 'feat/api-v2', activity: generateActivity([10,11,12,13], [1800,2400,3100,1600]) },
+          { name: 'fix/n+1-queries', activity: generateActivity([15,16], [2200,1800]) },
+          { name: 'test/integration', activity: generateActivity([17,18,19], [1500,2800,2100]) },
+          { name: 'feat/rate-limiting', activity: generateActivity([5,6,7,8], [1200,2400,1800,900]) },
+          { name: 'main', activity: generateActivity([9,16,23,29], [400,500,700,300]) },
+          { name: 'fix/auth-refresh', activity: generateActivity([2,3], [1100,1800]) },
+        ]
+      }
+    ];
+
+    function generateActivity(dayIndices, tokens) {
+      const map = {};
+      dayIndices.forEach((di, i) => {
+        const tokenCount = tokens[i] || 1000;
+        const sessions = Math.max(1, Math.ceil(tokenCount / 2500));
+        const cost = (tokenCount / 1000000 * 15).toFixed(2);
+        map[di] = { sessions, tokens: tokenCount, cost: parseFloat(cost) };
+      });
+      return map;
+    }
+
+    let currentRepo = 0;
+    let selectedBar = null;
+
+    function switchRepo(idx) {
+      currentRepo = parseInt(idx);
+      selectedBar = null;
+      document.getElementById('side-panel').style.display = 'none';
+      renderGantt();
+    }
+
+    function renderGantt() {
+      renderHeader();
+      renderBody();
+      renderSummary();
+      syncScrolls();
+    }
+
+    function dayLabel(d) {
+      return d.getDate().toString();
+    }
+
+    function isWeekend(d) {
+      return d.getDay() === 0 || d.getDay() === 6;
+    }
+
+    function isToday(d) {
+      const now = new Date();
+      return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+
+    function renderHeader() {
+      let branchH = '<div class="gantt-branch-header">Branch</div>';
+      let dayHeaders = '';
+      DAYS.forEach((d, i) => {
+        const cls = isToday(d) ? 'today' : isWeekend(d) ? 'weekend' : '';
+        const monthLabel = d.getDate() === 1 ? `<div style="font-size:0.5rem;color:var(--text-placeholder)">${d.toLocaleString('en', { month: 'short' })}</div>` : '';
+        dayHeaders += `<div class="gantt-day-header ${cls}">${monthLabel}${dayLabel(d)}</div>`;
+      });
+      document.getElementById('gantt-header-row').innerHTML = branchH + `<div class="gantt-timeline-header" id="header-scroll">${dayHeaders}</div>`;
+    }
+
+    function renderBody() {
+      const repo = REPO_DATA[currentRepo];
+      const maxTokens = 6500;
+
+      let branchCells = '';
+      let timelineRows = '';
+
+      repo.branches.forEach((branch, bi) => {
+        branchCells += `<div class="gantt-branch-cell" title="${branch.name}">${branch.name}</div>`;
+
+        let dayCells = '';
+        DAYS.forEach((d, di) => {
+          const cls = isWeekend(d) ? 'weekend' : '';
+          dayCells += `<div class="gantt-day-cell ${cls}"></div>`;
+        });
+
+        // Build activity bars
+        let bars = '';
+        const entries = Object.entries(branch.activity).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+        // Merge consecutive days into bars
+        let i = 0;
+        while (i < entries.length) {
+          let start = parseInt(entries[i][0]);
+          let end = start;
+          let totalTokens = entries[i][1].tokens;
+          let totalSessions = entries[i][1].sessions;
+          let totalCost = entries[i][1].cost;
+
+          while (i + 1 < entries.length && parseInt(entries[i + 1][0]) === end + 1) {
+            i++;
+            end = parseInt(entries[i][0]);
+            totalTokens += entries[i][1].tokens;
+            totalSessions += entries[i][1].sessions;
+            totalCost += entries[i][1].cost;
+          }
+
+          const left = start * 36;
+          const width = (end - start + 1) * 36 - 4;
+          const intensity = Math.min(totalTokens / ((end - start + 1) * maxTokens), 1);
+          const alpha = 0.3 + intensity * 0.6;
+          const barId = `bar-${bi}-${start}`;
+
+          bars += `<div class="gantt-bar" id="${barId}" style="left:${left + 2}px;width:${width}px;background:rgba(99,102,241,${alpha})"
+            data-branch="${branch.name}" data-start="${start}" data-end="${end}"
+            data-sessions="${totalSessions}" data-tokens="${totalTokens}" data-cost="${totalCost.toFixed(2)}"
+            onmouseenter="showBarTooltip(event, this)" onmouseleave="hideBarTooltip()"
+            onclick="selectBar('${branch.name}', ${start}, ${end})">
+            ${width > 30 ? `<span class="gantt-bar-label">${totalSessions}</span>` : ''}
+          </div>`;
+          i++;
+        }
+
+        // Today marker
+        let todayMarker = '';
+        if (TODAY_IDX >= 0 && TODAY_IDX < 30) {
+          todayMarker = `<div class="today-marker" style="left:${TODAY_IDX * 36 + 18}px"></div>`;
+        }
+
+        timelineRows += `<div class="gantt-timeline-row">${dayCells}${bars}${bi === 0 ? todayMarker : ''}</div>`;
+      });
+
+      const branchCol = `<div class="gantt-branch-col" id="branch-col">${branchCells}</div>`;
+      const timelineCol = `<div class="gantt-timeline-col" id="timeline-scroll">${timelineRows}</div>`;
+      document.getElementById('gantt-body').innerHTML = branchCol + timelineCol;
+    }
+
+    function renderSummary() {
+      const repo = REPO_DATA[currentRepo];
+      const dailyTotals = new Array(30).fill(0);
+      repo.branches.forEach(b => {
+        Object.entries(b.activity).forEach(([di, data]) => {
+          dailyTotals[parseInt(di)] += data.sessions;
+        });
+      });
+      const maxDaily = Math.max(...dailyTotals, 1);
+
+      let barCols = '';
+      DAYS.forEach((d, i) => {
+        const h = dailyTotals[i] > 0 ? Math.max(4, (dailyTotals[i] / maxDaily) * 38) : 0;
+        const opacity = dailyTotals[i] > 0 ? 0.4 + (dailyTotals[i] / maxDaily) * 0.5 : 0;
+        barCols += `<div class="summary-bar-col"><div class="summary-bar" style="height:${h}px;background:rgba(99,102,241,${opacity});"></div></div>`;
+      });
+
+      document.getElementById('gantt-summary').innerHTML = `
+        <div class="gantt-summary-label">Daily Total</div>
+        <div class="gantt-summary-chart" id="summary-scroll">${barCols}</div>
+      `;
+    }
+
+    // ── Synchronized scrolling ──
+    function syncScrolls() {
+      const headerScroll = document.getElementById('header-scroll');
+      const timelineScroll = document.getElementById('timeline-scroll');
+      const summaryScroll = document.getElementById('summary-scroll');
+      if (!headerScroll || !timelineScroll || !summaryScroll) return;
+
+      let syncing = false;
+      function sync(source) {
+        if (syncing) return;
+        syncing = true;
+        const left = source.scrollLeft;
+        [headerScroll, timelineScroll, summaryScroll].forEach(el => {
+          if (el !== source) el.scrollLeft = left;
+        });
+        syncing = false;
+      }
+
+      [headerScroll, timelineScroll, summaryScroll].forEach(el => {
+        el.addEventListener('scroll', () => sync(el));
+      });
+    }
+
+    // ── Tooltip ──
+    function showBarTooltip(event, el) {
+      const tooltip = document.getElementById('gantt-tooltip');
+      const branch = el.dataset.branch;
+      const sessions = el.dataset.sessions;
+      const tokens = parseInt(el.dataset.tokens);
+      const cost = el.dataset.cost;
+      const startIdx = parseInt(el.dataset.start);
+      const endIdx = parseInt(el.dataset.end);
+
+      const startDate = DAYS[startIdx].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endDate = DAYS[endIdx].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dateRange = startIdx === endIdx ? startDate : `${startDate} – ${endDate}`;
+
+      tooltip.style.display = 'block';
+      tooltip.style.left = (event.clientX + 12) + 'px';
+      tooltip.style.top = (event.clientY - 60) + 'px';
+      tooltip.innerHTML = `
+        <div class="tooltip-title">${branch}</div>
+        <div style="font-size:0.625rem;color:var(--text-placeholder);margin-bottom:4px;">${dateRange}</div>
+        <div class="tooltip-row"><span>Sessions</span><span>${sessions}</span></div>
+        <div class="tooltip-row"><span>Tokens</span><span>${formatNumber(tokens)}</span></div>
+        <div class="tooltip-row"><span>Cost</span><span>$${cost}</span></div>
+      `;
+    }
+
+    function hideBarTooltip() {
+      document.getElementById('gantt-tooltip').style.display = 'none';
+    }
+
+    // ── Bar Selection ──
+    function selectBar(branch, start, end) {
+      // Clear previous
+      document.querySelectorAll('.gantt-bar.selected').forEach(b => b.classList.remove('selected'));
+
+      const barId = `bar-${REPO_DATA[currentRepo].branches.findIndex(b => b.name === branch)}-${start}`;
+      const barEl = document.getElementById(barId);
+      if (barEl) barEl.classList.add('selected');
+
+      const startDate = DAYS[start].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endDate = DAYS[end].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dateRange = start === end ? startDate : `${startDate} – ${endDate}`;
+
+      // Build mock session list
+      const branchData = REPO_DATA[currentRepo].branches.find(b => b.name === branch);
+      const sessions = [];
+      for (let d = start; d <= end; d++) {
+        if (branchData.activity[d]) {
+          const data = branchData.activity[d];
+          const dateStr = DAYS[d].toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          for (let s = 0; s < data.sessions; s++) {
+            sessions.push({
+              date: dateStr,
+              tokens: Math.round(data.tokens / data.sessions),
+              cost: (data.cost / data.sessions).toFixed(2),
+              turns: Math.floor(Math.random() * 15) + 3,
+            });
+          }
+        }
+      }
+
+      const panel = document.getElementById('side-panel');
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div class="side-panel-overlay">
+          <div class="side-panel-header">
+            <div class="side-panel-title">
+              <span class="font-mono" style="color:var(--accent-fg)">${branch}</span>
+              <span class="badge badge-neutral">${dateRange}</span>
+            </div>
+            <button class="close-btn" onclick="closeSidePanel()">${ICONS.x}</button>
+          </div>
+          <div style="padding:12px 16px;">
+            <div class="grid-3" style="margin-bottom:12px;">
+              <div class="stat-card">
+                <div class="stat-card-value accent">${sessions.length}</div>
+                <div class="stat-card-label">Sessions</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value success">${formatNumber(sessions.reduce((s, x) => s + x.tokens, 0))}</div>
+                <div class="stat-card-label">Total Tokens</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value warning">$${sessions.reduce((s, x) => s + parseFloat(x.cost), 0).toFixed(2)}</div>
+                <div class="stat-card-label">Total Cost</div>
+              </div>
+            </div>
+            <div style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Sessions</div>
+            <ul class="session-list-mini">
+              ${sessions.map((s, i) => `
+                <li>
+                  <span style="color:var(--accent-fg);font-weight:600;width:20px;">#${i + 1}</span>
+                  <span style="color:var(--text-tertiary);font-size:0.6875rem;width:60px;">${s.date}</span>
+                  <span style="flex:1;color:var(--text-secondary);">${s.turns} turns</span>
+                  <span style="font-size:0.6875rem;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">${formatNumber(s.tokens)} tok</span>
+                  <span style="font-size:0.6875rem;color:var(--success-fg);font-variant-numeric:tabular-nums;width:40px;text-align:right;">$${s.cost}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        </div>
+      `;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeSidePanel() {
+      document.getElementById('side-panel').style.display = 'none';
+      document.querySelectorAll('.gantt-bar.selected').forEach(b => b.classList.remove('selected'));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+      renderGantt();
+    });
+  </script>
+</body>
+</html>

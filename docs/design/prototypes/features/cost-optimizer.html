@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Cost Optimizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* Page header */
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.3;
+    }
+    .page-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      margin-top: 4px;
+      max-width: 600px;
+    }
+    .page-header-section {
+      margin-bottom: 24px;
+    }
+
+    /* Stat card trends */
+    .stat-card-trend .trend-arrow {
+      font-size: 0.625rem;
+    }
+
+    /* Section spacing */
+    .section-gap {
+      margin-top: 20px;
+    }
+    .section-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-panel-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Cost breakdown bars */
+    .cost-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+    }
+    .cost-bar-row:last-child { border-bottom: none; }
+    .cost-bar-row:hover { background: var(--neutral-subtle); margin: 0 -18px; padding: 10px 18px; }
+    .cost-bar-model {
+      width: 140px;
+      flex-shrink: 0;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .cost-bar-total {
+      width: 60px;
+      flex-shrink: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .cost-bar-track {
+      flex: 1;
+      height: 24px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      display: flex;
+      background: var(--neutral-subtle);
+      position: relative;
+    }
+    .cost-bar-segment {
+      height: 100%;
+      transition: width var(--transition-slow);
+      position: relative;
+    }
+    .cost-bar-segment.input { background: #6366f1; }
+    .cost-bar-segment.output { background: #818cf8; }
+    .cost-bar-segment.cache { background: #a78bfa; }
+
+    /* Segment tooltip */
+    .cost-bar-segment::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 8px;
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+      z-index: var(--z-tooltip);
+      box-shadow: var(--shadow-md);
+    }
+    .cost-bar-segment:hover::after { opacity: 1; }
+
+    .cost-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .cost-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    .cost-legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* Burn-down chart */
+    .chart-container { position: relative; }
+    .chart-container svg { display: block; width: 100%; height: auto; }
+    .chart-status {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+    }
+
+    /* Savings table */
+    .savings-value {
+      color: var(--success-fg);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .data-table .summary-row td {
+      border-top: 2px solid var(--border-default);
+      border-bottom: none;
+      font-weight: 600;
+      padding-top: 12px;
+    }
+    .data-table td.mono {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      font-size: 0.75rem;
+    }
+
+    /* Model efficiency cards */
+    .model-efficiency-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1200px) {
+      .model-efficiency-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .model-efficiency-grid { grid-template-columns: 1fr; }
+    }
+    .model-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      transition: all var(--transition-normal);
+    }
+    .model-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-1px);
+    }
+    .model-card-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .model-card-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .model-card-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+    }
+    .model-card-stat-label {
+      color: var(--text-tertiary);
+    }
+    .model-card-stat-value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Sparkline */
+    .sparkline {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 20px;
+    }
+    .sparkline-bar {
+      width: 4px;
+      border-radius: 1px;
+      transition: height var(--transition-normal);
+    }
+
+    /* Donut ring */
+    .donut-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .donut-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Misc */
+    .section-panel + .section-panel { margin-top: 20px; }
+    .text-secondary { color: var(--text-secondary); }
+    .flex-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Cost Optimizer</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Header -->
+          <div class="page-header-section">
+            <h1 class="page-title">Cost Optimizer</h1>
+            <p class="page-subtitle">Track spending across models, surface savings opportunities, and keep your AI-assisted development within budget. Data from 53 sessions this month.</p>
+          </div>
+
+          <!-- Stat Cards -->
+          <div class="grid-4">
+            <div class="stat-card">
+              <div class="stat-card-value accent">$127.40</div>
+              <div class="stat-card-label">Total Spend (MTD)</div>
+              <div class="stat-card-trend up">
+                <span class="trend-arrow">▲</span> 12% vs last month
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value warning">64%</div>
+              <div class="stat-card-label">Budget Used</div>
+              <div class="stat-card-trend up">
+                <span class="trend-arrow">▲</span> $72.60 remaining
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color: var(--text-secondary);">$198.50</div>
+              <div class="stat-card-label">Projected Monthly</div>
+              <div class="stat-card-trend down">
+                <span class="trend-arrow">▼</span> Under $200 budget
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success">$34.20</div>
+              <div class="stat-card-label">Potential Savings</div>
+              <div class="stat-card-trend up">
+                <span class="trend-arrow">▲</span> 26.8% of spend
+              </div>
+            </div>
+          </div>
+
+          <!-- Cost Breakdown by Model -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span>Cost Breakdown by Model</span>
+              <div class="section-panel-header-right">
+                <span class="badge badge-neutral">5 models</span>
+              </div>
+            </div>
+            <div class="section-panel-body">
+              <div id="cost-bars"></div>
+              <div class="cost-legend">
+                <div class="cost-legend-item">
+                  <div class="cost-legend-swatch" style="background: #6366f1;"></div>
+                  Input Tokens
+                </div>
+                <div class="cost-legend-item">
+                  <div class="cost-legend-swatch" style="background: #818cf8;"></div>
+                  Output Tokens
+                </div>
+                <div class="cost-legend-item">
+                  <div class="cost-legend-swatch" style="background: #a78bfa;"></div>
+                  Cache Reads
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Budget Burn-Down Chart -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span>Budget Burn-Down — March 2026</span>
+              <div class="section-panel-header-right">
+                <span class="badge badge-success">On Track</span>
+              </div>
+            </div>
+            <div class="section-panel-body">
+              <div class="chart-container" id="burndown-chart"></div>
+            </div>
+          </div>
+
+          <!-- Savings Opportunities -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span>Savings Opportunities</span>
+              <div class="section-panel-header-right">
+                <button class="btn btn-sm btn-primary">Apply All Suggestions</button>
+              </div>
+            </div>
+            <div class="section-panel-body" style="padding: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Session Name</th>
+                    <th>Model Used</th>
+                    <th style="text-align:right;">Tokens</th>
+                    <th style="text-align:right;">Cost</th>
+                    <th>Suggested Model</th>
+                    <th style="text-align:right;">Est. Savings</th>
+                  </tr>
+                </thead>
+                <tbody id="savings-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Model Efficiency Comparison -->
+          <div class="section-panel section-gap">
+            <div class="section-panel-header">
+              <span>Model Efficiency Comparison</span>
+              <div class="section-panel-header-right">
+                <span class="badge badge-neutral">Last 8 days</span>
+              </div>
+            </div>
+            <div class="section-panel-body">
+              <div class="model-efficiency-grid" id="efficiency-grid"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../shared/shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('analytics');
+
+      // ── Cost Breakdown Bars ───────────────────────────────────
+      const models = [
+        { name: 'Claude Sonnet 4', total: 45.20, input: 28.10, output: 12.30, cache: 4.80 },
+        { name: 'Claude Opus 4',   total: 38.10, input: 22.40, output: 11.20, cache: 4.50 },
+        { name: 'GPT-4.1',         total: 22.80, input: 14.60, output: 6.40,  cache: 1.80 },
+        { name: 'Claude Haiku',    total: 12.50, input: 7.80,  output: 3.40,  cache: 1.30 },
+        { name: 'GPT-5.1-Codex',   total: 8.80,  input: 5.20,  output: 2.60,  cache: 1.00 },
+      ];
+      const maxCost = Math.max(...models.map(m => m.total));
+
+      document.getElementById('cost-bars').innerHTML = models.map(m => {
+        const pct = (v) => ((v / maxCost) * 100).toFixed(1);
+        return `
+          <div class="cost-bar-row">
+            <div class="cost-bar-model">${m.name}</div>
+            <div class="cost-bar-total">$${m.total.toFixed(2)}</div>
+            <div class="cost-bar-track">
+              <div class="cost-bar-segment input" style="width:${pct(m.input)}%"
+                   data-tooltip="Input: $${m.input.toFixed(2)}"></div>
+              <div class="cost-bar-segment output" style="width:${pct(m.output)}%"
+                   data-tooltip="Output: $${m.output.toFixed(2)}"></div>
+              <div class="cost-bar-segment cache" style="width:${pct(m.cache)}%"
+                   data-tooltip="Cache: $${m.cache.toFixed(2)}"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // ── Budget Burn-Down SVG ──────────────────────────────────
+      const W = 600, H = 220, PAD = { t: 20, r: 20, b: 30, l: 44 };
+      const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
+      const budget = 200;
+      const dailySpend = [
+        0, 4.2, 9.1, 14.8, 18.3, 24.1, 29.5, 35.2, 39.8, 46.1,
+        52.4, 57.8, 63.0, 68.2, 74.5, 80.1, 86.3, 92.4, 98.7, 105.1,
+        112.0, 117.5, 122.8, 127.4
+      ];
+      const currentDay = dailySpend.length; // day 24 (data for days 0-23 but 1-indexed display)
+
+      const x = (d) => PAD.l + ((d - 1) / 29) * cw;
+      const y = (v) => PAD.t + (1 - v / budget) * ch;
+
+      // Build actual spend polyline
+      const spendPoints = dailySpend.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`);
+      const areaPoints = [
+        `${x(1).toFixed(1)},${y(0).toFixed(1)}`,
+        ...spendPoints,
+        `${x(currentDay).toFixed(1)},${y(0).toFixed(1)}`
+      ].join(' ');
+      const linePoints = spendPoints.join(' ');
+
+      // Projection line (from current to day 30)
+      const projectedEnd = 198.5;
+      const projLine = `${x(currentDay).toFixed(1)},${y(dailySpend[dailySpend.length - 1]).toFixed(1)} ${x(30).toFixed(1)},${y(projectedEnd).toFixed(1)}`;
+
+      // Grid lines
+      const gridYValues = [0, 50, 100, 150, 200];
+      const gridLines = gridYValues.map(v =>
+        `<line x1="${PAD.l}" y1="${y(v).toFixed(1)}" x2="${W - PAD.r}" y2="${y(v).toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+         <text x="${PAD.l - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" fill="#71717a" font-size="10" font-family="Inter, sans-serif">$${v}</text>`
+      ).join('');
+
+      // X-axis labels
+      const xLabels = [1, 5, 10, 15, 20, 25, 30].map(d =>
+        `<text x="${x(d).toFixed(1)}" y="${H - 6}" text-anchor="middle" fill="#71717a" font-size="10" font-family="Inter, sans-serif">${d}</text>`
+      ).join('');
+
+      document.getElementById('burndown-chart').innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.03"/>
+            </linearGradient>
+          </defs>
+          <!-- Grid -->
+          ${gridLines}
+          <!-- Budget limit dashed line -->
+          <line x1="${PAD.l}" y1="${y(budget).toFixed(1)}" x2="${W - PAD.r}" y2="${y(budget).toFixed(1)}"
+                stroke="#fb7185" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+          <text x="${W - PAD.r}" y="${(y(budget) - 5).toFixed(1)}" text-anchor="end"
+                fill="#fb7185" font-size="10" font-family="Inter, sans-serif" opacity="0.8">Budget $200</text>
+          <!-- Area fill -->
+          <polygon points="${areaPoints}" fill="url(#areaGrad)"/>
+          <!-- Spend line -->
+          <polyline points="${linePoints}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- Current day dot -->
+          <circle cx="${x(currentDay).toFixed(1)}" cy="${y(dailySpend[dailySpend.length - 1]).toFixed(1)}" r="4" fill="#818cf8" stroke="#09090b" stroke-width="2"/>
+          <!-- Projection line -->
+          <polyline points="${projLine}" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.5"/>
+          <circle cx="${x(30).toFixed(1)}" cy="${y(projectedEnd).toFixed(1)}" r="3" fill="#a78bfa" opacity="0.5"/>
+          <text x="${x(30).toFixed(1)}" y="${(y(projectedEnd) - 8).toFixed(1)}" text-anchor="middle"
+                fill="#a78bfa" font-size="10" font-family="Inter, sans-serif" opacity="0.7">$198.50</text>
+          <!-- X-axis -->
+          ${xLabels}
+          <text x="${(PAD.l + W - PAD.r) / 2}" y="${H}" text-anchor="middle" fill="#52525b" font-size="9" font-family="Inter, sans-serif">Day of Month</text>
+        </svg>`;
+
+      // ── Savings Opportunities Table ───────────────────────────
+      const savings = [
+        { session: 'Fix typo in README',          model: 'Claude Opus 4',   tokens: '12,400', cost: 2.80, suggest: 'Claude Haiku', save: 2.45 },
+        { session: 'Update package.json',          model: 'Claude Opus 4',   tokens: '8,200',  cost: 1.90, suggest: 'Claude Haiku', save: 1.62 },
+        { session: 'Rename CSS class',             model: 'Claude Sonnet 4', tokens: '6,800',  cost: 1.40, suggest: 'Claude Haiku', save: 1.05 },
+        { session: 'Add .gitignore entry',         model: 'Claude Sonnet 4', tokens: '4,100',  cost: 0.95, suggest: 'Claude Haiku', save: 0.72 },
+        { session: 'Bump dependency version',      model: 'Claude Opus 4',   tokens: '9,600',  cost: 2.20, suggest: 'Claude Haiku', save: 1.88 },
+        { session: 'Fix lint warning',             model: 'GPT-4.1',         tokens: '5,300',  cost: 1.10, suggest: 'Claude Haiku', save: 0.78 },
+        { session: 'Update copyright year',        model: 'Claude Sonnet 4', tokens: '3,200',  cost: 0.70, suggest: 'Claude Haiku', save: 0.53 },
+        { session: 'Remove unused import',         model: 'Claude Opus 4',   tokens: '7,500',  cost: 1.75, suggest: 'Claude Haiku', save: 1.44 },
+      ];
+
+      const totalSavings = savings.reduce((s, r) => s + r.save, 0);
+      const totalCost = savings.reduce((s, r) => s + r.cost, 0);
+
+      document.getElementById('savings-tbody').innerHTML = savings.map(r => `
+        <tr>
+          <td>${r.session}</td>
+          <td><span class="badge badge-danger">${r.model}</span></td>
+          <td class="mono" style="text-align:right;">${r.tokens}</td>
+          <td class="mono" style="text-align:right;">$${r.cost.toFixed(2)}</td>
+          <td><span class="badge badge-success">${r.suggest}</span></td>
+          <td class="savings-value" style="text-align:right;">−$${r.save.toFixed(2)}</td>
+        </tr>`).join('') + `
+        <tr class="summary-row">
+          <td colspan="3" style="text-align:right; color: var(--text-tertiary);">Total across 8 sessions</td>
+          <td class="mono" style="text-align:right;">$${totalCost.toFixed(2)}</td>
+          <td></td>
+          <td class="savings-value" style="text-align:right;">−$${totalSavings.toFixed(2)}</td>
+        </tr>`;
+
+      // ── Model Efficiency Cards ────────────────────────────────
+      const effModels = [
+        {
+          name: 'Claude Sonnet 4', color: '#818cf8', costPer1k: '$0.012',
+          avgTime: '3.2s', cacheHit: 72,
+          sparkline: [85, 90, 78, 92, 88, 95, 91, 87]
+        },
+        {
+          name: 'Claude Opus 4', color: '#a78bfa', costPer1k: '$0.045',
+          avgTime: '5.8s', cacheHit: 65,
+          sparkline: [92, 88, 95, 90, 86, 93, 89, 91]
+        },
+        {
+          name: 'GPT-4.1', color: '#34d399', costPer1k: '$0.018',
+          avgTime: '2.9s', cacheHit: 58,
+          sparkline: [80, 82, 78, 85, 88, 84, 90, 86]
+        },
+        {
+          name: 'Claude Haiku', color: '#fbbf24', costPer1k: '$0.003',
+          avgTime: '1.4s', cacheHit: 81,
+          sparkline: [95, 97, 93, 96, 98, 94, 97, 96]
+        },
+        {
+          name: 'GPT-5.1-Codex', color: '#fb7185', costPer1k: '$0.008',
+          avgTime: '2.1s', cacheHit: 70,
+          sparkline: [88, 91, 86, 90, 93, 89, 92, 94]
+        },
+      ];
+
+      const buildSparkline = (data, color) => {
+        const max = Math.max(...data);
+        return `<div class="sparkline">${data.map(v => {
+          const h = Math.max(3, (v / max) * 20);
+          return `<div class="sparkline-bar" style="height:${h.toFixed(0)}px;background:${color};opacity:${0.4 + (v / max) * 0.6}"></div>`;
+        }).join('')}</div>`;
+      };
+
+      const buildDonut = (pct, color) => {
+        const r = 15, cx = 18, cy = 18, circ = 2 * Math.PI * r;
+        const dash = (pct / 100) * circ;
+        return `
+          <div class="donut-container">
+            <svg width="36" height="36" viewBox="0 0 36 36">
+              <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="4"/>
+              <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
+                      stroke-dasharray="${dash.toFixed(1)} ${(circ - dash).toFixed(1)}"
+                      stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"
+                      style="transition: stroke-dasharray 0.6s ease;"/>
+            </svg>
+            <span class="donut-label" style="color:${color}">${pct}%</span>
+          </div>`;
+      };
+
+      document.getElementById('efficiency-grid').innerHTML = effModels.map(m => `
+        <div class="model-card">
+          <div class="model-card-name" style="color:${m.color}">${m.name}</div>
+          <div class="model-card-stats">
+            <div class="model-card-stat">
+              <span class="model-card-stat-label">Cost / 1K tokens</span>
+              <span class="model-card-stat-value">${m.costPer1k}</span>
+            </div>
+            <div class="model-card-stat">
+              <span class="model-card-stat-label">Avg response</span>
+              <span class="model-card-stat-value">${m.avgTime}</span>
+            </div>
+            <div class="model-card-stat">
+              <span class="model-card-stat-label">Success rate</span>
+              ${buildSparkline(m.sparkline, m.color)}
+            </div>
+            <div class="model-card-stat">
+              <span class="model-card-stat-label">Cache hit ratio</span>
+              ${buildDonut(m.cacheHit, m.color)}
+            </div>
+          </div>
+        </div>`).join('');
+    });
+  </script>
+</body>
+</html>

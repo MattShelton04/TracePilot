@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Context Window Lifecycle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Hero bar ─────────────────────────────────────────── */
+    .ctx-bar-wrapper { position: relative; margin: 24px 0 32px; }
+    .ctx-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .ctx-bar-tokens { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ctx-bar-cap { font-size: 0.75rem; color: var(--text-tertiary); }
+
+    .ctx-bar-outer {
+      position: relative; height: 56px; border-radius: var(--radius-lg);
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      overflow: hidden; transition: box-shadow 0.4s ease;
+    }
+    .ctx-bar-outer.glow-warning { box-shadow: 0 0 18px rgba(251,191,36,0.25), inset 0 0 12px rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.3); }
+    .ctx-bar-outer.glow-danger  { box-shadow: 0 0 24px rgba(251,113,133,0.35), inset 0 0 16px rgba(251,113,133,0.08); border-color: rgba(251,113,133,0.4); }
+    .ctx-bar-outer.compacting   { animation: compactPulse 0.6s ease-in-out 2; }
+
+    .ctx-bar-fill { display: flex; height: 100%; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+    .ctx-bar-fill.fast { transition: width 0.15s ease; }
+
+    .ctx-seg {
+      height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 0.625rem; font-weight: 600; color: rgba(0,0,0,0.7);
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+      overflow: hidden; white-space: nowrap; position: relative; min-width: 0;
+    }
+    .ctx-seg.fast { transition: width 0.15s ease, opacity 0.2s ease; }
+    .ctx-seg.summary-seg {
+      border: 1.5px dashed rgba(255,255,255,0.25); background: rgba(113,113,122,0.35) !important;
+      color: var(--text-secondary); font-size: 0.6875rem; letter-spacing: 0.03em;
+    }
+    .ctx-seg-label { pointer-events: none; padding: 0 6px; }
+
+    /* Segment colors */
+    .seg-system    { background: #52525b; }
+    .seg-user      { background: #34d399; }
+    .seg-assistant { background: #818cf8; }
+    .seg-tool      { background: #fbbf24; }
+    .seg-thinking  { background: #a78bfa; }
+
+    /* Capacity line */
+    .capacity-line {
+      position: absolute; right: 0; top: -4px; bottom: -4px; width: 2px;
+      background: var(--danger-fg); opacity: 0.6; z-index: 5;
+    }
+    .capacity-label {
+      position: absolute; right: 6px; top: -20px; font-size: 0.625rem;
+      color: var(--danger-fg); opacity: 0.7;
+    }
+
+    /* ── Checkpoint markers ───────────────────────────────── */
+    .checkpoint-track { position: relative; height: 18px; margin-top: 6px; }
+    .checkpoint-marker {
+      position: absolute; top: 0; transform: translateX(-50%); cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+    .checkpoint-marker:hover { transform: translateX(-50%) scale(1.2); }
+    .checkpoint-tri {
+      width: 0; height: 0; border-left: 6px solid transparent;
+      border-right: 6px solid transparent; border-top: 8px solid var(--warning-fg);
+      margin: 0 auto;
+    }
+    .checkpoint-label { font-size: 0.5625rem; color: var(--text-tertiary); text-align: center; margin-top: 1px; }
+
+    /* ── Segment tooltip ──────────────────────────────────── */
+    .seg-tooltip {
+      position: fixed; padding: 6px 10px; border-radius: var(--radius-sm);
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      box-shadow: var(--shadow-md); font-size: 0.6875rem; color: var(--text-primary);
+      pointer-events: none; z-index: 100; opacity: 0; transition: opacity 0.12s ease;
+      white-space: nowrap;
+    }
+    .seg-tooltip.visible { opacity: 1; }
+    .seg-tooltip-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+    /* ── Playback controls ────────────────────────────────── */
+    .playback-bar {
+      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); margin-bottom: 24px;
+    }
+    .playback-btn {
+      background: none; border: 1px solid var(--border-default); color: var(--text-primary);
+      border-radius: var(--radius-sm); padding: 5px 12px; font-size: 0.75rem;
+      cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast);
+      font-family: inherit;
+    }
+    .playback-btn:hover { background: var(--accent-muted); border-color: var(--accent-fg); }
+    .playback-btn.active { background: var(--accent-muted); border-color: var(--accent-fg); color: var(--accent-fg); }
+
+    .scrubber-track {
+      flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px;
+      position: relative; cursor: pointer;
+    }
+    .scrubber-fill {
+      height: 100%; background: var(--accent-fg); border-radius: 2px;
+      transition: width 0.3s linear; position: absolute; left: 0; top: 0;
+    }
+    .scrubber-thumb {
+      width: 12px; height: 12px; border-radius: 50%; background: var(--accent-fg);
+      border: 2px solid var(--canvas-default); position: absolute; top: 50%;
+      transform: translate(-50%,-50%); transition: left 0.3s linear;
+      box-shadow: 0 0 6px rgba(99,102,241,0.4);
+    }
+    .playback-time { font-size: 0.6875rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; min-width: 72px; text-align: center; }
+
+    /* ── Compaction timeline ───────────────────────────────── */
+    .compact-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .compact-card {
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); padding: 14px; cursor: pointer;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .compact-card:hover, .compact-card.selected { border-color: var(--accent-fg); box-shadow: 0 0 12px rgba(99,102,241,0.15); }
+    .compact-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .compact-card-row { display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 4px; }
+    .compact-card-row strong { color: var(--text-secondary); }
+
+    .arrow-down { color: var(--success-fg); font-weight: 700; }
+    .compression-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.625rem;
+      font-weight: 600; background: var(--success-muted); color: var(--success-fg);
+    }
+
+    /* ── Forgotten detail panel ────────────────────────────── */
+    .forgotten-panel {
+      margin-top: 14px; max-height: 0; overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
+      opacity: 0;
+    }
+    .forgotten-panel.open { max-height: 600px; opacity: 1; }
+    .forgotten-inner { padding: 18px; }
+
+    .summary-block {
+      background: var(--canvas-overlay); border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: var(--radius-sm); padding: 12px 14px; font-size: 0.75rem;
+      color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px;
+    }
+    .summary-block-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 6px; }
+
+    .lost-item {
+      display: flex; align-items: center; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid var(--border-muted); font-size: 0.75rem;
+    }
+    .lost-item:last-child { border-bottom: none; }
+    .lost-icon { color: var(--danger-fg); font-size: 0.6875rem; flex-shrink: 0; }
+    .lost-label { color: var(--text-secondary); }
+    .lost-tokens { color: var(--text-tertiary); font-size: 0.6875rem; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+    /* ── Legend ────────────────────────────────────────────── */
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.6875rem; color: var(--text-tertiary); }
+    .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* ── Animations ────────────────────────────────────────── */
+    @keyframes compactPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(251,113,133,0.4); }
+      50%  { box-shadow: 0 0 32px 4px rgba(251,113,133,0.25); }
+      100% { box-shadow: 0 0 0 0 rgba(251,113,133,0.05); }
+    }
+    @keyframes ripple {
+      0%   { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .ripple-ring {
+      position: absolute; top: 50%; left: 50%; width: 40px; height: 40px;
+      margin: -20px 0 0 -20px; border: 2px solid var(--danger-fg);
+      border-radius: 50%; animation: ripple 0.8s ease-out forwards; pointer-events: none;
+    }
+
+    /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .compact-cards { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Context Window Lifecycle</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- ── Header stats ──────────────────────────────── -->
+          <div class="grid-4 mb-6" style="margin-bottom:24px;">
+            <div class="stat-card">
+              <div class="stat-card-value accent" id="statTotal">0</div>
+              <div class="stat-card-label">Session Tokens (Total)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:var(--danger-fg)" id="statPeak">0</div>
+              <div class="stat-card-label">Peak Usage</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" style="color:var(--warning-fg)" id="statCompactions">0</div>
+              <div class="stat-card-label">Compaction Events</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value success" id="statCache">0%</div>
+              <div class="stat-card-label">Cache Hit Rate</div>
+            </div>
+          </div>
+
+          <!-- ── Context bar visualization ─────────────────── -->
+          <div class="section-panel" style="margin-bottom:24px;">
+            <div class="section-panel-header">Context Window — 128K Capacity</div>
+            <div class="section-panel-body">
+              <div class="ctx-bar-wrapper">
+                <div class="ctx-bar-header">
+                  <span class="ctx-bar-tokens" id="tokenCount">0 tokens</span>
+                  <span class="ctx-bar-cap font-mono">128,000</span>
+                </div>
+                <div class="ctx-bar-outer" id="ctxBarOuter">
+                  <div class="ctx-bar-fill" id="ctxBarFill"></div>
+                  <div class="capacity-line"></div>
+                  <div class="capacity-label font-mono">128K</div>
+                </div>
+                <div class="checkpoint-track" id="checkpointTrack"></div>
+                <div class="legend">
+                  <div class="legend-item"><span class="legend-swatch" style="background:#52525b"></span>System / Cached</div>
+                  <div class="legend-item"><span class="legend-swatch" style="background:#34d399"></span>User Messages</div>
+                  <div class="legend-item"><span class="legend-swatch" style="background:#818cf8"></span>Assistant</div>
+                  <div class="legend-item"><span class="legend-swatch" style="background:#fbbf24"></span>Tool Results</div>
+                  <div class="legend-item"><span class="legend-swatch" style="background:#a78bfa"></span>Reasoning</div>
+                  <div class="legend-item"><span class="legend-swatch seg-summary-legend" style="background:rgba(113,113,122,0.35);border:1px dashed rgba(255,255,255,0.25)"></span>Summary</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Playback controls ─────────────────────────── -->
+          <div class="playback-bar">
+            <button class="playback-btn" id="btnPlayPause" title="Play / Pause">▶ Play</button>
+            <button class="playback-btn" id="btnSpeed" title="Playback speed">1×</button>
+            <div class="scrubber-track" id="scrubberTrack">
+              <div class="scrubber-fill" id="scrubberFill"></div>
+              <div class="scrubber-thumb" id="scrubberThumb" style="left:0%"></div>
+            </div>
+            <span class="playback-time" id="playbackTime">0:00 / 2:00</span>
+          </div>
+
+          <!-- ── Compaction timeline ───────────────────────── -->
+          <div class="section-panel" style="margin-bottom:24px;">
+            <div class="section-panel-header">Compaction Events</div>
+            <div class="section-panel-body">
+              <div class="compact-cards" id="compactCards"></div>
+              <div class="forgotten-panel" id="forgottenPanel">
+                <div class="forgotten-inner" id="forgottenInner"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip -->
+  <div class="seg-tooltip" id="segTooltip"><span class="seg-tooltip-dot"></span><span class="seg-tooltip-text"></span></div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    /* ================================================================
+       MOCK DATA — realistic context-window lifecycle
+       ================================================================ */
+    const CAPACITY = 128000;
+    const TOTAL_STEPS = 120;           // granularity of the animation loop
+    const TOTAL_DURATION_BASE = 120;   // seconds at 1× speed
+
+    const segTypes = ['system','user','assistant','tool','thinking'];
+    const segColors = { system:'#52525b', user:'#34d399', assistant:'#818cf8', tool:'#fbbf24', thinking:'#a78bfa' };
+    const segLabels = { system:'System / Cached', user:'User Messages', assistant:'Assistant', tool:'Tool Results', thinking:'Reasoning' };
+
+    // Each "phase" describes a segment state at a given step.
+    // Phases between compaction points show gradual accumulation.
+    const compactionEvents = [
+      { step: 28, peakTokens: 120400, afterTokens: 44200, label: 'C1', time: '0:28',
+        turns: 'Turns 1–5', tools: 'grep ×3, view ×2', ratio: '63%',
+        summary: 'Summarised initial codebase exploration. Condensed 5 grep searches and 2 file views into a structural overview of the repository layout and key entry points.',
+        lost: [
+          { label: 'grep results for "handleAuth"', tokens: '8,240' },
+          { label: 'view of src/auth/middleware.ts (full)', tokens: '12,600' },
+          { label: 'view of src/routes/index.ts (full)', tokens: '6,100' },
+          { label: 'User message: initial exploration prompt', tokens: '420' },
+          { label: 'Assistant reasoning about architecture', tokens: '9,800' },
+        ]},
+      { step: 55, peakTokens: 118200, afterTokens: 41800, label: 'C2', time: '0:55',
+        turns: 'Turns 6–11', tools: 'edit ×4, test run ×1', ratio: '65%',
+        summary: 'Compressed iterative edit-test cycle. Four sequential file edits to auth middleware and their test results consolidated into final diff and passing test confirmation.',
+        lost: [
+          { label: 'Intermediate edit diffs (4 revisions)', tokens: '14,200' },
+          { label: 'Test output: 247 tests passed (verbose)', tokens: '18,500' },
+          { label: 'Assistant chain-of-thought on fix strategy', tokens: '11,300' },
+          { label: 'User clarification messages ×3', tokens: '1,100' },
+        ]},
+      { step: 82, peakTokens: 122000, afterTokens: 46500, label: 'C3', time: '1:22',
+        turns: 'Turns 12–18', tools: 'search ×2, view ×5, edit ×2', ratio: '62%',
+        summary: 'Summarised cross-file refactoring. Seven file views and pattern searches across the codebase reduced to a dependency graph summary and list of modified files.',
+        lost: [
+          { label: 'search_code results for "UserService"', tokens: '9,400' },
+          { label: 'view of 5 service files (full content)', tokens: '22,100' },
+          { label: 'Refactoring plan reasoning', tokens: '8,600' },
+          { label: 'Edit confirmations and diffs ×2', tokens: '5,300' },
+        ]},
+      { step: 108, peakTokens: 119600, afterTokens: 43100, label: 'C4', time: '1:48',
+        turns: 'Turns 19–24', tools: 'test ×2, lint ×1, view ×3', ratio: '64%',
+        summary: 'Condensed final validation loop. Two full test suite runs and lint check compressed to summary of 3 remaining failures and their resolution.',
+        lost: [
+          { label: 'Full test output run #1 (failures)', tokens: '16,800' },
+          { label: 'Full test output run #2 (pass)', tokens: '15,200' },
+          { label: 'Lint report (214 files checked)', tokens: '4,900' },
+          { label: 'view of test fixtures ×3', tokens: '7,600' },
+        ]},
+    ];
+
+    // Build step-by-step token data (segments per step)
+    function buildStepData() {
+      const data = [];
+      let summaryTokens = 0;
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function makeSegs(total, summaryPart, phase) {
+        const remaining = total - summaryPart;
+        const ratios = phase === 0 ? [0.035, 0.04, 0.28, 0.38, 0.265]
+                     : phase === 1 ? [0.03, 0.05, 0.32, 0.30, 0.30]
+                     : phase === 2 ? [0.025, 0.06, 0.25, 0.40, 0.265]
+                                   : [0.03, 0.045, 0.30, 0.32, 0.305];
+        const segs = {};
+        segTypes.forEach((t, i) => segs[t] = Math.round(remaining * ratios[i]));
+        if (summaryPart > 0) segs.summary = summaryPart;
+        return segs;
+      }
+
+      const phases = [
+        { start: 0, end: 28, fromTokens: 4000, toTokens: 120400, phase: 0 },
+        { start: 29, end: 55, fromTokens: 44200, toTokens: 118200, phase: 1 },
+        { start: 56, end: 82, fromTokens: 41800, toTokens: 122000, phase: 2 },
+        { start: 83, end: 108, fromTokens: 46500, toTokens: 119600, phase: 3 },
+        { start: 109, end: 120, fromTokens: 43100, toTokens: 85000, phase: 3 },
+      ];
+
+      const compactSteps = compactionEvents.map(c => c.step);
+      const afterTokensMap = {};
+      compactionEvents.forEach(c => { afterTokensMap[c.step] = c.afterTokens; });
+
+      phases.forEach((ph, pi) => {
+        for (let s = ph.start; s <= Math.min(ph.end, TOTAL_STEPS); s++) {
+          const t = ph.end === ph.start ? 1 : (s - ph.start) / (ph.end - ph.start);
+          const tokens = Math.round(lerp(ph.fromTokens, ph.toTokens, t));
+          const summ = pi === 0 ? 0 : (pi === 1 ? 12000 : pi === 2 ? 22000 : 30000);
+          data[s] = { tokens, segs: makeSegs(tokens, summ, ph.phase), isCompact: compactSteps.includes(s) };
+        }
+      });
+      return data;
+    }
+
+    const stepData = buildStepData();
+
+    /* ================================================================
+       DOM REFERENCES
+       ================================================================ */
+    const ctxBarOuter    = document.getElementById('ctxBarOuter');
+    const ctxBarFill     = document.getElementById('ctxBarFill');
+    const tokenCountEl   = document.getElementById('tokenCount');
+    const checkpointTr   = document.getElementById('checkpointTrack');
+    const compactCardsEl = document.getElementById('compactCards');
+    const forgottenPanel = document.getElementById('forgottenPanel');
+    const forgottenInner = document.getElementById('forgottenInner');
+    const btnPlayPause   = document.getElementById('btnPlayPause');
+    const btnSpeed       = document.getElementById('btnSpeed');
+    const scrubberTrack  = document.getElementById('scrubberTrack');
+    const scrubberFill   = document.getElementById('scrubberFill');
+    const scrubberThumb  = document.getElementById('scrubberThumb');
+    const playbackTimeEl = document.getElementById('playbackTime');
+    const tooltip        = document.getElementById('segTooltip');
+    const tooltipDot     = tooltip.querySelector('.seg-tooltip-dot');
+    const tooltipText    = tooltip.querySelector('.seg-tooltip-text');
+
+    /* ================================================================
+       RENDER HELPERS
+       ================================================================ */
+    function fmtK(n) { return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/,'') + 'K' : String(n); }
+    function fmtNum(n) { return n.toLocaleString('en-US'); }
+
+    function renderBar(segs, fast) {
+      const total = Object.values(segs).reduce((a,b) => a + b, 0);
+      ctxBarFill.innerHTML = '';
+      if (fast) ctxBarFill.classList.add('fast'); else ctxBarFill.classList.remove('fast');
+
+      const pct = Math.min((total / CAPACITY) * 100, 100);
+      ctxBarFill.style.width = pct + '%';
+
+      const order = ['system','summary','user','assistant','tool','thinking'];
+      order.forEach(key => {
+        if (!segs[key]) return;
+        const segPct = (segs[key] / total) * 100;
+        const el = document.createElement('div');
+        el.className = 'ctx-seg' + (key === 'summary' ? ' summary-seg' : ' seg-' + key) + (fast ? ' fast' : '');
+        el.style.width = segPct + '%';
+        if (key !== 'summary') el.style.background = segColors[key];
+        const labelText = segPct > 12 ? fmtK(segs[key]) : '';
+        el.innerHTML = '<span class="ctx-seg-label">' + labelText + '</span>';
+        el.dataset.type = key;
+        el.dataset.tokens = segs[key];
+        ctxBarFill.appendChild(el);
+      });
+
+      // Glow effect
+      const usage = total / CAPACITY;
+      ctxBarOuter.classList.toggle('glow-warning', usage > 0.8 && usage <= 0.92);
+      ctxBarOuter.classList.toggle('glow-danger', usage > 0.92);
+    }
+
+    function updateTokenDisplay(tokens) {
+      tokenCountEl.textContent = fmtNum(tokens) + ' tokens';
+      const usage = tokens / CAPACITY;
+      tokenCountEl.style.color = usage > 0.92 ? 'var(--danger-fg)' : usage > 0.8 ? 'var(--warning-fg)' : 'var(--text-primary)';
+    }
+
+    /* ── Compaction cards ─────────────────────────────────── */
+    function renderCompactCards(revealedCount) {
+      compactCardsEl.innerHTML = '';
+      compactionEvents.forEach((ev, i) => {
+        if (i >= revealedCount) return;
+        const card = document.createElement('div');
+        card.className = 'compact-card fade-in';
+        card.dataset.index = i;
+        card.innerHTML =
+          '<div class="compact-card-title">' +
+            '<span class="badge badge-warning">' + ev.label + '</span>' +
+            '<span style="color:var(--text-secondary)">' + ev.time + '</span>' +
+          '</div>' +
+          '<div class="compact-card-row"><span>Before</span><strong class="font-mono">' + fmtNum(ev.peakTokens) + '</strong></div>' +
+          '<div class="compact-card-row"><span>After</span><strong class="font-mono">' + fmtNum(ev.afterTokens) + '</strong></div>' +
+          '<div class="compact-card-row"><span>Compressed</span><strong>' + ev.turns + '</strong></div>' +
+          '<div class="compact-card-row"><span>Tools</span><strong>' + ev.tools + '</strong></div>' +
+          '<div style="margin-top:8px"><span class="compression-badge">↓ ' + ev.ratio + '</span></div>';
+        card.addEventListener('click', () => toggleForgotten(i));
+        compactCardsEl.appendChild(card);
+      });
+    }
+
+    let openForgotten = -1;
+    function toggleForgotten(index) {
+      const cards = compactCardsEl.querySelectorAll('.compact-card');
+      if (openForgotten === index) {
+        forgottenPanel.classList.remove('open');
+        cards.forEach(c => c.classList.remove('selected'));
+        openForgotten = -1;
+        return;
+      }
+      openForgotten = index;
+      cards.forEach((c, i) => c.classList.toggle('selected', i === index));
+      const ev = compactionEvents[index];
+      forgottenInner.innerHTML =
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">' +
+          '<div>' +
+            '<div class="summary-block-label">Generated Summary</div>' +
+            '<div class="summary-block">' + ev.summary + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div class="summary-block-label">Lost Context</div>' +
+            ev.lost.map(l =>
+              '<div class="lost-item">' +
+                '<span class="lost-icon">✕</span>' +
+                '<span class="lost-label">' + l.label + '</span>' +
+                '<span class="lost-tokens font-mono">' + l.tokens + '</span>' +
+              '</div>'
+            ).join('') +
+          '</div>' +
+        '</div>';
+      forgottenPanel.classList.add('open');
+    }
+
+    /* ── Checkpoint markers ───────────────────────────────── */
+    function renderCheckpoints(revealedCount) {
+      checkpointTr.innerHTML = '';
+      compactionEvents.forEach((ev, i) => {
+        if (i >= revealedCount) return;
+        const pct = (ev.peakTokens / CAPACITY) * 100;
+        const m = document.createElement('div');
+        m.className = 'checkpoint-marker fade-in';
+        m.style.left = Math.min(pct, 98) + '%';
+        m.innerHTML = '<div class="checkpoint-tri"></div><div class="checkpoint-label">' + ev.label + '</div>';
+        checkpointTr.appendChild(m);
+      });
+    }
+
+    /* ── Header stats ─────────────────────────────────────── */
+    function updateStats(step) {
+      const d = stepData[step];
+      if (!d) return;
+      const compactsSoFar = compactionEvents.filter(c => step >= c.step).length;
+      const peak = compactionEvents.slice(0, compactsSoFar).reduce((mx, c) => Math.max(mx, c.peakTokens), d.tokens);
+      document.getElementById('statTotal').textContent = fmtK(d.tokens);
+      document.getElementById('statPeak').textContent = fmtK(Math.max(peak, d.tokens));
+      document.getElementById('statCompactions').textContent = String(compactsSoFar);
+      document.getElementById('statCache').textContent = (62 + compactsSoFar * 4) + '%';
+    }
+
+    /* ── Tooltip ──────────────────────────────────────────── */
+    ctxBarFill.addEventListener('mousemove', e => {
+      const seg = e.target.closest('.ctx-seg');
+      if (!seg) { tooltip.classList.remove('visible'); return; }
+      const type = seg.dataset.type;
+      const tokens = parseInt(seg.dataset.tokens, 10);
+      const color = type === 'summary' ? '#71717a' : segColors[type] || '#71717a';
+      const label = type === 'summary' ? 'Summary (compacted)' : segLabels[type] || type;
+      tooltipDot.style.background = color;
+      tooltipText.textContent = label + ' — ' + fmtNum(tokens) + ' tokens';
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY - 32) + 'px';
+      tooltip.classList.add('visible');
+    });
+    ctxBarFill.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+
+    /* ================================================================
+       PLAYBACK ENGINE
+       ================================================================ */
+    let playing = false;
+    let currentStep = 0;
+    let speedMultiplier = 1;
+    let loopTimer = null;
+    let compactingLock = false;
+    const speeds = [1, 2, 4];
+    let speedIndex = 0;
+
+    function stepInterval() { return (TOTAL_DURATION_BASE / TOTAL_STEPS / speedMultiplier) * 1000; }
+
+    function totalDurationSec() { return TOTAL_DURATION_BASE / speedMultiplier; }
+
+    function fmtTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function updateScrubber() {
+      const pct = (currentStep / TOTAL_STEPS) * 100;
+      scrubberFill.style.width = pct + '%';
+      scrubberThumb.style.left = pct + '%';
+      const elapsed = (currentStep / TOTAL_STEPS) * TOTAL_DURATION_BASE;
+      playbackTimeEl.textContent = fmtTime(elapsed) + ' / ' + fmtTime(TOTAL_DURATION_BASE);
+    }
+
+    function applyStep(step, fast) {
+      const d = stepData[step];
+      if (!d) return;
+      renderBar(d.segs, fast);
+      updateTokenDisplay(d.tokens);
+      updateStats(step);
+      const revealed = compactionEvents.filter(c => step >= c.step).length;
+      renderCompactCards(revealed);
+      renderCheckpoints(revealed);
+      updateScrubber();
+    }
+
+    async function doCompaction(evIndex) {
+      compactingLock = true;
+      const ev = compactionEvents[evIndex];
+      const preStep = ev.step - 1;
+      const postStep = ev.step;
+
+      // Flash danger glow + pulse
+      ctxBarOuter.classList.add('glow-danger', 'compacting');
+
+      // Spawn ripple effect
+      const ripple = document.createElement('div');
+      ripple.className = 'ripple-ring';
+      ctxBarOuter.appendChild(ripple);
+
+      await sleep(400);
+
+      // Rapidly compress segments
+      const postData = stepData[postStep];
+      if (postData) {
+        renderBar(postData.segs, true);
+        updateTokenDisplay(postData.tokens);
+      }
+
+      await sleep(800);
+
+      // Clean up effects
+      ctxBarOuter.classList.remove('compacting');
+      ripple.remove();
+      await sleep(200);
+      ctxBarOuter.classList.remove('glow-danger', 'glow-warning');
+
+      compactingLock = false;
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms / speedMultiplier)); }
+
+    async function tick() {
+      if (!playing || compactingLock) return;
+      currentStep++;
+      if (currentStep > TOTAL_STEPS) {
+        currentStep = 0; // loop
+      }
+
+      const compactIdx = compactionEvents.findIndex(c => c.step === currentStep);
+      if (compactIdx !== -1) {
+        // Show the pre-compaction peak first
+        applyStep(currentStep - 1, false);
+        await sleep(300);
+        await doCompaction(compactIdx);
+        applyStep(currentStep, false);
+      } else {
+        applyStep(currentStep, false);
+      }
+
+      if (playing) loopTimer = setTimeout(tick, stepInterval());
+    }
+
+    function play() {
+      playing = true;
+      btnPlayPause.textContent = '⏸ Pause';
+      btnPlayPause.classList.add('active');
+      loopTimer = setTimeout(tick, stepInterval());
+    }
+
+    function pause() {
+      playing = false;
+      btnPlayPause.textContent = '▶ Play';
+      btnPlayPause.classList.remove('active');
+      clearTimeout(loopTimer);
+    }
+
+    btnPlayPause.addEventListener('click', () => { playing ? pause() : play(); });
+
+    btnSpeed.addEventListener('click', () => {
+      speedIndex = (speedIndex + 1) % speeds.length;
+      speedMultiplier = speeds[speedIndex];
+      btnSpeed.textContent = speedMultiplier + '×';
+      btnSpeed.classList.toggle('active', speedMultiplier > 1);
+    });
+
+    // Scrubber click-to-seek
+    scrubberTrack.addEventListener('click', e => {
+      const rect = scrubberTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      currentStep = Math.round(pct * TOTAL_STEPS);
+      applyStep(currentStep, true);
+    });
+
+    /* ── Initial render ─────────────────────────────────── */
+    applyStep(0, true);
+
+    // Auto-play after a brief pause
+    setTimeout(play, 800);
+  });
+  </script>
+</body>
+</html>

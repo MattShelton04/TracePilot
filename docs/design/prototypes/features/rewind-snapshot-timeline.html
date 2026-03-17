@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Rewind Snapshot Timeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .session-info-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .timeline-container {
+      position: relative;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 20px 0 30px;
+      scroll-behavior: smooth;
+      scroll-snap-type: x mandatory;
+    }
+    .timeline-inner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      min-width: max-content;
+      padding: 0 40px;
+      position: relative;
+    }
+    .timeline-line {
+      position: absolute;
+      top: 28px;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: var(--border-default);
+      z-index: 0;
+    }
+
+    .snapshot-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      scroll-snap-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .snapshot-marker {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid var(--accent-emphasis);
+      background: var(--canvas-default);
+      color: var(--accent-fg);
+      position: relative;
+      z-index: 2;
+    }
+    .snapshot-marker:hover {
+      background: var(--accent-muted);
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+      transform: scale(1.1);
+    }
+    .snapshot-marker.selected {
+      background: var(--accent-emphasis);
+      color: white;
+      box-shadow: 0 0 0 4px rgba(99,102,241,0.25), 0 0 16px rgba(99,102,241,0.2);
+    }
+    .snapshot-marker.compare-a {
+      border-color: var(--success-fg);
+      box-shadow: 0 0 0 3px rgba(52,211,153,0.2);
+    }
+    .snapshot-marker.compare-b {
+      border-color: var(--warning-fg);
+      box-shadow: 0 0 0 3px rgba(251,191,36,0.2);
+    }
+
+    .snapshot-card {
+      width: 240px;
+      margin-top: 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .snapshot-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md);
+    }
+    .snapshot-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .snapshot-card-msg {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .snapshot-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .snapshot-card-time {
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      margin-top: 6px;
+    }
+
+    .activity-strip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 80px;
+      padding: 0 6px;
+      position: relative;
+      z-index: 1;
+    }
+    .activity-strip-line {
+      width: 100%;
+      height: 2px;
+      background: var(--border-default);
+      position: absolute;
+      top: 28px;
+    }
+    .activity-strip-info {
+      margin-top: 52px;
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      text-align: center;
+      white-space: nowrap;
+      background: var(--canvas-default);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Detail Panel */
+    .detail-overlay {
+      margin-top: 20px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+    .detail-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .detail-header-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detail-body {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .detail-field {
+      margin-bottom: 10px;
+    }
+    .detail-field-label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .detail-field-value {
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    .file-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .file-list li {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      padding: 3px 8px;
+      background: var(--canvas-default);
+      border-radius: var(--radius-sm);
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+    }
+
+    /* Comparison Mode */
+    .compare-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      margin-bottom: 16px;
+    }
+    .compare-toolbar-label {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+    .compare-badge-a { background: var(--success-muted); color: var(--success-fg); }
+    .compare-badge-b { background: var(--warning-muted); color: var(--warning-fg); }
+    .compare-result {
+      margin-top: 16px;
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+    .compare-result-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .compare-result-body {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+    .delta-stat {
+      text-align: center;
+    }
+    .delta-stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .delta-stat-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+    .close-btn:hover { color: var(--text-primary); }
+
+    @media (max-width: 900px) {
+      .detail-body { grid-template-columns: 1fr; }
+      .compare-result-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="../variant-c/detail-overview.html" style="color:var(--text-tertiary);text-decoration:none;">Session c86fe…</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Rewind Snapshots</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div style="margin-bottom:16px;">
+            <h1 class="page-title">Rewind Snapshot Timeline</h1>
+            <p class="page-subtitle">Visual timeline of file snapshots captured during this session</p>
+          </div>
+
+          <!-- Session Info Badges -->
+          <div class="session-info-bar">
+            <span class="badge badge-accent">acme/web-platform</span>
+            <span class="badge badge-neutral">feat/oauth-login</span>
+            <span class="badge badge-neutral">claude-opus-4.6</span>
+            <span class="badge badge-success">6 snapshots</span>
+            <span class="badge badge-neutral" style="margin-left:auto;">45m session</span>
+          </div>
+
+          <!-- Compare Toolbar -->
+          <div class="compare-toolbar">
+            <span class="compare-toolbar-label">Compare Mode:</span>
+            <button class="btn btn-sm" id="compare-toggle" onclick="toggleCompare()">Enable</button>
+            <span id="compare-status" style="font-size:0.75rem;color:var(--text-placeholder);"></span>
+            <button class="btn btn-sm" id="compare-clear" style="display:none;margin-left:auto;" onclick="clearCompare()">Clear</button>
+          </div>
+
+          <!-- Horizontal Timeline -->
+          <div class="section-panel" style="overflow:hidden;">
+            <div class="section-panel-header">Timeline</div>
+            <div class="timeline-container" id="timeline">
+              <div class="timeline-inner" id="timeline-inner">
+                <div class="timeline-line" id="timeline-line"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail Panel -->
+          <div id="detail-panel" style="display:none;"></div>
+
+          <!-- Compare Result -->
+          <div id="compare-result" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ── Mock Snapshot Data ──
+    const SNAPSHOTS = [
+      {
+        id: 1,
+        userMessage: 'Please implement the login feature with OAuth support. We need GitHub and Google providers integrated with our existing auth module.',
+        fileCount: 3,
+        gitCommit: 'a3f8c1d',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T09:31:00.000Z',
+        eventId: 'evt-003',
+        files: ['src/auth/index.ts', 'src/auth/providers/github.ts', 'src/auth/config.ts'],
+        activityAfter: { events: 12, toolCalls: 3 }
+      },
+      {
+        id: 2,
+        userMessage: 'Looks good. Can you also add the Google provider with proper scopes for profile and email access?',
+        fileCount: 5,
+        gitCommit: 'b7e2d4f',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T09:38:00.000Z',
+        eventId: 'evt-008',
+        files: ['src/auth/index.ts', 'src/auth/providers/github.ts', 'src/auth/providers/google.ts', 'src/auth/types.ts', 'package.json'],
+        activityAfter: { events: 18, toolCalls: 7 }
+      },
+      {
+        id: 3,
+        userMessage: 'Add proper error handling and rate limiting for the auth endpoints. Use a sliding window approach.',
+        fileCount: 7,
+        gitCommit: 'c9a1b3e',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T09:48:00.000Z',
+        eventId: 'evt-014',
+        files: ['src/auth/errors.ts', 'src/auth/rate-limiter.ts', 'src/auth/providers/github.ts', 'src/auth/providers/google.ts', 'src/auth/middleware.ts', 'src/auth/index.ts', 'src/auth/types.ts'],
+        activityAfter: { events: 24, toolCalls: 5 }
+      },
+      {
+        id: 4,
+        userMessage: 'The tests are failing on the rate limiter. Can you fix the sliding window calculation and re-run?',
+        fileCount: 4,
+        gitCommit: 'df4e5a2',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T09:58:00.000Z',
+        eventId: 'evt-018',
+        files: ['src/auth/rate-limiter.ts', 'src/auth/rate-limiter.test.ts', 'src/auth/middleware.ts', 'vitest.config.ts'],
+        activityAfter: { events: 15, toolCalls: 4 }
+      },
+      {
+        id: 5,
+        userMessage: 'Now let\'s write comprehensive integration tests for the full OAuth flow including error scenarios.',
+        fileCount: 8,
+        gitCommit: 'e6f7c8d',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T10:08:00.000Z',
+        eventId: 'evt-022',
+        files: ['tests/auth/oauth.test.ts', 'tests/auth/fixtures/mock-tokens.ts', 'tests/auth/fixtures/mock-providers.ts', 'tests/auth/rate-limiter.test.ts', 'tests/setup.ts', 'src/auth/test-utils.ts', 'vitest.config.ts', 'package.json'],
+        activityAfter: { events: 20, toolCalls: 6 }
+      },
+      {
+        id: 6,
+        userMessage: 'All tests pass! Let\'s clean up the code, add JSDoc comments, and update the README with auth setup instructions.',
+        fileCount: 10,
+        gitCommit: 'f9a0b1c',
+        gitBranch: 'feat/oauth-login',
+        timestamp: '2026-03-14T10:16:00.000Z',
+        eventId: 'evt-028',
+        files: ['src/auth/index.ts', 'src/auth/providers/github.ts', 'src/auth/providers/google.ts', 'src/auth/errors.ts', 'src/auth/rate-limiter.ts', 'src/auth/middleware.ts', 'src/auth/types.ts', 'src/auth/config.ts', 'README.md', 'docs/auth-setup.md'],
+        activityAfter: null
+      }
+    ];
+
+    let selectedSnapshot = null;
+    let compareMode = false;
+    let compareA = null;
+    let compareB = null;
+
+    function fmtTime(iso) {
+      return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function renderTimeline() {
+      const inner = document.getElementById('timeline-inner');
+      let html = '<div class="timeline-line"></div>';
+
+      SNAPSHOTS.forEach((snap, idx) => {
+        html += `
+          <div class="snapshot-column">
+            <div class="snapshot-marker" id="marker-${snap.id}" data-id="${snap.id}" onclick="handleMarkerClick(${snap.id})">
+              ${snap.id}
+            </div>
+            <div class="snapshot-card" id="card-${snap.id}" onclick="handleMarkerClick(${snap.id})">
+              <div class="snapshot-card-msg">${snap.userMessage}</div>
+              <div class="snapshot-card-meta">
+                <span class="badge badge-neutral">${snap.fileCount} files</span>
+                <span class="badge badge-accent font-mono" style="font-size:0.625rem">${snap.gitCommit}</span>
+                <span class="badge badge-neutral">${snap.gitBranch}</span>
+              </div>
+              <div class="snapshot-card-time">${fmtTime(snap.timestamp)}</div>
+            </div>
+          </div>
+        `;
+
+        if (snap.activityAfter && idx < SNAPSHOTS.length - 1) {
+          html += `
+            <div class="activity-strip">
+              <div class="activity-strip-line"></div>
+              <div class="activity-strip-info">
+                ${snap.activityAfter.events} events · ${snap.activityAfter.toolCalls} tools
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      inner.innerHTML = html;
+    }
+
+    function handleMarkerClick(id) {
+      if (compareMode) {
+        handleCompareSelect(id);
+      } else {
+        selectSnapshot(id);
+      }
+    }
+
+    function selectSnapshot(id) {
+      selectedSnapshot = id;
+      document.querySelectorAll('.snapshot-marker').forEach(m => m.classList.remove('selected'));
+      document.querySelectorAll('.snapshot-card').forEach(c => c.classList.remove('selected'));
+      const marker = document.getElementById(`marker-${id}`);
+      const card = document.getElementById(`card-${id}`);
+      if (marker) marker.classList.add('selected');
+      if (card) card.classList.add('selected');
+
+      const snap = SNAPSHOTS.find(s => s.id === id);
+      if (!snap) return;
+
+      const panel = document.getElementById('detail-panel');
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div class="detail-overlay">
+          <div class="detail-header">
+            <div class="detail-header-title">
+              <span style="color:var(--accent-fg);font-weight:700;">Snapshot #${snap.id}</span>
+              <span class="badge badge-accent font-mono">${snap.gitCommit}</span>
+            </div>
+            <button class="close-btn" onclick="closeDetail()">${ICONS.x}</button>
+          </div>
+          <div class="detail-body">
+            <div>
+              <div class="detail-field">
+                <div class="detail-field-label">User Message</div>
+                <div class="detail-field-value">${snap.userMessage}</div>
+              </div>
+              <div class="detail-field">
+                <div class="detail-field-label">Git State</div>
+                <div class="detail-field-value">
+                  <span class="font-mono" style="color:var(--accent-fg)">${snap.gitCommit}</span>
+                  on <span class="badge badge-neutral">${snap.gitBranch}</span>
+                </div>
+              </div>
+              <div class="detail-field">
+                <div class="detail-field-label">Timestamp</div>
+                <div class="detail-field-value">${new Date(snap.timestamp).toLocaleString()}</div>
+              </div>
+              <div class="detail-field">
+                <div class="detail-field-label">Triggered by Event</div>
+                <div class="detail-field-value"><code class="font-mono" style="font-size:0.75rem;color:var(--text-tertiary)">${snap.eventId}</code></div>
+              </div>
+            </div>
+            <div>
+              <div class="detail-field">
+                <div class="detail-field-label">Files at this point (${snap.fileCount})</div>
+                <ul class="file-list">
+                  ${snap.files.map(f => `<li>${f}</li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeDetail() {
+      document.getElementById('detail-panel').style.display = 'none';
+      document.querySelectorAll('.snapshot-marker').forEach(m => m.classList.remove('selected'));
+      document.querySelectorAll('.snapshot-card').forEach(c => c.classList.remove('selected'));
+    }
+
+    // ── Compare Mode ──
+    function toggleCompare() {
+      compareMode = !compareMode;
+      const btn = document.getElementById('compare-toggle');
+      btn.textContent = compareMode ? 'Disable' : 'Enable';
+      btn.classList.toggle('btn-primary', compareMode);
+      document.getElementById('compare-status').textContent = compareMode ? 'Click two snapshots to compare' : '';
+      if (!compareMode) clearCompare();
+    }
+
+    function clearCompare() {
+      compareA = null;
+      compareB = null;
+      document.querySelectorAll('.snapshot-marker').forEach(m => {
+        m.classList.remove('compare-a', 'compare-b');
+      });
+      document.getElementById('compare-result').style.display = 'none';
+      document.getElementById('compare-clear').style.display = 'none';
+      document.getElementById('compare-status').textContent = compareMode ? 'Click two snapshots to compare' : '';
+    }
+
+    function handleCompareSelect(id) {
+      if (!compareA) {
+        compareA = id;
+        document.getElementById(`marker-${id}`)?.classList.add('compare-a');
+        document.getElementById('compare-status').textContent = `Snapshot #${id} selected (A). Click another.`;
+        document.getElementById('compare-clear').style.display = 'inline-flex';
+      } else if (!compareB && id !== compareA) {
+        compareB = id;
+        document.getElementById(`marker-${id}`)?.classList.add('compare-b');
+        document.getElementById('compare-status').textContent = `Comparing #${Math.min(compareA, compareB)} ↔ #${Math.max(compareA, compareB)}`;
+        showComparison();
+      }
+    }
+
+    function showComparison() {
+      const a = SNAPSHOTS.find(s => s.id === Math.min(compareA, compareB));
+      const b = SNAPSHOTS.find(s => s.id === Math.max(compareA, compareB));
+      if (!a || !b) return;
+
+      const filesA = new Set(a.files);
+      const filesB = new Set(b.files);
+      const added = [...filesB].filter(f => !filesA.has(f));
+      const removed = [...filesA].filter(f => !filesB.has(f));
+      const common = [...filesB].filter(f => filesA.has(f));
+      const timeDiffMs = new Date(b.timestamp) - new Date(a.timestamp);
+      const timeDiffMin = Math.round(timeDiffMs / 60000);
+
+      // Count events between snapshots
+      let eventsBetween = 0;
+      for (let i = a.id - 1; i < b.id - 1; i++) {
+        if (SNAPSHOTS[i]?.activityAfter) eventsBetween += SNAPSHOTS[i].activityAfter.events;
+      }
+
+      const panel = document.getElementById('compare-result');
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div class="compare-result">
+          <div class="compare-result-header">
+            Comparison: Snapshot <span class="badge compare-badge-a">#${a.id}</span>
+            → Snapshot <span class="badge compare-badge-b">#${b.id}</span>
+          </div>
+          <div class="compare-result-body">
+            <div class="delta-stat">
+              <div class="delta-stat-value" style="color:var(--success-fg)">+${added.length}</div>
+              <div class="delta-stat-label">New files</div>
+            </div>
+            <div class="delta-stat">
+              <div class="delta-stat-value" style="color:var(--danger-fg)">${removed.length > 0 ? '-' : ''}${removed.length}</div>
+              <div class="delta-stat-label">Removed files</div>
+            </div>
+            <div class="delta-stat">
+              <div class="delta-stat-value" style="color:var(--accent-fg)">${common.length}</div>
+              <div class="delta-stat-label">Common files</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+              <div class="stat-card">
+                <div class="stat-card-value accent">${timeDiffMin}m</div>
+                <div class="stat-card-label">Time between</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" style="color:var(--warning-fg)">${eventsBetween}</div>
+                <div class="stat-card-label">Events between</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" style="color:var(--done-fg)">${b.id - a.id - 1}</div>
+                <div class="stat-card-label">Snapshots between</div>
+              </div>
+            </div>
+            ${added.length > 0 ? `
+              <div style="margin-top:14px;">
+                <div style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">New files in #${b.id}</div>
+                <ul class="file-list">${added.map(f => `<li style="color:var(--success-fg)">+ ${f}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+            ${removed.length > 0 ? `
+              <div style="margin-top:14px;">
+                <div style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Removed from #${a.id}</div>
+                <ul class="file-list">${removed.map(f => `<li style="color:var(--danger-fg)">- ${f}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+            <div style="margin-top:14px;">
+              <div style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Commits</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:0.8125rem;">
+                <code class="font-mono badge badge-neutral">${a.gitCommit}</code>
+                <span style="color:var(--text-placeholder);">→</span>
+                <code class="font-mono badge badge-neutral">${b.gitCommit}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+      renderTimeline();
+    });
+  </script>
+</body>
+</html>

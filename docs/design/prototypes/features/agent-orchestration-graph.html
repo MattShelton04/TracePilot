@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Agent Orchestration Graph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    .session-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .session-header h1 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.02em; }
+    .repo-badge, .branch-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: var(--radius-full);
+      font-size: 0.6875rem; font-weight: 500;
+    }
+    .repo-badge { background: var(--accent-muted); color: var(--accent-fg); }
+    .branch-badge { background: var(--success-muted); color: var(--success-fg); }
+
+    .graph-container {
+      position: relative; flex: 1; min-height: 0;
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      background: var(--canvas-subtle); overflow: hidden;
+    }
+    #graphCanvas {
+      display: block; width: 100%; height: 100%; cursor: grab;
+    }
+    #graphCanvas:active { cursor: grabbing; }
+
+    .graph-controls {
+      position: absolute; top: 12px; right: 12px;
+      display: flex; flex-direction: column; gap: 6px; z-index: 10;
+    }
+    .graph-btn {
+      width: 32px; height: 32px; border-radius: var(--radius-md);
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      color: var(--text-secondary); font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all var(--transition-fast);
+    }
+    .graph-btn:hover { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--border-accent); }
+
+    .legend-bar {
+      position: absolute; bottom: 12px; left: 12px; right: 12px;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 8px 14px; border-radius: var(--radius-md);
+      background: rgba(17,17,19,0.85); backdrop-filter: blur(8px);
+      border: 1px solid var(--border-default); z-index: 10;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.6875rem; color: var(--text-secondary);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+
+    .detail-panel {
+      position: absolute; top: 12px; left: 12px; width: 280px;
+      background: rgba(17,17,19,0.92); backdrop-filter: blur(12px);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      z-index: 20; display: none; overflow: hidden;
+    }
+    .detail-panel.visible { display: block; animation: slideIn 0.2s ease; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    .detail-header {
+      padding: 12px 14px; border-bottom: 1px solid var(--border-default);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .detail-header h3 { font-size: 0.8125rem; font-weight: 600; }
+    .detail-close {
+      width: 22px; height: 22px; border-radius: var(--radius-sm);
+      background: none; border: none; color: var(--text-tertiary);
+      cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    }
+    .detail-close:hover { background: var(--neutral-muted); color: var(--text-primary); }
+    .detail-body { padding: 14px; }
+    .detail-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0; font-size: 0.75rem;
+    }
+    .detail-row-label { color: var(--text-tertiary); }
+    .detail-row-value { color: var(--text-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .detail-type-badge {
+      display: inline-flex; padding: 2px 8px; border-radius: var(--radius-full);
+      font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .detail-tools-list { margin-top: 10px; }
+    .detail-tools-list h4 {
+      font-size: 0.6875rem; color: var(--text-tertiary); text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .detail-tool-item {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0;
+      font-size: 0.75rem; color: var(--text-secondary);
+    }
+    .detail-tool-icon { font-size: 12px; }
+
+    .page-content { display: flex; flex-direction: column; height: calc(100vh - 48px); padding: 20px 28px; }
+    .page-content-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../variant-c/session-list.html">TracePilot</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="../variant-c/session-list.html">Sessions</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Agent Orchestration Graph</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div class="session-header">
+            <h1>Agent Orchestration Graph</h1>
+            <span class="repo-badge">📦 acme/web-platform</span>
+            <span class="branch-badge">🌿 feat/oauth-login</span>
+          </div>
+
+          <div class="graph-container" id="graphContainer">
+            <canvas id="graphCanvas"></canvas>
+
+            <div class="graph-controls">
+              <button class="graph-btn" id="zoomIn" title="Zoom in">+</button>
+              <button class="graph-btn" id="zoomOut" title="Zoom out">−</button>
+              <button class="graph-btn" id="zoomFit" title="Zoom to fit">⊞</button>
+              <button class="graph-btn" id="resetSim" title="Reset simulation">↻</button>
+            </div>
+
+            <div class="detail-panel" id="detailPanel">
+              <div class="detail-header">
+                <h3 id="detailTitle">Node Details</h3>
+                <button class="detail-close" id="detailClose">✕</button>
+              </div>
+              <div class="detail-body" id="detailBody"></div>
+            </div>
+
+            <div class="legend-bar">
+              <div class="legend-item"><div class="legend-dot" style="background:#818cf8"></div>Main Agent</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>Explore</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>Task</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>General-Purpose</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#fb7185"></div>Code Review</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#71717a"></div>Tool Call</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sidebar').innerHTML = generateSidebar('sessions');
+
+    // --- Mock Data ---
+    const nodes = [
+      { id: 'main', label: 'Main Agent', sublabel: 'Claude Sonnet 4', type: 'main', color: '#818cf8', radius: 38, tokens: 892300, duration: '2m 34s', calls: 47, successRate: '96%' },
+      { id: 'explore-1', label: 'explore', sublabel: 'Codebase search', type: 'subagent', color: '#22d3ee', radius: 24, tokens: 45000, duration: '12s', calls: 8, successRate: '100%' },
+      { id: 'explore-2', label: 'explore', sublabel: 'Find auth patterns', type: 'subagent', color: '#22d3ee', radius: 22, tokens: 38000, duration: '9s', calls: 6, successRate: '100%' },
+      { id: 'task-1', label: 'task', sublabel: 'Run tests', type: 'subagent', color: '#fbbf24', radius: 24, tokens: 23400, duration: '45s', calls: 5, successRate: '80%' },
+      { id: 'general-1', label: 'general-purpose', sublabel: 'Implement OAuth', type: 'subagent', color: '#a78bfa', radius: 26, tokens: 67800, duration: '1m 15s', calls: 12, successRate: '92%' },
+      { id: 'review-1', label: 'code-review', sublabel: 'Security audit', type: 'subagent', color: '#fb7185', radius: 22, tokens: 31200, duration: '18s', calls: 4, successRate: '100%' },
+      // Tools
+      { id: 'grep-1', label: 'grep', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-1' },
+      { id: 'grep-2', label: 'grep', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-2' },
+      { id: 'glob-1', label: 'glob', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-1' },
+      { id: 'glob-2', label: 'glob', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-2' },
+      { id: 'view-1', label: 'view', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-1' },
+      { id: 'view-2', label: 'view', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'view-3', label: 'view', type: 'tool', color: '#71717a', radius: 10, parent: 'review-1' },
+      { id: 'edit-1', label: 'edit', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'edit-2', label: 'edit', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'edit-3', label: 'edit', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'create-1', label: 'create', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'create-2', label: 'create', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'ps-1', label: 'powershell', type: 'tool', color: '#71717a', radius: 10, parent: 'task-1' },
+      { id: 'ps-2', label: 'powershell', type: 'tool', color: '#71717a', radius: 10, parent: 'task-1' },
+      { id: 'ps-3', label: 'powershell', type: 'tool', color: '#71717a', radius: 10, parent: 'task-1' },
+      { id: 'sql-1', label: 'sql', type: 'tool', color: '#71717a', radius: 10, parent: 'general-1' },
+      { id: 'ws-1', label: 'web_search', type: 'tool', color: '#71717a', radius: 10, parent: 'explore-2' },
+      { id: 'grep-3', label: 'grep', type: 'tool', color: '#71717a', radius: 10, parent: 'review-1' },
+      { id: 'view-4', label: 'view', type: 'tool', color: '#71717a', radius: 10, parent: 'review-1' },
+    ];
+
+    const edges = [
+      { source: 'main', target: 'explore-1', type: 'delegation' },
+      { source: 'main', target: 'explore-2', type: 'delegation' },
+      { source: 'main', target: 'task-1', type: 'delegation' },
+      { source: 'main', target: 'general-1', type: 'delegation' },
+      { source: 'main', target: 'review-1', type: 'delegation' },
+      { source: 'explore-1', target: 'grep-1', type: 'tool' },
+      { source: 'explore-1', target: 'glob-1', type: 'tool' },
+      { source: 'explore-1', target: 'view-1', type: 'tool' },
+      { source: 'explore-2', target: 'grep-2', type: 'tool' },
+      { source: 'explore-2', target: 'glob-2', type: 'tool' },
+      { source: 'explore-2', target: 'ws-1', type: 'tool' },
+      { source: 'task-1', target: 'ps-1', type: 'tool' },
+      { source: 'task-1', target: 'ps-2', type: 'tool' },
+      { source: 'task-1', target: 'ps-3', type: 'tool' },
+      { source: 'general-1', target: 'view-2', type: 'tool' },
+      { source: 'general-1', target: 'edit-1', type: 'tool' },
+      { source: 'general-1', target: 'edit-2', type: 'tool' },
+      { source: 'general-1', target: 'edit-3', type: 'tool' },
+      { source: 'general-1', target: 'create-1', type: 'tool' },
+      { source: 'general-1', target: 'create-2', type: 'tool' },
+      { source: 'general-1', target: 'sql-1', type: 'tool' },
+      { source: 'review-1', target: 'view-3', type: 'tool' },
+      { source: 'review-1', target: 'grep-3', type: 'tool' },
+      { source: 'review-1', target: 'view-4', type: 'tool' },
+    ];
+
+    // --- Canvas Setup ---
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('graphContainer');
+    let W, H, dpr;
+    let zoom = 1, panX = 0, panY = 0;
+    let dragging = null, dragOffX = 0, dragOffY = 0;
+    let isPanning = false, panStartX = 0, panStartY = 0;
+    let selectedNode = null;
+    let time = 0;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = container.clientWidth;
+      H = container.clientHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Place nodes initially in a radial layout
+    const cx = 0, cy = 0;
+    const nodeMap = {};
+    nodes.forEach(n => {
+      nodeMap[n.id] = n;
+      n.vx = 0; n.vy = 0;
+    });
+
+    // Position main at center
+    nodeMap['main'].x = cx; nodeMap['main'].y = cy;
+    // Subagents in a ring
+    const subagents = nodes.filter(n => n.type === 'subagent');
+    subagents.forEach((n, i) => {
+      const angle = (i / subagents.length) * Math.PI * 2 - Math.PI / 2;
+      n.x = cx + Math.cos(angle) * 160;
+      n.y = cy + Math.sin(angle) * 160;
+    });
+    // Tools around their parents
+    nodes.filter(n => n.type === 'tool').forEach((n, i) => {
+      const parent = nodeMap[n.parent];
+      if (parent) {
+        const siblings = nodes.filter(t => t.parent === n.parent);
+        const idx = siblings.indexOf(n);
+        const angle = (idx / siblings.length) * Math.PI * 2 + Math.random() * 0.3;
+        n.x = parent.x + Math.cos(angle) * 70;
+        n.y = parent.y + Math.sin(angle) * 70;
+      } else {
+        n.x = (Math.random() - 0.5) * 400;
+        n.y = (Math.random() - 0.5) * 400;
+      }
+    });
+
+    // --- Particles ---
+    let particles = [];
+    function spawnParticles() {
+      edges.forEach(e => {
+        if (Math.random() < 0.02) {
+          const s = nodeMap[e.source], t = nodeMap[e.target];
+          particles.push({ sx: s.x, sy: s.y, tx: t.x, ty: t.y, progress: 0, speed: 0.008 + Math.random() * 0.012, color: s.color });
+        }
+      });
+    }
+
+    // --- Force Simulation ---
+    function simulate() {
+      const alpha = 0.3;
+      // Repulsion between all nodes
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j];
+          let dx = b.x - a.x, dy = b.y - a.y;
+          let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const minDist = (a.radius + b.radius) * 2.5;
+          if (dist < minDist) {
+            const force = (minDist - dist) / dist * 0.5;
+            a.vx -= dx * force * alpha; a.vy -= dy * force * alpha;
+            b.vx += dx * force * alpha; b.vy += dy * force * alpha;
+          }
+        }
+      }
+      // Edge spring forces
+      edges.forEach(e => {
+        const s = nodeMap[e.source], t = nodeMap[e.target];
+        let dx = t.x - s.x, dy = t.y - s.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const ideal = e.type === 'delegation' ? 160 : 70;
+        const force = (dist - ideal) / dist * 0.03;
+        s.vx += dx * force; s.vy += dy * force;
+        t.vx -= dx * force; t.vy -= dy * force;
+      });
+      // Center gravity
+      nodes.forEach(n => {
+        n.vx -= n.x * 0.001; n.vy -= n.y * 0.001;
+      });
+      // Apply velocities with damping
+      nodes.forEach(n => {
+        if (n === dragging) return;
+        n.vx *= 0.88; n.vy *= 0.88;
+        n.x += n.vx; n.y += n.vy;
+      });
+    }
+
+    // --- Drawing ---
+    function drawEdge(s, t, type) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(t.x, t.y);
+      if (type === 'delegation') {
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = 'rgba(129,140,248,0.25)';
+        ctx.lineWidth = 1.5;
+      } else {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(113,113,122,0.15)';
+        ctx.lineWidth = 1;
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawNode(n) {
+      const isSelected = selectedNode === n;
+      const isHovered = hoveredNode === n;
+      ctx.save();
+
+      // Glow for main node
+      if (n.type === 'main') {
+        const pulse = Math.sin(time * 2) * 0.3 + 0.7;
+        const grad = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, n.radius * 2.5);
+        grad.addColorStop(0, `rgba(129,140,248,${0.15 * pulse})`);
+        grad.addColorStop(1, 'rgba(129,140,248,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Selection glow
+      if (isSelected || isHovered) {
+        const grad = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, n.radius * 1.8);
+        grad.addColorStop(0, n.color + '33');
+        grad.addColorStop(1, n.color + '00');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Node body
+      const bounce = n.type !== 'tool' ? Math.sin(time * 1.5 + n.x * 0.01) * 1.5 : 0;
+      const r = n.radius + bounce;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = n.type === 'tool' ? '#1e1e22' : '#111113';
+      ctx.fill();
+      ctx.strokeStyle = isSelected ? n.color : (isHovered ? n.color + 'cc' : n.color + '88');
+      ctx.lineWidth = isSelected ? 2.5 : (n.type === 'tool' ? 1 : 1.5);
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = n.type === 'tool' ? '#a1a1aa' : '#fafafa';
+      ctx.font = n.type === 'main' ? '600 11px Inter' : (n.type === 'tool' ? '500 8px Inter' : '600 10px Inter');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (n.type === 'main') {
+        ctx.fillText('Main Agent', n.x, n.y - 6);
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = '400 8px Inter';
+        ctx.fillText('Claude Sonnet 4', n.x, n.y + 8);
+      } else if (n.type === 'subagent') {
+        ctx.fillText(n.label, n.x, n.y - 4);
+        ctx.fillStyle = '#71717a';
+        ctx.font = '400 7px Inter';
+        ctx.fillText(n.sublabel, n.x, n.y + 8);
+      } else {
+        ctx.fillText(n.label, n.x, n.y);
+      }
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        const x = p.sx + (p.tx - p.sx) * p.progress;
+        const y = p.sy + (p.ty - p.sy) * p.progress;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + 'cc';
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    let hoveredNode = null;
+
+    function render() {
+      time += 0.016;
+      simulate();
+      spawnParticles();
+
+      // Update particles
+      particles = particles.filter(p => {
+        p.progress += p.speed;
+        // Update source/target positions live
+        return p.progress < 1;
+      });
+      // Respawn with updated positions
+      particles.forEach(p => {
+        edges.forEach(e => {
+          const s = nodeMap[e.source], t = nodeMap[e.target];
+          if (Math.abs(p.sx - s.x) < 1 && Math.abs(p.sy - s.y) < 1) {
+            p.sx = s.x; p.sy = s.y; p.tx = t.x; p.ty = t.y;
+          }
+        });
+      });
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(W / 2 + panX, H / 2 + panY);
+      ctx.scale(zoom, zoom);
+
+      // Draw edges
+      edges.forEach(e => drawEdge(nodeMap[e.source], nodeMap[e.target], e.type));
+      drawParticles();
+      // Draw tool nodes first, then subagents, then main
+      nodes.filter(n => n.type === 'tool').forEach(drawNode);
+      nodes.filter(n => n.type === 'subagent').forEach(drawNode);
+      nodes.filter(n => n.type === 'main').forEach(drawNode);
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    // --- Interaction ---
+    function screenToWorld(sx, sy) {
+      return { x: (sx - W / 2 - panX) / zoom, y: (sy - H / 2 - panY) / zoom };
+    }
+
+    function findNode(sx, sy) {
+      const p = screenToWorld(sx, sy);
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const n = nodes[i];
+        const dx = p.x - n.x, dy = p.y - n.y;
+        if (dx * dx + dy * dy < (n.radius + 5) * (n.radius + 5)) return n;
+      }
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const hit = findNode(sx, sy);
+      if (hit) {
+        dragging = hit;
+        const wp = screenToWorld(sx, sy);
+        dragOffX = hit.x - wp.x; dragOffY = hit.y - wp.y;
+      } else {
+        isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY;
+      }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      if (dragging) {
+        const wp = screenToWorld(sx, sy);
+        dragging.x = wp.x + dragOffX; dragging.y = wp.y + dragOffY;
+        dragging.vx = 0; dragging.vy = 0;
+      } else if (isPanning) {
+        panX = e.clientX - panStartX; panY = e.clientY - panStartY;
+      } else {
+        hoveredNode = findNode(sx, sy);
+        canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
+      }
+    });
+
+    canvas.addEventListener('mouseup', e => {
+      if (dragging && !isPanning) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+        const hit = findNode(sx, sy);
+        if (hit) showDetail(hit);
+      }
+      dragging = null; isPanning = false;
+    });
+
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(0.3, Math.min(3, zoom * factor));
+    }, { passive: false });
+
+    // --- Detail Panel ---
+    const detailPanel = document.getElementById('detailPanel');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailBody = document.getElementById('detailBody');
+
+    document.getElementById('detailClose').addEventListener('click', () => {
+      detailPanel.classList.remove('visible');
+      selectedNode = null;
+    });
+
+    function showDetail(node) {
+      selectedNode = node;
+      detailTitle.textContent = node.label;
+      const typeColors = { main: '#818cf8', subagent: node.color, tool: '#71717a' };
+      const typeLabels = { main: 'Main Agent', subagent: 'Sub-Agent', tool: 'Tool Call' };
+
+      let html = `<div style="margin-bottom:10px"><span class="detail-type-badge" style="background:${typeColors[node.type]}22;color:${typeColors[node.type]}">${typeLabels[node.type]}</span></div>`;
+
+      if (node.type !== 'tool') {
+        html += `
+          <div class="detail-row"><span class="detail-row-label">Tokens Used</span><span class="detail-row-value">${formatNumber(node.tokens)}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Duration</span><span class="detail-row-value">${node.duration}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Tool Calls</span><span class="detail-row-value">${node.calls}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Success Rate</span><span class="detail-row-value">${node.successRate}</span></div>
+        `;
+        // Show connected tools
+        const tools = edges.filter(e => e.source === node.id && nodeMap[e.target].type === 'tool').map(e => nodeMap[e.target]);
+        if (tools.length) {
+          html += `<div class="detail-tools-list"><h4>Connected Tools (${tools.length})</h4>`;
+          tools.forEach(t => {
+            html += `<div class="detail-tool-item"><span class="detail-tool-icon">${toolIcon(t.label)}</span> ${t.label}</div>`;
+          });
+          html += '</div>';
+        }
+      } else {
+        const parentNode = nodes.find(n => edges.some(e => e.target === node.id && e.source === n.id));
+        html += `
+          <div class="detail-row"><span class="detail-row-label">Tool</span><span class="detail-row-value">${node.label}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Called By</span><span class="detail-row-value">${parentNode ? parentNode.label : '—'}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Status</span><span class="detail-row-value" style="color:var(--success-fg)">✓ Success</span></div>
+        `;
+      }
+      detailBody.innerHTML = html;
+      detailPanel.classList.add('visible');
+    }
+
+    // --- Controls ---
+    document.getElementById('zoomIn').addEventListener('click', () => { zoom = Math.min(3, zoom * 1.2); });
+    document.getElementById('zoomOut').addEventListener('click', () => { zoom = Math.max(0.3, zoom / 1.2); });
+    document.getElementById('zoomFit').addEventListener('click', () => {
+      zoom = 1; panX = 0; panY = 0;
+    });
+    document.getElementById('resetSim').addEventListener('click', () => {
+      // Re-scatter nodes
+      const sub = nodes.filter(n => n.type === 'subagent');
+      sub.forEach((n, i) => {
+        const angle = (i / sub.length) * Math.PI * 2 - Math.PI / 2;
+        n.x = Math.cos(angle) * 160; n.y = Math.sin(angle) * 160;
+        n.vx = (Math.random() - 0.5) * 5; n.vy = (Math.random() - 0.5) * 5;
+      });
+      nodes.filter(n => n.type === 'tool').forEach(n => {
+        const parent = nodeMap[n.parent];
+        if (parent) {
+          n.x = parent.x + (Math.random() - 0.5) * 100;
+          n.y = parent.y + (Math.random() - 0.5) * 100;
+        }
+        n.vx = (Math.random() - 0.5) * 8; n.vy = (Math.random() - 0.5) * 8;
+      });
+    });
+  });
+  </script>
+</body>
+</html>
