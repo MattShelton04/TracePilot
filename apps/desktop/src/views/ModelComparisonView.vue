@@ -72,7 +72,7 @@ const modelCount = computed(() => modelRows.value.length);
 type CostMode = 'wholesale' | 'copilot' | 'both';
 const costMode = ref<CostMode>('both');
 
-type NormMode = 'raw' | 'per-1k-tokens' | 'share';
+type NormMode = 'raw' | 'per-10m-tokens' | 'share';
 const normMode = ref<NormMode>('raw');
 
 // ── Best/worst highlighting ──────────────────────────────────
@@ -136,9 +136,9 @@ const displayRows = computed<ModelRow[]>(() => {
   const rows = sortedRows.value;
   if (normMode.value === 'raw') return rows;
 
-  if (normMode.value === 'per-1k-tokens') {
+  if (normMode.value === 'per-10m-tokens') {
     return rows.map(r => {
-      const divisor = r.tokens / 1000 || 1;
+      const divisor = r.tokens / 10_000_000 || 1;
       return {
         ...r,
         tokens: r.tokens / divisor,
@@ -179,7 +179,7 @@ function fmtNorm(value: number | null, isCost = false): string {
   if (value == null) return '—';
   if (normMode.value === 'share') return `${value.toFixed(1)}%`;
   if (isCost) return formatCost(value);
-  if (normMode.value === 'per-1k-tokens') return value.toFixed(1);
+  if (normMode.value === 'per-10m-tokens') return value.toFixed(1);
   return formatNumber(value);
 }
 
@@ -389,7 +389,7 @@ function fmtPct(v: number): string {
                     <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
                   </div>
                   <div>
-                    <div class="model-card-stat-label">Est. Cost</div>
+                    <div class="model-card-stat-label">Wholesale Cost</div>
                     <div class="model-card-stat-value">{{ formatCost(row.cost) }}</div>
                   </div>
                   <div>
@@ -421,7 +421,7 @@ function fmtPct(v: number): string {
                   </div>
                   <div class="norm-toggle">
                     <button :class="['toggle-btn', { active: normMode === 'raw' }]" @click="normMode = 'raw'">Raw</button>
-                    <button :class="['toggle-btn', { active: normMode === 'per-1k-tokens' }]" @click="normMode = 'per-1k-tokens'">Per 1K Tokens</button>
+                    <button :class="['toggle-btn', { active: normMode === 'per-10m-tokens' }]" @click="normMode = 'per-10m-tokens'">Per 10M Tokens</button>
                     <button :class="['toggle-btn', { active: normMode === 'share' }]" @click="normMode = 'share'">Share %</button>
                   </div>
                 </div>
@@ -615,7 +615,7 @@ function fmtPct(v: number): string {
                       <!-- X-axis label -->
                       <text :x="(SCATTER_PAD.left + SCATTER_W - SCATTER_PAD.right) / 2" :y="SCATTER_H - 6" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter, sans-serif">Total Tokens</text>
                       <!-- Y-axis label -->
-                      <text :x="14" :y="(SCATTER_PAD.top + SCATTER_H - SCATTER_PAD.bottom) / 2" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter, sans-serif" transform="rotate(-90, 14, 135)">Est. Cost ($)</text>
+                      <text :x="14" :y="(SCATTER_PAD.top + SCATTER_H - SCATTER_PAD.bottom) / 2" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter, sans-serif" transform="rotate(-90, 14, 135)">Wholesale Cost ($)</text>
                       <!-- Scale labels -->
                       <text :x="SCATTER_PAD.left - 8" :y="SCATTER_H - SCATTER_PAD.bottom + 4" text-anchor="end" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">$0</text>
                       <text :x="SCATTER_PAD.left - 8" :y="SCATTER_PAD.top + 4" text-anchor="end" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">{{ formatCost(scatterScale.maxC) }}</text>

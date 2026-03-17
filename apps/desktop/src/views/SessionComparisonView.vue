@@ -114,9 +114,8 @@ function wholesaleCost(m: ShutdownMetrics | null): number {
 }
 
 function copilotCost(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  const premiumReqs = Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.requests?.count ?? 0), 0);
-  return premiumReqs * prefs.costPerPremiumRequest;
+  if (!m) return 0;
+  return (m.totalPremiumRequests ?? 0) * prefs.costPerPremiumRequest;
 }
 
 function totalToolCalls(turns: ConversationTurn[]): number {
@@ -251,8 +250,8 @@ const metricsRows = computed<MetricRow[]>(() => {
     row('Duration', durA, durB, (v) => formatDuration(v) || '0s', false),
     row('Turns', turnsA, turnsB, String, false),
     row('Total Tokens' + suffix, tokA / divA, tokB / divB, fmtN, false),
-    row('Est. Wholesale Cost' + suffix, wcA / divA, wcB / divB, formatCost, false),
-    row('Est. Copilot Cost' + suffix, ccA / divA, ccB / divB, formatCost, false),
+    row('Wholesale Cost' + suffix, wcA / divA, wcB / divB, formatCost, false),
+    row('Copilot Cost' + suffix, ccA / divA, ccB / divB, formatCost, false),
     row('Tool Calls' + suffix, tcA / divA, tcB / divB, fmtInt, false),
     row('Success Rate', srA, srB, fmtPercent, true),
     row('Files Modified', fmA, fmB, String, false),
@@ -267,9 +266,8 @@ interface TokenBarRow {
   label: string;
   valueA: number;
   valueB: number;
-  cacheA: number;
-  cacheB: number;
   maxVal: number;
+  isCacheRow?: boolean;
 }
 
 const tokenBars = computed<TokenBarRow[]>(() => {
@@ -282,8 +280,9 @@ const tokenBars = computed<TokenBarRow[]>(() => {
   const crB = totalCacheRead(dataB.metrics);
   const maxAll = Math.max(inA, inB, outA, outB, 1);
   return [
-    { label: 'Input', valueA: inA, valueB: inB, cacheA: crA, cacheB: crB, maxVal: maxAll },
-    { label: 'Output', valueA: outA, valueB: outB, cacheA: 0, cacheB: 0, maxVal: maxAll },
+    { label: 'Input', valueA: inA, valueB: inB, maxVal: maxAll },
+    ...(crA > 0 || crB > 0 ? [{ label: '\u00A0\u00A0└ Cached', valueA: crA, valueB: crB, maxVal: maxAll, isCacheRow: true }] : []),
+    { label: 'Output', valueA: outA, valueB: outB, maxVal: maxAll },
   ];
 });
 
@@ -545,15 +544,9 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 <span class="bar-label">{{ bar.label }}</span>
                 <div class="bar-track">
                   <div
-                    class="bar-fill bar-fill-a"
+                    :class="['bar-fill', bar.isCacheRow ? 'bar-fill-cache' : 'bar-fill-a']"
                     :style="{ width: (bar.valueA / bar.maxVal * 100) + '%' }"
                   >
-                    <div
-                      v-if="bar.cacheA > 0 && bar.valueA > 0"
-                      class="bar-cache-inner"
-                      :style="{ width: (bar.cacheA / bar.valueA * 100) + '%' }"
-                      :title="'Cache Read: ' + formatNumber(bar.cacheA)"
-                    ></div>
                     <span v-if="(bar.valueA / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueA) }}</span>
                   </div>
                   <span v-if="bar.valueA > 0 && (bar.valueA / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueA) }}</span>
@@ -568,15 +561,9 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 <span class="bar-label">{{ bar.label }}</span>
                 <div class="bar-track">
                   <div
-                    class="bar-fill bar-fill-b"
+                    :class="['bar-fill', bar.isCacheRow ? 'bar-fill-cache' : 'bar-fill-b']"
                     :style="{ width: (bar.valueB / bar.maxVal * 100) + '%' }"
                   >
-                    <div
-                      v-if="bar.cacheB > 0 && bar.valueB > 0"
-                      class="bar-cache-inner"
-                      :style="{ width: (bar.cacheB / bar.valueB * 100) + '%' }"
-                      :title="'Cache Read: ' + formatNumber(bar.cacheB)"
-                    ></div>
                     <span v-if="(bar.valueB / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueB) }}</span>
                   </div>
                   <span v-if="bar.valueB > 0 && (bar.valueB / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueB) }}</span>
@@ -1033,14 +1020,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
   z-index: 1;
 }
 
-.bar-cache-inner {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px 0 0 3px;
-  pointer-events: none;
+.bar-fill-cache {
+  background: linear-gradient(90deg, #34d399cc, #6ee7b7cc);
 }
 
 .bar-value-outside {
