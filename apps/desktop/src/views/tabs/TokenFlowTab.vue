@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { usePreferencesStore } from "@/stores/preferences";
 import {
   StatCard, SectionPanel, EmptyState,
   formatNumber, formatCost, useSessionTabLoader,
@@ -8,6 +9,7 @@ import {
 import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
 
 const store = useSessionDetailStore();
+const prefs = usePreferencesStore();
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -31,7 +33,7 @@ const modelEntries = computed(() => {
     cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
     requests: data.requests?.count ?? 0,
     cost: data.requests?.cost ?? 0,
-  }));
+  })).sort((a, b) => a.name.localeCompare(b.name));
 });
 
 // ── Aggregate stats ──
@@ -41,7 +43,16 @@ const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.va
 const totalCacheRead = computed(() => modelEntries.value.reduce((s, m) => s + m.cacheReadTokens, 0));
 const totalCacheWrite = computed(() => modelEntries.value.reduce((s, m) => s + m.cacheWriteTokens, 0));
 const modelsUsed = computed(() => modelEntries.value.length);
-const totalCost = computed(() => modelEntries.value.reduce((s, m) => s + m.cost, 0));
+const wholesaleCost = computed(() =>
+  modelEntries.value.reduce((s, m) => {
+    const cost = prefs.computeWholesaleCost(m.name, m.inputTokens, m.cacheReadTokens, m.outputTokens);
+    return s + (cost ?? 0);
+  }, 0),
+);
+const copilotCost = computed(() => {
+  const premiumReqs = metrics.value?.totalPremiumRequests ?? 0;
+  return premiumReqs * prefs.costPerPremiumRequest;
+});
 const cacheHitRate = computed(() => {
   const denom = totalInputTokens.value;
   return denom > 0 ? (totalCacheRead.value / denom) * 100 : 0;
@@ -63,13 +74,8 @@ const estimatedToolResults = computed(() =>
   ),
 );
 const estimatedSystemContext = computed(() => {
-  const rawSum = estimatedUserInput.value + totalCacheRead.value + estimatedToolResults.value;
-  if (rawSum >= totalInputTokens.value && rawSum > 0) {
-    // Estimates exceed total — normalize proportionally; system context gets at least 5%
-    const minSystem = Math.round(totalInputTokens.value * 0.05);
-    return minSystem;
-  }
-  return Math.max(0, totalInputTokens.value - rawSum);
+  const remainder = totalInputTokens.value - estimatedUserInput.value - estimatedToolResults.value;
+  return Math.max(0, remainder);
 });
 
 // ── Estimate output destinations from turns ──
@@ -152,8 +158,6 @@ const sankeyData = computed(() => {
     // Column 0: Input sources
     if (estimatedUserInput.value > 0)
       rawNodes.push({ id: "in-user", col: 0, label: "User Input", tokens: estimatedUserInput.value, color: COLORS.emerald });
-    if (totalCacheRead.value > 0)
-      rawNodes.push({ id: "in-cache", col: 0, label: "Cached Input", tokens: totalCacheRead.value, color: COLORS.violet });
     if (estimatedToolResults.value > 0)
       rawNodes.push({ id: "in-tools", col: 0, label: "Tool Results", tokens: estimatedToolResults.value, color: COLORS.amber });
     if (estimatedSystemContext.value > 0)
@@ -207,7 +211,9 @@ const sankeyData = computed(() => {
   }
 
   // ── Layout: compute node positions ──
-  const columns = [0, 1, 2].map(col => rawNodes.filter(n => n.col === col));
+  const columns = [0, 1, 2].map(col =>
+    rawNodes.filter(n => n.col === col).sort((a, b) => a.id.localeCompare(b.id)),
+  );
 
   // For each column, compute total tokens and scale node heights
   const nodes: SankeyNode[] = [];
@@ -415,7 +421,6 @@ const legendItems = computed(() => {
   }
   return [
     { label: "User Input", color: COLORS.emerald },
-    { label: "Cached Input", color: COLORS.violet },
     { label: "Tool Results / Calls", color: COLORS.amber },
     { label: "System / Context", color: COLORS.neutral },
     { label: "Assistant Text / Models", color: COLORS.indigo },
@@ -441,7 +446,8 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
       </div>
       <div class="grid-4 mb-6">
         <StatCard :value="modelsUsed" label="Models Used" color="accent" />
-        <StatCard :value="formatCost(totalCost)" label="Estimated Cost" color="warning" />
+        <StatCard :value="formatCost(wholesaleCost)" label="Wholesale Cost" color="warning" />
+        <StatCard :value="formatCost(copilotCost)" label="Copilot Cost" color="accent" />
       </div>
 
       <!-- Sankey diagram -->
@@ -460,6 +466,9 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
+              <clipPath id="ribbon-clip">
+                <rect :x="COL_X[0] + NODE_W" :y="0" :width="COL_X[2] - COL_X[0] - NODE_W" :height="SVG_H" />
+              </clipPath>
             </defs>
 
             <!-- Column headers -->
@@ -473,7 +482,7 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
             >{{ header }}</text>
 
             <!-- Ribbons -->
-            <g class="ribbons">
+            <g class="ribbons" clip-path="url(#ribbon-clip)">
               <path
                 v-for="link in sankeyData.links"
                 :key="link.id"
@@ -492,7 +501,7 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
             </g>
 
             <!-- Animated particles -->
-            <g class="particles">
+            <g class="particles" clip-path="url(#ribbon-clip)">
               <path
                 v-for="link in sankeyData.links"
                 :key="`p-${link.id}`"
@@ -516,8 +525,8 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
                 :width="NODE_W"
                 :height="node.h"
                 :fill="node.color"
-                :rx="4"
-                :ry="4"
+                :rx="2"
+                :ry="2"
                 :opacity="nodeOpacity(node)"
                 filter="url(#glow)"
                 class="node-rect"
