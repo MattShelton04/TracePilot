@@ -36,6 +36,7 @@ interface ModelRow {
   ioRatio: number;
   cacheHitRate: number;
   cost: number | null;
+  copilotCost: number;
 }
 
 const modelRows = computed<ModelRow[]>(() => {
@@ -46,6 +47,7 @@ const modelRows = computed<ModelRow[]>(() => {
       ? m.cacheReadTokens / (m.inputTokens + m.cacheReadTokens) * 100
       : 0;
     const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
+    const copilotCost = (m.percentage / 100) * (data.value?.totalPremiumRequests ?? 0) * prefs.costPerPremiumRequest;
     return {
       model: m.model,
       color: MODEL_COLORS[i % MODEL_COLORS.length],
@@ -57,12 +59,21 @@ const modelRows = computed<ModelRow[]>(() => {
       ioRatio,
       cacheHitRate,
       cost,
+      copilotCost,
     };
   });
 });
 
 const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
+const totalCopilotCost = computed(() => modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0));
 const modelCount = computed(() => modelRows.value.length);
+
+// ── Cost & normalization toggles ─────────────────────────────
+type CostMode = 'wholesale' | 'copilot' | 'both';
+const costMode = ref<CostMode>('both');
+
+type NormMode = 'raw' | 'per-1k-tokens' | 'share';
+const normMode = ref<NormMode>('raw');
 
 // ── Best/worst highlighting ──────────────────────────────────
 function bestIdx(arr: number[], higher = true): number {
@@ -81,9 +92,10 @@ const bestCostIdx = computed(() => {
   if (costs.every(c => c === Infinity)) return -1;
   return bestIdx(costs, false);
 });
+const bestCopilotCostIdx = computed(() => bestIdx(modelRows.value.map(m => m.copilotCost), false));
 
 // ── Sort state ───────────────────────────────────────────────
-type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'ioRatio' | 'cacheHitRate' | 'cost';
+type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'ioRatio' | 'cacheHitRate' | 'cost' | 'copilotCost';
 const sortKey = ref<SortKey>('tokens');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
@@ -117,6 +129,58 @@ const sortedRows = computed(() => {
 function sortArrow(key: SortKey): string {
   if (sortKey.value !== key) return '⇅';
   return sortDir.value === 'asc' ? '↑' : '↓';
+}
+
+// ── Normalized display rows ──────────────────────────────────
+const displayRows = computed<ModelRow[]>(() => {
+  const rows = sortedRows.value;
+  if (normMode.value === 'raw') return rows;
+
+  if (normMode.value === 'per-1k-tokens') {
+    return rows.map(r => {
+      const divisor = r.tokens / 1000 || 1;
+      return {
+        ...r,
+        tokens: r.tokens / divisor,
+        inputTokens: r.inputTokens / divisor,
+        outputTokens: r.outputTokens / divisor,
+        cacheReadTokens: r.cacheReadTokens / divisor,
+        cost: r.cost != null ? r.cost / divisor : null,
+        copilotCost: r.copilotCost / divisor,
+      };
+    });
+  }
+
+  // share mode
+  const sums = rows.reduce(
+    (acc, r) => ({
+      tokens: acc.tokens + r.tokens,
+      inputTokens: acc.inputTokens + r.inputTokens,
+      outputTokens: acc.outputTokens + r.outputTokens,
+      cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
+      cost: acc.cost + (r.cost ?? 0),
+      copilotCost: acc.copilotCost + r.copilotCost,
+    }),
+    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cost: 0, copilotCost: 0 },
+  );
+
+  return rows.map(r => ({
+    ...r,
+    tokens: sums.tokens > 0 ? (r.tokens / sums.tokens) * 100 : 0,
+    inputTokens: sums.inputTokens > 0 ? (r.inputTokens / sums.inputTokens) * 100 : 0,
+    outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
+    cacheReadTokens: sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
+    cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
+    copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
+  }));
+});
+
+function fmtNorm(value: number | null, isCost = false): string {
+  if (value == null) return '—';
+  if (normMode.value === 'share') return `${value.toFixed(1)}%`;
+  if (isCost) return formatCost(value);
+  if (normMode.value === 'per-1k-tokens') return value.toFixed(1);
+  return formatNumber(value);
 }
 
 // ── Radar chart (top 3 by tokens) ────────────────────────────
@@ -241,7 +305,8 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     { label: 'Token Share', valueA: `${a.percentage.toFixed(1)}%`, valueB: `${b.percentage.toFixed(1)}%`, ...delta(a.percentage, b.percentage, true) },
     { label: 'I/O Ratio', valueA: a.ioRatio.toFixed(2), valueB: b.ioRatio.toFixed(2), ...delta(a.ioRatio, b.ioRatio, false) },
     { label: 'Cache Hit Rate', valueA: `${a.cacheHitRate.toFixed(1)}%`, valueB: `${b.cacheHitRate.toFixed(1)}%`, ...delta(a.cacheHitRate, b.cacheHitRate, true) },
-    { label: 'Est. Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
+    { label: 'Wholesale Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
+    { label: 'Copilot Cost', valueA: formatCost(a.copilotCost), valueB: formatCost(b.copilotCost), ...delta(a.copilotCost, b.copilotCost, false) },
   ];
 });
 
@@ -303,11 +368,11 @@ function fmtPct(v: number): string {
               </div>
               <div class="stat-card">
                 <div class="stat-card-value success">{{ formatCost(totalCost) }}</div>
-                <div class="stat-card-label">Total Est. Cost</div>
+                <div class="stat-card-label">Wholesale Cost</div>
               </div>
               <div class="stat-card">
-                <div class="stat-card-value warning">{{ data.totalSessions }}</div>
-                <div class="stat-card-label">Total Sessions</div>
+                <div class="stat-card-value warning">{{ formatCost(totalCopilotCost) }}</div>
+                <div class="stat-card-label">Copilot Cost</div>
               </div>
             </div>
 
@@ -346,7 +411,21 @@ function fmtPct(v: number): string {
 
             <!-- Performance Matrix Table -->
             <div class="section-panel mb-4">
-              <div class="section-panel-header">Performance Matrix</div>
+              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span>Performance Matrix</span>
+                <div class="matrix-toggles">
+                  <div class="cost-toggle">
+                    <button :class="['toggle-btn', { active: costMode === 'wholesale' }]" @click="costMode = 'wholesale'">Wholesale</button>
+                    <button :class="['toggle-btn', { active: costMode === 'copilot' }]" @click="costMode = 'copilot'">Copilot</button>
+                    <button :class="['toggle-btn', { active: costMode === 'both' }]" @click="costMode = 'both'">Both</button>
+                  </div>
+                  <div class="norm-toggle">
+                    <button :class="['toggle-btn', { active: normMode === 'raw' }]" @click="normMode = 'raw'">Raw</button>
+                    <button :class="['toggle-btn', { active: normMode === 'per-1k-tokens' }]" @click="normMode = 'per-1k-tokens'">Per 1K Tokens</button>
+                    <button :class="['toggle-btn', { active: normMode === 'share' }]" @click="normMode = 'share'">Share %</button>
+                  </div>
+                </div>
+              </div>
               <div class="section-panel-body scrollable-section" style="padding: 0;">
                 <table class="data-table" aria-label="Model performance comparison matrix">
                   <thead>
@@ -375,23 +454,26 @@ function fmtPct(v: number): string {
                       <th class="sort-header" @click="toggleSort('cacheHitRate')">
                         Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>
                       </th>
-                      <th class="sort-header" @click="toggleSort('cost')">
-                        Est. Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
+                      <th v-if="costMode !== 'copilot'" class="sort-header" @click="toggleSort('cost')">
+                        Wholesale Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
+                      </th>
+                      <th v-if="costMode !== 'wholesale'" class="sort-header" @click="toggleSort('copilotCost')">
+                        Copilot Cost <span class="sort-arrow">{{ sortArrow('copilotCost') }}</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(row, ri) in sortedRows" :key="row.model">
+                    <tr v-for="(row, ri) in displayRows" :key="row.model">
                       <td>
                         <span class="model-name-cell">
                           <span class="model-dot" :style="{ background: row.color }" />
                           {{ row.model }}
                         </span>
                       </td>
-                      <td class="num-cell">{{ formatNumber(row.tokens) }}</td>
-                      <td class="num-cell">{{ formatNumber(row.inputTokens) }}</td>
-                      <td class="num-cell">{{ formatNumber(row.outputTokens) }}</td>
-                      <td class="num-cell">{{ formatNumber(row.cacheReadTokens) }}</td>
+                      <td class="num-cell">{{ fmtNorm(row.tokens) }}</td>
+                      <td class="num-cell">{{ fmtNorm(row.inputTokens) }}</td>
+                      <td class="num-cell">{{ fmtNorm(row.outputTokens) }}</td>
+                      <td class="num-cell">{{ fmtNorm(row.cacheReadTokens) }}</td>
                       <td class="num-cell">
                         <div class="inline-progress">
                           <span>{{ fmtPct(row.percentage) }}</span>
@@ -410,9 +492,14 @@ function fmtPct(v: number): string {
                           {{ fmtPct(row.cacheHitRate) }}
                         </span>
                       </td>
-                      <td class="num-cell">
+                      <td v-if="costMode !== 'copilot'" class="num-cell">
                         <span :class="{ 'best-cell': row.model === modelRows[bestCostIdx]?.model }">
-                          {{ row.cost != null ? formatCost(row.cost) : '—' }}
+                          {{ fmtNorm(row.cost, true) }}
+                        </span>
+                      </td>
+                      <td v-if="costMode !== 'wholesale'" class="num-cell">
+                        <span :class="{ 'best-cell': row.model === modelRows[bestCopilotCostIdx]?.model }">
+                          {{ fmtNorm(row.copilotCost, true) }}
                         </span>
                       </td>
                     </tr>
@@ -865,5 +952,45 @@ function fmtPct(v: number): string {
 }
 .delta-neutral {
   color: var(--text-tertiary);
+}
+
+/* ── Toggle Controls ─────────────────────────────────────── */
+.matrix-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.norm-toggle,
+.cost-toggle {
+  display: inline-flex;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  padding: 2px;
+  gap: 2px;
+}
+
+.toggle-btn {
+  padding: 5px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.toggle-btn.active {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 </style>
