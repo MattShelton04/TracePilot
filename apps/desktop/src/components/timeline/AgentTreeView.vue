@@ -611,14 +611,35 @@ watch(hasInProgress, (val) => {
   hasInProgressRef.value = val;
 }, { immediate: true });
 
-// Reset index when turns change
+// Reset index when turns structurally change (new session loaded),
+// but preserve selection when turns are appended or soft-refreshed.
+let lastTurnKey = "";
 watch(
   () => store.turns,
-  () => {
-    agentTurnIndex.value = 0;
-    selectedNodeId.value = null;
-    expandedToolCalls.clear();
-    nodeRefs.value.clear();
+  (newTurns) => {
+    const newKey = newTurns.map(t => t.turnIndex).join(",");
+    if (newKey !== lastTurnKey) {
+      const oldKey = lastTurnKey;
+      lastTurnKey = newKey;
+
+      // If turns were only appended (new key starts with old key), preserve state
+      if (oldKey && newKey.startsWith(oldKey)) {
+        const maxIdx = agentTurns.value.length - 1;
+        if (agentTurnIndex.value > maxIdx) {
+          agentTurnIndex.value = Math.max(0, maxIdx);
+        }
+        return;
+      }
+
+      // Full structural change (new session or reorder) — reset everything
+      const maxIdx = agentTurns.value.length - 1;
+      if (agentTurnIndex.value > maxIdx) {
+        agentTurnIndex.value = Math.max(0, maxIdx);
+      }
+      selectedNodeId.value = null;
+      expandedToolCalls.clear();
+      nodeRefs.value.clear();
+    }
   },
 );
 </script>

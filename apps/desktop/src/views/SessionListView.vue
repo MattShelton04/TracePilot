@@ -73,7 +73,7 @@ onUnmounted(() => {
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px;">
+      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; position: sticky; top: 0; z-index: 10; background: var(--canvas-default); padding: 8px 0;">
         <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" shortcut-hint="⌘K" />
         <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
         <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
@@ -197,11 +197,14 @@ onUnmounted(() => {
   border-radius: 50%;
   background: var(--success-fg);
   flex-shrink: 0;
+  margin-left: 2px;
   animation: pulse-dot 2s ease-in-out infinite;
+  overflow: visible;
+  position: relative;
 }
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--success-fg); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
 }
 .active-badge {
   flex-shrink: 0;

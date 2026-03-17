@@ -83,12 +83,15 @@ function isActive(session: SessionListItem): boolean {
   border-radius: 50%;
   background: var(--success-fg);
   flex-shrink: 0;
+  margin-left: 2px;
   animation: pulse-dot 2s ease-in-out infinite;
+  overflow: visible;
+  position: relative;
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--success-fg); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
 }
 
 .active-badge {

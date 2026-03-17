@@ -49,6 +49,14 @@ const agentSet = useToggleSet<string>();  // `${turnKey}-${toolCallId}` → coll
 
 // ── Expandable swimlane messages ─────────────────────────────
 const expandedMessages = useToggleSet<string>(); // `${turnIndex}-user` or `${turnIndex}-assistant`
+const assistantMsgIndex = ref(new Map<number, number>()); // turnIndex → current msg index
+
+function getAssistantMsgIdx(turnIndex: number): number {
+  return assistantMsgIndex.value.get(turnIndex) ?? 0;
+}
+function setAssistantMsgIdx(turnIndex: number, idx: number) {
+  assistantMsgIndex.value.set(turnIndex, idx);
+}
 
 // ── Terminology legend toggle ────────────────────────────────
 const showLegend = ref(false);
@@ -86,16 +94,39 @@ function formatDetailTime(iso?: string): string {
 
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 
+// Re-resolve selectedTool after data refresh so the detail panel stays open.
+// On refresh, store.turns gets a new array with new object references; we match by toolCallId.
+watch(allToolCalls, (newAll) => {
+  const sel = selectedTool.value;
+  if (!sel || !sel.toolCallId) return;
+  const match = newAll.find(tc => tc.toolCallId === sel.toolCallId);
+  if (match) {
+    selectedTool.value = match;
+  }
+});
+
 /** Check if the selected tool belongs to this turn (directly or as a nested child of a subagent). */
 function turnOwnsSelected(turn: ConversationTurn): boolean {
   const sel = selectedTool.value;
   if (!sel) return false;
-  if (turn.toolCalls.includes(sel)) return true;
-  // Check if selected tool is a nested child of one of this turn's subagents
-  const turnSubagentIds = new Set(
-    turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
-  );
-  return !!sel.parentToolCallId && turnSubagentIds.has(sel.parentToolCallId);
+
+  // If this is a non-subagent child tool of a subagent, only match the turn that owns the parent subagent.
+  // This prevents double-matching when the tool object physically lives in a different
+  // turn's toolCalls array but is rendered under the subagent's turn via nestedTools().
+  // Note: nested subagents (isSubagent && parentToolCallId) should fall through to the
+  // identity/ID check below, since they are rendered as lanes in their own turn.
+  if (sel.parentToolCallId && !sel.isSubagent) {
+    const turnSubagentIds = new Set(
+      turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
+    );
+    return turnSubagentIds.has(sel.parentToolCallId);
+  }
+
+  // For direct tools / subagent headers, use object identity or ID match
+  if (sel.toolCallId) {
+    return turn.toolCalls.some(tc => tc.toolCallId === sel.toolCallId);
+  }
+  return turn.toolCalls.includes(sel);
 }
 
 function selectedNestedCount(): number {
@@ -168,12 +199,16 @@ const groupedPhases = computed<Phase[]>(() => {
 });
 
 // ── Default collapsed for large sessions ─────────────────────
+let lastPhaseCount = 0;
 watch(groupedPhases, (newPhases) => {
-  if (newPhases.length > 3) {
+  // Only auto-collapse on initial load or when phase count changes
+  // (not on soft refresh which returns the same structure)
+  if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
     for (let i = 1; i < newPhases.length; i++) {
       phases.set.value.add(i);
     }
   }
+  lastPhaseCount = newPhases.length;
 }, { immediate: true });
 
 // ── Phase-level summaries ────────────────────────────────────
@@ -474,20 +509,34 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   {{ truncateText(turn.assistantMessages.find(m => m.trim()) ?? "", 80) }}
                   <span v-if="(turn.assistantMessages.find(m => m.trim()) ?? '').length > 80" class="expand-hint">⤢</span>
                 </div>
-                <!-- Expanded content (shows ALL assistant messages) -->
+                <!-- Expanded content: shows ONE assistant message at a time with pagination -->
                 <div v-else class="swimlane-expanded swimlane-expanded--assistant">
-                  <button
-                    class="swimlane-collapse-btn"
-                    @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
-                  >
-                    ▾ Collapse
-                  </button>
-                  <div
-                    v-for="(msg, msgIdx) in turn.assistantMessages.filter(m => m.trim())"
-                    :key="msgIdx"
-                    class="swimlane-expanded-content"
-                    :class="{ 'swimlane-expanded-content--subsequent': msgIdx > 0 }"
-                  >{{ msg }}</div>
+                  <div class="swimlane-expanded-header">
+                    <button
+                      class="swimlane-collapse-btn"
+                      @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
+                    >
+                      ▾ Collapse
+                    </button>
+                    <div v-if="turn.assistantMessages.filter(m => m.trim()).length > 1" class="msg-pagination">
+                      <button
+                        class="msg-nav-btn"
+                        :disabled="getAssistantMsgIdx(turn.turnIndex) <= 0"
+                        @click="setAssistantMsgIdx(turn.turnIndex, getAssistantMsgIdx(turn.turnIndex) - 1)"
+                        title="Previous message"
+                      >‹</button>
+                      <span class="msg-nav-label">
+                        {{ getAssistantMsgIdx(turn.turnIndex) + 1 }} / {{ turn.assistantMessages.filter(m => m.trim()).length }}
+                      </span>
+                      <button
+                        class="msg-nav-btn"
+                        :disabled="getAssistantMsgIdx(turn.turnIndex) >= turn.assistantMessages.filter(m => m.trim()).length - 1"
+                        @click="setAssistantMsgIdx(turn.turnIndex, getAssistantMsgIdx(turn.turnIndex) + 1)"
+                        title="Next message"
+                      >›</button>
+                    </div>
+                  </div>
+                  <div class="swimlane-expanded-content">{{ turn.assistantMessages.filter(m => m.trim())[getAssistantMsgIdx(turn.turnIndex)] }}</div>
                 </div>
               </div>
             </div>
@@ -876,12 +925,16 @@ const parallelAgentIds = computed<Set<string>>(() => {
 /* ── Expandable swimlane messages ──────────────────────── */
 .swimlane-bar--expandable {
   cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.swimlane-bar--expandable:hover {
+  filter: brightness(1.15);
 }
 
 .expand-hint {
-  margin-left: 4px;
-  font-size: 0.5625rem;
-  opacity: 0.5;
+  margin-left: 6px;
+  font-size: 0.75rem;
+  opacity: 0.7;
   flex-shrink: 0;
 }
 
@@ -904,6 +957,12 @@ const parallelAgentIds = computed<Set<string>>(() => {
   border-left: 3px solid var(--success-fg);
 }
 
+.swimlane-expanded-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .swimlane-expanded-content {
   font-size: 0.75rem;
   color: var(--text-primary);
@@ -918,6 +977,42 @@ const parallelAgentIds = computed<Set<string>>(() => {
 .swimlane-expanded-content--subsequent {
   padding-top: 6px;
   border-top: 1px solid var(--border-subtle);
+}
+
+.msg-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.msg-nav-btn {
+  border: none;
+  background: var(--canvas-overlay, rgba(255,255,255,0.06));
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.msg-nav-btn:hover:not(:disabled) {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+}
+.msg-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.msg-nav-label {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: center;
 }
 
 .swimlane-collapse-btn {

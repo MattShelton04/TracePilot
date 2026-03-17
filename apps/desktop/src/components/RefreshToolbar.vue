@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch, onUnmounted } from "vue";
 
 const props = defineProps<{
   refreshing: boolean;
@@ -15,6 +15,29 @@ const emit = defineEmits<{
 
 const INTERVAL_STOPS = [3, 5, 10, 30];
 
+// Minimum spinner display time to avoid flash on fast refreshes
+const MIN_SPIN_MS = 500;
+const showSpinner = ref(false);
+let spinStart = 0;
+let spinTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => props.refreshing, (isRefreshing) => {
+  if (isRefreshing) {
+    showSpinner.value = true;
+    spinStart = Date.now();
+    if (spinTimer) clearTimeout(spinTimer);
+    spinTimer = null;
+  } else if (showSpinner.value) {
+    const elapsed = Date.now() - spinStart;
+    const remaining = MIN_SPIN_MS - elapsed;
+    if (remaining > 0) {
+      spinTimer = setTimeout(() => { showSpinner.value = false; }, remaining);
+    } else {
+      showSpinner.value = false;
+    }
+  }
+});
+
 const sliderValue = computed({
   get: () => {
     const idx = INTERVAL_STOPS.indexOf(props.intervalSeconds);
@@ -29,22 +52,26 @@ const intervalLabel = computed(() => {
   const s = props.intervalSeconds;
   return s >= 60 ? `${s / 60}m` : `${s}s`;
 });
+
+onUnmounted(() => {
+  if (spinTimer) clearTimeout(spinTimer);
+});
 </script>
 
 <template>
   <div class="refresh-toolbar">
     <button
       class="refresh-btn"
-      :class="{ 'refresh-btn--spinning': refreshing }"
+      :class="{ 'refresh-btn--spinning': showSpinner }"
       :disabled="refreshing"
       title="Refresh data"
       @click="emit('refresh')"
     >
-      <svg class="refresh-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <svg class="refresh-icon" viewBox="-1 -1 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M14 8A6 6 0 1 1 8 2" stroke-linecap="round" />
         <path d="M14 2v4h-4" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      <span v-if="refreshing" class="refresh-label">Refreshing…</span>
+      <span v-if="showSpinner" class="refresh-label">Refreshing…</span>
     </button>
 
     <div class="refresh-divider" />
