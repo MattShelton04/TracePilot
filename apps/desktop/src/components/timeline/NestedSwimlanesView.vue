@@ -6,6 +6,7 @@ import {
   ExpandChevron,
   EmptyState,
   formatDuration,
+  formatLiveDuration,
   formatTime,
   truncateText,
   toolIcon,
@@ -13,6 +14,7 @@ import {
   categoryColor,
   formatArgsSummary,
   useToggleSet,
+  useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
 } from "@tracepilot/ui";
@@ -26,11 +28,27 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
   () => store.sessionId
 );
 
+// ── Live-ticking for in-progress subagents ───────────────────
+const hasInProgressAgents = computed(() =>
+  store.turns.some(t => t.toolCalls.some(tc => tc.isSubagent && !tc.isComplete)),
+);
+const { nowMs } = useLiveDuration(hasInProgressAgents);
+
+function agentLiveDuration(agent: TurnToolCall): number | undefined {
+  if (!agent.isComplete && agent.startedAt) {
+    return nowMs.value - new Date(agent.startedAt).getTime();
+  }
+  return agent.durationMs;
+}
+
 // ── Collapse / expand state ──────────────────────────────────
 
 const phases = useToggleSet<number>();    // phase index → collapsed
 const turnSet = useToggleSet<string>();   // `${phaseIdx}-${turnIdx}` → collapsed
 const agentSet = useToggleSet<string>();  // `${turnKey}-${toolCallId}` → collapsed
+
+// ── Expandable swimlane messages ─────────────────────────────
+const expandedMessages = useToggleSet<string>(); // `${turnIndex}-user` or `${turnIndex}-assistant`
 
 // ── Terminology legend toggle ────────────────────────────────
 const showLegend = ref(false);
@@ -411,12 +429,29 @@ const parallelAgentIds = computed<Set<string>>(() => {
             <div v-if="turn.userMessage" class="swimlane">
               <div class="swimlane-label">User</div>
               <div class="swimlane-track">
+                <!-- Collapsed bar -->
                 <div
-                  class="swimlane-bar swimlane-bar--user"
+                  v-if="!expandedMessages.has(`${turn.turnIndex}-user`)"
+                  class="swimlane-bar swimlane-bar--user swimlane-bar--expandable"
                   :style="{ width: '30%' }"
                   :title="turn.userMessage"
+                  role="button"
+                  tabindex="0"
+                  @click="expandedMessages.toggle(`${turn.turnIndex}-user`)"
+                  @keydown.enter.space.prevent="expandedMessages.toggle(`${turn.turnIndex}-user`)"
                 >
                   {{ truncateText(turn.userMessage, 50) }}
+                  <span v-if="turn.userMessage.length > 50" class="expand-hint">⤢</span>
+                </div>
+                <!-- Expanded content -->
+                <div v-else class="swimlane-expanded swimlane-expanded--user">
+                  <button
+                    class="swimlane-collapse-btn"
+                    @click="expandedMessages.toggle(`${turn.turnIndex}-user`)"
+                  >
+                    ▾ Collapse
+                  </button>
+                  <div class="swimlane-expanded-content">{{ turn.userMessage }}</div>
                 </div>
               </div>
             </div>
@@ -425,12 +460,34 @@ const parallelAgentIds = computed<Set<string>>(() => {
             <div v-if="turn.assistantMessages.some(m => m.trim())" class="swimlane">
               <div class="swimlane-label">Assistant</div>
               <div class="swimlane-track">
+                <!-- Collapsed bar -->
                 <div
-                  class="swimlane-bar swimlane-bar--assistant"
+                  v-if="!expandedMessages.has(`${turn.turnIndex}-assistant`)"
+                  class="swimlane-bar swimlane-bar--assistant swimlane-bar--expandable"
                   :style="{ width: '80%' }"
                   :title="turn.assistantMessages.find(m => m.trim())?.slice(0, 200)"
+                  role="button"
+                  tabindex="0"
+                  @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
+                  @keydown.enter.space.prevent="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
                 >
                   {{ truncateText(turn.assistantMessages.find(m => m.trim()) ?? "", 80) }}
+                  <span v-if="(turn.assistantMessages.find(m => m.trim()) ?? '').length > 80" class="expand-hint">⤢</span>
+                </div>
+                <!-- Expanded content (shows ALL assistant messages) -->
+                <div v-else class="swimlane-expanded swimlane-expanded--assistant">
+                  <button
+                    class="swimlane-collapse-btn"
+                    @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
+                  >
+                    ▾ Collapse
+                  </button>
+                  <div
+                    v-for="(msg, msgIdx) in turn.assistantMessages.filter(m => m.trim())"
+                    :key="msgIdx"
+                    class="swimlane-expanded-content"
+                    :class="{ 'swimlane-expanded-content--subsequent': msgIdx > 0 }"
+                  >{{ msg }}</div>
                 </div>
               </div>
             </div>
@@ -449,21 +506,28 @@ const parallelAgentIds = computed<Set<string>>(() => {
                 role="button"
                 tabindex="0"
                 :aria-expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
-                @keydown.enter.space.prevent="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx)); selectTool(agent)"
+                @click="selectTool(agent)"
+                @keydown.enter.space.prevent="selectTool(agent)"
               >
-                <span class="subagent-chevron" @click.stop="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))">
+                <span
+                  class="subagent-chevron"
+                  role="button"
+                  tabindex="0"
+                  @click.stop="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
+                  @keydown.enter.space.stop.prevent="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
+                >
                   <ExpandChevron
                     :expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
                     size="sm"
                   />
                 </span>
-                <span class="subagent-icon" @click.stop="selectTool(agent)">{{ toolIcon(agent.toolName) }}</span>
-                <span class="subagent-name" @click.stop="selectTool(agent)">
+                <span class="subagent-icon">{{ toolIcon(agent.toolName) }}</span>
+                <span class="subagent-name">
                   {{ agent.agentDisplayName ?? agent.toolName }}
                 </span>
-                <span class="subagent-meta" @click.stop="selectTool(agent)">
-                  <span v-if="agent.durationMs" class="subagent-duration">
-                    {{ formatDuration(agent.durationMs) }}
+                <span class="subagent-meta">
+                  <span v-if="agentLiveDuration(agent)" class="subagent-duration">
+                    {{ formatLiveDuration(agentLiveDuration(agent)) }}
                   </span>
                   <span class="subagent-tool-count">
                     {{ nestedTools(turn, agent).length }} tool{{ nestedTools(turn, agent).length !== 1 ? "s" : "" }}
@@ -807,6 +871,70 @@ const parallelAgentIds = computed<Set<string>>(() => {
 .swimlane-bar--tool .bar-icon {
   margin-right: 4px;
   font-size: 0.6875rem;
+}
+
+/* ── Expandable swimlane messages ──────────────────────── */
+.swimlane-bar--expandable {
+  cursor: pointer;
+}
+
+.expand-hint {
+  margin-left: 4px;
+  font-size: 0.5625rem;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.swimlane-expanded {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--canvas-subtle);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swimlane-expanded--user {
+  border-left: 3px solid var(--accent-fg);
+}
+
+.swimlane-expanded--assistant {
+  border-left: 3px solid var(--success-fg);
+}
+
+.swimlane-expanded-content {
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.5;
+}
+
+.swimlane-expanded-content--subsequent {
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.swimlane-collapse-btn {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.swimlane-collapse-btn:hover {
+  background: var(--canvas-overlay);
+  color: var(--text-primary);
 }
 
 /* ── Subagent lane ──────────────────────────────────────── */

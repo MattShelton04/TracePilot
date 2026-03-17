@@ -81,6 +81,20 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
     Ok(sessions)
 }
 
+/// Check whether a session directory contains an active lock file (`inuse.*.lock`).
+/// The Copilot CLI creates this file while a session is open and removes it on exit.
+pub fn has_lock_file(session_dir: &Path) -> bool {
+    std::fs::read_dir(session_dir)
+        .map(|entries| {
+            entries.filter_map(|e| e.ok()).any(|e| {
+                let name = e.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with("inuse.") && name.ends_with(".lock")
+            })
+        })
+        .unwrap_or(false)
+}
+
 /// Resolve a session ID (full or partial prefix) to its directory path.
 /// Returns TracePilotError::SessionNotFound if no match or multiple matches.
 pub fn resolve_session_path(session_id_prefix: &str) -> Result<PathBuf> {

@@ -23,6 +23,7 @@ fn main() {
                     "validate_session_dir",
                     "get_db_size",
                     "get_session_count",
+                    "is_session_running",
                     "factory_reset",
                     "get_tool_result",
                     "resume_session_in_terminal",

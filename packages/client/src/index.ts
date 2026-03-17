@@ -250,6 +250,12 @@ export async function getSessionCount(): Promise<number> {
   return invoke<number>("get_session_count");
 }
 
+/** Check if a session is currently running (has an inuse.*.lock file). */
+export async function isSessionRunning(sessionId: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>("is_session_running", { sessionId });
+}
+
 /** Factory reset: delete config, index DB, and all app data. */
 export async function factoryReset(): Promise<void> {
   if (!isTauri()) return;

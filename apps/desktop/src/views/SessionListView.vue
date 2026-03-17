@@ -2,6 +2,9 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore, type SortOption } from "@/stores/sessions";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -9,6 +12,13 @@ import type { IndexingProgressPayload } from '@tracepilot/types';
 
 const router = useRouter();
 const store = useSessionsStore();
+const prefs = usePreferencesStore();
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: () => store.refreshSessions(),
+  enabled: computed(() => prefs.autoRefreshEnabled),
+  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const unlisteners: UnlistenFn[] = [];
@@ -78,6 +88,14 @@ onUnmounted(() => {
         <span class="session-count-label">
           {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
         </span>
+        <RefreshToolbar
+          :refreshing="refreshing"
+          :auto-refresh-enabled="prefs.autoRefreshEnabled"
+          :interval-seconds="prefs.autoRefreshIntervalSeconds"
+          @refresh="refresh"
+          @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
+          @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
+        />
       </div>
 
       <!-- Error state -->
@@ -121,9 +139,14 @@ onUnmounted(() => {
           :key="session.id"
           :to="{ name: 'session-overview', params: { id: session.id } }"
           class="card card-interactive"
+          :class="{ 'card--active': session.isRunning }"
           style="text-decoration: none; color: inherit;"
         >
-          <div class="session-card-title">{{ session.summary || 'Untitled Session' }}</div>
+          <div class="session-card-title">
+            <span v-if="session.isRunning" class="active-dot" title="Session is currently active" />
+            {{ session.summary || 'Untitled Session' }}
+            <Badge v-if="session.isRunning" variant="success" class="active-badge">Active</Badge>
+          </div>
           <div class="session-card-badges">
             <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
             <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
@@ -158,6 +181,32 @@ onUnmounted(() => {
   color: var(--text-tertiary);
   margin-left: auto;
   white-space: nowrap;
+}
+.session-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card--active {
+  border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+  box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+}
+.active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  flex-shrink: 0;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--success-fg); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+}
+.active-badge {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  margin-left: auto;
 }
 .session-card-stats {
   display: flex;

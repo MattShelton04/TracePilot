@@ -157,6 +157,84 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     error.value = null;
   }
 
+  /**
+   * Soft-refresh all previously loaded sections without clearing existing data.
+   * Preserves UI state (selections, scroll, pagination) by not resetting refs.
+   */
+  async function refreshAll() {
+    const id = sessionId.value;
+    if (!id) return;
+    const token = requestToken;
+    const sections = new Set(loaded.value);
+
+    const promises: Promise<void>[] = [];
+
+    if (sections.has("detail")) {
+      promises.push(
+        getSessionDetail(id).then((result) => {
+          if (requestToken !== token) return;
+          detail.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh detail:", e);
+        })
+      );
+    }
+
+    if (sections.has("turns")) {
+      promises.push(
+        getSessionTurns(id).then((result) => {
+          if (requestToken !== token) return;
+          turns.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh turns:", e);
+        })
+      );
+    }
+
+    // Note: events are skipped in refreshAll because the EventsTab manages its own
+    // pagination state. Refreshing events here would reset the user's page position.
+
+    if (sections.has("todos")) {
+      promises.push(
+        getSessionTodos(id).then((result) => {
+          if (requestToken !== token) return;
+          todos.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh todos:", e);
+        })
+      );
+    }
+
+    if (sections.has("checkpoints")) {
+      promises.push(
+        getSessionCheckpoints(id).then((result) => {
+          if (requestToken !== token) return;
+          checkpoints.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh checkpoints:", e);
+        })
+      );
+    }
+
+    if (sections.has("metrics")) {
+      promises.push(
+        getShutdownMetrics(id).then((result) => {
+          if (requestToken !== token) return;
+          shutdownMetrics.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh metrics:", e);
+        })
+      );
+    }
+
+    await Promise.allSettled(promises);
+  }
+
   return {
     sessionId,
     detail,
@@ -175,5 +253,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadCheckpoints,
     loadShutdownMetrics,
     reset,
+    refreshAll,
   };
 });

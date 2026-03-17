@@ -45,6 +45,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
   const hideEmptySessions = ref(true);
   const cliCommand = ref('copilot');
+  const autoRefreshEnabled = ref(false);
+  const autoRefreshIntervalSeconds = ref(5);
   const toolRendering = ref<ToolRenderingPreferences>({
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
@@ -64,6 +66,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         if (Array.isArray(parsed.modelWholesalePrices)) modelWholesalePrices.value = parsed.modelWholesalePrices;
         if (typeof parsed.hideEmptySessions === 'boolean') hideEmptySessions.value = parsed.hideEmptySessions;
         if (typeof parsed.cliCommand === 'string') cliCommand.value = parsed.cliCommand;
+        if (typeof parsed.autoRefreshEnabled === 'boolean') autoRefreshEnabled.value = parsed.autoRefreshEnabled;
+        if (typeof parsed.autoRefreshIntervalSeconds === 'number') autoRefreshIntervalSeconds.value = parsed.autoRefreshIntervalSeconds;
         if (parsed.toolRendering && typeof parsed.toolRendering === 'object') {
           toolRendering.value = {
             enabled: typeof parsed.toolRendering.enabled === 'boolean' ? parsed.toolRendering.enabled : true,
@@ -84,6 +88,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         modelWholesalePrices: modelWholesalePrices.value,
         hideEmptySessions: hideEmptySessions.value,
         cliCommand: cliCommand.value,
+        autoRefreshEnabled: autoRefreshEnabled.value,
+        autoRefreshIntervalSeconds: autoRefreshIntervalSeconds.value,
         toolRendering: toolRendering.value,
       })
     );
@@ -111,7 +117,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     setupSystemThemeListener();
   }, { immediate: true });
 
-  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand, toolRendering], save, { deep: true });
+  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand, autoRefreshEnabled, autoRefreshIntervalSeconds, toolRendering], save, { deep: true });
 
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
@@ -176,6 +182,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     modelWholesalePrices,
     hideEmptySessions,
     cliCommand,
+    autoRefreshEnabled,
+    autoRefreshIntervalSeconds,
     toolRendering,
     applyTheme:() => applyTheme(theme.value),
     getWholesalePrice,

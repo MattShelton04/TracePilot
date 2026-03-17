@@ -3,8 +3,10 @@ import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
-import { resumeSessionInTerminal } from "@tracepilot/client";
+import { resumeSessionInTerminal, isSessionRunning } from "@tracepilot/client";
 
 const route = useRoute();
 const store = useSessionDetailStore();
@@ -13,6 +15,29 @@ const prefs = usePreferencesStore();
 const sessionId = computed(() => route.params.id as string);
 const resolvedSessionId = computed(() => store.detail?.id ?? sessionId.value);
 const copied = ref(false);
+
+// Track live "running" state via lock file check
+const isSessionActive = ref(false);
+
+async function checkRunning() {
+  if (!sessionId.value) {
+    isSessionActive.value = false;
+    return;
+  }
+  try {
+    isSessionActive.value = await isSessionRunning(sessionId.value);
+  } catch {
+    isSessionActive.value = false;
+  }
+}
+
+const { refreshing, refresh } = useAutoRefresh({
+  onRefresh: async () => {
+    await Promise.all([store.refreshAll(), checkRunning()]);
+  },
+  enabled: computed(() => prefs.autoRefreshEnabled && isSessionActive.value),
+  intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
 
 async function copyResumeCommand() {
   const text = `${prefs.cliCommand} --resume ${resolvedSessionId.value}`;
@@ -42,13 +67,15 @@ const currentModel = computed(() =>
   store.detail?.shutdownMetrics?.currentModel ?? "",
 );
 
-onMounted(() => {
+onMounted(async () => {
   store.loadDetail(sessionId.value);
+  await checkRunning();
 });
 
-watch(sessionId, (newId) => {
+watch(sessionId, async (newId) => {
   if (newId) {
     store.loadDetail(newId);
+    await checkRunning();
   }
 });
 
@@ -73,7 +100,9 @@ onUnmounted(() => {
       <!-- Session header + tabs + content -->
       <template v-if="store.detail">
         <h1 class="detail-title">
+          <span v-if="isSessionActive" class="active-dot" title="Session is currently active" />
           {{ store.detail.summary || 'Untitled Session' }}
+          <Badge v-if="isSessionActive" variant="success" class="active-badge-inline">● Active</Badge>
         </h1>
         <div class="detail-badges">
           <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
@@ -83,6 +112,14 @@ onUnmounted(() => {
         </div>
 
         <div class="detail-actions">
+          <RefreshToolbar
+            :refreshing="refreshing"
+            :auto-refresh-enabled="prefs.autoRefreshEnabled"
+            :interval-seconds="prefs.autoRefreshIntervalSeconds"
+            @refresh="refresh"
+            @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
+            @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
+          />
           <button
             class="resume-btn"
             @click="copyResumeCommand"
@@ -117,6 +154,28 @@ onUnmounted(() => {
   color: var(--text-primary);
   line-height: 1.3;
   margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.active-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  flex-shrink: 0;
+  animation: pulse-active 2s ease-in-out infinite;
+}
+
+@keyframes pulse-active {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--success-fg); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+}
+
+.active-badge-inline {
+  font-size: 0.6875rem;
+  flex-shrink: 0;
 }
 .detail-badges {
   display: flex;
