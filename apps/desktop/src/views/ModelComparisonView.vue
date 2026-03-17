@@ -1,0 +1,862 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
+import { formatNumber, formatCost } from '@tracepilot/ui';
+import { useAnalyticsStore } from '@/stores/analytics';
+import { usePreferencesStore } from '@/stores/preferences';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
+import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
+
+const store = useAnalyticsStore();
+const prefs = usePreferencesStore();
+
+onMounted(() => {
+  store.fetchAvailableRepos();
+  store.fetchAnalytics();
+});
+
+watch([() => store.selectedRepo, () => store.dateRange], () => {
+  store.fetchAnalytics({ force: true });
+}, { deep: true });
+
+const loading = computed(() => store.analyticsLoading);
+const data = computed(() => store.analytics);
+
+// ── Constants ────────────────────────────────────────────────
+const MODEL_COLORS = ['#6366f1', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee', '#f97316', '#84cc16'];
+
+// ── Enriched model data ──────────────────────────────────────
+interface ModelRow {
+  model: string;
+  color: string;
+  tokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  percentage: number;
+  ioRatio: number;
+  cacheHitRate: number;
+  cost: number | null;
+}
+
+const modelRows = computed<ModelRow[]>(() => {
+  if (!data.value?.modelDistribution) return [];
+  return data.value.modelDistribution.map((m, i) => {
+    const ioRatio = m.inputTokens > 0 ? m.outputTokens / m.inputTokens : 0;
+    const cacheHitRate = (m.inputTokens + m.cacheReadTokens) > 0
+      ? m.cacheReadTokens / (m.inputTokens + m.cacheReadTokens) * 100
+      : 0;
+    const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
+    return {
+      model: m.model,
+      color: MODEL_COLORS[i % MODEL_COLORS.length],
+      tokens: m.tokens,
+      inputTokens: m.inputTokens,
+      outputTokens: m.outputTokens,
+      cacheReadTokens: m.cacheReadTokens,
+      percentage: m.percentage,
+      ioRatio,
+      cacheHitRate,
+      cost,
+    };
+  });
+});
+
+const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
+const modelCount = computed(() => modelRows.value.length);
+
+// ── Best/worst highlighting ──────────────────────────────────
+function bestIdx(arr: number[], higher = true): number {
+  if (!arr.length) return -1;
+  let best = 0;
+  for (let i = 1; i < arr.length; i++) {
+    if (higher ? arr[i] > arr[best] : arr[i] < arr[best]) best = i;
+  }
+  return best;
+}
+
+const bestCacheIdx = computed(() => bestIdx(modelRows.value.map(m => m.cacheHitRate)));
+const bestIoIdx = computed(() => bestIdx(modelRows.value.map(m => m.ioRatio), false));
+const bestCostIdx = computed(() => {
+  const costs = modelRows.value.map(m => m.cost ?? Infinity);
+  if (costs.every(c => c === Infinity)) return -1;
+  return bestIdx(costs, false);
+});
+
+// ── Sort state ───────────────────────────────────────────────
+type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'ioRatio' | 'cacheHitRate' | 'cost';
+const sortKey = ref<SortKey>('tokens');
+const sortDir = ref<'asc' | 'desc'>('desc');
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortDir.value = key === 'model' ? 'asc' : 'desc';
+  }
+}
+
+const sortedRows = computed(() => {
+  const rows = [...modelRows.value];
+  const dir = sortDir.value === 'asc' ? 1 : -1;
+  const key = sortKey.value;
+  return rows.sort((a, b) => {
+    if (key === 'model') return dir * a.model.localeCompare(b.model);
+    if (key === 'cost') return dir * ((a.cost ?? 0) - (b.cost ?? 0));
+    return dir * ((a[key] as number) - (b[key] as number));
+  });
+});
+
+function sortArrow(key: SortKey): string {
+  if (sortKey.value !== key) return '⇅';
+  return sortDir.value === 'asc' ? '↑' : '↓';
+}
+
+// ── Radar chart (top 3 by tokens) ────────────────────────────
+const radarModels = computed(() => {
+  return [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3);
+});
+
+const radarAxes = ['Token Vol.', 'Cache Eff.', 'Output Eff.', 'Cost Eff.', 'Token Share'];
+
+function radarValues(row: ModelRow): number[] {
+  const maxTokens = Math.max(...modelRows.value.map(m => m.tokens), 1);
+  const tokenVol = row.tokens / maxTokens;
+  const cacheEff = row.cacheHitRate / 100;
+  const outputEff = 1 - Math.min(row.ioRatio / 2, 1); // lower ratio = more efficient
+  const costPerToken = row.cost != null && row.tokens > 0 ? row.cost / row.tokens : 0;
+  const maxCostPerToken = Math.max(...modelRows.value.map(m => (m.cost ?? 0) / Math.max(m.tokens, 1)), 0.0001);
+  const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
+  const share = row.percentage / 100;
+  return [tokenVol, cacheEff, outputEff, costEff, share];
+}
+
+const RADAR_CX = 150;
+const RADAR_CY = 130;
+const RADAR_R = 90;
+
+function radarPoint(axisIdx: number, value: number): { x: number; y: number } {
+  const angle = (Math.PI * 2 * axisIdx) / 5 - Math.PI / 2;
+  return {
+    x: RADAR_CX + Math.cos(angle) * RADAR_R * value,
+    y: RADAR_CY + Math.sin(angle) * RADAR_R * value,
+  };
+}
+
+function radarPolygon(values: number[]): string {
+  return values.map((v, i) => {
+    const p = radarPoint(i, v);
+    return `${p.x},${p.y}`;
+  }).join(' ');
+}
+
+function radarAxisEnd(idx: number): { x: number; y: number } {
+  return radarPoint(idx, 1);
+}
+
+function radarLabelPos(idx: number): { x: number; y: number; anchor: string } {
+  const p = radarPoint(idx, 1.2);
+  const angle = (Math.PI * 2 * idx) / 5 - Math.PI / 2;
+  let anchor = 'middle';
+  if (Math.cos(angle) > 0.3) anchor = 'start';
+  else if (Math.cos(angle) < -0.3) anchor = 'end';
+  return { x: p.x, y: p.y, anchor };
+}
+
+// ── Scatter plot ─────────────────────────────────────────────
+const SCATTER_W = 500;
+const SCATTER_H = 250;
+const SCATTER_PAD = { top: 20, right: 30, bottom: 40, left: 70 };
+
+const scatterScale = computed(() => {
+  const maxT = Math.max(...modelRows.value.map(m => m.tokens), 1);
+  const maxC = Math.max(...modelRows.value.map(m => m.cost ?? 0), 0.01);
+  return { maxT, maxC };
+});
+
+function scatterX(tokens: number): number {
+  return SCATTER_PAD.left + (tokens / scatterScale.value.maxT) * (SCATTER_W - SCATTER_PAD.left - SCATTER_PAD.right);
+}
+
+function scatterY(cost: number): number {
+  return SCATTER_H - SCATTER_PAD.bottom - (cost / scatterScale.value.maxC) * (SCATTER_H - SCATTER_PAD.top - SCATTER_PAD.bottom);
+}
+
+function scatterRadius(cacheHitRate: number): number {
+  return 6 + (cacheHitRate / 100) * 14;
+}
+
+// ── Side-by-side comparison ──────────────────────────────────
+const compareA = ref<string>('');
+const compareB = ref<string>('');
+
+watch(modelRows, (rows) => {
+  if (rows.length >= 2) {
+    if (!compareA.value || !rows.find(r => r.model === compareA.value)) compareA.value = rows[0].model;
+    if (!compareB.value || !rows.find(r => r.model === compareB.value)) compareB.value = rows[1].model;
+  } else if (rows.length === 1) {
+    compareA.value = rows[0].model;
+    compareB.value = '';
+  }
+}, { immediate: true });
+
+const compareRowA = computed(() => modelRows.value.find(r => r.model === compareA.value));
+const compareRowB = computed(() => modelRows.value.find(r => r.model === compareB.value));
+
+interface CompareMetric {
+  label: string;
+  valueA: string;
+  valueB: string;
+  delta: string;
+  direction: 'up' | 'down' | 'neutral';
+  better: 'a' | 'b' | 'neutral';
+}
+
+const compareMetrics = computed<CompareMetric[]>(() => {
+  const a = compareRowA.value;
+  const b = compareRowB.value;
+  if (!a || !b) return [];
+
+  function delta(va: number, vb: number, higherIsBetter: boolean): Pick<CompareMetric, 'delta' | 'direction' | 'better'> {
+    const diff = va - vb;
+    if (Math.abs(diff) < 0.001) return { delta: '—', direction: 'neutral', better: 'neutral' };
+    const pct = vb !== 0 ? ((diff / Math.abs(vb)) * 100).toFixed(1) : '∞';
+    const dir = diff > 0 ? 'up' : 'down';
+    const better = higherIsBetter ? (diff > 0 ? 'a' : 'b') : (diff < 0 ? 'a' : 'b');
+    return { delta: `${diff > 0 ? '+' : ''}${pct}%`, direction: dir as 'up' | 'down', better };
+  }
+
+  return [
+    { label: 'Total Tokens', valueA: formatNumber(a.tokens), valueB: formatNumber(b.tokens), ...delta(a.tokens, b.tokens, true) },
+    { label: 'Input Tokens', valueA: formatNumber(a.inputTokens), valueB: formatNumber(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
+    { label: 'Output Tokens', valueA: formatNumber(a.outputTokens), valueB: formatNumber(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
+    { label: 'Cache Read', valueA: formatNumber(a.cacheReadTokens), valueB: formatNumber(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
+    { label: 'Token Share', valueA: `${a.percentage.toFixed(1)}%`, valueB: `${b.percentage.toFixed(1)}%`, ...delta(a.percentage, b.percentage, true) },
+    { label: 'I/O Ratio', valueA: a.ioRatio.toFixed(2), valueB: b.ioRatio.toFixed(2), ...delta(a.ioRatio, b.ioRatio, false) },
+    { label: 'Cache Hit Rate', valueA: `${a.cacheHitRate.toFixed(1)}%`, valueB: `${b.cacheHitRate.toFixed(1)}%`, ...delta(a.cacheHitRate, b.cacheHitRate, true) },
+    { label: 'Est. Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
+  ];
+});
+
+// ── Formatters ───────────────────────────────────────────────
+function fmtPct(v: number): string {
+  return `${v.toFixed(1)}%`;
+}
+</script>
+
+<template>
+  <div class="page-content">
+    <div class="page-content-inner">
+      <LoadingOverlay :loading="loading" message="Loading model comparison…">
+        <div v-if="store.analyticsError" class="error-state">
+          <p>Failed to load analytics: {{ store.analyticsError }}</p>
+          <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
+        </div>
+
+        <template v-else-if="data">
+          <!-- Title + Filters -->
+          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1 class="page-title">Model Comparison</h1>
+              <p class="page-subtitle">
+                Performance and cost metrics across all models{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <TimeRangeFilter />
+              <select
+                :value="store.selectedRepo ?? ''"
+                class="filter-select"
+                aria-label="Filter by repository"
+                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
+              >
+                <option value="">All Repositories</option>
+                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="modelRows.length === 0" class="empty-state">
+            <div class="empty-state-icon">🤖</div>
+            <div class="empty-state-title">No Model Data</div>
+            <p class="empty-state-message">No model usage data found for the selected time range and repository.</p>
+          </div>
+
+          <template v-else>
+            <!-- Stat Cards -->
+            <div class="grid-4 mb-4">
+              <div class="stat-card">
+                <div class="stat-card-value accent">{{ modelCount }}</div>
+                <div class="stat-card-label">Models Used</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value done">{{ formatNumber(data.totalTokens) }}</div>
+                <div class="stat-card-label">Total Tokens</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value success">{{ formatCost(totalCost) }}</div>
+                <div class="stat-card-label">Total Est. Cost</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value warning">{{ data.totalSessions }}</div>
+                <div class="stat-card-label">Total Sessions</div>
+              </div>
+            </div>
+
+            <!-- Model Cards Row -->
+            <div class="model-cards-row mb-4">
+              <div v-for="row in modelRows" :key="row.model" class="model-card">
+                <div class="model-card-name">
+                  <span class="model-dot" :style="{ background: row.color }" />
+                  <span class="model-card-name-text" :title="row.model">{{ row.model }}</span>
+                </div>
+                <div class="model-card-stats">
+                  <div>
+                    <div class="model-card-stat-label">Tokens</div>
+                    <div class="model-card-stat-value">{{ formatNumber(row.tokens) }}</div>
+                  </div>
+                  <div>
+                    <div class="model-card-stat-label">Est. Cost</div>
+                    <div class="model-card-stat-value">{{ formatCost(row.cost) }}</div>
+                  </div>
+                  <div>
+                    <div class="model-card-stat-label">Cache Hit</div>
+                    <div class="model-card-stat-value">{{ fmtPct(row.cacheHitRate) }}</div>
+                  </div>
+                  <div>
+                    <div class="model-card-stat-label">I/O Ratio</div>
+                    <div class="model-card-stat-value">{{ row.ioRatio.toFixed(2) }}</div>
+                  </div>
+                </div>
+                <!-- Token share bar -->
+                <div class="token-share-bar">
+                  <div class="token-share-fill" :style="{ width: `${row.percentage}%`, background: row.color }" />
+                </div>
+                <div class="token-share-label">{{ fmtPct(row.percentage) }} of total tokens</div>
+              </div>
+            </div>
+
+            <!-- Performance Matrix Table -->
+            <div class="section-panel mb-4">
+              <div class="section-panel-header">Performance Matrix</div>
+              <div class="section-panel-body scrollable-section" style="padding: 0;">
+                <table class="data-table" aria-label="Model performance comparison matrix">
+                  <thead>
+                    <tr>
+                      <th class="sort-header" @click="toggleSort('model')">
+                        Model <span class="sort-arrow">{{ sortArrow('model') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('tokens')">
+                        Total Tokens <span class="sort-arrow">{{ sortArrow('tokens') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('inputTokens')">
+                        Input <span class="sort-arrow">{{ sortArrow('inputTokens') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('outputTokens')">
+                        Output <span class="sort-arrow">{{ sortArrow('outputTokens') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('cacheReadTokens')">
+                        Cache Read <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('percentage')">
+                        Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('ioRatio')">
+                        I/O Ratio <span class="sort-arrow">{{ sortArrow('ioRatio') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('cacheHitRate')">
+                        Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>
+                      </th>
+                      <th class="sort-header" @click="toggleSort('cost')">
+                        Est. Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, ri) in sortedRows" :key="row.model">
+                      <td>
+                        <span class="model-name-cell">
+                          <span class="model-dot" :style="{ background: row.color }" />
+                          {{ row.model }}
+                        </span>
+                      </td>
+                      <td class="num-cell">{{ formatNumber(row.tokens) }}</td>
+                      <td class="num-cell">{{ formatNumber(row.inputTokens) }}</td>
+                      <td class="num-cell">{{ formatNumber(row.outputTokens) }}</td>
+                      <td class="num-cell">{{ formatNumber(row.cacheReadTokens) }}</td>
+                      <td class="num-cell">
+                        <div class="inline-progress">
+                          <span>{{ fmtPct(row.percentage) }}</span>
+                          <div class="inline-progress-bar">
+                            <div class="inline-progress-fill" :style="{ width: `${row.percentage}%`, background: row.color }" />
+                          </div>
+                        </div>
+                      </td>
+                      <td class="num-cell">
+                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestIoIdx]) }">
+                          {{ row.ioRatio.toFixed(2) }}
+                        </span>
+                      </td>
+                      <td class="num-cell">
+                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestCacheIdx]) }">
+                          {{ fmtPct(row.cacheHitRate) }}
+                        </span>
+                      </td>
+                      <td class="num-cell">
+                        <span :class="{ 'best-cell': ri === modelRows.indexOf(modelRows[bestCostIdx]) }">
+                          {{ formatCost(row.cost) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Radar + Scatter -->
+            <div class="grid-2 mb-4">
+              <!-- Radar Chart -->
+              <div class="section-panel">
+                <div class="section-panel-header">Capability Radar (Top 3)</div>
+                <div class="section-panel-body">
+                  <div v-if="radarModels.length < 2" class="chart-placeholder">
+                    Need at least 2 models for radar comparison.
+                  </div>
+                  <template v-else>
+                    <div class="legend">
+                      <span v-for="rm in radarModels" :key="rm.model">
+                        <span class="legend-dot" :style="{ background: rm.color }" />&nbsp;{{ rm.model }}
+                      </span>
+                    </div>
+                    <svg class="chart-svg" :viewBox="`0 0 300 260`" role="img" aria-label="Radar chart comparing model capabilities">
+                      <!-- Grid rings -->
+                      <polygon
+                        v-for="ring in [0.25, 0.5, 0.75, 1]"
+                        :key="`ring-${ring}`"
+                        :points="Array.from({ length: 5 }, (_, i) => { const p = radarPoint(i, ring); return `${p.x},${p.y}`; }).join(' ')"
+                        fill="none"
+                        stroke="var(--border-default)"
+                        stroke-width="0.5"
+                        opacity="0.5"
+                      />
+                      <!-- Axis lines -->
+                      <line
+                        v-for="(_, ai) in radarAxes"
+                        :key="`axis-${ai}`"
+                        :x1="RADAR_CX"
+                        :y1="RADAR_CY"
+                        :x2="radarAxisEnd(ai).x"
+                        :y2="radarAxisEnd(ai).y"
+                        stroke="var(--border-default)"
+                        stroke-width="0.5"
+                        opacity="0.5"
+                      />
+                      <!-- Axis labels -->
+                      <text
+                        v-for="(label, ai) in radarAxes"
+                        :key="`label-${ai}`"
+                        :x="radarLabelPos(ai).x"
+                        :y="radarLabelPos(ai).y"
+                        :text-anchor="radarLabelPos(ai).anchor"
+                        font-size="9"
+                        fill="var(--text-tertiary)"
+                        font-family="Inter, sans-serif"
+                      >{{ label }}</text>
+                      <!-- Model polygons -->
+                      <polygon
+                        v-for="rm in radarModels"
+                        :key="`poly-${rm.model}`"
+                        :points="radarPolygon(radarValues(rm))"
+                        :fill="rm.color"
+                        fill-opacity="0.12"
+                        :stroke="rm.color"
+                        stroke-width="1.5"
+                      />
+                      <!-- Model dots -->
+                      <template v-for="rm in radarModels" :key="`dots-${rm.model}`">
+                        <circle
+                          v-for="(v, vi) in radarValues(rm)"
+                          :key="`dot-${rm.model}-${vi}`"
+                          :cx="radarPoint(vi, v).x"
+                          :cy="radarPoint(vi, v).y"
+                          r="3"
+                          :fill="rm.color"
+                        />
+                      </template>
+                    </svg>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Scatter Plot -->
+              <div class="section-panel">
+                <div class="section-panel-header">Cost vs Token Volume</div>
+                <div class="section-panel-body">
+                  <div v-if="modelRows.length < 2 || modelRows.every(m => m.cost == null)" class="chart-placeholder">
+                    Need at least 2 models with cost data for scatter plot.
+                  </div>
+                  <template v-else>
+                    <div class="legend">
+                      <span v-for="row in modelRows" :key="row.model">
+                        <span class="legend-dot" :style="{ background: row.color }" />&nbsp;{{ row.model }}
+                      </span>
+                    </div>
+                    <svg class="chart-svg" :viewBox="`0 0 ${SCATTER_W} ${SCATTER_H}`" role="img" aria-label="Scatter plot of cost vs token volume">
+                      <!-- Grid lines -->
+                      <line
+                        v-for="i in 4"
+                        :key="`gx-${i}`"
+                        :x1="SCATTER_PAD.left"
+                        :y1="SCATTER_PAD.top + (i - 1) * ((SCATTER_H - SCATTER_PAD.top - SCATTER_PAD.bottom) / 3)"
+                        :x2="SCATTER_W - SCATTER_PAD.right"
+                        :y2="SCATTER_PAD.top + (i - 1) * ((SCATTER_H - SCATTER_PAD.top - SCATTER_PAD.bottom) / 3)"
+                        stroke="var(--border-default)"
+                        stroke-width="0.5"
+                        opacity="0.3"
+                      />
+                      <!-- Axes -->
+                      <line :x1="SCATTER_PAD.left" :y1="SCATTER_H - SCATTER_PAD.bottom" :x2="SCATTER_W - SCATTER_PAD.right" :y2="SCATTER_H - SCATTER_PAD.bottom" stroke="var(--border-default)" stroke-width="1" />
+                      <line :x1="SCATTER_PAD.left" :y1="SCATTER_PAD.top" :x2="SCATTER_PAD.left" :y2="SCATTER_H - SCATTER_PAD.bottom" stroke="var(--border-default)" stroke-width="1" />
+                      <!-- X-axis label -->
+                      <text :x="(SCATTER_PAD.left + SCATTER_W - SCATTER_PAD.right) / 2" :y="SCATTER_H - 6" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter, sans-serif">Total Tokens</text>
+                      <!-- Y-axis label -->
+                      <text :x="14" :y="(SCATTER_PAD.top + SCATTER_H - SCATTER_PAD.bottom) / 2" text-anchor="middle" font-size="10" fill="var(--text-tertiary)" font-family="Inter, sans-serif" transform="rotate(-90, 14, 135)">Est. Cost ($)</text>
+                      <!-- Scale labels -->
+                      <text :x="SCATTER_PAD.left - 8" :y="SCATTER_H - SCATTER_PAD.bottom + 4" text-anchor="end" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">$0</text>
+                      <text :x="SCATTER_PAD.left - 8" :y="SCATTER_PAD.top + 4" text-anchor="end" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">{{ formatCost(scatterScale.maxC) }}</text>
+                      <text :x="SCATTER_PAD.left" :y="SCATTER_H - SCATTER_PAD.bottom + 16" text-anchor="start" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">0</text>
+                      <text :x="SCATTER_W - SCATTER_PAD.right" :y="SCATTER_H - SCATTER_PAD.bottom + 16" text-anchor="end" font-size="8" fill="var(--text-tertiary)" font-family="Inter, sans-serif">{{ formatNumber(scatterScale.maxT) }}</text>
+                      <!-- Data points -->
+                      <g v-for="row in modelRows" :key="`scatter-${row.model}`">
+                        <circle
+                          :cx="scatterX(row.tokens)"
+                          :cy="scatterY(row.cost ?? 0)"
+                          :r="scatterRadius(row.cacheHitRate)"
+                          :fill="row.color"
+                          fill-opacity="0.6"
+                          :stroke="row.color"
+                          stroke-width="1.5"
+                        >
+                          <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatCost(row.cost) }}, {{ fmtPct(row.cacheHitRate) }} cache</title>
+                        </circle>
+                        <text
+                          :x="scatterX(row.tokens)"
+                          :y="scatterY(row.cost ?? 0) - scatterRadius(row.cacheHitRate) - 4"
+                          text-anchor="middle"
+                          font-size="8"
+                          fill="var(--text-secondary)"
+                          font-family="Inter, sans-serif"
+                        >{{ row.model }}</text>
+                      </g>
+                    </svg>
+                    <div class="scatter-hint">Bubble size = cache efficiency</div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Side-by-Side Comparison -->
+            <div class="section-panel mb-4">
+              <div class="section-panel-header">Side-by-Side Comparison</div>
+              <div class="section-panel-body">
+                <div v-if="modelRows.length < 2" class="chart-placeholder">
+                  Need at least 2 models for side-by-side comparison.
+                </div>
+                <template v-else>
+                  <div class="compare-selectors">
+                    <select v-model="compareA" class="filter-select" aria-label="Select first model">
+                      <option v-for="row in modelRows" :key="row.model" :value="row.model">{{ row.model }}</option>
+                    </select>
+                    <span class="compare-vs">vs</span>
+                    <select v-model="compareB" class="filter-select" aria-label="Select second model">
+                      <option v-for="row in modelRows" :key="row.model" :value="row.model">{{ row.model }}</option>
+                    </select>
+                  </div>
+                  <table class="data-table compare-table" aria-label="Side-by-side model comparison">
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th>
+                          <span class="model-name-cell">
+                            <span class="model-dot" :style="{ background: compareRowA?.color }" />
+                            {{ compareA }}
+                          </span>
+                        </th>
+                        <th>Delta</th>
+                        <th>
+                          <span class="model-name-cell">
+                            <span class="model-dot" :style="{ background: compareRowB?.color }" />
+                            {{ compareB }}
+                          </span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="metric in compareMetrics" :key="metric.label">
+                        <td style="font-weight: 500;">{{ metric.label }}</td>
+                        <td class="num-cell" :class="{ 'compare-better': metric.better === 'a' }">{{ metric.valueA }}</td>
+                        <td class="num-cell delta-cell">
+                          <span :class="`delta-${metric.direction}`">
+                            {{ metric.direction === 'up' ? '↑' : metric.direction === 'down' ? '↓' : '' }}
+                            {{ metric.delta }}
+                          </span>
+                        </td>
+                        <td class="num-cell" :class="{ 'compare-better': metric.better === 'b' }">{{ metric.valueB }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </template>
+              </div>
+            </div>
+          </template>
+        </template>
+      </LoadingOverlay>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.mb-4 {
+  margin-bottom: 20px;
+}
+
+/* ── Empty State ──────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.empty-state-message {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Model Cards Row ──────────────────────────────────────── */
+.model-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.model-card {
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.model-card:hover {
+  border-color: var(--border-accent, #6366f1);
+  box-shadow: 0 0 0 1px var(--border-accent, #6366f1);
+}
+
+.model-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.model-card-name-text {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.model-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.model-card-stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.model-card-stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.token-share-bar {
+  height: 6px;
+  background: var(--neutral-muted, rgba(99, 102, 241, 0.08));
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.token-share-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.token-share-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Performance Matrix Table ─────────────────────────────── */
+.sort-header {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sort-header:hover {
+  color: var(--accent-fg, #818cf8);
+}
+.sort-arrow {
+  font-size: 0.6rem;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+.sort-header:hover .sort-arrow {
+  opacity: 1;
+}
+
+.num-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.model-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.best-cell {
+  background: rgba(52, 211, 153, 0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  display: inline-block;
+  color: #34d399;
+  font-weight: 600;
+}
+
+.inline-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.inline-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--neutral-muted, rgba(99, 102, 241, 0.08));
+  border-radius: 3px;
+  overflow: hidden;
+}
+.inline-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Scrollable Sections ──────────────────────────────────── */
+.scrollable-section {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* ── Charts ───────────────────────────────────────────────── */
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a1a1aa);
+  flex-wrap: wrap;
+}
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.chart-placeholder {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.scatter-hint {
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ── Side-by-Side Comparison ──────────────────────────────── */
+.compare-selectors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.compare-vs {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compare-table th:nth-child(3),
+.compare-table td:nth-child(3) {
+  text-align: center;
+  width: 100px;
+}
+
+.compare-better {
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.delta-cell {
+  text-align: center !important;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.delta-up {
+  color: #34d399;
+}
+.delta-down {
+  color: #fb7185;
+}
+.delta-neutral {
+  color: var(--text-tertiary);
+}
+</style>
