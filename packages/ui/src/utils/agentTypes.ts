@@ -15,11 +15,11 @@ export type AgentType =
   | "task";
 
 export const AGENT_COLORS: Record<AgentType, string> = {
-  main: "#6366f1",
-  explore: "#22d3ee",
-  "general-purpose": "#a78bfa",
-  "code-review": "#f472b6",
-  task: "#fbbf24",
+  main: "var(--agent-color-main)",
+  explore: "var(--agent-color-explore)",
+  "general-purpose": "var(--agent-color-general-purpose)",
+  "code-review": "var(--agent-color-code-review)",
+  task: "var(--agent-color-task)",
 };
 
 export const AGENT_ICONS: Record<AgentType, string> = {

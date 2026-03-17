@@ -485,4 +485,154 @@ describe("AgentTreeView", () => {
     const statusIcons = wrapper.findAll(".agent-node-status--in-progress");
     expect(statusIcons.length).toBeGreaterThan(0);
   });
+
+  // ── Subagent Output Tests ─────────────────────────────────────────
+
+  it("shows output section when a subagent with messages is selected", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-1",
+      agentDisplayName: "Explore Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [
+          { content: "Main agent text" },
+          { content: "Subagent found the answer", parentToolCallId: "agent-1" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Select the subagent node (second node after main)
+    const nodes = wrapper.findAll(".agent-node");
+    const subagentNode = nodes.find(n => n.text().includes("Explore Agent"));
+    expect(subagentNode).toBeDefined();
+    await subagentNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    expect(detailPanel.exists()).toBe(true);
+    expect(detailPanel.text()).toContain("Output");
+    expect(detailPanel.text()).toContain("Subagent found the answer");
+    // Main agent text should NOT appear in the subagent output
+    expect(detailPanel.find(".detail-output").text()).not.toContain("Main agent text");
+  });
+
+  it("shows reasoning section with toggle when subagent has reasoning", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-1",
+      agentDisplayName: "Thinking Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [
+          { content: "Result", parentToolCallId: "agent-1" },
+        ],
+        reasoningTexts: [
+          { content: "Let me think about this...", parentToolCallId: "agent-1" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const subagentNode = nodes.find(n => n.text().includes("Thinking Agent"));
+    await subagentNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    // Reasoning toggle should exist
+    const reasoningToggle = detailPanel.find(".reasoning-toggle");
+    expect(reasoningToggle.exists()).toBe(true);
+    expect(reasoningToggle.text()).toContain("1 reasoning block");
+
+    // Reasoning content hidden by default
+    expect(detailPanel.find(".reasoning-content").exists()).toBe(false);
+
+    // Click to expand
+    await reasoningToggle.trigger("click");
+    await nextTick();
+    expect(detailPanel.find(".reasoning-content").exists()).toBe(true);
+    expect(detailPanel.find(".reasoning-content").text()).toContain("Let me think about this...");
+  });
+
+  it("main agent node excludes subagent-attributed messages", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-1",
+      agentDisplayName: "Sub Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [
+          { content: "Main says hello" },
+          { content: "Sub says hello", parentToolCallId: "agent-1" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Select main agent node (first node)
+    const nodes = wrapper.findAll(".agent-node");
+    const mainNode = nodes.find(n => n.text().includes("Main Agent"));
+    expect(mainNode).toBeDefined();
+    await mainNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    expect(detailPanel.exists()).toBe(true);
+    // Main output should contain only main agent's message
+    expect(detailPanel.text()).toContain("Main says hello");
+    // Subagent message should NOT appear in main agent's output
+    const outputSection = detailPanel.find(".detail-output");
+    if (outputSection.exists()) {
+      expect(outputSection.text()).not.toContain("Sub says hello");
+    }
+  });
+
+  it("does not show output section when subagent has no messages", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-1",
+      agentDisplayName: "Silent Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [{ content: "Main only" }],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const subagentNode = nodes.find(n => n.text().includes("Silent Agent"));
+    await subagentNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    expect(detailPanel.exists()).toBe(true);
+    // No Output heading since no messages
+    const sectionTitles = detailPanel.findAll(".detail-section-title");
+    const outputTitle = sectionTitles.filter(t => t.text() === "Output");
+    expect(outputTitle.length).toBe(0);
+    // No reasoning toggle
+    expect(detailPanel.find(".reasoning-toggle").exists()).toBe(false);
+  });
 });

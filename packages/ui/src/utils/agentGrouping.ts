@@ -271,3 +271,64 @@ function buildMainSection(turn: ConversationTurn): AgentSection {
     toolCalls: turn.toolCalls,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Session-wide subagent content aggregation
+// ---------------------------------------------------------------------------
+
+/** Aggregated output content for a single subagent across all turns. */
+export interface SubagentContent {
+  messages: string[];
+  reasoning: string[];
+}
+
+/**
+ * Build a session-wide index of subagent output content.
+ *
+ * Aggregates assistant messages and reasoning texts across ALL turns,
+ * attributed to each subagent via `parentToolCallId`. This handles the
+ * cross-turn case where a subagent launches in turn N but produces
+ * output in turn N+1 (or later).
+ *
+ * @returns Map from subagent toolCallId → aggregated content.
+ */
+export function buildSubagentContentIndex(
+  turns: ConversationTurn[],
+): Map<string, SubagentContent> {
+  // Collect all known subagent tool call IDs across the session
+  const subagentIds = new Set<string>();
+  for (const turn of turns) {
+    for (const tc of turn.toolCalls) {
+      if (tc.isSubagent && tc.toolCallId) {
+        subagentIds.add(tc.toolCallId);
+      }
+    }
+  }
+
+  const map = new Map<string, SubagentContent>();
+
+  for (const turn of turns) {
+    for (const msg of turn.assistantMessages) {
+      if (msg.parentToolCallId && subagentIds.has(msg.parentToolCallId)) {
+        let entry = map.get(msg.parentToolCallId);
+        if (!entry) {
+          entry = { messages: [], reasoning: [] };
+          map.set(msg.parentToolCallId, entry);
+        }
+        entry.messages.push(msg.content);
+      }
+    }
+    for (const r of turn.reasoningTexts ?? []) {
+      if (r.parentToolCallId && subagentIds.has(r.parentToolCallId)) {
+        let entry = map.get(r.parentToolCallId);
+        if (!entry) {
+          entry = { messages: [], reasoning: [] };
+          map.set(r.parentToolCallId, entry);
+        }
+        entry.reasoning.push(r.content);
+      }
+    }
+  }
+
+  return map;
+}
