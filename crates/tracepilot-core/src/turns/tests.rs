@@ -1,7 +1,8 @@
     use super::*;
     use crate::models::event_types::{
-        AssistantMessageData, SubagentCompletedData, SubagentStartedData, ToolExecCompleteData,
-        ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
+        AbortData, AssistantMessageData, ModelChangeData, SubagentCompletedData,
+        SubagentFailedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
+        TurnEndData, TurnStartData, UserMessageData,
     };
     use crate::parsing::events::{RawEvent, TypedEvent};
     use serde_json::{Value, json};
@@ -2311,3 +2312,506 @@
             "outer subagent model should propagate from inner subagent's resolved model"
         );
     }
+
+    // === New tests for TurnReconstructor improvements ===
+
+    #[test]
+    fn abort_event_finalizes_current_turn() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do something".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::Abort,
+                TypedEventData::Abort(AbortData {
+                    reason: Some("User cancelled".to_string()),
+                }),
+                "ev-3",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1, "abort should finalize the current turn");
+        assert!(
+            !turns[0].is_complete,
+            "aborted turn should be marked incomplete"
+        );
+    }
+
+    #[test]
+    fn session_model_change_sets_turn_model() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::SessionModelChange,
+                TypedEventData::ModelChange(ModelChangeData {
+                    previous_model: None,
+                    new_model: Some("claude-sonnet-4".to_string()),
+                    previous_reasoning_effort: None,
+                    reasoning_effort: None,
+                }),
+                "ev-3",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "ev-4",
+                "2025-01-01T00:00:03Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(
+            turns[0].model.as_deref(),
+            Some("claude-sonnet-4"),
+            "model change event should set the turn's model"
+        );
+    }
+
+    #[test]
+    fn session_model_change_does_not_overwrite_existing_model() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    tool_name: Some("read_file".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "ev-2b",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-1".to_string()),
+                    parent_tool_call_id: None,
+                    model: Some("gpt-4o".to_string()),
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "ev-3",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::SessionModelChange,
+                TypedEventData::ModelChange(ModelChangeData {
+                    previous_model: Some("gpt-4o".to_string()),
+                    new_model: Some("claude-sonnet-4".to_string()),
+                    previous_reasoning_effort: None,
+                    reasoning_effort: None,
+                }),
+                "ev-4",
+                "2025-01-01T00:00:03Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "ev-5",
+                "2025-01-01T00:00:04Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(
+            turns[0].model.as_deref(),
+            Some("gpt-4o"),
+            "model change should not overwrite model already set by tool completion"
+        );
+    }
+
+    #[test]
+    fn duplicate_tool_execution_start_is_deduplicated() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do work".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            // First ToolExecutionStart
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-dup".to_string()),
+                    tool_name: Some("read_file".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "ev-3",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            // Duplicate ToolExecutionStart with same ID
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-dup".to_string()),
+                    tool_name: Some("read_file".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "ev-3-dup",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-dup".to_string()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: None,
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "ev-4",
+                "2025-01-01T00:00:03Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "ev-5",
+                "2025-01-01T00:00:04Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(
+            turns[0].tool_calls.len(),
+            1,
+            "duplicate ToolExecutionStart should be deduplicated"
+        );
+    }
+
+    #[test]
+    fn subagent_failed_records_error() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Do work".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "ev-3",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: Some("task".to_string()),
+                    agent_display_name: None,
+                    agent_description: None,
+                }),
+                "ev-4",
+                "2025-01-01T00:00:03Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::SubagentFailed,
+                TypedEventData::SubagentFailed(SubagentFailedData {
+                    tool_call_id: Some("sub-1".to_string()),
+                    agent_name: None,
+                    agent_display_name: None,
+                    error: Some("timeout".to_string()),
+                }),
+                "ev-5",
+                "2025-01-01T00:00:04Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "ev-6",
+                "2025-01-01T00:00:05Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        let tc = &turns[0].tool_calls[0];
+        assert!(tc.is_subagent);
+        assert_eq!(tc.success, Some(false), "failed subagent should be marked unsuccessful");
+        assert_eq!(tc.error.as_deref(), Some("timeout"));
+    }
+
+    #[test]
+    fn repro_enrich_subagent_bug() {
+        // Scenario: ToolExecComplete arrives BEFORE SubagentStarted.
+        // This simulates a fast tool completion or out-of-order delivery.
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Launch".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "evt-1",
+                "2026-03-10T10:00:00.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T10:00:00.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::ToolExecutionStart,
+                TypedEventData::ToolExecutionStart(ToolExecStartData {
+                    tool_call_id: Some("tc-bug".to_string()),
+                    tool_name: Some("task".to_string()),
+                    arguments: None,
+                    parent_tool_call_id: None,
+                    mcp_server_name: None,
+                    mcp_tool_name: None,
+                }),
+                "evt-3",
+                "2026-03-10T10:00:01.000Z",
+                Some("evt-2"),
+            ),
+            // Tool completes immediately (is_complete = true)
+            make_event(
+                SessionEventType::ToolExecutionComplete,
+                TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
+                    tool_call_id: Some("tc-bug".to_string()),
+                    parent_tool_call_id: None,
+                    model: None,
+                    interaction_id: Some("int-1".to_string()),
+                    success: Some(true),
+                    result: None,
+                    error: None,
+                    tool_telemetry: None,
+                }),
+                "evt-4",
+                "2026-03-10T10:00:01.100Z",
+                Some("evt-3"),
+            ),
+            // Then we learn it's a subagent
+            make_event(
+                SessionEventType::SubagentStarted,
+                TypedEventData::SubagentStarted(SubagentStartedData {
+                    tool_call_id: Some("tc-bug".to_string()),
+                    agent_name: Some("task".to_string()),
+                    agent_display_name: Some("Task Agent".to_string()),
+                    agent_description: None,
+                }),
+                "evt-5",
+                "2026-03-10T10:00:01.200Z",
+                Some("evt-4"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        let tc = &turns[0].tool_calls[0];
+
+        // Expectation based on comment: should be false (waiting for SubagentCompleted)
+        assert!(!tc.is_complete, "Subagent should be incomplete despite ToolExecComplete");
+    }
+
+    #[test]
+    fn session_model_change_persists_across_turns() {
+        // Model change between turns should be inherited by the next turn
+        let events = vec![
+            make_event(
+                SessionEventType::SessionModelChange,
+                TypedEventData::ModelChange(ModelChangeData {
+                    previous_model: None,
+                    new_model: Some("claude-sonnet-4".to_string()),
+                    previous_reasoning_effort: None,
+                    reasoning_effort: None,
+                }),
+                "ev-0",
+                "2025-01-01T00:00:00Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Hello".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                }),
+                "ev-1",
+                "2025-01-01T00:00:01Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "ev-2",
+                "2025-01-01T00:00:02Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "ev-3",
+                "2025-01-01T00:00:03Z",
+                None,
+            ),
+        ];
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(
+            turns[0].model.as_deref(),
+            Some("claude-sonnet-4"),
+            "turn should inherit session_model from prior model change"
+        );
+    }
+
