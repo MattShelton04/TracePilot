@@ -24,6 +24,17 @@ pub struct SessionIndexInfo {
 /// Sessions with a stored analytics_version below this will be re-indexed.
 const CURRENT_ANALYTICS_VERSION: i64 = 2;
 
+/// Named row for per-model metrics (replaces opaque 7-tuple).
+struct ModelMetricsRow {
+    model: String,
+    input_tokens: i64,
+    output_tokens: i64,
+    cache_read_tokens: i64,
+    cache_write_tokens: i64,
+    cost: f64,
+    premium_requests: i64,
+}
+
 const MIGRATION_1: &str = r#"
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -245,7 +256,7 @@ impl IndexDb {
         let mut duration_ms: Option<i64> = None;
 
         // Model metrics for child table
-        let mut model_rows: Vec<(String, i64, i64, i64, i64, f64, i64)> = Vec::new();
+        let mut model_rows: Vec<ModelMetricsRow> = Vec::new();
 
         if let Some(ref metrics) = summary.shutdown_metrics {
             // Duration from session_start_time → updated_at
@@ -287,15 +298,15 @@ impl IndexDb {
                     .and_then(|r| r.count)
                     .unwrap_or(0) as i64;
 
-                model_rows.push((
-                    model_name.clone(),
-                    input_t,
-                    output_t,
-                    cache_read,
-                    cache_write,
+                model_rows.push(ModelMetricsRow {
+                    model: model_name.clone(),
+                    input_tokens: input_t,
+                    output_tokens: output_t,
+                    cache_read_tokens: cache_read,
+                    cache_write_tokens: cache_write,
                     cost,
-                    req_count,
-                ));
+                    premium_requests: req_count,
+                });
             }
 
             // Code changes
@@ -313,41 +324,22 @@ impl IndexDb {
         );
         let health_score = health.score;
 
-        // Tool call count: only set from actual event extraction, not from turn_count
-        let tool_call_count: Option<i64> = None;
-
         let events_meta = get_events_mtime_and_size(session_path);
         let events_mtime = events_meta.as_ref().map(|(m, _)| m.clone());
         let events_size = events_meta.map(|(_, s)| s as i64);
 
-        // ── Extract event-level analytics ────────────────────────────
-        // Tuple: (name, call_count, success, failure, total_dur_ms, calls_with_duration)
+        // ── Extract event-level analytics (single pass) ────────────
         let mut tool_call_rows: Vec<(String, i64, i64, i64, i64, i64)> = Vec::new();
         let mut activity_rows: Vec<(i64, i64, i64)> = Vec::new();
         let mut modified_file_rows: Vec<(String, Option<String>)> = Vec::new();
-        let mut content_parts: Vec<String> = Vec::new();
+        // Stream FTS content directly into a single String to avoid Vec<String> + join
+        let mut fts_content = String::with_capacity(
+            typed_events.as_ref().map_or(0, |e| e.len().min(2000) * 50),
+        );
+        let fts_limit: usize = 100_000;
         let mut actual_tool_call_count: i64 = 0;
 
         if let Some(ref events) = typed_events {
-            // Extract conversation content for FTS
-            for event in events {
-                match &event.typed_data {
-                    TypedEventData::UserMessage(d) => {
-                        if let Some(content) = &d.content {
-                            content_parts.push(content.clone());
-                        }
-                    }
-                    TypedEventData::AssistantMessage(d) => {
-                        if let Some(content) = &d.content {
-                            content_parts.push(content.clone());
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            // Tool call stats from events
-            // Accumulator: (call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
             let mut tool_starts: HashMap<String, (String, Option<chrono::DateTime<chrono::Utc>>)> =
                 HashMap::new();
             let mut tool_accum: HashMap<String, (i64, i64, i64, i64, i64)> = HashMap::new();
@@ -355,6 +347,26 @@ impl IndexDb {
 
             for event in events {
                 match &event.typed_data {
+                    TypedEventData::UserMessage(d) => {
+                        if fts_content.len() < fts_limit {
+                            if let Some(content) = &d.content {
+                                if !fts_content.is_empty() {
+                                    fts_content.push('\n');
+                                }
+                                fts_content.push_str(content);
+                            }
+                        }
+                    }
+                    TypedEventData::AssistantMessage(d) => {
+                        if fts_content.len() < fts_limit {
+                            if let Some(content) = &d.content {
+                                if !fts_content.is_empty() {
+                                    fts_content.push('\n');
+                                }
+                                fts_content.push_str(content);
+                            }
+                        }
+                    }
                     TypedEventData::ToolExecutionStart(d) => {
                         if let Some(ref tool_call_id) = d.tool_call_id {
                             let name = d.tool_name.clone().unwrap_or_else(|| "unknown".into());
@@ -373,24 +385,22 @@ impl IndexDb {
                                 let acc = tool_accum
                                     .entry(tool_name.clone())
                                     .or_insert((0, 0, 0, 0, 0));
-                                acc.0 += 1; // call_count
+                                acc.0 += 1;
 
                                 match d.success {
-                                    Some(true) => acc.1 += 1,  // success_count
-                                    Some(false) => acc.2 += 1, // failure_count
+                                    Some(true) => acc.1 += 1,
+                                    Some(false) => acc.2 += 1,
                                     None => {}
                                 }
 
-                                // Duration — only count when both timestamps available
                                 if let (Some(start), Some(end)) =
                                     (start_ts, event.raw.timestamp)
                                 {
                                     let dur = (end - start).num_milliseconds().max(0);
-                                    acc.3 += dur; // total_duration_ms
-                                    acc.4 += 1;   // calls_with_duration
+                                    acc.3 += dur;
+                                    acc.4 += 1;
                                 }
 
-                                // Heatmap from start timestamp
                                 if let Some(ts) = start_ts {
                                     use chrono::{Datelike, Timelike};
                                     let day =
@@ -417,7 +427,7 @@ impl IndexDb {
         let final_tool_call_count = if actual_tool_call_count > 0 {
             Some(actual_tool_call_count)
         } else {
-            tool_call_count
+            None
         };
 
         // Modified files from shutdown metrics
@@ -542,13 +552,14 @@ impl IndexDb {
             )?;
 
             // INSERT child rows: model metrics
-            for (model, inp, out, cr, cw, cost, req) in &model_rows {
+            for row in &model_rows {
                 self.conn.execute(
                     "INSERT INTO session_model_metrics
                         (session_id, model_name, input_tokens, output_tokens,
                          cache_read_tokens, cache_write_tokens, cost, request_count)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![session_id, model, inp, out, cr, cw, cost, req],
+                    params![session_id, row.model, row.input_tokens, row.output_tokens,
+                            row.cache_read_tokens, row.cache_write_tokens, row.cost, row.premium_requests],
                 )?;
             }
 
@@ -581,9 +592,8 @@ impl IndexDb {
             }
 
             // INSERT conversation FTS content
-            if !content_parts.is_empty() {
-                let combined = content_parts.join("\n");
-                let truncated = truncate_utf8(&combined, 100_000);
+            if !fts_content.is_empty() {
+                let truncated = truncate_utf8(&fts_content, fts_limit);
                 self.conn.execute(
                     "INSERT INTO conversation_fts (session_id, content) VALUES (?1, ?2)",
                     params![session_id, truncated],
@@ -769,23 +779,42 @@ impl IndexDb {
             return Ok(0);
         }
 
-        // Batch delete with IN clause — child tables auto-cascade via PRAGMA foreign_keys=ON
-        let placeholders: Vec<String> = (1..=stale.len()).map(|i| format!("?{}", i)).collect();
-        let in_clause = placeholders.join(", ");
+        // Use temp table to avoid exceeding SQLITE_MAX_VARIABLE_NUMBER with large IN clauses.
+        // Both DELETEs are wrapped in a transaction for atomicity.
+        self.conn.execute_batch("BEGIN")?;
+        let result = (|| -> Result<()> {
+            self.conn.execute_batch(
+                "CREATE TEMP TABLE IF NOT EXISTS _live_ids (id TEXT PRIMARY KEY)"
+            )?;
+            self.conn.execute_batch("DELETE FROM _live_ids")?;
 
-        let sql = format!("DELETE FROM sessions WHERE id IN ({})", in_clause);
-        let params: Vec<&dyn ToSql> = stale.iter().map(|s| s as &dyn ToSql).collect();
-        self.conn.execute(&sql, params_from_iter(params.iter().copied()))?;
+            let mut stmt = self.conn.prepare(
+                "INSERT OR IGNORE INTO _live_ids (id) VALUES (?1)"
+            )?;
+            for id in live_ids {
+                stmt.execute([id])?;
+            }
 
-        // FTS tables don't cascade, clean them explicitly
-        let fts_sql = format!(
-            "DELETE FROM conversation_fts WHERE session_id IN ({})",
-            in_clause
-        );
-        let params2: Vec<&dyn ToSql> = stale.iter().map(|s| s as &dyn ToSql).collect();
-        self.conn.execute(&fts_sql, params_from_iter(params2.iter().copied()))?;
+            self.conn.execute_batch(
+                "DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)"
+            )?;
+            self.conn.execute_batch(
+                "DELETE FROM conversation_fts WHERE session_id NOT IN (SELECT id FROM _live_ids)"
+            )?;
+            self.conn.execute_batch("DROP TABLE IF EXISTS _live_ids")?;
+            Ok(())
+        })();
 
-        Ok(count)
+        match result {
+            Ok(()) => {
+                self.conn.execute_batch("COMMIT")?;
+                Ok(count)
+            }
+            Err(e) => {
+                let _ = self.conn.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
     }
 
     /// Get a session's filesystem path from the index.

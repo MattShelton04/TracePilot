@@ -134,19 +134,6 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
     Ok((events, malformed))
 }
 
-/// Count events without fully parsing them (fast scan).
-pub fn count_events(path: &Path) -> Result<usize> {
-    let file = std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open {}", path.display()),
-        source: Some(Box::new(e)),
-    })?;
-    let reader = BufReader::new(file);
-    Ok(reader
-        .lines()
-        .filter(|l| l.as_ref().is_ok_and(|s| !s.trim().is_empty()))
-        .count())
-}
-
 /// Deserialize the `data` field of a [`RawEvent`] into the appropriate typed variant.
 ///
 /// Returns `(typed_data, optional_warning)`. On success, the warning is `None`.
@@ -297,19 +284,6 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
 
     diagnostics.log_summary();
     Ok(ParsedEvents { events, diagnostics })
-}
-
-/// Extract shutdown data from the LAST `session.shutdown` event.
-#[deprecated(note = "Use extract_combined_shutdown_data to correctly sum metrics across resumed sessions")]
-pub fn extract_shutdown_data(events: &[TypedEvent]) -> Option<ShutdownData> {
-    events
-        .iter()
-        .rev()
-        .find(|e| e.event_type == SessionEventType::SessionShutdown)
-        .and_then(|e| match &e.typed_data {
-            TypedEventData::SessionShutdown(d) => Some(d.clone()),
-            _ => None,
-        })
 }
 
 /// Collect ALL `session.shutdown` events and combine their per-instance metrics.
@@ -583,10 +557,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = write_sample_file(&dir);
         let events = parse_typed_events(&path).unwrap().events;
-        #[allow(deprecated)]
-        let shutdown = extract_shutdown_data(&events);
-        assert!(shutdown.is_some());
-        let sd = shutdown.unwrap();
+        let result = extract_combined_shutdown_data(&events);
+        assert!(result.is_some());
+        let (sd, count) = result.unwrap();
+        assert_eq!(count, 1);
         assert_eq!(sd.shutdown_type.as_deref(), Some("routine"));
         assert_eq!(sd.total_premium_requests, Some(1.0));
         assert_eq!(sd.current_model.as_deref(), Some("claude-opus-4.6"));

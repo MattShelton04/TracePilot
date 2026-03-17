@@ -5,6 +5,7 @@ members = [
     "crates/tracepilot-indexer",
     "crates/tracepilot-export",
     "crates/tracepilot-tauri-bindings",
+    "crates/tracepilot-bench",
     "apps/desktop/src-tauri",
 ]
 
