@@ -198,7 +198,7 @@ export interface AnalyticsData {
   /** Session count per day */
   sessionsPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
-  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; requestCount: number }>;
+  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
   /** Session duration statistics */

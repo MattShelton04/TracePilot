@@ -42,7 +42,7 @@ interface ModelRow {
 const modelRows = computed<ModelRow[]>(() => {
   if (!data.value?.modelDistribution) return [];
   return data.value.modelDistribution.map((m, i) => {
-    const premiumRequests = m.requestCount;
+    const premiumRequests = m.premiumRequests;
     const cacheHitRate = m.inputTokens > 0
       ? m.cacheReadTokens / m.inputTokens * 100
       : 0;

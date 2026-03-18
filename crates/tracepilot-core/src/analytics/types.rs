@@ -68,7 +68,7 @@ pub struct ModelDistEntry {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cache_read_tokens: u64,
-    pub request_count: u64,
+    pub premium_requests: f64,
 }
 
 /// Cost for a single day.

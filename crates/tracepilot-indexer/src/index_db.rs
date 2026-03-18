@@ -900,7 +900,7 @@ impl IndexDb {
                     SUM(m.input_tokens),
                     SUM(m.output_tokens),
                     SUM(m.cache_read_tokens),
-                    SUM(m.request_count)
+                    SUM(m.cost)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",
@@ -1378,19 +1378,19 @@ fn query_model_distribution(
             row.get::<_, i64>(2)?,
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
-            row.get::<_, i64>(5)?,
+            row.get::<_, f64>(5)?,
         ))
     })?;
-    let mut entries: Vec<(String, i64, i64, i64, i64, i64)> = Vec::new();
+    let mut entries: Vec<(String, i64, i64, i64, i64, f64)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens, input_t, output_t, cache_read, req_count) = row?;
+        let (model, tokens, input_t, output_t, cache_read, premium_req) = row?;
         grand_total += tokens;
-        entries.push((model, tokens, input_t, output_t, cache_read, req_count));
+        entries.push((model, tokens, input_t, output_t, cache_read, premium_req));
     }
     Ok(entries
         .into_iter()
-        .map(|(model, tokens, input_t, output_t, cache_read, req_count)| {
+        .map(|(model, tokens, input_t, output_t, cache_read, premium_req)| {
             let percentage = if grand_total > 0 {
                 (tokens as f64 / grand_total as f64) * 100.0
             } else {
@@ -1403,7 +1403,7 @@ fn query_model_distribution(
                 input_tokens: input_t as u64,
                 output_tokens: output_t as u64,
                 cache_read_tokens: cache_read as u64,
-                request_count: req_count as u64,
+                premium_requests: premium_req,
             }
         })
         .collect())
