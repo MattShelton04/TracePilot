@@ -820,6 +820,7 @@ watch(filteredTodos, () => {
   cursor: grab;
   min-height: 440px;
   touch-action: none;
+  user-select: none;
 }
 .graph-viewport:active { cursor: grabbing; }
 .graph-transform {
