@@ -128,7 +128,7 @@ export interface SessionHealth {
 }
 
 export interface HealthFlag {
-  severity: "info" | "warning" | "error";
+  severity: 'info' | 'warning' | 'error';
   category: string;
   message: string;
 }
@@ -198,7 +198,16 @@ export interface AnalyticsData {
   /** Session count per day */
   sessionsPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
-  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number; requestCount: number }>;
+  modelDistribution: Array<{
+    model: string;
+    tokens: number;
+    percentage: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    premiumRequests: number;
+    requestCount: number;
+  }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
   /** API duration statistics (avg, median, p95 of total_api_duration_ms per session) */
@@ -457,22 +466,22 @@ export interface ReplayStep {
 
 /** Tool names that have dedicated rich renderers. */
 export type RichRenderableToolName =
-  | "edit"
-  | "view"
-  | "create"
-  | "grep"
-  | "glob"
-  | "powershell"
-  | "read_powershell"
-  | "write_powershell"
-  | "sql"
-  | "task"
-  | "read_agent"
-  | "ask_user"
-  | "web_search"
-  | "web_fetch"
-  | "store_memory"
-  | "report_intent";
+  | 'edit'
+  | 'view'
+  | 'create'
+  | 'grep'
+  | 'glob'
+  | 'powershell'
+  | 'read_powershell'
+  | 'write_powershell'
+  | 'sql'
+  | 'task'
+  | 'read_agent'
+  | 'ask_user'
+  | 'web_search'
+  | 'web_fetch'
+  | 'store_memory'
+  | 'report_intent';
 
 /** User preferences for tool rendering: global toggle + per-tool overrides. */
 export interface ToolRenderingPreferences {
@@ -524,27 +533,4 @@ export interface IndexingProgressPayload {
   totalTokens: number;
   totalEvents: number;
   totalRepos: number;
-}
-
-// ── Version Analysis Types ──────────────────────────────────────────
-
-export { TRACEPILOT_KNOWN_EVENTS } from "./known-events.js";
-export type { TracePilotKnownEvent } from "./known-events.js";
-
-/** Summary info for an installed Copilot CLI version. */
-export interface CopilotVersionInfo {
-  version: string;
-  eventTypeCount: number;
-  rpcMethodCount: number;
-  agentCount: number;
-}
-
-/** Coverage report comparing TracePilot handling vs installed schema. */
-export interface VersionCoverage {
-  totalSchemaEvents: number;
-  handledCount: number;
-  unhandledPersistedCount: number;
-  alwaysEphemeralCount: number;
-  /** Percentage of non-ephemeral events that TracePilot handles. */
-  coveragePercentage: number;
 }

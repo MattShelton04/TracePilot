@@ -1,8 +1,10 @@
 [package]
 name = "tracepilot-desktop"
-version = "0.1.0"
 description = "TracePilot desktop application"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 default-run = "tracepilot-desktop"
 
 [build-dependencies]

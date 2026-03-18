@@ -175,6 +175,71 @@ TracePilot/
 | Testing | Vitest (frontend), `#[test]` + Criterion (backend) |
 | Linting & Formatting | Biome |
 
+## Versioning & Releases
+
+TracePilot uses a **single source of truth** for version numbers: the `version` field in the root `Cargo.toml`. All Rust crates inherit it via `version.workspace = true`, and the Tauri app reads it automatically (no version in `tauri.conf.json`). Frontend code gets the version at runtime via `@tauri-apps/api/app.getVersion()`.
+
+### How Versions Work
+
+| Component | How it gets the version |
+|-----------|------------------------|
+| Rust crates | `version.workspace = true` in each `Cargo.toml` |
+| Tauri app | Falls back to `Cargo.toml` when no version in `tauri.conf.json` |
+| Vue frontend | `getVersion()` from `@tauri-apps/api/app` at runtime |
+| Release notes | `apps/desktop/public/release-manifest.json` (machine-readable) |
+| Changelog | `CHANGELOG.md` (human-readable, Keep-a-Changelog format) |
+
+### Bumping the Version
+
+A PowerShell script handles version bumps across the entire monorepo:
+
+```powershell
+# Bump to a specific version (updates all Cargo.toml + package.json files)
+.\scripts\bump-version.ps1 -Version 0.2.0
+
+# The script will:
+# 1. Check for a clean git working tree
+# 2. Run `cargo set-version --workspace <version>` (requires cargo-edit)
+# 3. Update all package.json files
+# 4. Print next steps (update CHANGELOG.md, commit, tag, push)
+```
+
+After running the script:
+
+```bash
+# 1. Update CHANGELOG.md with the new version's changes
+# 2. Update release-manifest.json with release notes for the UI
+# 3. Commit and tag
+git add -A
+git commit -m "chore: release v0.2.0"
+git tag v0.2.0
+git push && git push --tags
+```
+
+> **Prerequisite:** Install `cargo-edit` for the `set-version` command: `cargo install cargo-edit`
+
+### Update Detection
+
+TracePilot can check GitHub for newer releases:
+
+- **Opt-in** — disabled by default (Settings → Updates → "Check for updates on startup")
+- **Manual check** — always available via the "Check Now" button in Settings
+- **What's New modal** — automatically shown when the app detects a version change after `git pull`
+- **24-hour cache** — results are cached in localStorage to respect GitHub's rate limits (60 req/hr unauthenticated)
+
+### Keeping Up-to-Date
+
+Since TracePilot is distributed via git clone:
+
+```bash
+cd TracePilot
+git pull origin main
+pnpm install          # in case dependencies changed
+pnpm tauri dev        # restart the app
+```
+
+The app will detect the version change on next launch and show a "What's New" modal with release notes.
+
 ## Development
 
 ### Testing

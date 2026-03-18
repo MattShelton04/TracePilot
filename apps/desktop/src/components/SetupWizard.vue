@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getConfig, saveConfig, validateSessionDir } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
 import { FormSwitch } from '@tracepilot/ui';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
+import { useAppVersion } from '@/composables/useAppVersion';
 import { browseForDirectory, browseForSavePath } from '@/composables/useBrowseDirectory';
 
+const { appVersion } = useAppVersion();
+
 const emit = defineEmits<{
-  'setup-complete': []
-  'setup-saved': [sessionCount: number]
+  'setup-complete': [];
+  'setup-saved': [sessionCount: number];
 }>();
 
 // ── Slide state ────────────────────────────────────────────────
@@ -45,12 +48,42 @@ const animatedCards = ref(new Set<number>());
 
 // ── Features list ──────────────────────────────────────────────
 const features = [
-  { emoji: '📋', color: '#818cf8', title: 'Session Explorer', desc: 'Browse and search all your Copilot coding sessions' },
-  { emoji: '💬', color: '#34d399', title: 'Conversation Viewer', desc: 'Replay full AI conversations turn by turn' },
-  { emoji: '📊', color: '#fbbf24', title: 'Analytics Dashboard', desc: 'Track token usage, costs, and productivity trends' },
-  { emoji: '🔧', color: '#f472b6', title: 'Tool Analysis', desc: 'See which tools Copilot uses and how effectively' },
-  { emoji: '📝', color: '#a78bfa', title: 'Code Impact', desc: 'Measure lines changed, files modified, and net impact' },
-  { emoji: '💰', color: '#fb923c', title: 'Cost Tracking', desc: 'Monitor premium request spending and API cost estimates' },
+  {
+    emoji: '📋',
+    color: '#818cf8',
+    title: 'Session Explorer',
+    desc: 'Browse and search all your Copilot coding sessions',
+  },
+  {
+    emoji: '💬',
+    color: '#34d399',
+    title: 'Conversation Viewer',
+    desc: 'Replay full AI conversations turn by turn',
+  },
+  {
+    emoji: '📊',
+    color: '#fbbf24',
+    title: 'Analytics Dashboard',
+    desc: 'Track token usage, costs, and productivity trends',
+  },
+  {
+    emoji: '🔧',
+    color: '#f472b6',
+    title: 'Tool Analysis',
+    desc: 'See which tools Copilot uses and how effectively',
+  },
+  {
+    emoji: '📝',
+    color: '#a78bfa',
+    title: 'Code Impact',
+    desc: 'Measure lines changed, files modified, and net impact',
+  },
+  {
+    emoji: '💰',
+    color: '#fb923c',
+    title: 'Cost Tracking',
+    desc: 'Monitor premium request spending and API cost estimates',
+  },
 ];
 
 // ── Computed ───────────────────────────────────────────────────
@@ -62,7 +95,7 @@ const canContinueSlide3 = computed(() => {
 
 const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 
-const transitionDuration = computed(() => prefersReducedMotion.value ? '0ms' : '400ms');
+const transitionDuration = computed(() => (prefersReducedMotion.value ? '0ms' : '400ms'));
 
 // ── Navigation ─────────────────────────────────────────────────
 const slidesViewport = ref<HTMLElement | null>(null);
@@ -71,15 +104,20 @@ function goTo(slide: number) {
   if (slide < 0 || slide >= totalSlides || transitioning.value) return;
   transitioning.value = true;
   currentSlide.value = slide;
-  setTimeout(() => {
-    transitioning.value = false;
-    // Move focus to the new slide's first heading for keyboard accessibility
-    nextTick(() => {
-      const headings = slidesViewport.value?.querySelectorAll('.slide-content h1, .slide-content h2');
-      const target = headings?.[slide] as HTMLElement | undefined;
-      target?.focus({ preventScroll: true });
-    });
-  }, prefersReducedMotion.value ? 0 : 420);
+  setTimeout(
+    () => {
+      transitioning.value = false;
+      // Move focus to the new slide's first heading for keyboard accessibility
+      nextTick(() => {
+        const headings = slidesViewport.value?.querySelectorAll(
+          '.slide-content h1, .slide-content h2',
+        );
+        const target = headings?.[slide] as HTMLElement | undefined;
+        target?.focus({ preventScroll: true });
+      });
+    },
+    prefersReducedMotion.value ? 0 : 420,
+  );
 }
 
 function next() {
@@ -243,7 +281,7 @@ onUnmounted(() => {
             </div>
             <h1 class="welcome-title" tabindex="-1">TracePilot</h1>
             <p class="welcome-subtitle">Your personal Copilot analytics dashboard</p>
-            <span class="version-pill">v0.1.0</span>
+            <span class="version-pill">v{{ appVersion }}</span>
             <button class="btn-accent btn-lg" @click="next">Begin Setup →</button>
           </div>
         </div>

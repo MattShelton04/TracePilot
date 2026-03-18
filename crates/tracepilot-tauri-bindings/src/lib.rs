@@ -58,6 +58,23 @@ pub struct ValidateSessionDirResult {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckResult {
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub has_update: bool,
+    pub release_url: Option<String>,
+    pub published_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitInfo {
+    pub commit_hash: Option<String>,
+    pub branch: Option<String>,
+}
+
 /// Enriched indexing progress payload emitted via Tauri events.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,8 +96,8 @@ pub struct IndexingProgressPayload {
 
 mod commands {
     use super::{
-        config, EventItem, EventsResponse, IndexingProgressPayload, SessionListItem,
-        SharedConfig, TodosResponse, TracePilotConfig, ValidateSessionDirResult,
+        config, EventItem, EventsResponse, GitInfo, IndexingProgressPayload, SessionListItem,
+        SharedConfig, TodosResponse, TracePilotConfig, UpdateCheckResult, ValidateSessionDirResult,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -1043,6 +1060,84 @@ mod commands {
 
         Ok(())
     }
+
+    // ── Update Detection Commands ────────────────────────────────
+
+    #[tauri::command]
+    pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
+        let current_str = env!("CARGO_PKG_VERSION");
+        let current = semver::Version::parse(current_str).map_err(|e| e.to_string())?;
+
+        let client = reqwest::Client::builder()
+            .user_agent(format!("TracePilot/{current_str}"))
+            .timeout(std::time::Duration::from_secs(8))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let response = client
+            .get("https://api.github.com/repos/MattShelton04/TracePilot/releases/latest")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await
+            .map_err(|e| format!("Network error: {e}"))?;
+
+        match response.status().as_u16() {
+            404 => {
+                return Ok(UpdateCheckResult {
+                    current_version: current_str.to_string(),
+                    latest_version: None,
+                    has_update: false,
+                    release_url: None,
+                    published_at: None,
+                })
+            }
+            429 | 403 => {
+                return Err("GitHub API rate limit reached. Try again later.".into())
+            }
+            s if s >= 500 => return Err(format!("GitHub API error: HTTP {s}")),
+            _ => {}
+        }
+
+        let release: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| format!("Parse error: {e}"))?;
+
+        let latest_str = release["tag_name"]
+            .as_str()
+            .unwrap_or("")
+            .trim_start_matches('v');
+
+        let has_update = semver::Version::parse(latest_str)
+            .map(|latest| latest > current)
+            .unwrap_or(false);
+
+        Ok(UpdateCheckResult {
+            current_version: current_str.to_string(),
+            latest_version: Some(latest_str.to_string()),
+            has_update,
+            release_url: release["html_url"].as_str().map(String::from),
+            published_at: release["published_at"].as_str().map(String::from),
+        })
+    }
+
+    #[tauri::command]
+    pub async fn get_git_info() -> GitInfo {
+        let run = |args: &[&str]| -> Option<String> {
+            std::process::Command::new("git")
+                .args(args)
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        };
+        GitInfo {
+            commit_hash: run(&["rev-parse", "--short", "HEAD"]),
+            branch: run(&["rev-parse", "--abbrev-ref", "HEAD"]),
+        }
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -1076,6 +1171,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::factory_reset,
             commands::get_tool_result,
             commands::resume_session_in_terminal,
+            commands::check_for_updates,
+            commands::get_git_info,
         ])
         .build()
 }
