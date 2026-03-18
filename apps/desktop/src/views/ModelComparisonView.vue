@@ -186,7 +186,11 @@ function fmtNorm(value: number | null, isCost = false): string {
   if (value == null) return '—';
   if (normMode.value === 'share') return `${value.toFixed(1)}%`;
   if (isCost) return formatCost(value);
-  if (normMode.value === 'per-10m-tokens') return value.toFixed(1);
+  if (normMode.value === 'per-10m-tokens') {
+    // Normalized values: use formatNumber for large values, fixed precision for small
+    if (Math.abs(value) >= 1_000) return formatNumber(value);
+    return value % 1 === 0 ? value.toString() : value.toFixed(1);
+  }
   return formatNumber(value);
 }
 
