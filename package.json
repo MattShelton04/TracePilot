@@ -22,7 +22,7 @@
     "pnpm": ">=9"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7",
+    "@biomejs/biome": "^2.4.8",
     "@fontsource-variable/inter": "^5.2.8",
     "tsx": "^4.21.0"
   }
