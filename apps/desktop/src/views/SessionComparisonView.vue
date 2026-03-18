@@ -356,7 +356,7 @@ function waveformData(turns: ConversationTurn[]): number[] {
   if (turns.length === 0) return [];
   const lengths = turns.map((t) => {
     const userLen = t.userMessage?.length ?? 0;
-    const assistLen = t.assistantMessages.reduce((s, m) => s + m.length, 0);
+    const assistLen = t.assistantMessages.reduce((s, m) => s + m.content.length, 0);
     return userLen + assistLen;
   });
   const maxLen = Math.max(...lengths, 1);
