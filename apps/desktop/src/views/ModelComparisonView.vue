@@ -41,7 +41,12 @@ interface ModelRow {
 
 const modelRows = computed<ModelRow[]>(() => {
   if (!data.value?.modelDistribution) return [];
-  return data.value.modelDistribution.map((m, i) => {
+  const dist = data.value.modelDistribution;
+  // Correct total: inputTokens + outputTokens (inputTokens already includes cacheReadTokens)
+  const grandTotal = dist.reduce((sum, m) => sum + m.inputTokens + m.outputTokens, 0);
+  return dist.map((m, i) => {
+    const tokens = m.inputTokens + m.outputTokens;
+    const percentage = grandTotal > 0 ? (tokens / grandTotal) * 100 : 0;
     const premiumRequests = m.premiumRequests;
     const cacheHitRate = m.inputTokens > 0
       ? m.cacheReadTokens / m.inputTokens * 100
@@ -51,11 +56,11 @@ const modelRows = computed<ModelRow[]>(() => {
     return {
       model: m.model,
       color: MODEL_COLORS[i % MODEL_COLORS.length],
-      tokens: m.tokens,
+      tokens,
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
       cacheReadTokens: m.cacheReadTokens,
-      percentage: m.percentage,
+      percentage,
       premiumRequests,
       cacheHitRate,
       cost,
@@ -144,7 +149,7 @@ const displayRows = computed<ModelRow[]>(() => {
         inputTokens: r.inputTokens / divisor,
         outputTokens: r.outputTokens / divisor,
         cacheReadTokens: r.cacheReadTokens / divisor,
-        premiumRequests: Math.round(r.premiumRequests / divisor),
+        premiumRequests: r.premiumRequests / divisor,
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
       };
@@ -171,7 +176,7 @@ const displayRows = computed<ModelRow[]>(() => {
     inputTokens: sums.inputTokens > 0 ? (r.inputTokens / sums.inputTokens) * 100 : 0,
     outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
     cacheReadTokens: sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
-    premiumRequests: sums.premiumRequests > 0 ? Math.round((r.premiumRequests / sums.premiumRequests) * 100) : 0,
+    premiumRequests: sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
   }));
@@ -430,14 +435,26 @@ function fmtPct(v: number): string {
                 </div>
               </div>
               <div class="section-panel-body scrollable-section" style="padding: 0;">
-                <table class="data-table" aria-label="Model performance comparison matrix">
+                <table class="data-table matrix-table" aria-label="Model performance comparison matrix">
+                  <colgroup>
+                    <col style="width: 18%;" />
+                    <col style="width: 11%;" />
+                    <col style="width: 11%;" />
+                    <col style="width: 9%;" />
+                    <col style="width: 9%;" />
+                    <col style="width: 13%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 8%;" />
+                    <col v-if="costMode !== 'copilot'" style="width: 8%;" />
+                    <col v-if="costMode !== 'wholesale'" style="width: 8%;" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th class="sort-header" @click="toggleSort('model')">
                         Model <span class="sort-arrow">{{ sortArrow('model') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('tokens')">
-                        Total Tokens <span class="sort-arrow">{{ sortArrow('tokens') }}</span>
+                        Total <span class="sort-arrow">{{ sortArrow('tokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('inputTokens')">
                         Input <span class="sort-arrow">{{ sortArrow('inputTokens') }}</span>
@@ -446,22 +463,22 @@ function fmtPct(v: number): string {
                         Output <span class="sort-arrow">{{ sortArrow('outputTokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheReadTokens')">
-                        Cache Read <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
+                        Cached <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('percentage')">
                         Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('premiumRequests')">
-                        Premium Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
+                        Prem. Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheHitRate')">
                         Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>
                       </th>
                       <th v-if="costMode !== 'copilot'" class="sort-header" @click="toggleSort('cost')">
-                        Wholesale Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
+                        W. Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
                       </th>
                       <th v-if="costMode !== 'wholesale'" class="sort-header" @click="toggleSort('copilotCost')">
-                        Copilot Cost <span class="sort-arrow">{{ sortArrow('copilotCost') }}</span>
+                        CP Cost <span class="sort-arrow">{{ sortArrow('copilotCost') }}</span>
                       </th>
                     </tr>
                   </thead>
@@ -669,6 +686,12 @@ function fmtPct(v: number): string {
                     </select>
                   </div>
                   <table class="data-table compare-table" aria-label="Side-by-side model comparison">
+                    <colgroup>
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>Metric</th>
@@ -813,6 +836,18 @@ function fmtPct(v: number): string {
 }
 
 /* ── Performance Matrix Table ─────────────────────────────── */
+.matrix-table,
+.compare-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.matrix-table td,
+.compare-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sort-header {
   cursor: pointer;
   user-select: none;
