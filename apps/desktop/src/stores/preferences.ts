@@ -1,9 +1,9 @@
-import { defineStore } from "pinia";
-import { ref, watch, computed } from "vue";
-import type { ToolRenderingPreferences, RichRenderableToolName } from "@tracepilot/types";
-import { DEFAULT_TOOL_RENDERING_PREFS } from "@tracepilot/types";
+import type { RichRenderableToolName, ToolRenderingPreferences } from '@tracepilot/types';
+import { DEFAULT_TOOL_RENDERING_PREFS } from '@tracepilot/types';
+import { defineStore } from 'pinia';
+import { computed, ref, watch } from 'vue';
 
-export type ThemeOption = "dark" | "light";
+export type ThemeOption = 'dark' | 'light';
 
 /** Per-model wholesale pricing ($ per 1M tokens) */
 export interface ModelWholesalePrice {
@@ -15,27 +15,27 @@ export interface ModelWholesalePrice {
 
 /** Default wholesale prices for common models ($ per 1M tokens) */
 export const DEFAULT_WHOLESALE_PRICES: ModelWholesalePrice[] = [
-  { model: 'claude-opus-4.6', inputPerM: 5.00, cachedInputPerM: 0.50, outputPerM: 25.00 },
-  { model: 'claude-opus-4.5', inputPerM: 5.00, cachedInputPerM: 0.50, outputPerM: 25.00 },
-  { model: 'claude-sonnet-4.6', inputPerM: 3.00, cachedInputPerM: 0.30, outputPerM: 15.00 },
-  { model: 'claude-sonnet-4.5', inputPerM: 3.00, cachedInputPerM: 0.30, outputPerM: 15.00 },
-  { model: 'claude-sonnet-4', inputPerM: 3.00, cachedInputPerM: 0.30, outputPerM: 15.00 },
-  { model: 'claude-haiku-4.5', inputPerM: 1.00, cachedInputPerM: 0.10, outputPerM: 5.00 },
-  { model: 'gpt-5.4', inputPerM: 2.50, cachedInputPerM: 0.25, outputPerM: 15.00 },
-  { model: 'gpt-5.3-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
-  { model: 'gpt-5.2-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
-  { model: 'gpt-5.1-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
-  { model: 'gpt-5.1', inputPerM: 10.00, cachedInputPerM: 1.00, outputPerM: 40.00 },
-  { model: 'gpt-4.1', inputPerM: 8.00, cachedInputPerM: 0.80, outputPerM: 24.00 },
-  { model: 'gemini-3-pro-preview', inputPerM: 10.00, cachedInputPerM: 1.00, outputPerM: 30.00 },
+  { model: 'claude-opus-4.6', inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0 },
+  { model: 'claude-opus-4.5', inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0 },
+  { model: 'claude-sonnet-4.6', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
+  { model: 'claude-sonnet-4.5', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
+  { model: 'claude-sonnet-4', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
+  { model: 'claude-haiku-4.5', inputPerM: 1.0, cachedInputPerM: 0.1, outputPerM: 5.0 },
+  { model: 'gpt-5.4', inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0 },
+  { model: 'gpt-5.3-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
+  { model: 'gpt-5.2-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
+  { model: 'gpt-5.1-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
+  { model: 'gpt-5.1', inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 40.0 },
+  { model: 'gpt-4.1', inputPerM: 8.0, cachedInputPerM: 0.8, outputPerM: 24.0 },
+  { model: 'gemini-3-pro-preview', inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 30.0 },
 ];
 
 function applyTheme(theme: ThemeOption) {
-  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
-export const usePreferencesStore = defineStore("preferences", () => {
-  const theme = ref<ThemeOption>("dark");
+export const usePreferencesStore = defineStore('preferences', () => {
+  const theme = ref<ThemeOption>('dark');
   const lastViewedSession = ref<string | null>(null);
   const costPerPremiumRequest = ref(0.04);
   const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
@@ -43,6 +43,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const cliCommand = ref('copilot');
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(5);
+  const checkForUpdates = ref(false);
+  const lastSeenVersion = ref<string | null>(null);
   const toolRendering = ref<ToolRenderingPreferences>({
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
@@ -51,7 +53,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Persist to localStorage
   function load() {
     try {
-      const saved = localStorage.getItem("tracepilot-prefs");
+      const saved = localStorage.getItem('tracepilot-prefs');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.theme && (parsed.theme === 'dark' || parsed.theme === 'light')) {
@@ -59,25 +61,39 @@ export const usePreferencesStore = defineStore("preferences", () => {
         }
         // Migrate legacy "system" theme to "dark"
         if (parsed.lastViewedSession) lastViewedSession.value = parsed.lastViewedSession;
-        if (typeof parsed.costPerPremiumRequest === 'number') costPerPremiumRequest.value = parsed.costPerPremiumRequest;
-        if (Array.isArray(parsed.modelWholesalePrices)) modelWholesalePrices.value = parsed.modelWholesalePrices;
-        if (typeof parsed.hideEmptySessions === 'boolean') hideEmptySessions.value = parsed.hideEmptySessions;
+        if (typeof parsed.costPerPremiumRequest === 'number')
+          costPerPremiumRequest.value = parsed.costPerPremiumRequest;
+        if (Array.isArray(parsed.modelWholesalePrices))
+          modelWholesalePrices.value = parsed.modelWholesalePrices;
+        if (typeof parsed.hideEmptySessions === 'boolean')
+          hideEmptySessions.value = parsed.hideEmptySessions;
         if (typeof parsed.cliCommand === 'string') cliCommand.value = parsed.cliCommand;
-        if (typeof parsed.autoRefreshEnabled === 'boolean') autoRefreshEnabled.value = parsed.autoRefreshEnabled;
-        if (typeof parsed.autoRefreshIntervalSeconds === 'number') autoRefreshIntervalSeconds.value = parsed.autoRefreshIntervalSeconds;
+        if (typeof parsed.autoRefreshEnabled === 'boolean')
+          autoRefreshEnabled.value = parsed.autoRefreshEnabled;
+        if (typeof parsed.autoRefreshIntervalSeconds === 'number')
+          autoRefreshIntervalSeconds.value = parsed.autoRefreshIntervalSeconds;
+        if (typeof parsed.checkForUpdates === 'boolean')
+          checkForUpdates.value = parsed.checkForUpdates;
+        if (typeof parsed.lastSeenVersion === 'string')
+          lastSeenVersion.value = parsed.lastSeenVersion;
         if (parsed.toolRendering && typeof parsed.toolRendering === 'object') {
           toolRendering.value = {
-            enabled: typeof parsed.toolRendering.enabled === 'boolean' ? parsed.toolRendering.enabled : true,
+            enabled:
+              typeof parsed.toolRendering.enabled === 'boolean'
+                ? parsed.toolRendering.enabled
+                : true,
             toolOverrides: parsed.toolRendering.toolOverrides ?? {},
           };
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   function save() {
     localStorage.setItem(
-      "tracepilot-prefs",
+      'tracepilot-prefs',
       JSON.stringify({
         theme: theme.value,
         lastViewedSession: lastViewedSession.value,
@@ -87,27 +103,51 @@ export const usePreferencesStore = defineStore("preferences", () => {
         cliCommand: cliCommand.value,
         autoRefreshEnabled: autoRefreshEnabled.value,
         autoRefreshIntervalSeconds: autoRefreshIntervalSeconds.value,
+        checkForUpdates: checkForUpdates.value,
+        lastSeenVersion: lastSeenVersion.value,
         toolRendering: toolRendering.value,
-      })
+      }),
     );
   }
 
   load();
 
   // Watch theme changes: update DOM
-  watch(theme, (newTheme) => {
-    applyTheme(newTheme);
-  }, { immediate: true });
+  watch(
+    theme,
+    (newTheme) => {
+      applyTheme(newTheme);
+    },
+    { immediate: true },
+  );
 
-  watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand, autoRefreshEnabled, autoRefreshIntervalSeconds, toolRendering], save, { deep: true });
+  watch(
+    [
+      theme,
+      lastViewedSession,
+      costPerPremiumRequest,
+      modelWholesalePrices,
+      hideEmptySessions,
+      cliCommand,
+      autoRefreshEnabled,
+      autoRefreshIntervalSeconds,
+      checkForUpdates,
+      lastSeenVersion,
+      toolRendering,
+    ],
+    save,
+    { deep: true },
+  );
 
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
     const lower = modelName.toLowerCase();
     // Sort candidates by descending model name length so the most specific match wins
     const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
-    return sorted.find(p => lower.includes(p.model.toLowerCase()))
-      ?? sorted.find(p => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')));
+    return (
+      sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
+      sorted.find((p) => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')))
+    );
   }
 
   /** Compute wholesale cost for a model given token usage. */
@@ -120,9 +160,11 @@ export const usePreferencesStore = defineStore("preferences", () => {
     const price = getWholesalePrice(modelName);
     if (!price) return null;
     const nonCachedInput = Math.max(inputTokens - cacheReadTokens, 0);
-    return (nonCachedInput / 1_000_000) * price.inputPerM
-      + (cacheReadTokens / 1_000_000) * price.cachedInputPerM
-      + (outputTokens / 1_000_000) * price.outputPerM;
+    return (
+      (nonCachedInput / 1_000_000) * price.inputPerM +
+      (cacheReadTokens / 1_000_000) * price.cachedInputPerM +
+      (outputTokens / 1_000_000) * price.outputPerM
+    );
   }
 
   function addWholesalePrice(price: ModelWholesalePrice) {
@@ -130,7 +172,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   }
 
   function removeWholesalePrice(model: string) {
-    modelWholesalePrices.value = modelWholesalePrices.value.filter(p => p.model !== model);
+    modelWholesalePrices.value = modelWholesalePrices.value.filter((p) => p.model !== model);
   }
 
   function resetWholesalePrices() {
@@ -166,8 +208,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
     cliCommand,
     autoRefreshEnabled,
     autoRefreshIntervalSeconds,
+    checkForUpdates,
+    lastSeenVersion,
     toolRendering,
-    applyTheme:() => applyTheme(theme.value),
+    applyTheme: () => applyTheme(theme.value),
     getWholesalePrice,
     computeWholesaleCost,
     addWholesalePrice,

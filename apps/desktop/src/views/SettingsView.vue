@@ -2,36 +2,45 @@
 // STUB: Settings beyond theme are stored in local component state.
 // STUB: Wire to usePreferencesStore or a dedicated settings API for persistence.
 
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { usePreferencesStore, type ThemeOption, type ModelWholesalePrice, DEFAULT_WHOLESALE_PRICES } from '@/stores/preferences';
-import { useSessionsStore } from '@/stores/sessions';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
-  reindexSessionsFull as reindexSessionsFullApi,
+  factoryReset as factoryResetApi,
   getConfig,
   getDbSize,
+  getGitInfo,
   getSessionCount as getSessionCountApi,
-  factoryReset as factoryResetApi,
+  reindexSessionsFull as reindexSessionsFullApi,
   saveConfig,
 } from '@tracepilot/client';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { IndexingProgressPayload } from '@tracepilot/types';
+import type { GitInfo, IndexingProgressPayload, RichRenderableToolName } from '@tracepilot/types';
 import {
-  BtnGroup,
-  FormSwitch,
-  FormInput,
   ActionButton,
-  SectionPanel,
+  BtnGroup,
+  FormInput,
+  FormSwitch,
   getRegisteredRenderers,
+  SectionPanel,
 } from '@tracepilot/ui';
-import type { RichRenderableToolName } from '@tracepilot/types';
-import StubBanner from '@/components/StubBanner.vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
+import StubBanner from '@/components/StubBanner.vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { useAnalyticsStore } from '@/stores/analytics';
+import {
+  DEFAULT_WHOLESALE_PRICES,
+  type ModelWholesalePrice,
+  type ThemeOption,
+  usePreferencesStore,
+} from '@/stores/preferences';
+import { useSessionsStore } from '@/stores/sessions';
 
 const preferences = usePreferencesStore();
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
+const { updateResult, updateCheckLoading, updateCheckError, runUpdateCheck } = useUpdateCheck();
+
+const gitInfo = ref<GitInfo | null>(null);
 
 // ── General ──────────────────────────────────────────────────
 const themeOptions = [
@@ -70,7 +79,9 @@ async function persistSessionDir() {
     const config = await getConfig();
     config.paths.sessionStateDir = sessionsDirectory.value;
     await saveConfig(config);
-  } catch { /* non-fatal — local UI still updates */ }
+  } catch {
+    /* non-fatal — local UI still updates */
+  }
 }
 
 const autoIndexOnLaunch = ref(true);
@@ -147,7 +158,9 @@ onMounted(async () => {
     sessionsDirectory.value = config.paths.sessionStateDir;
     databasePath.value = config.paths.indexDbPath;
     autoIndexOnLaunch.value = config.general.autoIndexOnLaunch;
-  } catch { /* defaults are fine */ }
+  } catch {
+    /* defaults are fine */
+  }
 
   try {
     const bytes = await getDbSize();
@@ -156,13 +169,22 @@ onMounted(async () => {
     } else {
       databaseSize.value = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
-  } catch { /* keep placeholder */ }
+  } catch {
+    /* keep placeholder */
+  }
 
   try {
     indexedSessionCount.value = await getSessionCountApi();
-  } catch { /* keep 0 */ }
-});
+  } catch {
+    /* keep 0 */
+  }
 
+  try {
+    gitInfo.value = await getGitInfo();
+  } catch {
+    /* ignore */
+  }
+});
 
 // ── Tool Visualization ──────────────────────────────────────
 const registeredRenderers = getRegisteredRenderers();
@@ -201,10 +223,16 @@ const flagLongDuration = ref(true);
 const flagLargeTokenUsage = ref(true);
 const flagManyErrors = ref(false);
 
+import { useAppVersion } from '@/composables/useAppVersion';
+
+const { appVersion } = useAppVersion();
+
 // ── About ────────────────────────────────────────────────────
-const appVersion = '0.1.0';
 const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.sessions.length);
-// STUB: About links use placeholder URLs — update with real repository URLs
+
+async function handleCheckForUpdates() {
+  await runUpdateCheck(true);
+}
 </script>
 
 <template>
@@ -650,7 +678,58 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
         </SectionPanel>
       </div>
 
-      <!-- ════════ 6. About ════════ -->
+      <!-- ════════ 6. Updates ════════ -->
+      <div class="settings-section">
+        <div class="settings-section-title">Updates</div>
+        <SectionPanel>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Check for updates on startup</div>
+              <div class="setting-description">
+                When enabled, TracePilot will contact GitHub's API to check for new releases.
+                Your IP address and software version will be sent to GitHub.
+              </div>
+            </div>
+            <FormSwitch v-model="preferences.checkForUpdates" />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Manual update check</div>
+              <div class="setting-description">
+                Check GitHub for a newer version of TracePilot right now.
+              </div>
+            </div>
+            <ActionButton
+              size="sm"
+              :disabled="updateCheckLoading"
+              @click="handleCheckForUpdates"
+            >
+              {{ updateCheckLoading ? 'Checking…' : 'Check Now' }}
+            </ActionButton>
+          </div>
+          <div v-if="updateResult && !updateCheckLoading" class="setting-row">
+            <div class="update-check-result">
+              <template v-if="updateResult.hasUpdate">
+                🎉 <strong>v{{ updateResult.latestVersion }}</strong> is available!
+                <a v-if="updateResult.releaseUrl" :href="updateResult.releaseUrl" target="_blank" rel="noopener">
+                  View release →
+                </a>
+              </template>
+              <template v-else>
+                ✓ You're running the latest version (v{{ updateResult.currentVersion }}).
+              </template>
+            </div>
+          </div>
+          <div v-if="updateCheckError" class="setting-row">
+            <div class="update-check-error">
+              ⚠️ {{ updateCheckError }}
+            </div>
+          </div>
+        </SectionPanel>
+      </div>
+
+      <!-- ════════ 7. About ════════ -->
       <div class="settings-section">
         <div class="settings-section-title">About</div>
         <SectionPanel>
@@ -670,21 +749,28 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <dl class="def-list about-meta">
               <dt>Version</dt>
               <dd>v{{ appVersion }}</dd>
+              <template v-if="gitInfo?.commitHash">
+                <dt>Commit</dt>
+                <dd><code>{{ gitInfo.commitHash }}</code></dd>
+              </template>
+              <template v-if="gitInfo?.branch">
+                <dt>Branch</dt>
+                <dd>{{ gitInfo.branch }}</dd>
+              </template>
               <dt>Session Count</dt>
               <dd style="font-variant-numeric: tabular-nums">{{ sessionCount }}</dd>
               <dt>Database Size</dt>
               <dd style="font-variant-numeric: tabular-nums">{{ databaseSize }}</dd>
             </dl>
 
-            <!-- STUB: About links use placeholder URLs — update with real repository URLs -->
             <div class="about-links">
-              <a href="https://github.com/your-org/tracepilot" target="_blank" rel="noopener">
+              <a href="https://github.com/MattShelton04/TracePilot" target="_blank" rel="noopener">
                 GitHub Repository
               </a>
-              <a href="https://github.com/your-org/tracepilot/wiki" target="_blank" rel="noopener">
+              <a href="https://github.com/MattShelton04/TracePilot/wiki" target="_blank" rel="noopener">
                 Documentation
               </a>
-              <a href="https://github.com/your-org/tracepilot/issues/new" target="_blank" rel="noopener">
+              <a href="https://github.com/MattShelton04/TracePilot/issues/new" target="_blank" rel="noopener">
                 Report Issue
               </a>
             </div>
@@ -844,6 +930,28 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
 
 .flag-checkbox input[type="checkbox"] {
   accent-color: var(--accent-emphasis);
+}
+
+/* ── Updates ──────────────────────────────────────────────── */
+.update-check-result {
+  font-size: 13px;
+  color: var(--color-fg-default);
+  line-height: 1.5;
+}
+
+.update-check-result a {
+  color: var(--color-accent-fg);
+  text-decoration: none;
+  margin-left: 6px;
+}
+
+.update-check-result a:hover {
+  text-decoration: underline;
+}
+
+.update-check-error {
+  font-size: 13px;
+  color: var(--color-danger-fg, #ef4444);
 }
 
 /* ── About ────────────────────────────────────────────────── */

@@ -1,0 +1,22 @@
+{
+  "versions": [
+    {
+      "version": "0.2.0",
+      "date": "2026-03-19",
+      "notes": {
+        "added": [
+          "Session explorer with searchable, filterable card grid and full-text search",
+          "Conversation viewer with Chat, Compact, and Timeline modes",
+          "19 specialized tool renderers (diffs, grep, shell, SQL, web search, and more)",
+          "Analytics dashboards: token usage, tool analysis, code impact, model comparison",
+          "Cost tracking with configurable Copilot and wholesale API pricing",
+          "Update detection with opt-in GitHub API check and What's New modal",
+          "CI/CD workflows, conventional commits, and automated release pipeline"
+        ],
+        "fixed": [],
+        "changed": []
+      },
+      "requiresReindex": false
+    }
+  ]
+}

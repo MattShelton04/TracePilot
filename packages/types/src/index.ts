@@ -128,7 +128,7 @@ export interface SessionHealth {
 }
 
 export interface HealthFlag {
-  severity: "info" | "warning" | "error";
+  severity: 'info' | 'warning' | 'error';
   category: string;
   message: string;
 }
@@ -198,7 +198,15 @@ export interface AnalyticsData {
   /** Session count per day */
   sessionsPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
-  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number }>;
+  modelDistribution: Array<{
+    model: string;
+    tokens: number;
+    percentage: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    premiumRequests: number;
+  }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
   /** Session duration statistics */
@@ -429,22 +437,22 @@ export interface ReplayStep {
 
 /** Tool names that have dedicated rich renderers. */
 export type RichRenderableToolName =
-  | "edit"
-  | "view"
-  | "create"
-  | "grep"
-  | "glob"
-  | "powershell"
-  | "read_powershell"
-  | "write_powershell"
-  | "sql"
-  | "task"
-  | "read_agent"
-  | "ask_user"
-  | "web_search"
-  | "web_fetch"
-  | "store_memory"
-  | "report_intent";
+  | 'edit'
+  | 'view'
+  | 'create'
+  | 'grep'
+  | 'glob'
+  | 'powershell'
+  | 'read_powershell'
+  | 'write_powershell'
+  | 'sql'
+  | 'task'
+  | 'read_agent'
+  | 'ask_user'
+  | 'web_search'
+  | 'web_fetch'
+  | 'store_memory'
+  | 'report_intent';
 
 /** User preferences for tool rendering: global toggle + per-tool overrides. */
 export interface ToolRenderingPreferences {
@@ -496,4 +504,36 @@ export interface IndexingProgressPayload {
   totalTokens: number;
   totalEvents: number;
   totalRepos: number;
+}
+
+/** Result from the check_for_updates Tauri command. */
+export interface UpdateCheckResult {
+  currentVersion: string;
+  latestVersion: string | null;
+  hasUpdate: boolean;
+  releaseUrl: string | null;
+  publishedAt: string | null;
+}
+
+/** Git repo information for the running TracePilot instance. */
+export interface GitInfo {
+  commitHash: string | null;
+  branch: string | null;
+}
+
+/** A single version entry in the release manifest. */
+export interface ReleaseManifestEntry {
+  version: string;
+  date: string;
+  notes: {
+    added: string[];
+    fixed: string[];
+    changed: string[];
+  };
+  requiresReindex: boolean;
+}
+
+/** The full release manifest structure. */
+export interface ReleaseManifest {
+  versions: ReleaseManifestEntry[];
 }

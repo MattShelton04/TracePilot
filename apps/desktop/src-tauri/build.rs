@@ -27,6 +27,8 @@ fn main() {
                     "factory_reset",
                     "get_tool_result",
                     "resume_session_in_terminal",
+                    "check_for_updates",
+                    "get_git_info",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

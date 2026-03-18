@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { useSessionsStore } from '@/stores/sessions';
-import { usePreferencesStore } from '@/stores/preferences';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
+import { useAppVersion } from '@/composables/useAppVersion';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionsStore } from '@/stores/sessions';
+
+const { appVersion } = useAppVersion();
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
@@ -102,7 +105,7 @@ const advancedNav = [
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <span class="sidebar-version">v0.1.0</span>
+      <span class="sidebar-version">v{{ appVersion }}</span>
       <button
         class="theme-toggle"
         :aria-label="`Current theme: ${currentTheme}. Click to switch.`"

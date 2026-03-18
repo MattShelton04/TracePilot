@@ -1,29 +1,48 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { checkConfigExists } from '@tracepilot/client';
+import type { ReleaseManifestEntry } from '@tracepilot/types';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
 import SetupWizard from '@/components/SetupWizard.vue';
-import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
-import { useSessionsStore } from '@/stores/sessions';
+import UpdateBanner from '@/components/UpdateBanner.vue';
+import UpdateInstructionsModal from '@/components/UpdateInstructionsModal.vue';
+import WhatsNewModal from '@/components/WhatsNewModal.vue';
+import { initAppVersion, useAppVersion } from '@/composables/useAppVersion';
+import { runUpdateCheck } from '@/composables/useUpdateCheck';
 import { usePreferencesStore } from '@/stores/preferences';
-import { checkConfigExists } from '@tracepilot/client';
+import { useSessionsStore } from '@/stores/sessions';
 
 type AppPhase = 'loading' | 'setup' | 'indexing' | 'app';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
+const { appVersion } = useAppVersion();
 
 const phase = ref<AppPhase>('loading');
 const expectedSessionCount = ref(0);
+const showUpdateModal = ref(false);
+const showWhatsNew = ref(false);
+const whatsNewPreviousVersion = ref('');
+const whatsNewEntries = ref<ReleaseManifestEntry[]>([]);
 
 onMounted(async () => {
+  // Initialize app version from Tauri runtime (or 'dev' in browser mode)
+  await initAppVersion();
+
   try {
     const exists = await checkConfigExists();
     if (exists) {
       phase.value = 'app';
       sessionsStore.fetchSessions();
+      // Post-load hooks: version change detection + update check
+      await checkVersionChange();
+      if (prefsStore.checkForUpdates) {
+        runUpdateCheck();
+      }
     } else {
       phase.value = 'setup';
     }
@@ -32,6 +51,28 @@ onMounted(async () => {
     sessionsStore.fetchSessions();
   }
 });
+
+async function checkVersionChange() {
+  const current = appVersion.value;
+  if (current === 'dev') return;
+
+  const previous = prefsStore.lastSeenVersion;
+  if (previous && previous !== current) {
+    // Load release manifest for "What's New" display
+    try {
+      const resp = await fetch('/release-manifest.json');
+      if (resp.ok) {
+        const manifest = await resp.json();
+        whatsNewEntries.value = manifest.versions ?? [];
+        whatsNewPreviousVersion.value = previous;
+        showWhatsNew.value = true;
+      }
+    } catch {
+      // Release manifest missing or invalid — skip "What's New"
+    }
+  }
+  prefsStore.lastSeenVersion = current;
+}
 
 function onSetupSaved(sessionCount: number) {
   expectedSessionCount.value = sessionCount;
@@ -59,8 +100,9 @@ const breadcrumbs = computed(() => {
 
   // Session detail pages
   if (route.params.id) {
-    const detail = sessionsStore.sessions.find(s => s.id === route.params.id);
-    const sessionLabel = detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
+    const detail = sessionsStore.sessions.find((s) => s.id === route.params.id);
+    const sessionLabel =
+      detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
     crumbs.push({ label: sessionLabel, to: `/session/${route.params.id}/overview` });
 
     if (route.meta?.title && route.meta.title !== 'Session Detail') {
@@ -90,6 +132,12 @@ const breadcrumbs = computed(() => {
     @complete="onIndexingComplete"
   />
   <div v-else-if="phase === 'app'" class="app-layout">
+    <!-- Update notification banner -->
+    <UpdateBanner
+      @view-details="showUpdateModal = true"
+      @dismiss="() => { /* banner handles its own dismiss state */ }"
+    />
+
     <!-- Ambient background (matches setup wizard aesthetic) -->
     <div class="app-bg" aria-hidden="true">
       <div class="app-dot-grid" />
@@ -104,6 +152,21 @@ const breadcrumbs = computed(() => {
       <router-view />
     </div>
   </div>
+
+  <!-- Update instructions modal -->
+  <UpdateInstructionsModal
+    v-if="showUpdateModal"
+    @close="showUpdateModal = false"
+  />
+
+  <!-- What's New modal (shown on version change) -->
+  <WhatsNewModal
+    v-if="showWhatsNew"
+    :previous-version="whatsNewPreviousVersion"
+    :current-version="appVersion"
+    :entries="whatsNewEntries"
+    @close="showWhatsNew = false"
+  />
 </template>
 
 <style scoped>
