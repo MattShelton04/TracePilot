@@ -113,7 +113,7 @@ const totalDurationMs = computed(() =>
 <template>
   <div>
     <!-- Mini stat row -->
-    <div class="grid-3 mb-4" style="max-width: 480px;">
+    <div class="grid-3 mb-4">
       <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
       <StatCard :value="totalToolCalls" label="Tool Calls" color="accent" mini />
       <StatCard :value="formatDuration(totalDurationMs)" label="Total Time" color="done" mini />

@@ -78,6 +78,15 @@ export const useSessionsStore = defineStore("sessions", () => {
     return sessions.value.filter(s => (s.turnCount ?? 0) === 0).length;
   });
 
+  /** Session count respecting hideEmptySessions but not search/repo/branch filters. */
+  const visibleSessionCount = computed(() => {
+    const prefs = usePreferencesStore();
+    if (prefs.hideEmptySessions) {
+      return sessions.value.filter(s => (s.turnCount ?? 0) !== 0).length;
+    }
+    return sessions.value.length;
+  });
+
   async function fetchSessions() {
     loading.value = true;
     error.value = null;
@@ -169,6 +178,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     repositories,
     branches,
     emptySessionCount,
+    visibleSessionCount,
     fetchSessions,
     refreshSessions,
     reindex,

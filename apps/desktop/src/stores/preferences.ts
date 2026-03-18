@@ -3,7 +3,7 @@ import { ref, watch, computed } from "vue";
 import type { ToolRenderingPreferences, RichRenderableToolName } from "@tracepilot/types";
 import { DEFAULT_TOOL_RENDERING_PREFS } from "@tracepilot/types";
 
-export type ThemeOption = "dark" | "light" | "system";
+export type ThemeOption = "dark" | "light";
 
 /** Per-model wholesale pricing ($ per 1M tokens) */
 export interface ModelWholesalePrice {
@@ -21,7 +21,8 @@ export const DEFAULT_WHOLESALE_PRICES: ModelWholesalePrice[] = [
   { model: 'claude-sonnet-4.5', inputPerM: 3.00, cachedInputPerM: 0.30, outputPerM: 15.00 },
   { model: 'claude-sonnet-4', inputPerM: 3.00, cachedInputPerM: 0.30, outputPerM: 15.00 },
   { model: 'claude-haiku-4.5', inputPerM: 1.00, cachedInputPerM: 0.10, outputPerM: 5.00 },
-  { model: 'gpt-5.4', inputPerM: 20.00, cachedInputPerM: 2.00, outputPerM: 60.00 },
+  { model: 'gpt-5.4', inputPerM: 2.50, cachedInputPerM: 0.25, outputPerM: 15.00 },
+  { model: 'gpt-5.3-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
   { model: 'gpt-5.2-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
   { model: 'gpt-5.1-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.00 },
   { model: 'gpt-5.1', inputPerM: 10.00, cachedInputPerM: 1.00, outputPerM: 40.00 },
@@ -30,12 +31,7 @@ export const DEFAULT_WHOLESALE_PRICES: ModelWholesalePrice[] = [
 ];
 
 function applyTheme(theme: ThemeOption) {
-  if (theme === "system") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
-  } else {
-    document.documentElement.setAttribute("data-theme", theme);
-  }
+  document.documentElement.setAttribute("data-theme", theme);
 }
 
 export const usePreferencesStore = defineStore("preferences", () => {
@@ -51,8 +47,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
-  let mediaQuery: MediaQueryList | null = null;
-  let mediaHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
   // Persist to localStorage
   function load() {
@@ -60,7 +54,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
       const saved = localStorage.getItem("tracepilot-prefs");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.theme) theme.value = parsed.theme;
+        if (parsed.theme && (parsed.theme === 'dark' || parsed.theme === 'light')) {
+          theme.value = parsed.theme;
+        }
+        // Migrate legacy "system" theme to "dark"
         if (parsed.lastViewedSession) lastViewedSession.value = parsed.lastViewedSession;
         if (typeof parsed.costPerPremiumRequest === 'number') costPerPremiumRequest.value = parsed.costPerPremiumRequest;
         if (Array.isArray(parsed.modelWholesalePrices)) modelWholesalePrices.value = parsed.modelWholesalePrices;
@@ -95,26 +92,11 @@ export const usePreferencesStore = defineStore("preferences", () => {
     );
   }
 
-  function setupSystemThemeListener() {
-    // Clean up previous listener
-    if (mediaQuery && mediaHandler) {
-      mediaQuery.removeEventListener("change", mediaHandler);
-      mediaHandler = null;
-    }
-
-    if (theme.value === "system") {
-      mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      mediaHandler = () => applyTheme("system");
-      mediaQuery.addEventListener("change", mediaHandler);
-    }
-  }
-
   load();
 
-  // Watch theme changes: update DOM and manage system listener
+  // Watch theme changes: update DOM
   watch(theme, (newTheme) => {
     applyTheme(newTheme);
-    setupSystemThemeListener();
   }, { immediate: true });
 
   watch([theme, lastViewedSession, costPerPremiumRequest, modelWholesalePrices, hideEmptySessions, cliCommand, autoRefreshEnabled, autoRefreshIntervalSeconds, toolRendering], save, { deep: true });

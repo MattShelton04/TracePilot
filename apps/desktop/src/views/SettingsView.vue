@@ -7,7 +7,6 @@ import { usePreferencesStore, type ThemeOption, type ModelWholesalePrice, DEFAUL
 import { useSessionsStore } from '@/stores/sessions';
 import { useAnalyticsStore } from '@/stores/analytics';
 import {
-  reindexSessions as reindexSessionsApi,
   reindexSessionsFull as reindexSessionsFullApi,
   getConfig,
   getDbSize,
@@ -36,7 +35,6 @@ const analyticsStore = useAnalyticsStore();
 
 // ── General ──────────────────────────────────────────────────
 const themeOptions = [
-  { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ];
@@ -49,8 +47,6 @@ const defaultViewOptions = [
 
 const defaultView = ref('sessions');
 const itemsPerPage = ref(20);
-const autoRefresh = ref(false);
-const autoRefreshInterval = ref(30);
 
 // ── Data & Storage ───────────────────────────────────────────
 const sessionsDirectory = ref('~/.copilot/sessions/');
@@ -78,7 +74,6 @@ async function persistSessionDir() {
 }
 
 const autoIndexOnLaunch = ref(true);
-const reindexing = ref(false);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
 const resetConfirm = ref(false);
@@ -107,29 +102,6 @@ onMounted(async () => {
 onUnmounted(() => {
   for (const unlisten of unlisteners) unlisten();
 });
-
-async function reindexSessions() {
-  reindexing.value = true;
-  reindexResult.value = null;
-  try {
-    const [updated, total] = await reindexSessionsApi();
-    reindexResult.value = updated > 0
-      ? `Updated ${updated} of ${total} session${total !== 1 ? 's' : ''}`
-      : `All ${total} sessions up to date`;
-    // Refresh stores so the UI reflects the updated index
-    await sessionsStore.fetchSessions();
-    analyticsStore.$reset();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg === 'ALREADY_INDEXING') {
-      reindexResult.value = 'Indexing already in progress…';
-    } else {
-      reindexResult.value = `Error: ${msg}`;
-    }
-  } finally {
-    reindexing.value = false;
-  }
-}
 
 const clearing = ref(false);
 
@@ -229,21 +201,6 @@ const flagLongDuration = ref(true);
 const flagLargeTokenUsage = ref(true);
 const flagManyErrors = ref(false);
 
-// ── Keyboard Shortcuts ───────────────────────────────────────
-// STUB: Keyboard shortcuts are display-only. Shortcut registration requires
-// STUB: global key event listeners or Tauri global shortcuts API.
-// STUB: Analysis needed on how to enable shortcuts across the app.
-const shortcuts = [
-  { action: 'Search sessions', keys: ['⌘', 'K'] },
-  { action: 'Toggle theme', keys: ['⌘', 'D'] },
-  { action: 'Go to Analytics', keys: ['⌘', '1'] },
-  { action: 'Go to Health', keys: ['⌘', '2'] },
-  { action: 'Go to Settings', keys: ['⌘', ','] },
-  { action: 'Export current', keys: ['⌘', 'E'] },
-  { action: 'Navigate back', keys: ['⌘', '['] },
-  { action: 'Navigate forward', keys: ['⌘', ']'] },
-];
-
 // ── About ────────────────────────────────────────────────────
 const appVersion = '0.1.0';
 const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.sessions.length);
@@ -264,7 +221,7 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <div class="setting-info">
               <div class="setting-label">Theme</div>
               <div class="setting-description">
-                Switch between dark, light, or system preference
+                Switch between dark and light mode
               </div>
             </div>
             <BtnGroup
@@ -299,26 +256,6 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
               v-model="itemsPerPage"
               style="width: 80px; text-align: center"
             />
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Auto-refresh</div>
-              <div class="setting-description">
-                Periodically check for new sessions
-              </div>
-            </div>
-            <div class="setting-control-group">
-              <FormSwitch v-model="autoRefresh" />
-              <FormInput
-                v-if="autoRefresh"
-                type="number"
-                v-model="autoRefreshInterval"
-                placeholder="30"
-                style="width: 70px; text-align: center"
-              />
-              <span v-if="autoRefresh" class="setting-unit">sec</span>
-            </div>
           </div>
 
           <div class="setting-row">
@@ -397,25 +334,6 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
             <FormSwitch v-model="autoIndexOnLaunch" />
           </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Reindex sessions</div>
-              <div class="setting-description">
-                Incrementally scan for new/changed sessions and recompute their analytics. Only re-processes sessions that changed since the last index.
-              </div>
-            </div>
-            <div class="setting-actions">
-              <ActionButton
-                size="sm"
-                :disabled="reindexing || clearing || isIndexing"
-                @click="reindexSessions"
-              >
-                {{ reindexing ? 'Reindexing…' : 'Reindex' }}
-              </ActionButton>
-              <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
-            </div>
-          </div>
-
           <div v-if="indexingProgress" class="setting-row indexing-progress-row">
             <div class="setting-info">
               <div class="setting-label setting-label-sm">Progress</div>
@@ -435,9 +353,12 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
                 Clear all cached analytics data and recompute from scratch. Use this if analytics appear stale or incorrect.
               </div>
             </div>
-            <ActionButton size="sm" class="btn-danger" :disabled="clearing || reindexing || isIndexing" @click="clearCache">
-              {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
-            </ActionButton>
+            <div class="setting-actions">
+              <ActionButton size="sm" class="btn-danger" :disabled="clearing || isIndexing" @click="clearCache">
+                {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
+              </ActionButton>
+              <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
+            </div>
           </div>
 
           <!-- Danger Zone -->
@@ -729,33 +650,6 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
         </SectionPanel>
       </div>
 
-      <!-- ════════ 5. Keyboard Shortcuts ════════ -->
-      <div class="settings-section">
-        <div class="settings-section-title">Keyboard Shortcuts</div>
-        <SectionPanel>
-          <div class="shortcuts-table">
-            <div
-              v-for="s in shortcuts"
-              :key="s.action"
-              class="shortcut-row"
-            >
-              <span class="shortcut-action">{{ s.action }}</span>
-              <div class="shortcut-keys">
-                <span
-                  v-for="(key, idx) in s.keys"
-                  :key="idx"
-                  class="shortcut-key"
-                >{{ key }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="shortcuts-footer">
-            Shortcuts use Tauri's global shortcut API. Custom shortcut
-            configuration is planned for a future release.
-          </div>
-        </SectionPanel>
-      </div>
-
       <!-- ════════ 6. About ════════ -->
       <div class="settings-section">
         <div class="settings-section-title">About</div>
@@ -950,53 +844,6 @@ const sessionCount = computed(() => indexedSessionCount.value || sessionsStore.s
 
 .flag-checkbox input[type="checkbox"] {
   accent-color: var(--accent-emphasis);
-}
-
-/* ── Keyboard shortcuts ───────────────────────────────────── */
-.shortcuts-table {
-  padding: 10px 16px;
-}
-
-.shortcut-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-}
-
-.shortcut-row:last-child {
-  border-bottom: none;
-}
-
-.shortcut-keys {
-  display: flex;
-  gap: 3px;
-}
-
-.shortcut-key {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  padding: 2px 6px;
-  background: var(--canvas-default);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  font-size: 0.625rem;
-  font-family: inherit;
-  font-weight: 500;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.shortcuts-footer {
-  padding: 8px 16px 12px;
-  font-size: 0.6875rem;
-  color: var(--text-placeholder);
-  border-top: 1px solid var(--border-subtle);
 }
 
 /* ── About ────────────────────────────────────────────────── */

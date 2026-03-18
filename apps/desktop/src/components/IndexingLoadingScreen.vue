@@ -3,7 +3,11 @@
     v-if="!dismissed"
     class="indexing-loading-screen"
     :class="{ 'fade-out': fadingOut }"
-    :style="{ opacity: fadingOut ? 0 : undefined, transform: fadingOut ? 'scale(1.02)' : undefined }"
+    :style="{
+      opacity: fadingOut ? 0 : undefined,
+      transform: fadingOut ? 'scale(1.02)' : undefined,
+      '--ui-scale': scaleFactor,
+    }"
   >
     <!-- Top progress bar -->
     <div class="progress-bar-track" :class="{ visible: phase !== 'idle' }">
@@ -36,10 +40,11 @@
           class="mini-card"
           :class="{ visible: node.expanded }"
           :style="{ '--node-color': node.color }"
+          :title="`${node.repo} · ${node.branch}`"
         >
           <div class="mc-repo">
             <span class="mc-repo-dot" />
-            {{ node.repo }}
+            {{ node.repoDisplay }}
           </div>
           <div class="mc-branch">{{ node.branchDisplay }}</div>
         </div>
@@ -95,9 +100,10 @@
           v-for="item in repoLegendItems"
           :key="item.name"
           class="repo-legend-item visible"
+          :title="item.name"
         >
           <span class="legend-dot" :style="{ background: item.color }" />
-          {{ item.name }}
+          {{ item.displayName }}
         </div>
       </div>
     </div>
@@ -163,6 +169,7 @@ type Phase = 'idle' | 'discovering' | 'indexing' | 'finalizing' | 'complete'
 interface OrbitNode {
   id: number
   repo: string
+  repoDisplay: string
   branch: string
   branchDisplay: string
   color: string
@@ -219,7 +226,7 @@ let sessionsProcessed = 0
 // Repo color assignments
 const repoColorMap = new Map<string, string>()
 let nextColorIndex = 0
-const repoLegendItems = ref<{ name: string; color: string }[]>([])
+const repoLegendItems = ref<{ name: string; displayName: string; color: string }[]>([])
 
 // Viewport & center
 const centerX = ref(0)
@@ -301,7 +308,7 @@ function getRepoColor(repo: string): string {
     color = REPO_PALETTE[nextColorIndex % REPO_PALETTE.length]
     nextColorIndex++
     repoColorMap.set(repo, color)
-    repoLegendItems.value.push({ name: repo, color })
+    repoLegendItems.value.push({ name: repo, displayName: truncateMiddle(repo, 36), color })
     targetRepos.value = repoColorMap.size
   }
   return color
@@ -314,25 +321,35 @@ function assignLane(tokens: number): number {
   return LANES.length - 1
 }
 
-/** Compute (x, y) on a tilted elliptical orbit. */
+/** Compute (x, y) on a tilted elliptical orbit, scaled to viewport. */
 function getOrbitalPos(angle: number, laneIdx: number): { x: number; y: number } {
   const lane = LANES[laneIdx]
+  const s = scaleFactor.value
   const tiltRad = (lane.tiltDeg * Math.PI) / 180
-  const ex = lane.rx * Math.cos(angle)
-  const ey = lane.ry * Math.sin(angle)
+  const ex = lane.rx * s * Math.cos(angle)
+  const ey = lane.ry * s * Math.sin(angle)
   return {
     x: centerX.value + ex * Math.cos(tiltRad) - ey * Math.sin(tiltRad),
     y: centerY.value + ex * Math.sin(tiltRad) + ey * Math.cos(tiltRad),
   }
 }
 
-function truncate(str: string, max: number): string {
-  return str.length > max ? str.slice(0, max - 2) + '…' : str
+/** Truncate from the middle, keeping start and end visible (end is prioritized). */
+function truncateMiddle(str: string, max: number): string {
+  if (str.length <= max) return str
+  const ellipsis = '…'
+  const budget = max - ellipsis.length
+  const endLen = Math.ceil(budget * 0.6)
+  const startLen = budget - endLen
+  return str.slice(0, startLen) + ellipsis + str.slice(-endLen)
 }
 
 // ── Viewport measurement ───────────────────────────────────────────────────────
 
 let resizeObserver: ResizeObserver | null = null
+
+// Viewport-responsive scale factor (baseline: 960×640, our min window size)
+const scaleFactor = ref(1)
 
 function measureField() {
   const el = orbitalFieldRef.value
@@ -341,6 +358,8 @@ function measureField() {
   fieldH = el.clientHeight
   centerX.value = fieldW / 2
   centerY.value = fieldH / 2
+  // Scale orbits proportionally to viewport, capped at 1.35× to stay tasteful
+  scaleFactor.value = Math.min(1.35, Math.min(fieldW / 960, fieldH / 640))
   svgLayerRef.value?.setAttribute('viewBox', `0 0 ${fieldW} ${fieldH}`)
   updateLaneEllipsePositions()
 }
@@ -386,10 +405,11 @@ function drawLaneEllipses() {
 
   LANES.forEach((lane) => {
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')
+    const s = scaleFactor.value
     el.setAttribute('cx', String(centerX.value))
     el.setAttribute('cy', String(centerY.value))
-    el.setAttribute('rx', String(lane.rx))
-    el.setAttribute('ry', String(lane.ry))
+    el.setAttribute('rx', String(lane.rx * s))
+    el.setAttribute('ry', String(lane.ry * s))
     el.setAttribute('stroke', '#6366f1')
     el.setAttribute('stroke-opacity', '0')
     el.setAttribute('stroke-width', '1')
@@ -397,7 +417,7 @@ function drawLaneEllipses() {
     el.setAttribute('transform', `rotate(${lane.tiltDeg} ${centerX.value} ${centerY.value})`)
 
     // Stroke-dash draw-in effect
-    const circumference = Math.PI * 2 * Math.max(lane.rx, lane.ry)
+    const circumference = Math.PI * 2 * Math.max(lane.rx, lane.ry) * s
     el.setAttribute('stroke-dasharray', String(circumference))
     el.setAttribute('stroke-dashoffset', String(circumference))
     el.style.transition =
@@ -420,9 +440,14 @@ function showLaneEllipses() {
 function updateLaneEllipsePositions() {
   laneEllipses.forEach((el, i) => {
     const lane = LANES[i]
+    const s = scaleFactor.value
     el.setAttribute('cx', String(centerX.value))
     el.setAttribute('cy', String(centerY.value))
+    el.setAttribute('rx', String(lane.rx * s))
+    el.setAttribute('ry', String(lane.ry * s))
     el.setAttribute('transform', `rotate(${lane.tiltDeg} ${centerX.value} ${centerY.value})`)
+    const circumference = Math.PI * 2 * Math.max(lane.rx, lane.ry) * s
+    el.setAttribute('stroke-dasharray', String(circumference))
   })
 }
 
@@ -442,8 +467,9 @@ function createNode(
   const node: OrbitNode = {
     id: nodeIdCounter++,
     repo,
+    repoDisplay: truncateMiddle(repo, 28),
     branch,
-    branchDisplay: truncate(branch, 14),
+    branchDisplay: truncateMiddle(branch, 18),
     color,
     laneIdx,
     angle: startAngle,
@@ -895,8 +921,8 @@ onUnmounted(() => {
 }
 
 .logo-hub .logo-icon {
-  width: 70px;
-  height: 70px;
+  width: calc(70px * var(--ui-scale, 1));
+  height: calc(70px * var(--ui-scale, 1));
   position: relative;
   display: flex;
   align-items: center;
@@ -905,8 +931,8 @@ onUnmounted(() => {
 
 .logo-hub .logo-glow {
   position: absolute;
-  width: 160px;
-  height: 160px;
+  width: calc(160px * var(--ui-scale, 1));
+  height: calc(160px * var(--ui-scale, 1));
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -934,7 +960,7 @@ onUnmounted(() => {
 }
 
 .logo-hub .phase-text {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-scale, 1));
   color: #7d8590;
   letter-spacing: 0.04em;
   text-align: center;
@@ -942,7 +968,7 @@ onUnmounted(() => {
 
 .logo-hub .session-counter {
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-scale, 1));
   color: #818cf8;
   font-variant-numeric: tabular-nums;
 }
@@ -956,8 +982,8 @@ onUnmounted(() => {
 }
 
 .orbit-node .node-dot {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ui-scale, 1));
+  height: calc(8px * var(--ui-scale, 1));
   border-radius: 50%;
   background: var(--node-color, #818cf8);
   box-shadow: 0 0 10px 3px var(--node-glow, rgba(129, 140, 248, 0.4));
@@ -995,11 +1021,11 @@ onUnmounted(() => {
   border: 1px solid #30363d;
   border-left: 3px solid var(--node-color, #818cf8);
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: calc(5px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   white-space: nowrap;
   pointer-events: auto;
-  min-width: 100px;
-  max-width: 140px;
+  min-width: calc(100px * var(--ui-scale, 1));
+  max-width: calc(220px * var(--ui-scale, 1));
   transition:
     transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1),
     opacity 0.3s ease;
@@ -1017,7 +1043,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-scale, 1));
   font-weight: 600;
   color: #e6edf3;
   overflow: hidden;
@@ -1033,7 +1059,7 @@ onUnmounted(() => {
 }
 
 .orbit-node .mini-card .mc-branch {
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-scale, 1));
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
   color: #7d8590;
   margin-top: 1px;
@@ -1071,21 +1097,21 @@ onUnmounted(() => {
 /* ── Stats panel ── */
 .stats-panel {
   position: fixed;
-  bottom: 72px;
+  bottom: calc(72px * var(--ui-scale, 1));
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
+  gap: calc(8px * var(--ui-scale, 1));
+  padding: calc(12px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   background: rgba(22, 27, 34, 0.7);
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
   border: 1px solid #21262d;
   border-radius: 10px;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-scale, 1));
   opacity: 0;
   transform: translateX(-50%) translateY(12px);
   transition: opacity 0.5s ease, transform 0.5s ease;
@@ -1156,6 +1182,10 @@ onUnmounted(() => {
   gap: 4px;
   font-size: 10px;
   color: #7d8590;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.4s ease, transform 0.4s ease;
