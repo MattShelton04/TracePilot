@@ -254,11 +254,16 @@ impl TurnReconstructor {
                 }
 
                 if let Some(tool_call) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
-                    if data.success.is_some() {
-                        tool_call.success = data.success;
-                    }
-                    if let Some(ref err) = data.error {
-                        tool_call.error = Some(json_value_to_string(err));
+                    // For subagents, SubagentCompleted/Failed has authority over success/error.
+                    // Only apply ToolExecComplete's values if the subagent terminal event
+                    // hasn't already set them (prevents flipping failure→success).
+                    if !tool_call.is_subagent || tool_call.success.is_none() {
+                        if data.success.is_some() {
+                            tool_call.success = data.success;
+                        }
+                        if let Some(ref err) = data.error {
+                            tool_call.error = Some(json_value_to_string(err));
+                        }
                     }
                     if tool_call.completed_at.is_none()
                         || event.raw.timestamp > tool_call.completed_at
@@ -267,7 +272,12 @@ impl TurnReconstructor {
                         tool_call.duration_ms =
                             duration_ms(tool_call.started_at, tool_call.completed_at);
                     }
-                    tool_call.is_complete = !tool_call.is_subagent;
+                    // For subagents, is_complete is owned by SubagentCompleted/SubagentFailed.
+                    // Don't overwrite it here — ToolExecComplete arriving after SubagentCompleted
+                    // would otherwise reverse the completion state.
+                    if !tool_call.is_subagent {
+                        tool_call.is_complete = true;
+                    }
                     if data.model.is_some() {
                         tool_call.model = data.model.clone();
                     }
@@ -394,6 +404,7 @@ impl TurnReconstructor {
     fn finalize(mut self) -> Vec<ConversationTurn> {
         self.finalize_current_turn(false, None);
         infer_subagent_models(&mut self.turns);
+        finalize_subagent_completion(&mut self.turns);
         resolve_agent_display_names(&mut self.turns);
         self.turns
     }
@@ -612,6 +623,28 @@ fn infer_subagent_models(turns: &mut [ConversationTurn]) {
                 "infer_subagent_models hit iteration cap — possible cyclic parent_tool_call_id"
             );
             break;
+        }
+    }
+}
+
+/// Post-processing: mark subagents complete when lifecycle events are missing.
+///
+/// Handles truncated/interrupted sessions where `SubagentCompleted`/`SubagentFailed`
+/// events were never emitted but `ToolExecutionComplete` provided enough data to
+/// infer completion (a `completed_at` timestamp exists).
+fn finalize_subagent_completion(turns: &mut [ConversationTurn]) {
+    for turn in turns.iter_mut() {
+        for tc in turn.tool_calls.iter_mut() {
+            if tc.is_subagent && !tc.is_complete && tc.completed_at.is_some() {
+                tracing::debug!(
+                    tool_call_id = ?tc.tool_call_id,
+                    "Subagent has completed_at but no terminal event — inferring completion"
+                );
+                tc.is_complete = true;
+                if tc.success.is_none() {
+                    tc.success = Some(tc.error.is_none());
+                }
+            }
         }
     }
 }

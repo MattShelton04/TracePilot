@@ -77,7 +77,6 @@ export function inferAgentTypeFromToolCall(tc: TurnToolCall): AgentType {
  */
 export function agentStatusFromToolCall(tc: TurnToolCall): AgentStatus {
   if (!tc.isComplete) return "in-progress";
-  if (tc.isSubagent && tc.success == null) return "in-progress";
   if (tc.success === false) return "failed";
   return "completed";
 }
