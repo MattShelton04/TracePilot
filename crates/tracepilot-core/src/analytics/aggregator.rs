@@ -81,7 +81,8 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let output_t = usage.output_tokens.unwrap_or(0);
                     let cache_read = usage.cache_read_tokens.unwrap_or(0);
                     let cache_write = usage.cache_write_tokens.unwrap_or(0);
-                    let session_model_tokens = input_t + output_t + cache_read + cache_write;
+                    // inputTokens already includes cacheReadTokens — don't add cache separately
+                    let session_model_tokens = input_t + output_t;
                     total_tokens += session_model_tokens;
                     let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0));
                     entry.0 += input_t;
@@ -142,12 +143,12 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .map(|(date, cost)| DayCost { date, cost })
         .collect();
 
-    // Model distribution with percentages
-    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, cr, cw, _)| i + o + cr + cw).sum();
+    // Model distribution with percentages (inputTokens already includes cacheReadTokens)
+    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, _cr, _cw, _)| i + o).sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
-        .map(|(model, (input_t, output_t, cache_read, cache_write, premium_req))| {
-            let tokens = input_t + output_t + cache_read + cache_write;
+        .map(|(model, (input_t, output_t, cache_read, _cache_write, premium_req))| {
+            let tokens = input_t + output_t;
             let percentage = if total_model_tokens > 0 {
                 (tokens as f64 / total_model_tokens as f64) * 100.0
             } else {

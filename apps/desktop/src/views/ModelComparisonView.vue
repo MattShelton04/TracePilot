@@ -69,6 +69,7 @@ const modelRows = computed<ModelRow[]>(() => {
   });
 });
 
+const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.tokens, 0));
 const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
 const totalCopilotCost = computed(() => modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0));
 const modelCount = computed(() => modelRows.value.length);
@@ -185,9 +186,12 @@ const displayRows = computed<ModelRow[]>(() => {
 function fmtNorm(value: number | null, isCost = false): string {
   if (value == null) return '—';
   if (normMode.value === 'share') return `${value.toFixed(1)}%`;
-  if (isCost) return formatCost(value);
+  if (isCost) {
+    // Compact cost format for large values
+    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+    return formatCost(value);
+  }
   if (normMode.value === 'per-10m-tokens') {
-    // Normalized values: use formatNumber for large values, fixed precision for small
     if (Math.abs(value) >= 1_000) return formatNumber(value);
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   }
@@ -283,8 +287,8 @@ watch(modelRows, (rows) => {
   }
 }, { immediate: true });
 
-const compareRowA = computed(() => modelRows.value.find(r => r.model === compareA.value));
-const compareRowB = computed(() => modelRows.value.find(r => r.model === compareB.value));
+const compareRowA = computed(() => displayRows.value.find(r => r.model === compareA.value));
+const compareRowB = computed(() => displayRows.value.find(r => r.model === compareB.value));
 
 interface CompareMetric {
   label: string;
@@ -310,15 +314,15 @@ const compareMetrics = computed<CompareMetric[]>(() => {
   }
 
   return [
-    { label: 'Total Tokens', valueA: formatNumber(a.tokens), valueB: formatNumber(b.tokens), ...delta(a.tokens, b.tokens, true) },
-    { label: 'Input Tokens', valueA: formatNumber(a.inputTokens), valueB: formatNumber(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
-    { label: 'Output Tokens', valueA: formatNumber(a.outputTokens), valueB: formatNumber(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
-    { label: 'Cache Read', valueA: formatNumber(a.cacheReadTokens), valueB: formatNumber(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
-    { label: 'Token Share', valueA: `${a.percentage.toFixed(1)}%`, valueB: `${b.percentage.toFixed(1)}%`, ...delta(a.percentage, b.percentage, true) },
-    { label: 'Premium Requests', valueA: formatNumber(a.premiumRequests), valueB: formatNumber(b.premiumRequests), ...delta(a.premiumRequests, b.premiumRequests, true) },
-    { label: 'Cache Hit Rate', valueA: `${a.cacheHitRate.toFixed(1)}%`, valueB: `${b.cacheHitRate.toFixed(1)}%`, ...delta(a.cacheHitRate, b.cacheHitRate, true) },
-    { label: 'Wholesale Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
-    { label: 'Copilot Cost', valueA: formatCost(a.copilotCost), valueB: formatCost(b.copilotCost), ...delta(a.copilotCost, b.copilotCost, false) },
+    { label: 'Total Tokens', valueA: fmtNorm(a.tokens), valueB: fmtNorm(b.tokens), ...delta(a.tokens, b.tokens, true) },
+    { label: 'Input Tokens', valueA: fmtNorm(a.inputTokens), valueB: fmtNorm(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
+    { label: 'Output Tokens', valueA: fmtNorm(a.outputTokens), valueB: fmtNorm(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
+    { label: 'Cache Read', valueA: fmtNorm(a.cacheReadTokens), valueB: fmtNorm(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
+    { label: 'Token Share', valueA: fmtPct(a.percentage), valueB: fmtPct(b.percentage), ...delta(a.percentage, b.percentage, true) },
+    { label: 'Premium Requests', valueA: fmtNorm(a.premiumRequests), valueB: fmtNorm(b.premiumRequests), ...delta(a.premiumRequests, b.premiumRequests, true) },
+    { label: 'Cache Hit Rate', valueA: fmtPct(a.cacheHitRate), valueB: fmtPct(b.cacheHitRate), ...delta(a.cacheHitRate, b.cacheHitRate, true) },
+    { label: 'Wholesale Cost', valueA: fmtNorm(a.cost, true), valueB: fmtNorm(b.cost, true), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
+    { label: 'Copilot Cost', valueA: fmtNorm(a.copilotCost, true), valueB: fmtNorm(b.copilotCost, true), ...delta(a.copilotCost, b.copilotCost, false) },
   ];
 });
 
@@ -375,7 +379,7 @@ function fmtPct(v: number): string {
                 <div class="stat-card-label">Models Used</div>
               </div>
               <div class="stat-card">
-                <div class="stat-card-value done">{{ formatNumber(data.totalTokens) }}</div>
+                <div class="stat-card-value done">{{ formatNumber(totalTokens) }}</div>
                 <div class="stat-card-label">Total Tokens</div>
               </div>
               <div class="stat-card">
@@ -674,7 +678,14 @@ function fmtPct(v: number): string {
 
             <!-- Side-by-Side Comparison -->
             <div class="section-panel mb-4">
-              <div class="section-panel-header">Side-by-Side Comparison</div>
+              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span>Side-by-Side Comparison</span>
+                <div class="norm-toggle">
+                  <button :class="['toggle-btn', { active: normMode === 'raw' }]" @click="normMode = 'raw'">Raw</button>
+                  <button :class="['toggle-btn', { active: normMode === 'per-10m-tokens' }]" @click="normMode = 'per-10m-tokens'">Per 10M Tokens</button>
+                  <button :class="['toggle-btn', { active: normMode === 'share' }]" @click="normMode = 'share'">Share %</button>
+                </div>
+              </div>
               <div class="section-panel-body">
                 <div v-if="modelRows.length < 2" class="chart-placeholder">
                   Need at least 2 models for side-by-side comparison.
