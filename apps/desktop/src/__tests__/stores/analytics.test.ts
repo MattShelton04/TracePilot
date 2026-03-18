@@ -23,7 +23,7 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   averageHealthScore: 0.8,
   tokenUsageByDay: [{ date: '2025-01-01', tokens: 50_000 }],
   sessionsPerDay: [{ date: '2025-01-01', count: 3 }],
-  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0, premiumRequests: 5 }],
+  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0, premiumRequests: 5, requestCount: 50 }],
   costByDay: [{ date: '2025-01-01', cost: 5.0 }],
   apiDurationStats: {
     avgMs: 1_000_000,
@@ -37,6 +37,18 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     avgTurnsPerSession: 5.0,
     avgToolCallsPerTurn: 3.0,
     avgTokensPerTurn: 10_000,
+    avgTokensPerApiSecond: 2_500,
+  },
+  cacheStats: {
+    totalCacheReadTokens: 50_000,
+    totalInputTokens: 250_000,
+    cacheHitRate: 20.0,
+    nonCachedInputTokens: 200_000,
+  },
+  healthDistribution: {
+    healthyCount: 7,
+    attentionCount: 2,
+    criticalCount: 1,
   },
 };
 

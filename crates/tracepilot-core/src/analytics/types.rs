@@ -40,6 +40,8 @@ pub struct AnalyticsData {
     pub cost_by_day: Vec<DayCost>,
     pub api_duration_stats: ApiDurationStats,
     pub productivity_metrics: ProductivityMetrics,
+    pub cache_stats: CacheStats,
+    pub health_distribution: HealthDistribution,
 }
 
 /// Token usage for a single day.
@@ -69,6 +71,8 @@ pub struct ModelDistEntry {
     pub output_tokens: u64,
     pub cache_read_tokens: u64,
     pub premium_requests: f64,
+    /// Number of API requests made to this model.
+    pub request_count: u64,
 }
 
 /// Cost for a single day.
@@ -101,6 +105,37 @@ pub struct ProductivityMetrics {
     pub avg_turns_per_session: f64,
     pub avg_tool_calls_per_turn: f64,
     pub avg_tokens_per_turn: f64,
+    /// Average tokens generated per second of API time (throughput indicator).
+    pub avg_tokens_per_api_second: f64,
+}
+
+/// Prompt cache efficiency metrics across all sessions.
+///
+/// `cache_hit_rate` = `total_cache_read_tokens` / `total_input_tokens` * 100.
+/// `non_cached_input_tokens` = `total_input_tokens` - `total_cache_read_tokens`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CacheStats {
+    /// Total tokens served from prompt cache across all sessions.
+    pub total_cache_read_tokens: u64,
+    /// Total input tokens (cache reads are a subset of this).
+    pub total_input_tokens: u64,
+    /// Fraction of input tokens served from cache (0–100 %).
+    pub cache_hit_rate: f64,
+    /// Fresh (non-cached) input tokens = total_input - cache_read.
+    pub non_cached_input_tokens: u64,
+}
+
+/// Distribution of sessions by health score tier.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthDistribution {
+    /// Sessions with health score ≥ 0.8.
+    pub healthy_count: u32,
+    /// Sessions with 0.5 ≤ health score < 0.8.
+    pub attention_count: u32,
+    /// Sessions with health score < 0.5.
+    pub critical_count: u32,
 }
 
 // ── Tool Analysis ─────────────────────────────────────────────────────

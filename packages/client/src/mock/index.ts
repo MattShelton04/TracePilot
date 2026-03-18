@@ -573,10 +573,10 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     count: Math.floor(2 + Math.random() * 6),
   })),
   modelDistribution: [
-    { model: 'Claude Sonnet 4', tokens: 1200000, percentage: 42.1, inputTokens: 600000, outputTokens: 400000, cacheReadTokens: 200000, premiumRequests: 15 },
-    { model: 'GPT-4.1', tokens: 850000, percentage: 29.9, inputTokens: 425000, outputTokens: 300000, cacheReadTokens: 125000, premiumRequests: 10 },
-    { model: 'Claude Haiku 3.5', tokens: 497000, percentage: 17.5, inputTokens: 250000, outputTokens: 150000, cacheReadTokens: 97000, premiumRequests: 8 },
-    { model: 'Gemini 2.5 Pro', tokens: 300000, percentage: 10.5, inputTokens: 150000, outputTokens: 100000, cacheReadTokens: 50000, premiumRequests: 5 },
+    { model: 'Claude Sonnet 4', tokens: 1200000, percentage: 42.1, inputTokens: 600000, outputTokens: 400000, cacheReadTokens: 200000, premiumRequests: 15, requestCount: 312 },
+    { model: 'GPT-4.1', tokens: 850000, percentage: 29.9, inputTokens: 425000, outputTokens: 300000, cacheReadTokens: 125000, premiumRequests: 10, requestCount: 198 },
+    { model: 'Claude Haiku 3.5', tokens: 497000, percentage: 17.5, inputTokens: 250000, outputTokens: 150000, cacheReadTokens: 97000, premiumRequests: 8, requestCount: 143 },
+    { model: 'Gemini 2.5 Pro', tokens: 300000, percentage: 10.5, inputTokens: 150000, outputTokens: 100000, cacheReadTokens: 50000, premiumRequests: 5, requestCount: 87 },
   ],
   costByDay: Array.from({ length: 14 }, (_, i) => ({
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
@@ -594,6 +594,18 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     avgTurnsPerSession: 8.5,
     avgToolCallsPerTurn: 4.2,
     avgTokensPerTurn: 60_489,
+    avgTokensPerApiSecond: 3_420,
+  },
+  cacheStats: {
+    totalCacheReadTokens: 472_000,
+    totalInputTokens: 1_425_000,
+    cacheHitRate: 33.1,
+    nonCachedInputTokens: 953_000,
+  },
+  healthDistribution: {
+    healthyCount: 28,
+    attentionCount: 14,
+    criticalCount: 5,
   },
 };
 

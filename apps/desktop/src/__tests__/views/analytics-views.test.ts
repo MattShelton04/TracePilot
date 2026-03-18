@@ -32,8 +32,8 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-03', count: 3 },
   ],
   modelDistribution: [
-    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0, premiumRequests: 24 },
-    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0, premiumRequests: 16 },
+    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0, premiumRequests: 24, requestCount: 180 },
+    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0, premiumRequests: 16, requestCount: 120 },
   ],
   costByDay: [
     { date: '2025-01-01', cost: 1.5 },
@@ -52,6 +52,18 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     avgTurnsPerSession: 8.5,
     avgToolCallsPerTurn: 4.2,
     avgTokensPerTurn: 60_489,
+    avgTokensPerApiSecond: 3_420,
+  },
+  cacheStats: {
+    totalCacheReadTokens: 300_000,
+    totalInputTokens: 1_250_000,
+    cacheHitRate: 24.0,
+    nonCachedInputTokens: 950_000,
+  },
+  healthDistribution: {
+    healthyCount: 7,
+    attentionCount: 2,
+    criticalCount: 1,
   },
 };
 
@@ -167,6 +179,45 @@ describe('AnalyticsDashboardView', () => {
     expect(wrapper.text()).toContain('Productivity Metrics');
     expect(wrapper.text()).toContain('8.5'); // avgTurnsPerSession
     expect(wrapper.text()).toContain('4.2'); // avgToolCallsPerTurn
+    expect(wrapper.text()).toContain('Tokens / API Second');
+  });
+
+  it('renders cache efficiency section', async () => {
+    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const Component = await loadAnalyticsDashboard();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Cache Efficiency');
+    expect(wrapper.text()).toContain('Cache Hit Rate');
+    expect(wrapper.text()).toContain('24.0%');
+    expect(wrapper.text()).toContain('Cached Tokens');
+  });
+
+  it('renders session health distribution section', async () => {
+    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const Component = await loadAnalyticsDashboard();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Session Health Distribution');
+    expect(wrapper.text()).toContain('Healthy');
+    expect(wrapper.text()).toContain('Attention');
+    expect(wrapper.text()).toContain('Critical');
+    expect(wrapper.text()).toContain('7'); // healthyCount
+  });
+
+  it('renders request count in model distribution legend', async () => {
+    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+    const Component = await loadAnalyticsDashboard();
+    const wrapper = mount(Component, globalStubs);
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('180 req');
+    expect(wrapper.text()).toContain('120 req');
   });
 
   it('shows error state with retry button', async () => {
