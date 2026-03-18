@@ -3242,9 +3242,11 @@
     }
 
     #[test]
-    fn subagent_missing_lifecycle_events_finalization_sweep() {
+    fn subagent_missing_lifecycle_events_stays_incomplete() {
         // Truncated trace: SubagentStarted + ToolExecComplete, but NO SubagentCompleted.
-        // The finalization sweep should infer completion from completed_at.
+        // Since ToolExecComplete no longer sets completed_at/duration_ms for subagents,
+        // the finalization sweep has no completed_at to work with, so the subagent
+        // correctly remains incomplete (showing as "in-progress" in the UI).
         let (user_msg, turn_start, tool_start, sub_started) = base_subagent_events();
         let events = vec![
             user_msg,
@@ -3259,10 +3261,13 @@
         let tc = run_subagent_scenario(events);
         assert!(tc.is_subagent);
         assert!(
-            tc.is_complete,
-            "Finalization sweep should mark complete when completed_at exists"
+            !tc.is_complete,
+            "Subagent should remain incomplete when only ToolExecComplete arrived (no SubagentCompleted)"
         );
-        assert_eq!(tc.success, Some(true), "Success should be inferred from ToolExecComplete");
+        assert!(
+            tc.completed_at.is_none(),
+            "completed_at should be None — ToolExecComplete must not set it for subagents"
+        );
     }
 
     #[test]
@@ -3408,3 +3413,43 @@
         );
     }
 
+
+    #[test]
+    fn subagent_started_then_tool_exec_complete_no_sub_completed_stays_incomplete() {
+        // THE critical regression scenario: normal event ordering where SubagentStarted
+        // arrives first, then ToolExecComplete fires, but SubagentCompleted never arrives
+        // (session still running or truncated).
+        //
+        // Previously, ToolExecComplete would set completed_at/duration_ms even for subagents,
+        // and finalize_subagent_completion() would then mark it complete with a very short
+        // duration (the ToolExecStart->ToolExecComplete gap, not actual subagent runtime).
+        //
+        // With the fix, ToolExecComplete no longer sets completed_at/duration_ms for
+        // subagents, so the subagent correctly remains in-progress.
+        let (user_msg, turn_start, tool_start, sub_started) = base_subagent_events();
+        let events = vec![
+            user_msg,
+            turn_start,
+            tool_start,                                                          // T=1.0s
+            sub_started,                                                         // T=1.05s
+            tool_complete_event("2026-03-18T00:00:01.100Z", "evt-5", Some(true)), // T=1.1s
+            // No SubagentCompleted -- subagent is still running
+            turn_end_event("2026-03-18T00:00:01.200Z", "evt-6"),
+        ];
+
+        let tc = run_subagent_scenario(events);
+        assert!(tc.is_subagent, "Should be marked as subagent");
+        assert!(
+            !tc.is_complete,
+            "Subagent should NOT be marked complete when SubagentCompleted never arrived. \
+             ToolExecComplete should not finalize subagents."
+        );
+        assert!(
+            tc.completed_at.is_none(),
+            "completed_at should be None -- ToolExecComplete must not set it for subagents"
+        );
+        assert!(
+            tc.duration_ms.is_none(),
+            "duration_ms should be None -- subagent is still running"
+        );
+    }

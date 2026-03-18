@@ -265,17 +265,17 @@ impl TurnReconstructor {
                             tool_call.error = Some(json_value_to_string(err));
                         }
                     }
-                    if tool_call.completed_at.is_none()
-                        || event.raw.timestamp > tool_call.completed_at
-                    {
-                        tool_call.completed_at = event.raw.timestamp;
-                        tool_call.duration_ms =
-                            duration_ms(tool_call.started_at, tool_call.completed_at);
-                    }
-                    // For subagents, is_complete is owned by SubagentCompleted/SubagentFailed.
-                    // Don't overwrite it here — ToolExecComplete arriving after SubagentCompleted
-                    // would otherwise reverse the completion state.
+                    // For subagents, SubagentCompleted/SubagentFailed owns completion
+                    // timing. Don't let ToolExecComplete set completed_at/duration_ms
+                    // — it reflects the wrapper tool, not the subagent's actual runtime.
                     if !tool_call.is_subagent {
+                        if tool_call.completed_at.is_none()
+                            || event.raw.timestamp > tool_call.completed_at
+                        {
+                            tool_call.completed_at = event.raw.timestamp;
+                            tool_call.duration_ms =
+                                duration_ms(tool_call.started_at, tool_call.completed_at);
+                        }
                         tool_call.is_complete = true;
                     }
                     if data.model.is_some() {
@@ -632,11 +632,15 @@ fn infer_subagent_models(turns: &mut [ConversationTurn]) {
     }
 }
 
-/// Post-processing: mark subagents complete when lifecycle events are missing.
+/// Post-processing: mark subagents complete when lifecycle events partially arrived.
 ///
-/// Handles truncated/interrupted sessions where `SubagentCompleted`/`SubagentFailed`
-/// events were never emitted but `ToolExecutionComplete` provided enough data to
-/// infer completion (a `completed_at` timestamp exists).
+/// After our fix, `completed_at` on a subagent is ONLY set by `SubagentCompleted`
+/// or `SubagentFailed` (via `handle_subagent_terminal`). If a subagent has
+/// `completed_at` set but `is_complete` is still false (e.g., due to event
+/// reordering where `enrich_subagent` cleared it), this finalizes it.
+///
+/// Subagents without `completed_at` are truly still running (or truncated) and
+/// should remain `is_complete = false` so the UI shows them as in-progress.
 fn finalize_subagent_completion(turns: &mut [ConversationTurn]) {
     for turn in turns.iter_mut() {
         for tc in turn.tool_calls.iter_mut() {
