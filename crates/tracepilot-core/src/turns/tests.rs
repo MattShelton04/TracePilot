@@ -1,9 +1,9 @@
     use super::*;
     use crate::models::conversation::AttributedMessage;
     use crate::models::event_types::{
-        AbortData, AssistantMessageData, ModelChangeData, SubagentCompletedData,
-        SubagentFailedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
-        TurnEndData, TurnStartData, UserMessageData,
+        AbortData, AssistantMessageData, AssistantReasoningData, ModelChangeData,
+        SubagentCompletedData, SubagentFailedData, SubagentStartedData, ToolExecCompleteData,
+        ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
     };
     use crate::parsing::events::{RawEvent, TypedEvent};
     use serde_json::{Value, json};
@@ -3613,4 +3613,129 @@
             tc.duration_ms.is_some(),
             "duration_ms from SubagentCompleted must be preserved"
         );
+    }
+
+    #[test]
+    fn assistant_reasoning_appends_to_turn() {
+        let events = vec![
+            make_event(
+                SessionEventType::UserMessage,
+                TypedEventData::UserMessage(UserMessageData {
+                    content: Some("Think about this".to_string()),
+                    transformed_content: None,
+                    attachments: None,
+                    interaction_id: Some("int-1".to_string()),
+                    source: None,
+                    agent_mode: None,
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+            make_event(
+                SessionEventType::AssistantTurnStart,
+                TypedEventData::TurnStart(TurnStartData {
+                    turn_id: Some("turn-1".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                }),
+                "evt-2",
+                "2026-03-10T07:14:51.100Z",
+                Some("evt-1"),
+            ),
+            make_event(
+                SessionEventType::AssistantReasoning,
+                TypedEventData::AssistantReasoning(AssistantReasoningData {
+                    reasoning_id: Some("reason-1".to_string()),
+                    content: Some("Let me think step by step...".to_string()),
+                }),
+                "evt-3",
+                "2026-03-10T07:14:51.200Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::AssistantReasoning,
+                TypedEventData::AssistantReasoning(AssistantReasoningData {
+                    reasoning_id: Some("reason-2".to_string()),
+                    content: Some("The answer is 42".to_string()),
+                }),
+                "evt-4",
+                "2026-03-10T07:14:51.300Z",
+                Some("evt-2"),
+            ),
+            // Empty reasoning should be skipped
+            make_event(
+                SessionEventType::AssistantReasoning,
+                TypedEventData::AssistantReasoning(AssistantReasoningData {
+                    reasoning_id: Some("reason-3".to_string()),
+                    content: Some("   ".to_string()),
+                }),
+                "evt-5",
+                "2026-03-10T07:14:51.400Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::AssistantMessage,
+                TypedEventData::AssistantMessage(AssistantMessageData {
+                    message_id: Some("msg-1".to_string()),
+                    content: Some("The answer is 42.".to_string()),
+                    interaction_id: Some("int-1".to_string()),
+                    tool_requests: None,
+                    output_tokens: None,
+                    parent_tool_call_id: None,
+                    reasoning_text: None,
+                    reasoning_opaque: None,
+                    encrypted_content: None,
+                    phase: None,
+                }),
+                "evt-6",
+                "2026-03-10T07:14:52.000Z",
+                Some("evt-2"),
+            ),
+            make_event(
+                SessionEventType::AssistantTurnEnd,
+                TypedEventData::TurnEnd(TurnEndData {
+                    turn_id: Some("turn-1".to_string()),
+                }),
+                "evt-7",
+                "2026-03-10T07:14:53.000Z",
+                Some("evt-2"),
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        let turn = &turns[0];
+
+        // Two non-empty reasoning blocks should be collected
+        assert_eq!(turn.reasoning_texts.len(), 2);
+        assert_eq!(turn.reasoning_texts[0].content, "Let me think step by step...");
+        assert_eq!(turn.reasoning_texts[1].content, "The answer is 42");
+
+        // AssistantReasoning has no parent_tool_call_id
+        assert!(turn.reasoning_texts[0].parent_tool_call_id.is_none());
+
+        // The assistant message should still be there
+        assert_eq!(msg_contents(&turn.assistant_messages), vec!["The answer is 42."]);
+    }
+
+    #[test]
+    fn assistant_reasoning_without_prior_turn_creates_turn() {
+        // Reasoning event arrives before any UserMessage — should auto-create a turn
+        let events = vec![
+            make_event(
+                SessionEventType::AssistantReasoning,
+                TypedEventData::AssistantReasoning(AssistantReasoningData {
+                    reasoning_id: Some("reason-1".to_string()),
+                    content: Some("Thinking...".to_string()),
+                }),
+                "evt-1",
+                "2026-03-10T07:14:51.000Z",
+                None,
+            ),
+        ];
+
+        let turns = reconstruct_turns(&events);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(turns[0].reasoning_texts.len(), 1);
+        assert_eq!(turns[0].reasoning_texts[0].content, "Thinking...");
     }

@@ -672,25 +672,31 @@ export async function scanSessionVersions(
     let copilotVersion = "unknown";
     const eventTypesObserved = new Set<string>();
 
-    // Stream all events in the session
+    // Stream events — use lightweight regex extraction for type field to avoid
+    // full JSON parsing of large events (e.g. session.import_legacy).
+    // Only do full JSON parse for session.start/session.resume to get copilotVersion.
+    const typeRe = /"type"\s*:\s*"([^"]+)"/;
     try {
       const rl = createInterface({ input: createReadStream(eventsPath) });
       for await (const line of rl) {
         const trimmed = line.trim();
         if (!trimmed) continue;
-        try {
-          const event = JSON.parse(trimmed) as Record<string, unknown>;
-          const eventType = event.type as string;
-          if (eventType) eventTypesObserved.add(eventType);
 
-          // Extract copilotVersion from session.start or session.resume
-          if (eventType === "session.start" || (eventType === "session.resume" && copilotVersion === "unknown")) {
+        const typeMatch = typeRe.exec(trimmed);
+        if (!typeMatch) continue;
+        const eventType = typeMatch[1];
+        eventTypesObserved.add(eventType);
+
+        // Full parse only for session.start/resume to extract copilotVersion
+        if (eventType === "session.start" || (eventType === "session.resume" && copilotVersion === "unknown")) {
+          try {
+            const event = JSON.parse(trimmed) as Record<string, unknown>;
             const data = event.data as Record<string, unknown> | undefined;
             if (data?.copilotVersion) {
               copilotVersion = String(data.copilotVersion);
             }
-          }
-        } catch { /* skip malformed lines */ }
+          } catch { /* skip malformed */ }
+        }
       }
     } catch { /* skip unreadable files */ }
 
