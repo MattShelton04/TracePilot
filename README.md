@@ -237,6 +237,14 @@ pnpm format
 - Cache efficiency optimizer
 - File impact treemap
 
+## License
+
+TracePilot is licensed under the [GNU General Public License v3.0](LICENSE).
+
+You are free to use, modify, and distribute this software under the terms of the GPL-3.0. Any derivative works or modifications must also be released under the same license, preserving the same freedoms for all users.
+
+See the [LICENSE](LICENSE) file for the full license text.
+
 ---
 
 <p align="center">
