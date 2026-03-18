@@ -385,3 +385,43 @@ describe("buildSubagentContentIndex", () => {
     expect(index.has("unknown-id")).toBe(false);
   });
 });
+
+// =========================================================================
+// agentStatusFromToolCall — subagent completion status
+// =========================================================================
+import { agentStatusFromToolCall } from "../utils/agentTypes";
+
+describe("agentStatusFromToolCall", () => {
+
+  it("returns completed for a complete subagent with success=true", () => {
+    const tc = makeToolCall({ isSubagent: true, isComplete: true, success: true });
+    expect(agentStatusFromToolCall(tc)).toBe("completed");
+  });
+
+  it("returns failed for a complete subagent with success=false", () => {
+    const tc = makeToolCall({ isSubagent: true, isComplete: true, success: false });
+    expect(agentStatusFromToolCall(tc)).toBe("failed");
+  });
+
+  it("returns in-progress for an incomplete subagent", () => {
+    const tc = makeToolCall({ isSubagent: true, isComplete: false, success: undefined });
+    expect(agentStatusFromToolCall(tc)).toBe("in-progress");
+  });
+
+  it("returns completed for a complete subagent even when success is null", () => {
+    // With the backend fix, success should always be set. But if somehow it isn't,
+    // a complete subagent should show as completed, not in-progress.
+    const tc = makeToolCall({ isSubagent: true, isComplete: true, success: undefined });
+    expect(agentStatusFromToolCall(tc)).toBe("completed");
+  });
+
+  it("returns completed for a regular (non-subagent) tool call", () => {
+    const tc = makeToolCall({ isSubagent: false, isComplete: true, success: true });
+    expect(agentStatusFromToolCall(tc)).toBe("completed");
+  });
+
+  it("returns in-progress for an incomplete regular tool call", () => {
+    const tc = makeToolCall({ isSubagent: false, isComplete: false });
+    expect(agentStatusFromToolCall(tc)).toBe("in-progress");
+  });
+});

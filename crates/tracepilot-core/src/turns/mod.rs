@@ -254,20 +254,30 @@ impl TurnReconstructor {
                 }
 
                 if let Some(tool_call) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
-                    if data.success.is_some() {
-                        tool_call.success = data.success;
+                    // For subagents, SubagentCompleted/Failed has authority over success/error.
+                    // Only apply ToolExecComplete's values if the subagent terminal event
+                    // hasn't already set them (prevents flipping failure→success).
+                    if !tool_call.is_subagent || tool_call.success.is_none() {
+                        if data.success.is_some() {
+                            tool_call.success = data.success;
+                        }
+                        if let Some(ref err) = data.error {
+                            tool_call.error = Some(json_value_to_string(err));
+                        }
                     }
-                    if let Some(ref err) = data.error {
-                        tool_call.error = Some(json_value_to_string(err));
+                    // For subagents, SubagentCompleted/SubagentFailed owns completion
+                    // timing. Don't let ToolExecComplete set completed_at/duration_ms
+                    // — it reflects the wrapper tool, not the subagent's actual runtime.
+                    if !tool_call.is_subagent {
+                        if tool_call.completed_at.is_none()
+                            || event.raw.timestamp > tool_call.completed_at
+                        {
+                            tool_call.completed_at = event.raw.timestamp;
+                            tool_call.duration_ms =
+                                duration_ms(tool_call.started_at, tool_call.completed_at);
+                        }
+                        tool_call.is_complete = true;
                     }
-                    if tool_call.completed_at.is_none()
-                        || event.raw.timestamp > tool_call.completed_at
-                    {
-                        tool_call.completed_at = event.raw.timestamp;
-                        tool_call.duration_ms =
-                            duration_ms(tool_call.started_at, tool_call.completed_at);
-                    }
-                    tool_call.is_complete = !tool_call.is_subagent;
                     if data.model.is_some() {
                         tool_call.model = data.model.clone();
                     }
@@ -394,6 +404,7 @@ impl TurnReconstructor {
     fn finalize(mut self) -> Vec<ConversationTurn> {
         self.finalize_current_turn(false, None);
         infer_subagent_models(&mut self.turns);
+        finalize_subagent_completion(&mut self.turns);
         resolve_agent_display_names(&mut self.turns);
         self.turns
     }
@@ -488,6 +499,9 @@ impl TurnReconstructor {
         error: Option<&str>,
     ) {
         if let Some(tool_call) = self.find_tool_call_mut(tool_call_id) {
+            // Mark as subagent — handles the case where SubagentCompleted arrives
+            // before SubagentStarted (so enrich_subagent can detect this later).
+            tool_call.is_subagent = true;
             if tool_call.completed_at.is_none() || timestamp > tool_call.completed_at {
                 tool_call.completed_at = timestamp;
                 tool_call.duration_ms = duration_ms(tool_call.started_at, tool_call.completed_at);
@@ -541,10 +555,22 @@ fn enrich_subagent(
     existing: &mut TurnToolCall,
     data: &crate::models::event_types::SubagentStartedData,
 ) {
+    // Detect whether completion state was set by a real subagent terminal event
+    // (SubagentCompleted/SubagentFailed) vs ToolExecComplete on an unknown-subagent.
+    // handle_subagent_terminal() sets is_subagent=true, so:
+    //   is_subagent=true + is_complete=true → terminal event already processed, preserve state
+    //   is_subagent=false + is_complete=true → ToolExecComplete set it, clear it
+    let has_terminal_state = existing.is_subagent && existing.is_complete;
     existing.is_subagent = true;
-    // Reset completion state — only SubagentCompleted/Failed should finalize subagents.
-    // This handles the case where ToolExecComplete arrived before SubagentStarted.
-    existing.is_complete = false;
+    if !has_terminal_state {
+        // Clear stale ToolExecComplete-derived state. With the ToolExecComplete guard,
+        // this is mostly a no-op for normal ordering, but handles the edge case where
+        // ToolExecComplete arrived before SubagentStarted and set completed_at/is_complete
+        // because is_subagent was still false at that point.
+        existing.is_complete = false;
+        existing.completed_at = None;
+        existing.duration_ms = None;
+    }
     existing.agent_display_name = data.agent_display_name.clone();
     existing.agent_description = data.agent_description.clone();
     if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
@@ -612,6 +638,32 @@ fn infer_subagent_models(turns: &mut [ConversationTurn]) {
                 "infer_subagent_models hit iteration cap — possible cyclic parent_tool_call_id"
             );
             break;
+        }
+    }
+}
+
+/// Post-processing: mark subagents complete when lifecycle events partially arrived.
+///
+/// After our fix, `completed_at` on a subagent is ONLY set by `SubagentCompleted`
+/// or `SubagentFailed` (via `handle_subagent_terminal`). If a subagent has
+/// `completed_at` set but `is_complete` is still false (e.g., due to event
+/// reordering where `enrich_subagent` cleared it), this finalizes it.
+///
+/// Subagents without `completed_at` are truly still running (or truncated) and
+/// should remain `is_complete = false` so the UI shows them as in-progress.
+fn finalize_subagent_completion(turns: &mut [ConversationTurn]) {
+    for turn in turns.iter_mut() {
+        for tc in turn.tool_calls.iter_mut() {
+            if tc.is_subagent && !tc.is_complete && tc.completed_at.is_some() {
+                tracing::debug!(
+                    tool_call_id = ?tc.tool_call_id,
+                    "Subagent has completed_at but no terminal event — inferring completion"
+                );
+                tc.is_complete = true;
+                if tc.success.is_none() {
+                    tc.success = Some(tc.error.is_none());
+                }
+            }
         }
     }
 }

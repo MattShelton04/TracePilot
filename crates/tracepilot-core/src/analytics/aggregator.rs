@@ -27,7 +27,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut health_score_sum: f64 = 0.0;
     let mut tokens_by_day: BTreeMap<String, u64> = BTreeMap::new();
     let mut sessions_by_day: BTreeMap<String, u32> = BTreeMap::new();
-    let mut model_tokens: HashMap<String, (u64, u64, u64, u64)> = HashMap::new();
+    let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64)> = HashMap::new();
     let mut cost_by_day: BTreeMap<String, f64> = BTreeMap::new();
     let mut durations: Vec<u64> = Vec::new();
     let mut total_turns: u64 = 0;
@@ -81,9 +81,10 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let output_t = usage.output_tokens.unwrap_or(0);
                     let cache_read = usage.cache_read_tokens.unwrap_or(0);
                     let cache_write = usage.cache_write_tokens.unwrap_or(0);
-                    let session_model_tokens = input_t + output_t + cache_read + cache_write;
+                    // inputTokens already includes cacheReadTokens — don't add cache separately
+                    let session_model_tokens = input_t + output_t;
                     total_tokens += session_model_tokens;
-                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0));
+                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0));
                     entry.0 += input_t;
                     entry.1 += output_t;
                     entry.2 += cache_read;
@@ -96,13 +97,15 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     total_tokens_from_turns += session_model_tokens;
                 }
 
-                // Cost
+                // Cost (requests.cost = premium requests consumed by this model)
                 if let Some(ref requests) = detail.requests {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
                     if let Some(ref date) = date_key {
                         *cost_by_day.entry(date.clone()).or_insert(0.0) += cost;
                     }
+                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0));
+                    entry.4 += cost;
                 }
             }
         }
@@ -140,12 +143,12 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .map(|(date, cost)| DayCost { date, cost })
         .collect();
 
-    // Model distribution with percentages
-    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, cr, cw)| i + o + cr + cw).sum();
+    // Model distribution with percentages (inputTokens already includes cacheReadTokens)
+    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, _cr, _cw, _)| i + o).sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
-        .map(|(model, (input_t, output_t, cache_read, cache_write))| {
-            let tokens = input_t + output_t + cache_read + cache_write;
+        .map(|(model, (input_t, output_t, cache_read, _cache_write, premium_req))| {
+            let tokens = input_t + output_t;
             let percentage = if total_model_tokens > 0 {
                 (tokens as f64 / total_model_tokens as f64) * 100.0
             } else {
@@ -158,6 +161,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 input_tokens: input_t,
                 output_tokens: output_t,
                 cache_read_tokens: cache_read,
+                premium_requests: premium_req,
             }
         })
         .collect();

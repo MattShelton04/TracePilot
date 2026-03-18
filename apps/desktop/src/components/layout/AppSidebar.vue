@@ -10,12 +10,11 @@ const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || 'sessions');
-const sessionCount = computed(() => sessionsStore.sessions.length);
+const sessionCount = computed(() => sessionsStore.visibleSessionCount);
 const currentTheme = computed(() => prefsStore.theme);
 
 function toggleTheme() {
-  const cycle = { dark: 'light', light: 'system', system: 'dark' } as const;
-  prefsStore.theme = cycle[currentTheme.value as keyof typeof cycle] || 'dark';
+  prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
 }
 
 const primaryNav = [
@@ -115,14 +114,8 @@ const advancedNav = [
           <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M12.5 3.5l-1.5 1.5M5 11l-1.5 1.5" />
         </svg>
         <!-- Moon (shown in light mode) -->
-        <svg v-else-if="currentTheme === 'light'" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" />
-        </svg>
-        <!-- System (shown in system mode) -->
         <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="2" width="12" height="9" rx="1.5" />
-          <line x1="5" y1="14" x2="11" y2="14" />
-          <line x1="8" y1="11" x2="8" y2="14" />
+          <path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" />
         </svg>
       </button>
     </div>

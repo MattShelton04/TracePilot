@@ -1402,6 +1402,14 @@ body {
   justify-content: center;
 }
 
+/* When chart-container is inside a section-panel, the panel already provides the border */
+.section-panel-body.chart-container {
+  border: none;
+  background: none;
+  background-image: none;
+  border-radius: 0;
+}
+
 /* ============================
    TIMELINE SCRUBBER
    ============================ */

@@ -9,12 +9,8 @@ const saved = localStorage.getItem("tracepilot-prefs");
 if (saved) {
   try {
     const parsed = JSON.parse(saved);
-    if (parsed.theme) {
-      const theme = parsed.theme === "system"
-        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-        : parsed.theme;
-      document.documentElement.setAttribute("data-theme", theme);
-    }
+    const theme = (parsed.theme === 'dark' || parsed.theme === 'light') ? parsed.theme : 'dark';
+    document.documentElement.setAttribute("data-theme", theme);
   } catch { /* ignore corrupt data */ }
 } else {
   document.documentElement.setAttribute("data-theme", "dark");

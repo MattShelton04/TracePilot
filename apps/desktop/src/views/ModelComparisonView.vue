@@ -33,7 +33,7 @@ interface ModelRow {
   outputTokens: number;
   cacheReadTokens: number;
   percentage: number;
-  ioRatio: number;
+  premiumRequests: number;
   cacheHitRate: number;
   cost: number | null;
   copilotCost: number;
@@ -41,22 +41,27 @@ interface ModelRow {
 
 const modelRows = computed<ModelRow[]>(() => {
   if (!data.value?.modelDistribution) return [];
-  return data.value.modelDistribution.map((m, i) => {
-    const ioRatio = m.inputTokens > 0 ? m.outputTokens / m.inputTokens : 0;
-    const cacheHitRate = (m.inputTokens + m.cacheReadTokens) > 0
-      ? m.cacheReadTokens / (m.inputTokens + m.cacheReadTokens) * 100
+  const dist = data.value.modelDistribution;
+  // Correct total: inputTokens + outputTokens (inputTokens already includes cacheReadTokens)
+  const grandTotal = dist.reduce((sum, m) => sum + m.inputTokens + m.outputTokens, 0);
+  return dist.map((m, i) => {
+    const tokens = m.inputTokens + m.outputTokens;
+    const percentage = grandTotal > 0 ? (tokens / grandTotal) * 100 : 0;
+    const premiumRequests = m.premiumRequests;
+    const cacheHitRate = m.inputTokens > 0
+      ? m.cacheReadTokens / m.inputTokens * 100
       : 0;
     const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
-    const copilotCost = (m.percentage / 100) * (data.value?.totalPremiumRequests ?? 0) * prefs.costPerPremiumRequest;
+    const copilotCost = premiumRequests * prefs.costPerPremiumRequest;
     return {
       model: m.model,
       color: MODEL_COLORS[i % MODEL_COLORS.length],
-      tokens: m.tokens,
+      tokens,
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
       cacheReadTokens: m.cacheReadTokens,
-      percentage: m.percentage,
-      ioRatio,
+      percentage,
+      premiumRequests,
       cacheHitRate,
       cost,
       copilotCost,
@@ -64,6 +69,7 @@ const modelRows = computed<ModelRow[]>(() => {
   });
 });
 
+const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.tokens, 0));
 const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
 const totalCopilotCost = computed(() => modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0));
 const modelCount = computed(() => modelRows.value.length);
@@ -86,7 +92,6 @@ function bestIdx(arr: number[], higher = true): number {
 }
 
 const bestCacheIdx = computed(() => bestIdx(modelRows.value.map(m => m.cacheHitRate)));
-const bestIoIdx = computed(() => bestIdx(modelRows.value.map(m => m.ioRatio), false));
 const bestCostIdx = computed(() => {
   const costs = modelRows.value.map(m => m.cost ?? Infinity);
   if (costs.every(c => c === Infinity)) return -1;
@@ -95,7 +100,7 @@ const bestCostIdx = computed(() => {
 const bestCopilotCostIdx = computed(() => bestIdx(modelRows.value.map(m => m.copilotCost), false));
 
 // ── Sort state ───────────────────────────────────────────────
-type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'ioRatio' | 'cacheHitRate' | 'cost' | 'copilotCost';
+type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'premiumRequests' | 'cacheHitRate' | 'cost' | 'copilotCost';
 const sortKey = ref<SortKey>('tokens');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
@@ -145,6 +150,7 @@ const displayRows = computed<ModelRow[]>(() => {
         inputTokens: r.inputTokens / divisor,
         outputTokens: r.outputTokens / divisor,
         cacheReadTokens: r.cacheReadTokens / divisor,
+        premiumRequests: r.premiumRequests / divisor,
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
       };
@@ -158,10 +164,11 @@ const displayRows = computed<ModelRow[]>(() => {
       inputTokens: acc.inputTokens + r.inputTokens,
       outputTokens: acc.outputTokens + r.outputTokens,
       cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
+      premiumRequests: acc.premiumRequests + r.premiumRequests,
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
     }),
-    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cost: 0, copilotCost: 0 },
+    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, premiumRequests: 0, cost: 0, copilotCost: 0 },
   );
 
   return rows.map(r => ({
@@ -170,6 +177,7 @@ const displayRows = computed<ModelRow[]>(() => {
     inputTokens: sums.inputTokens > 0 ? (r.inputTokens / sums.inputTokens) * 100 : 0,
     outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
     cacheReadTokens: sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
+    premiumRequests: sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
   }));
@@ -178,8 +186,15 @@ const displayRows = computed<ModelRow[]>(() => {
 function fmtNorm(value: number | null, isCost = false): string {
   if (value == null) return '—';
   if (normMode.value === 'share') return `${value.toFixed(1)}%`;
-  if (isCost) return formatCost(value);
-  if (normMode.value === 'per-10m-tokens') return value.toFixed(1);
+  if (isCost) {
+    // Compact cost format for large values
+    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+    return formatCost(value);
+  }
+  if (normMode.value === 'per-10m-tokens') {
+    if (Math.abs(value) >= 1_000) return formatNumber(value);
+    return value % 1 === 0 ? value.toString() : value.toFixed(1);
+  }
   return formatNumber(value);
 }
 
@@ -188,18 +203,19 @@ const radarModels = computed(() => {
   return [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3);
 });
 
-const radarAxes = ['Token Vol.', 'Cache Eff.', 'Output Eff.', 'Cost Eff.', 'Token Share'];
+const radarAxes = ['Token Vol.', 'Cache Eff.', 'Premium Req.', 'Cost Eff.', 'Token Share'];
 
 function radarValues(row: ModelRow): number[] {
   const maxTokens = Math.max(...modelRows.value.map(m => m.tokens), 1);
   const tokenVol = row.tokens / maxTokens;
   const cacheEff = row.cacheHitRate / 100;
-  const outputEff = 1 - Math.min(row.ioRatio / 2, 1); // lower ratio = more efficient
+  const maxPR = Math.max(...modelRows.value.map(m => m.premiumRequests), 1);
+  const prShare = row.premiumRequests / maxPR;
   const costPerToken = row.cost != null && row.tokens > 0 ? row.cost / row.tokens : 0;
   const maxCostPerToken = Math.max(...modelRows.value.map(m => (m.cost ?? 0) / Math.max(m.tokens, 1)), 0.0001);
   const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
   const share = row.percentage / 100;
-  return [tokenVol, cacheEff, outputEff, costEff, share];
+  return [tokenVol, cacheEff, prShare, costEff, share];
 }
 
 const RADAR_CX = 150;
@@ -271,8 +287,8 @@ watch(modelRows, (rows) => {
   }
 }, { immediate: true });
 
-const compareRowA = computed(() => modelRows.value.find(r => r.model === compareA.value));
-const compareRowB = computed(() => modelRows.value.find(r => r.model === compareB.value));
+const compareRowA = computed(() => displayRows.value.find(r => r.model === compareA.value));
+const compareRowB = computed(() => displayRows.value.find(r => r.model === compareB.value));
 
 interface CompareMetric {
   label: string;
@@ -298,15 +314,15 @@ const compareMetrics = computed<CompareMetric[]>(() => {
   }
 
   return [
-    { label: 'Total Tokens', valueA: formatNumber(a.tokens), valueB: formatNumber(b.tokens), ...delta(a.tokens, b.tokens, true) },
-    { label: 'Input Tokens', valueA: formatNumber(a.inputTokens), valueB: formatNumber(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
-    { label: 'Output Tokens', valueA: formatNumber(a.outputTokens), valueB: formatNumber(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
-    { label: 'Cache Read', valueA: formatNumber(a.cacheReadTokens), valueB: formatNumber(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
-    { label: 'Token Share', valueA: `${a.percentage.toFixed(1)}%`, valueB: `${b.percentage.toFixed(1)}%`, ...delta(a.percentage, b.percentage, true) },
-    { label: 'I/O Ratio', valueA: a.ioRatio.toFixed(2), valueB: b.ioRatio.toFixed(2), ...delta(a.ioRatio, b.ioRatio, false) },
-    { label: 'Cache Hit Rate', valueA: `${a.cacheHitRate.toFixed(1)}%`, valueB: `${b.cacheHitRate.toFixed(1)}%`, ...delta(a.cacheHitRate, b.cacheHitRate, true) },
-    { label: 'Wholesale Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
-    { label: 'Copilot Cost', valueA: formatCost(a.copilotCost), valueB: formatCost(b.copilotCost), ...delta(a.copilotCost, b.copilotCost, false) },
+    { label: 'Total Tokens', valueA: fmtNorm(a.tokens), valueB: fmtNorm(b.tokens), ...delta(a.tokens, b.tokens, true) },
+    { label: 'Input Tokens', valueA: fmtNorm(a.inputTokens), valueB: fmtNorm(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
+    { label: 'Output Tokens', valueA: fmtNorm(a.outputTokens), valueB: fmtNorm(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
+    { label: 'Cache Read', valueA: fmtNorm(a.cacheReadTokens), valueB: fmtNorm(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
+    { label: 'Token Share', valueA: fmtPct(a.percentage), valueB: fmtPct(b.percentage), ...delta(a.percentage, b.percentage, true) },
+    { label: 'Premium Requests', valueA: fmtNorm(a.premiumRequests), valueB: fmtNorm(b.premiumRequests), ...delta(a.premiumRequests, b.premiumRequests, true) },
+    { label: 'Cache Hit Rate', valueA: fmtPct(a.cacheHitRate), valueB: fmtPct(b.cacheHitRate), ...delta(a.cacheHitRate, b.cacheHitRate, true) },
+    { label: 'Wholesale Cost', valueA: fmtNorm(a.cost, true), valueB: fmtNorm(b.cost, true), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
+    { label: 'Copilot Cost', valueA: fmtNorm(a.copilotCost, true), valueB: fmtNorm(b.copilotCost, true), ...delta(a.copilotCost, b.copilotCost, false) },
   ];
 });
 
@@ -363,7 +379,7 @@ function fmtPct(v: number): string {
                 <div class="stat-card-label">Models Used</div>
               </div>
               <div class="stat-card">
-                <div class="stat-card-value done">{{ formatNumber(data.totalTokens) }}</div>
+                <div class="stat-card-value done">{{ formatNumber(totalTokens) }}</div>
                 <div class="stat-card-label">Total Tokens</div>
               </div>
               <div class="stat-card">
@@ -397,8 +413,8 @@ function fmtPct(v: number): string {
                     <div class="model-card-stat-value">{{ fmtPct(row.cacheHitRate) }}</div>
                   </div>
                   <div>
-                    <div class="model-card-stat-label">I/O Ratio</div>
-                    <div class="model-card-stat-value">{{ row.ioRatio.toFixed(2) }}</div>
+                    <div class="model-card-stat-label">Premium Req.</div>
+                    <div class="model-card-stat-value">{{ formatNumber(row.premiumRequests) }}</div>
                   </div>
                 </div>
                 <!-- Token share bar -->
@@ -427,14 +443,26 @@ function fmtPct(v: number): string {
                 </div>
               </div>
               <div class="section-panel-body scrollable-section" style="padding: 0;">
-                <table class="data-table" aria-label="Model performance comparison matrix">
+                <table class="data-table matrix-table" aria-label="Model performance comparison matrix">
+                  <colgroup>
+                    <col style="width: 18%;" />
+                    <col style="width: 11%;" />
+                    <col style="width: 11%;" />
+                    <col style="width: 9%;" />
+                    <col style="width: 9%;" />
+                    <col style="width: 13%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 8%;" />
+                    <col v-if="costMode !== 'copilot'" style="width: 8%;" />
+                    <col v-if="costMode !== 'wholesale'" style="width: 8%;" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th class="sort-header" @click="toggleSort('model')">
                         Model <span class="sort-arrow">{{ sortArrow('model') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('tokens')">
-                        Total Tokens <span class="sort-arrow">{{ sortArrow('tokens') }}</span>
+                        Total <span class="sort-arrow">{{ sortArrow('tokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('inputTokens')">
                         Input <span class="sort-arrow">{{ sortArrow('inputTokens') }}</span>
@@ -443,22 +471,22 @@ function fmtPct(v: number): string {
                         Output <span class="sort-arrow">{{ sortArrow('outputTokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheReadTokens')">
-                        Cache Read <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
+                        Cached <span class="sort-arrow">{{ sortArrow('cacheReadTokens') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('percentage')">
                         Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
                       </th>
-                      <th class="sort-header" @click="toggleSort('ioRatio')">
-                        I/O Ratio <span class="sort-arrow">{{ sortArrow('ioRatio') }}</span>
+                      <th class="sort-header" @click="toggleSort('premiumRequests')">
+                        Prem. Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheHitRate')">
                         Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>
                       </th>
                       <th v-if="costMode !== 'copilot'" class="sort-header" @click="toggleSort('cost')">
-                        Wholesale Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
+                        W. Cost <span class="sort-arrow">{{ sortArrow('cost') }}</span>
                       </th>
                       <th v-if="costMode !== 'wholesale'" class="sort-header" @click="toggleSort('copilotCost')">
-                        Copilot Cost <span class="sort-arrow">{{ sortArrow('copilotCost') }}</span>
+                        CP Cost <span class="sort-arrow">{{ sortArrow('copilotCost') }}</span>
                       </th>
                     </tr>
                   </thead>
@@ -483,9 +511,7 @@ function fmtPct(v: number): string {
                         </div>
                       </td>
                       <td class="num-cell">
-                        <span :class="{ 'best-cell': row.model === modelRows[bestIoIdx]?.model }">
-                          {{ row.ioRatio.toFixed(2) }}
-                        </span>
+                        {{ fmtNorm(row.premiumRequests) }}
                       </td>
                       <td class="num-cell">
                         <span :class="{ 'best-cell': row.model === modelRows[bestCacheIdx]?.model }">
@@ -652,7 +678,14 @@ function fmtPct(v: number): string {
 
             <!-- Side-by-Side Comparison -->
             <div class="section-panel mb-4">
-              <div class="section-panel-header">Side-by-Side Comparison</div>
+              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span>Side-by-Side Comparison</span>
+                <div class="norm-toggle">
+                  <button :class="['toggle-btn', { active: normMode === 'raw' }]" @click="normMode = 'raw'">Raw</button>
+                  <button :class="['toggle-btn', { active: normMode === 'per-10m-tokens' }]" @click="normMode = 'per-10m-tokens'">Per 10M Tokens</button>
+                  <button :class="['toggle-btn', { active: normMode === 'share' }]" @click="normMode = 'share'">Share %</button>
+                </div>
+              </div>
               <div class="section-panel-body">
                 <div v-if="modelRows.length < 2" class="chart-placeholder">
                   Need at least 2 models for side-by-side comparison.
@@ -668,6 +701,12 @@ function fmtPct(v: number): string {
                     </select>
                   </div>
                   <table class="data-table compare-table" aria-label="Side-by-side model comparison">
+                    <colgroup>
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                      <col style="width: 25%;" />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>Metric</th>
@@ -812,6 +851,18 @@ function fmtPct(v: number): string {
 }
 
 /* ── Performance Matrix Table ─────────────────────────────── */
+.matrix-table,
+.compare-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.matrix-table td,
+.compare-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sort-header {
   cursor: pointer;
   user-select: none;

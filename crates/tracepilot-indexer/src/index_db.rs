@@ -282,7 +282,8 @@ impl IndexDb {
                     } else {
                         (0, 0, 0, 0)
                     };
-                let model_tokens = input_t + output_t + cache_read + cache_write;
+                // inputTokens already includes cacheReadTokens — don't add cache separately
+                let model_tokens = input_t + output_t;
                 total_tokens += model_tokens;
 
                 let cost = detail
@@ -841,6 +842,7 @@ impl IndexDb {
         let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
         // Aggregate session-level stats
+        // total_tokens is pre-computed correctly in upsert_session (input + output, no cache double-count)
         let agg_sql = format!(
             "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
@@ -866,7 +868,7 @@ impl IndexDb {
             ))
         })?;
 
-        // Tokens by day
+        // Tokens by day (uses pre-computed sessions.total_tokens for performance)
         let day_sql = format!(
             "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_tokens), 0)
              FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
@@ -896,10 +898,11 @@ impl IndexDb {
         // Model distribution from session_model_metrics
         let mdist_sql = format!(
             "SELECT m.model_name,
-                    SUM(m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens),
+                    SUM(m.input_tokens + m.output_tokens),
                     SUM(m.input_tokens),
                     SUM(m.output_tokens),
-                    SUM(m.cache_read_tokens)
+                    SUM(m.cache_read_tokens),
+                    SUM(m.cost)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",
@@ -1377,18 +1380,19 @@ fn query_model_distribution(
             row.get::<_, i64>(2)?,
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
+            row.get::<_, f64>(5)?,
         ))
     })?;
-    let mut entries: Vec<(String, i64, i64, i64, i64)> = Vec::new();
+    let mut entries: Vec<(String, i64, i64, i64, i64, f64)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens, input_t, output_t, cache_read) = row?;
+        let (model, tokens, input_t, output_t, cache_read, premium_req) = row?;
         grand_total += tokens;
-        entries.push((model, tokens, input_t, output_t, cache_read));
+        entries.push((model, tokens, input_t, output_t, cache_read, premium_req));
     }
     Ok(entries
         .into_iter()
-        .map(|(model, tokens, input_t, output_t, cache_read)| {
+        .map(|(model, tokens, input_t, output_t, cache_read, premium_req)| {
             let percentage = if grand_total > 0 {
                 (tokens as f64 / grand_total as f64) * 100.0
             } else {
@@ -1401,6 +1405,7 @@ fn query_model_distribution(
                 input_tokens: input_t as u64,
                 output_tokens: output_t as u64,
                 cache_read_tokens: cache_read as u64,
+                premium_requests: premium_req,
             }
         })
         .collect())
