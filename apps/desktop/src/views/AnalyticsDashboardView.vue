@@ -1025,7 +1025,8 @@ const costChart = computed(() => {
 .cache-progress-track {
   height: 8px;
   border-radius: 4px;
-  background: var(--canvas-inset, rgba(255,255,255,0.06));
+  background: var(--border-subtle, rgba(255,255,255,0.12));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
   overflow: hidden;
 }
 
