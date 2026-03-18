@@ -227,6 +227,7 @@ pnpm format
 | **Session Replay** | UI built, needs real data | Step-through conversation replay with playback controls and timeline scrubber. |
 | **Export** | Planned | Export sessions as Markdown, JSON, or CSV. A JSON summary renderer exists; Markdown, CSV, and the end-to-end export pipeline are not yet implemented. |
 | **CLI Tool** | Experimental | Terminal-based session browser with `list`, `show`, `search`, `resume`, and `index` commands. Functional but not yet recommended for general use. |
+| **Version Analysis** | ✅ Complete | CLI-based schema diffing and coverage tracking across installed Copilot CLI versions. Detects new event types, removed fields, and computes TracePilot's handling coverage. See [Version Analysis](#version-analysis). |
 | **Settings** | Partially live | Theme, session directory, reindex, and factory reset work. Health thresholds and keyboard shortcuts are placeholder. |
 
 ### Ideas & Future Exploration
@@ -236,6 +237,62 @@ pnpm format
 - Error forensics deep-dive
 - Cache efficiency optimizer
 - File impact treemap
+
+## Version Analysis
+
+TracePilot includes a CLI tool for tracking schema changes across installed Copilot CLI versions and computing coverage of event types handled by the Rust parser.
+
+### Why This Matters
+
+GitHub Copilot CLI evolves rapidly — new event types, fields, and RPC methods appear across versions. TracePilot's forward-compatible parser handles unknown events gracefully (they never crash the app), but **typed parsing** enables richer analytics, better turn reconstruction, and actionable UI features. The version analyzer helps you:
+
+- Detect what changed between Copilot CLI versions (new events, removed fields, schema differences)
+- Measure what percentage of persisted event types TracePilot handles with typed structs
+- Find real session examples of specific event types for testing
+- Generate reports to track coverage over time
+
+### Quick Start
+
+```bash
+# List installed Copilot CLI versions
+pnpm cli versions list
+
+# Check current coverage (should be 100%)
+pnpm cli versions coverage
+
+# Diff between two specific versions
+pnpm cli versions diff 1.0.5 1.0.7
+
+# Find sessions containing a specific event type
+pnpm cli versions examples -e session.truncation
+
+# Generate a full report
+pnpm cli versions report --output "docs/reports/versions/$(Get-Date -Format yyyy-MM-dd)-v1.0.7-label.md"
+```
+
+All commands support `--json` for machine-readable output.
+
+### When a New Copilot CLI Version Arrives
+
+1. **Check for changes:** `pnpm cli versions diff` — shows what's new
+2. **Check coverage:** `pnpm cli versions coverage` — if any unhandled events appear, follow the implementation guide
+3. **Generate a report:** Save to `docs/reports/versions/` with the [naming convention](docs/reports/versions/README.md)
+
+### Adding Support for New Event Types
+
+See [`docs/version-analysis-implementation-guide.md`](docs/version-analysis-implementation-guide.md) for the step-by-step recipe. In summary:
+
+1. Add a data struct in `event_types.rs` (all fields `Option<T>`)
+2. Add the enum variant to `SessionEventType`
+3. Add the wire name to `KNOWN_EVENT_TYPES`
+4. Add the `TypedEventData` variant and `try_deser!` arm
+5. Handle in turn reconstruction if it affects turn state
+6. Sync all 3 known-events lists (Rust, TS types, CLI)
+7. Add tests and verify with `pnpm cli versions coverage`
+
+### Reports
+
+Generated reports live in [`docs/reports/versions/`](docs/reports/versions/) with timestamped names. See the [README there](docs/reports/versions/README.md) for the naming convention and generation instructions.
 
 ## License
 
