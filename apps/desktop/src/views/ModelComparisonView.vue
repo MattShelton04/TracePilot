@@ -41,15 +41,13 @@ interface ModelRow {
 
 const modelRows = computed<ModelRow[]>(() => {
   if (!data.value?.modelDistribution) return [];
-  const totalPR = data.value?.totalPremiumRequests ?? 0;
   return data.value.modelDistribution.map((m, i) => {
-    const premiumRequests = Math.round((m.percentage / 100) * totalPR);
-    const cacheHitRate = (m.inputTokens + m.cacheReadTokens) > 0
-      ? m.cacheReadTokens / (m.inputTokens + m.cacheReadTokens) * 100
+    const premiumRequests = m.requestCount;
+    const cacheHitRate = m.inputTokens > 0
+      ? m.cacheReadTokens / m.inputTokens * 100
       : 0;
     const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
-    // Use unrounded fraction for cost to avoid rounding drift in totals
-    const copilotCost = (m.percentage / 100) * totalPR * prefs.costPerPremiumRequest;
+    const copilotCost = premiumRequests * prefs.costPerPremiumRequest;
     return {
       model: m.model,
       color: MODEL_COLORS[i % MODEL_COLORS.length],
@@ -402,7 +400,7 @@ function fmtPct(v: number): string {
                     <div class="model-card-stat-value">{{ fmtPct(row.cacheHitRate) }}</div>
                   </div>
                   <div>
-                    <div class="model-card-stat-label">Est. Premium Req.</div>
+                    <div class="model-card-stat-label">Premium Req.</div>
                     <div class="model-card-stat-value">{{ formatNumber(row.premiumRequests) }}</div>
                   </div>
                 </div>
@@ -454,7 +452,7 @@ function fmtPct(v: number): string {
                         Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('premiumRequests')">
-                        Est. Premium Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
+                        Premium Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheHitRate')">
                         Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>

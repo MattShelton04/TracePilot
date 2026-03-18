@@ -32,8 +32,8 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-03', count: 3 },
   ],
   modelDistribution: [
-    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0 },
-    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0 },
+    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0, requestCount: 24 },
+    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0, requestCount: 16 },
   ],
   costByDay: [
     { date: '2025-01-01', cost: 1.5 },

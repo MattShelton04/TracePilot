@@ -427,7 +427,8 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axes (bottom only, subtle) -->
+                  <!-- Axes -->
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -531,7 +532,8 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axis (bottom only) -->
+                  <!-- Axes -->
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -666,7 +668,8 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axis (bottom only) -->
+                  <!-- Axes -->
+                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -902,7 +905,7 @@ const costChart = computed(() => {
 }
 
 .chart-axis {
-  stroke: var(--border-subtle);
+  stroke: var(--border-default);
 }
 
 .chart-label {
