@@ -39,8 +39,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     // Cache stats accumulators
     let mut total_cache_read_tokens: u64 = 0;
     let mut total_input_tokens: u64 = 0;
-    // API duration sum for throughput
+    // API duration sum + matched token sum for throughput
+    // Only counting tokens from sessions that have positive API duration avoids
+    // inflating the rate with tokens from sessions that have no duration data.
     let mut total_api_duration_ms: u64 = 0;
+    let mut total_tokens_with_duration: u64 = 0;
     // Health distribution
     let mut healthy_count: u32 = 0;
     let mut attention_count: u32 = 0;
@@ -83,15 +86,15 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 total_premium_requests += pr;
             }
 
-        // Collect API duration for stats + throughput
-        if let Some(api_duration_ms) = metrics.total_api_duration_ms {
-            if api_duration_ms > 0 {
-                durations.push(api_duration_ms);
-                total_api_duration_ms += api_duration_ms;
+            // Collect API duration for stats + throughput
+            let session_api_duration_ms = metrics.total_api_duration_ms.unwrap_or(0);
+            if session_api_duration_ms > 0 {
+                durations.push(session_api_duration_ms);
+                total_api_duration_ms += session_api_duration_ms;
             }
-        }
 
             // Per-model metrics
+            let mut session_tokens: u64 = 0;
             for (model_name, detail) in &metrics.model_metrics {
                 // Tokens
                 if let Some(ref usage) = detail.usage {
@@ -102,6 +105,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     // inputTokens already includes cacheReadTokens — don't add cache separately
                     let session_model_tokens = input_t + output_t;
                     total_tokens += session_model_tokens;
+                    session_tokens += session_model_tokens;
                     let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.0 += input_t;
                     entry.1 += output_t;
@@ -131,6 +135,11 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     entry.4 += cost;
                     entry.5 += req_count;
                 }
+            }
+
+            // Only count tokens toward throughput when this session has API duration data
+            if session_api_duration_ms > 0 {
+                total_tokens_with_duration += session_tokens;
             }
         }
 
@@ -219,7 +228,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         0.0
     };
     let avg_tokens_per_api_second = if total_api_duration_ms > 0 {
-        (total_tokens as f64) / (total_api_duration_ms as f64 / 1000.0)
+        (total_tokens_with_duration as f64) / (total_api_duration_ms as f64 / 1000.0)
     } else {
         0.0
     };

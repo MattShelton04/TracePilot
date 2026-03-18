@@ -843,6 +843,8 @@ impl IndexDb {
 
         // Aggregate session-level stats
         // total_tokens is pre-computed correctly in upsert_session (input + output, no cache double-count)
+        // tokens_with_api_duration only counts sessions that have positive total_api_duration_ms to avoid
+        // inflating avgTokensPerApiSecond with tokens from sessions lacking duration data.
         let agg_sql = format!(
             "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
@@ -852,13 +854,14 @@ impl IndexDb {
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),
                     COUNT(CASE WHEN health_score >= 0.8 THEN 1 END),
                     COUNT(CASE WHEN health_score >= 0.5 AND health_score < 0.8 THEN 1 END),
-                    COUNT(CASE WHEN health_score < 0.5 THEN 1 END)
+                    COUNT(CASE WHEN health_score < 0.5 THEN 1 END),
+                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_tokens END), 0)
              FROM sessions s{}",
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests, total_api_duration_ms_sum, healthy_count, attention_count, critical_count): (
-            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32,
+        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests, total_api_duration_ms_sum, healthy_count, attention_count, critical_count, total_tokens_with_duration): (
+            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32, i64,
         ) = self.conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((
                 row.get(0)?,
@@ -873,6 +876,7 @@ impl IndexDb {
                 row.get(9)?,
                 row.get(10)?,
                 row.get(11)?,
+                row.get(12)?,
             ))
         })?;
 
@@ -972,7 +976,7 @@ impl IndexDb {
             0.0
         };
         let avg_tokens_per_api_second = if total_api_duration_ms_sum > 0 {
-            total_tokens as f64 / (total_api_duration_ms_sum as f64 / 1000.0)
+            total_tokens_with_duration as f64 / (total_api_duration_ms_sum as f64 / 1000.0)
         } else {
             0.0
         };
