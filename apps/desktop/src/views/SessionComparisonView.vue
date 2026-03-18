@@ -668,7 +668,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
                   v-for="(h, i) in waveA"
                   :key="'wa-' + i"
                   class="waveform-bar waveform-bar-a"
-                  :style="{ height: Math.max(h, 3) + '%' }"
+                  :style="{ height: Math.max(h, 8) + '%' }"
                   :title="`Turn ${i + 1}`"
                 ></div>
               </div>
@@ -683,7 +683,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
                   v-for="(h, i) in waveB"
                   :key="'wb-' + i"
                   class="waveform-bar waveform-bar-b"
-                  :style="{ height: Math.max(h, 3) + '%' }"
+                  :style="{ height: Math.max(h, 8) + '%' }"
                   :title="`Turn ${i + 1}`"
                 ></div>
               </div>
