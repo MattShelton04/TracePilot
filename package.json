@@ -2,6 +2,7 @@
   "name": "tracepilot",
   "version": "0.1.0",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",
   "scripts": {
     "dev": "pnpm --filter @tracepilot/desktop dev",
