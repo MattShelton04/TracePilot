@@ -2762,10 +2762,18 @@
         let tc = &turns[0].tool_calls[0];
 
         assert!(tc.is_subagent, "Should be recognized as a subagent");
-        // Finalization sweep infers completion from completed_at (set by ToolExecComplete).
-        // This is correct: truncated traces should show subagents as finished.
-        assert!(tc.is_complete, "Finalization sweep should infer completion from completed_at");
-        assert_eq!(tc.success, Some(true), "Success should be preserved from ToolExecComplete");
+        // enrich_subagent() clears the early completed_at from ToolExecComplete because it
+        // predates SubagentStarted and doesn't reflect the subagent's actual end time.
+        // Without SubagentCompleted, the subagent should remain incomplete.
+        assert!(
+            !tc.is_complete,
+            "Should NOT be marked complete — ToolExecComplete timestamp predates SubagentStarted \
+             and no SubagentCompleted was received"
+        );
+        assert!(
+            tc.completed_at.is_none(),
+            "completed_at should be cleared since the early timestamp doesn't reflect subagent end"
+        );
     }
 
     #[test]
@@ -3309,5 +3317,94 @@
         assert!(tc.is_subagent);
         assert!(tc.is_complete, "SubagentCompleted alone should mark complete");
         assert_eq!(tc.success, Some(true));
+    }
+
+    #[test]
+    fn subagent_tool_exec_before_subagent_started_no_completion_stays_incomplete() {
+        // Regression test: ToolExecComplete arrives before SubagentStarted, and there
+        // is NO SubagentCompleted event. Without the fix, finalize_subagent_completion()
+        // would see the completed_at from ToolExecComplete and prematurely mark the
+        // subagent as complete with a very short (incorrect) duration.
+        let (user_msg, turn_start, tool_start, _sub_started) = base_subagent_events();
+        let sub_started_late = make_event(
+            SessionEventType::SubagentStarted,
+            TypedEventData::SubagentStarted(SubagentStartedData {
+                tool_call_id: Some("tc-sub".to_string()),
+                agent_name: Some("explore".to_string()),
+                agent_display_name: Some("Explore Agent".to_string()),
+                agent_description: Some("Explores the codebase".to_string()),
+            }),
+            "evt-5",
+            "2026-03-18T00:00:02.000Z",
+            Some("evt-3"),
+        );
+        let events = vec![
+            user_msg,
+            turn_start,
+            tool_start,
+            // ToolExecComplete arrives BEFORE SubagentStarted
+            tool_complete_event("2026-03-18T00:00:01.500Z", "evt-4", Some(true)),
+            sub_started_late,
+            // No SubagentCompleted — subagent may still be running
+            turn_end_event("2026-03-18T00:00:02.200Z", "evt-6"),
+        ];
+
+        let tc = run_subagent_scenario(events);
+        assert!(tc.is_subagent);
+        assert!(
+            !tc.is_complete,
+            "Subagent should NOT be marked complete when only ToolExecComplete arrived \
+             before SubagentStarted and no SubagentCompleted was received"
+        );
+        assert!(
+            tc.completed_at.is_none(),
+            "completed_at should be cleared by enrich_subagent() since ToolExecComplete \
+             timestamp predates SubagentStarted and doesn't reflect real subagent end"
+        );
+    }
+
+    #[test]
+    fn subagent_tool_exec_before_subagent_started_then_tool_exec_after() {
+        // ToolExecComplete fires twice-ish scenario: first early (before SubagentStarted),
+        // then the actual ToolExecComplete fires after the subagent work is done.
+        // The second ToolExecComplete should set completed_at correctly.
+        let (user_msg, turn_start, tool_start, _sub_started) = base_subagent_events();
+        let sub_started_late = make_event(
+            SessionEventType::SubagentStarted,
+            TypedEventData::SubagentStarted(SubagentStartedData {
+                tool_call_id: Some("tc-sub".to_string()),
+                agent_name: Some("explore".to_string()),
+                agent_display_name: Some("Explore Agent".to_string()),
+                agent_description: Some("Explores the codebase".to_string()),
+            }),
+            "evt-5",
+            "2026-03-18T00:00:02.000Z",
+            Some("evt-3"),
+        );
+        let events = vec![
+            user_msg,
+            turn_start,
+            tool_start,
+            // Early ToolExecComplete (before SubagentStarted)
+            tool_complete_event("2026-03-18T00:00:01.500Z", "evt-4", Some(true)),
+            sub_started_late,
+            // SubagentCompleted arrives with correct timestamp
+            sub_completed_event("2026-03-18T00:00:10.000Z", "evt-6"),
+            // Late ToolExecComplete with even later timestamp
+            tool_complete_event("2026-03-18T00:00:10.100Z", "evt-7", Some(true)),
+            turn_end_event("2026-03-18T00:00:10.200Z", "evt-8"),
+        ];
+
+        let tc = run_subagent_scenario(events);
+        assert!(tc.is_subagent);
+        assert!(tc.is_complete);
+        assert_eq!(tc.success, Some(true));
+        // Duration should be ~9.1s (T=10.1 - T=1.0), not ~0.5s (T=1.5 - T=1.0)
+        let dur = tc.duration_ms.expect("Should have duration");
+        assert!(
+            dur > 8000,
+            "Duration should reflect the full subagent run (>8s), not the early ToolExecComplete. Got: {}ms",
+            dur
+        );
     }
 

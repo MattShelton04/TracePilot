@@ -555,7 +555,12 @@ fn enrich_subagent(
     existing.is_subagent = true;
     // Reset completion state — only SubagentCompleted/Failed should finalize subagents.
     // This handles the case where ToolExecComplete arrived before SubagentStarted.
+    // We must also clear completed_at/duration_ms that ToolExecComplete may have set,
+    // otherwise finalize_subagent_completion() would immediately re-mark it complete
+    // using the early (incorrect) ToolExecComplete timestamp.
     existing.is_complete = false;
+    existing.completed_at = None;
+    existing.duration_ms = None;
     existing.agent_display_name = data.agent_display_name.clone();
     existing.agent_description = data.agent_description.clone();
     if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
