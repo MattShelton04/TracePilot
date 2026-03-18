@@ -97,9 +97,11 @@ const LoadingOverlayStub = {
   template: '<div v-if="loading" class="loading-stub">Loading…</div><slot v-else />',
 };
 
+const RouterLinkStub = { template: '<a><slot /></a>', props: ['to'] };
+
 const globalStubs = {
   global: {
-    stubs: { LoadingOverlay: LoadingOverlayStub },
+    stubs: { LoadingOverlay: LoadingOverlayStub, RouterLink: RouterLinkStub },
   },
 };
 

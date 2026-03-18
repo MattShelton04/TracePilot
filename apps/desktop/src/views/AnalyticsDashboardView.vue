@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch, ref, reactive } from 'vue';
+import { RouterLink } from 'vue-router';
 import { formatDuration, formatCost } from '@tracepilot/ui';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { usePreferencesStore } from '@/stores/preferences';
@@ -426,8 +427,7 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <!-- Axes (bottom only, subtle) -->
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -531,8 +531,7 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <!-- Axis (bottom only) -->
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -591,7 +590,10 @@ const costChart = computed(() => {
           <div class="grid-2 mb-4">
             <!-- Model Distribution (Donut) -->
             <div class="section-panel">
-              <div class="section-panel-header">Model Distribution</div>
+              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                Model Distribution
+                <router-link :to="{ name: 'model-comparison' }" class="more-info-link">More Info →</router-link>
+              </div>
               <div class="donut-panel-body">
                 <svg viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Donut chart showing token distribution by model">
                   <circle
@@ -664,8 +666,7 @@ const costChart = computed(() => {
                     class="chart-grid-line"
                     stroke-dasharray="4,3"
                   />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                  <!-- Axis (bottom only) -->
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
@@ -901,10 +902,22 @@ const costChart = computed(() => {
 }
 
 .chart-axis {
-  stroke: var(--border-default);
+  stroke: var(--border-subtle);
 }
 
 .chart-label {
   fill: var(--text-tertiary);
+}
+
+.more-info-link {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.more-info-link:hover {
+  color: var(--accent-primary);
 }
 </style>

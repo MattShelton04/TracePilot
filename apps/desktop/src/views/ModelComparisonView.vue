@@ -33,7 +33,7 @@ interface ModelRow {
   outputTokens: number;
   cacheReadTokens: number;
   percentage: number;
-  ioRatio: number;
+  premiumRequests: number;
   cacheHitRate: number;
   cost: number | null;
   copilotCost: number;
@@ -41,13 +41,15 @@ interface ModelRow {
 
 const modelRows = computed<ModelRow[]>(() => {
   if (!data.value?.modelDistribution) return [];
+  const totalPR = data.value?.totalPremiumRequests ?? 0;
   return data.value.modelDistribution.map((m, i) => {
-    const ioRatio = m.inputTokens > 0 ? m.outputTokens / m.inputTokens : 0;
+    const premiumRequests = Math.round((m.percentage / 100) * totalPR);
     const cacheHitRate = (m.inputTokens + m.cacheReadTokens) > 0
       ? m.cacheReadTokens / (m.inputTokens + m.cacheReadTokens) * 100
       : 0;
     const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
-    const copilotCost = (m.percentage / 100) * (data.value?.totalPremiumRequests ?? 0) * prefs.costPerPremiumRequest;
+    // Use unrounded fraction for cost to avoid rounding drift in totals
+    const copilotCost = (m.percentage / 100) * totalPR * prefs.costPerPremiumRequest;
     return {
       model: m.model,
       color: MODEL_COLORS[i % MODEL_COLORS.length],
@@ -56,7 +58,7 @@ const modelRows = computed<ModelRow[]>(() => {
       outputTokens: m.outputTokens,
       cacheReadTokens: m.cacheReadTokens,
       percentage: m.percentage,
-      ioRatio,
+      premiumRequests,
       cacheHitRate,
       cost,
       copilotCost,
@@ -86,7 +88,6 @@ function bestIdx(arr: number[], higher = true): number {
 }
 
 const bestCacheIdx = computed(() => bestIdx(modelRows.value.map(m => m.cacheHitRate)));
-const bestIoIdx = computed(() => bestIdx(modelRows.value.map(m => m.ioRatio), false));
 const bestCostIdx = computed(() => {
   const costs = modelRows.value.map(m => m.cost ?? Infinity);
   if (costs.every(c => c === Infinity)) return -1;
@@ -95,7 +96,7 @@ const bestCostIdx = computed(() => {
 const bestCopilotCostIdx = computed(() => bestIdx(modelRows.value.map(m => m.copilotCost), false));
 
 // ── Sort state ───────────────────────────────────────────────
-type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'ioRatio' | 'cacheHitRate' | 'cost' | 'copilotCost';
+type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'premiumRequests' | 'cacheHitRate' | 'cost' | 'copilotCost';
 const sortKey = ref<SortKey>('tokens');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
@@ -145,6 +146,7 @@ const displayRows = computed<ModelRow[]>(() => {
         inputTokens: r.inputTokens / divisor,
         outputTokens: r.outputTokens / divisor,
         cacheReadTokens: r.cacheReadTokens / divisor,
+        premiumRequests: Math.round(r.premiumRequests / divisor),
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
       };
@@ -158,10 +160,11 @@ const displayRows = computed<ModelRow[]>(() => {
       inputTokens: acc.inputTokens + r.inputTokens,
       outputTokens: acc.outputTokens + r.outputTokens,
       cacheReadTokens: acc.cacheReadTokens + r.cacheReadTokens,
+      premiumRequests: acc.premiumRequests + r.premiumRequests,
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
     }),
-    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cost: 0, copilotCost: 0 },
+    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, premiumRequests: 0, cost: 0, copilotCost: 0 },
   );
 
   return rows.map(r => ({
@@ -170,6 +173,7 @@ const displayRows = computed<ModelRow[]>(() => {
     inputTokens: sums.inputTokens > 0 ? (r.inputTokens / sums.inputTokens) * 100 : 0,
     outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
     cacheReadTokens: sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
+    premiumRequests: sums.premiumRequests > 0 ? Math.round((r.premiumRequests / sums.premiumRequests) * 100) : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
   }));
@@ -188,18 +192,19 @@ const radarModels = computed(() => {
   return [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3);
 });
 
-const radarAxes = ['Token Vol.', 'Cache Eff.', 'Output Eff.', 'Cost Eff.', 'Token Share'];
+const radarAxes = ['Token Vol.', 'Cache Eff.', 'Premium Req.', 'Cost Eff.', 'Token Share'];
 
 function radarValues(row: ModelRow): number[] {
   const maxTokens = Math.max(...modelRows.value.map(m => m.tokens), 1);
   const tokenVol = row.tokens / maxTokens;
   const cacheEff = row.cacheHitRate / 100;
-  const outputEff = 1 - Math.min(row.ioRatio / 2, 1); // lower ratio = more efficient
+  const maxPR = Math.max(...modelRows.value.map(m => m.premiumRequests), 1);
+  const prShare = row.premiumRequests / maxPR;
   const costPerToken = row.cost != null && row.tokens > 0 ? row.cost / row.tokens : 0;
   const maxCostPerToken = Math.max(...modelRows.value.map(m => (m.cost ?? 0) / Math.max(m.tokens, 1)), 0.0001);
   const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
   const share = row.percentage / 100;
-  return [tokenVol, cacheEff, outputEff, costEff, share];
+  return [tokenVol, cacheEff, prShare, costEff, share];
 }
 
 const RADAR_CX = 150;
@@ -303,7 +308,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     { label: 'Output Tokens', valueA: formatNumber(a.outputTokens), valueB: formatNumber(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
     { label: 'Cache Read', valueA: formatNumber(a.cacheReadTokens), valueB: formatNumber(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
     { label: 'Token Share', valueA: `${a.percentage.toFixed(1)}%`, valueB: `${b.percentage.toFixed(1)}%`, ...delta(a.percentage, b.percentage, true) },
-    { label: 'I/O Ratio', valueA: a.ioRatio.toFixed(2), valueB: b.ioRatio.toFixed(2), ...delta(a.ioRatio, b.ioRatio, false) },
+    { label: 'Premium Requests', valueA: formatNumber(a.premiumRequests), valueB: formatNumber(b.premiumRequests), ...delta(a.premiumRequests, b.premiumRequests, true) },
     { label: 'Cache Hit Rate', valueA: `${a.cacheHitRate.toFixed(1)}%`, valueB: `${b.cacheHitRate.toFixed(1)}%`, ...delta(a.cacheHitRate, b.cacheHitRate, true) },
     { label: 'Wholesale Cost', valueA: formatCost(a.cost), valueB: formatCost(b.cost), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
     { label: 'Copilot Cost', valueA: formatCost(a.copilotCost), valueB: formatCost(b.copilotCost), ...delta(a.copilotCost, b.copilotCost, false) },
@@ -397,8 +402,8 @@ function fmtPct(v: number): string {
                     <div class="model-card-stat-value">{{ fmtPct(row.cacheHitRate) }}</div>
                   </div>
                   <div>
-                    <div class="model-card-stat-label">I/O Ratio</div>
-                    <div class="model-card-stat-value">{{ row.ioRatio.toFixed(2) }}</div>
+                    <div class="model-card-stat-label">Est. Premium Req.</div>
+                    <div class="model-card-stat-value">{{ formatNumber(row.premiumRequests) }}</div>
                   </div>
                 </div>
                 <!-- Token share bar -->
@@ -448,8 +453,8 @@ function fmtPct(v: number): string {
                       <th class="sort-header" @click="toggleSort('percentage')">
                         Share <span class="sort-arrow">{{ sortArrow('percentage') }}</span>
                       </th>
-                      <th class="sort-header" @click="toggleSort('ioRatio')">
-                        I/O Ratio <span class="sort-arrow">{{ sortArrow('ioRatio') }}</span>
+                      <th class="sort-header" @click="toggleSort('premiumRequests')">
+                        Est. Premium Req. <span class="sort-arrow">{{ sortArrow('premiumRequests') }}</span>
                       </th>
                       <th class="sort-header" @click="toggleSort('cacheHitRate')">
                         Cache Hit <span class="sort-arrow">{{ sortArrow('cacheHitRate') }}</span>
@@ -483,9 +488,7 @@ function fmtPct(v: number): string {
                         </div>
                       </td>
                       <td class="num-cell">
-                        <span :class="{ 'best-cell': row.model === modelRows[bestIoIdx]?.model }">
-                          {{ row.ioRatio.toFixed(2) }}
-                        </span>
+                        {{ fmtNorm(row.premiumRequests) }}
                       </td>
                       <td class="num-cell">
                         <span :class="{ 'best-cell': row.model === modelRows[bestCacheIdx]?.model }">
