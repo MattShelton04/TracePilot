@@ -843,18 +843,25 @@ impl IndexDb {
 
         // Aggregate session-level stats
         // total_tokens is pre-computed correctly in upsert_session (input + output, no cache double-count)
+        // tokens_with_api_duration only counts sessions that have positive total_api_duration_ms to avoid
+        // inflating avgTokensPerApiSecond with tokens from sessions lacking duration data.
         let agg_sql = format!(
             "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
                     COUNT(CASE WHEN turn_count > 0 THEN 1 END),
-                    COALESCE(SUM(total_premium_requests), 0.0)
+                    COALESCE(SUM(total_premium_requests), 0.0),
+                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),
+                    COUNT(CASE WHEN health_score >= 0.8 THEN 1 END),
+                    COUNT(CASE WHEN health_score >= 0.5 AND health_score < 0.8 THEN 1 END),
+                    COUNT(CASE WHEN health_score < 0.5 THEN 1 END),
+                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_tokens END), 0)
              FROM sessions s{}",
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests): (
-            u32, i64, f64, f64, i64, i64, u32, f64,
+        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests, total_api_duration_ms_sum, healthy_count, attention_count, critical_count, total_tokens_with_duration): (
+            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32, i64,
         ) = self.conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((
                 row.get(0)?,
@@ -865,6 +872,11 @@ impl IndexDb {
                 row.get(5)?,
                 row.get(6)?,
                 row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
+                row.get(10)?,
+                row.get(11)?,
+                row.get(12)?,
             ))
         })?;
 
@@ -902,7 +914,8 @@ impl IndexDb {
                     SUM(m.input_tokens),
                     SUM(m.output_tokens),
                     SUM(m.cache_read_tokens),
-                    SUM(m.cost)
+                    SUM(m.cost),
+                    SUM(m.request_count)
              FROM session_model_metrics m
              JOIN sessions s ON s.id = m.session_id{}
              GROUP BY m.model_name ORDER BY 2 DESC",
@@ -911,14 +924,40 @@ impl IndexDb {
         let refs = to_refs(&bind_values);
         let model_distribution = query_model_distribution(&self.conn, &mdist_sql, &refs)?;
 
-        // Duration statistics — fetch all duration_ms and compute in Rust
+        // Cache stats from session_model_metrics
+        let cache_sql = format!(
+            "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)
+             FROM session_model_metrics m
+             JOIN sessions s ON s.id = m.session_id{}",
+            where_clause
+        );
+        let refs = to_refs(&bind_values);
+        let (total_cache_read_tokens, total_input_tokens): (i64, i64) =
+            self.conn.query_row(&cache_sql, params_from_iter(refs.iter().copied()), |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?;
+        let total_cache_read_tokens = total_cache_read_tokens as u64;
+        let total_input_tokens = total_input_tokens as u64;
+        let cache_hit_rate = if total_input_tokens > 0 {
+            (total_cache_read_tokens as f64 / total_input_tokens as f64) * 100.0
+        } else {
+            0.0
+        };
+        let cache_stats = CacheStats {
+            total_cache_read_tokens,
+            total_input_tokens,
+            cache_hit_rate,
+            non_cached_input_tokens: total_input_tokens.saturating_sub(total_cache_read_tokens),
+        };
+
+        // Duration statistics — use total_api_duration_ms (actual API wait time)
         let dur_sql = format!(
-            "SELECT s.duration_ms FROM sessions s{} AND s.duration_ms IS NOT NULL",
+            "SELECT s.total_api_duration_ms FROM sessions s{} AND s.total_api_duration_ms IS NOT NULL AND s.total_api_duration_ms > 0",
             where_clause
         );
         let refs = to_refs(&bind_values);
         let durations = query_durations(&self.conn, &dur_sql, &refs)?;
-        let session_duration_stats = compute_duration_stats(&durations);
+        let api_duration_stats = compute_duration_stats(&durations);
 
         // Productivity metrics
         let avg_turns_per_session = if sessions_with_turns > 0 {
@@ -936,6 +975,11 @@ impl IndexDb {
         } else {
             0.0
         };
+        let avg_tokens_per_api_second = if total_api_duration_ms_sum > 0 {
+            total_tokens_with_duration as f64 / (total_api_duration_ms_sum as f64 / 1000.0)
+        } else {
+            0.0
+        };
 
         Ok(AnalyticsData {
             total_sessions,
@@ -947,11 +991,18 @@ impl IndexDb {
             sessions_per_day,
             model_distribution,
             cost_by_day,
-            session_duration_stats,
+            api_duration_stats,
             productivity_metrics: ProductivityMetrics {
                 avg_turns_per_session,
                 avg_tool_calls_per_turn,
                 avg_tokens_per_turn,
+                avg_tokens_per_api_second,
+            },
+            cache_stats,
+            health_distribution: HealthDistribution {
+                healthy_count,
+                attention_count,
+                critical_count,
             },
         })
     }
@@ -1381,18 +1432,19 @@ fn query_model_distribution(
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
             row.get::<_, f64>(5)?,
+            row.get::<_, i64>(6)?,
         ))
     })?;
-    let mut entries: Vec<(String, i64, i64, i64, i64, f64)> = Vec::new();
+    let mut entries: Vec<(String, i64, i64, i64, i64, f64, i64)> = Vec::new();
     let mut grand_total: i64 = 0;
     for row in rows {
-        let (model, tokens, input_t, output_t, cache_read, premium_req) = row?;
+        let (model, tokens, input_t, output_t, cache_read, premium_req, request_count) = row?;
         grand_total += tokens;
-        entries.push((model, tokens, input_t, output_t, cache_read, premium_req));
+        entries.push((model, tokens, input_t, output_t, cache_read, premium_req, request_count));
     }
     Ok(entries
         .into_iter()
-        .map(|(model, tokens, input_t, output_t, cache_read, premium_req)| {
+        .map(|(model, tokens, input_t, output_t, cache_read, premium_req, request_count)| {
             let percentage = if grand_total > 0 {
                 (tokens as f64 / grand_total as f64) * 100.0
             } else {
@@ -1406,6 +1458,7 @@ fn query_model_distribution(
                 output_tokens: output_t as u64,
                 cache_read_tokens: cache_read as u64,
                 premium_requests: premium_req,
+                request_count: request_count as u64,
             }
         })
         .collect())
@@ -1423,9 +1476,9 @@ fn query_durations(conn: &Connection, sql: &str, refs: &[&dyn ToSql]) -> Result<
     Ok(result)
 }
 
-fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
+fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     if durations.is_empty() {
-        return SessionDurationStats {
+        return ApiDurationStats {
             avg_ms: 0.0,
             median_ms: 0.0,
             p95_ms: 0.0,
@@ -1449,7 +1502,7 @@ fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
     let p95_idx = ((n as f64 * 0.95).ceil() as usize).min(n) - 1;
     let p95_ms = sorted[p95_idx] as f64;
 
-    SessionDurationStats {
+    ApiDurationStats {
         avg_ms,
         median_ms,
         p95_ms,

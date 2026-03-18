@@ -198,17 +198,21 @@ export interface AnalyticsData {
   /** Session count per day */
   sessionsPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
-  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number }>;
+  modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number; requestCount: number }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
-  /** Session duration statistics */
-  sessionDurationStats: SessionDurationStats;
+  /** API duration statistics (avg, median, p95 of total_api_duration_ms per session) */
+  apiDurationStats: ApiDurationStats;
   /** Productivity heuristics */
   productivityMetrics: ProductivityMetrics;
+  /** Prompt cache efficiency metrics */
+  cacheStats: CacheStats;
+  /** Distribution of sessions by health score tier */
+  healthDistribution: HealthDistribution;
 }
 
-/** Session duration statistics (avg, median, p95) */
-export interface SessionDurationStats {
+/** API duration statistics (avg, median, p95) computed from total_api_duration_ms */
+export interface ApiDurationStats {
   avgMs: number;
   medianMs: number;
   p95Ms: number;
@@ -222,6 +226,30 @@ export interface ProductivityMetrics {
   avgTurnsPerSession: number;
   avgToolCallsPerTurn: number;
   avgTokensPerTurn: number;
+  /** Average tokens generated per second of API time (throughput indicator). */
+  avgTokensPerApiSecond: number;
+}
+
+/** Prompt cache efficiency metrics */
+export interface CacheStats {
+  /** Total tokens served from prompt cache across all sessions */
+  totalCacheReadTokens: number;
+  /** Total input tokens (cache reads are a subset of this) */
+  totalInputTokens: number;
+  /** Fraction of input tokens served from cache (0–100%) */
+  cacheHitRate: number;
+  /** Fresh (non-cached) input tokens = totalInputTokens - totalCacheReadTokens */
+  nonCachedInputTokens: number;
+}
+
+/** Distribution of sessions by health score tier */
+export interface HealthDistribution {
+  /** Sessions with health score ≥ 0.8 */
+  healthyCount: number;
+  /** Sessions with 0.5 ≤ health score < 0.8 */
+  attentionCount: number;
+  /** Sessions with health score < 0.5 */
+  criticalCount: number;
 }
 
 // ===== Tool Analysis Types =====
