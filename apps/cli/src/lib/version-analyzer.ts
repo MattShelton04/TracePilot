@@ -27,6 +27,12 @@ const TRACEPILOT_KNOWN_EVENTS = [
   "tool.execution_start", "tool.execution_complete", "tool.user_requested",
   "subagent.started", "subagent.completed", "subagent.failed",
   "system.notification", "skill.invoked", "abort",
+  // New event types
+  "session.truncation", "assistant.reasoning", "system.message",
+  "session.warning", "session.mode_changed", "session.task_complete",
+  "subagent.selected", "subagent.deselected",
+  "hook.start", "hook.end",
+  "session.handoff", "session.import_legacy",
 ] as const;
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -642,11 +648,10 @@ function getSessionStateDir(): string {
 
 /**
  * Scan sessions to extract copilotVersion and observed event types.
- * Only reads first ~maxEventsPerSession events per session for performance.
+ * Reads all events in each session for complete coverage data.
  */
 export async function scanSessionVersions(
-  maxSessions = 500,
-  maxEventsPerSession = 50,
+  maxSessions = 10000,
 ): Promise<SessionVersionInfo[]> {
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];
@@ -667,15 +672,10 @@ export async function scanSessionVersions(
     let copilotVersion = "unknown";
     const eventTypesObserved = new Set<string>();
 
-    // Stream events.jsonl
+    // Stream all events in the session
     try {
       const rl = createInterface({ input: createReadStream(eventsPath) });
-      let count = 0;
       for await (const line of rl) {
-        if (count >= maxEventsPerSession) {
-          rl.close();
-          break;
-        }
         const trimmed = line.trim();
         if (!trimmed) continue;
         try {
@@ -690,7 +690,6 @@ export async function scanSessionVersions(
               copilotVersion = String(data.copilotVersion);
             }
           }
-          count++;
         } catch { /* skip malformed lines */ }
       }
     } catch { /* skip unreadable files */ }
@@ -729,7 +728,7 @@ export async function scanSessionVersions(
 export async function findEventExamples(
   eventType: string,
   maxResults = 10,
-  maxSessionsScanned = 1000,
+  maxSessionsScanned = 10000,
 ): Promise<SessionExample[]> {
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];

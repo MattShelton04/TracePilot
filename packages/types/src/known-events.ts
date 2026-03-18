@@ -37,6 +37,19 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "skill.invoked",
   // Control
   "abort",
+  // New event types
+  "session.truncation",
+  "assistant.reasoning",
+  "system.message",
+  "session.warning",
+  "session.mode_changed",
+  "session.task_complete",
+  "subagent.selected",
+  "subagent.deselected",
+  "hook.start",
+  "hook.end",
+  "session.handoff",
+  "session.import_legacy",
 ] as const;
 
 export type TracePilotKnownEvent = (typeof TRACEPILOT_KNOWN_EVENTS)[number];

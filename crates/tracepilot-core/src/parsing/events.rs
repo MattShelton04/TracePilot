@@ -16,12 +16,16 @@
 
 use crate::error::{Result, TracePilotError};
 use crate::models::event_types::{
-    AbortData, AssistantMessageData, CodeChanges, CompactionCompleteData, CompactionStartData,
-    ModelChangeData, ModelMetricDetail, PlanChangedData, RequestMetrics, SessionErrorData,
-    SessionEventType, SessionInfoData, SessionResumeData, SessionStartData, ShutdownData,
-    SkillInvokedData, SubagentCompletedData, SubagentFailedData, SubagentStartedData,
-    SystemNotificationData, ToolExecCompleteData, ToolExecStartData, ToolUserRequestedData,
-    TurnEndData, TurnStartData, UsageMetrics, UserMessageData, WorkspaceFileChangedData,
+    AbortData, AssistantMessageData, AssistantReasoningData, CodeChanges, CompactionCompleteData,
+    CompactionStartData, HookEndData, HookStartData, ModelChangeData, ModelMetricDetail,
+    PlanChangedData, RequestMetrics, SessionContext, SessionErrorData, SessionEventType,
+    SessionHandoffData, SessionImportLegacyData, SessionInfoData, SessionModeChangedData,
+    SessionResumeData, SessionStartData, SessionTaskCompleteData, SessionTruncationData,
+    SessionWarningData, ShutdownData, SkillInvokedData, SubagentCompletedData,
+    SubagentDeselectedData, SubagentFailedData, SubagentSelectedData, SubagentStartedData,
+    SystemMessageData, SystemNotificationData, ToolExecCompleteData, ToolExecStartData,
+    ToolUserRequestedData, TurnEndData, TurnStartData, UsageMetrics, UserMessageData,
+    WorkspaceFileChangedData,
 };
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use chrono::{DateTime, Utc};
@@ -56,9 +60,6 @@ pub struct TypedEvent {
 /// Each variant corresponds to a [`SessionEventType`] and wraps a strongly-typed
 /// data struct. When deserialization of the typed struct fails (e.g. due to schema
 /// evolution), the raw JSON `Value` is preserved as `Other`.
-///
-/// `ContextChanged` is a special case — it stores raw `Value` by design since the
-/// `session.context_changed` event reuses `SessionContext` shape without a dedicated struct.
 #[derive(Debug, Clone)]
 pub enum TypedEventData {
     SessionStart(SessionStartData),
@@ -82,9 +83,22 @@ pub enum TypedEventData {
     Abort(AbortData),
     PlanChanged(PlanChangedData),
     SessionInfo(SessionInfoData),
-    ContextChanged(serde_json::Value),
+    ContextChanged(SessionContext),
     WorkspaceFileChanged(WorkspaceFileChangedData),
     ToolUserRequested(ToolUserRequestedData),
+    // New typed variants
+    SessionTruncation(SessionTruncationData),
+    AssistantReasoning(AssistantReasoningData),
+    SystemMessage(SystemMessageData),
+    SessionWarning(SessionWarningData),
+    SessionModeChanged(SessionModeChangedData),
+    SessionTaskComplete(SessionTaskCompleteData),
+    SubagentSelected(SubagentSelectedData),
+    SubagentDeselected(SubagentDeselectedData),
+    HookStart(HookStartData),
+    HookEnd(HookEndData),
+    SessionHandoff(SessionHandoffData),
+    SessionImportLegacy(SessionImportLegacyData),
     Other(Value),
 }
 
@@ -140,8 +154,8 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
 /// On failure (unknown type or deserialization error), the raw JSON `Value` is
 /// preserved as [`TypedEventData::Other`] and a warning is returned.
 ///
-/// The `ContextChanged` variant is a special case — it stores raw `Value` by design
-/// since `session.context_changed` reuses the `SessionContext` shape directly.
+/// The `ContextChanged` variant wraps `SessionContext` — the same struct used
+/// by `session.start` and `session.resume`.
 pub(crate) fn typed_data_from_raw(
     event_type: &SessionEventType,
     data: &Value,
@@ -227,14 +241,50 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(SessionInfo, SessionInfoData, "session.info", data)
         }
         SessionEventType::SessionContextChanged => {
-            // Special case: stores raw Value (reuses SessionContext shape)
-            (TypedEventData::ContextChanged(data.clone()), None)
+            try_deser!(ContextChanged, SessionContext, "session.context_changed", data)
         }
         SessionEventType::SessionWorkspaceFileChanged => {
             try_deser!(WorkspaceFileChanged, WorkspaceFileChangedData, "session.workspace_file_changed", data)
         }
         SessionEventType::ToolUserRequested => {
             try_deser!(ToolUserRequested, ToolUserRequestedData, "tool.user_requested", data)
+        }
+        // New event types
+        SessionEventType::SessionTruncation => {
+            try_deser!(SessionTruncation, SessionTruncationData, "session.truncation", data)
+        }
+        SessionEventType::AssistantReasoning => {
+            try_deser!(AssistantReasoning, AssistantReasoningData, "assistant.reasoning", data)
+        }
+        SessionEventType::SystemMessage => {
+            try_deser!(SystemMessage, SystemMessageData, "system.message", data)
+        }
+        SessionEventType::SessionWarning => {
+            try_deser!(SessionWarning, SessionWarningData, "session.warning", data)
+        }
+        SessionEventType::SessionModeChanged => {
+            try_deser!(SessionModeChanged, SessionModeChangedData, "session.mode_changed", data)
+        }
+        SessionEventType::SessionTaskComplete => {
+            try_deser!(SessionTaskComplete, SessionTaskCompleteData, "session.task_complete", data)
+        }
+        SessionEventType::SubagentSelected => {
+            try_deser!(SubagentSelected, SubagentSelectedData, "subagent.selected", data)
+        }
+        SessionEventType::SubagentDeselected => {
+            try_deser!(SubagentDeselected, SubagentDeselectedData, "subagent.deselected", data)
+        }
+        SessionEventType::HookStart => {
+            try_deser!(HookStart, HookStartData, "hook.start", data)
+        }
+        SessionEventType::HookEnd => {
+            try_deser!(HookEnd, HookEndData, "hook.end", data)
+        }
+        SessionEventType::SessionHandoff => {
+            try_deser!(SessionHandoff, SessionHandoffData, "session.handoff", data)
+        }
+        SessionEventType::SessionImportLegacy => {
+            try_deser!(SessionImportLegacy, SessionImportLegacyData, "session.import_legacy", data)
         }
         SessionEventType::Unknown(name) => (
             TypedEventData::Other(data.clone()),

@@ -396,6 +396,20 @@ impl TurnReconstructor {
                 self.finalize_current_turn(false, event.raw.timestamp);
             }
 
+            // Standalone reasoning block: append to current turn's reasoning texts
+            (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
+                if let Some(content) = &data.content {
+                    if !content.trim().is_empty() {
+                        let turn = self.ensure_current_turn(event.raw.timestamp);
+                        turn.reasoning_texts.push(AttributedMessage {
+                            content: content.clone(),
+                            parent_tool_call_id: None,
+                            agent_display_name: None,
+                        });
+                    }
+                }
+            }
+
             _ => {}
         }
     }
