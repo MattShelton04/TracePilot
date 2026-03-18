@@ -3453,3 +3453,35 @@
             "duration_ms should be None -- subagent is still running"
         );
     }
+    #[test]
+    fn subagent_completed_before_subagent_started_preserves_terminal_state() {
+        // Out-of-order edge case: SubagentCompleted arrives before SubagentStarted.
+        // enrich_subagent() must NOT wipe the terminal state already set by
+        // handle_subagent_terminal().
+        let (user_msg, turn_start, tool_start, sub_started) = base_subagent_events();
+        let events = vec![
+            user_msg,
+            turn_start,
+            tool_start,                                                     // T=1.0s
+            // SubagentCompleted arrives BEFORE SubagentStarted
+            sub_completed_event("2026-03-18T00:00:05.000Z", "evt-4"),       // T=5.0s
+            sub_started,                                                     // T=1.05s
+            turn_end_event("2026-03-18T00:00:05.200Z", "evt-6"),
+        ];
+
+        let tc = run_subagent_scenario(events);
+        assert!(tc.is_subagent, "Should be marked as subagent");
+        assert!(
+            tc.is_complete,
+            "SubagentCompleted terminal state must be preserved even when SubagentStarted arrives later"
+        );
+        assert_eq!(tc.success, Some(true));
+        assert!(
+            tc.completed_at.is_some(),
+            "completed_at from SubagentCompleted must be preserved"
+        );
+        assert!(
+            tc.duration_ms.is_some(),
+            "duration_ms from SubagentCompleted must be preserved"
+        );
+    }

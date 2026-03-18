@@ -499,6 +499,9 @@ impl TurnReconstructor {
         error: Option<&str>,
     ) {
         if let Some(tool_call) = self.find_tool_call_mut(tool_call_id) {
+            // Mark as subagent — handles the case where SubagentCompleted arrives
+            // before SubagentStarted (so enrich_subagent can detect this later).
+            tool_call.is_subagent = true;
             if tool_call.completed_at.is_none() || timestamp > tool_call.completed_at {
                 tool_call.completed_at = timestamp;
                 tool_call.duration_ms = duration_ms(tool_call.started_at, tool_call.completed_at);
@@ -552,15 +555,22 @@ fn enrich_subagent(
     existing: &mut TurnToolCall,
     data: &crate::models::event_types::SubagentStartedData,
 ) {
+    // Detect whether completion state was set by a real subagent terminal event
+    // (SubagentCompleted/SubagentFailed) vs ToolExecComplete on an unknown-subagent.
+    // handle_subagent_terminal() sets is_subagent=true, so:
+    //   is_subagent=true + is_complete=true → terminal event already processed, preserve state
+    //   is_subagent=false + is_complete=true → ToolExecComplete set it, clear it
+    let has_terminal_state = existing.is_subagent && existing.is_complete;
     existing.is_subagent = true;
-    // Reset completion state — only SubagentCompleted/Failed should finalize subagents.
-    // This handles the case where ToolExecComplete arrived before SubagentStarted.
-    // We must also clear completed_at/duration_ms that ToolExecComplete may have set,
-    // otherwise finalize_subagent_completion() would immediately re-mark it complete
-    // using the early (incorrect) ToolExecComplete timestamp.
-    existing.is_complete = false;
-    existing.completed_at = None;
-    existing.duration_ms = None;
+    if !has_terminal_state {
+        // Clear stale ToolExecComplete-derived state. With the ToolExecComplete guard,
+        // this is mostly a no-op for normal ordering, but handles the edge case where
+        // ToolExecComplete arrived before SubagentStarted and set completed_at/is_complete
+        // because is_subagent was still false at that point.
+        existing.is_complete = false;
+        existing.completed_at = None;
+        existing.duration_ms = None;
+    }
     existing.agent_display_name = data.agent_display_name.clone();
     existing.agent_description = data.agent_description.clone();
     if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
