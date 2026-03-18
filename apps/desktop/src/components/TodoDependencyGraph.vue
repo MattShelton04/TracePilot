@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import type { TodoItem, TodoDep } from "@tracepilot/types";
 
 const props = defineProps<{
@@ -7,11 +7,18 @@ const props = defineProps<{
   deps: TodoDep[];
 }>();
 
-// ── Constants ──
+// ── Layout constants ──
 const NODE_W = 170;
 const NODE_H = 54;
 const GAP_X = 60;
 const GAP_Y = 36;
+const SUB_ROW_GAP = 16;
+const MAX_PER_ROW = 5;
+
+// Absolute zoom limits — independent of graph size
+const ZOOM_MIN = 0.05;
+const ZOOM_MAX = 5.0;
+const FIT_PADDING = 0.9;
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓",
@@ -29,11 +36,76 @@ const STATUS_COLOR: Record<string, { stroke: string; fill: string; text: string 
 
 const STATUSES = ["done", "in_progress", "pending", "blocked"] as const;
 
+const STATUS_LABEL: Record<string, string> = {
+  done: "Done",
+  in_progress: "In progress",
+  pending: "Pending",
+  blocked: "Blocked",
+};
+
 // ── State ──
 const selectedNodeId = ref<string | null>(null);
 const hoveredNodeId = ref<string | null>(null);
 
+// ── Filter & search state ──
+const activeStatuses = ref<Set<string>>(new Set(STATUSES));
+const searchQuery = ref("");
+const pendingFitFromFilter = ref(false);
+
+// All distinct statuses present in the data (includes non-canonical)
+const allStatuses = computed(() => {
+  const known = new Set<string>(STATUSES);
+  const extra = new Set<string>();
+  props.todos.forEach(t => { if (!known.has(t.status)) extra.add(t.status); });
+  return [...STATUSES, ...extra];
+});
+
+// Ensure non-canonical statuses are active by default when first seen
+watch(() => props.todos, () => {
+  const next = new Set(activeStatuses.value);
+  props.todos.forEach(t => {
+    if (!next.has(t.status) && !(STATUSES as readonly string[]).includes(t.status)) {
+      next.add(t.status);
+    }
+  });
+  if (next.size !== activeStatuses.value.size) activeStatuses.value = next;
+}, { immediate: true });
+
+function toggleStatus(status: string) {
+  const next = new Set(activeStatuses.value);
+  if (next.has(status)) {
+    if (next.size > 1) next.delete(status);
+  } else {
+    next.add(status);
+  }
+  activeStatuses.value = next;
+  pendingFitFromFilter.value = true;
+}
+
+function statusCount(status: string): number {
+  return props.todos.filter(t => t.status === status).length;
+}
+
+const filteredTodos = computed(() =>
+  props.todos.filter(t => activeStatuses.value.has(t.status))
+);
+
+const searchLower = computed(() => searchQuery.value.toLowerCase().trim());
+const searchMatchIds = computed<Set<string> | null>(() => {
+  if (!searchLower.value) return null;
+  return new Set(
+    filteredTodos.value
+      .filter(t =>
+        t.title.toLowerCase().includes(searchLower.value) ||
+        (t.description ?? "").toLowerCase().includes(searchLower.value) ||
+        t.id.toLowerCase().includes(searchLower.value)
+      )
+      .map(t => t.id)
+  );
+});
+
 // ── Pan & zoom ──
+const viewportRef = ref<HTMLElement | null>(null);
 const panX = ref(0);
 const panY = ref(0);
 const isPanning = ref(false);
@@ -41,67 +113,109 @@ const panStartX = ref(0);
 const panStartY = ref(0);
 const zoomLevel = ref(1);
 
-function onPanStart(e: MouseEvent) {
+function onPanStart(e: PointerEvent) {
   isPanning.value = true;
   panStartX.value = e.clientX - panX.value;
   panStartY.value = e.clientY - panY.value;
+  // Use window listeners so drag continues outside viewport without
+  // setPointerCapture (which would swallow click events on SVG nodes)
+  window.addEventListener("pointermove", onPanMove);
+  window.addEventListener("pointerup", onPanEnd);
 }
 
-function onPanMove(e: MouseEvent) {
+function onPanMove(e: PointerEvent) {
   if (!isPanning.value) return;
   panX.value = e.clientX - panStartX.value;
   panY.value = e.clientY - panStartY.value;
 }
 
 function onPanEnd() {
+  if (!isPanning.value) return;
   isPanning.value = false;
+  window.removeEventListener("pointermove", onPanMove);
+  window.removeEventListener("pointerup", onPanEnd);
 }
 
-function zoomIn() { zoomLevel.value = Math.min(zoomLevel.value * 1.2, 3); }
-function zoomOut() { zoomLevel.value = Math.max(zoomLevel.value / 1.2, 0.3); }
-function resetView() { zoomLevel.value = 1; panX.value = 0; panY.value = 0; }
+function applyZoom(newZoom: number, anchorX: number, anchorY: number) {
+  const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+  const oldZoom = zoomLevel.value;
+  panX.value = anchorX - (anchorX - panX.value) * (clamped / oldZoom);
+  panY.value = anchorY - (anchorY - panY.value) * (clamped / oldZoom);
+  zoomLevel.value = clamped;
+}
+
+function zoomIn() {
+  const vp = viewportRef.value;
+  const cx = vp ? vp.clientWidth / 2 : 0;
+  const cy = vp ? vp.clientHeight / 2 : 0;
+  applyZoom(zoomLevel.value * 1.2, cx, cy);
+}
+
+function zoomOut() {
+  const vp = viewportRef.value;
+  const cx = vp ? vp.clientWidth / 2 : 0;
+  const cy = vp ? vp.clientHeight / 2 : 0;
+  applyZoom(zoomLevel.value / 1.2, cx, cy);
+}
+
+function fitToView() {
+  const vp = viewportRef.value;
+  if (!vp) return;
+  const vpW = vp.clientWidth;
+  const vpH = vp.clientHeight;
+  const vb = viewBox.value;
+  if (vb.width <= 0 || vb.height <= 0) return;
+
+  const fit = Math.min(vpW / vb.width, vpH / vb.height) * FIT_PADDING;
+  const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fit));
+  zoomLevel.value = clamped;
+  panX.value = (vpW - vb.width * clamped) / 2;
+  panY.value = (vpH - vb.height * clamped) / 2;
+}
 
 function onWheel(e: WheelEvent) {
   e.preventDefault();
-  if (e.deltaY < 0) zoomIn();
-  else zoomOut();
+  const vp = viewportRef.value;
+  if (!vp) return;
+  const rect = vp.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  applyZoom(zoomLevel.value * factor, mouseX, mouseY);
 }
 
-// ── Edges normalised to { from, to } (dependsOn → todoId) ──
-const edges = computed(() =>
-  props.deps
-    .filter(
-      (d) =>
-        props.todos.some((t) => t.id === d.dependsOn) &&
-        props.todos.some((t) => t.id === d.todoId)
-    )
-    .map((d) => ({ from: d.dependsOn, to: d.todoId }))
-);
+const zoomPercent = computed(() => Math.round(zoomLevel.value * 100));
 
-// ── Topological layout (Kahn's algorithm) ──
+// ── Edges normalised to { from, to } (dependsOn → todoId) ──
+const edges = computed(() => {
+  const todoIds = new Set(filteredTodos.value.map(t => t.id));
+  return props.deps
+    .filter(d => todoIds.has(d.dependsOn) && todoIds.has(d.todoId))
+    .map(d => ({ from: d.dependsOn, to: d.todoId }));
+});
+
+// ── Topological layout (Kahn's algorithm) with compact grid ──
 interface NodePos { x: number; y: number; w: number; h: number }
 interface LayoutResult { positions: Record<string, NodePos>; hasCycle: boolean }
 
 const layoutResult = computed<LayoutResult>(() => {
-  const todos = props.todos;
+  const todos = filteredTodos.value;
   const edgeList = edges.value;
 
-  // Build adjacency & in-degree
   const inDeg: Record<string, number> = {};
   const adj: Record<string, string[]> = {};
-  todos.forEach((t) => {
+  todos.forEach(t => {
     inDeg[t.id] = 0;
     adj[t.id] = [];
   });
-  edgeList.forEach((e) => {
+  edgeList.forEach(e => {
     adj[e.from].push(e.to);
     inDeg[e.to]++;
   });
 
-  // Kahn's
   const levels: Record<string, number> = {};
   const queue: string[] = [];
-  todos.forEach((t) => {
+  todos.forEach(t => {
     if (inDeg[t.id] === 0) {
       queue.push(t.id);
       levels[t.id] = 0;
@@ -118,20 +232,14 @@ const layoutResult = computed<LayoutResult>(() => {
     }
   }
 
-  // Detect cycle: any node not yet assigned a level
-  const cycleNodes = todos.filter((t) => levels[t.id] === undefined);
+  const cycleNodes = todos.filter(t => levels[t.id] === undefined);
   const detectedCycle = cycleNodes.length > 0;
-
-  // Place cycle nodes in one extra row at the end
   const maxLevel = Math.max(0, ...Object.values(levels));
   const cycleLevel = cycleNodes.length > 0 ? maxLevel + 1 : maxLevel;
-  cycleNodes.forEach((t) => {
-    levels[t.id] = cycleLevel;
-  });
+  cycleNodes.forEach(t => { levels[t.id] = cycleLevel; });
 
-  // Group by level
   const byLevel: Record<number, TodoItem[]> = {};
-  todos.forEach((t) => {
+  todos.forEach(t => {
     const lv = levels[t.id] ?? 0;
     if (!byLevel[lv]) byLevel[lv] = [];
     byLevel[lv].push(t);
@@ -139,18 +247,36 @@ const layoutResult = computed<LayoutResult>(() => {
 
   const effectiveMax = cycleNodes.length > 0 ? cycleLevel : maxLevel;
   const positions: Record<string, NodePos> = {};
+
+  let cumulativeY = 0;
   for (let lv = 0; lv <= effectiveMax; lv++) {
     const items = byLevel[lv] || [];
-    const totalW = items.length * NODE_W + (items.length - 1) * GAP_X;
-    const startX = -totalW / 2;
-    items.forEach((t, i) => {
-      positions[t.id] = {
-        x: startX + i * (NODE_W + GAP_X),
-        y: lv * (NODE_H + GAP_Y),
-        w: NODE_W,
-        h: NODE_H,
-      };
+    if (items.length === 0) {
+      cumulativeY += NODE_H + GAP_Y;
+      continue;
+    }
+
+    // Chunk into sub-rows to avoid excessive horizontal spread
+    const subRows: TodoItem[][] = [];
+    for (let i = 0; i < items.length; i += MAX_PER_ROW) {
+      subRows.push(items.slice(i, i + MAX_PER_ROW));
+    }
+
+    subRows.forEach((row, rowIdx) => {
+      const totalW = row.length * NODE_W + (row.length - 1) * GAP_X;
+      const startX = -totalW / 2;
+      row.forEach((t, i) => {
+        positions[t.id] = {
+          x: startX + i * (NODE_W + GAP_X),
+          y: cumulativeY + rowIdx * (NODE_H + SUB_ROW_GAP),
+          w: NODE_W,
+          h: NODE_H,
+        };
+      });
     });
+
+    const levelHeight = subRows.length * NODE_H + (subRows.length - 1) * SUB_ROW_GAP;
+    cumulativeY += levelHeight + GAP_Y;
   }
 
   return { positions, hasCycle: detectedCycle };
@@ -163,10 +289,10 @@ const hasCycle = computed(() => layoutResult.value.hasCycle);
 const viewBox = computed(() => {
   const positions = Object.values(layout.value);
   if (positions.length === 0) return { minX: 0, minY: 0, width: 400, height: 200 };
-  const minX = Math.min(...positions.map((p) => p.x)) - 30;
-  const maxX = Math.max(...positions.map((p) => p.x + p.w)) + 30;
-  const minY = Math.min(...positions.map((p) => p.y)) - 20;
-  const maxY = Math.max(...positions.map((p) => p.y + p.h)) + 20;
+  const minX = Math.min(...positions.map(p => p.x)) - 30;
+  const maxX = Math.max(...positions.map(p => p.x + p.w)) + 30;
+  const minY = Math.min(...positions.map(p => p.y)) - 20;
+  const maxY = Math.max(...positions.map(p => p.y + p.h)) + 20;
   return { minX, minY, width: maxX - minX, height: maxY - minY };
 });
 
@@ -182,7 +308,7 @@ const edgePaths = computed(() =>
     const y2 = to.y;
     const cy1 = y1 + (y2 - y1) * 0.4;
     const cy2 = y1 + (y2 - y1) * 0.6;
-    const targetTodo = props.todos.find((t) => t.id === e.to);
+    const targetTodo = filteredTodos.value.find(t => t.id === e.to);
     const status = targetTodo?.status || "pending";
     const color = STATUS_COLOR[status]?.stroke ?? STATUS_COLOR.pending.stroke;
     return {
@@ -201,7 +327,7 @@ const edgePaths = computed(() =>
 // ── Hover / selection helpers ──
 function getConnectedNodeIds(todoId: string): Set<string> {
   const set = new Set<string>([todoId]);
-  edges.value.forEach((e) => {
+  edges.value.forEach(e => {
     if (e.from === todoId || e.to === todoId) {
       set.add(e.from);
       set.add(e.to);
@@ -219,7 +345,9 @@ function nodeClass(todo: TodoItem): string {
   if (todo.status === "done") classes.push("done-node");
   if (selectedNodeId.value === todo.id) classes.push("selected");
 
-  if (hoveredNodeId.value) {
+  if (searchMatchIds.value) {
+    classes.push(searchMatchIds.value.has(todo.id) ? "search-match" : "search-dim");
+  } else if (hoveredNodeId.value) {
     const connected = getConnectedNodeIds(hoveredNodeId.value);
     classes.push(connected.has(todo.id) ? "highlighted" : "faded");
   }
@@ -228,13 +356,19 @@ function nodeClass(todo: TodoItem): string {
 
 function edgeClass(edge: { from: string; to: string }): string {
   const classes = ["dag-edge"];
-  if (hoveredNodeId.value) {
+  if (searchMatchIds.value) {
+    const hasMatch = searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to);
+    classes.push(hasMatch ? "search-match" : "search-dim");
+  } else if (hoveredNodeId.value) {
     classes.push(isEdgeConnected(edge, hoveredNodeId.value) ? "highlighted" : "faded");
   }
   return classes.join(" ");
 }
 
 function edgeOpacity(edge: { from: string; to: string }): number {
+  if (searchMatchIds.value) {
+    return (searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to)) ? 0.6 : 0.08;
+  }
   if (!hoveredNodeId.value) return 0.35;
   return isEdgeConnected(edge, hoveredNodeId.value) ? 0.8 : 0.1;
 }
@@ -259,24 +393,24 @@ function closeDetail() {
 
 // ── Selected todo detail ──
 const selectedTodo = computed(() =>
-  selectedNodeId.value ? props.todos.find((t) => t.id === selectedNodeId.value) ?? null : null
+  selectedNodeId.value ? props.todos.find(t => t.id === selectedNodeId.value) ?? null : null
 );
 
 function getDependencies(todoId: string): TodoItem[] {
-  const depIds = props.deps.filter((d) => d.todoId === todoId).map((d) => d.dependsOn);
+  const depIds = props.deps.filter(d => d.todoId === todoId).map(d => d.dependsOn);
   return depIds
-    .map((id) => props.todos.find((t) => t.id === id))
+    .map(id => props.todos.find(t => t.id === id))
     .filter(Boolean) as TodoItem[];
 }
 
 function getDependents(todoId: string): TodoItem[] {
-  const depIds = props.deps.filter((d) => d.dependsOn === todoId).map((d) => d.todoId);
+  const depIds = props.deps.filter(d => d.dependsOn === todoId).map(d => d.todoId);
   return depIds
-    .map((id) => props.todos.find((t) => t.id === id))
+    .map(id => props.todos.find(t => t.id === id))
     .filter(Boolean) as TodoItem[];
 }
 
-// Preserve selection across refreshes — only clear if selected node no longer exists
+// Preserve selection across refreshes — clear if node is removed or filtered out
 watch(() => props.todos, (newTodos) => {
   if (selectedNodeId.value && !newTodos.some(t => t.id === selectedNodeId.value)) {
     selectedNodeId.value = null;
@@ -285,10 +419,91 @@ watch(() => props.todos, (newTodos) => {
     hoveredNodeId.value = null;
   }
 });
+
+watch(filteredTodos, (visible) => {
+  if (selectedNodeId.value && !visible.some(t => t.id === selectedNodeId.value)) {
+    selectedNodeId.value = null;
+  }
+  if (hoveredNodeId.value && !visible.some(t => t.id === hoveredNodeId.value)) {
+    hoveredNodeId.value = null;
+  }
+});
+
+// ── Auto-fit on mount and explicit view changes ──
+let resizeObserver: ResizeObserver | null = null;
+let hasInitialSize = false;
+
+onMounted(() => {
+  nextTick(() => fitToView());
+
+  // ResizeObserver handles hidden-container → visible transitions (e.g., tab switch)
+  if (viewportRef.value) {
+    resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        if (!hasInitialSize) {
+          hasInitialSize = true;
+          nextTick(() => fitToView());
+        }
+      } else {
+        hasInitialSize = false;
+      }
+    });
+    resizeObserver.observe(viewportRef.value);
+  }
+});
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  window.removeEventListener("pointermove", onPanMove);
+  window.removeEventListener("pointerup", onPanEnd);
+});
+
+// Only re-fit when the user explicitly toggles a filter, not on auto-refresh
+watch(filteredTodos, () => {
+  if (pendingFitFromFilter.value) {
+    pendingFitFromFilter.value = false;
+    nextTick(() => fitToView());
+  }
+});
 </script>
 
 <template>
   <div class="todo-graph-root">
+    <!-- Toolbar: status filters + search -->
+    <div class="graph-toolbar">
+      <div class="status-filters">
+        <button
+          v-for="status in allStatuses"
+          :key="status"
+          :class="['filter-chip', status, { active: activeStatuses.has(status) }]"
+          :aria-pressed="activeStatuses.has(status)"
+          @click="toggleStatus(status)"
+        >
+          <span class="filter-icon">{{ STATUS_ICON[status] ?? "?" }}</span>
+          {{ STATUS_LABEL[status] ?? status }}
+          <span class="filter-count">{{ statusCount(status) }}</span>
+        </button>
+      </div>
+      <div class="search-box">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06l-3.04-3.04Z"/>
+        </svg>
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="Search todos…"
+          class="search-input"
+        />
+        <button
+          v-if="searchQuery"
+          class="search-clear"
+          @click="searchQuery = ''"
+          aria-label="Clear search"
+        >✕</button>
+      </div>
+    </div>
+
     <!-- Cycle warning -->
     <div v-if="hasCycle" class="cycle-warning">
       ⚠ Dependency cycle detected — some nodes are shown in a separate row.
@@ -299,13 +514,13 @@ watch(() => props.todos, (newTodos) => {
       <div class="zoom-controls">
         <button class="zoom-btn" @click="zoomIn" title="Zoom in">+</button>
         <button class="zoom-btn" @click="zoomOut" title="Zoom out">−</button>
-        <button class="zoom-btn" @click="resetView" title="Reset view">⟲</button>
+        <span class="zoom-pct" :title="`Zoom: ${zoomPercent}%`">{{ zoomPercent }}%</span>
+        <button class="zoom-btn" @click="fitToView" title="Fit to view">⊡</button>
       </div>
-      <div class="graph-viewport"
-        @mousedown="onPanStart"
-        @mousemove="onPanMove"
-        @mouseup="onPanEnd"
-        @mouseleave="onPanEnd"
+      <div
+        ref="viewportRef"
+        class="graph-viewport"
+        @pointerdown="onPanStart"
         @wheel.prevent="onWheel"
       >
         <div class="graph-transform" :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoomLevel})` }">
@@ -359,7 +574,7 @@ watch(() => props.todos, (newTodos) => {
 
         <!-- Nodes -->
         <g
-          v-for="todo in todos"
+          v-for="todo in filteredTodos"
           :key="todo.id"
           :class="nodeClass(todo)"
           :data-id="todo.id"
@@ -490,6 +705,95 @@ watch(() => props.todos, (newTodos) => {
   gap: 14px;
 }
 
+/* Toolbar */
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+  user-select: none;
+}
+.filter-chip:hover { opacity: 0.75; }
+.filter-chip.active { opacity: 1; }
+.filter-chip.active.done { background: rgba(52, 211, 153, 0.1); border-color: #34d399; color: #34d399; }
+.filter-chip.active.in_progress { background: rgba(99, 102, 241, 0.1); border-color: #818cf8; color: #818cf8; }
+.filter-chip.active.pending { background: rgba(161, 161, 170, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #a1a1aa; }
+.filter-chip.active.blocked { background: rgba(251, 113, 133, 0.08); border-color: #fb7185; color: #fb7185; }
+
+.filter-icon { font-size: 0.75rem; }
+.filter-count {
+  font-size: 0.5625rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Search */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+.search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-placeholder);
+  pointer-events: none;
+}
+.search-input {
+  padding: 5px 28px 5px 28px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  outline: none;
+  width: 180px;
+  transition: border-color 0.15s, width 0.2s;
+}
+.search-input:focus {
+  border-color: var(--accent-fg);
+  width: 220px;
+}
+.search-input::placeholder { color: var(--text-placeholder); }
+.search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-placeholder);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.search-clear:hover { color: var(--text-primary); }
+
 /* Cycle warning */
 .cycle-warning {
   padding: 10px 16px;
@@ -515,23 +819,23 @@ watch(() => props.todos, (newTodos) => {
   overflow: hidden;
   cursor: grab;
   min-height: 440px;
+  touch-action: none;
+  user-select: none;
 }
 .graph-viewport:active { cursor: grabbing; }
 .graph-transform {
-  transform-origin: center center;
+  transform-origin: 0 0;
   transition: transform 0.1s ease;
-  display: flex;
-  justify-content: center;
 }
 .graph-svg {
   display: block;
-  margin: 0 auto;
 }
 .zoom-controls {
   position: absolute;
   top: 12px;
   right: 12px;
   display: flex;
+  align-items: center;
   gap: 4px;
   z-index: 10;
 }
@@ -553,6 +857,15 @@ watch(() => props.todos, (newTodos) => {
   background: var(--canvas-subtle);
   color: var(--text-primary);
 }
+.zoom-pct {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
 
 /* Node styles */
 .dag-node { cursor: pointer; transition: opacity 0.2s ease; }
@@ -560,6 +873,8 @@ watch(() => props.todos, (newTodos) => {
 .dag-node.selected .node-rect { stroke-width: 2.5; }
 .dag-node.faded { opacity: 0.25; }
 .dag-node.highlighted { opacity: 1; }
+.dag-node.search-match { opacity: 1; }
+.dag-node.search-dim { opacity: 0.15; }
 .done-node { opacity: 0.7; }
 
 .node-rect {
@@ -585,6 +900,8 @@ watch(() => props.todos, (newTodos) => {
 }
 .dag-edge.faded { opacity: 0.1; }
 .dag-edge.highlighted { stroke-width: 2.5; opacity: 1; }
+.dag-edge.search-dim { opacity: 0.08; }
+.dag-edge.search-match { stroke-width: 2; }
 .edge-arrow { transition: fill 0.2s ease; }
 
 /* Legend bar */
@@ -720,6 +1037,10 @@ watch(() => props.todos, (newTodos) => {
 
 @media (max-width: 900px) {
   .detail-panel-body { grid-template-columns: 1fr; }
+  .graph-toolbar { flex-direction: column; align-items: stretch; }
+  .search-box { margin-left: 0; }
+  .search-input { width: 100%; }
+  .search-input:focus { width: 100%; }
 }
 
 @keyframes fadeIn {
