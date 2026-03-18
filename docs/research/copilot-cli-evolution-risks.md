@@ -1,8 +1,8 @@
 # Copilot CLI Evolution Risks & Adaptation Strategies
 
-> **Research Date:** 2026-03-14
-> **CLI Versions Analyzed:** 0.0.328 through 1.0.5 (95 releases, 168 days)
-> **Data Sources:** Changelog analysis, official JSON schemas across 6 installed versions (0.0.410, 0.0.422, 1.0.2, 1.0.3, 1.0.4, 1.0.5), live session data from 74 sessions, git history
+> **Research Date:** 2026-03-14 (updated 2026-03-18 with v1.0.7 data)
+> **CLI Versions Analyzed:** 0.0.328 through 1.0.7 (7 installed versions)
+> **Data Sources:** Changelog analysis, official JSON schemas across 7 installed versions (0.0.410, 0.0.422, 1.0.2, 1.0.3, 1.0.4, 1.0.5, 1.0.7), live session data, git history, automated version analysis tool (`tracepilot versions`)
 
 ---
 
@@ -23,14 +23,15 @@
 
 ## 1. Executive Summary
 
-GitHub Copilot CLI is one of the **fastest-iterating developer tools** currently in production, averaging **4 releases per week** with an average gap of 1.8 days between releases. The session data format has evolved significantly—from 41 event types in v0.0.410 to **62 event types in v1.0.5**—with new types being added in roughly every major version bump.
+GitHub Copilot CLI is one of the **fastest-iterating developer tools** currently in production, averaging **4 releases per week** with an average gap of 1.8 days between releases. The session data format has evolved significantly—from 41 event types in v0.0.410 to **66 event types in v1.0.7**—with new types being added in roughly every major version bump.
 
 **Critical finding:** The CLI ships an **official JSON Schema** at `~/.copilot/pkg/universal/{version}/schemas/session-events.schema.json` that formally defines every event type. This schema is our most reliable contract and should be the cornerstone of TracePilot's compatibility strategy.
 
 **Key risks:**
-- New event types appear frequently (18 added in a single version jump)
+- New event types appear frequently (18 added in a single version jump, 4 more in 1.0.7)
 - Context fields were expanded in v1.0.4 (`headCommit`, `baseCommit`, `hostType`)
-- The schema enforces `additionalProperties: false` on all 62 event variants — meaning strict parsing will break on schema changes
+- RPC methods have grown from 6 to **39** (14 new extension/plugin management methods in 1.0.7)
+- The schema enforces `additionalProperties: false` on all event variants — meaning strict parsing will break on schema changes
 - No formal deprecation process exists; event types are only added, never removed (so far)
 - The `version` field in `session.start.data` has been stuck at `1` across all observed versions — it's not being incremented with schema changes
 
@@ -39,6 +40,9 @@ GitHub Copilot CLI is one of the **fastest-iterating developer tools** currently
 - The schema file itself is the versioning mechanism — it ships with every CLI version
 - Additive changes (new event types, new optional fields) are the norm
 - No event types have ever been removed
+- TracePilot now has an automated version analysis tool (`tracepilot versions`) to track these changes
+
+**v1.0.7 Update (July 2026):** The latest analyzed version adds MCP server management, extensions support, and plugin APIs. Event count grew from 62 to 66 (+4 events: `session.mcp_server_status_changed`, `session.mcp_servers_loaded`, `session.extensions_loaded`, `session.skills_loaded`). RPC methods jumped from 25 to 39 (+14 methods for extension/plugin lifecycle management). See `docs/copilot-version-analysis.md` for the full automated analysis report.
 
 ---
 

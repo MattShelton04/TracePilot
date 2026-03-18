@@ -13,6 +13,13 @@ import { showSessionCommand } from "./commands/show.js";
 import { searchCommand } from "./commands/search.js";
 import { resumeCommand } from "./commands/resume.js";
 import { indexCommand } from "./commands/index-cmd.js";
+import {
+  versionsListCommand,
+  versionsDiffCommand,
+  versionsCoverageCommand,
+  versionsReportCommand,
+  versionsExamplesCommand,
+} from "./commands/versions.js";
 
 const program = new Command();
 
@@ -60,5 +67,41 @@ program
   .description("Rebuild the session search index")
   .option("--full", "Full reindex (instead of incremental)")
   .action(indexCommand);
+
+// ── versions command group ───────────────────────────────────────────
+const versionsCmd = program
+  .command("versions")
+  .description("Analyze installed Copilot CLI versions and schema changes");
+
+versionsCmd
+  .command("list")
+  .description("List installed Copilot CLI versions with event/method/agent counts")
+  .option("--json", "Output as JSON")
+  .action(versionsListCommand);
+
+versionsCmd
+  .command("diff [v1] [v2]")
+  .description("Show schema differences between CLI versions")
+  .option("--json", "Output as JSON")
+  .action(versionsDiffCommand);
+
+versionsCmd
+  .command("coverage")
+  .description("Show TracePilot event type coverage vs installed schemas")
+  .option("--json", "Output as JSON")
+  .action(versionsCoverageCommand);
+
+versionsCmd
+  .command("report")
+  .description("Generate comprehensive version analysis report")
+  .option("-o, --output <path>", "Write report to file (default: stdout)")
+  .action(versionsReportCommand);
+
+versionsCmd
+  .command("examples")
+  .description("Find real session examples of event types")
+  .option("-e, --event-type <name>", "Specific event type to search for")
+  .option("--json", "Output as JSON")
+  .action(versionsExamplesCommand);
 
 program.parse();

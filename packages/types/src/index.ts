@@ -497,3 +497,26 @@ export interface IndexingProgressPayload {
   totalEvents: number;
   totalRepos: number;
 }
+
+// ── Version Analysis Types ──────────────────────────────────────────
+
+export { TRACEPILOT_KNOWN_EVENTS } from "./known-events.js";
+export type { TracePilotKnownEvent } from "./known-events.js";
+
+/** Summary info for an installed Copilot CLI version. */
+export interface CopilotVersionInfo {
+  version: string;
+  eventTypeCount: number;
+  rpcMethodCount: number;
+  agentCount: number;
+}
+
+/** Coverage report comparing TracePilot handling vs installed schema. */
+export interface VersionCoverage {
+  totalSchemaEvents: number;
+  handledCount: number;
+  unhandledPersistedCount: number;
+  alwaysEphemeralCount: number;
+  /** Percentage of non-ephemeral events that TracePilot handles. */
+  coveragePercentage: number;
+}
