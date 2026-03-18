@@ -1017,7 +1017,9 @@ export function generateMarkdownReport(
       lines.push(`#### ${a.displayName ?? a.name}`);
       lines.push(`- **Model:** ${a.model}`);
       lines.push(`- **Tools:** ${a.toolCount}`);
-      lines.push(`- **Description:** ${a.description.slice(0, 200)}${a.description.length > 200 ? "…" : ""}`);
+      lines.push(
+        `- **Description:** ${a.description.slice(0, 2000)}${a.description.length > 2000 ? "…" : ""}`,
+      );
       lines.push("");
     }
   }
