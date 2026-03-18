@@ -27,7 +27,8 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut health_score_sum: f64 = 0.0;
     let mut tokens_by_day: BTreeMap<String, u64> = BTreeMap::new();
     let mut sessions_by_day: BTreeMap<String, u32> = BTreeMap::new();
-    let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64)> = HashMap::new();
+    // model key → (input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, premium_cost, request_count)
+    let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64, u64)> = HashMap::new();
     let mut cost_by_day: BTreeMap<String, f64> = BTreeMap::new();
     let mut durations: Vec<u64> = Vec::new();
     let mut total_turns: u64 = 0;
@@ -35,6 +36,18 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut total_tokens_from_turns: u64 = 0;
     let mut sessions_with_turns: u32 = 0;
     let mut total_premium_requests: f64 = 0.0;
+    // Cache stats accumulators
+    let mut total_cache_read_tokens: u64 = 0;
+    let mut total_input_tokens: u64 = 0;
+    // API duration sum + matched token sum for throughput
+    // Only counting tokens from sessions that have positive API duration avoids
+    // inflating the rate with tokens from sessions that have no duration data.
+    let mut total_api_duration_ms: u64 = 0;
+    let mut total_tokens_with_duration: u64 = 0;
+    // Health distribution
+    let mut healthy_count: u32 = 0;
+    let mut attention_count: u32 = 0;
+    let mut critical_count: u32 = 0;
 
     for input in sessions {
         let summary = &input.summary;
@@ -46,6 +59,15 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             None,
         );
         health_score_sum += health.score;
+
+        // Health distribution bucketing
+        if health.score >= 0.8 {
+            healthy_count += 1;
+        } else if health.score >= 0.5 {
+            attention_count += 1;
+        } else {
+            critical_count += 1;
+        }
 
         // Date key (UTC YYYY-MM-DD)
         let date_key = summary
@@ -64,16 +86,15 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 total_premium_requests += pr;
             }
 
-            // Duration from session_start_time
-            if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at) {
-                let start_ms = start_time;
-                let end_ms = updated.timestamp_millis() as u64;
-                if end_ms > start_ms {
-                    durations.push(end_ms - start_ms);
-                }
+            // Collect API duration for stats + throughput
+            let session_api_duration_ms = metrics.total_api_duration_ms.unwrap_or(0);
+            if session_api_duration_ms > 0 {
+                durations.push(session_api_duration_ms);
+                total_api_duration_ms += session_api_duration_ms;
             }
 
             // Per-model metrics
+            let mut session_tokens: u64 = 0;
             for (model_name, detail) in &metrics.model_metrics {
                 // Tokens
                 if let Some(ref usage) = detail.usage {
@@ -84,11 +105,16 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     // inputTokens already includes cacheReadTokens — don't add cache separately
                     let session_model_tokens = input_t + output_t;
                     total_tokens += session_model_tokens;
-                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0));
+                    session_tokens += session_model_tokens;
+                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.0 += input_t;
                     entry.1 += output_t;
                     entry.2 += cache_read;
                     entry.3 += cache_write;
+
+                    // Accumulate global cache stats
+                    total_cache_read_tokens += cache_read;
+                    total_input_tokens += input_t;
 
                     if let Some(ref date) = date_key {
                         *tokens_by_day.entry(date.clone()).or_insert(0) += session_model_tokens;
@@ -101,12 +127,19 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 if let Some(ref requests) = detail.requests {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
+                    let req_count = requests.count.map(|c| c as u64).unwrap_or(0);
                     if let Some(ref date) = date_key {
                         *cost_by_day.entry(date.clone()).or_insert(0.0) += cost;
                     }
-                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0));
+                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.4 += cost;
+                    entry.5 += req_count;
                 }
+            }
+
+            // Only count tokens toward throughput when this session has API duration data
+            if session_api_duration_ms > 0 {
+                total_tokens_with_duration += session_tokens;
             }
         }
 
@@ -144,10 +177,10 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .collect();
 
     // Model distribution with percentages (inputTokens already includes cacheReadTokens)
-    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, _cr, _cw, _)| i + o).sum();
+    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, _cr, _cw, _, _rc)| i + o).sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
-        .map(|(model, (input_t, output_t, cache_read, _cache_write, premium_req))| {
+        .map(|(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count))| {
             let tokens = input_t + output_t;
             let percentage = if total_model_tokens > 0 {
                 (tokens as f64 / total_model_tokens as f64) * 100.0
@@ -162,6 +195,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 output_tokens: output_t,
                 cache_read_tokens: cache_read,
                 premium_requests: premium_req,
+                request_count,
             }
         })
         .collect();
@@ -174,8 +208,8 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         0.0
     };
 
-    // Duration statistics
-    let session_duration_stats = compute_duration_stats(&durations);
+    // API duration statistics
+    let api_duration_stats = compute_duration_stats(&durations);
 
     // Productivity metrics
     let avg_turns_per_session = if sessions_with_turns > 0 {
@@ -193,6 +227,24 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     } else {
         0.0
     };
+    let avg_tokens_per_api_second = if total_api_duration_ms > 0 {
+        (total_tokens_with_duration as f64) / (total_api_duration_ms as f64 / 1000.0)
+    } else {
+        0.0
+    };
+
+    // Cache stats
+    let cache_hit_rate = if total_input_tokens > 0 {
+        (total_cache_read_tokens as f64 / total_input_tokens as f64) * 100.0
+    } else {
+        0.0
+    };
+    let cache_stats = CacheStats {
+        total_cache_read_tokens,
+        total_input_tokens,
+        cache_hit_rate,
+        non_cached_input_tokens: total_input_tokens.saturating_sub(total_cache_read_tokens),
+    };
 
     AnalyticsData {
         total_sessions,
@@ -204,19 +256,26 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         sessions_per_day,
         model_distribution,
         cost_by_day: cost_by_day_vec,
-        session_duration_stats,
+        api_duration_stats,
         productivity_metrics: ProductivityMetrics {
             avg_turns_per_session,
             avg_tool_calls_per_turn,
             avg_tokens_per_turn,
+            avg_tokens_per_api_second,
+        },
+        cache_stats,
+        health_distribution: HealthDistribution {
+            healthy_count,
+            attention_count,
+            critical_count,
         },
     }
 }
 
-/// Compute duration statistics from a sorted list of durations.
-fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
+/// Compute API duration statistics from a list of per-session `total_api_duration_ms` values.
+fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     if durations.is_empty() {
-        return SessionDurationStats {
+        return ApiDurationStats {
             avg_ms: 0.0,
             median_ms: 0.0,
             p95_ms: 0.0,
@@ -240,7 +299,7 @@ fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
     let p95_idx = ((n as f64 * 0.95).ceil() as usize).min(n) - 1;
     let p95_ms = sorted[p95_idx] as f64;
 
-    SessionDurationStats {
+    ApiDurationStats {
         avg_ms,
         median_ms,
         p95_ms,
@@ -688,11 +747,11 @@ mod tests {
         ];
         let result = compute_analytics(&sessions);
 
-        // All sessions have 300s (300000ms) duration from make_input helper
-        let stats = &result.session_duration_stats;
+        // All sessions have total_api_duration_ms = 5000ms from make_input helper
+        let stats = &result.api_duration_stats;
         assert_eq!(stats.total_sessions_with_duration, 3);
-        assert!((stats.avg_ms - 300_000.0).abs() < 0.1);
-        assert!((stats.median_ms - 300_000.0).abs() < 0.1);
+        assert!((stats.avg_ms - 5_000.0).abs() < 0.1);
+        assert!((stats.median_ms - 5_000.0).abs() < 0.1);
     }
 
     #[test]

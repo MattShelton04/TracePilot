@@ -82,6 +82,31 @@ pub enum SessionEventType {
     SkillInvoked,
     #[strum(serialize = "abort")]
     Abort,
+    // ── New event types ──
+    #[strum(serialize = "session.truncation")]
+    SessionTruncation,
+    #[strum(serialize = "assistant.reasoning")]
+    AssistantReasoning,
+    #[strum(serialize = "system.message")]
+    SystemMessage,
+    #[strum(serialize = "session.warning")]
+    SessionWarning,
+    #[strum(serialize = "session.mode_changed")]
+    SessionModeChanged,
+    #[strum(serialize = "session.task_complete")]
+    SessionTaskComplete,
+    #[strum(serialize = "subagent.selected")]
+    SubagentSelected,
+    #[strum(serialize = "subagent.deselected")]
+    SubagentDeselected,
+    #[strum(serialize = "hook.start")]
+    HookStart,
+    #[strum(serialize = "hook.end")]
+    HookEnd,
+    #[strum(serialize = "session.handoff")]
+    SessionHandoff,
+    #[strum(serialize = "session.import_legacy")]
+    SessionImportLegacy,
     /// Catch-all for unrecognized event types from newer Copilot CLI versions.
     /// The contained string is the original wire-format type name.
     #[strum(default)]
@@ -114,6 +139,19 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "system.notification",
     "skill.invoked",
     "abort",
+    // New event types
+    "session.truncation",
+    "assistant.reasoning",
+    "system.message",
+    "session.warning",
+    "session.mode_changed",
+    "session.task_complete",
+    "subagent.selected",
+    "subagent.deselected",
+    "hook.start",
+    "hook.end",
+    "session.handoff",
+    "session.import_legacy",
 ];
 
 impl fmt::Display for SessionEventType {
@@ -174,6 +212,8 @@ pub struct SessionStartData {
     pub reasoning_effort: Option<String>,
     pub context: Option<SessionContext>,
     pub already_in_use: Option<bool>,
+    /// The model selected at session creation.
+    pub selected_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,6 +279,8 @@ pub struct UserMessageData {
     pub attachments: Option<Vec<serde_json::Value>>,
     pub interaction_id: Option<String>,
     pub source: Option<String>,
+    /// The agent mode active when the user sent this message.
+    pub agent_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,6 +296,10 @@ pub struct AssistantMessageData {
     pub reasoning_text: Option<String>,
     /// Encrypted/opaque reasoning blob (not human-readable).
     pub reasoning_opaque: Option<String>,
+    /// Encrypted reasoning content (session-bound, stripped on resume).
+    pub encrypted_content: Option<String>,
+    /// Generation phase for phased-output models.
+    pub phase: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -292,6 +338,8 @@ pub struct ToolExecCompleteData {
     /// Error can be a string message or a structured object.
     pub error: Option<serde_json::Value>,
     pub tool_telemetry: Option<serde_json::Value>,
+    /// Whether the tool call was initiated by the user (vs the agent).
+    pub is_user_requested: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -367,6 +415,8 @@ pub struct SessionErrorData {
     pub stack: Option<String>,
     pub status_code: Option<u16>,
     pub provider_call_id: Option<String>,
+    /// URL with additional error details.
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -415,6 +465,8 @@ pub struct PlanChangedData {
 pub struct SessionInfoData {
     pub info_type: Option<String>,
     pub message: Option<String>,
+    /// URL with additional information.
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -430,4 +482,145 @@ pub struct ToolUserRequestedData {
     pub tool_call_id: Option<String>,
     pub tool_name: Option<String>,
     pub arguments: Option<serde_json::Value>,
+}
+
+// ── New event data structs (Tier 1 + Tier 2) ─────────────────────────
+
+/// Data for `session.truncation` events — context window pressure metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTruncationData {
+    pub token_limit: Option<u64>,
+    pub pre_truncation_tokens_in_messages: Option<u64>,
+    pub pre_truncation_messages_length: Option<u64>,
+    pub post_truncation_tokens_in_messages: Option<u64>,
+    pub post_truncation_messages_length: Option<u64>,
+    pub tokens_removed_during_truncation: Option<u64>,
+    pub messages_removed_during_truncation: Option<u64>,
+    pub performed_by: Option<String>,
+}
+
+/// Data for `assistant.reasoning` events — standalone reasoning blocks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantReasoningData {
+    pub reasoning_id: Option<String>,
+    pub content: Option<String>,
+}
+
+/// Data for `system.message` events — system/developer prompts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemMessageData {
+    pub content: Option<String>,
+    /// "system" or "developer".
+    pub role: Option<String>,
+    pub name: Option<String>,
+    pub metadata: Option<SystemMessageMetadata>,
+}
+
+/// Metadata attached to system messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemMessageMetadata {
+    pub prompt_version: Option<String>,
+    pub variables: Option<serde_json::Value>,
+}
+
+/// Data for `session.warning` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionWarningData {
+    pub warning_type: Option<String>,
+    pub message: Option<String>,
+    pub url: Option<String>,
+}
+
+/// Data for `session.mode_changed` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionModeChangedData {
+    pub previous_mode: Option<String>,
+    pub new_mode: Option<String>,
+}
+
+/// Data for `session.task_complete` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTaskCompleteData {
+    pub summary: Option<String>,
+}
+
+/// Data for `subagent.selected` events — custom agent activation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentSelectedData {
+    pub agent_name: Option<String>,
+    pub agent_display_name: Option<String>,
+    pub tools: Option<Vec<String>>,
+}
+
+/// Data for `subagent.deselected` events — custom agent deactivation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentDeselectedData {}
+
+/// Data for `hook.start` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HookStartData {
+    pub hook_invocation_id: Option<String>,
+    pub hook_type: Option<String>,
+    pub input: Option<serde_json::Value>,
+}
+
+/// Data for `hook.end` events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HookEndData {
+    pub hook_invocation_id: Option<String>,
+    pub hook_type: Option<String>,
+    pub success: Option<bool>,
+    pub output: Option<serde_json::Value>,
+    pub error: Option<HookError>,
+}
+
+/// Structured error from a hook execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HookError {
+    pub message: Option<String>,
+    pub stack: Option<String>,
+}
+
+/// Data for `session.handoff` events — cross-session handoff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHandoffData {
+    pub handoff_time: Option<String>,
+    /// "remote" or "local".
+    pub source_type: Option<String>,
+    pub repository: Option<HandoffRepository>,
+    pub context: Option<String>,
+    pub summary: Option<String>,
+    pub remote_session_id: Option<String>,
+}
+
+/// Repository context in a session handoff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HandoffRepository {
+    pub owner: Option<String>,
+    pub name: Option<String>,
+    pub branch: Option<String>,
+}
+
+/// Data for `session.import_legacy` events — importing pre-events sessions.
+/// Uses `Value` for the nested legacy session to avoid a massive type tree.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionImportLegacyData {
+    pub legacy_session: Option<serde_json::Value>,
+    pub import_time: Option<String>,
+    pub source_file: Option<String>,
 }
