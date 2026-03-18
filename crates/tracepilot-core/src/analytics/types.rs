@@ -38,7 +38,7 @@ pub struct AnalyticsData {
     pub sessions_per_day: Vec<DaySessions>,
     pub model_distribution: Vec<ModelDistEntry>,
     pub cost_by_day: Vec<DayCost>,
-    pub session_duration_stats: SessionDurationStats,
+    pub api_duration_stats: ApiDurationStats,
     pub productivity_metrics: ProductivityMetrics,
 }
 
@@ -79,10 +79,13 @@ pub struct DayCost {
     pub cost: f64,
 }
 
-/// Session duration statistics (avg, median, p95).
+/// API duration statistics (avg, median, p95) computed from `total_api_duration_ms`.
+///
+/// These measure the cumulative time spent waiting for API responses per session,
+/// not wall-clock session time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionDurationStats {
+pub struct ApiDurationStats {
     pub avg_ms: f64,
     pub median_ms: f64,
     pub p95_ms: f64,

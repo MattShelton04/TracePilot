@@ -911,14 +911,14 @@ impl IndexDb {
         let refs = to_refs(&bind_values);
         let model_distribution = query_model_distribution(&self.conn, &mdist_sql, &refs)?;
 
-        // Duration statistics — fetch all duration_ms and compute in Rust
+        // Duration statistics — use total_api_duration_ms (actual API wait time)
         let dur_sql = format!(
-            "SELECT s.duration_ms FROM sessions s{} AND s.duration_ms IS NOT NULL",
+            "SELECT s.total_api_duration_ms FROM sessions s{} AND s.total_api_duration_ms IS NOT NULL AND s.total_api_duration_ms > 0",
             where_clause
         );
         let refs = to_refs(&bind_values);
         let durations = query_durations(&self.conn, &dur_sql, &refs)?;
-        let session_duration_stats = compute_duration_stats(&durations);
+        let api_duration_stats = compute_duration_stats(&durations);
 
         // Productivity metrics
         let avg_turns_per_session = if sessions_with_turns > 0 {
@@ -947,7 +947,7 @@ impl IndexDb {
             sessions_per_day,
             model_distribution,
             cost_by_day,
-            session_duration_stats,
+            api_duration_stats,
             productivity_metrics: ProductivityMetrics {
                 avg_turns_per_session,
                 avg_tool_calls_per_turn,
@@ -1423,9 +1423,9 @@ fn query_durations(conn: &Connection, sql: &str, refs: &[&dyn ToSql]) -> Result<
     Ok(result)
 }
 
-fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
+fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     if durations.is_empty() {
-        return SessionDurationStats {
+        return ApiDurationStats {
             avg_ms: 0.0,
             median_ms: 0.0,
             p95_ms: 0.0,
@@ -1449,7 +1449,7 @@ fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
     let p95_idx = ((n as f64 * 0.95).ceil() as usize).min(n) - 1;
     let p95_ms = sorted[p95_idx] as f64;
 
-    SessionDurationStats {
+    ApiDurationStats {
         avg_ms,
         median_ms,
         p95_ms,

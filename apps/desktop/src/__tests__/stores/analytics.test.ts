@@ -25,7 +25,7 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   sessionsPerDay: [{ date: '2025-01-01', count: 3 }],
   modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0, premiumRequests: 5 }],
   costByDay: [{ date: '2025-01-01', cost: 5.0 }],
-  sessionDurationStats: {
+  apiDurationStats: {
     avgMs: 1_000_000,
     medianMs: 900_000,
     p95Ms: 2_000_000,

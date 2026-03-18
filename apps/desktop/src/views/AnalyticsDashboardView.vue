@@ -341,35 +341,35 @@ const costChart = computed(() => {
             </div>
           </div>
 
-          <!-- Duration Stats + Productivity Metrics -->
-          <div class="grid-2 mb-4" v-if="data.sessionDurationStats || data.productivityMetrics">
-            <div class="section-panel" v-if="data.sessionDurationStats">
-              <div class="section-panel-header">Session Duration</div>
+          <!-- API Duration Stats + Productivity Metrics -->
+          <div class="grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
+            <div class="section-panel" v-if="data.apiDurationStats">
+              <div class="section-panel-header">API Duration</div>
               <div class="section-panel-body">
                 <div class="metric-grid">
                   <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.avgMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.avgMs) }}</span>
                     <span class="metric-label">Average</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.medianMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.medianMs) }}</span>
                     <span class="metric-label">Median</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.p95Ms) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.p95Ms) }}</span>
                     <span class="metric-label">P95</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.minMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.minMs) }}</span>
                     <span class="metric-label">Min</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ formatDuration(data.sessionDurationStats.maxMs) }}</span>
+                    <span class="metric-value">{{ formatDuration(data.apiDurationStats.maxMs) }}</span>
                     <span class="metric-label">Max</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ data.sessionDurationStats.totalSessionsWithDuration }}</span>
-                    <span class="metric-label">Sessions w/ Duration</span>
+                    <span class="metric-value">{{ data.apiDurationStats.totalSessionsWithDuration }}</span>
+                    <span class="metric-label">Sessions w/ Data</span>
                   </div>
                 </div>
               </div>

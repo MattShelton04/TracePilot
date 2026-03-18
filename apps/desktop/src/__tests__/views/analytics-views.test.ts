@@ -40,7 +40,7 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-02', cost: 2.0 },
     { date: '2025-01-03', cost: 2.0 },
   ],
-  sessionDurationStats: {
+  apiDurationStats: {
     avgMs: 1_800_000,
     medianMs: 1_200_000,
     p95Ms: 5_400_000,
@@ -151,7 +151,7 @@ describe('AnalyticsDashboardView', () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain('Session Duration');
+    expect(wrapper.text()).toContain('API Duration');
     expect(wrapper.text()).toContain('Average');
     expect(wrapper.text()).toContain('Median');
     expect(wrapper.text()).toContain('P95');
@@ -231,7 +231,7 @@ describe('AnalyticsDashboardView', () => {
   it('handles data without duration stats gracefully', async () => {
     const dataWithoutDuration = {
       ...FIXTURE_ANALYTICS,
-      sessionDurationStats: undefined,
+      apiDurationStats: undefined,
       productivityMetrics: undefined,
     };
     mockGetAnalytics.mockResolvedValue(dataWithoutDuration);
@@ -241,7 +241,7 @@ describe('AnalyticsDashboardView', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('10');
-    expect(wrapper.text()).not.toContain('Session Duration');
+    expect(wrapper.text()).not.toContain('API Duration');
   });
 });
 

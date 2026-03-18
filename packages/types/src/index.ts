@@ -201,14 +201,14 @@ export interface AnalyticsData {
   modelDistribution: Array<{ model: string; tokens: number; percentage: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; premiumRequests: number }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
-  /** Session duration statistics */
-  sessionDurationStats: SessionDurationStats;
+  /** API duration statistics (avg, median, p95 of total_api_duration_ms per session) */
+  apiDurationStats: ApiDurationStats;
   /** Productivity heuristics */
   productivityMetrics: ProductivityMetrics;
 }
 
-/** Session duration statistics (avg, median, p95) */
-export interface SessionDurationStats {
+/** API duration statistics (avg, median, p95) computed from total_api_duration_ms */
+export interface ApiDurationStats {
   avgMs: number;
   medianMs: number;
   p95Ms: number;

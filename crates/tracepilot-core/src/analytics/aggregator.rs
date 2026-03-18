@@ -64,14 +64,12 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 total_premium_requests += pr;
             }
 
-            // Duration from session_start_time
-            if let (Some(start_time), Some(updated)) = (metrics.session_start_time, summary.updated_at) {
-                let start_ms = start_time;
-                let end_ms = updated.timestamp_millis() as u64;
-                if end_ms > start_ms {
-                    durations.push(end_ms - start_ms);
-                }
+        // Collect API duration for stats
+        if let Some(api_duration_ms) = metrics.total_api_duration_ms {
+            if api_duration_ms > 0 {
+                durations.push(api_duration_ms);
             }
+        }
 
             // Per-model metrics
             for (model_name, detail) in &metrics.model_metrics {
@@ -174,8 +172,8 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         0.0
     };
 
-    // Duration statistics
-    let session_duration_stats = compute_duration_stats(&durations);
+    // API duration statistics
+    let api_duration_stats = compute_duration_stats(&durations);
 
     // Productivity metrics
     let avg_turns_per_session = if sessions_with_turns > 0 {
@@ -204,7 +202,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         sessions_per_day,
         model_distribution,
         cost_by_day: cost_by_day_vec,
-        session_duration_stats,
+        api_duration_stats,
         productivity_metrics: ProductivityMetrics {
             avg_turns_per_session,
             avg_tool_calls_per_turn,
@@ -213,10 +211,10 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     }
 }
 
-/// Compute duration statistics from a sorted list of durations.
-fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
+/// Compute API duration statistics from a list of per-session `total_api_duration_ms` values.
+fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     if durations.is_empty() {
-        return SessionDurationStats {
+        return ApiDurationStats {
             avg_ms: 0.0,
             median_ms: 0.0,
             p95_ms: 0.0,
@@ -240,7 +238,7 @@ fn compute_duration_stats(durations: &[u64]) -> SessionDurationStats {
     let p95_idx = ((n as f64 * 0.95).ceil() as usize).min(n) - 1;
     let p95_ms = sorted[p95_idx] as f64;
 
-    SessionDurationStats {
+    ApiDurationStats {
         avg_ms,
         median_ms,
         p95_ms,
@@ -688,11 +686,11 @@ mod tests {
         ];
         let result = compute_analytics(&sessions);
 
-        // All sessions have 300s (300000ms) duration from make_input helper
-        let stats = &result.session_duration_stats;
+        // All sessions have total_api_duration_ms = 5000ms from make_input helper
+        let stats = &result.api_duration_stats;
         assert_eq!(stats.total_sessions_with_duration, 3);
-        assert!((stats.avg_ms - 300_000.0).abs() < 0.1);
-        assert!((stats.median_ms - 300_000.0).abs() < 0.1);
+        assert!((stats.avg_ms - 5_000.0).abs() < 0.1);
+        assert!((stats.median_ms - 5_000.0).abs() < 0.1);
     }
 
     #[test]
