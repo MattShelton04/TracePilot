@@ -842,10 +842,9 @@ impl IndexDb {
         let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
 
         // Aggregate session-level stats
-        // total_tokens computed from session_model_metrics (input + output) to avoid
-        // double-counting cacheReadTokens which is already included in inputTokens
+        // total_tokens is pre-computed correctly in upsert_session (input + output, no cache double-count)
         let agg_sql = format!(
-            "SELECT COUNT(*), COALESCE(SUM(total_cost), 0.0),
+            "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),
                     COALESCE(AVG(health_score), 0.0),
                     COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),
                     COUNT(CASE WHEN turn_count > 0 THEN 1 END),
@@ -854,8 +853,8 @@ impl IndexDb {
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_sessions, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests): (
-            u32, f64, f64, i64, i64, u32, f64,
+        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests): (
+            u32, i64, f64, f64, i64, i64, u32, f64,
         ) = self.conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((
                 row.get(0)?,
@@ -865,28 +864,14 @@ impl IndexDb {
                 row.get(4)?,
                 row.get(5)?,
                 row.get(6)?,
+                row.get(7)?,
             ))
         })?;
 
-        // Compute total_tokens correctly from model metrics (input + output only)
-        let total_tokens_sql = format!(
-            "SELECT COALESCE(SUM(m.input_tokens + m.output_tokens), 0)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{}",
-            where_clause
-        );
-        let refs = to_refs(&bind_values);
-        let total_tokens: i64 = self.conn.query_row(
-            &total_tokens_sql,
-            params_from_iter(refs.iter().copied()),
-            |row| row.get(0),
-        )?;
-
-        // Tokens by day (computed from model metrics to avoid double-counting)
+        // Tokens by day (uses pre-computed sessions.total_tokens for performance)
         let day_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(m.input_tokens + m.output_tokens), 0)
-             FROM session_model_metrics m
-             JOIN sessions s ON s.id = m.session_id{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_tokens), 0)
+             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);
