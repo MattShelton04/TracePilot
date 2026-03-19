@@ -1,10 +1,41 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
-import type { SessionDetail, ShutdownMetrics, ConversationTurn, SessionListItem } from '@tracepilot/types';
-import { formatDuration, formatNumber, formatCost, Badge, SectionPanel, EmptyState, ErrorAlert, SkeletonLoader } from '@tracepilot/ui';
-import { getSessionDetail, getShutdownMetrics, getSessionTurns } from '@tracepilot/client';
-import { useSessionsStore } from '@/stores/sessions';
+import { getSessionDetail, getSessionTurns, getShutdownMetrics } from '@tracepilot/client';
+import type {
+  ConversationTurn,
+  SessionDetail,
+  SessionListItem,
+  ShutdownMetrics,
+} from '@tracepilot/types';
+import {
+  Badge,
+  EmptyState,
+  ErrorAlert,
+  formatCost,
+  formatDuration,
+  formatNumber,
+  formatRate,
+  SectionPanel,
+  SkeletonLoader,
+} from '@tracepilot/ui';
+import { computed, onMounted, reactive, ref } from 'vue';
+import {
+  copilotCost,
+  filesModified,
+  healthScore,
+  linesChanged,
+  sessionDurationMs,
+  successRate,
+  toolCounts,
+  totalCacheRead,
+  totalInputTokens,
+  totalOutputTokens,
+  totalTokens,
+  totalToolCalls,
+  wholesaleCost,
+} from '@/composables/useSessionMetrics';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionsStore } from '@/stores/sessions';
+import { CHART_COLORS } from '@/utils/chartColors';
 
 // ── State ───────────────────────────────────────────────────────────
 
@@ -37,8 +68,8 @@ onMounted(async () => {
 
 const sessionOptions = computed<SessionListItem[]>(() => sessionsStore.sessions);
 
-const canCompare = computed(() =>
-  selectedA.value && selectedB.value && selectedA.value !== selectedB.value && !loading.value,
+const canCompare = computed(
+  () => selectedA.value && selectedB.value && selectedA.value !== selectedB.value && !loading.value,
 );
 
 // ── Load real data ──────────────────────────────────────────────────
@@ -71,107 +102,7 @@ async function runComparison() {
   }
 }
 
-// ── Derived metric helpers ──────────────────────────────────────────
-
-function totalTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((sum, mm) => {
-    return sum + (mm.usage?.inputTokens ?? 0) + (mm.usage?.outputTokens ?? 0);
-  }, 0);
-}
-
-function totalInputTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.inputTokens ?? 0), 0);
-}
-
-function totalOutputTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.outputTokens ?? 0), 0);
-}
-
-function totalCacheRead(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.cacheReadTokens ?? 0), 0);
-}
-
-function totalCostVal(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.requests?.cost ?? 0), 0);
-}
-
-function wholesaleCost(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.entries(m.modelMetrics).reduce((sum, [model, mm]) => {
-    const cost = prefs.computeWholesaleCost(
-      model,
-      mm.usage?.inputTokens ?? 0,
-      mm.usage?.cacheReadTokens ?? 0,
-      mm.usage?.outputTokens ?? 0,
-    );
-    return sum + (cost ?? 0);
-  }, 0);
-}
-
-function copilotCost(m: ShutdownMetrics | null): number {
-  if (!m) return 0;
-  return (m.totalPremiumRequests ?? 0) * prefs.costPerPremiumRequest;
-}
-
-function totalToolCalls(turns: ConversationTurn[]): number {
-  return turns.reduce((s, t) => s + (t.toolCalls?.length ?? 0), 0);
-}
-
-function successRate(turns: ConversationTurn[]): number {
-  let total = 0;
-  let success = 0;
-  for (const t of turns) {
-    for (const tc of t.toolCalls ?? []) {
-      total++;
-      if (tc.success === true) success++;
-    }
-  }
-  return total === 0 ? 1 : success / total;
-}
-
-function toolCounts(turns: ConversationTurn[]): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const t of turns) {
-    for (const tc of t.toolCalls ?? []) {
-      counts[tc.toolName] = (counts[tc.toolName] ?? 0) + 1;
-    }
-  }
-  return counts;
-}
-
-function sessionDurationMs(detail: SessionDetail | null): number {
-  if (!detail?.createdAt || !detail?.updatedAt) return 0;
-  return new Date(detail.updatedAt).getTime() - new Date(detail.createdAt).getTime();
-}
-
-function linesChanged(m: ShutdownMetrics | null): number {
-  return (m?.codeChanges?.linesAdded ?? 0) + (m?.codeChanges?.linesRemoved ?? 0);
-}
-
-function filesModified(m: ShutdownMetrics | null): number {
-  return m?.codeChanges?.filesModified?.length ?? 0;
-}
-
-function healthScore(turns: ConversationTurn[]): number {
-  if (turns.length === 0) return 0;
-  const sr = successRate(turns);
-  const avgToolsPerTurn = totalToolCalls(turns) / turns.length;
-  const efficiencyPenalty = Math.min(avgToolsPerTurn / 20, 0.3);
-  return Math.max(0, Math.min(1, sr - efficiencyPenalty));
-}
-
-// ── Formatting ──────────────────────────────────────────────────────
-
-function fmtPercent(p: number): string {
-  return `${(p * 100).toFixed(1)}%`;
-}
-
-// ── Delta table ─────────────────────────────────────────────────────
+// ── Delta table─────────────────────────────────────────────────────
 
 interface MetricRow {
   label: string;
@@ -220,10 +151,10 @@ const metricsRows = computed<MetricRow[]>(() => {
 
   const tokA = totalTokens(dataA.metrics);
   const tokB = totalTokens(dataB.metrics);
-  const wcA = wholesaleCost(dataA.metrics);
-  const wcB = wholesaleCost(dataB.metrics);
-  const ccA = copilotCost(dataA.metrics);
-  const ccB = copilotCost(dataB.metrics);
+  const wcA = wholesaleCost(dataA.metrics, prefs.computeWholesaleCost);
+  const wcB = wholesaleCost(dataB.metrics, prefs.computeWholesaleCost);
+  const ccA = copilotCost(dataA.metrics, prefs.costPerPremiumRequest);
+  const ccB = copilotCost(dataB.metrics, prefs.costPerPremiumRequest);
   const tcA = totalToolCalls(dataA.turns);
   const tcB = totalToolCalls(dataB.turns);
   const srA = successRate(dataA.turns);
@@ -236,15 +167,22 @@ const metricsRows = computed<MetricRow[]>(() => {
   const hsB = healthScore(dataB.turns);
 
   const isNorm = normMode.value !== 'raw';
-  const suffix = normMode.value === 'per-turn' ? ' /turn' : normMode.value === 'per-minute' ? ' /min' : '';
+  const suffix =
+    normMode.value === 'per-turn' ? ' /turn' : normMode.value === 'per-minute' ? ' /min' : '';
 
-  function row(label: string, va: number, vb: number, fmt: (v: number) => string, hib: boolean): MetricRow {
+  function row(
+    label: string,
+    va: number,
+    vb: number,
+    fmt: (v: number) => string,
+    hib: boolean,
+  ): MetricRow {
     const d = computeDelta(va, vb, hib);
     return { label, valueA: fmt(va), valueB: fmt(vb), rawA: va, rawB: vb, ...d };
   }
 
-  const fmtN = (v: number) => isNorm ? v.toFixed(1) : formatNumber(v);
-  const fmtInt = (v: number) => isNorm ? v.toFixed(1) : String(Math.round(v));
+  const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));
+  const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : String(Math.round(v)));
 
   return [
     row('Duration', durA, durB, (v) => formatDuration(v) || '0s', false),
@@ -253,7 +191,7 @@ const metricsRows = computed<MetricRow[]>(() => {
     row('Wholesale Cost' + suffix, wcA / divA, wcB / divB, formatCost, false),
     row('Copilot Cost' + suffix, ccA / divA, ccB / divB, formatCost, false),
     row('Tool Calls' + suffix, tcA / divA, tcB / divB, fmtInt, false),
-    row('Success Rate', srA, srB, fmtPercent, true),
+    row('Success Rate', srA, srB, formatRate, true),
     row('Files Modified', fmA, fmB, String, false),
     row('Lines Changed' + suffix, lcA / divA, lcB / divB, fmtInt, false),
     row('Health Score', hsA, hsB, (v) => Math.round(v * 100).toString(), true),
@@ -281,7 +219,17 @@ const tokenBars = computed<TokenBarRow[]>(() => {
   const maxAll = Math.max(inA, inB, outA, outB, 1);
   return [
     { label: 'Input', valueA: inA, valueB: inB, maxVal: maxAll },
-    ...(crA > 0 || crB > 0 ? [{ label: '\u00A0\u00A0└ Cached', valueA: crA, valueB: crB, maxVal: maxAll, isCacheRow: true }] : []),
+    ...(crA > 0 || crB > 0
+      ? [
+          {
+            label: '\u00A0\u00A0└ Cached',
+            valueA: crA,
+            valueB: crB,
+            maxVal: maxAll,
+            isCacheRow: true,
+          },
+        ]
+      : []),
     { label: 'Output', valueA: outA, valueB: outB, maxVal: maxAll },
   ];
 });
@@ -295,8 +243,14 @@ interface DonutSegment {
   color: string;
 }
 
-const DONUT_COLORS_A = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'];
-const DONUT_COLORS_B = ['#7c3aed', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'];
+const DONUT_COLORS_A = [
+  CHART_COLORS.primary,
+  CHART_COLORS.primaryLight,
+  '#a5b4fc',
+  '#c7d2fe',
+  '#e0e7ff',
+];
+const DONUT_COLORS_B = ['#7c3aed', CHART_COLORS.secondary, '#c4b5fd', '#ddd6fe', '#ede9fe'];
 
 function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSegment[] {
   if (!m?.modelMetrics) return [];
@@ -319,7 +273,9 @@ function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSe
 const donutA = computed(() => modelDistribution(dataA.metrics, DONUT_COLORS_A));
 const donutB = computed(() => modelDistribution(dataB.metrics, DONUT_COLORS_B));
 
-function donutSegments(segments: DonutSegment[]): Array<{ offset: number; length: number; color: string }> {
+function donutSegments(
+  segments: DonutSegment[],
+): Array<{ offset: number; length: number; color: string }> {
   const circumference = 2 * Math.PI * 60; // r=60
   let offset = 0;
   return segments.map((seg) => {
@@ -347,7 +303,7 @@ const toolCompRows = computed<ToolCompRow[]>(() => {
   const maxCount = Math.max(...allTools.map((t) => Math.max(cA[t] ?? 0, cB[t] ?? 0)), 1);
   return allTools
     .map((tool) => ({ tool, countA: cA[tool] ?? 0, countB: cB[tool] ?? 0, maxCount }))
-    .sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
+    .sort((a, b) => b.countA + b.countB - (a.countA + a.countB));
 });
 
 // ── Waveform (message length per turn) ──────────────────────────────
@@ -385,7 +341,9 @@ function sessionLabel(detail: SessionDetail | null): string {
   return detail?.summary || detail?.id || 'Unknown';
 }
 
-function exitBadgeVariant(m: ShutdownMetrics | null): string {
+function exitBadgeVariant(
+  m: ShutdownMetrics | null,
+): 'default' | 'accent' | 'success' | 'warning' | 'danger' | 'done' | 'neutral' {
   if (!m?.shutdownType) return 'neutral';
   const t = m.shutdownType.toLowerCase();
   if (t.includes('clean') || t === 'completed' || t === 'normal') return 'success';
@@ -477,7 +435,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
             <div class="summary-meta">
               <Badge v-if="dataA.detail?.repository" variant="accent">{{ dataA.detail.repository }}</Badge>
               <Badge v-if="dataA.metrics?.currentModel" variant="accent">{{ dataA.metrics.currentModel }}</Badge>
-              <Badge :variant="exitBadgeVariant(dataA.metrics) as any">{{ exitLabel(dataA.metrics) }}</Badge>
+              <Badge :variant="exitBadgeVariant(dataA.metrics)">{{ exitLabel(dataA.metrics) }}</Badge>
               <Badge variant="neutral">{{ formatDuration(sessionDurationMs(dataA.detail)) || '—' }}</Badge>
               <Badge variant="neutral">{{ dataA.turns.length }} turns</Badge>
               <Badge variant="neutral">{{ dataA.detail?.eventCount ?? 0 }} events</Badge>
@@ -489,7 +447,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
             <div class="summary-meta">
               <Badge v-if="dataB.detail?.repository" variant="accent">{{ dataB.detail.repository }}</Badge>
               <Badge v-if="dataB.metrics?.currentModel" variant="accent">{{ dataB.metrics.currentModel }}</Badge>
-              <Badge :variant="exitBadgeVariant(dataB.metrics) as any">{{ exitLabel(dataB.metrics) }}</Badge>
+              <Badge :variant="exitBadgeVariant(dataB.metrics)">{{ exitLabel(dataB.metrics) }}</Badge>
               <Badge variant="neutral">{{ formatDuration(sessionDurationMs(dataB.detail)) || '—' }}</Badge>
               <Badge variant="neutral">{{ dataB.turns.length }} turns</Badge>
               <Badge variant="neutral">{{ dataB.detail?.eventCount ?? 0 }} events</Badge>
@@ -704,7 +662,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 :style="{
                   width: pct + '%',
                   background: i % 2 === 0
-                    ? 'linear-gradient(90deg, #6366f1, #818cf8)'
+                    ? `linear-gradient(90deg, ${CHART_COLORS.primary}, ${CHART_COLORS.primaryLight})`
                     : 'rgba(99,102,241,0.3)',
                 }"
                 :title="`Turn ${i + 1}: ${formatDuration(dataA.turns[i]?.durationMs) || '—'}`"
@@ -721,7 +679,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 :style="{
                   width: pct + '%',
                   background: i % 2 === 0
-                    ? 'linear-gradient(90deg, #7c3aed, #a78bfa)'
+                    ? `linear-gradient(90deg, #7c3aed, ${CHART_COLORS.secondary})`
                     : 'rgba(124,58,237,0.3)',
                 }"
                 :title="`Turn ${i + 1}: ${formatDuration(dataB.turns[i]?.durationMs) || '—'}`"
@@ -832,11 +790,11 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .summary-card.session-a::before {
-  background: linear-gradient(90deg, #6366f1, #818cf8);
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
 }
 
 .summary-card.session-b::before {
-  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  background: linear-gradient(90deg, #7c3aed, var(--chart-secondary));
 }
 
 .summary-label {
@@ -1003,11 +961,11 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .bar-fill-a {
-  background: linear-gradient(90deg, #6366f1, #818cf8);
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
 }
 
 .bar-fill-b {
-  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  background: linear-gradient(90deg, #7c3aed, var(--chart-secondary));
 }
 
 .bar-value {
@@ -1021,7 +979,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .bar-fill-cache {
-  background: linear-gradient(90deg, #34d399cc, #6ee7b7cc);
+  background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light));
 }
 
 .bar-value-outside {
@@ -1083,8 +1041,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
   border-radius: 2px;
 }
 
-.swatch-a { background: #6366f1; }
-.swatch-b { background: #a78bfa; }
+.swatch-a { background: var(--chart-primary); }
+.swatch-b { background: var(--chart-secondary); }
 
 .tool-row {
   display: flex;
@@ -1123,8 +1081,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
   min-width: 20px;
 }
 
-.tool-bar-a { background: linear-gradient(90deg, #6366f1, #818cf8); }
-.tool-bar-b { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.tool-bar-a { background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light)); }
+.tool-bar-b { background: linear-gradient(90deg, #7c3aed, var(--chart-secondary)); }
 
 /* ── Waveform ── */
 .waveform-container {
@@ -1143,8 +1101,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
   transition: height 300ms ease;
 }
 
-.waveform-bar-a { background: linear-gradient(180deg, #818cf8, #6366f1); }
-.waveform-bar-b { background: linear-gradient(180deg, #a78bfa, #7c3aed); }
+.waveform-bar-a { background: linear-gradient(180deg, var(--chart-primary-light), var(--chart-primary)); }
+.waveform-bar-b { background: linear-gradient(180deg, var(--chart-secondary), #7c3aed); }
 
 /* ── Timeline ── */
 .timeline-desc {

@@ -6,6 +6,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { getSessionStateDir, parseWorkspace, fileExists } from "./utils.js";
+import { UUID_REGEX } from "./utils.js";
 
 interface SessionInfo {
   id: string;
@@ -19,14 +20,12 @@ interface SessionInfo {
 }
 
 async function discoverSessions(): Promise<SessionInfo[]> {
-  const baseDir = getSessionStateDir();
+   const baseDir = getSessionStateDir();
   const entries = await readdir(baseDir, { withFileTypes: true });
   const sessions: SessionInfo[] = [];
 
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
   for (const entry of entries) {
-    if (!entry.isDirectory() || !uuidPattern.test(entry.name)) continue;
+    if (!entry.isDirectory() || !UUID_REGEX.test(entry.name)) continue;
 
     const sessionDir = join(baseDir, entry.name);
     const info: SessionInfo = {

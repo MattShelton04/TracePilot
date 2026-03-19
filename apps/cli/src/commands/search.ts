@@ -8,6 +8,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { getSessionStateDir, parseWorkspace, streamEvents, fileExists } from "./utils.js";
+import { UUID_REGEX } from "./utils.js";
 
 interface SearchHit {
   sessionId: string;
@@ -21,12 +22,11 @@ interface SearchHit {
 async function searchSessions(query: string): Promise<SearchHit[]> {
   const baseDir = getSessionStateDir();
   const entries = await readdir(baseDir, { withFileTypes: true });
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const hits: SearchHit[] = [];
   const q = query.toLowerCase();
 
   for (const entry of entries) {
-    if (!entry.isDirectory() || !uuidPattern.test(entry.name)) continue;
+    if (!entry.isDirectory() || !UUID_REGEX.test(entry.name)) continue;
     const sessionDir = join(baseDir, entry.name);
     let matched = false;
 

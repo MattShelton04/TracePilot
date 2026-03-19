@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
+import { formatDuration, formatRate } from '@tracepilot/ui';
 import { computed, onMounted, watch } from 'vue';
-import { formatDuration } from '@tracepilot/ui';
-import { useAnalyticsStore } from '@/stores/analytics';
+import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
+import { useAnalyticsStore } from '@/stores/analytics';
+import { CHART_COLORS } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 
@@ -13,17 +14,21 @@ onMounted(() => {
   store.fetchToolAnalysis();
 });
 
-watch([() => store.selectedRepo, () => store.dateRange], () => {
-  store.fetchToolAnalysis({ force: true });
-}, { deep: true });
+watch(
+  [() => store.selectedRepo, () => store.dateRange],
+  () => {
+    store.fetchToolAnalysis({ force: true });
+  },
+  { deep: true },
+);
 
 const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);
 
-// ── Formatters ───────────────────────────────────────────────
-function fmtRate(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`;
-}
+const pageSubtitle = computed(() => {
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  return `Performance and usage metrics across all tool invocations${repoSuffix}`;
+});
 
 // ── Computed values ──────────────────────────────────────────
 const uniqueToolCount = computed(() => data.value?.tools.length ?? 0);
@@ -122,27 +127,7 @@ const successFailureChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchToolAnalysis({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title + Filters -->
-          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <h1 class="page-title">Tool Analysis</h1>
-              <p class="page-subtitle">
-                Performance and usage metrics across all tool invocations{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
-              </p>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <TimeRangeFilter />
-              <select
-                :value="store.selectedRepo ?? ''"
-                class="filter-select"
-                aria-label="Filter by repository"
-                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-              >
-                <option value="">All Repositories</option>
-                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-              </select>
-            </div>
-          </div>
+          <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
 
           <!-- Stat Cards -->
           <div class="grid-4 mb-4">
@@ -155,7 +140,7 @@ const successFailureChart = computed(() => {
               <div class="stat-card-label">Unique Tools</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value success">{{ fmtRate(data.successRate) }}</div>
+              <div class="stat-card-value success">{{ formatRate(data.successRate) }}</div>
               <div class="stat-card-label">Success Rate</div>
             </div>
             <div class="stat-card">
@@ -182,9 +167,9 @@ const successFailureChart = computed(() => {
                     <td style="font-weight: 600;">{{ tool.name }}</td>
                     <td style="font-variant-numeric: tabular-nums;">{{ tool.callCount }}</td>
                     <td>
-                      <div style="font-variant-numeric: tabular-nums;">{{ fmtRate(tool.successRate) }}</div>
+                      <div style="font-variant-numeric: tabular-nums;">{{ formatRate(tool.successRate) }}</div>
                       <div class="progress-bar" style="margin-top: 4px; width: 120px;">
-                        <div class="progress-bar-fill" :style="{ width: fmtRate(tool.successRate) }" />
+                        <div class="progress-bar-fill" :style="{ width: formatRate(tool.successRate) }" />
                       </div>
                     </td>
                     <td style="font-variant-numeric: tabular-nums;">{{ formatDuration(tool.avgDurationMs) }}</td>
@@ -201,8 +186,8 @@ const successFailureChart = computed(() => {
               <div class="section-panel-header">Success / Failure Breakdown</div>
               <div class="section-panel-body scrollable-section">
                 <div class="legend">
-                  <span><span class="legend-dot" style="background: #34d399;" />&nbsp;Success</span>
-                  <span><span class="legend-dot" style="background: #fb7185;" />&nbsp;Failure</span>
+                  <span><span class="legend-dot" :style="{ background: CHART_COLORS.success }" />&nbsp;Success</span>
+                  <span><span class="legend-dot" :style="{ background: CHART_COLORS.danger }" />&nbsp;Failure</span>
                 </div>
                 <svg
                   v-if="successFailureChart"
@@ -227,7 +212,7 @@ const successFailureChart = computed(() => {
                       :width="Math.max(row.successWidth, 0)"
                       :height="BAR_HEIGHT"
                       rx="3"
-                      fill="#34d399"
+                      :fill="CHART_COLORS.success"
                     />
                     <!-- Failure bar -->
                     <rect
@@ -237,7 +222,7 @@ const successFailureChart = computed(() => {
                       :width="row.failureWidth"
                       :height="BAR_HEIGHT"
                       rx="3"
-                      fill="#fb7185"
+                      :fill="CHART_COLORS.danger"
                     />
                     <!-- Label -->
                     <text
@@ -316,10 +301,6 @@ const successFailureChart = computed(() => {
 </template>
 
 <style scoped>
-.mb-4 {
-  margin-bottom: 20px;
-}
-
 /* ── Legend ─────────────────────────────────────────────────── */
 .legend {
   display: flex;
@@ -468,7 +449,7 @@ const successFailureChart = computed(() => {
 .freq-bar {
   height: 100%;
   border-radius: 4px;
-  background: linear-gradient(90deg, #6366f1, #818cf8);
+  background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light));
   transition: width 0.3s ease;
 }
 

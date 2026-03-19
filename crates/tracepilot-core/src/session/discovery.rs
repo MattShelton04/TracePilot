@@ -10,20 +10,8 @@ pub fn default_session_state_dir() -> PathBuf {
     home.join(".copilot").join("session-state")
 }
 
-/// Return the user's home directory.
 fn dirs_path() -> PathBuf {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("C:\\Users\\default"))
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("/tmp"))
-    }
+    crate::utils::home_dir()
 }
 
 /// A discovered session directory with its UUID and path.

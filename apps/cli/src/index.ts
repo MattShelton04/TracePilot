@@ -13,6 +13,9 @@ import { showSessionCommand } from "./commands/show.js";
 import { searchCommand } from "./commands/search.js";
 import { resumeCommand } from "./commands/resume.js";
 import { indexCommand } from "./commands/index-cmd.js";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   versionsListCommand,
   versionsDiffCommand,
@@ -21,12 +24,15 @@ import {
   versionsExamplesCommand,
 } from "./commands/versions.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
+
 const program = new Command();
 
 program
   .name("tracepilot")
   .description("Visualize, audit, and inspect GitHub Copilot CLI sessions")
-  .version("0.1.0")
+  .version(pkg.version)
   .action(() => {
     // Default: show list when no subcommand given
     program.commands.find((c) => c.name() === "list")?.parse([], { from: "user" });

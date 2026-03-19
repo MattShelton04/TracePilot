@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 
 use tracepilot_core::analytics::types::*;
 use tracepilot_core::parsing::events::TypedEventData;
+use tracepilot_core::utils::truncate_utf8;
+
+/// Maximum byte length for full-text search content per session.
+const FTS_CONTENT_MAX_BYTES: usize = 100_000;
 
 /// Lightweight per-session info returned after indexing a session.
 /// Used to enrich progress events with live stats.
@@ -337,7 +341,7 @@ impl IndexDb {
         let mut fts_content = String::with_capacity(
             typed_events.as_ref().map_or(0, |e| e.len().min(2000) * 50),
         );
-        let fts_limit: usize = 100_000;
+        let fts_limit: usize = FTS_CONTENT_MAX_BYTES;
         let mut actual_tool_call_count: i64 = 0;
 
         if let Some(ref events) = typed_events {
@@ -1510,17 +1514,6 @@ fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
         max_ms: sorted[n - 1],
         total_sessions_with_duration: n as u32,
     }
-}
-
-fn truncate_utf8(input: &str, max_bytes: usize) -> &str {
-    if input.len() <= max_bytes {
-        return input;
-    }
-    let mut end = max_bytes;
-    while !input.is_char_boundary(end) {
-        end -= 1;
-    }
-    &input[..end]
 }
 
 #[cfg(test)]

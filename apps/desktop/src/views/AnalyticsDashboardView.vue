@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, ref, reactive } from 'vue';
+import {
+  formatCost,
+  formatDateMedium,
+  formatDateShort,
+  formatDuration,
+  formatNumber,
+  formatNumberFull,
+} from '@tracepilot/ui';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { formatDuration, formatCost } from '@tracepilot/ui';
+import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { usePreferencesStore } from '@/stores/preferences';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
+import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
@@ -15,12 +23,22 @@ onMounted(() => {
   store.fetchAnalytics();
 });
 
-watch([() => store.selectedRepo, () => store.dateRange], () => {
-  store.fetchAnalytics({ force: true });
-}, { deep: true });
+watch(
+  [() => store.selectedRepo, () => store.dateRange],
+  () => {
+    store.fetchAnalytics({ force: true });
+  },
+  { deep: true },
+);
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
+
+const pageSubtitle = computed(() => {
+  const allPrefix = store.selectedRepo ? '' : 'all ';
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} sessions${repoSuffix}`;
+});
 
 // ── Cost computations ────────────────────────────────────────
 const copilotCost = computed(() => {
@@ -29,32 +47,15 @@ const copilotCost = computed(() => {
 });
 const totalWholesaleCost = computed(() => {
   if (!data.value) return 0;
-  return data.value.modelDistribution.reduce((sum, m) =>
-    sum + (prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens) ?? 0), 0);
+  return data.value.modelDistribution.reduce(
+    (sum, m) =>
+      sum +
+      (prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens) ?? 0),
+    0,
+  );
 });
 
-// ── Formatters ───────────────────────────────────────────────
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-function fmtTokensFull(n: number): string {
-  return n.toLocaleString();
-}
-function fmtCost(n: number): string {
-  return `$${n.toFixed(2)}`;
-}
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-function fmtDateFull(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-// ── Tooltip state ────────────────────────────────────────────
+// ── Tooltip state────────────────────────────────────────────
 const tooltip = reactive({
   visible: false,
   pinned: false,
@@ -99,7 +100,10 @@ function onChartMouseMove(
   let bestDist = Math.abs(svgPt.x - coords[0].x);
   for (let i = 1; i < coords.length; i++) {
     const d = Math.abs(svgPt.x - coords[i].x);
-    if (d < bestDist) { bestDist = d; bestIdx = i; }
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+    }
   }
 
   tooltip.visible = true;
@@ -187,17 +191,17 @@ const tokenChart = computed(() => {
   const linePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
   const areaPoints = `${linePoints} ${CHART_RIGHT},${CHART_BOTTOM} ${CHART_LEFT},${CHART_BOTTOM}`;
   const yLabels = Array.from({ length: 5 }, (_, i) => ({
-    value: fmtTokens((max / 4) * i),
+    value: formatNumber((max / 4) * i),
     y: CHART_BOTTOM - (i * CHART_H) / 4,
   }));
   const stride = labelStride(pts.length);
   const xLabels = pts
-    .map((p, i) => ({ label: fmtDate(p.date), x: CHART_LEFT + i * step }))
+    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * step }))
     .filter((_, i) => i % stride === 0);
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
-// ── Sessions Per Day Bar Chart ───────────────────────────────
+// ── Sessions Per Day Bar Chart───────────────────────────────
 const sessionsChart = computed(() => {
   if (!data.value) return null;
   const pts = data.value.sessionsPerDay;
@@ -217,13 +221,13 @@ const sessionsChart = computed(() => {
   }));
   const stride = labelStride(pts.length);
   const xLabels = pts
-    .map((p, i) => ({ label: fmtDate(p.date), x: CHART_LEFT + i * spacing + spacing / 2 }))
+    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * spacing + spacing / 2 }))
     .filter((_, i) => i % stride === 0);
   return { bars, yLabels, xLabels };
 });
 
 // ── Model Distribution Donut ─────────────────────────────────
-const DONUT_COLORS = ['#6366f1', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#38bdf8'];
+const DONUT_COLORS = DONUT_PALETTE;
 const DONUT_R = 56;
 const DONUT_C = 2 * Math.PI * DONUT_R; // ~351.86
 
@@ -255,13 +259,15 @@ const activeDonutSegment = computed(() =>
 );
 
 // Reset hover when underlying data changes
-watch(donutSegments, () => { hoveredDonut.value = null; });
+watch(donutSegments, () => {
+  hoveredDonut.value = null;
+});
 
 // ── Cost Trend Area Chart ────────────────────────────────────
 const costChart = computed(() => {
   if (!data.value) return null;
   const rate = prefs.costPerPremiumRequest;
-  const pts = data.value.costByDay.map(p => ({ date: p.date, cost: p.cost * rate }));
+  const pts = data.value.costByDay.map((p) => ({ date: p.date, cost: p.cost * rate }));
   if (pts.length < 2) return null;
   const max = Math.max(...pts.map((p) => p.cost), 0.01);
   const step = CHART_W / (pts.length - 1);
@@ -275,12 +281,12 @@ const costChart = computed(() => {
   const linePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
   const areaPoints = `${linePoints} ${CHART_RIGHT},${CHART_BOTTOM} ${CHART_LEFT},${CHART_BOTTOM}`;
   const yLabels = Array.from({ length: 4 }, (_, i) => ({
-    value: fmtCost((max / 3) * i),
+    value: formatCost((max / 3) * i),
     y: CHART_BOTTOM - (i * CHART_H) / 3,
   }));
   const stride = labelStride(pts.length);
   const xLabels = pts
-    .map((p, i) => ({ label: fmtDate(p.date), x: CHART_LEFT + i * step }))
+    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * step }))
     .filter((_, i) => i % stride === 0);
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
@@ -295,27 +301,7 @@ const costChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title + Filters -->
-          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <h1 class="page-title">Analytics Dashboard</h1>
-              <p class="page-subtitle">
-                Aggregate metrics across {{ store.selectedRepo ? '' : 'all ' }}{{ data.totalSessions }} sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
-              </p>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <TimeRangeFilter />
-              <select
-                :value="store.selectedRepo ?? ''"
-                class="filter-select"
-                aria-label="Filter by repository"
-                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-              >
-                <option value="">All Repositories</option>
-                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-              </select>
-            </div>
-          </div>
+          <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
 
           <!-- Stats Row -->
           <div class="grid-5 mb-4">
@@ -324,7 +310,7 @@ const costChart = computed(() => {
               <div class="stat-card-label">Total Sessions</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value gradient-value">{{ fmtTokens(data.totalTokens) }}</div>
+              <div class="stat-card-value gradient-value">{{ formatNumber(data.totalTokens) }}</div>
               <div class="stat-card-label">Total Tokens</div>
             </div>
             <div class="stat-card">
@@ -387,11 +373,11 @@ const costChart = computed(() => {
                     <span class="metric-label">Avg Tool Calls / Turn</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtTokens(data.productivityMetrics.avgTokensPerTurn) }}</span>
+                    <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerTurn) }}</span>
                     <span class="metric-label">Avg Tokens / Turn</span>
                   </div>
                   <div class="metric-item" :title="'Average tokens processed per second of API wait time — a measure of model throughput across all sessions.'">
-                    <span class="metric-value">{{ fmtTokens(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
+                    <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
                     <span class="metric-label">Tokens / API Second</span>
                   </div>
                 </div>
@@ -411,13 +397,13 @@ const costChart = computed(() => {
                   width="100%"
                   role="img"
                   :aria-label="`Line chart showing token usage over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${fmtDateFull(tokenChart!.coords[i].date)} — ${fmtTokensFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
-                  @click="onChartClick($event, tokenChart.coords, (i) => `${fmtDateFull(tokenChart!.coords[i].date)} — ${fmtTokensFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
+                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
+                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
                 >
                   <defs>
                     <linearGradient id="tokenAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.25" />
-                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.02" />
+                      <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.25" />
+                      <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
                     </linearGradient>
                   </defs>
                   <!-- Grid lines -->
@@ -450,7 +436,7 @@ const costChart = computed(() => {
                   <polyline
                     :points="tokenChart.linePoints"
                     fill="none"
-                    stroke="#6366f1"
+                    :stroke="CHART_COLORS.primary"
                     stroke-width="2"
                     stroke-linejoin="round"
                     stroke-linecap="round"
@@ -462,7 +448,7 @@ const costChart = computed(() => {
                     :cx="c.x"
                     :cy="c.y"
                     :r="ci === tokenChart.coords.length - 1 ? 3.5 : 3"
-                    :fill="ci === tokenChart.coords.length - 1 ? '#818cf8' : '#6366f1'"
+                    :fill="ci === tokenChart.coords.length - 1 ? CHART_COLORS.primaryLight : CHART_COLORS.primary"
                     class="chart-dot"
                   />
                   <!-- Highlight ring on active point -->
@@ -472,7 +458,7 @@ const costChart = computed(() => {
                     :cy="tokenChart.coords[tooltip.highlightIndex].y"
                     r="6"
                     fill="none"
-                    stroke="#6366f1"
+                    :stroke="CHART_COLORS.primary"
                     stroke-width="2"
                     class="chart-highlight-ring"
                   />
@@ -516,13 +502,13 @@ const costChart = computed(() => {
                   width="100%"
                   role="img"
                   :aria-label="`Bar chart showing sessions per day over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${fmtDateFull(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
-                  @click="onChartClick($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${fmtDateFull(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
+                  @mousemove="onChartMouseMove($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
+                  @click="onChartClick($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
                 >
                   <defs>
                     <linearGradient id="sessionBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#818cf8" />
-                      <stop offset="100%" stop-color="#6366f1" />
+                      <stop offset="0%" :stop-color="CHART_COLORS.primaryLight" />
+                      <stop offset="100%" :stop-color="CHART_COLORS.primary" />
                     </linearGradient>
                   </defs>
                   <!-- Grid lines -->
@@ -619,7 +605,7 @@ const costChart = computed(() => {
                     @mouseleave="hoveredDonut = null"
                   />
                   <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" class="donut-center-value">
-                    {{ activeDonutSegment ? fmtTokens(activeDonutSegment.tokens) : fmtTokens(data.totalTokens) }}
+                    {{ activeDonutSegment ? formatNumber(activeDonutSegment.tokens) : formatNumber(data.totalTokens) }}
                   </text>
                   <text x="80" y="92" text-anchor="middle" font-size="9" fill="currentColor" class="donut-center-label">
                     {{ activeDonutSegment ? activeDonutSegment.model : 'total tokens' }}
@@ -653,13 +639,13 @@ const costChart = computed(() => {
                   width="100%"
                   role="img"
                   :aria-label="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${fmtDateFull(costChart!.coords[i].date)} — ${fmtCost(costChart!.coords[i].cost)}`, 'cost')"
-                  @click="onChartClick($event, costChart.coords, (i) => `${fmtDateFull(costChart!.coords[i].date)} — ${fmtCost(costChart!.coords[i].cost)}`, 'cost')"
+                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost')"
+                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost')"
                 >
                   <defs>
                     <linearGradient id="costAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
-                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.02" />
+                      <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.35" />
+                      <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
                     </linearGradient>
                   </defs>
                   <!-- Grid lines -->
@@ -692,7 +678,7 @@ const costChart = computed(() => {
                   <polyline
                     :points="costChart.linePoints"
                     fill="none"
-                    stroke="#6366f1"
+                    :stroke="CHART_COLORS.primary"
                     stroke-width="2"
                     stroke-linejoin="round"
                     stroke-linecap="round"
@@ -704,7 +690,7 @@ const costChart = computed(() => {
                     :cx="c.x"
                     :cy="c.y"
                     :r="ci === costChart.coords.length - 1 ? 3.5 : 3"
-                    :fill="ci === costChart.coords.length - 1 ? '#818cf8' : '#6366f1'"
+                    :fill="ci === costChart.coords.length - 1 ? CHART_COLORS.primaryLight : CHART_COLORS.primary"
                     class="chart-dot"
                   />
                   <!-- Highlight ring on active point -->
@@ -714,7 +700,7 @@ const costChart = computed(() => {
                     :cy="costChart.coords[tooltip.highlightIndex].y"
                     r="6"
                     fill="none"
-                    stroke="#6366f1"
+                    :stroke="CHART_COLORS.primary"
                     stroke-width="2"
                     class="chart-highlight-ring"
                   />
@@ -772,15 +758,15 @@ const costChart = computed(() => {
                 </div>
                 <div class="metric-grid mt-3">
                   <div class="metric-item">
-                    <span class="metric-value accent">{{ fmtTokens(data.cacheStats.totalCacheReadTokens) }}</span>
+                    <span class="metric-value accent">{{ formatNumber(data.cacheStats.totalCacheReadTokens) }}</span>
                     <span class="metric-label">Cached Tokens</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtTokens(data.cacheStats.nonCachedInputTokens) }}</span>
+                    <span class="metric-value">{{ formatNumber(data.cacheStats.nonCachedInputTokens) }}</span>
                     <span class="metric-label">Fresh Input Tokens</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ fmtTokens(data.cacheStats.totalInputTokens) }}</span>
+                    <span class="metric-value">{{ formatNumber(data.cacheStats.totalInputTokens) }}</span>
                     <span class="metric-label">Total Input Tokens</span>
                   </div>
                 </div>
@@ -818,10 +804,6 @@ const costChart = computed(() => {
 </template>
 
 <style scoped>
-.mb-4 {
-  margin-bottom: 20px;
-}
-
 .error-state {
   text-align: center;
   padding: 48px 24px;
@@ -860,7 +842,7 @@ const costChart = computed(() => {
 }
 
 .gradient-value {
-  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, var(--chart-primary), var(--chart-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1036,9 +1018,9 @@ const costChart = computed(() => {
   transition: width 0.4s ease;
 }
 
-.cache-progress-fill--high  { background: linear-gradient(90deg, #34d399, #6ee7b7); }
-.cache-progress-fill--mid   { background: linear-gradient(90deg, #fbbf24, #fde68a); }
-.cache-progress-fill--low   { background: linear-gradient(90deg, #fb7185, #fca5a5); }
+.cache-progress-fill--high  { background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light)); }
+.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), #fde68a); }
+.cache-progress-fill--low   { background: linear-gradient(90deg, var(--chart-danger), var(--chart-danger-light)); }
 
 .mt-3 {
   margin-top: 0;
@@ -1084,9 +1066,9 @@ const costChart = computed(() => {
   line-height: 1;
 }
 
-.health-dist-card--healthy .health-dist-count  { color: #34d399; }
-.health-dist-card--attention .health-dist-count { color: #fbbf24; }
-.health-dist-card--critical .health-dist-count  { color: #fb7185; }
+.health-dist-card--healthy .health-dist-count  { color: var(--chart-success); }
+.health-dist-card--attention .health-dist-count { color: var(--chart-warning); }
+.health-dist-card--critical .health-dist-count  { color: var(--chart-danger); }
 
 .health-dist-label {
   font-size: 0.8125rem;

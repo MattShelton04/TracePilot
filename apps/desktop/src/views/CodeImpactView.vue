@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { formatDateShort, formatNumberFull } from '@tracepilot/ui';
 import { computed, onMounted, watch } from 'vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
+import { useAnalyticsStore } from '@/stores/analytics';
+import { CHART_COLORS } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 
@@ -11,22 +13,22 @@ onMounted(() => {
   store.fetchCodeImpact();
 });
 
-watch([() => store.selectedRepo, () => store.dateRange], () => {
-  store.fetchCodeImpact({ force: true });
-}, { deep: true });
+watch(
+  [() => store.selectedRepo, () => store.dateRange],
+  () => {
+    store.fetchCodeImpact({ force: true });
+  },
+  { deep: true },
+);
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
 
-// ── Formatters ───────────────────────────────────────────────
-function fmtNum(n: number): string {
-  return n.toLocaleString();
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+const pageSubtitle = computed(() => {
+  const allPrefix = store.selectedRepo ? '' : 'all ';
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  return `Code changes and file modifications across ${allPrefix}sessions${repoSuffix}`;
+});
 
 // ── File Type Bar Chart ──────────────────────────────────────
 const maxFileTypeCount = computed(() => {
@@ -85,12 +87,12 @@ const timelineChart = computed(() => {
   const delArea = `${CHART_LEFT},${CHART_BOTTOM} ${delLine} ${CHART_RIGHT},${CHART_BOTTOM}`;
 
   const yLabels = Array.from({ length: 5 }, (_, i) => ({
-    value: fmtNum(Math.round((maxVal / 4) * i)),
+    value: formatNumberFull(Math.round((maxVal / 4) * i)),
     y: CHART_BOTTOM - (i * CHART_H) / 4,
   }));
 
   const xLabels = pts.map((p, i) => ({
-    label: fmtDate(p.date),
+    label: formatDateShort(p.date),
     x: CHART_LEFT + i * step,
   }));
 
@@ -107,44 +109,24 @@ const timelineChart = computed(() => {
           <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <!-- Title + Filters -->
-          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <h1 class="page-title">Code Impact</h1>
-              <p class="page-subtitle">
-                Code changes and file modifications across {{ store.selectedRepo ? '' : 'all ' }}sessions{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
-              </p>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <TimeRangeFilter />
-              <select
-                :value="store.selectedRepo ?? ''"
-                class="filter-select"
-                aria-label="Filter by repository"
-                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-              >
-                <option value="">All Repositories</option>
-                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-              </select>
-            </div>
-          </div>
+          <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">
             <div class="stat-card">
-              <div class="stat-card-value accent">{{ fmtNum(data.filesModified) }}</div>
+              <div class="stat-card-value accent">{{ formatNumberFull(data.filesModified) }}</div>
               <div class="stat-card-label">Files Modified</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value lines-added-value">+{{ fmtNum(data.linesAdded) }}</div>
+              <div class="stat-card-value lines-added-value">+{{ formatNumberFull(data.linesAdded) }}</div>
               <div class="stat-card-label">Lines Added</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value danger">-{{ fmtNum(data.linesRemoved) }}</div>
+              <div class="stat-card-value danger">-{{ formatNumberFull(data.linesRemoved) }}</div>
               <div class="stat-card-label">Lines Removed</div>
             </div>
             <div class="stat-card">
-              <div :class="['stat-card-value', data.netChange >= 0 ? 'done' : 'danger']">{{ data.netChange >= 0 ? '+' : '' }}{{ fmtNum(data.netChange) }}</div>
+              <div :class="['stat-card-value', data.netChange >= 0 ? 'done' : 'danger']">{{ data.netChange >= 0 ? '+' : '' }}{{ formatNumberFull(data.netChange) }}</div>
               <div class="stat-card-label">Net Change</div>
               <div class="stat-card-trend">{{ data.netChange > 0 ? 'Net positive' : data.netChange < 0 ? 'Net negative' : 'Net neutral' }}</div>
             </div>
@@ -201,8 +183,8 @@ const timelineChart = computed(() => {
             <div class="section-panel-header">Changes Over Time</div>
             <div class="section-panel-body">
               <div class="chart-legend">
-                <span><span class="chart-legend-dot" style="background: #34d399;" />Additions</span>
-                <span><span class="chart-legend-dot" style="background: #fb7185;" />Deletions</span>
+                <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.success }" />Additions</span>
+                <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.danger }" />Deletions</span>
               </div>
               <div class="chart-container">
                 <svg
@@ -234,14 +216,14 @@ const timelineChart = computed(() => {
                     class="chart-label"
                   >{{ yl.value }}</text>
                   <!-- Additions area -->
-                  <polygon :points="timelineChart.addArea" fill="#34d399" fill-opacity="0.15" />
+                  <polygon :points="timelineChart.addArea" :fill="CHART_COLORS.success" fill-opacity="0.15" />
                   <!-- Deletions area -->
-                  <polygon :points="timelineChart.delArea" fill="#fb7185" fill-opacity="0.15" />
+                  <polygon :points="timelineChart.delArea" :fill="CHART_COLORS.danger" fill-opacity="0.15" />
                   <!-- Additions line -->
                   <polyline
                     :points="timelineChart.addLine"
                     fill="none"
-                    stroke="#34d399"
+                    :stroke="CHART_COLORS.success"
                     stroke-width="2"
                     stroke-linejoin="round"
                     stroke-linecap="round"
@@ -250,7 +232,7 @@ const timelineChart = computed(() => {
                   <polyline
                     :points="timelineChart.delLine"
                     fill="none"
-                    stroke="#fb7185"
+                    :stroke="CHART_COLORS.danger"
                     stroke-width="2"
                     stroke-linejoin="round"
                     stroke-linecap="round"
@@ -279,12 +261,8 @@ const timelineChart = computed(() => {
 </template>
 
 <style scoped>
-.mb-4 {
-  margin-bottom: 20px;
-}
-
 .lines-added-value {
-  background: linear-gradient(135deg, #34d399, #6ee7b7);
+  background: linear-gradient(135deg, var(--chart-success), var(--chart-success-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -311,13 +289,13 @@ const timelineChart = computed(() => {
 .file-adds {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #34d399;
+  color: var(--chart-success);
   white-space: nowrap;
 }
 .file-dels {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #fb7185;
+  color: var(--chart-danger);
   white-space: nowrap;
 }
 .churn-bar {
@@ -331,11 +309,11 @@ const timelineChart = computed(() => {
 }
 .churn-bar-add {
   height: 100%;
-  background: #34d399;
+  background: var(--chart-success);
 }
 .churn-bar-del {
   height: 100%;
-  background: #fb7185;
+  background: var(--chart-danger);
 }
 
 /* Chart */

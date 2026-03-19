@@ -27,6 +27,7 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     currentModel: "claude-opus-4.6",
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     updatedAt: new Date(Date.now() - 3600000).toISOString(),
+    isRunning: false,
   },
   {
     id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -39,6 +40,7 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     currentModel: "gpt-5.4",
     createdAt: new Date(Date.now() - 172800000).toISOString(),
     updatedAt: new Date(Date.now() - 7200000).toISOString(),
+    isRunning: false,
   },
   {
     id: "deadbeef-1234-5678-9abc-def012345678",
@@ -51,6 +53,7 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     currentModel: "claude-sonnet-4.5",
     createdAt: new Date(Date.now() - 604800000).toISOString(),
     updatedAt: new Date(Date.now() - 86400000).toISOString(),
+    isRunning: false,
   },
 ];
 

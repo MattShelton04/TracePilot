@@ -97,7 +97,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/health",
     name: "health",
-    component: () => import('../views/HealthScoringView.vue'),
+    component: () => import("@/views/HealthScoringView.vue"),
     meta: {
       title: "Health Scoring",
       sidebarId: "health",

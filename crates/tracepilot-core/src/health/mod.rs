@@ -11,6 +11,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::parsing::diagnostics::ParseDiagnostics;
 
+/// Number of events above which a session is considered "large".
+const LARGE_SESSION_THRESHOLD: usize = 5000;
+
+/// Fallback event ratio above which a parsing quality warning is raised.
+const FALLBACK_RATIO_THRESHOLD: f64 = 0.1;
+
+/// Health score deduction per Warning-level flag.
+const WARNING_DEDUCTION: f64 = 0.15;
+
+/// Health score deduction per Error-level flag.
+const ERROR_DEDUCTION: f64 = 0.35;
+
 /// Health assessment for a session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,7 +70,7 @@ pub fn compute_health(
 
     // Large session check
     if let Some(count) = event_count {
-        if count > 5000 {
+        if count > LARGE_SESSION_THRESHOLD {
             flags.push(HealthFlag {
                 severity: HealthSeverity::Warning,
                 category: "size".to_string(),
@@ -124,7 +136,7 @@ pub fn compute_health(
         // High fallback ratio (> 10% of events degraded to Other)
         if diag.total_events > 0 {
             let fallback_ratio = diag.fallback_events as f64 / diag.total_events as f64;
-            if fallback_ratio > 0.1 {
+            if fallback_ratio > FALLBACK_RATIO_THRESHOLD {
                 flags.push(HealthFlag {
                     severity: HealthSeverity::Warning,
                     category: "parsing".to_string(),
@@ -146,8 +158,8 @@ pub fn compute_health(
             .iter()
             .map(|f| match f.severity {
                 HealthSeverity::Info => 0.0,
-                HealthSeverity::Warning => 0.15,
-                HealthSeverity::Error => 0.35,
+                HealthSeverity::Warning => WARNING_DEDUCTION,
+                HealthSeverity::Error => ERROR_DEDUCTION,
             })
             .sum();
         (1.0 - deductions).max(0.0)
