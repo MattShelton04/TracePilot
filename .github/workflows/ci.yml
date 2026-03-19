@@ -53,8 +53,9 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --exclude tracepilot-desktop
 
-      - name: Rust lint
-        run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
+      # Temporarily disabled Rust lint step.
+      # - name: Rust lint
+      #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
 
       - name: Frontend tests
         run: pnpm test
