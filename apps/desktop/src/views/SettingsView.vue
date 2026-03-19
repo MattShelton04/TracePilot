@@ -237,9 +237,9 @@ async function handleCheckForUpdates() {
 
 <template>
   <div class="page-content">
-    <div class="page-content-inner" style="max-width: 720px">
+    <div class="page-content-inner settings-root">
       <StubBanner message="Settings are stored locally. Backend sync is not yet available." />
-      <h1 class="page-title" style="margin-bottom: 24px">Settings</h1>
+      <h1 class="page-title page-title-spaced">Settings</h1>
 
       <!-- ════════ 1. General ════════ -->
       <div class="settings-section">
@@ -282,7 +282,7 @@ async function handleCheckForUpdates() {
             <FormInput
               type="number"
               v-model="itemsPerPage"
-              style="width: 80px; text-align: center"
+              class="input-narrow-center"
             />
           </div>
 
@@ -314,7 +314,7 @@ async function handleCheckForUpdates() {
               @update:model-value="preferences.cliCommand = String($event)"
               type="text"
               placeholder="copilot"
-              style="width: 240px"
+              class="input-medium"
             />
           </div>
         </SectionPanel>
@@ -334,7 +334,7 @@ async function handleCheckForUpdates() {
             <div class="setting-control-group">
               <FormInput
                 v-model="sessionsDirectory"
-                style="width: 240px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem"
+                class="input-medium-mono"
                 @blur="persistSessionDir"
               />
               <ActionButton size="sm" @click="browseSessionDir">Browse…</ActionButton>
@@ -390,9 +390,9 @@ async function handleCheckForUpdates() {
           </div>
 
           <!-- Danger Zone -->
-          <div class="setting-row" style="border-top: 1px solid var(--danger-muted);">
+          <div class="setting-row setting-row-danger">
             <div class="setting-info">
-              <div class="setting-label" style="color: var(--danger-fg);">Factory Reset</div>
+              <div class="setting-label setting-label-danger">Factory Reset</div>
               <div class="setting-description">
                 Delete all configuration, index data, and preferences. Re-run setup wizard.
               </div>
@@ -407,7 +407,7 @@ async function handleCheckForUpdates() {
                 Reset Everything…
               </ActionButton>
               <template v-else>
-                <span class="setting-result" style="color: var(--danger-fg);">Are you sure?</span>
+                <span class="setting-result setting-result-danger">Are you sure?</span>
                 <ActionButton
                   size="sm"
                   class="btn-danger"
@@ -442,7 +442,7 @@ async function handleCheckForUpdates() {
                 @update:model-value="preferences.costPerPremiumRequest = Number($event)"
                 step="0.01"
                 min="0"
-                style="width: 90px; text-align: center"
+                class="input-cost"
               />
             </div>
           </div>
@@ -458,47 +458,47 @@ async function handleCheckForUpdates() {
             <table class="data-table pricing-table" aria-label="Model wholesale pricing">
               <thead>
                 <tr>
-                  <th style="text-align: left;">Model</th>
+                  <th class="text-left">Model</th>
                   <th>Input / 1M</th>
                   <th>Cached / 1M</th>
                   <th>Output / 1M</th>
-                  <th style="width: 40px;"></th>
+                  <th class="pricing-col-action"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(price, idx) in preferences.modelWholesalePrices" :key="price.model">
-                  <td class="font-mono" style="font-size: 0.75rem;">{{ price.model }}</td>
-                  <td style="text-align: center;">
+                  <td class="font-mono text-xs">{{ price.model }}</td>
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       :model-value="price.inputPerM"
                       @update:model-value="preferences.modelWholesalePrices[idx].inputPerM = Number($event)"
                       step="0.01"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       :model-value="price.cachedInputPerM"
                       @update:model-value="preferences.modelWholesalePrices[idx].cachedInputPerM = Number($event)"
                       step="0.001"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       :model-value="price.outputPerM"
                       @update:model-value="preferences.modelWholesalePrices[idx].outputPerM = Number($event)"
                       step="0.01"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <button class="pricing-remove-btn" @click="preferences.removeWholesalePrice(price.model)" title="Remove model">&times;</button>
                   </td>
                 </tr>
@@ -508,37 +508,37 @@ async function handleCheckForUpdates() {
                     <FormInput
                       v-model="newModelName"
                       placeholder="model-name"
-                      style="width: 140px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;"
+                      class="pricing-model-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       v-model="newInputPerM"
                       step="0.01"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       v-model="newCachedInputPerM"
                       step="0.001"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <FormInput
                       type="number"
                       v-model="newOutputPerM"
                       step="0.01"
                       min="0"
-                      style="width: 80px; text-align: center; font-size: 0.75rem;"
+                      class="pricing-input"
                     />
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <button class="pricing-add-btn" @click="addModelPrice" :disabled="!newModelName.trim()" title="Add model">+</button>
                   </td>
                 </tr>
@@ -574,9 +574,9 @@ async function handleCheckForUpdates() {
           <!-- Per-tool overrides -->
           <template v-if="preferences.toolRendering.enabled">
             <div class="tool-viz-divider" />
-            <div class="setting-row" style="flex-direction: column; align-items: stretch;">
-              <div class="setting-label" style="margin-bottom: 8px;">Per-Tool Overrides</div>
-              <div class="setting-description" style="margin-bottom: 8px;">
+            <div class="setting-row setting-row-stacked">
+              <div class="setting-label setting-label-spaced">Per-Tool Overrides</div>
+              <div class="setting-description setting-description-spaced">
                 Disable rich rendering for specific tool types. Disabled tools fall back to plain text.
               </div>
               <div class="tool-viz-grid">
@@ -591,7 +591,7 @@ async function handleCheckForUpdates() {
             </div>
 
             <div class="tool-viz-divider" />
-            <div class="setting-row" style="justify-content: flex-end;">
+            <div class="setting-row setting-row-end">
               <ActionButton size="sm" @click="preferences.resetToolRendering()">Reset to Defaults</ActionButton>
             </div>
           </template>
@@ -626,7 +626,7 @@ async function handleCheckForUpdates() {
                 <FormInput
                   type="number"
                   v-model="thresholdGood"
-                  style="width: 60px; text-align: center"
+                  class="input-threshold"
                 />
               </div>
               <div class="threshold-input">
@@ -634,7 +634,7 @@ async function handleCheckForUpdates() {
                 <FormInput
                   type="number"
                   v-model="thresholdWarning"
-                  style="width: 60px; text-align: center"
+                  class="input-threshold"
                 />
               </div>
               <div class="threshold-input">
@@ -642,7 +642,7 @@ async function handleCheckForUpdates() {
                 <FormInput
                   type="number"
                   v-model="thresholdCritical"
-                  style="width: 60px; text-align: center"
+                  class="input-threshold"
                 />
               </div>
             </div>
@@ -758,9 +758,9 @@ async function handleCheckForUpdates() {
                 <dd>{{ gitInfo.branch }}</dd>
               </template>
               <dt>Session Count</dt>
-              <dd style="font-variant-numeric: tabular-nums">{{ sessionCount }}</dd>
+              <dd class="tabular-nums">{{ sessionCount }}</dd>
               <dt>Database Size</dt>
-              <dd style="font-variant-numeric: tabular-nums">{{ databaseSize }}</dd>
+              <dd class="tabular-nums">{{ databaseSize }}</dd>
             </dl>
 
             <div class="about-links">
@@ -1126,5 +1126,100 @@ async function handleCheckForUpdates() {
   background: var(--accent-fg, #3b82f6);
   border-radius: 3px;
   transition: width 0.15s ease-out;
+}
+
+/* ── Extracted inline styles ─────────────────────────────────── */
+.settings-root {
+  max-width: 720px;
+}
+
+.page-title-spaced {
+  margin-bottom: 24px;
+}
+
+.input-narrow-center {
+  width: 80px;
+  text-align: center;
+}
+
+.input-medium {
+  width: 240px;
+}
+
+.input-medium-mono {
+  width: 240px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.setting-row-danger {
+  border-top: 1px solid var(--danger-muted);
+}
+
+.setting-label-danger {
+  color: var(--danger-fg);
+}
+
+.setting-result-danger {
+  color: var(--danger-fg);
+}
+
+.input-cost {
+  width: 90px;
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.pricing-col-action {
+  width: 40px;
+}
+
+.pricing-input {
+  width: 80px;
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.pricing-model-input {
+  width: 140px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.setting-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.setting-label-spaced {
+  margin-bottom: 8px;
+}
+
+.setting-description-spaced {
+  margin-bottom: 8px;
+}
+
+.setting-row-end {
+  justify-content: flex-end;
+}
+
+.input-threshold {
+  width: 60px;
+  text-align: center;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 </style>

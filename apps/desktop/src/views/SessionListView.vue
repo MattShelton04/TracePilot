@@ -73,7 +73,7 @@ onUnmounted(() => {
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="toolbar" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; position: sticky; top: 0; z-index: 10; background: var(--canvas-default); padding: 8px 12px; border-radius: var(--radius-md, 8px);">
+      <div class="toolbar session-toolbar">
         <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
         <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
         <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
@@ -184,6 +184,19 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.session-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--canvas-default);
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+}
+
 .session-count-label {
   font-size: 0.75rem;
   color: var(--text-tertiary);

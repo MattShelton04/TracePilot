@@ -10,6 +10,8 @@ export { default as FilterSelect } from "./components/FilterSelect.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";
 
+export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
+
 // Base components
 export { default as SectionPanel } from "./components/SectionPanel.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";

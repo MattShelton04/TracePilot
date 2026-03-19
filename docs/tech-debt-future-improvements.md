@@ -106,4 +106,134 @@ Some views may not be relevant to all users (e.g., Session Replay, Export). Cons
 
 ---
 
+## 11. Split `index_db.rs` (1,858 lines — Highest Priority)
+
+**Files:** `crates/tracepilot-indexer/src/index_db.rs` (1,858 lines)
+
+This single file contains schema migrations, the 400-line `upsert_session()` method (analytics extraction + 5 child table UPSERTs via SAVEPOINT), 3 analytics query methods (170+ lines each), SQL helpers, and tests. Split into:
+
+- **`migrations.rs`** — Schema definitions (4 migrations) + versioned migration runner
+- **`writer.rs`** — `upsert_session()` (analytics extraction + 5 child table UPSERTs via SAVEPOINT)
+- **`reader.rs`** — `list_sessions()`, `search()`, `get_session_path()`, `session_count()`, `all_indexed_ids()`, `prune_deleted()`, `needs_reindex()`
+- **`analytics_queries.rs`** — `query_analytics()` (170 lines, 7 SQL statements), `query_tool_analysis()` (125 lines), `query_code_impact()` (133 lines)
+- **`sql_helpers.rs`** — `build_date_repo_filter()`, `query_day_tokens/sessions/cost()`, `query_model_distribution()`, `compute_duration_stats()`
+
+**Impact:** Each sub-module becomes independently testable with a clear single responsibility. Schema migrations can be reviewed without scrolling past 1,400 lines of query logic.
+
+**Recommendation:** Start by extracting `migrations.rs` (lowest coupling), then `analytics_queries.rs` (self-contained read-only functions), then tackle the writer/reader split last since they share the `IndexDb` struct.
+
+---
+
+## 12. Split `tauri-bindings/lib.rs` (1,055 lines)
+
+**Files:** `crates/tracepilot-tauri-bindings/src/lib.rs` (1,055 lines)
+
+All 25 Tauri commands live in a single file. Split into domain modules:
+
+- **`session_commands.rs`** — 7 commands: `list_sessions`, `get_session_detail`, `get_session_turns`, `get_session_events`, `get_session_todos`, `get_session_checkpoints`, `get_shutdown_metrics`
+- **`indexing_commands.rs`** — 4 commands: `search_sessions`, `reindex_sessions`, `reindex_sessions_full`, `get_session_count`
+- **`analytics_commands.rs`** — 3 commands: `get_analytics`, `get_tool_analysis`, `get_code_impact`
+- **`config_commands.rs`** — 3 commands: `check_config_exists`, `get_config`, `save_config`
+- **`utility_commands.rs`** — 8 commands: `validate_session_dir`, `get_db_size`, `is_session_running`, `factory_reset`, `get_tool_result`, `resume_session_in_terminal`, `check_for_updates`, `get_git_info`
+- Keep **`lib.rs`** as a thin handler registration file (response DTOs + `generate_handler![]` macro)
+
+**Impact:** New commands can be added to the correct module without scrolling through 1,000+ lines. Domain boundaries become explicit.
+
+**Recommendation:** Note that every command needs 3 registrations: `#[tauri::command]` in its module, `generate_handler![]` in `lib.rs`, and `.commands(&[])` in `build.rs`. Document this in a `CONTRIBUTING.md` or module-level doc comment to prevent registration mismatches.
+
+---
+
+## 13. Split `analytics/aggregator.rs` (950 lines)
+
+**Files:** `crates/tracepilot-core/src/analytics/aggregator.rs` (950 lines)
+
+Three independent compute functions share a file but have no internal dependencies on each other. Split into:
+
+- **`dashboard.rs`** — `compute_analytics()`
+- **`tools.rs`** — `compute_tool_analysis()`
+- **`code_impact.rs`** — `compute_code_impact()`
+
+**Impact:** Each analytics domain can evolve independently. Adding a new metric to tool analysis won't create merge conflicts with dashboard changes.
+
+**Recommendation:** The in-memory analytics path is currently only used by benchmarks — the Tauri app uses IndexDb queries exclusively. Consider marking these functions as CLI-only or deprecating them in favour of the indexer path (see §14).
+
+---
+
+## 14. Resolve Dual Analytics Path
+
+**Files:**
+- `crates/tracepilot-core/src/analytics/aggregator.rs` — In-memory computation from raw events
+- `crates/tracepilot-indexer/src/index_db.rs` — Pre-computed at index time, stored in SQLite
+
+Two parallel analytics systems exist. The Tauri app only uses the indexer path. The core aggregator is only exercised by benchmarks.
+
+**Impact:** Maintaining two divergent analytics implementations increases the risk of inconsistent results and doubles the surface area for analytics bugs.
+
+**Recommendation:** Choose one of the following strategies:
+1. **Mark core aggregator as the "offline/CLI" path** with clear documentation explaining when each path is used and why
+2. **Remove core aggregator** and have the CLI use the index DB directly
+3. **Keep both but ensure they produce identical results** — currently there are no tests verifying parity between the two paths
+
+---
+
+## 15. Unify Error Handling Strategy
+
+**Files:**
+- `crates/tracepilot-core/src/error.rs` — `thiserror` (`TracePilotError` with 6 variants)
+- `crates/tracepilot-indexer/src/` — `anyhow` (ad-hoc error strings)
+- `crates/tracepilot-tauri-bindings/src/lib.rs` — Converts everything to `Result<T, String>` for IPC
+
+**Impact:** Ad-hoc error strings make it impossible for the frontend to programmatically distinguish between "session not found" and "database locked". Users see raw error text instead of actionable messages.
+
+**Recommendation:** Define a shared `TracePilotError` enum with `Serialize` support so structured errors can cross the IPC boundary. The frontend can then pattern-match on error types (e.g., show a retry button for transient DB errors, a "not found" message for missing sessions). Migrate the indexer from `anyhow` to the shared error type incrementally.
+
+---
+
+## 16. Decide on `tracepilot-export` Crate
+
+**Files:** `crates/tracepilot-export/`
+
+Currently a stub — only `render_json()` works. `export_session()` returns `bail!("not yet implemented")`. The `ExportFormat` enum declares Markdown, Json, and Csv variants but only Json has an implementation.
+
+**Impact:** The crate adds to compile time and cognitive overhead without delivering value for two of its three declared formats.
+
+**Recommendation:** Either implement Phase 2 (Markdown and Csv export) or remove the crate to reduce noise. If keeping it, add `#[cfg(feature = "export")]` gating so it doesn't compile by default until the remaining formats are complete.
+
+---
+
+## 17. Extract `upsert_session()` Analytics Logic
+
+**Files:** `crates/tracepilot-indexer/src/index_db.rs` — `upsert_session()` (~400 lines)
+
+The `upsert_session()` method loads a session, extracts analytics, computes health scores, builds FTS content, and writes to 5 tables — all in one method. This makes it difficult to test the analytics extraction logic in isolation.
+
+**Impact:** Any change to analytics extraction risks breaking the database write path. Unit testing requires a full SQLite database even for pure computation logic.
+
+**Recommendation:** Extract the analytics extraction into a separate testable pure function that takes a `SessionLoadResult` and returns a structured `SessionAnalytics` value. The `upsert_session()` method then becomes a thin orchestrator: load → extract → write. The pure function can be tested without a database.
+
+---
+
+## 18. Split `event_types.rs` (572 lines)
+
+**Files:** `crates/tracepilot-core/src/models/event_types.rs` (572 lines)
+
+This file combines:
+- `SessionEventType` enum (36 variants) with strum derives
+- `KNOWN_EVENT_TYPES` constant array
+- Display/Serialize implementations
+- ~25 typed data structs (`ShutdownData`, `UserMessageData`, `ToolExecStartData`, etc.)
+
+**Impact:** Adding a new event type requires editing a 572-line file and navigating past unrelated struct definitions.
+
+**Recommendation:** Split into:
+- **`event_type_enum.rs`** — `SessionEventType` enum + `KNOWN_EVENT_TYPES` constant + Display/Serialize impls
+- **`session_lifecycle_data.rs`** — `ShutdownData`, `SessionStartData`, and related lifecycle structs
+- **`tool_execution_data.rs`** — `ToolExecStartData`, `ToolExecEndData`, `ToolResultData`, and related structs
+- **`agent_data.rs`** — Agent-related event data structs
+- **`model_data.rs`** — Model-related event data structs
+
+Re-export everything from a `mod.rs` to keep the public API unchanged.
+
+---
+
 *Generated during TracePilot tech debt cleanup session. Each item is independent and can be tackled incrementally.*
