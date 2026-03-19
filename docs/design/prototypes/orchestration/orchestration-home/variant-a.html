@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Orchestration Home (Command Center)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Hero Stats */
+    .hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .hero-card {
+      padding: 24px; border-radius: var(--radius-lg); position: relative; overflow: hidden;
+      border: 1px solid var(--border-default); transition: all var(--transition-normal);
+    }
+    .hero-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .hero-card .hero-value {
+      font-size: 2.5rem; font-weight: 700; line-height: 1; margin-bottom: 4px;
+    }
+    .hero-card .hero-label {
+      font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary);
+    }
+    .hero-card .hero-sub {
+      font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 4px;
+    }
+    .hero-card .hero-icon {
+      position: absolute; top: 16px; right: 16px; opacity: 0.3; color: var(--text-secondary);
+    }
+    .hero-card .hero-icon svg { width: 32px; height: 32px; }
+    .hero-card.accent {
+      background: linear-gradient(135deg, var(--accent-muted), var(--canvas-subtle));
+      border-color: var(--border-accent);
+    }
+    .hero-card.accent .hero-value { color: var(--accent-fg); }
+    .hero-card.success {
+      background: linear-gradient(135deg, var(--success-muted), var(--canvas-subtle));
+      border-color: color-mix(in srgb, var(--success-fg) 30%, transparent);
+    }
+    .hero-card.success .hero-value { color: var(--success-fg); }
+    .hero-card.warning {
+      background: linear-gradient(135deg, var(--warning-muted), var(--canvas-subtle));
+      border-color: color-mix(in srgb, var(--warning-fg) 30%, transparent);
+    }
+    .hero-card.warning .hero-value { color: var(--warning-fg); }
+    .hero-card.done {
+      background: linear-gradient(135deg, var(--done-muted), var(--canvas-subtle));
+      border-color: color-mix(in srgb, var(--done-fg) 30%, transparent);
+    }
+    .hero-card.done .hero-value { color: var(--done-fg); }
+
+    /* Two-column layout */
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+
+    /* Quick Actions Grid */
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .action-card {
+      padding: 20px; border-radius: var(--radius-lg); cursor: pointer;
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      transition: all var(--transition-normal); display: flex; align-items: center; gap: 14px;
+      text-decoration: none; color: var(--text-primary);
+    }
+    .action-card:hover {
+      border-color: var(--accent-fg); background: var(--accent-muted);
+      transform: translateY(-2px); box-shadow: var(--shadow-md);
+    }
+    .action-card .action-emoji {
+      font-size: 1.75rem; flex-shrink: 0; width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--canvas-default); border-radius: var(--radius-md);
+      border: 1px solid var(--border-muted);
+    }
+    .action-card:hover .action-emoji {
+      background: var(--accent-muted); border-color: var(--accent-fg);
+    }
+    .action-card .action-title {
+      font-size: 0.875rem; font-weight: 600; margin-bottom: 2px;
+    }
+    .action-card .action-desc {
+      font-size: 0.75rem; color: var(--text-tertiary);
+    }
+
+    /* Activity Feed */
+    .feed-section { min-height: 0; display: flex; flex-direction: column; }
+    .feed-list { flex: 1; overflow-y: auto; max-height: 360px; }
+    .feed-item {
+      display: flex; align-items: flex-start; gap: 10px; padding: 12px 0;
+      border-bottom: 1px solid var(--border-muted); font-size: 0.8125rem;
+      transition: background var(--transition-normal);
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-item:hover { background: var(--canvas-subtle); margin: 0 -12px; padding: 12px; border-radius: var(--radius-md); }
+    .feed-icon {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--canvas-subtle); border: 1px solid var(--border-muted);
+      color: var(--text-secondary);
+    }
+    .feed-item[data-type="session_error"] .feed-icon { color: var(--danger-fg); background: var(--danger-muted); border-color: var(--danger-fg); }
+    .feed-item[data-type="session_launched"] .feed-icon { color: var(--accent-fg); background: var(--accent-muted); border-color: var(--accent-fg); }
+    .feed-item[data-type="budget_alert"] .feed-icon { color: var(--warning-fg); background: var(--warning-muted); border-color: var(--warning-fg); }
+    .feed-item[data-type="batch_completed"] .feed-icon { color: var(--success-fg); background: var(--success-muted); border-color: var(--success-fg); }
+    .feed-msg { flex: 1; color: var(--text-primary); line-height: 1.4; }
+    .feed-time { flex-shrink: 0; color: var(--text-tertiary); font-size: 0.6875rem; white-space: nowrap; padding-top: 2px; }
+
+    /* Section header */
+    .section-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border-muted);
+    }
+    .section-hdr h2 {
+      font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-hdr .section-badge {
+      font-size: 0.6875rem; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+      background: var(--accent-muted); color: var(--accent-fg);
+    }
+
+    /* System Health Bar */
+    .health-bar {
+      display: flex; align-items: center; gap: 24px; padding: 14px 20px;
+      background: var(--canvas-subtle); border: 1px solid var(--border-muted);
+      border-radius: var(--radius-lg); font-size: 0.8125rem;
+    }
+    .health-item {
+      display: flex; align-items: center; gap: 8px; white-space: nowrap;
+    }
+    .health-item .health-label { color: var(--text-secondary); font-weight: 500; }
+    .health-item .health-val { font-weight: 600; }
+    .health-item .health-val.ok { color: var(--success-fg); }
+    .health-item .health-val.warn { color: var(--warning-fg); }
+    .health-item .health-val.err { color: var(--danger-fg); }
+    .health-divider { width: 1px; height: 20px; background: var(--border-muted); }
+
+    /* Budget mini-bar */
+    .budget-bar-track {
+      width: 100%; height: 6px; border-radius: 3px; background: var(--canvas-inset);
+      margin-top: 8px; overflow: hidden;
+    }
+    .budget-bar-fill {
+      height: 100%; border-radius: 3px; transition: width 0.6s ease;
+    }
+
+    /* Active Sessions Mini Table */
+    .sessions-section { margin-bottom: 28px; }
+    .sessions-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .sessions-table th {
+      text-align: left; font-weight: 600; font-size: 0.6875rem; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+    .sessions-table td {
+      padding: 10px 12px; border-bottom: 1px solid var(--border-muted);
+      color: var(--text-primary); vertical-align: middle;
+    }
+    .sessions-table tr:hover td { background: var(--canvas-subtle); }
+    .sess-status-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px;
+    }
+    .sess-status-dot.working { background: var(--success-fg); }
+    .sess-status-dot.idle { background: var(--warning-fg); }
+    .sess-status-dot.error { background: var(--danger-fg); }
+    .sess-repo { font-weight: 600; }
+    .sess-branch { color: var(--accent-fg); font-size: 0.75rem; }
+    .sess-model { font-size: 0.75rem; color: var(--text-secondary); }
+    .health-score {
+      font-weight: 600; font-size: 0.75rem; padding: 2px 8px;
+      border-radius: 99px; display: inline-block;
+    }
+    .health-score.good { background: var(--success-muted); color: var(--success-fg); }
+    .health-score.fair { background: var(--warning-muted); color: var(--warning-fg); }
+    .health-score.poor { background: var(--danger-muted); color: var(--danger-fg); }
+
+    /* Keyboard shortcuts tip */
+    .shortcuts-bar {
+      display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+      background: var(--canvas-subtle); border: 1px solid var(--border-muted);
+      border-radius: var(--radius-lg); font-size: 0.75rem; color: var(--text-tertiary);
+      margin-bottom: 28px;
+    }
+    .shortcut-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .kbd {
+      display: inline-block; padding: 2px 6px; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.625rem; background: var(--canvas-default); border: 1px solid var(--border-muted);
+      border-radius: 4px; color: var(--text-secondary); font-weight: 600;
+    }
+    .shortcuts-label { font-weight: 600; color: var(--text-secondary); margin-right: 4px; }
+
+    /* Live indicator pulse */
+    @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--success-fg);
+      animation: livePulse 2s ease infinite; display: inline-block;
+    }
+
+    /* Page title area */
+    .page-title-area {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .page-title-area h1 { font-size: 1.375rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+    .page-title-area .title-meta { font-size: 0.75rem; color: var(--text-tertiary); display: flex; align-items: center; gap: 6px; }
+
+    /* Refresh button */
+    .btn-ghost-sm {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+      border: 1px solid var(--border-muted); border-radius: var(--radius-md);
+      background: transparent; color: var(--text-secondary); cursor: pointer;
+      font-size: 0.6875rem; font-weight: 500; transition: all var(--transition-normal);
+    }
+    .btn-ghost-sm:hover { border-color: var(--accent-fg); color: var(--accent-fg); background: var(--accent-muted); }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .fade-in { animation: fadeIn 0.35s ease both; }
+    .fade-in:nth-child(2) { animation-delay: 0.06s; }
+    .fade-in:nth-child(3) { animation-delay: 0.12s; }
+    .fade-in:nth-child(4) { animation-delay: 0.18s; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="content-area" style="max-width: 1200px;">
+
+        <!-- Page Title -->
+        <div class="page-title-area fade-in">
+          <h1>
+            <span id="iconHome"></span>
+            Command Center
+          </h1>
+          <div class="title-meta">
+            <span class="live-dot"></span>
+            <span id="liveTime">Live — </span>
+          </div>
+        </div>
+
+        <!-- Hero Stats -->
+        <div class="hero" id="heroStats"></div>
+
+        <!-- Two-column: Actions + Activity -->
+        <div class="columns">
+          <!-- Quick Actions -->
+          <div class="fade-in">
+            <div class="section-hdr">
+              <h2><span id="iconRocket"></span> Quick Actions</h2>
+            </div>
+            <div class="actions-grid" id="actionsGrid"></div>
+          </div>
+
+          <!-- Activity Feed -->
+          <div class="feed-section fade-in">
+            <div class="section-hdr">
+              <h2><span id="iconPulse"></span> Activity Feed</h2>
+              <span class="section-badge" id="feedCount"></span>
+            </div>
+            <div class="feed-list" id="feedList"></div>
+          </div>
+        </div>
+
+        <!-- Active Sessions Table -->
+        <div class="sessions-section fade-in">
+          <div class="section-hdr">
+            <h2><span id="iconTerminal"></span> Active Sessions</h2>
+            <button class="btn-ghost-sm" onclick="alert('Refresh sessions')">
+              <span id="iconRefresh"></span> Refresh
+            </button>
+          </div>
+          <table class="sessions-table" id="sessionsTable">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Repository</th>
+                <th>Model</th>
+                <th>Turns</th>
+                <th>Tokens</th>
+                <th>Health</th>
+                <th>Elapsed</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Keyboard Shortcuts Tip -->
+        <div class="shortcuts-bar fade-in">
+          <span class="shortcuts-label">⌨️ Shortcuts:</span>
+          <div class="shortcut-item"><kbd class="kbd">Ctrl+N</kbd> New Session</div>
+          <div class="shortcut-item"><kbd class="kbd">Ctrl+M</kbd> Mission Control</div>
+          <div class="shortcut-item"><kbd class="kbd">Ctrl+K</kbd> Quick Search</div>
+          <div class="shortcut-item"><kbd class="kbd">Ctrl+T</kbd> Toggle Theme</div>
+        </div>
+
+        <!-- System Health Bar -->
+        <div class="health-bar fade-in" id="healthBar"></div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    // --- Sidebar ---
+    generateOrchSidebar('orch-home');
+
+    // --- Inject icons ---
+    document.getElementById('iconHome').innerHTML = ORCH_ICONS.home;
+    document.getElementById('iconRocket').innerHTML = ORCH_ICONS.rocket;
+    document.getElementById('iconPulse').innerHTML = ORCH_ICONS.pulse;
+    document.getElementById('iconTerminal').innerHTML = ORCH_ICONS.terminal;
+    document.getElementById('iconRefresh').innerHTML = ORCH_ICONS.refresh;
+
+    // --- Live clock ---
+    function updateClock() {
+      const now = new Date();
+      const t = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('liveTime').textContent = `Live — ${t}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // --- Hero Stats ---
+    (function renderHero() {
+      const sessions = ORCH_ACTIVE_SESSIONS;
+      const worktrees = ORCH_WORKTREES;
+      const budget = ORCH_BUDGET;
+      const staleCount = worktrees.filter(w => w.status === 'stale').length;
+      const pctUsed = Math.round((budget.premiumRequests.used / budget.premiumRequests.limit) * 100);
+      const budgetClass = pctUsed >= 90 ? 'warning' : pctUsed >= 75 ? 'warning' : 'accent';
+
+      const cards = [
+        { value: sessions.length, label: 'Active Sessions', sub: `${sessions.filter(s=>s.status==='working').length} working, ${sessions.filter(s=>s.status==='error').length} error`, cls: 'accent', icon: ORCH_ICONS.rocket },
+        { value: worktrees.length, label: 'Worktrees', sub: `${staleCount} stale · ${worktrees.reduce((s,w)=>s+w.diskMB,0)} MB total`, cls: 'success', icon: ORCH_ICONS.gitBranch },
+        { value: `${pctUsed}%`, label: 'Budget Used', sub: `${budget.premiumRequests.used} / ${budget.premiumRequests.limit} premium reqs`, cls: budgetClass, icon: ORCH_ICONS.dollar, showBar: true, barPct: pctUsed },
+        { value: '135', label: 'Total Sessions', sub: 'All-time indexed sessions', cls: 'done', icon: ORCH_ICONS.dashboard },
+      ];
+
+      const container = document.getElementById('heroStats');
+      container.innerHTML = cards.map((c, i) => `
+        <div class="hero-card ${c.cls} fade-in" style="animation-delay:${i*0.07}s">
+          <div class="hero-icon">${c.icon}</div>
+          <div class="hero-value">${c.value}</div>
+          <div class="hero-label">${c.label}</div>
+          <div class="hero-sub">${c.sub}</div>
+          ${c.showBar ? `<div class="budget-bar-track"><div class="budget-bar-fill" style="width:${c.barPct}%;background:${c.barPct>=90?'var(--danger-fg)':c.barPct>=75?'var(--warning-fg)':'var(--accent-fg)'}"></div></div>` : ''}
+        </div>
+      `).join('');
+    })();
+
+    // --- Quick Actions ---
+    (function renderActions() {
+      const actions = [
+        { emoji: '🚀', title: 'Launch Session', desc: 'Start a new Copilot CLI session', href: '../session-launcher/variant-a.html' },
+        { emoji: '📊', title: 'Open Mission Control', desc: 'Monitor all active sessions', href: '../mission-control/variant-a.html' },
+        { emoji: '🔧', title: 'Configure Agents', desc: 'Customize agent definitions & tools', href: '../config-injector/variant-a.html' },
+        { emoji: '🌳', title: 'Manage Worktrees', desc: 'View & clean git worktrees', href: '../worktree-manager/variant-a.html' },
+      ];
+
+      document.getElementById('actionsGrid').innerHTML = actions.map(a => `
+        <a class="action-card" href="${a.href}" onclick="event.preventDefault(); alert('Navigate to: ${a.title}')">
+          <div class="action-emoji">${a.emoji}</div>
+          <div>
+            <div class="action-title">${a.title}</div>
+            <div class="action-desc">${a.desc}</div>
+          </div>
+        </a>
+      `).join('');
+    })();
+
+    // --- Activity Feed ---
+    (function renderFeed() {
+      const feed = ORCH_ACTIVITY;
+      document.getElementById('feedCount').textContent = `${feed.length} events`;
+      document.getElementById('feedList').innerHTML = feed.map(ev => `
+        <div class="feed-item" data-type="${ev.type}">
+          <div class="feed-icon">${ev.icon}</div>
+          <div class="feed-msg">${ev.message}</div>
+          <div class="feed-time">${formatRelativeTime(ev.time)}</div>
+        </div>
+      `).join('');
+    })();
+
+    // --- System Health ---
+    (function renderHealth() {
+      const items = [
+        { label: 'Copilot CLI', val: 'v1.0.8', cls: 'ok', symbol: '✅' },
+        { label: 'Auto-update', val: 'disabled', cls: 'warn', symbol: '⚠️' },
+        { label: 'SDK', val: 'available', cls: 'ok', symbol: '✅' },
+        { label: 'Sessions', val: `${ORCH_ACTIVE_SESSIONS.length} active`, cls: ORCH_ACTIVE_SESSIONS.some(s=>s.status==='error') ? 'warn' : 'ok', symbol: ORCH_ACTIVE_SESSIONS.some(s=>s.status==='error') ? '⚠️' : '✅' },
+        { label: 'MCP Servers', val: `${ORCH_MCP_SERVERS.filter(s=>s.status==='connected').length}/${ORCH_MCP_SERVERS.length} connected`, cls: ORCH_MCP_SERVERS.some(s=>s.status==='disconnected') ? 'warn' : 'ok', symbol: ORCH_MCP_SERVERS.some(s=>s.status==='disconnected') ? '⚠️' : '✅' },
+      ];
+
+      document.getElementById('healthBar').innerHTML = items.map((it, i) =>
+        (i > 0 ? '<div class="health-divider"></div>' : '') +
+        `<div class="health-item">
+          <span class="health-label">${it.label}</span>
+          <span class="health-val ${it.cls}">${it.symbol} ${it.val}</span>
+        </div>`
+      ).join('');
+    })();
+
+    // --- Active Sessions Table ---
+    (function renderSessions() {
+      const tbody = document.getElementById('sessionsBody');
+      tbody.innerHTML = ORCH_ACTIVE_SESSIONS.map(s => {
+        const healthCls = s.healthScore >= 80 ? 'good' : s.healthScore >= 50 ? 'fair' : 'poor';
+        return `
+          <tr onclick="alert('View session: ${s.id}')" style="cursor:pointer">
+            <td>
+              <span class="sess-status-dot ${s.status}"></span>
+              <span style="text-transform:capitalize">${s.status}</span>
+            </td>
+            <td>
+              <div class="sess-repo">${s.repo}</div>
+              <div class="sess-branch">${s.branch}</div>
+            </td>
+            <td class="sess-model">${s.model}</td>
+            <td>${s.turn}</td>
+            <td>${formatNumber(s.tokensIn + s.tokensOut)}</td>
+            <td><span class="health-score ${healthCls}">${s.healthScore}%</span></td>
+            <td style="font-size:0.75rem; color:var(--text-secondary)">${formatDuration(s.elapsed)}</td>
+          </tr>
+        `;
+      }).join('');
+    })();
+
+    // --- Keyboard Shortcut Handlers ---
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'n') { e.preventDefault(); alert('Launch Session'); }
+      if (e.ctrlKey && e.key === 'm') { e.preventDefault(); alert('Open Mission Control'); }
+      if (e.ctrlKey && e.key === 'k') { e.preventDefault(); alert('Quick Search'); }
+      if (e.ctrlKey && e.key === 't') { e.preventDefault(); toggleTheme(); }
+    });
+
+    // --- Theme ---
+    initTheme();
+  </script>
+</body>
+</html>

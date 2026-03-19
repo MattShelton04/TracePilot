@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Worktree Manager (Cards)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* === Stat Cards === */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stats-row .stat-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .stats-row .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+    .stat-accent::before { background: var(--gradient-accent); }
+    .stat-success::before { background: var(--success-fg); }
+    .stat-warning::before { background: var(--warning-fg); }
+    .stat-neutral::before { background: var(--neutral-fg); }
+
+    /* === Filter Bar === */
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .filter-row .spacer { flex: 1; }
+    .filter-pills {
+      display: flex;
+      gap: 4px;
+    }
+    .filter-pill {
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .filter-pill:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .filter-pill.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border-color: var(--accent-emphasis);
+    }
+    .filter-pill.active-success {
+      background: var(--success-muted);
+      color: var(--success-fg);
+      border-color: var(--success-emphasis);
+    }
+    .filter-pill.active-warning {
+      background: var(--warning-muted);
+      color: var(--warning-fg);
+      border-color: var(--warning-emphasis);
+    }
+    .filter-pill.active-done {
+      background: var(--done-muted);
+      color: var(--done-fg);
+      border-color: var(--done-emphasis);
+    }
+    .card-count {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+
+    /* === Card Grid === */
+    .wt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    /* === Worktree Card === */
+    .wt-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .wt-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-2px);
+    }
+
+    /* Stale card glow */
+    .wt-card.stale {
+      border-color: rgba(251,191,36,0.3);
+    }
+    .wt-card.stale::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: var(--radius-lg);
+      pointer-events: none;
+      box-shadow:
+        inset 0 0 20px rgba(251,191,36,0.05),
+        0 0 15px rgba(251,191,36,0.08);
+    }
+    @keyframes stale-glow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .wt-card.stale .stale-indicator {
+      animation: stale-glow 3s ease-in-out infinite;
+    }
+
+    /* Active card subtle pulse border */
+    .wt-card.active-card {
+      border-color: rgba(52,211,153,0.2);
+    }
+
+    /* Card Header */
+    .wt-card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .wt-card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .wt-card-icon.active { background: var(--success-muted); color: var(--success-fg); }
+    .wt-card-icon.stale { background: var(--warning-muted); color: var(--warning-fg); }
+    .wt-card-icon.completed { background: var(--done-muted); color: var(--done-fg); }
+    .wt-card-info { flex: 1; min-width: 0; }
+    .wt-card-branch {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+      letter-spacing: -0.01em;
+    }
+    .wt-card-repo {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+    .wt-card-status {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+    }
+
+    /* Card Metadata */
+    .wt-card-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .wt-meta-label {
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .wt-meta-value {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .wt-meta-value a {
+      color: var(--accent-fg);
+      text-decoration: none;
+    }
+    .wt-meta-value a:hover { text-decoration: underline; }
+    .wt-meta-path {
+      grid-column: 1 / -1;
+    }
+
+    /* Disk Usage Ring */
+    .wt-disk-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px;
+      background: var(--canvas-inset);
+      border-radius: var(--radius-md);
+    }
+    .disk-ring {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .disk-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(var(--ring-color) calc(var(--ring-pct) * 1%), var(--neutral-muted) 0);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+    }
+    .disk-ring-text {
+      font-size: 0.625rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .disk-ring-info { flex: 1; }
+    .disk-ring-label {
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .disk-ring-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .disk-ring-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .disk-ring-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width var(--transition-slow);
+    }
+
+    /* Card Actions */
+    .wt-card-actions {
+      display: flex;
+      gap: 4px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 12px;
+      margin-top: auto;
+    }
+    .wt-card-actions .btn {
+      flex: 1;
+      justify-content: center;
+      font-size: 0.6875rem;
+      padding: 5px 4px;
+    }
+
+    /* Stale indicator dot */
+    .stale-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.625rem;
+      color: var(--warning-fg);
+      margin-top: 4px;
+    }
+    .stale-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--warning-fg);
+    }
+
+    /* === Clean All Stale FAB === */
+    .fab {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: var(--z-overlay);
+    }
+    .fab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      background: var(--warning-emphasis);
+      color: white;
+      border: none;
+      border-radius: var(--radius-full);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(217,119,6,0.4);
+      transition: all var(--transition-normal);
+    }
+    .fab-btn:hover {
+      box-shadow: 0 6px 28px rgba(217,119,6,0.5);
+      transform: translateY(-2px);
+    }
+    .fab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      font-size: 0.6875rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .wt-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div>
+          <h1 class="page-title">Worktree Manager</h1>
+          <p class="page-subtitle">Dashboard cards — manage parallel worktrees at a glance</p>
+        </div>
+        <span style="flex:1"></span>
+        <button class="btn btn-primary btn-sm" onclick="openCreateDialog()">
+          <span style="display:flex;align-items:center;" id="iconPlus"></span> Create Worktree
+        </button>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Summary Stat Cards -->
+          <div class="stats-row" id="statsRow"></div>
+
+          <!-- Filters -->
+          <div class="filter-row">
+            <select class="filter-select" id="repoFilter" onchange="renderCards()">
+              <option value="">All Repositories</option>
+            </select>
+            <div class="filter-pills" id="statusPills"></div>
+            <span class="spacer"></span>
+            <div class="search-container" style="max-width:220px;">
+              <input type="text" class="search-input" placeholder="Search worktrees…" id="searchInput" oninput="renderCards()" style="padding-left:10px;">
+            </div>
+            <span class="card-count" id="cardCount"></span>
+          </div>
+
+          <!-- Card Grid -->
+          <div class="wt-grid" id="wtGrid"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clean All Stale FAB -->
+  <div class="fab" id="fab">
+    <button class="fab-btn" onclick="cleanAllStale()">
+      <span id="fabIcon"></span>
+      Clean All Stale
+      <span class="fab-badge" id="fabCount"></span>
+    </button>
+  </div>
+
+  <!-- Create Worktree Dialog -->
+  <div class="modal-overlay hidden" id="createDialog" onclick="if(event.target===this)closeCreateDialog()">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="text-title-md">Create Worktree</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeCreateDialog()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Repository</label>
+          <select class="form-input" id="createRepo" onchange="updateCreateForm()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Base Branch</label>
+          <select class="form-input" id="createBase"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Branch Name</label>
+          <input class="form-input" id="createBranch" placeholder="feat/new-feature" oninput="updateCreatePath()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Worktree Path</label>
+          <input class="form-input font-mono" id="createPath" placeholder="Auto-generated" readonly style="color:var(--text-tertiary);">
+        </div>
+        <div style="padding:10px 14px;background:var(--accent-subtle);border-radius:var(--radius-md);font-size:0.75rem;color:var(--text-secondary);margin-top:8px;display:flex;align-items:flex-start;gap:8px;">
+          <span style="flex-shrink:0;">💡</span>
+          <span>A new worktree directory will be created adjacent to the main repo. You can launch a Copilot session directly in it after creation.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm" onclick="closeCreateDialog()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="closeCreateDialog()">Create Worktree</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Worktree Detail Dialog -->
+  <div class="modal-overlay hidden" id="detailDialog" onclick="if(event.target===this)closeDetailDialog()">
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-header" id="detailHeader"></div>
+      <div class="modal-body" id="detailBody"></div>
+      <div class="modal-footer" id="detailFooter"></div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    // Initialize
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('worktrees');
+    document.getElementById('iconPlus').innerHTML = ORCH_ICONS.plus;
+    document.getElementById('fabIcon').innerHTML = ORCH_ICONS.trash;
+
+    const maxDisk = Math.max(...ORCH_WORKTREES.map(w => w.diskMB));
+    const totalDiskMB = ORCH_WORKTREES.reduce((s, w) => s + w.diskMB, 0);
+    const totalDiskGB = (totalDiskMB / 1024).toFixed(2);
+
+    // State
+    let activeStatusFilter = '';
+
+    // Populate filters
+    const repoFilter = document.getElementById('repoFilter');
+    [...new Set(ORCH_WORKTREES.map(w => w.repo))].forEach(r => {
+      const o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      repoFilter.appendChild(o);
+    });
+
+    // Status pills
+    function renderStatusPills() {
+      const counts = { active: 0, stale: 0, completed: 0 };
+      ORCH_WORKTREES.forEach(w => { counts[w.status]++; });
+      const pillDefs = [
+        { value: '', label: 'All', activeClass: 'active', count: ORCH_WORKTREES.length },
+        { value: 'active', label: 'Active', activeClass: 'active-success', count: counts.active },
+        { value: 'stale', label: 'Stale', activeClass: 'active-warning', count: counts.stale },
+        { value: 'completed', label: 'Completed', activeClass: 'active-done', count: counts.completed },
+      ];
+      document.getElementById('statusPills').innerHTML = pillDefs.map(p => {
+        const isActive = activeStatusFilter === p.value;
+        return `<button class="filter-pill${isActive ? ' ' + p.activeClass : ''}" onclick="setStatusFilter('${p.value}')">${p.label} (${p.count})</button>`;
+      }).join('');
+    }
+
+    function setStatusFilter(val) {
+      activeStatusFilter = val;
+      renderStatusPills();
+      renderCards();
+    }
+
+    function getFiltered() {
+      let wts = ORCH_WORKTREES;
+      const repo = repoFilter.value;
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      if (repo) wts = wts.filter(w => w.repo === repo);
+      if (activeStatusFilter) wts = wts.filter(w => w.status === activeStatusFilter);
+      if (search) wts = wts.filter(w =>
+        w.branch.toLowerCase().includes(search) ||
+        w.path.toLowerCase().includes(search) ||
+        w.repo.toLowerCase().includes(search)
+      );
+      return wts;
+    }
+
+    function statusBadge(status) {
+      const cls = { active: 'badge-success', stale: 'badge-warning', completed: 'badge-done' };
+      return `<span class="badge ${cls[status] || 'badge-neutral'}">${status}</span>`;
+    }
+
+    function diskRingColor(mb) {
+      const pct = (mb / maxDisk) * 100;
+      if (pct < 40) return 'var(--success-fg)';
+      if (pct < 70) return 'var(--accent-fg)';
+      return 'var(--warning-fg)';
+    }
+
+    function renderStats() {
+      const active = ORCH_WORKTREES.filter(w => w.status === 'active').length;
+      const stale = ORCH_WORKTREES.filter(w => w.status === 'stale').length;
+      const staleMB = ORCH_WORKTREES.filter(w => w.status === 'stale').reduce((s, w) => s + w.diskMB, 0);
+
+      document.getElementById('statsRow').innerHTML = `
+        <div class="stat-card stat-accent">
+          <div class="stat-card-value accent">${ORCH_WORKTREES.length}</div>
+          <div class="stat-card-label">Total Worktrees</div>
+          <div class="stat-card-trend" style="color:var(--text-tertiary);">Across ${new Set(ORCH_WORKTREES.map(w => w.repo)).size} repos</div>
+        </div>
+        <div class="stat-card stat-success">
+          <div class="stat-card-value success">${active}</div>
+          <div class="stat-card-label">Active</div>
+          <div class="stat-card-trend up">● Linked to running sessions</div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-card-value warning">${stale}</div>
+          <div class="stat-card-label">Stale</div>
+          <div class="stat-card-trend down">⚠ ${staleMB} MB reclaimable</div>
+        </div>
+        <div class="stat-card stat-neutral">
+          <div class="stat-card-value">${totalDiskGB} <span style="font-size:0.875rem;font-weight:500;">GB</span></div>
+          <div class="stat-card-label">Total Disk Usage</div>
+        </div>
+      `;
+
+      // FAB visibility
+      const fabEl = document.getElementById('fab');
+      document.getElementById('fabCount').textContent = stale;
+      fabEl.style.display = stale > 0 ? 'block' : 'none';
+    }
+
+    function renderCards() {
+      const wts = getFiltered();
+      document.getElementById('cardCount').textContent = `${wts.length} worktree${wts.length !== 1 ? 's' : ''}`;
+
+      if (wts.length === 0) {
+        document.getElementById('wtGrid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="empty-state-icon">${ORCH_ICONS.gitBranch}</div>
+            <div class="empty-state-title">No worktrees found</div>
+            <div class="empty-state-desc">Try adjusting your filters or create a new worktree.</div>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('wtGrid').innerHTML = wts.map(wt => {
+        const session = wt.session ? ORCH_ACTIVE_SESSIONS.find(s => s.id === wt.session) : null;
+        const diskPct = Math.round((wt.diskMB / maxDisk) * 100);
+        const ringColor = diskRingColor(wt.diskMB);
+        const cardClass = wt.status === 'stale' ? ' stale' : wt.status === 'active' ? ' active-card' : '';
+
+        return `
+          <div class="wt-card${cardClass}" onclick="openDetail('${wt.id}')">
+            <div class="wt-card-status">${statusBadge(wt.status)}</div>
+            <div class="wt-card-top">
+              <div class="wt-card-icon ${wt.status}">${ORCH_ICONS.gitBranch}</div>
+              <div class="wt-card-info">
+                <div class="wt-card-branch">${wt.branch}</div>
+                <div class="wt-card-repo">${wt.repo}</div>
+                ${wt.status === 'stale' ? '<div class="stale-indicator"><span class="stale-dot"></span> No active session — stale</div>' : ''}
+              </div>
+            </div>
+
+            <div class="wt-card-meta">
+              <div>
+                <div class="wt-meta-label">Session</div>
+                <div class="wt-meta-value">${session
+                  ? `<a href="#" onclick="event.stopPropagation()">${session.id}</a>`
+                  : '<span style="color:var(--text-placeholder)">None</span>'}</div>
+              </div>
+              <div>
+                <div class="wt-meta-label">Created</div>
+                <div class="wt-meta-value">${formatRelativeTime(wt.createdAt)}</div>
+              </div>
+              <div class="wt-meta-path">
+                <div class="wt-meta-label">Path</div>
+                <div class="wt-meta-value font-mono" style="font-size:0.6875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${wt.path}</div>
+              </div>
+            </div>
+
+            <div class="wt-disk-section">
+              <div class="disk-ring" style="--ring-color:${ringColor};--ring-pct:${diskPct}">
+                <span class="disk-ring-text" style="color:${ringColor}">${diskPct}%</span>
+              </div>
+              <div class="disk-ring-info">
+                <div class="disk-ring-label">Disk Usage</div>
+                <div class="disk-ring-value">${wt.diskMB} MB</div>
+              </div>
+              <div style="flex:1;">
+                <div class="disk-ring-bar">
+                  <div class="disk-ring-fill" style="width:${diskPct}%;background:${ringColor}"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="wt-card-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-sm" title="Open Folder">${ORCH_ICONS.box} Open</button>
+              <button class="btn btn-ghost btn-sm" title="Terminal">${ORCH_ICONS.terminal} Term</button>
+              <button class="btn btn-ghost btn-sm" title="Link Session">${ORCH_ICONS.rocket} Link</button>
+              <button class="btn btn-ghost btn-sm" title="Remove" style="color:var(--danger-fg)">${ORCH_ICONS.trash}</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Detail dialog
+    function openDetail(id) {
+      const wt = ORCH_WORKTREES.find(w => w.id === id);
+      if (!wt) return;
+      const session = wt.session ? ORCH_ACTIVE_SESSIONS.find(s => s.id === wt.session) : null;
+      const diskPct = Math.round((wt.diskMB / maxDisk) * 100);
+      const ringColor = diskRingColor(wt.diskMB);
+
+      document.getElementById('detailHeader').innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="wt-card-icon ${wt.status}" style="width:28px;height:28px;font-size:13px;">${ORCH_ICONS.gitBranch}</div>
+          <span class="text-title-md">${wt.branch}</span>
+          ${statusBadge(wt.status)}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="closeDetailDialog()">✕</button>
+      `;
+
+      document.getElementById('detailBody').innerHTML = `
+        <div class="def-list" style="margin-bottom:16px;">
+          <dt>Repository</dt><dd>${wt.repo}</dd>
+          <dt>Branch</dt><dd>${wt.branch}</dd>
+          <dt>Path</dt><dd class="font-mono" style="font-size:0.75rem;">${wt.path}</dd>
+          <dt>Session</dt><dd>${session ? session.id + ' — ' + session.statusLabel : 'Not linked'}</dd>
+          <dt>Disk Usage</dt><dd>${wt.diskMB} MB (${diskPct}% of max)</dd>
+          <dt>Created</dt><dd>${new Date(wt.createdAt).toLocaleString()}</dd>
+          <dt>Status</dt><dd>${statusBadge(wt.status)}</dd>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--canvas-inset);border-radius:var(--radius-md);">
+          <div class="disk-ring" style="--ring-color:${ringColor};--ring-pct:${diskPct};width:56px;height:56px;">
+            <span class="disk-ring-text" style="color:${ringColor};font-size:0.75rem;">${diskPct}%</span>
+          </div>
+          <div>
+            <div style="font-size:0.6875rem;color:var(--text-placeholder);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Disk Usage</div>
+            <div style="font-size:1.125rem;font-weight:700;color:var(--text-primary);">${wt.diskMB} MB</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('detailFooter').innerHTML = `
+        <button class="btn btn-sm">${ORCH_ICONS.box} Open Folder</button>
+        <button class="btn btn-sm">${ORCH_ICONS.terminal} Terminal</button>
+        <button class="btn btn-sm">${ORCH_ICONS.rocket} ${session ? 'View Session' : 'Link Session'}</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" style="color:var(--danger-fg)">${ORCH_ICONS.trash} Remove</button>
+      `;
+
+      document.getElementById('detailDialog').classList.remove('hidden');
+    }
+    function closeDetailDialog() { document.getElementById('detailDialog').classList.add('hidden'); }
+
+    // Create dialog
+    function openCreateDialog() {
+      const sel = document.getElementById('createRepo');
+      sel.innerHTML = ORCH_REPOS.map(r => `<option value="${r.id}" data-path="${r.path}">${r.name}</option>`).join('');
+      updateCreateForm();
+      document.getElementById('createBranch').value = '';
+      document.getElementById('createPath').value = '';
+      document.getElementById('createDialog').classList.remove('hidden');
+    }
+    function updateCreateForm() {
+      const repoId = document.getElementById('createRepo').value;
+      const repo = ORCH_REPOS.find(r => r.id === repoId);
+      document.getElementById('createBase').innerHTML = repo
+        ? repo.branches.map(b => `<option>${b}</option>`).join('')
+        : '';
+      updateCreatePath();
+    }
+    function updateCreatePath() {
+      const repoId = document.getElementById('createRepo').value;
+      const repo = ORCH_REPOS.find(r => r.id === repoId);
+      const branch = document.getElementById('createBranch').value.replace(/\//g, '-');
+      if (repo && branch) {
+        document.getElementById('createPath').value = repo.path + '-wt-' + branch;
+      } else {
+        document.getElementById('createPath').value = '';
+      }
+    }
+    function closeCreateDialog() { document.getElementById('createDialog').classList.add('hidden'); }
+
+    function cleanAllStale() {
+      const stale = ORCH_WORKTREES.filter(w => w.status === 'stale');
+      const mb = stale.reduce((s, w) => s + w.diskMB, 0);
+      alert(`Cleaning ${stale.length} stale worktrees (${mb} MB)…`);
+    }
+
+    // Init
+    renderStats();
+    renderStatusPills();
+    renderCards();
+  </script>
+</body>
+</html>

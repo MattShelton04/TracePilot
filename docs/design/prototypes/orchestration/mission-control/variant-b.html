@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Mission Control (Table View)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+      50% { opacity: .7; box-shadow: 0 0 0 4px transparent; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .6; }
+    }
+
+    /* Stats bar */
+    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+
+    /* Toolbar */
+    .mc-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+    }
+    .mc-toolbar-left { display: flex; align-items: center; gap: 10px; }
+    .mc-toolbar-right { display: flex; align-items: center; gap: 10px; }
+
+    .refresh-indicator {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .6875rem; color: var(--text-tertiary);
+    }
+    .refresh-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--success-fg); animation: pulse-dot 2s infinite;
+    }
+
+    /* Status dots */
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.working { background: var(--success-fg); animation: pulse-dot 2s infinite; color: var(--success-fg); }
+    .status-dot.idle { background: var(--warning-fg); }
+    .status-dot.error { background: var(--danger-fg); }
+
+    /* Table enhancements */
+    .table-wrapper {
+      background: var(--canvas-subtle); background-image: var(--gradient-card);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .table-scroll { overflow-x: auto; }
+
+    .data-table th { cursor: pointer; user-select: none; white-space: nowrap; }
+    .data-table th:hover { color: var(--text-secondary); }
+    .sort-icon { opacity: .3; margin-left: 4px; font-size: .625rem; }
+    .data-table th.sorted .sort-icon { opacity: 1; color: var(--accent-fg); }
+
+    .data-table td { white-space: nowrap; }
+    .data-table tbody tr { cursor: pointer; }
+    .data-table tbody tr.selected { background: var(--accent-subtle); }
+
+    .status-cell { display: flex; align-items: center; gap: 8px; }
+    .status-label { font-size: .75rem; text-transform: capitalize; }
+
+    .repo-cell { font-weight: 600; }
+    .branch-cell { font-family: "JetBrains Mono", monospace; font-size: .75rem; color: var(--text-tertiary); }
+    .mono { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+
+    /* Health badge */
+    .health-badge {
+      display: inline-flex; align-items: center; padding: 2px 7px;
+      border-radius: var(--radius-sm); font-size: .6875rem; font-weight: 600;
+    }
+    .health-good { background: var(--success-muted); color: var(--success-fg); }
+    .health-warn { background: var(--warning-muted); color: var(--warning-fg); }
+    .health-bad { background: var(--danger-muted); color: var(--danger-fg); }
+
+    /* Expandable detail row */
+    .detail-row td { padding: 0 !important; border-bottom: 1px solid var(--border-default); }
+    .detail-content {
+      padding: 16px 20px; background: var(--canvas-inset);
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+    }
+    .detail-section-title {
+      font-size: .6875rem; font-weight: 500; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--text-placeholder); margin-bottom: 8px;
+    }
+    .detail-kv { display: flex; justify-content: space-between; padding: 3px 0; font-size: .75rem; }
+    .detail-kv .label { color: var(--text-tertiary); }
+    .detail-kv .value { color: var(--text-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .detail-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    /* Pagination */
+    .pagination-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-top: 1px solid var(--border-default);
+      font-size: .75rem; color: var(--text-tertiary);
+    }
+    .pagination-controls { display: flex; gap: 4px; }
+
+    /* Activity panel */
+    .bottom-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+    .activity-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-icon {
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      background: var(--neutral-subtle); display: flex; align-items: center;
+      justify-content: center; color: var(--text-tertiary); flex-shrink: 0;
+    }
+    .activity-text { font-size: .8125rem; color: var(--text-secondary); line-height: 1.5; }
+    .activity-time { font-size: .6875rem; color: var(--text-placeholder); margin-top: 2px; }
+
+    /* Quick launch */
+    .quick-launch-btn {
+      position: fixed; bottom: 24px; right: 28px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: var(--radius-full);
+      background: var(--gradient-accent); color: white; font-weight: 600;
+      font-size: .875rem; border: none; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(99,102,241,.4); z-index: 30;
+      transition: all var(--transition-normal);
+    }
+    .quick-launch-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(99,102,241,.5); }
+
+    @media (max-width: 1100px) {
+      .stats-bar { grid-template-columns: repeat(3, 1fr); }
+      .bottom-panels { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 900px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .detail-content { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">Mission Control</span>
+        </div>
+        <div style="flex:1"></div>
+        <div class="refresh-indicator">
+          <span class="refresh-dot"></span>
+          <span id="staleness">Last updated 5s ago</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+
+          <!-- Page Title -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <div>
+              <h1 class="text-display" style="color:var(--text-primary);">Mission Control</h1>
+              <p class="text-body" style="color:var(--text-tertiary);margin-top:4px;">Dense data view — all active Copilot CLI sessions at a glance</p>
+            </div>
+          </div>
+
+          <!-- Stats Bar -->
+          <div class="stats-bar" id="stats-bar"></div>
+
+          <!-- Toolbar -->
+          <div class="mc-toolbar">
+            <div class="mc-toolbar-left">
+              <div class="search-container" style="max-width:260px;">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+                <input class="search-input" type="text" placeholder="Filter sessions…" id="search-input">
+                <span class="search-shortcut">/</span>
+              </div>
+              <select class="filter-select" id="filter-status">
+                <option value="all">All Statuses</option>
+                <option value="working">Working</option>
+                <option value="idle">Idle</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            <div class="mc-toolbar-right">
+              <span style="font-size:.6875rem;color:var(--text-placeholder);" id="row-count">4 sessions</span>
+              <button class="btn btn-sm" onclick="refreshData()">↻ Refresh</button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="table-wrapper">
+            <div class="table-scroll">
+              <table class="data-table" id="sessions-table">
+                <thead>
+                  <tr>
+                    <th data-sort="status">Status <span class="sort-icon">▼</span></th>
+                    <th data-sort="repo">Repo <span class="sort-icon">▼</span></th>
+                    <th data-sort="branch">Branch <span class="sort-icon">▼</span></th>
+                    <th data-sort="model">Model <span class="sort-icon">▼</span></th>
+                    <th data-sort="turn">Turn <span class="sort-icon">▼</span></th>
+                    <th data-sort="tokensIn">Tokens In <span class="sort-icon">▼</span></th>
+                    <th data-sort="tokensOut">Tokens Out <span class="sort-icon">▼</span></th>
+                    <th data-sort="healthScore">Health <span class="sort-icon">▼</span></th>
+                    <th data-sort="elapsed">Elapsed <span class="sort-icon">▼</span></th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="sessions-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pagination-bar">
+              <span id="page-info">Showing 1–4 of 4 sessions</span>
+              <div class="pagination-controls">
+                <button class="btn btn-sm" disabled>← Prev</button>
+                <button class="btn btn-sm" disabled>Next →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Panels -->
+          <div class="bottom-panels">
+            <div class="section-panel">
+              <div class="section-panel-header">Recent Activity</div>
+              <div class="section-panel-body" id="activity-feed"></div>
+            </div>
+            <div class="section-panel">
+              <div class="section-panel-header">Budget Overview</div>
+              <div class="section-panel-body" id="budget-panel"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="quick-launch-btn" onclick="alert('Launch new session…')">
+    🚀 Quick Launch
+  </button>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('mission-control');
+
+    // Staleness timer
+    let lastUpdated = Date.now();
+    setInterval(() => {
+      const sec = Math.floor((Date.now() - lastUpdated) / 1000);
+      document.getElementById('staleness').textContent = `Last updated ${sec}s ago`;
+    }, 1000);
+
+    function refreshData() {
+      lastUpdated = Date.now();
+      document.getElementById('staleness').textContent = 'Last updated just now';
+      renderAll();
+    }
+
+    // Sort state
+    let sortField = 'status';
+    let sortDir = 'asc';
+    let expandedRow = null;
+
+    function healthBadgeHTML(score) {
+      if (score >= 80) return `<span class="health-badge health-good">${score}</span>`;
+      if (score >= 50) return `<span class="health-badge health-warn">${score}</span>`;
+      return `<span class="health-badge health-bad">${score}</span>`;
+    }
+
+    function getFilteredSorted() {
+      const status = document.getElementById('filter-status').value;
+      const query = document.getElementById('search-input').value.toLowerCase();
+      let sessions = ORCH_ACTIVE_SESSIONS.filter(s => {
+        if (status !== 'all' && s.status !== status) return false;
+        if (query && !s.repo.toLowerCase().includes(query) && !s.branch.toLowerCase().includes(query) && !s.statusLabel.toLowerCase().includes(query)) return false;
+        return true;
+      });
+
+      const statusOrder = { error: 0, working: 1, idle: 2 };
+      sessions.sort((a, b) => {
+        let va, vb;
+        if (sortField === 'status') { va = statusOrder[a.status] ?? 3; vb = statusOrder[b.status] ?? 3; }
+        else if (sortField === 'repo' || sortField === 'branch' || sortField === 'model') { va = a[sortField]; vb = b[sortField]; }
+        else { va = a[sortField]; vb = b[sortField]; }
+
+        if (typeof va === 'string') {
+          const cmp = va.localeCompare(vb);
+          return sortDir === 'asc' ? cmp : -cmp;
+        }
+        return sortDir === 'asc' ? va - vb : vb - va;
+      });
+      return sessions;
+    }
+
+    function renderStats() {
+      const sessions = ORCH_ACTIVE_SESSIONS;
+      const totalIn = sessions.reduce((a, s) => a + s.tokensIn, 0);
+      const totalOut = sessions.reduce((a, s) => a + s.tokensOut, 0);
+      const totalPremium = sessions.reduce((a, s) => a + s.premiumReqs, 0);
+      const activeWt = sessions.filter(s => s.worktree).length;
+      const budgetPct = Math.round((ORCH_BUDGET.premiumRequests.used / ORCH_BUDGET.premiumRequests.limit) * 100);
+
+      document.getElementById('stats-bar').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-card-value accent">${sessions.length}</div>
+          <div class="stat-card-label">Active Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value">${formatNumber(totalIn)} <span style="font-size:.75rem;color:var(--text-tertiary)">in</span> / ${formatNumber(totalOut)} <span style="font-size:.75rem;color:var(--text-tertiary)">out</span></div>
+          <div class="stat-card-label">Total Tokens</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value warning">${totalPremium.toFixed(2)}</div>
+          <div class="stat-card-label">Premium Requests (today)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value success">${activeWt}</div>
+          <div class="stat-card-label">Active Worktrees</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-value ${budgetPct >= 90 ? 'danger' : budgetPct >= 75 ? 'warning' : ''}">${budgetPct}%</div>
+          <div class="stat-card-label">Budget Used (${ORCH_BUDGET.premiumRequests.used}/${ORCH_BUDGET.premiumRequests.limit})</div>
+          <div class="progress-bar" style="margin-top:8px;">
+            <div class="progress-bar-fill" style="width:${budgetPct}%"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTable() {
+      const sessions = getFilteredSorted();
+      const tbody = document.getElementById('sessions-tbody');
+      document.getElementById('row-count').textContent = `${sessions.length} session${sessions.length !== 1 ? 's' : ''}`;
+      document.getElementById('page-info').textContent = `Showing 1–${sessions.length} of ${sessions.length} sessions`;
+
+      tbody.innerHTML = sessions.map(s => `
+        <tr data-id="${s.id}" onclick="toggleDetail('${s.id}')">
+          <td>
+            <div class="status-cell">
+              <span class="status-dot ${s.status}"></span>
+              <span class="status-label">${s.status}</span>
+            </div>
+          </td>
+          <td class="repo-cell">${s.repo}</td>
+          <td class="branch-cell">${s.branch}</td>
+          <td>${modelTierBadge(s.model)}</td>
+          <td class="mono">${s.turn}</td>
+          <td class="mono">${formatNumber(s.tokensIn)}</td>
+          <td class="mono">${formatNumber(s.tokensOut)}</td>
+          <td>${healthBadgeHTML(s.healthScore)}</td>
+          <td class="mono">${formatDuration(s.elapsed)}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();" title="View">${ORCH_ICONS.eye}</button>
+              <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();" title="Terminal">${ORCH_ICONS.terminal}</button>
+              <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();" title="Kill" style="color:var(--danger-fg);">${ORCH_ICONS.stop}</button>
+            </div>
+          </td>
+        </tr>
+        ${expandedRow === s.id ? renderDetailRow(s) : ''}
+      `).join('');
+
+      // Highlight sorted column
+      document.querySelectorAll('#sessions-table th').forEach(th => {
+        th.classList.toggle('sorted', th.dataset.sort === sortField);
+        const icon = th.querySelector('.sort-icon');
+        if (icon) icon.textContent = (th.dataset.sort === sortField && sortDir === 'desc') ? '▲' : '▼';
+      });
+    }
+
+    function renderDetailRow(s) {
+      return `
+        <tr class="detail-row">
+          <td colspan="10">
+            <div class="detail-content">
+              <div>
+                <div class="detail-section-title">Session Info</div>
+                <div class="detail-kv"><span class="label">Session ID</span><span class="value mono">${s.id}</span></div>
+                <div class="detail-kv"><span class="label">PID</span><span class="value mono">${s.pid}</span></div>
+                <div class="detail-kv"><span class="label">Worktree</span><span class="value">${s.worktree || 'None (in-place)'}</span></div>
+                <div class="detail-kv"><span class="label">Premium Reqs</span><span class="value">${s.premiumReqs.toFixed(2)}</span></div>
+              </div>
+              <div>
+                <div class="detail-section-title">Current Activity</div>
+                <p style="font-size:.8125rem;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;">${s.statusLabel}</p>
+                <div class="detail-kv"><span class="label">Health Score</span><span class="value">${healthBadgeHTML(s.healthScore)}</span></div>
+                <div class="detail-kv"><span class="label">Started</span><span class="value">${formatRelativeTime(s.startedAt)}</span></div>
+              </div>
+              <div>
+                <div class="detail-section-title">Actions</div>
+                <div class="detail-actions">
+                  <button class="btn btn-sm">${ORCH_ICONS.eye} View Details</button>
+                  <button class="btn btn-sm">${ORCH_ICONS.terminal} Open Terminal</button>
+                </div>
+                <div class="detail-actions">
+                  <button class="btn btn-sm">Send Message</button>
+                  <button class="btn btn-sm" style="color:var(--danger-fg);">${ORCH_ICONS.stop} Kill Session</button>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function toggleDetail(id) {
+      expandedRow = expandedRow === id ? null : id;
+      renderTable();
+    }
+
+    // Sort click handlers
+    document.querySelectorAll('#sessions-table th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const field = th.dataset.sort;
+        if (sortField === field) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        else { sortField = field; sortDir = 'asc'; }
+        renderTable();
+      });
+    });
+
+    function renderActivity() {
+      document.getElementById('activity-feed').innerHTML = ORCH_ACTIVITY.map(a => `
+        <div class="activity-item">
+          <div class="activity-icon">${a.icon}</div>
+          <div>
+            <div class="activity-text">${a.message}</div>
+            <div class="activity-time">${formatRelativeTime(a.time)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderBudget() {
+      const b = ORCH_BUDGET;
+      const pct = Math.round((b.premiumRequests.used / b.premiumRequests.limit) * 100);
+      document.getElementById('budget-panel').innerHTML = `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:6px;">
+            <span style="color:var(--text-secondary)">Premium Requests</span>
+            <span style="color:var(--text-primary);font-weight:600;">${b.premiumRequests.used} / ${b.premiumRequests.limit}</span>
+          </div>
+          <div class="progress-bar" style="height:8px;">
+            <div class="progress-bar-fill" style="width:${pct}%;${pct >= 90 ? 'background:var(--danger-fg);' : pct >= 75 ? 'background:var(--warning-fg);' : ''}"></div>
+          </div>
+        </div>
+        <div style="font-size:.6875rem;color:var(--text-tertiary);">
+          Today's spend: <strong style="color:var(--text-secondary);">${formatCost(b.dailySpend[b.dailySpend.length - 1].cost)}</strong>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-size:.6875rem;color:var(--text-placeholder);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Model Breakdown</div>
+          ${b.modelBreakdown.map(m => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.75rem;">
+              <span style="flex:1;color:var(--text-secondary);">${m.model.replace('claude-', 'C. ').replace('gpt-', 'GPT-')}</span>
+              <span style="color:var(--text-tertiary);width:40px;text-align:right;">${m.pct}%</span>
+              <div class="progress-bar" style="width:80px;"><div class="progress-bar-fill" style="width:${m.pct}%"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderAll() {
+      renderStats();
+      renderTable();
+      renderActivity();
+      renderBudget();
+    }
+
+    // Filter listeners
+    document.getElementById('filter-status').addEventListener('change', renderTable);
+    document.getElementById('search-input').addEventListener('input', renderTable);
+
+    // Keyboard shortcut for search
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        document.getElementById('search-input').focus();
+      }
+    });
+
+    setInterval(() => { refreshData(); }, 30000);
+    renderAll();
+  </script>
+</body>
+</html>

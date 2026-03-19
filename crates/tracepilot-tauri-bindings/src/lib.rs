@@ -1129,6 +1129,357 @@ mod commands {
             branch: run(&["rev-parse", "--abbrev-ref", "HEAD"]),
         }
     }
+
+    // ─── Orchestration Commands ───────────────────────────────────────
+
+    fn copilot_home() -> Result<std::path::PathBuf, String> {
+        tracepilot_orchestrator::launcher::copilot_home().map_err(|e| e.to_string())
+    }
+
+    // -- System dependencies --
+
+    #[tauri::command]
+    pub async fn check_system_deps() -> Result<tracepilot_orchestrator::SystemDependencies, String> {
+        Ok(tokio::task::spawn_blocking(tracepilot_orchestrator::launcher::check_dependencies)
+            .await
+            .map_err(|e| e.to_string())?)
+    }
+
+    // -- Worktree commands --
+
+    #[tauri::command]
+    pub async fn list_worktrees(
+        repo_path: String,
+    ) -> Result<Vec<tracepilot_orchestrator::WorktreeInfo>, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::list_worktrees(std::path::Path::new(&repo_path))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn create_worktree(
+        request: tracepilot_orchestrator::CreateWorktreeRequest,
+    ) -> Result<tracepilot_orchestrator::WorktreeInfo, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::create_worktree(&request)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn remove_worktree(
+        repo_path: String,
+        worktree_path: String,
+        force: bool,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::remove_worktree(
+                std::path::Path::new(&repo_path),
+                std::path::Path::new(&worktree_path),
+                force,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn prune_worktrees(
+        repo_path: String,
+    ) -> Result<tracepilot_orchestrator::PruneResult, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::prune_worktrees(std::path::Path::new(&repo_path))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn list_branches(repo_path: String) -> Result<Vec<String>, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::list_branches(std::path::Path::new(&repo_path))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_worktree_disk_usage(path: String) -> Result<u64, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::disk_usage_bytes(std::path::Path::new(&path))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    // -- Launcher commands --
+
+    #[tauri::command]
+    pub async fn launch_session(
+        config: tracepilot_orchestrator::LaunchConfig,
+    ) -> Result<tracepilot_orchestrator::LaunchedSession, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::launcher::launch_session(&config)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_available_models() -> Result<Vec<tracepilot_orchestrator::ModelInfo>, String> {
+        Ok(tracepilot_orchestrator::launcher::available_models())
+    }
+
+    #[tauri::command]
+    pub async fn open_in_explorer(path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::launcher::open_in_explorer(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn open_in_terminal(path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::launcher::open_in_terminal(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    // -- Config Injector commands --
+
+    #[tauri::command]
+    pub async fn get_agent_definitions(
+        version: Option<String>,
+    ) -> Result<Vec<tracepilot_orchestrator::AgentDefinition>, String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            let version_dir = if let Some(v) = version {
+                home.join("pkg").join("universal").join(v)
+            } else {
+                let active = tracepilot_orchestrator::version_manager::active_version(&home)
+                    .map_err(|e| e.to_string())?;
+                std::path::PathBuf::from(&active.path)
+            };
+            tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn save_agent_definition(
+        file_path: String,
+        yaml_content: String,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::config_injector::write_agent_definition(
+                std::path::Path::new(&file_path),
+                &yaml_content,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_copilot_config() -> Result<tracepilot_orchestrator::CopilotConfig, String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::config_injector::read_copilot_config(&home)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn save_copilot_config(config: serde_json::Value) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn create_config_backup(
+        file_path: String,
+        label: String,
+    ) -> Result<tracepilot_orchestrator::BackupEntry, String> {
+        tokio::task::spawn_blocking(move || {
+            let backup_dir =
+                tracepilot_orchestrator::config_injector::backup_dir().map_err(|e| e.to_string())?;
+            tracepilot_orchestrator::config_injector::create_backup(
+                std::path::Path::new(&file_path),
+                &backup_dir,
+                &label,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn list_config_backups() -> Result<Vec<tracepilot_orchestrator::BackupEntry>, String> {
+        tokio::task::spawn_blocking(move || {
+            let backup_dir =
+                tracepilot_orchestrator::config_injector::backup_dir().map_err(|e| e.to_string())?;
+            tracepilot_orchestrator::config_injector::list_backups(&backup_dir)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn restore_config_backup(
+        backup_path: String,
+        restore_to: String,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::config_injector::restore_backup(
+                std::path::Path::new(&backup_path),
+                std::path::Path::new(&restore_to),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn diff_config_files(
+        old_path: String,
+        new_path: String,
+    ) -> Result<tracepilot_orchestrator::ConfigDiff, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::config_injector::diff_files(
+                std::path::Path::new(&old_path),
+                std::path::Path::new(&new_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    // -- Version Manager commands --
+
+    #[tauri::command]
+    pub async fn discover_copilot_versions(
+    ) -> Result<Vec<tracepilot_orchestrator::CopilotVersion>, String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::version_manager::discover_versions(&home)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_active_copilot_version(
+    ) -> Result<tracepilot_orchestrator::CopilotVersion, String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::version_manager::active_version(&home)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_migration_diffs(
+        from_version: String,
+        to_version: String,
+    ) -> Result<Vec<tracepilot_orchestrator::MigrationDiff>, String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::version_manager::migration_diffs(
+                &home,
+                &from_version,
+                &to_version,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn migrate_agent_definition(
+        file_name: String,
+        from_version: String,
+        to_version: String,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            let home = copilot_home()?;
+            tracepilot_orchestrator::version_manager::migrate_agent(
+                &home,
+                &file_name,
+                &from_version,
+                &to_version,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    // -- Template commands --
+
+    #[tauri::command]
+    pub async fn list_session_templates(
+    ) -> Result<Vec<tracepilot_orchestrator::SessionTemplate>, String> {
+        tokio::task::spawn_blocking(|| {
+            tracepilot_orchestrator::templates::all_templates().map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn save_session_template(
+        template: tracepilot_orchestrator::SessionTemplate,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::templates::save_template(&template)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn delete_session_template(id: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::templates::delete_template(&id)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -1164,6 +1515,33 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::resume_session_in_terminal,
             commands::check_for_updates,
             commands::get_git_info,
+            // Orchestration commands
+            commands::check_system_deps,
+            commands::list_worktrees,
+            commands::create_worktree,
+            commands::remove_worktree,
+            commands::prune_worktrees,
+            commands::list_branches,
+            commands::get_worktree_disk_usage,
+            commands::launch_session,
+            commands::get_available_models,
+            commands::open_in_explorer,
+            commands::open_in_terminal,
+            commands::get_agent_definitions,
+            commands::save_agent_definition,
+            commands::get_copilot_config,
+            commands::save_copilot_config,
+            commands::create_config_backup,
+            commands::list_config_backups,
+            commands::restore_config_backup,
+            commands::diff_config_files,
+            commands::discover_copilot_versions,
+            commands::get_active_copilot_version,
+            commands::get_migration_diffs,
+            commands::migrate_agent_definition,
+            commands::list_session_templates,
+            commands::save_session_template,
+            commands::delete_session_template,
         ])
         .build()
 }

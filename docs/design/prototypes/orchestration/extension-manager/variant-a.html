@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Extension Manager (App Store)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Template Library — horizontal scroll */
+    .template-library { margin-bottom: 32px; }
+    .template-scroll {
+      display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px;
+      scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    }
+    .template-scroll::-webkit-scrollbar { height: 4px; }
+    .template-scroll::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+    .template-card {
+      min-width: 220px; max-width: 220px; padding: 20px; border-radius: var(--radius-lg);
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      transition: all var(--transition-normal); cursor: default; scroll-snap-align: start;
+      display: flex; flex-direction: column; position: relative; overflow: hidden;
+    }
+    .template-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent-emphasis), var(--done-fg));
+      opacity: 0; transition: opacity var(--transition-normal);
+    }
+    .template-card:hover { border-color: var(--border-accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .template-card:hover::before { opacity: 1; }
+    .tpl-icon { font-size: 28px; margin-bottom: 10px; }
+    .tpl-name { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .tpl-desc { font-size: 0.75rem; color: var(--text-tertiary); line-height: 1.5; flex: 1; margin-bottom: 12px; }
+    .tpl-hooks { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+    .tpl-hook-chip {
+      font-size: 0.5625rem; padding: 2px 6px; border-radius: 4px;
+      background: var(--accent-muted, rgba(99,102,241,0.1)); color: var(--accent-fg);
+      font-family: "JetBrains Mono", monospace; white-space: nowrap;
+    }
+    .btn-install {
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 6px 14px; border-radius: var(--radius-md); font-size: 0.75rem; font-weight: 600;
+      background: var(--accent-emphasis); color: #fff; border: none; cursor: pointer;
+      transition: all var(--transition-fast); width: 100%;
+    }
+    .btn-install:hover { filter: brightness(1.15); box-shadow: var(--shadow-glow-accent); }
+    .btn-install.installed {
+      background: transparent; border: 1px solid var(--success-fg); color: var(--success-fg); cursor: default;
+    }
+
+    /* Installed Extensions Grid */
+    .ext-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .ext-card {
+      padding: 20px; border-radius: var(--radius-lg);
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      transition: all var(--transition-normal); position: relative;
+    }
+    .ext-card:hover { border-color: var(--border-accent); box-shadow: var(--shadow-md); }
+    .ext-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+    .ext-name { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
+    .ext-desc { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px; }
+    .ext-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .ext-hooks { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+    .ext-hook {
+      font-size: 0.625rem; padding: 2px 7px; border-radius: 4px;
+      background: var(--accent-muted, rgba(99,102,241,0.1)); color: var(--accent-fg);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .ext-path {
+      font-size: 0.6875rem; color: var(--text-tertiary); font-family: "JetBrains Mono", monospace;
+      margin-bottom: 14px; word-break: break-all;
+    }
+    .ext-actions { display: flex; gap: 6px; align-items: center; }
+    .ext-actions .btn { font-size: 0.6875rem; padding: 5px 10px; }
+
+    /* Toggle switch */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; }
+    .toggle-label { font-size: 0.6875rem; color: var(--text-tertiary); font-weight: 500; }
+    .toggle {
+      position: relative; width: 36px; height: 20px; cursor: pointer;
+      background: var(--border-default); border-radius: 10px; border: none;
+      transition: background var(--transition-fast);
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; transition: transform var(--transition-fast);
+    }
+    .toggle.active { background: var(--success-fg); }
+    .toggle.active::after { transform: translateX(16px); }
+
+    /* Scope badge */
+    .badge-scope-project { background: rgba(99,102,241,0.12); color: var(--accent-fg); }
+    .badge-scope-user { background: rgba(161,161,170,0.12); color: var(--neutral-fg); }
+
+    /* Validation badge */
+    .validation-ok { color: var(--success-fg); }
+    .validation-warn { color: var(--warning-fg); }
+    .validation-err { color: var(--danger-fg); }
+
+    /* Section header */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+    }
+    .section-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+    .section-count {
+      font-size: 0.6875rem; color: var(--text-tertiary); background: var(--canvas-inset);
+      padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+    }
+
+    /* Hook coverage matrix */
+    .coverage-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 16px; }
+    .coverage-table th {
+      text-align: left; padding: 8px 10px; font-weight: 600; color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-default); font-size: 0.6875rem;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .coverage-table th.hook-col {
+      text-align: center; writing-mode: vertical-lr; transform: rotate(180deg);
+      font-family: "JetBrains Mono", monospace; font-size: 0.5625rem; padding: 6px 3px;
+      max-width: 32px; white-space: nowrap; letter-spacing: 0;
+    }
+    .coverage-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-muted); }
+    .coverage-table td.hook-cell { text-align: center; font-size: 0.8125rem; }
+    .coverage-table tr:hover td { background: var(--canvas-overlay); }
+    .ext-name-cell { font-weight: 500; color: var(--text-primary); }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .filter-chip {
+      font-size: 0.6875rem; padding: 4px 12px; border-radius: 20px; cursor: pointer;
+      background: var(--canvas-inset); border: 1px solid var(--border-default);
+      color: var(--text-secondary); transition: all var(--transition-fast);
+    }
+    .filter-chip:hover { border-color: var(--accent-fg); color: var(--text-primary); }
+    .filter-chip.active { background: var(--accent-muted, rgba(99,102,241,0.12)); border-color: var(--accent-emphasis); color: var(--accent-fg); }
+
+    /* Tabs */
+    .view-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border-default); margin-bottom: 20px; }
+    .view-tab {
+      padding: 10px 18px; font-size: 0.8125rem; font-weight: 500; color: var(--text-tertiary);
+      cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--transition-fast);
+      background: none; border-top: none; border-left: none; border-right: none;
+    }
+    .view-tab:hover { color: var(--text-primary); }
+    .view-tab.active { color: var(--accent-fg); border-bottom-color: var(--accent-fg); }
+
+    .tab-panel { display: none; animation: fadeIn 0.2s ease; }
+    .tab-panel.active { display: block; }
+
+    /* Empty state for create prompt */
+    .create-cta {
+      display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+      border-radius: var(--radius-lg); border: 1px dashed var(--border-default);
+      background: var(--canvas-inset); margin-top: 14px; cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .create-cta:hover { border-color: var(--accent-fg); background: var(--accent-muted, rgba(99,102,241,0.06)); }
+    .create-cta-icon { font-size: 20px; color: var(--accent-fg); }
+    .create-cta-text { font-size: 0.8125rem; color: var(--text-secondary); }
+    .create-cta-text strong { color: var(--text-primary); display: block; margin-bottom: 2px; }
+
+    /* Toast notification */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+      border-radius: var(--radius-lg); background: var(--canvas-overlay);
+      border: 1px solid var(--border-default); box-shadow: var(--shadow-lg);
+      font-size: 0.8125rem; color: var(--text-primary); z-index: 1000;
+      transform: translateY(80px); opacity: 0; transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Extension Manager</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-b.html" class="btn btn-sm btn-ghost">Dev Tools Panel</a>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <h1 class="page-title" style="margin-bottom:0;">Extension Manager</h1>
+            <button class="btn btn-primary btn-sm" onclick="showToast('Create wizard coming soon…')" style="display:inline-flex;align-items:center;gap:5px;">
+              <span style="font-size:14px;">+</span> New Extension
+            </button>
+          </div>
+          <p class="page-subtitle" style="margin-bottom:28px;">Browse, install, and manage Copilot CLI extensions</p>
+
+          <!-- View Tabs -->
+          <div class="view-tabs">
+            <button class="view-tab active" data-tab="cards">Extensions</button>
+            <button class="view-tab" data-tab="matrix">Hook Coverage</button>
+          </div>
+
+          <!-- TAB: Cards -->
+          <div class="tab-panel active" id="tab-cards">
+            <!-- Template Library -->
+            <div class="template-library">
+              <div class="section-header">
+                <div style="display:flex;align-items:center;">
+                  <span class="section-title">Template Library</span>
+                  <span class="section-count" id="templateCount"></span>
+                </div>
+                <span style="font-size:0.6875rem;color:var(--text-placeholder);">← Scroll for more →</span>
+              </div>
+              <div class="template-scroll" id="templateScroll"></div>
+            </div>
+
+            <!-- Installed Extensions -->
+            <div>
+              <div class="section-header">
+                <div style="display:flex;align-items:center;">
+                  <span class="section-title">Installed Extensions</span>
+                  <span class="section-count" id="installedCount"></span>
+                </div>
+                <div class="filter-bar">
+                  <button class="filter-chip active" data-filter="all">All</button>
+                  <button class="filter-chip" data-filter="active">Active</button>
+                  <button class="filter-chip" data-filter="disabled">Disabled</button>
+                  <button class="filter-chip" data-filter="project">Project</button>
+                  <button class="filter-chip" data-filter="user">User</button>
+                </div>
+              </div>
+              <div class="ext-grid" id="extGrid"></div>
+              <div class="create-cta" onclick="showToast('Create wizard coming soon…')">
+                <span class="create-cta-icon">🧩</span>
+                <div class="create-cta-text">
+                  <strong>Create a Custom Extension</strong>
+                  Write a .mjs hook that plugs into session lifecycle events
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: Hook Coverage Matrix -->
+          <div class="tab-panel" id="tab-matrix">
+            <div class="section-header">
+              <span class="section-title">Hook Coverage Matrix</span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="coverage-table" id="coverageTable"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('extensions');
+    initTheme();
+
+    // --- Extension template library (6 pre-built patterns) ---
+    const TEMPLATES = [
+      { id: 'auto-lint', name: 'Auto-Lint', icon: '🧹', desc: 'Run linters automatically after every file edit', hooks: ['onPostToolUse'], installed: true },
+      { id: 'context-injector', name: 'Context Injector', icon: '💉', desc: 'Inject project-specific context at session start', hooks: ['onSessionStart', 'onUserPromptSubmitted'], installed: true },
+      { id: 'tool-guard', name: 'Tool Guard', icon: '🛡️', desc: 'Block dangerous tool executions with configurable rules', hooks: ['onPreToolUse'], installed: true },
+      { id: 'cost-tracker', name: 'Cost Tracker', icon: '💰', desc: 'Track token usage and cost per session in real-time', hooks: ['onPostToolUse', 'onSessionEnd'], installed: true },
+      { id: 'memory-curator', name: 'Memory Curator', icon: '🧠', desc: 'Auto-curate and deduplicate stored memories', hooks: ['onSessionEnd', 'onUserPromptSubmitted'], installed: false },
+      { id: 'session-logger', name: 'Session Logger', icon: '📋', desc: 'Log every session event to a structured JSON file', hooks: ['onSessionStart', 'onSessionEnd', 'onPreToolUse', 'onPostToolUse', 'onErrorOccurred'], installed: false },
+    ];
+
+    // Validation data (mock)
+    const VALIDATION = {
+      'auto-lint': { status: 'ok', label: '✅ Syntax OK' },
+      'context-injector': { status: 'ok', label: '✅ Syntax OK' },
+      'tool-guard': { status: 'warn', label: '⚠️ Unused export' },
+      'cost-tracker': { status: 'ok', label: '✅ Syntax OK' },
+    };
+
+    const ALL_HOOKS = ['onSessionStart', 'onSessionEnd', 'onPreToolUse', 'onPostToolUse', 'onUserPromptSubmitted', 'onErrorOccurred'];
+
+    // --- Render Template Library ---
+    function renderTemplates() {
+      const el = document.getElementById('templateScroll');
+      document.getElementById('templateCount').textContent = TEMPLATES.length;
+      el.innerHTML = TEMPLATES.map(t => `
+        <div class="template-card">
+          <div class="tpl-icon">${t.icon}</div>
+          <div class="tpl-name">${t.name}</div>
+          <div class="tpl-desc">${t.desc}</div>
+          <div class="tpl-hooks">${t.hooks.map(h => `<span class="tpl-hook-chip">${h}</span>`).join('')}</div>
+          <button class="btn-install${t.installed ? ' installed' : ''}" ${t.installed ? 'disabled' : ''} onclick="installTemplate('${t.id}', this)">
+            ${t.installed ? '✓ Installed' : 'Install'}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // --- Render Installed Extensions ---
+    function renderExtensions(filter = 'all') {
+      const el = document.getElementById('extGrid');
+      let exts = ORCH_EXTENSIONS;
+      if (filter === 'active') exts = exts.filter(e => e.status === 'active');
+      else if (filter === 'disabled') exts = exts.filter(e => e.status === 'disabled');
+      else if (filter === 'project') exts = exts.filter(e => e.scope === 'project');
+      else if (filter === 'user') exts = exts.filter(e => e.scope === 'user');
+
+      document.getElementById('installedCount').textContent = exts.length;
+
+      el.innerHTML = exts.map(ext => {
+        const v = VALIDATION[ext.id] || { status: 'ok', label: '✅ Syntax OK' };
+        const vClass = v.status === 'ok' ? 'validation-ok' : v.status === 'warn' ? 'validation-warn' : 'validation-err';
+        return `
+        <div class="ext-card" data-id="${ext.id}">
+          <div class="ext-card-head">
+            <div>
+              <div class="ext-name">${ext.name}</div>
+            </div>
+            <div class="toggle-wrap">
+              <span class="toggle-label">${ext.status === 'active' ? 'Active' : 'Disabled'}</span>
+              <button class="toggle ${ext.status === 'active' ? 'active' : ''}" onclick="toggleExtension('${ext.id}', this)" title="Toggle extension"></button>
+            </div>
+          </div>
+          <div class="ext-desc">${ext.description}</div>
+          <div class="ext-meta">
+            <span class="badge badge-sm badge-scope-${ext.scope}">${ext.scope === 'project' ? '📁 Project' : '👤 User'}</span>
+            <span class="badge badge-sm ${vClass}" style="background:transparent;padding-left:0;">${v.label}</span>
+          </div>
+          <div class="ext-hooks">${ext.hooks.map(h => `<span class="ext-hook">${h}</span>`).join('')}</div>
+          <div class="ext-path">${ext.path}</div>
+          <div class="ext-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('Validating ${ext.name}…')">Validate</button>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('Opening editor for ${ext.name}…')">Edit</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger-fg);" onclick="showToast('${ext.name} would be deleted')">Delete</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // --- Render Hook Coverage Matrix ---
+    function renderCoverage() {
+      const table = document.getElementById('coverageTable');
+      const hookHeaders = ALL_HOOKS.map(h => `<th class="hook-col">${h}</th>`).join('');
+      let rows = ORCH_EXTENSIONS.map(ext => {
+        const cells = ALL_HOOKS.map(h => {
+          const has = ext.hooks.includes(h);
+          return `<td class="hook-cell">${has ? '<span style="color:var(--success-fg);">●</span>' : '<span style="color:var(--border-default);">○</span>'}</td>`;
+        }).join('');
+        const v = VALIDATION[ext.id] || { status: 'ok', label: '✅' };
+        const statusBadge = ext.status === 'active'
+          ? '<span class="badge badge-sm badge-success">active</span>'
+          : '<span class="badge badge-sm badge-neutral">disabled</span>';
+        return `<tr>
+          <td class="ext-name-cell">${ext.name}</td>
+          <td>${statusBadge}</td>
+          <td><span class="badge badge-sm badge-scope-${ext.scope}">${ext.scope}</span></td>
+          ${cells}
+          <td style="font-size:0.8125rem;">${v.label.split(' ')[0]}</td>
+        </tr>`;
+      }).join('');
+      table.innerHTML = `
+        <thead><tr>
+          <th>Extension</th><th>Status</th><th>Scope</th>
+          ${hookHeaders}
+          <th>Valid</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>`;
+    }
+
+    // --- Interactivity ---
+    function toggleExtension(id, btn) {
+      const ext = ORCH_EXTENSIONS.find(e => e.id === id);
+      if (!ext) return;
+      ext.status = ext.status === 'active' ? 'disabled' : 'active';
+      btn.classList.toggle('active');
+      const label = btn.previousElementSibling;
+      label.textContent = ext.status === 'active' ? 'Active' : 'Disabled';
+      showToast(`${ext.name} ${ext.status}`);
+    }
+
+    function installTemplate(id, btn) {
+      const tpl = TEMPLATES.find(t => t.id === id);
+      if (!tpl || tpl.installed) return;
+      tpl.installed = true;
+      btn.classList.add('installed');
+      btn.disabled = true;
+      btn.textContent = '✓ Installed';
+      showToast(`Installed ${tpl.name}`);
+    }
+
+    // Filter chips
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        renderExtensions(chip.dataset.filter);
+      });
+    });
+
+    // View tabs
+    document.querySelectorAll('.view-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Toast
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // --- Init ---
+    renderTemplates();
+    renderExtensions();
+    renderCoverage();
+  </script>
+</body>
+</html>

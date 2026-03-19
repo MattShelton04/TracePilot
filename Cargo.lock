@@ -3583,6 +3583,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
 name = "siphasher"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4547,6 +4553,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracepilot-orchestrator"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "similar",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "tracepilot-tauri-bindings"
 version = "0.2.0"
 dependencies = [
@@ -4559,6 +4581,7 @@ dependencies = [
  "toml 0.8.2",
  "tracepilot-core",
  "tracepilot-indexer",
+ "tracepilot-orchestrator",
  "tracing",
  "uuid",
 ]

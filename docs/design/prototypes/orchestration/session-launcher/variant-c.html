@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Launcher (Split Panel)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Split layout */
+    .split-layout { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: 100%; }
+    .split-left { overflow-y: auto; padding: 28px; }
+    .split-right {
+      background: var(--canvas-subtle); border-left: 1px solid var(--border-default);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .split-right-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .split-right-body { flex: 1; padding: 20px; overflow-y: auto; }
+    .split-right-footer {
+      padding: 16px 20px; border-top: 1px solid var(--border-default);
+      background: var(--canvas-default);
+    }
+
+    @media (max-width: 1100px) {
+      .split-layout { grid-template-columns: 1fr; }
+      .split-right { border-left: none; border-top: 1px solid var(--border-default); max-height: 300px; }
+    }
+
+    /* Form sections */
+    .form-section { margin-bottom: 22px; }
+    .form-section-title {
+      font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-group { display: flex; flex-direction: column; }
+
+    /* Template dropdown */
+    .tpl-option { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+
+    /* Toggle rows */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-info .t-label { font-size: 0.8125rem; font-weight: 500; }
+    .toggle-info .t-desc { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 1px; }
+
+    /* Advanced */
+    .adv-trigger {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary);
+      background: none; border: none; padding: 8px 0; transition: color var(--transition-fast);
+    }
+    .adv-trigger:hover { color: var(--text-primary); }
+    .adv-trigger .chevron { transition: transform var(--transition-normal); font-size: 10px; }
+    .adv-trigger.open .chevron { transform: rotate(90deg); }
+    .adv-body { display: none; animation: fadeIn 0.2s ease; }
+    .adv-body.show { display: block; }
+
+    /* Env vars */
+    .env-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .env-row .form-input { flex: 1; }
+    .env-rm { background: none; border: none; color: var(--danger-fg); cursor: pointer; padding: 4px; font-size: 14px; }
+
+    /* Right panel: command preview */
+    .cmd-block {
+      background: var(--canvas-inset); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); padding: 12px 14px;
+      font-family: "JetBrains Mono", monospace; font-size: 0.6875rem;
+      line-height: 1.8; color: var(--success-fg); overflow-x: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .cmd-block .cmd-flag { color: var(--accent-fg); }
+    .cmd-block .cmd-val { color: var(--text-primary); }
+
+    /* Metadata preview */
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+    .meta-item {
+      padding: 10px 12px; background: var(--canvas-default); border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+    .meta-item .meta-label { font-size: 0.625rem; color: var(--text-placeholder); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 3px; }
+    .meta-item .meta-value { font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .meta-item .meta-value.accent { color: var(--accent-fg); }
+    .meta-item .meta-value.warning { color: var(--warning-fg); }
+    .meta-item .meta-value.success { color: var(--success-fg); }
+
+    /* Config summary in right panel */
+    .config-summary { margin-bottom: 18px; }
+    .config-row {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle); font-size: 0.75rem;
+    }
+    .config-row:last-child { border-bottom: none; }
+    .config-key { color: var(--text-tertiary); }
+    .config-val { color: var(--text-primary); font-weight: 500; }
+
+    /* Divider */
+    .right-divider { height: 1px; background: var(--border-subtle); margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Session Launcher</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-a.html" class="btn btn-sm btn-ghost">Wizard</a>
+          <a href="variant-b.html" class="btn btn-sm btn-ghost">Single Page</a>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- LEFT: Configuration Form -->
+        <div class="split-left">
+          <h1 class="page-title" style="margin-bottom:4px;">Launch Session</h1>
+          <p class="page-subtitle" style="margin-bottom:24px;">Configure and launch a new Copilot CLI session</p>
+
+          <!-- Template Picker -->
+          <div class="form-section">
+            <div class="form-section-title">Template</div>
+            <select class="filter-select w-full" id="templateSelect" onchange="applyTemplate()">
+              <option value="">— Start from scratch —</option>
+            </select>
+          </div>
+
+          <!-- Repository & Branch -->
+          <div class="form-section">
+            <div class="form-section-title">Repository</div>
+            <div class="section-panel" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Repository</label>
+                  <select class="filter-select w-full" id="repoSelect" onchange="updateBranches();liveUpdate()"></select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Branch</label>
+                  <select class="filter-select w-full" id="branchSelect" onchange="liveUpdate()"></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model & Reasoning -->
+          <div class="form-section">
+            <div class="form-section-title">Model</div>
+            <div class="section-panel" style="padding:16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Model</label>
+                  <select class="filter-select w-full" id="modelSelect" onchange="liveUpdate()"></select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Reasoning Effort</label>
+                  <div class="btn-group" id="reasoningGroup" style="margin-top:2px;">
+                    <button class="btn btn-sm" data-val="low" onclick="setReasoning('low')">Low</button>
+                    <button class="btn btn-sm active" data-val="medium" onclick="setReasoning('medium')">Medium</button>
+                    <button class="btn btn-sm" data-val="high" onclick="setReasoning('high')">High</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompt -->
+          <div class="form-section">
+            <div class="form-section-title">Initial Prompt</div>
+            <textarea class="form-input" id="promptInput" rows="4" placeholder="Describe the task for Copilot CLI to perform..." oninput="liveUpdate()" style="resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+          </div>
+
+          <!-- Advanced Options -->
+          <div class="form-section">
+            <button class="adv-trigger" id="advTrigger" onclick="toggleAdvanced()">
+              <span class="chevron">▶</span> Advanced Options
+            </button>
+            <div class="adv-body" id="advBody">
+              <div class="section-panel" style="padding:16px;">
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="t-label">Auto-approve</div>
+                    <div class="t-desc">Skip tool-use confirmations</div>
+                  </div>
+                  <div class="form-switch" id="autoApproveSwitch" onclick="toggleSwitch(this);liveUpdate()"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="t-label">Create Worktree</div>
+                    <div class="t-desc">Isolate changes in a git worktree</div>
+                  </div>
+                  <div class="form-switch on" id="worktreeSwitch" onclick="toggleSwitch(this);liveUpdate()"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="t-label">Headless Mode</div>
+                    <div class="t-desc">Run without interactive terminal</div>
+                  </div>
+                  <div class="form-switch" id="headlessSwitch" onclick="toggleSwitch(this);liveUpdate()"></div>
+                </div>
+                <div style="margin-top:14px;">
+                  <label class="form-label">Custom Instructions Path</label>
+                  <input class="form-input" id="instructionsPath" placeholder=".github/copilot-instructions.md" oninput="liveUpdate()" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;">
+                </div>
+                <div style="margin-top:14px;">
+                  <label class="form-label">Environment Variables</label>
+                  <div id="envVars">
+                    <div class="env-row">
+                      <input class="form-input" placeholder="Key" style="font-family:monospace;font-size:0.75rem;">
+                      <input class="form-input" placeholder="Value" style="font-family:monospace;font-size:0.75rem;">
+                      <button class="env-rm" onclick="this.parentElement.remove()">✕</button>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-ghost" style="margin-top:6px;" onclick="addEnvVar()">+ Add Variable</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Live Preview -->
+        <div class="split-right">
+          <div class="split-right-header">Live Preview</div>
+          <div class="split-right-body">
+            <!-- Session Metadata -->
+            <div class="meta-grid" id="metaGrid">
+              <div class="meta-item">
+                <div class="meta-label">Est. Cost</div>
+                <div class="meta-value accent" id="metaCost">~$0.20</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Model Tier</div>
+                <div class="meta-value" id="metaTier">standard</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Budget Used</div>
+                <div class="meta-value warning" id="metaBudget">62%</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Active Sessions</div>
+                <div class="meta-value success" id="metaSessions">4</div>
+              </div>
+            </div>
+
+            <!-- Config summary -->
+            <div class="config-summary" id="configSummary"></div>
+
+            <div class="right-divider"></div>
+
+            <!-- Command preview -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;">CLI Command</div>
+              <button class="btn btn-sm btn-ghost" onclick="copyCmd()">📋 Copy</button>
+            </div>
+            <div class="cmd-block" id="cmdPreview"></div>
+          </div>
+
+          <div class="split-right-footer">
+            <div style="display:flex;gap:8px;">
+              <button class="btn" style="flex:1;" onclick="alert('Launching headless session...')">Launch Headless</button>
+              <button class="btn btn-primary" style="flex:2;" onclick="alert('🚀 Launching session...')">
+                🚀 Launch Session
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateOrchSidebar('launcher');
+      populateAll();
+      liveUpdate();
+    });
+
+    let reasoning = 'medium';
+
+    function populateAll() {
+      // Templates
+      const tplSel = document.getElementById('templateSelect');
+      ORCH_TEMPLATES.forEach(t => {
+        tplSel.innerHTML += `<option value="${t.id}">${t.icon} ${t.name} — ${t.description}</option>`;
+      });
+      // Repos
+      const repoSel = document.getElementById('repoSelect');
+      ORCH_REPOS.forEach(r => {
+        repoSel.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+      });
+      updateBranches();
+      // Models
+      const modelSel = document.getElementById('modelSelect');
+      ORCH_MODELS.forEach(m => {
+        modelSel.innerHTML += `<option value="${m.id}">${m.icon} ${m.name} (${m.tier})</option>`;
+      });
+    }
+
+    function updateBranches() {
+      const repo = ORCH_REPOS.find(r => r.id === document.getElementById('repoSelect').value);
+      const sel = document.getElementById('branchSelect');
+      sel.innerHTML = '';
+      if (repo) repo.branches.forEach(b => { sel.innerHTML += `<option>${b}</option>`; });
+    }
+
+    function applyTemplate() {
+      const id = document.getElementById('templateSelect').value;
+      if (!id) return;
+      const t = ORCH_TEMPLATES.find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('modelSelect').value = t.model;
+      setReasoning(t.reasoning);
+      if (t.autoApprove) document.getElementById('autoApproveSwitch').classList.add('on');
+      else document.getElementById('autoApproveSwitch').classList.remove('on');
+      liveUpdate();
+    }
+
+    function setReasoning(val) {
+      reasoning = val;
+      document.querySelectorAll('#reasoningGroup .btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.val === val);
+      });
+      liveUpdate();
+    }
+
+    function toggleSwitch(el) { el.classList.toggle('on'); }
+
+    function toggleAdvanced() {
+      document.getElementById('advTrigger').classList.toggle('open');
+      document.getElementById('advBody').classList.toggle('show');
+    }
+
+    function addEnvVar() {
+      const row = document.createElement('div');
+      row.className = 'env-row';
+      row.innerHTML = `<input class="form-input" placeholder="Key" style="font-family:monospace;font-size:0.75rem;">
+        <input class="form-input" placeholder="Value" style="font-family:monospace;font-size:0.75rem;">
+        <button class="env-rm" onclick="this.parentElement.remove()">✕</button>`;
+      document.getElementById('envVars').appendChild(row);
+    }
+
+    function getConfig() {
+      const repo = ORCH_REPOS.find(r => r.id === document.getElementById('repoSelect').value);
+      const branch = document.getElementById('branchSelect').value;
+      const model = document.getElementById('modelSelect').value;
+      const prompt = document.getElementById('promptInput').value;
+      const autoApprove = document.getElementById('autoApproveSwitch').classList.contains('on');
+      const worktree = document.getElementById('worktreeSwitch').classList.contains('on');
+      const headless = document.getElementById('headlessSwitch').classList.contains('on');
+      const instructions = document.getElementById('instructionsPath').value;
+      const tplId = document.getElementById('templateSelect').value;
+      const tpl = tplId ? ORCH_TEMPLATES.find(x => x.id === tplId) : null;
+      return { repo, branch, model, prompt, autoApprove, worktree, headless, instructions, reasoning, tpl };
+    }
+
+    function liveUpdate() {
+      const c = getConfig();
+      const m = ORCH_MODELS.find(x => x.id === c.model);
+      const tier = m ? m.tier : 'standard';
+
+      // Metadata cards
+      const costMap = { premium: '~$0.80–$2.50', standard: '~$0.20–$0.80', fast: '~$0.05–$0.20' };
+      document.getElementById('metaCost').textContent = costMap[tier] || costMap.standard;
+      document.getElementById('metaTier').textContent = tier;
+      document.getElementById('metaTier').className = 'meta-value' + (tier === 'premium' ? ' accent' : '');
+      const budgetPct = Math.round((ORCH_BUDGET.premiumRequests.used / ORCH_BUDGET.premiumRequests.limit) * 100);
+      document.getElementById('metaBudget').textContent = budgetPct + '%';
+      document.getElementById('metaSessions').textContent = ORCH_ACTIVE_SESSIONS.length;
+
+      // Config summary
+      const tplName = c.tpl ? c.tpl.icon + ' ' + c.tpl.name : 'None';
+      document.getElementById('configSummary').innerHTML = `
+        <div class="config-row"><span class="config-key">Template</span><span class="config-val">${tplName}</span></div>
+        <div class="config-row"><span class="config-key">Repository</span><span class="config-val">${c.repo ? c.repo.name : '—'}</span></div>
+        <div class="config-row"><span class="config-key">Branch</span><span class="config-val">${c.branch || '—'}</span></div>
+        <div class="config-row"><span class="config-key">Model</span><span class="config-val">${m ? m.icon + ' ' + m.name : c.model}</span></div>
+        <div class="config-row"><span class="config-key">Reasoning</span><span class="config-val">${c.reasoning}</span></div>
+        <div class="config-row"><span class="config-key">Auto-approve</span><span class="config-val">${c.autoApprove ? '✅' : '❌'}</span></div>
+        <div class="config-row"><span class="config-key">Worktree</span><span class="config-val">${c.worktree ? '✅' : '❌'}</span></div>
+        <div class="config-row"><span class="config-key">Headless</span><span class="config-val">${c.headless ? '✅' : '❌'}</span></div>
+        ${c.prompt ? `<div class="config-row"><span class="config-key">Prompt</span><span class="config-val" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.prompt.substring(0, 50)}${c.prompt.length > 50 ? '…' : ''}</span></div>` : ''}
+      `;
+
+      // Command preview
+      let cmd = `copilot-cli`;
+      if (c.repo) cmd += ` \\\n  <span class="cmd-flag">--repo</span> <span class="cmd-val">${c.repo.path}</span>`;
+      if (c.branch) cmd += ` \\\n  <span class="cmd-flag">--branch</span> <span class="cmd-val">${c.branch}</span>`;
+      cmd += ` \\\n  <span class="cmd-flag">--model</span> <span class="cmd-val">${c.model}</span>`;
+      cmd += ` \\\n  <span class="cmd-flag">--reasoning</span> <span class="cmd-val">${c.reasoning}</span>`;
+      if (c.autoApprove) cmd += ` \\\n  <span class="cmd-flag">--auto-approve</span>`;
+      if (c.worktree) cmd += ` \\\n  <span class="cmd-flag">--worktree</span>`;
+      if (c.headless) cmd += ` \\\n  <span class="cmd-flag">--headless</span>`;
+      if (c.instructions) cmd += ` \\\n  <span class="cmd-flag">--instructions</span> <span class="cmd-val">${c.instructions}</span>`;
+      if (c.prompt) cmd += ` \\\n  <span class="cmd-flag">--prompt</span> <span class="cmd-val">"${c.prompt.substring(0, 60)}${c.prompt.length > 60 ? '...' : ''}"</span>`;
+      document.getElementById('cmdPreview').innerHTML = cmd;
+    }
+
+    function copyCmd() {
+      const text = document.getElementById('cmdPreview').textContent;
+      navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
+    }
+  </script>
+</body>
+</html>
