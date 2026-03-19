@@ -130,11 +130,49 @@ fn home_dir() -> Option<std::path::PathBuf> {
 fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
     match Command::new(name).args(args).output() {
         Ok(output) if output.status.success() => {
-            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let version = extract_version(&raw).unwrap_or(raw);
             (true, Some(version))
         }
         _ => (false, None),
     }
+}
+
+/// Extract a semver-like version number from a string.
+/// E.g. "GitHub Copilot CLI 1.0.9. Run ..." → "1.0.9"
+/// E.g. "git version 2.45.0.windows.1" → "2.45.0"
+fn extract_version(s: &str) -> Option<String> {
+    // Find first occurrence of digit.digit.digit pattern
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            // Try to match \d+\.\d+\.\d+
+            while i < bytes.len() && bytes[i].is_ascii_digit() {
+                i += 1;
+            }
+            if i < bytes.len() && bytes[i] == b'.' {
+                i += 1;
+                if i < bytes.len() && bytes[i].is_ascii_digit() {
+                    while i < bytes.len() && bytes[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                    if i < bytes.len() && bytes[i] == b'.' {
+                        i += 1;
+                        if i < bytes.len() && bytes[i].is_ascii_digit() {
+                            while i < bytes.len() && bytes[i].is_ascii_digit() {
+                                i += 1;
+                            }
+                            return Some(s[start..i].to_string());
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    None
 }
 
 #[cfg(test)]
@@ -152,5 +190,19 @@ mod tests {
     fn test_home_dir_returns_something() {
         // Should always return Some on developer machines
         assert!(home_dir().is_some());
+    }
+
+    #[test]
+    fn test_extract_version() {
+        assert_eq!(
+            extract_version("GitHub Copilot CLI 1.0.9. Run 'copilot update' to check for updates."),
+            Some("1.0.9".to_string())
+        );
+        assert_eq!(
+            extract_version("git version 2.45.0.windows.1"),
+            Some("2.45.0".to_string())
+        );
+        assert_eq!(extract_version("1.0.8"), Some("1.0.8".to_string()));
+        assert_eq!(extract_version("no version here"), None);
     }
 }
