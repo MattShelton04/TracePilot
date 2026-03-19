@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Config Injector — Accordion | TracePilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* === Config Injector — Variant B: Accordion/Expandable === */
+    .warning-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: var(--radius-md);
+      background: var(--warning-subtle); border: 1px solid var(--warning-muted);
+      color: var(--warning-fg); font-size: 0.8125rem; margin-bottom: 20px;
+    }
+    .warning-banner code {
+      background: var(--warning-muted); padding: 1px 6px; border-radius: 4px;
+      font-family: "JetBrains Mono", monospace; font-size: 0.75rem;
+    }
+    .page-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .page-title-row h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    /* Accordion */
+    .accordion { display: flex; flex-direction: column; gap: 12px; }
+    .accordion-section {
+      background: var(--canvas-subtle); background-image: var(--gradient-card);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      overflow: hidden; transition: all var(--transition-normal);
+    }
+    .accordion-section:hover { border-color: var(--border-accent); }
+    .accordion-header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      cursor: pointer; user-select: none; transition: background var(--transition-fast);
+    }
+    .accordion-header:hover { background: var(--neutral-subtle); }
+    .accordion-chevron {
+      width: 16px; height: 16px; color: var(--text-tertiary); transition: transform var(--transition-normal);
+      flex-shrink: 0;
+    }
+    .accordion-section.open .accordion-chevron { transform: rotate(90deg); }
+    .accordion-icon { font-size: 20px; flex-shrink: 0; }
+    .accordion-title { font-size: 0.9375rem; font-weight: 600; flex: 1; }
+    .accordion-badge { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .accordion-body {
+      max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .accordion-section.open .accordion-body { max-height: 2000px; }
+    .accordion-content { padding: 0 18px 18px; border-top: 1px solid var(--border-subtle); }
+
+    /* Agent inline cards */
+    .agent-stack { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; }
+    .agent-inline {
+      background: var(--canvas-default); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); overflow: hidden; transition: all var(--transition-normal);
+    }
+    .agent-inline:hover { border-color: var(--border-accent); }
+    .agent-inline-header {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      cursor: pointer; user-select: none;
+    }
+    .agent-inline-header:hover { background: var(--neutral-subtle); }
+    .agent-inline-icon { font-size: 22px; }
+    .agent-inline-name { font-weight: 600; font-size: 0.875rem; flex: 1; }
+    .agent-inline-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .agent-inline.open .agent-inline-body { max-height: 600px; }
+    .agent-inline-content { padding: 0 14px 14px; }
+    .agent-personality { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 10px; font-style: italic; }
+    .agent-tools { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+    .agent-tool-tag { padding: 2px 7px; border-radius: var(--radius-full); font-size: 0.6875rem; background: var(--neutral-subtle); color: var(--text-tertiary); border: 1px solid var(--border-subtle); }
+    .agent-model-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .agent-model-row select {
+      flex: 1; min-width: 160px; padding: 6px 28px 6px 10px;
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.8125rem;
+      outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+    }
+    .agent-model-row select:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .btn-upgrade { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; border: none; font-size: 0.75rem; padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+    .btn-upgrade:hover { opacity: 0.9; box-shadow: 0 2px 8px rgba(124,58,237,0.4); }
+
+    /* Config form */
+    .config-form { display: flex; flex-direction: column; gap: 16px; padding-top: 14px; max-width: 600px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+    .form-input {
+      padding: 7px 12px; background: var(--canvas-default); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.8125rem; outline: none;
+    }
+    .form-input:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .toggle-group { display: flex; gap: 0; }
+    .toggle-opt {
+      padding: 6px 14px; font-size: 0.8125rem; font-weight: 500; cursor: pointer;
+      border: 1px solid var(--border-default); background: var(--canvas-default); color: var(--text-tertiary);
+      transition: all var(--transition-fast);
+    }
+    .toggle-opt:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .toggle-opt:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .toggle-opt:not(:first-child) { margin-left: -1px; }
+    .toggle-opt.active { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--accent-emphasis); z-index: 1; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+    .switch-label { font-size: 0.8125rem; font-weight: 500; }
+    .switch { position: relative; width: 36px; height: 20px; cursor: pointer; }
+    .switch input { display: none; }
+    .switch-track { position: absolute; inset: 0; background: var(--neutral-muted); border-radius: var(--radius-full); transition: background var(--transition-fast); }
+    .switch input:checked + .switch-track { background: var(--accent-emphasis); }
+    .switch-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform var(--transition-fast); box-shadow: var(--shadow-sm); }
+    .switch input:checked ~ .switch-thumb { transform: translateX(16px); }
+    .folder-list { display: flex; flex-direction: column; gap: 6px; }
+    .folder-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--canvas-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.8125rem; font-family: "JetBrains Mono", monospace; }
+    .folder-item .btn-ghost { padding: 2px 4px; }
+
+    /* Diff preview inline */
+    .diff-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .diff-panel { background: var(--canvas-default); border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+    .diff-panel-header { padding: 8px 12px; font-size: 0.75rem; font-weight: 600; border-bottom: 1px solid var(--border-default); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+    .diff-panel-header.before { color: var(--danger-fg); }
+    .diff-panel-header.after { color: var(--success-fg); }
+    .diff-content { padding: 10px 12px; font-family: "JetBrains Mono", monospace; font-size: 0.75rem; line-height: 1.7; white-space: pre; overflow-x: auto; }
+    .diff-line-removed { color: var(--danger-fg); background: var(--danger-subtle); display: block; padding: 0 4px; margin: 0 -4px; border-radius: 2px; }
+    .diff-line-added { color: var(--success-fg); background: var(--success-subtle); display: block; padding: 0 4px; margin: 0 -4px; border-radius: 2px; }
+    .diff-line-unchanged { color: var(--text-tertiary); display: block; }
+
+    /* Env table */
+    .env-table { width: 100%; margin-top: 14px; }
+    .env-table th { text-align: left; padding: 8px 14px; font-size: 0.6875rem; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border-default); }
+    .env-table td { padding: 8px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 0.8125rem; }
+    .env-table tbody tr:hover { background: var(--neutral-subtle); }
+    .env-key { font-family: "JetBrains Mono", monospace; font-weight: 600; color: var(--accent-fg); }
+    .env-value input { background: transparent; border: 1px solid transparent; color: var(--text-primary); font-family: "JetBrains Mono", monospace; font-size: 0.8125rem; padding: 3px 6px; border-radius: var(--radius-sm); width: 100%; }
+    .env-value input:focus { border-color: var(--accent-emphasis); background: var(--canvas-default); outline: none; }
+    .scope-toggle { display: inline-flex; gap: 0; font-size: 0.6875rem; }
+    .scope-toggle span { padding: 2px 8px; cursor: pointer; border: 1px solid var(--border-default); color: var(--text-tertiary); }
+    .scope-toggle span:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .scope-toggle span:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-left: -1px; }
+    .scope-toggle span.active { background: var(--accent-muted); color: var(--accent-fg); border-color: var(--accent-emphasis); z-index: 1; }
+
+    /* Backups */
+    .backup-list { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; }
+    .backup-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--canvas-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+    .backup-meta { flex: 1; }
+    .backup-name { font-size: 0.8125rem; font-weight: 600; font-family: "JetBrains Mono", monospace; }
+    .backup-date { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+    .backup-size { font-size: 0.75rem; color: var(--text-tertiary); }
+    .backup-actions { display: flex; gap: 6px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">Config Injector</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner">
+          <div class="page-title-row">
+            <h1>⚙️ Config Injector</h1>
+            <button class="btn btn-primary" onclick="alert('All changes applied!')">💾 Apply All Changes</button>
+          </div>
+
+          <div class="warning-banner">
+            <span>⚠️</span>
+            <span>Changes will be overwritten on CLI update. Set <code>COPILOT_AUTO_UPDATE=false</code> to persist your configuration.</span>
+          </div>
+
+          <div class="accordion" id="accordion">
+            <!-- Section 1: Agent Models -->
+            <div class="accordion-section open" data-section="agents">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+                <span class="accordion-icon">🤖</span>
+                <span class="accordion-title">Agent Model Definitions</span>
+                <span class="accordion-badge">5 agents</span>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-content">
+                  <div class="agent-stack" id="agentStack"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Global Config -->
+            <div class="accordion-section" data-section="global">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+                <span class="accordion-icon">📋</span>
+                <span class="accordion-title">Global Configuration</span>
+                <span class="accordion-badge">config.json</span>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-content">
+                  <div class="config-form">
+                    <div class="form-group">
+                      <label>Default Model</label>
+                      <select class="form-input" id="globalModel" onchange="updateDiff()"></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Reasoning Effort</label>
+                      <div class="toggle-group" id="reasoningToggle">
+                        <div class="toggle-opt" onclick="setToggle(this,'low')">Low</div>
+                        <div class="toggle-opt active" onclick="setToggle(this,'medium')">Medium</div>
+                        <div class="toggle-opt" onclick="setToggle(this,'high')">High</div>
+                      </div>
+                    </div>
+                    <div class="switch-row">
+                      <span class="switch-label">Show Reasoning</span>
+                      <label class="switch"><input type="checkbox" onchange="updateDiff()"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                    </div>
+                    <div class="switch-row">
+                      <span class="switch-label">Render Markdown</span>
+                      <label class="switch"><input type="checkbox" checked onchange="updateDiff()"><span class="switch-track"></span><span class="switch-thumb"></span></label>
+                    </div>
+                    <div class="form-group">
+                      <label>Trusted Folders</label>
+                      <div class="folder-list" id="folderList">
+                        <div class="folder-item"><span style="flex:1">C:\git\TracePilot</span><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove();updateDiff()">✕</button></div>
+                        <div class="folder-item"><span style="flex:1">C:\git\api-server</span><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove();updateDiff()">✕</button></div>
+                      </div>
+                      <button class="btn btn-sm" onclick="addFolder()">+ Add Folder</button>
+                    </div>
+                  </div>
+                  <div class="diff-preview">
+                    <div class="diff-panel">
+                      <div class="diff-panel-header before">← Current</div>
+                      <div class="diff-content" id="diffBefore"></div>
+                    </div>
+                    <div class="diff-panel">
+                      <div class="diff-panel-header after">→ Modified</div>
+                      <div class="diff-content" id="diffAfter"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Environment Variables -->
+            <div class="accordion-section" data-section="env">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+                <span class="accordion-icon">🔧</span>
+                <span class="accordion-title">Environment Variables</span>
+                <span class="accordion-badge">5 vars</span>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-content">
+                  <div style="display:flex;justify-content:flex-end;padding-top:14px;">
+                    <button class="btn btn-sm" onclick="addEnvRow()">+ Add Variable</button>
+                  </div>
+                  <table class="env-table" id="envTable">
+                    <thead><tr><th>Variable</th><th>Value</th><th>Scope</th><th></th></tr></thead>
+                    <tbody id="envBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 4: Backups -->
+            <div class="accordion-section" data-section="backups">
+              <div class="accordion-header" onclick="toggleAccordion(this)">
+                <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+                <span class="accordion-icon">💾</span>
+                <span class="accordion-title">Backups</span>
+                <span class="accordion-badge">4 files</span>
+              </div>
+              <div class="accordion-body">
+                <div class="accordion-content">
+                  <div class="backup-list" id="backupList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('config');
+
+    // --- Accordion toggle ---
+    function toggleAccordion(header) {
+      const section = header.closest('.accordion-section');
+      section.classList.toggle('open');
+    }
+
+    // --- Agent meta ---
+    const AGENT_META = {
+      'explore': { icon: '🔍', personality: 'The Scout — lightning-fast codebase navigator' },
+      'task': { icon: '⚡', personality: 'The Executor — runs commands, reports results' },
+      'code-review': { icon: '📝', personality: 'The Critic — zero noise, maximum signal' },
+      'research': { icon: '🔬', personality: 'The Scholar — deep research and analysis' },
+      'configure-copilot': { icon: '⚙️', personality: 'The Tuner — Copilot settings specialist' },
+    };
+
+    // --- Agent inline cards ---
+    function renderAgents() {
+      const stack = document.getElementById('agentStack');
+      stack.innerHTML = ORCH_AGENT_DEFS.map(agent => {
+        const meta = AGENT_META[agent.id] || { icon: '🤖', personality: '' };
+        const currentModel = ORCH_MODELS.find(m => m.id === agent.model);
+        const canUpgrade = currentModel && currentModel.tier !== 'premium';
+        const toolsHtml = agent.tools.map(t => `<span class="agent-tool-tag">${t}</span>`).join('');
+        const optionsHtml = ORCH_MODELS.map(m => `<option value="${m.id}" ${m.id === agent.model ? 'selected' : ''}>${m.icon} ${m.name} (${m.tier})</option>`).join('');
+        return `
+          <div class="agent-inline" id="agent-${agent.id}">
+            <div class="agent-inline-header" onclick="this.closest('.agent-inline').classList.toggle('open')">
+              <span class="agent-inline-icon">${meta.icon}</span>
+              <span class="agent-inline-name">${agent.name}</span>
+              ${modelTierBadge(agent.model)}
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-tertiary);flex-shrink:0;transition:transform 0.2s"><path d="M4 6l4 4 4-4"/></svg>
+            </div>
+            <div class="agent-inline-body">
+              <div class="agent-inline-content">
+                <div class="agent-personality">"${meta.personality}"</div>
+                <div class="agent-tools">${toolsHtml}</div>
+                <div class="agent-model-row">
+                  <select onchange="changeAgentModel('${agent.id}', this.value)">${optionsHtml}</select>
+                  ${canUpgrade ? `<button class="btn-upgrade" onclick="upgradeAgent('${agent.id}')">⬆ Opus 4.6</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function changeAgentModel(agentId, modelId) {
+      const agent = ORCH_AGENT_DEFS.find(a => a.id === agentId);
+      if (agent) { agent.model = modelId; renderAgents(); }
+    }
+    function upgradeAgent(agentId) { changeAgentModel(agentId, 'claude-opus-4.6'); }
+
+    // --- Global Config ---
+    function populateGlobalModel() {
+      const sel = document.getElementById('globalModel');
+      sel.innerHTML = ORCH_MODELS.map(m => `<option value="${m.id}" ${m.id === 'claude-sonnet-4.6' ? 'selected' : ''}>${m.icon} ${m.name}</option>`).join('');
+    }
+
+    function setToggle(el, value) {
+      el.parentElement.querySelectorAll('.toggle-opt').forEach(o => o.classList.toggle('active', o.textContent.trim().toLowerCase() === value));
+      updateDiff();
+    }
+
+    function updateDiff() {
+      const model = document.getElementById('globalModel')?.value || 'claude-sonnet-4.6';
+      const reasoning = document.querySelector('#reasoningToggle .toggle-opt.active')?.textContent.trim().toLowerCase() || 'medium';
+      document.getElementById('diffBefore').innerHTML =
+        `<span class="diff-line-unchanged">{</span>` +
+        `<span class="diff-line-removed">  "model": "claude-sonnet-4.6",</span>` +
+        `<span class="diff-line-removed">  "reasoningEffort": "medium",</span>` +
+        `<span class="diff-line-unchanged">  "showReasoning": false,</span>` +
+        `<span class="diff-line-unchanged">  "renderMarkdown": true</span>` +
+        `<span class="diff-line-unchanged">}</span>`;
+      document.getElementById('diffAfter').innerHTML =
+        `<span class="diff-line-unchanged">{</span>` +
+        `<span class="diff-line-added">  "model": "${model}",</span>` +
+        `<span class="diff-line-added">  "reasoningEffort": "${reasoning}",</span>` +
+        `<span class="diff-line-unchanged">  "showReasoning": false,</span>` +
+        `<span class="diff-line-unchanged">  "renderMarkdown": true</span>` +
+        `<span class="diff-line-unchanged">}</span>`;
+    }
+
+    function addFolder() {
+      const path = prompt('Enter folder path:', 'C:\\git\\new-project');
+      if (!path) return;
+      const list = document.getElementById('folderList');
+      const item = document.createElement('div');
+      item.className = 'folder-item';
+      item.innerHTML = `<span style="flex:1">${path}</span><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove();updateDiff()">✕</button>`;
+      list.appendChild(item);
+      updateDiff();
+    }
+
+    // --- Environment Variables ---
+    const ENV_VARS = [
+      { key: 'COPILOT_MODEL', value: 'claude-sonnet-4.6', scope: 'global' },
+      { key: 'COPILOT_AUTO_UPDATE', value: 'false', scope: 'global' },
+      { key: 'COPILOT_ALLOW_ALL', value: 'true', scope: 'session' },
+      { key: 'COPILOT_CUSTOM_INSTRUCTIONS_DIRS', value: '.github/copilot', scope: 'global' },
+      { key: 'COPILOT_HOME', value: 'C:\\Users\\dev\\.copilot', scope: 'global' },
+    ];
+
+    function renderEnvTable() {
+      document.getElementById('envBody').innerHTML = ENV_VARS.map((v, i) => `
+        <tr>
+          <td><span class="env-key">${v.key}</span></td>
+          <td class="env-value"><input value="${v.value}" onchange="ENV_VARS[${i}].value=this.value"></td>
+          <td>
+            <div class="scope-toggle">
+              <span class="${v.scope === 'global' ? 'active' : ''}" onclick="ENV_VARS[${i}].scope='global';renderEnvTable()">Global</span>
+              <span class="${v.scope === 'session' ? 'active' : ''}" onclick="ENV_VARS[${i}].scope='session';renderEnvTable()">Session</span>
+            </div>
+          </td>
+          <td><button class="btn btn-ghost btn-sm" onclick="ENV_VARS.splice(${i},1);renderEnvTable()">✕</button></td>
+        </tr>`).join('');
+    }
+
+    function addEnvRow() {
+      const key = prompt('Variable name:', 'COPILOT_NEW_VAR');
+      if (!key) return;
+      ENV_VARS.push({ key, value: '', scope: 'session' });
+      renderEnvTable();
+    }
+
+    // --- Backups ---
+    const BACKUPS = [
+      { name: 'agents.yml.bak.2026-03-19T00-15', date: '2026-03-19 00:15', size: '2.4 KB', type: 'agents' },
+      { name: 'config.json.bak.2026-03-18T23-50', date: '2026-03-18 23:50', size: '1.1 KB', type: 'config' },
+      { name: 'agents.yml.bak.2026-03-18T20-00', date: '2026-03-18 20:00', size: '2.3 KB', type: 'agents' },
+      { name: 'config.json.bak.2026-03-17T14-30', date: '2026-03-17 14:30', size: '1.0 KB', type: 'config' },
+    ];
+
+    function renderBackups() {
+      document.getElementById('backupList').innerHTML = BACKUPS.map(b => `
+        <div class="backup-item">
+          <div style="font-size:20px">${b.type === 'agents' ? '🤖' : '📋'}</div>
+          <div class="backup-meta">
+            <div class="backup-name">${b.name}</div>
+            <div class="backup-date">${b.date}</div>
+          </div>
+          <div class="backup-size">${b.size}</div>
+          <div class="backup-actions">
+            <button class="btn btn-sm" onclick="alert('Restoring ${b.name}')">↩ Restore</button>
+            <button class="btn btn-sm" onclick="alert('Diff for ${b.name}')">⇄ Diff</button>
+            <button class="btn btn-ghost btn-sm" onclick="this.closest('.backup-item').remove()">🗑</button>
+          </div>
+        </div>`).join('');
+    }
+
+    // --- Init ---
+    renderAgents();
+    populateGlobalModel();
+    renderEnvTable();
+    renderBackups();
+    updateDiff();
+  </script>
+</body>
+</html>

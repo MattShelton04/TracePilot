@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Cost &amp; Budget Tracker (Dashboard)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Progress Ring — large hero donut */
+    .budget-hero { display: flex; align-items: center; gap: 32px; padding: 28px; background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-lg); margin-bottom: 20px; }
+    .ring-wrap { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+    .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring-track { fill: none; stroke: var(--neutral-muted); stroke-width: 10; }
+    .ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease, stroke 0.4s ease; }
+    .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+    .ring-label { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 4px; }
+    .hero-details { flex: 1; }
+    .hero-title { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+    .hero-subtitle { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 16px; }
+    .hero-stats { display: flex; gap: 24px; }
+    .hero-stat-value { font-size: 1.125rem; font-weight: 700; }
+    .hero-stat-label { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    /* Burn-rate callout */
+    .burn-callout { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.8125rem; margin-bottom: 20px; }
+    .burn-callout.ok { background: var(--success-subtle); border: 1px solid var(--success-muted); color: var(--success-fg); }
+    .burn-callout.warn { background: var(--warning-subtle); border: 1px solid var(--warning-muted); color: var(--warning-fg); }
+    .burn-callout.critical { background: var(--danger-subtle); border: 1px solid var(--danger-muted); color: var(--danger-fg); }
+    .burn-icon { font-size: 1rem; }
+
+    /* Two-column grid */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    /* Section panels */
+    .panel { background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 20px; }
+    .panel-title { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 16px; }
+
+    /* Daily spend bar chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 140px; padding-bottom: 24px; position: relative; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .bar-fill { width: 100%; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--gradient-accent); transition: height 0.5s ease; min-height: 2px; position: relative; cursor: default; }
+    .bar-fill:hover { filter: brightness(1.2); }
+    .bar-fill .bar-tooltip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--canvas-overlay); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 4px 8px; font-size: 0.625rem; white-space: nowrap; color: var(--text-primary); z-index: 10; box-shadow: var(--shadow-lg); }
+    .bar-fill:hover .bar-tooltip { display: block; }
+    .bar-date { font-size: 0.5625rem; color: var(--text-placeholder); }
+
+    /* Model breakdown horizontal bars */
+    .model-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .model-row:last-child { margin-bottom: 0; }
+    .model-name { font-size: 0.75rem; font-weight: 500; width: 110px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .model-bar-track { flex: 1; height: 10px; background: var(--neutral-muted); border-radius: var(--radius-full); overflow: hidden; }
+    .model-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.6s ease; }
+    .model-pct { font-size: 0.6875rem; font-weight: 600; width: 36px; text-align: right; flex-shrink: 0; }
+    .model-cost { font-size: 0.625rem; color: var(--text-tertiary); width: 48px; text-align: right; flex-shrink: 0; }
+
+    /* Model colors */
+    .mc-opus { background: var(--done-emphasis); }
+    .mc-sonnet { background: var(--accent-emphasis); }
+    .mc-gpt { background: var(--success-emphasis); }
+    .mc-haiku { background: var(--warning-emphasis); }
+    .mc-other { background: var(--neutral-emphasis); }
+
+    /* Session cost table */
+    .cost-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .cost-table th { font-size: 0.625rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-default); }
+    .cost-table td { padding: 10px; border-bottom: 1px solid var(--border-subtle); vertical-align: middle; }
+    .cost-table tr:last-child td { border-bottom: none; }
+    .cost-table tr:hover td { background: var(--canvas-inset); }
+    .session-id { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; color: var(--accent-fg); }
+
+    /* Budget configuration */
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .config-grid { grid-template-columns: 1fr; } }
+    .config-field label { display: block; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+    .config-field input[type="number"] { width: 100%; padding: 8px 12px; background: var(--canvas-default); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.8125rem; font-family: inherit; transition: border-color var(--transition-fast); }
+    .config-field input[type="number"]:focus { outline: none; border-color: var(--accent-emphasis); box-shadow: 0 0 0 2px var(--accent-muted); }
+    .threshold-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    .threshold-track { flex: 1; height: 8px; background: var(--neutral-muted); border-radius: var(--radius-full); position: relative; overflow: visible; }
+    .threshold-fill { height: 100%; border-radius: var(--radius-full); background: var(--success-emphasis); transition: width 0.3s ease, background 0.3s ease; }
+    .threshold-marker { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 1px; transform: translateX(-50%); }
+    .threshold-marker.warn-marker { background: var(--warning-emphasis); }
+    .threshold-marker.crit-marker { background: var(--danger-emphasis); }
+    .config-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+
+    /* Alert thresholds legend */
+    .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 0.6875rem; color: var(--text-tertiary); }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+    /* Bottom grid */
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 860px) { .bottom-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Cost &amp; Budget</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-b.html" class="btn btn-sm btn-ghost">Compact View</a>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner" style="max-width:1080px;">
+          <h1 class="page-title">Cost &amp; Budget Tracker</h1>
+          <p class="page-subtitle" style="margin-bottom:24px;">Monitor premium request usage, model costs, and budget guardrails</p>
+
+          <!-- Hero: Premium Requests Ring -->
+          <div class="budget-hero" id="budgetHero">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120">
+                <circle class="ring-track" cx="60" cy="60" r="50"/>
+                <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="50"
+                  stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+              </svg>
+              <div class="ring-center">
+                <span class="ring-value" id="ringValue">—</span>
+                <span class="ring-label">of <span id="ringLimit">—</span></span>
+              </div>
+            </div>
+            <div class="hero-details">
+              <div class="hero-title">Premium Requests</div>
+              <div class="hero-subtitle" id="heroSubtitle">Loading…</div>
+              <div class="hero-stats">
+                <div>
+                  <div class="hero-stat-value" id="statRemaining">—</div>
+                  <div class="hero-stat-label">Remaining</div>
+                </div>
+                <div>
+                  <div class="hero-stat-value" id="statDailyAvg">—</div>
+                  <div class="hero-stat-label">Daily Avg</div>
+                </div>
+                <div>
+                  <div class="hero-stat-value" id="statTotalCost">—</div>
+                  <div class="hero-stat-label">Total Spend</div>
+                </div>
+                <div>
+                  <div class="hero-stat-value" id="statDaysLeft">—</div>
+                  <div class="hero-stat-label">Days Left</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Burn Rate Projection -->
+          <div class="burn-callout" id="burnCallout">
+            <span class="burn-icon">📈</span>
+            <span id="burnText">Calculating projection…</span>
+          </div>
+
+          <!-- Charts Grid -->
+          <div class="charts-grid">
+            <!-- Daily Spend -->
+            <div class="panel">
+              <div class="panel-title">Daily Spend (7 days)</div>
+              <div class="bar-chart" id="dailyChart"></div>
+            </div>
+            <!-- Model Breakdown -->
+            <div class="panel">
+              <div class="panel-title">Cost by Model</div>
+              <div id="modelBreakdown"></div>
+            </div>
+          </div>
+
+          <!-- Bottom: Session Costs + Budget Config -->
+          <div class="bottom-grid">
+            <!-- Per-session cost -->
+            <div class="panel">
+              <div class="panel-title">Active Session Costs</div>
+              <table class="cost-table">
+                <thead>
+                  <tr><th>Session</th><th>Model</th><th>Reqs</th><th>Tokens</th><th>Status</th></tr>
+                </thead>
+                <tbody id="sessionTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Budget Configuration -->
+            <div class="panel">
+              <div class="panel-title">Budget Configuration</div>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label>Monthly Request Limit</label>
+                  <input type="number" id="cfgLimit" min="1" max="10000" value="300">
+                </div>
+                <div class="config-field">
+                  <label>Alert: Warning (%)</label>
+                  <input type="number" id="cfgWarn" min="1" max="99" value="75">
+                </div>
+                <div class="config-field">
+                  <label>Alert: Critical (%)</label>
+                  <input type="number" id="cfgCrit" min="1" max="100" value="90">
+                </div>
+                <div class="config-field">
+                  <label>Auto-pause at limit</label>
+                  <div class="form-switch on" id="autoPauseSwitch" onclick="toggleSwitch(this)" style="margin-top:8px;"></div>
+                </div>
+              </div>
+              <div class="threshold-bar">
+                <span style="font-size:0.625rem;color:var(--text-placeholder);width:18px;">0%</span>
+                <div class="threshold-track" id="thresholdTrack">
+                  <div class="threshold-fill" id="thresholdFill"></div>
+                  <div class="threshold-marker warn-marker" id="warnMarker"></div>
+                  <div class="threshold-marker crit-marker" id="critMarker"></div>
+                </div>
+                <span style="font-size:0.625rem;color:var(--text-placeholder);width:30px;text-align:right;">100%</span>
+              </div>
+              <div class="legend">
+                <span><span class="legend-dot" style="background:var(--success-emphasis);"></span>Current</span>
+                <span><span class="legend-dot" style="background:var(--warning-emphasis);"></span>Warning</span>
+                <span><span class="legend-dot" style="background:var(--danger-emphasis);"></span>Critical</span>
+              </div>
+              <div class="config-actions">
+                <button class="btn btn-sm" onclick="resetConfig()">Reset</button>
+                <button class="btn btn-sm btn-primary" onclick="saveConfig()">Save Configuration</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateOrchSidebar('cost');
+      renderHero();
+      renderBurnRate();
+      renderDailyChart();
+      renderModelBreakdown();
+      renderSessionTable();
+      renderThresholdBar();
+      bindConfigInputs();
+    });
+
+    /* ---- Hero ring ---- */
+    function renderHero() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const pct = (b.used / b.limit) * 100;
+      const circumference = 2 * Math.PI * 50; // r=50
+      const offset = circumference - (circumference * pct / 100);
+
+      const ring = document.getElementById('ringFill');
+      ring.style.stroke = pct >= 90 ? 'var(--danger-emphasis)' : pct >= 75 ? 'var(--warning-emphasis)' : 'var(--accent-emphasis)';
+      requestAnimationFrame(() => { ring.setAttribute('stroke-dashoffset', offset); });
+
+      document.getElementById('ringValue').textContent = b.used;
+      document.getElementById('ringLimit').textContent = b.limit;
+      document.getElementById('heroSubtitle').textContent = `${formatPct(pct)} of ${b.period} quota used`;
+
+      const remaining = b.limit - b.used;
+      const totalCost = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.cost, 0);
+      const totalReqs = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.requests, 0);
+      const dailyAvg = Math.round(totalReqs / ORCH_BUDGET.dailySpend.length);
+
+      document.getElementById('statRemaining').textContent = remaining;
+      document.getElementById('statDailyAvg').textContent = dailyAvg + '/day';
+      document.getElementById('statTotalCost').textContent = formatCost(totalCost);
+      document.getElementById('statDaysLeft').textContent = dailyAvg > 0 ? Math.floor(remaining / dailyAvg) + 'd' : '∞';
+    }
+
+    /* ---- Burn rate projection ---- */
+    function renderBurnRate() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const totalReqs = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.requests, 0);
+      const dailyAvg = totalReqs / ORCH_BUDGET.dailySpend.length;
+      const daysInMonth = 30;
+      const daysPassed = 19; // March 19th
+      const daysRemaining = daysInMonth - daysPassed;
+      const projected = Math.round(b.used + dailyAvg * daysRemaining);
+      const projPct = (projected / b.limit) * 100;
+
+      const el = document.getElementById('burnCallout');
+      const txt = document.getElementById('burnText');
+
+      if (projPct >= 100) {
+        el.className = 'burn-callout critical';
+        txt.innerHTML = `<strong>⚠ Over budget:</strong> At current rate, you'll use ~${projected}/${b.limit} requests this month (${Math.round(projPct)}%). Consider reducing usage or increasing your limit.`;
+      } else if (projPct >= 75) {
+        el.className = 'burn-callout warn';
+        txt.innerHTML = `<strong>Heads up:</strong> At current rate, you'll use ~${projected}/${b.limit} requests this month (${Math.round(projPct)}%). You're on track but approaching your limit.`;
+      } else {
+        el.className = 'burn-callout ok';
+        txt.innerHTML = `<strong>On track:</strong> At current rate, you'll use ~${projected}/${b.limit} requests this month (${Math.round(projPct)}%). Plenty of headroom.`;
+      }
+    }
+
+    /* ---- Daily Spend Bar Chart ---- */
+    function renderDailyChart() {
+      const days = ORCH_BUDGET.dailySpend;
+      const maxCost = Math.max(...days.map(d => d.cost));
+      const chart = document.getElementById('dailyChart');
+
+      chart.innerHTML = days.map(d => {
+        const h = Math.max(4, (d.cost / maxCost) * 100);
+        const dateLabel = d.date.slice(5); // MM-DD
+        return `<div class="bar-col">
+          <div class="bar-fill" style="height:${h}%;">
+            <div class="bar-tooltip">${formatCost(d.cost)} · ${d.requests} reqs</div>
+          </div>
+          <span class="bar-date">${dateLabel}</span>
+        </div>`;
+      }).join('');
+    }
+
+    /* ---- Model Breakdown ---- */
+    function renderModelBreakdown() {
+      const models = ORCH_BUDGET.modelBreakdown;
+      const colorMap = {
+        'claude-opus-4.6': 'mc-opus',
+        'claude-sonnet-4.6': 'mc-sonnet',
+        'gpt-5.4': 'mc-gpt',
+        'claude-haiku-4.5': 'mc-haiku',
+        'other': 'mc-other',
+      };
+      const iconMap = {
+        'claude-opus-4.6': '🟣',
+        'claude-sonnet-4.6': '🔵',
+        'gpt-5.4': '🟢',
+        'claude-haiku-4.5': '⚡',
+        'other': '◽',
+      };
+      const container = document.getElementById('modelBreakdown');
+
+      container.innerHTML = models.map(m => {
+        const cls = colorMap[m.model] || 'mc-other';
+        const icon = iconMap[m.model] || '◽';
+        const label = m.model === 'other' ? 'Other' : m.model.split('-').slice(0, -1).join(' ').replace('claude ', '').replace('gpt ', 'GPT ');
+        const shortLabel = m.model === 'other' ? 'Other' : (ORCH_MODELS.find(x => x.id === m.model)?.name || m.model);
+        return `<div class="model-row">
+          <span class="model-name" title="${shortLabel}">${icon} ${shortLabel}</span>
+          <div class="model-bar-track"><div class="model-bar-fill ${cls}" style="width:${m.pct}%;"></div></div>
+          <span class="model-pct">${m.pct}%</span>
+          <span class="model-cost">${formatCost(m.cost)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    /* ---- Session Cost Table ---- */
+    function renderSessionTable() {
+      const tbody = document.getElementById('sessionTableBody');
+      tbody.innerHTML = ORCH_ACTIVE_SESSIONS.map(s => {
+        const totalTokens = formatNumber(s.tokensIn + s.tokensOut);
+        return `<tr>
+          <td><span class="session-id">${s.id}</span><br><span style="font-size:0.6875rem;color:var(--text-tertiary);">${s.repo}</span></td>
+          <td>${modelTierBadge(s.model)}</td>
+          <td style="font-weight:600;">${s.premiumReqs.toFixed(2)}</td>
+          <td>${totalTokens}</td>
+          <td>${sessionStatusDot(s.status)} ${s.status}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    /* ---- Threshold bar ---- */
+    function renderThresholdBar() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const pct = (b.used / b.limit) * 100;
+      const warn = parseFloat(document.getElementById('cfgWarn').value) || ORCH_BUDGET.alerts.warn;
+      const crit = parseFloat(document.getElementById('cfgCrit').value) || ORCH_BUDGET.alerts.critical;
+
+      const fill = document.getElementById('thresholdFill');
+      fill.style.width = pct + '%';
+      fill.style.background = pct >= crit ? 'var(--danger-emphasis)' : pct >= warn ? 'var(--warning-emphasis)' : 'var(--success-emphasis)';
+
+      document.getElementById('warnMarker').style.left = warn + '%';
+      document.getElementById('critMarker').style.left = crit + '%';
+    }
+
+    /* ---- Config interactions ---- */
+    function bindConfigInputs() {
+      ['cfgLimit', 'cfgWarn', 'cfgCrit'].forEach(id => {
+        document.getElementById(id).addEventListener('input', renderThresholdBar);
+      });
+    }
+
+    function toggleSwitch(el) { el.classList.toggle('on'); }
+
+    function resetConfig() {
+      document.getElementById('cfgLimit').value = 300;
+      document.getElementById('cfgWarn').value = 75;
+      document.getElementById('cfgCrit').value = 90;
+      renderThresholdBar();
+    }
+
+    function saveConfig() {
+      const limit = document.getElementById('cfgLimit').value;
+      const warn = document.getElementById('cfgWarn').value;
+      const crit = document.getElementById('cfgCrit').value;
+      const autoPause = document.getElementById('autoPauseSwitch').classList.contains('on');
+      alert(`Configuration saved!\n\nLimit: ${limit} requests/month\nWarning: ${warn}%\nCritical: ${crit}%\nAuto-pause: ${autoPause ? 'On' : 'Off'}`);
+    }
+  </script>
+</body>
+</html>

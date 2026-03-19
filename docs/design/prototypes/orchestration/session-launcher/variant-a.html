@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Session Launcher (Wizard)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Stepper */
+    .stepper { display: flex; align-items: center; gap: 0; margin-bottom: 28px; }
+    .stepper-step {
+      display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+      font-size: 0.8125rem; font-weight: 500; color: var(--text-placeholder);
+      position: relative; cursor: default; transition: color var(--transition-normal);
+    }
+    .stepper-step.active { color: var(--accent-fg); }
+    .stepper-step.completed { color: var(--success-fg); }
+    .stepper-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.6875rem; font-weight: 600; border: 1.5px solid var(--border-default);
+      background: var(--canvas-default); transition: all var(--transition-normal);
+    }
+    .stepper-step.active .stepper-num {
+      border-color: var(--accent-emphasis); background: var(--accent-muted); color: var(--accent-fg);
+    }
+    .stepper-step.completed .stepper-num {
+      border-color: var(--success-emphasis); background: var(--success-muted); color: var(--success-fg);
+    }
+    .stepper-line {
+      flex: 1; height: 1px; background: var(--border-default); min-width: 24px;
+    }
+    .stepper-line.completed { background: var(--success-fg); }
+
+    /* Wizard Steps */
+    .wizard-step { display: none; animation: fadeIn 0.25s ease; }
+    .wizard-step.active { display: block; }
+
+    /* Template cards */
+    .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .template-card {
+      padding: 16px; border-radius: var(--radius-lg); cursor: pointer;
+      background: var(--canvas-subtle); border: 1px solid var(--border-default);
+      transition: all var(--transition-normal); position: relative;
+    }
+    .template-card:hover {
+      border-color: var(--border-accent); transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .template-card.selected {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+      background: var(--accent-subtle);
+    }
+    .template-card .tpl-icon { font-size: 24px; margin-bottom: 8px; }
+    .template-card .tpl-name { font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px; }
+    .template-card .tpl-desc { font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.5; }
+    .template-card .tpl-meta {
+      display: flex; gap: 8px; margin-top: 10px; font-size: 0.625rem; color: var(--text-placeholder);
+    }
+    .template-card.blank-card { border-style: dashed; text-align: center; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; min-height: 120px; }
+
+    /* Form field groups */
+    .field-group { margin-bottom: 18px; }
+    .field-row { display: flex; gap: 14px; margin-bottom: 18px; }
+    .field-row > * { flex: 1; }
+
+    /* Command preview */
+    .cmd-preview {
+      background: var(--canvas-inset); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); padding: 16px; font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem; line-height: 1.7; color: var(--success-fg); overflow-x: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .cmd-preview .cmd-flag { color: var(--accent-fg); }
+    .cmd-preview .cmd-val { color: var(--text-primary); }
+
+    /* Wizard nav */
+    .wizard-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 20px; border-top: 1px solid var(--border-subtle); margin-top: 28px;
+    }
+
+    /* Advanced section */
+    .advanced-toggle {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary);
+      background: none; border: none; padding: 8px 0; transition: color var(--transition-fast);
+    }
+    .advanced-toggle:hover { color: var(--text-primary); }
+    .advanced-toggle .chevron { transition: transform var(--transition-normal); font-size: 10px; }
+    .advanced-toggle.open .chevron { transform: rotate(90deg); }
+    .advanced-body { display: none; padding-top: 14px; }
+    .advanced-body.open { display: block; animation: fadeIn 0.2s ease; }
+
+    /* Env var rows */
+    .env-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .env-row .form-input { flex: 1; }
+    .env-remove { background: none; border: none; color: var(--danger-fg); cursor: pointer; padding: 4px; font-size: 14px; }
+
+    /* Review summary */
+    .review-grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; font-size: 0.8125rem; }
+    .review-label { color: var(--text-tertiary); font-weight: 500; }
+    .review-value { color: var(--text-primary); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Session Launcher</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-b.html" class="btn btn-sm btn-ghost">Single Page</a>
+          <a href="variant-c.html" class="btn btn-sm btn-ghost">Split Panel</a>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner" style="max-width:820px;">
+          <h1 class="page-title">Launch Session</h1>
+          <p class="page-subtitle" style="margin-bottom:24px;">Configure and launch a new Copilot CLI session</p>
+
+          <!-- Stepper -->
+          <div class="stepper" id="stepper">
+            <div class="stepper-step active" data-step="0">
+              <div class="stepper-num">1</div><span>Template</span>
+            </div>
+            <div class="stepper-line"></div>
+            <div class="stepper-step" data-step="1">
+              <div class="stepper-num">2</div><span>Configure</span>
+            </div>
+            <div class="stepper-line"></div>
+            <div class="stepper-step" data-step="2">
+              <div class="stepper-num">3</div><span>Prompt</span>
+            </div>
+            <div class="stepper-line"></div>
+            <div class="stepper-step" data-step="3">
+              <div class="stepper-num">4</div><span>Review</span>
+            </div>
+          </div>
+
+          <!-- Step 1: Template -->
+          <div class="wizard-step active" data-step="0">
+            <div class="settings-section-title" style="font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:14px;">Choose a Template or Start Blank</div>
+            <div class="template-grid" id="templateGrid"></div>
+            <div class="wizard-nav">
+              <div></div>
+              <button class="btn btn-primary" onclick="goStep(1)">Next →</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Configure -->
+          <div class="wizard-step" data-step="1">
+            <div class="section-panel" style="padding:20px;">
+              <div class="field-row">
+                <div>
+                  <label class="form-label">Repository</label>
+                  <select class="filter-select w-full" id="repoSelect" onchange="updateBranches()"></select>
+                </div>
+                <div>
+                  <label class="form-label">Branch</label>
+                  <select class="filter-select w-full" id="branchSelect"></select>
+                </div>
+              </div>
+              <div class="field-row">
+                <div>
+                  <label class="form-label">Model</label>
+                  <select class="filter-select w-full" id="modelSelect"></select>
+                </div>
+                <div>
+                  <label class="form-label">Reasoning Effort</label>
+                  <div class="btn-group" id="reasoningGroup" style="margin-top:2px;">
+                    <button class="btn btn-sm" data-val="low" onclick="setReasoning('low')">Low</button>
+                    <button class="btn btn-sm active" data-val="medium" onclick="setReasoning('medium')">Medium</button>
+                    <button class="btn btn-sm" data-val="high" onclick="setReasoning('high')">High</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-nav">
+              <button class="btn" onclick="goStep(0)">← Back</button>
+              <button class="btn btn-primary" onclick="goStep(2)">Next →</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Prompt + Advanced -->
+          <div class="wizard-step" data-step="2">
+            <div class="section-panel" style="padding:20px;">
+              <div class="field-group">
+                <label class="form-label">Initial Prompt</label>
+                <textarea class="form-input" id="promptInput" rows="5" placeholder="Describe the task for Copilot CLI..." style="resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+              </div>
+              <button class="advanced-toggle" onclick="toggleAdvanced(this)">
+                <span class="chevron">▶</span> Advanced Options
+              </button>
+              <div class="advanced-body" id="advancedBody">
+                <div class="field-row">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:0.8125rem;font-weight:500;">Auto-approve</div>
+                      <div style="font-size:0.6875rem;color:var(--text-tertiary);">Skip tool-use confirmations</div>
+                    </div>
+                    <div class="form-switch" id="autoApproveSwitch" onclick="toggleSwitch(this)"></div>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:0.8125rem;font-weight:500;">Create Worktree</div>
+                      <div style="font-size:0.6875rem;color:var(--text-tertiary);">Isolate changes in a git worktree</div>
+                    </div>
+                    <div class="form-switch on" id="worktreeSwitch" onclick="toggleSwitch(this)"></div>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:0.8125rem;font-weight:500;">Headless Mode</div>
+                      <div style="font-size:0.6875rem;color:var(--text-tertiary);">Run without interactive terminal</div>
+                    </div>
+                    <div class="form-switch" id="headlessSwitch" onclick="toggleSwitch(this)"></div>
+                  </div>
+                  <div>
+                    <label class="form-label">Custom Instructions Path</label>
+                    <input class="form-input" id="instructionsPath" placeholder=".github/copilot-instructions.md" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;">
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Environment Variables</label>
+                  <div id="envVars">
+                    <div class="env-row">
+                      <input class="form-input" placeholder="Key" style="font-family:monospace;font-size:0.75rem;">
+                      <input class="form-input" placeholder="Value" style="font-family:monospace;font-size:0.75rem;">
+                      <button class="env-remove" onclick="this.parentElement.remove()">✕</button>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-ghost" style="margin-top:6px;" onclick="addEnvVar()">+ Add Variable</button>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-nav">
+              <button class="btn" onclick="goStep(1)">← Back</button>
+              <button class="btn btn-primary" onclick="goStep(3)">Next →</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Review & Launch -->
+          <div class="wizard-step" data-step="3">
+            <div class="section-panel" style="padding:20px;margin-bottom:18px;">
+              <div style="font-size:0.75rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:14px;">Session Summary</div>
+              <div class="review-grid" id="reviewGrid"></div>
+            </div>
+            <div class="section-panel" style="padding:20px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="font-size:0.75rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;">Command Preview</div>
+                <button class="btn btn-sm btn-ghost" onclick="copyCmd()">📋 Copy</button>
+              </div>
+              <div class="cmd-preview" id="cmdPreview"></div>
+            </div>
+            <div class="wizard-nav">
+              <button class="btn" onclick="goStep(2)">← Back</button>
+              <div style="display:flex;gap:8px;">
+                <button class="btn" onclick="alert('Launching headless session...')">Launch Headless</button>
+                <button class="btn btn-primary" onclick="alert('🚀 Launching session...')" style="padding:8px 20px;">
+                  🚀 Launch Session
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateOrchSidebar('launcher');
+      populateTemplates();
+      populateSelects();
+    });
+
+    let currentStep = 0;
+    let selectedTemplate = null;
+    let reasoning = 'medium';
+
+    function goStep(n) {
+      currentStep = n;
+      document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+      document.querySelector(`.wizard-step[data-step="${n}"]`).classList.add('active');
+      // Update stepper
+      document.querySelectorAll('.stepper-step').forEach((el, i) => {
+        el.classList.remove('active', 'completed');
+        if (i < n) el.classList.add('completed');
+        if (i === n) el.classList.add('active');
+      });
+      document.querySelectorAll('.stepper-line').forEach((el, i) => {
+        el.classList.toggle('completed', i < n);
+      });
+      if (n === 3) buildReview();
+    }
+
+    function populateTemplates() {
+      const grid = document.getElementById('templateGrid');
+      let html = `<div class="template-card blank-card" onclick="selectTemplate(null, this)">
+        <div style="font-size:28px;margin-bottom:6px;opacity:0.4;">✦</div>
+        <div class="tpl-name">Start Blank</div>
+        <div class="tpl-desc">Configure everything manually</div>
+      </div>`;
+      ORCH_TEMPLATES.forEach(t => {
+        html += `<div class="template-card" onclick="selectTemplate('${t.id}', this)">
+          <div class="tpl-icon">${t.icon}</div>
+          <div class="tpl-name">${t.name}</div>
+          <div class="tpl-desc">${t.description}</div>
+          <div class="tpl-meta">
+            <span>${t.usageCount} uses</span>
+            <span>${Math.round(t.successRate * 100)}% success</span>
+          </div>
+        </div>`;
+      });
+      grid.innerHTML = html;
+    }
+
+    function selectTemplate(id, el) {
+      document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedTemplate = id;
+      if (id) {
+        const t = ORCH_TEMPLATES.find(x => x.id === id);
+        if (t) {
+          document.getElementById('modelSelect').value = t.model;
+          setReasoning(t.reasoning);
+          if (t.autoApprove) document.getElementById('autoApproveSwitch').classList.add('on');
+          else document.getElementById('autoApproveSwitch').classList.remove('on');
+        }
+      }
+    }
+
+    function populateSelects() {
+      const repoSel = document.getElementById('repoSelect');
+      ORCH_REPOS.forEach(r => {
+        repoSel.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+      });
+      updateBranches();
+      const modelSel = document.getElementById('modelSelect');
+      ORCH_MODELS.forEach(m => {
+        modelSel.innerHTML += `<option value="${m.id}">${m.icon} ${m.name} (${m.tier})</option>`;
+      });
+    }
+
+    function updateBranches() {
+      const repo = ORCH_REPOS.find(r => r.id === document.getElementById('repoSelect').value);
+      const sel = document.getElementById('branchSelect');
+      sel.innerHTML = '';
+      if (repo) repo.branches.forEach(b => { sel.innerHTML += `<option>${b}</option>`; });
+    }
+
+    function setReasoning(val) {
+      reasoning = val;
+      document.querySelectorAll('#reasoningGroup .btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.val === val);
+      });
+    }
+
+    function toggleSwitch(el) {
+      el.classList.toggle('on');
+    }
+
+    function toggleAdvanced(btn) {
+      btn.classList.toggle('open');
+      document.getElementById('advancedBody').classList.toggle('open');
+    }
+
+    function addEnvVar() {
+      const row = document.createElement('div');
+      row.className = 'env-row';
+      row.innerHTML = `<input class="form-input" placeholder="Key" style="font-family:monospace;font-size:0.75rem;">
+        <input class="form-input" placeholder="Value" style="font-family:monospace;font-size:0.75rem;">
+        <button class="env-remove" onclick="this.parentElement.remove()">✕</button>`;
+      document.getElementById('envVars').appendChild(row);
+    }
+
+    function getConfig() {
+      const repo = ORCH_REPOS.find(r => r.id === document.getElementById('repoSelect').value);
+      const branch = document.getElementById('branchSelect').value;
+      const model = document.getElementById('modelSelect').value;
+      const prompt = document.getElementById('promptInput').value || '(no prompt)';
+      const autoApprove = document.getElementById('autoApproveSwitch').classList.contains('on');
+      const worktree = document.getElementById('worktreeSwitch').classList.contains('on');
+      const headless = document.getElementById('headlessSwitch').classList.contains('on');
+      const instructions = document.getElementById('instructionsPath').value;
+      const tpl = selectedTemplate ? ORCH_TEMPLATES.find(t => t.id === selectedTemplate) : null;
+      return { repo, branch, model, prompt, autoApprove, worktree, headless, instructions, tpl, reasoning };
+    }
+
+    function buildReview() {
+      const c = getConfig();
+      const m = ORCH_MODELS.find(x => x.id === c.model);
+      document.getElementById('reviewGrid').innerHTML = `
+        <div class="review-label">Template</div><div class="review-value">${c.tpl ? c.tpl.icon + ' ' + c.tpl.name : 'Blank'}</div>
+        <div class="review-label">Repository</div><div class="review-value">${c.repo ? c.repo.name : '—'}</div>
+        <div class="review-label">Branch</div><div class="review-value">${c.branch || '—'}</div>
+        <div class="review-label">Model</div><div class="review-value">${m ? modelTierBadge(m.id) : c.model}</div>
+        <div class="review-label">Reasoning</div><div class="review-value">${c.reasoning}</div>
+        <div class="review-label">Auto-approve</div><div class="review-value">${c.autoApprove ? '✅ Yes' : '❌ No'}</div>
+        <div class="review-label">Worktree</div><div class="review-value">${c.worktree ? '✅ Yes' : '❌ No'}</div>
+        <div class="review-label">Headless</div><div class="review-value">${c.headless ? '✅ Yes' : '❌ No'}</div>
+      `;
+      buildCmdPreview();
+    }
+
+    function buildCmdPreview() {
+      const c = getConfig();
+      let cmd = `copilot-cli`;
+      if (c.repo) cmd += ` \\\n  <span class="cmd-flag">--repo</span> <span class="cmd-val">${c.repo.path}</span>`;
+      if (c.branch) cmd += ` \\\n  <span class="cmd-flag">--branch</span> <span class="cmd-val">${c.branch}</span>`;
+      cmd += ` \\\n  <span class="cmd-flag">--model</span> <span class="cmd-val">${c.model}</span>`;
+      cmd += ` \\\n  <span class="cmd-flag">--reasoning</span> <span class="cmd-val">${c.reasoning}</span>`;
+      if (c.autoApprove) cmd += ` \\\n  <span class="cmd-flag">--auto-approve</span>`;
+      if (c.worktree) cmd += ` \\\n  <span class="cmd-flag">--worktree</span>`;
+      if (c.headless) cmd += ` \\\n  <span class="cmd-flag">--headless</span>`;
+      if (c.instructions) cmd += ` \\\n  <span class="cmd-flag">--instructions</span> <span class="cmd-val">${c.instructions}</span>`;
+      if (c.prompt && c.prompt !== '(no prompt)') cmd += ` \\\n  <span class="cmd-flag">--prompt</span> <span class="cmd-val">"${c.prompt.substring(0, 80)}${c.prompt.length > 80 ? '...' : ''}"</span>`;
+      document.getElementById('cmdPreview').innerHTML = cmd;
+    }
+
+    function copyCmd() {
+      const text = document.getElementById('cmdPreview').textContent;
+      navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
+    }
+  </script>
+</body>
+</html>
