@@ -2,6 +2,12 @@
 # Install: cargo install lefthook && lefthook install
 # See https://github.com/evilmartians/lefthook
 
+pre-commit:
+  commands:
+    lint:
+      glob: "*.{ts,tsx,vue,js,jsx,json}"
+      run: npx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+
 commit-msg:
   commands:
     conventional-commit:

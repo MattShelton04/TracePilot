@@ -49,6 +49,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
+  const featureFlags = ref<Record<string, boolean>>({
+    exportView: false,
+    healthScoring: false,
+    sessionReplay: false,
+  });
 
   // Persist to localStorage
   function load() {
@@ -85,6 +90,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
             toolOverrides: parsed.toolRendering.toolOverrides ?? {},
           };
         }
+        if (parsed.featureFlags && typeof parsed.featureFlags === 'object') {
+          const savedFlags = parsed.featureFlags as Record<string, unknown>;
+          for (const key of Object.keys(featureFlags.value)) {
+            if (typeof savedFlags[key] === 'boolean') {
+              featureFlags.value[key] = savedFlags[key] as boolean;
+            }
+          }
+        }
       }
     } catch {
       /* ignore */
@@ -106,6 +119,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
         checkForUpdates: checkForUpdates.value,
         lastSeenVersion: lastSeenVersion.value,
         toolRendering: toolRendering.value,
+        featureFlags: featureFlags.value,
       }),
     );
   }
@@ -134,6 +148,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       checkForUpdates,
       lastSeenVersion,
       toolRendering,
+      featureFlags,
     ],
     save,
     { deep: true },
@@ -199,6 +214,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     };
   }
 
+  /** Check if a feature flag is enabled. */
+  function isFeatureEnabled(flag: string): boolean {
+    return featureFlags.value[flag] ?? false;
+  }
+
+  /** Toggle a feature flag on or off. */
+  function toggleFeature(flag: string): void {
+    featureFlags.value[flag] = !featureFlags.value[flag];
+  }
+
   return {
     theme,
     lastViewedSession,
@@ -211,6 +236,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     checkForUpdates,
     lastSeenVersion,
     toolRendering,
+    featureFlags,
     applyTheme: () => applyTheme(theme.value),
     getWholesalePrice,
     computeWholesaleCost,
@@ -220,5 +246,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     isRichRenderingEnabled,
     setToolRenderingOverride,
     resetToolRendering,
+    isFeatureEnabled,
+    toggleFeature,
   };
 });

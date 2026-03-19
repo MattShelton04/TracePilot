@@ -20,21 +20,37 @@ function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
 }
 
-const primaryNav = [
+interface NavItem {
+  id: string;
+  label: string;
+  to: string;
+  icon: string;
+  featureFlag?: string;
+}
+
+const primaryNav: NavItem[] = [
   { id: 'sessions', label: 'Sessions', to: '/', icon: 'sessions' },
   { id: 'analytics', label: 'Analytics', to: '/analytics', icon: 'analytics' },
-  { id: 'health', label: 'Health', to: '/health', icon: 'health' },
+  { id: 'health', label: 'Health', to: '/health', icon: 'health', featureFlag: 'healthScoring' },
   { id: 'tools', label: 'Tools', to: '/tools', icon: 'tools' },
   { id: 'code', label: 'Code', to: '/code', icon: 'code' },
 ];
 
-const advancedNav = [
+const advancedNav: NavItem[] = [
   { id: 'models', label: 'Models', to: '/models', icon: 'models' },
   { id: 'compare', label: 'Compare', to: '/compare', icon: 'compare' },
-  { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay' },
-  { id: 'export', label: 'Export', to: '/export', icon: 'export' },
+  { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay', featureFlag: 'sessionReplay' },
+  { id: 'export', label: 'Export', to: '/export', icon: 'export', featureFlag: 'exportView' },
   { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings' },
 ];
+
+const visiblePrimaryNav = computed(() =>
+  primaryNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+);
+
+const visibleAdvancedNav = computed(() =>
+  advancedNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+);
 </script>
 
 <template>
@@ -51,7 +67,7 @@ const advancedNav = [
     <nav class="sidebar-nav">
       <!-- Primary -->
       <router-link
-        v-for="item in primaryNav"
+        v-for="item in visiblePrimaryNav"
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
@@ -80,7 +96,7 @@ const advancedNav = [
       <div class="sidebar-section-title">Advanced</div>
 
       <router-link
-        v-for="item in advancedNav"
+        v-for="item in visibleAdvancedNav"
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"

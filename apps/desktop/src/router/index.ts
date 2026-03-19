@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 import type {} from "./types";
+import { usePreferencesStore } from "@/stores/preferences";
 
 // Lazy-loaded view imports for code splitting
 const SessionListView = () => import("@/views/SessionListView.vue");
@@ -101,6 +102,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Health Scoring",
       sidebarId: "health",
+      featureFlag: "healthScoring",
     },
   },
   {
@@ -146,6 +148,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Session Replay",
       sidebarId: "replay",
+      featureFlag: "sessionReplay",
     },
   },
   {
@@ -155,6 +158,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Export",
       sidebarId: "export",
+      featureFlag: "exportView",
     },
   },
   {
@@ -178,6 +182,17 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
+});
+
+// Gate feature-flagged routes
+router.beforeEach((to) => {
+  const flag = to.meta?.featureFlag as string | undefined;
+  if (flag) {
+    const prefs = usePreferencesStore();
+    if (!prefs.isFeatureEnabled(flag)) {
+      return { name: "sessions" };
+    }
+  }
 });
 
 export default router;
