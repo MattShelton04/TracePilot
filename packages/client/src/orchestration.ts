@@ -77,6 +77,14 @@ export async function getAvailableModels(): Promise<ModelInfo[]> {
   return invoke<ModelInfo[]>('get_available_models');
 }
 
+export async function openInExplorer(path: string): Promise<void> {
+  return invoke<void>('open_in_explorer', { path });
+}
+
+export async function openInTerminal(path: string): Promise<void> {
+  return invoke<void>('open_in_terminal', { path });
+}
+
 // ─── Config Injector Commands ─────────────────────────────────────
 
 export async function getAgentDefinitions(version?: string): Promise<AgentDefinition[]> {
@@ -265,6 +273,9 @@ function getMockData<T>(cmd: string): T {
       { id: 'gpt-5.4', name: 'GPT-5.4', tier: 'standard' },
       { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', tier: 'fast/cheap' },
     ] satisfies ModelInfo[],
+
+    open_in_explorer: undefined,
+    open_in_terminal: undefined,
 
     get_agent_definitions: [
       {
@@ -503,6 +514,24 @@ function getMockData<T>(cmd: string): T {
         tags: ['deps', 'maintenance'],
         createdAt: '2025-01-01T00:00:00Z',
         usageCount: 3,
+      },
+      {
+        id: 'default-comprehensive-review',
+        name: '🧠 Comprehensive Review (Multi-Agent)',
+        description: 'Review session with multi-agent insight.',
+        category: 'Quality',
+        config: {
+          repoPath: '',
+          headless: false,
+          envVars: {},
+          createWorktree: false,
+          autoApprove: false,
+          model: 'claude-opus-4.6',
+          prompt: 'Please spin up Opus 4.6, GPT 5.4, Codex 5.3, and Gemini Subagents to review the changes in this branch (git diff). Consolidate and validate their findings, and provide a summary.',
+        },
+        tags: ['review', 'multi-agent', 'premium'],
+        createdAt: '2025-01-01T00:00:00Z',
+        usageCount: 5,
       },
     ] satisfies SessionTemplate[],
 

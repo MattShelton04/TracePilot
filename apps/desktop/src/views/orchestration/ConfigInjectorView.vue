@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
 import type { AgentDefinition } from '@tracepilot/types';
 
@@ -59,6 +59,31 @@ function tabCount(key: ConfigTab): number | null {
 const uniqueModelCount = computed(() => new Set(store.agents.map(a => a.model)).size);
 const premiumAgentCount = computed(() => store.agents.filter(a => PREMIUM_MODELS.includes(a.model)).length);
 
+// ── Agent Tools Expand State ────────────────────────────────────────────────
+const TOOLS_COLLAPSE_LIMIT = 5;
+const expandedTools = reactive<Record<string, boolean>>({});
+
+function visibleTools(agent: AgentDefinition): string[] {
+  if (!agent.tools?.length) return [];
+  if (expandedTools[agent.filePath] || agent.tools.length <= TOOLS_COLLAPSE_LIMIT) return agent.tools;
+  return agent.tools.slice(0, TOOLS_COLLAPSE_LIMIT);
+}
+
+function hiddenToolCount(agent: AgentDefinition): number {
+  if (!agent.tools?.length || agent.tools.length <= TOOLS_COLLAPSE_LIMIT) return 0;
+  return agent.tools.length - TOOLS_COLLAPSE_LIMIT;
+}
+
+// ── Auto-save Indicator ─────────────────────────────────────────────────────
+const autoSavedAgent = ref<string | null>(null);
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flashAutoSaved(filePath: string) {
+  autoSavedAgent.value = filePath;
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => { autoSavedAgent.value = null; }, 2000);
+}
+
 // ── Agent Model State ───────────────────────────────────────────────────────
 const agentModels = ref<Record<string, string>>({});
 
@@ -77,7 +102,10 @@ async function handleModelChange(agent: AgentDefinition, newModel: string) {
   } else {
     store.editingYaml = updatedYaml;
   }
-  await store.saveAgent();
+  const saved = await store.saveAgent();
+  if (saved !== false) {
+    flashAutoSaved(agent.filePath);
+  }
 }
 
 function onAgentModelSelect(agent: AgentDefinition) {
@@ -260,8 +288,9 @@ onMounted(() => {
           :disabled="store.saving"
           @click="applyAllChanges"
         >
-          💾 Apply All Changes
+          💾 Save Global Config
         </button>
+        <p class="header-hint">Agent model changes are saved immediately</p>
       </div>
 
       <!-- ── Warning Banner ── -->
@@ -344,7 +373,14 @@ onMounted(() => {
             </p>
 
             <div v-if="agent.tools?.length" class="agent-tools">
-              <span v-for="tool in agent.tools" :key="tool" class="tool-chip">{{ tool }}</span>
+              <span v-for="tool in visibleTools(agent)" :key="tool" class="tool-chip">{{ tool }}</span>
+              <span
+                v-if="hiddenToolCount(agent) > 0 && !expandedTools[agent.filePath]"
+                class="tool-chip tool-chip--more"
+                @click="expandedTools[agent.filePath] = true"
+              >
+                +{{ hiddenToolCount(agent) }} more
+              </span>
             </div>
 
             <div class="agent-model-section">
@@ -373,6 +409,9 @@ onMounted(() => {
                 ⬆ Upgrade
               </button>
               <span v-else class="premium-active-badge">✓ Premium</span>
+              <Transition name="banner">
+                <span v-if="autoSavedAgent === agent.filePath" class="auto-saved-hint">(auto-saved)</span>
+              </Transition>
             </div>
           </div>
 
@@ -991,6 +1030,30 @@ onMounted(() => {
   font-size: 0.6875rem;
 }
 
+.tool-chip--more {
+  cursor: pointer;
+  background: var(--accent-subtle, var(--neutral-subtle));
+  color: var(--accent-fg, var(--text-secondary));
+  font-weight: 500;
+}
+
+.tool-chip--more:hover {
+  background: var(--accent-muted, var(--canvas-default));
+}
+
+.auto-saved-hint {
+  font-size: 0.75rem;
+  color: var(--success-fg, #2ea043);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.header-hint {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
 /* ── Agent Model Section ── */
 .agent-model-section {
   display: flex;
@@ -1143,11 +1206,20 @@ onMounted(() => {
   font-weight: 500;
   background: var(--canvas-subtle);
   border: none;
+  border-radius: 0;
   color: var(--text-secondary);
   cursor: pointer;
   transition:
     background var(--transition-fast),
     color var(--transition-fast);
+}
+
+.toggle-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.toggle-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .toggle-btn + .toggle-btn {

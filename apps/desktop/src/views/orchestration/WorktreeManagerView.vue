@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import type { CreateWorktreeRequest, WorktreeInfo } from '@tracepilot/types';
+import { openInExplorer, openInTerminal } from '@tracepilot/client';
 import { useWorktreesStore } from '@/stores/worktrees';
+import { usePreferencesStore } from '@/stores/preferences';
+import { browseForDirectory } from '@/composables/useBrowseDirectory';
 
 const store = useWorktreesStore();
+const prefsStore = usePreferencesStore();
 
 /* ─── Local State ─────────────────────────────────────────────── */
 const repoPathInput = ref('');
@@ -15,6 +19,7 @@ const showDeleteModal = ref(false);
 const deleteTarget = ref<WorktreeInfo | null>(null);
 const pruneMessage = ref<string | null>(null);
 const selectedSidebarItem = ref<'all' | string>('all');
+const linkSessionToast = ref<string | null>(null);
 
 // Create form state
 const newBranch = ref('');
@@ -58,6 +63,16 @@ const uniqueRepos = computed(() => {
     repos.add(repoName);
   }
   return [...repos];
+});
+
+const worktreeCountByRepo = computed(() => {
+  const counts = new Map<string, number>();
+  for (const wt of store.worktrees) {
+    const parts = wt.path.replace(/\\/g, '/').split('/');
+    const repoName = parts[parts.length - 2] || parts[parts.length - 1] || wt.path;
+    counts.set(repoName, (counts.get(repoName) ?? 0) + 1);
+  }
+  return counts;
 });
 
 const filteredWorktrees = computed(() => {
@@ -137,6 +152,7 @@ async function handleLoad() {
   try {
     await Promise.all([store.loadWorktrees(path), store.loadBranches(path)]);
     loaded.value = true;
+    prefsStore.addRecentRepoPath(path);
   } catch {
     // loaded stays false so error UI is shown
   }
@@ -202,6 +218,45 @@ async function handleCleanStale() {
   selectedWorktree.value = null;
 }
 
+async function handleBrowse() {
+  const selected = await browseForDirectory({ title: 'Select Git Repository' });
+  if (selected) {
+    repoPathInput.value = selected;
+  }
+}
+
+function handleSelectRecentRepo(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value) {
+    repoPathInput.value = value;
+  }
+}
+
+function showLinkSessionToast() {
+  linkSessionToast.value = 'Session linking coming in Phase 2';
+  setTimeout(() => { linkSessionToast.value = null; }, 3000);
+}
+
+const actionToast = ref<string | null>(null);
+
+async function handleOpenExplorer(path: string) {
+  try {
+    await openInExplorer(path);
+  } catch (e) {
+    actionToast.value = `Failed to open folder: ${e}`;
+    setTimeout(() => { actionToast.value = null; }, 3000);
+  }
+}
+
+async function handleOpenTerminal(path: string) {
+  try {
+    await openInTerminal(path);
+  } catch (e) {
+    actionToast.value = `Failed to open terminal: ${e}`;
+    setTimeout(() => { actionToast.value = null; }, 3000);
+  }
+}
+
 watch(() => store.worktrees, () => {
   if (selectedWorktree.value) {
     const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
@@ -219,6 +274,17 @@ watch(() => store.worktrees, () => {
 
       <!-- Repo path input -->
       <div class="repo-input-area">
+        <select
+          class="form-input form-input--sm repo-select"
+          @change="handleSelectRecentRepo"
+        >
+          <option value="">Select recent repo…</option>
+          <option
+            v-for="rp in prefsStore.recentRepoPaths"
+            :key="rp"
+            :value="rp"
+          >{{ rp }}</option>
+        </select>
         <div class="repo-input-row">
           <input
             v-model="repoPathInput"
@@ -227,6 +293,13 @@ watch(() => store.worktrees, () => {
             placeholder="Enter repo path…"
             @keydown.enter="handleLoad"
           />
+          <button
+            class="btn btn-sm"
+            title="Browse for directory"
+            @click="handleBrowse"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+          </button>
           <button
             class="btn btn-primary btn-sm"
             :disabled="!repoPathInput.trim() || store.loading"
@@ -262,6 +335,7 @@ watch(() => store.worktrees, () => {
               <path d="M18 9a9 9 0 0 1-9 9" />
             </svg>
             <span class="tree-item-label">{{ repo }}</span>
+            <span class="tree-count-badge">{{ worktreeCountByRepo.get(repo) ?? 0 }}</span>
           </div>
         </template>
         <div v-else-if="!loaded" class="tree-empty">
@@ -444,13 +518,13 @@ watch(() => store.worktrees, () => {
 
             <!-- Actions -->
             <div class="wt-row-actions" @click.stop>
-              <button class="icon-btn" title="Open Folder">
+              <button class="icon-btn" title="Open Folder" @click="handleOpenExplorer(wt.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
               </button>
-              <button class="icon-btn" title="Open Terminal">
+              <button class="icon-btn" title="Open Terminal" @click="handleOpenTerminal(wt.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
               </button>
-              <button class="icon-btn" title="Link Session">
+              <button class="icon-btn" title="Link Session" @click="showLinkSessionToast">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
               </button>
               <button class="icon-btn icon-btn--danger" title="Remove" @click="confirmDelete(wt)">
@@ -509,15 +583,15 @@ watch(() => store.worktrees, () => {
             </div>
 
             <div class="detail-actions">
-              <button class="btn btn-sm">
+              <button class="btn btn-sm" @click="handleOpenExplorer(selectedWorktree!.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
                 Open Folder
               </button>
-              <button class="btn btn-sm">
+              <button class="btn btn-sm" @click="handleOpenTerminal(selectedWorktree!.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
                 Open Terminal
               </button>
-              <button class="btn btn-sm">
+              <button class="btn btn-sm" @click="showLinkSessionToast">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
                 {{ selectedWorktree.linkedSessionId ? 'View Session' : 'Link Session' }}
               </button>
@@ -650,6 +724,20 @@ watch(() => store.worktrees, () => {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- ─── Toast Notification ───────────────────────────────────── -->
+    <Transition name="toast">
+      <div v-if="linkSessionToast" class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+        {{ linkSessionToast }}
+      </div>
+    </Transition>
+    <Transition name="toast">
+      <div v-if="actionToast" class="toast-notification toast-notification--error">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+        {{ actionToast }}
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -692,6 +780,12 @@ watch(() => store.worktrees, () => {
 .repo-input-row {
   display: flex;
   gap: 6px;
+}
+
+.repo-select {
+  width: 100%;
+  margin-bottom: 6px;
+  cursor: pointer;
 }
 
 .repo-tree {
@@ -1545,5 +1639,40 @@ watch(() => store.worktrees, () => {
 
 .modal-leave-to .modal-dialog {
   transform: scale(0.96) translateY(8px);
+}
+
+/* ─── Toast Notification ──────────────────────────────────────── */
+.toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+}
+
+.toast-notification--error {
+  border-color: var(--danger-emphasis, #da3633);
+  color: var(--danger-fg, #f85149);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

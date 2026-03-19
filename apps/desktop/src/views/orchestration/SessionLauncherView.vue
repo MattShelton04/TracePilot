@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted, nextTick } from 'vue';
 import { useLauncherStore } from '@/stores/launcher';
+import { usePreferencesStore } from '@/stores/preferences';
+import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 
 const store = useLauncherStore();
+const prefsStore = usePreferencesStore();
 const launching = ref(false);
 let successTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -25,6 +28,7 @@ const showTemplateForm = ref(false);
 const templateForm = reactive({ name: '', description: '', category: '' });
 const launchSuccess = ref<{ pid: number; command: string } | null>(null);
 const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
+const confirmingDeleteId = ref<string | null>(null);
 
 // ── Derived ─────────────────────────────────────────────────────────
 const selectedModelInfo = computed(() =>
@@ -75,7 +79,41 @@ const cliCommand = computed(() => {
   return parts.join(' ');
 });
 
-const canLaunch = computed(() => repoPath.value.trim().length > 0 && !store.loading);
+const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
+  const parts: { flag: string; value?: string }[] = [{ flag: 'copilot' }];
+  if (launchConfig.value.model) {
+    parts.push({ flag: '--model', value: launchConfig.value.model });
+  }
+  if (launchConfig.value.reasoningEffort && launchConfig.value.reasoningEffort !== 'medium') {
+    parts.push({ flag: '--reasoning-effort', value: launchConfig.value.reasoningEffort });
+  }
+  if (launchConfig.value.autoApprove) parts.push({ flag: '--acp' });
+  if (launchConfig.value.headless) parts.push({ flag: '--headless' });
+  if (launchConfig.value.createWorktree) parts.push({ flag: '--worktree' });
+  if (launchConfig.value.branch) {
+    parts.push({ flag: '--branch', value: launchConfig.value.branch });
+  }
+  if (launchConfig.value.customInstructions) {
+    parts.push({ flag: '--instructions', value: `"${launchConfig.value.customInstructions}"` });
+  }
+  if (launchConfig.value.repoPath) {
+    parts.push({ flag: '--cwd', value: `"${launchConfig.value.repoPath}"` });
+  }
+  if (launchConfig.value.prompt) {
+    parts.push({ flag: '', value: `"${launchConfig.value.prompt}"` });
+  }
+  return parts;
+});
+
+const estimatedCost = computed(() => {
+  const modelId = selectedModel.value || 'claude-sonnet-4.6';
+  const pr = prefsStore.getPremiumRequests(modelId);
+  const cost = pr * prefsStore.costPerPremiumRequest;
+  if (pr === 0) return 'Free';
+  return `~$${cost.toFixed(2)} (${pr}x premium requests)`;
+});
+
+const canLaunch= computed(() => repoPath.value.trim().length > 0 && !store.loading);
 
 function tierLabel(tier: string): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -96,6 +134,10 @@ function templateDisplayName(name: string): string {
 
 // ── Actions ─────────────────────────────────────────────────────────
 function applyTemplate(tplId: string) {
+  if (selectedTemplateId.value === tplId) {
+    selectedTemplateId.value = null;
+    return;
+  }
   const tpl = store.templates.find((t: SessionTemplate) => t.id === tplId);
   if (!tpl) return;
   selectedTemplateId.value = tplId;
@@ -120,7 +162,45 @@ function clearTemplateSelection() {
   selectedTemplateId.value = null;
 }
 
-function addEnvVar() {
+function moveTemplate(idx: number, direction: 'up' | 'down') {
+  const target = direction === 'up' ? idx - 1 : idx + 1;
+  if (target < 0 || target >= store.templates.length) return;
+  const arr = [...store.templates];
+  [arr[idx], arr[target]] = [arr[target], arr[idx]];
+  store.templates = arr;
+}
+
+async function deleteTemplateInline(tplId: string) {
+  if (confirmingDeleteId.value === tplId) {
+    await store.deleteTemplate(tplId);
+    if (selectedTemplateId.value === tplId) selectedTemplateId.value = null;
+    confirmingDeleteId.value = null;
+  } else {
+    confirmingDeleteId.value = tplId;
+  }
+}
+
+function cancelDeleteInline() {
+  confirmingDeleteId.value = null;
+}
+
+function selectRecentRepo(event: Event) {
+  const val = (event.target as HTMLSelectElement).value;
+  if (val) {
+    repoPath.value = val;
+    clearTemplateSelection();
+  }
+}
+
+async function handleBrowseRepo() {
+  const dir = await browseForDirectory({ title: 'Select repository directory' });
+  if (dir) {
+    repoPath.value = dir;
+    clearTemplateSelection();
+  }
+}
+
+function addEnvVar(){
   envVars.push({ key: '', value: '' });
 }
 
@@ -136,6 +216,7 @@ async function handleLaunch(asHeadless = false) {
   if (successTimer) clearTimeout(successTimer);
   launchSuccess.value = null;
   try {
+    if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
     const session = await store.launch(cfg);
     if (session) {
       launchSuccess.value = { pid: session.pid, command: session.command };
@@ -148,15 +229,21 @@ async function handleLaunch(asHeadless = false) {
 
 async function handleSaveTemplate() {
   if (!templateForm.name.trim()) return;
+  const existing = store.templates.find(
+    (t) => t.name.toLowerCase() === templateForm.name.trim().toLowerCase(),
+  );
+  if (existing && !confirm(`Template '${existing.name}' already exists. Overwrite?`)) {
+    return;
+  }
   await store.saveTemplate({
-    id: crypto.randomUUID(),
+    id: existing?.id ?? crypto.randomUUID(),
     name: templateForm.name,
     description: templateForm.description,
     category: templateForm.category,
     tags: [],
     config: launchConfig.value,
-    createdAt: new Date().toISOString(),
-    usageCount: 0,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    usageCount: existing?.usageCount ?? 0,
   });
   showTemplateForm.value = false;
   templateForm.name = '';
@@ -262,17 +349,50 @@ onUnmounted(() => {
         </div>
 
         <!-- ── Templates ─────────────────────────────────────── -->
-        <section v-if="store.templates.length" class="section-block">
+        <section v-if="store.loading || store.templates.length" class="section-block">
           <h2 class="section-label">Saved Templates</h2>
-          <div class="tpl-grid">
+          <div v-if="store.loading && !store.templates.length" class="tpl-grid">
+            <div v-for="n in 3" :key="n" class="tpl-card tpl-skeleton">
+              <span class="tpl-emoji">⏳</span>
+              <span class="tpl-name skeleton-text">&nbsp;</span>
+              <span class="tpl-desc skeleton-text">&nbsp;</span>
+            </div>
+          </div>
+          <div v-else class="tpl-grid">
             <button
-              v-for="tpl in store.templates"
+              v-for="(tpl, idx) in store.templates"
               :key="tpl.id"
               class="tpl-card"
               :class="{ selected: selectedTemplateId === tpl.id }"
               @click="applyTemplate(tpl.id)"
               @contextmenu="openContextMenu($event, tpl.id)"
             >
+              <div class="tpl-card-actions" @click.stop>
+                <button
+                  class="tpl-action-btn tpl-move-btn"
+                  :disabled="idx === 0"
+                  title="Move up"
+                  @click="moveTemplate(idx, 'up')"
+                >▲</button>
+                <button
+                  class="tpl-action-btn tpl-move-btn"
+                  :disabled="idx === store.templates.length - 1"
+                  title="Move down"
+                  @click="moveTemplate(idx, 'down')"
+                >▼</button>
+                <button
+                  class="tpl-action-btn tpl-delete-btn"
+                  title="Delete template"
+                  @click="deleteTemplateInline(tpl.id)"
+                >×</button>
+              </div>
+              <template v-if="confirmingDeleteId === tpl.id">
+                <div class="tpl-confirm-delete" @click.stop>
+                  <span>Delete?</span>
+                  <button class="tpl-confirm-yes" @click="deleteTemplateInline(tpl.id)">Yes</button>
+                  <button class="tpl-confirm-cancel" @click="cancelDeleteInline">Cancel</button>
+                </div>
+              </template>
               <span class="tpl-emoji">{{ extractEmoji(tpl.name) }}</span>
               <span class="tpl-name">{{ templateDisplayName(tpl.name) }}</span>
               <span v-if="tpl.description" class="tpl-desc">{{ tpl.description }}</span>
@@ -288,14 +408,27 @@ onUnmounted(() => {
             <div class="form-grid-2col">
               <div class="form-group">
                 <label class="form-label">Repository <span class="required">*</span></label>
-                <input
-                  v-model="repoPath"
-                  type="text"
-                  class="form-input"
-                  placeholder="C:\git\MyProject"
-                  required
-                  @input="clearTemplateSelection"
-                />
+                <div class="repo-picker">
+                  <select
+                    v-if="prefsStore.recentRepoPaths.length"
+                    class="form-input form-select repo-recent"
+                    @change="selectRecentRepo"
+                  >
+                    <option value="">Recent repos…</option>
+                    <option v-for="p in prefsStore.recentRepoPaths" :key="p" :value="p">{{ p }}</option>
+                  </select>
+                  <div class="repo-input-row">
+                    <input
+                      v-model="repoPath"
+                      type="text"
+                      class="form-input"
+                      placeholder="C:\git\MyProject"
+                      required
+                      @input="clearTemplateSelection"
+                    />
+                    <button class="btn btn-secondary repo-browse-btn" type="button" @click="handleBrowseRepo">Browse</button>
+                  </div>
+                </div>
               </div>
               <div class="form-group">
                 <label class="form-label">Branch</label>
@@ -306,6 +439,7 @@ onUnmounted(() => {
                   placeholder="main"
                   @input="clearTemplateSelection"
                 />
+                <span class="form-hint">Will be created if it doesn't exist</span>
               </div>
               <div class="form-group">
                 <label class="form-label">Model</label>
@@ -374,32 +508,33 @@ onUnmounted(() => {
                   <span class="toggle-thumb" />
                 </button>
               </div>
-              <div class="toggle-row">
+              <div class="toggle-row toggle-disabled">
                 <div class="toggle-info">
                   <span class="toggle-label">Create Worktree</span>
-                  <span class="toggle-desc">Launch in an isolated git worktree</span>
+                  <span class="toggle-desc">See Worktree Manager for worktree operations</span>
                 </div>
                 <button
                   class="toggle-switch"
                   :class="{ on: createWorktree }"
                   role="switch"
                   :aria-checked="createWorktree"
-                  @click="createWorktree = !createWorktree"
+                  disabled
+                  title="Worktree parameter is not supported by the backend"
                 >
                   <span class="toggle-thumb" />
                 </button>
               </div>
-              <div class="toggle-row toggle-row-last">
+              <div class="toggle-row toggle-row-last toggle-disabled" title="Coming Soon…">
                 <div class="toggle-info">
                   <span class="toggle-label">Headless Mode</span>
-                  <span class="toggle-desc">Run without interactive terminal UI</span>
+                  <span class="toggle-desc">Coming Soon…</span>
                 </div>
                 <button
                   class="toggle-switch"
-                  :class="{ on: headless }"
                   role="switch"
-                  :aria-checked="headless"
-                  @click="headless = !headless"
+                  :aria-checked="false"
+                  disabled
+                  title="Coming Soon…"
                 >
                   <span class="toggle-thumb" />
                 </button>
@@ -458,6 +593,7 @@ onUnmounted(() => {
                 :disabled="!templateForm.name.trim()"
                 @click="handleSaveTemplate"
               >Save Template</button>
+              <p class="form-hint" style="margin-top: 6px">If a template with the same name exists, you'll be prompted to overwrite it.</p>
             </div>
           </Transition>
         </section>
@@ -475,7 +611,7 @@ onUnmounted(() => {
             <div class="meta-grid">
               <div class="meta-card">
                 <span class="meta-label">Est. Cost</span>
-                <span class="meta-value accent">~$0.20</span>
+                <span class="meta-value accent">{{ estimatedCost }}</span>
               </div>
               <div class="meta-card">
                 <span class="meta-label">Model Tier</span>
@@ -543,13 +679,13 @@ onUnmounted(() => {
                   Copy
                 </button>
               </div>
-              <code class="cmd-block">{{ cliCommand }}</code>
+              <pre class="cmd-block"><code><template v-for="(part, i) in cliCommandParts" :key="i">{{ i > 0 ? ' \\\n  ' : '' }}<span class="cmd-flag">{{ part.flag }}</span><template v-if="part.value"> <span class="cmd-val">{{ part.value }}</span></template></template></code></pre>
             </div>
           </div>
 
           <!-- Footer -->
           <div class="preview-footer">
-            <button class="btn btn-secondary footer-btn" @click="handleLaunch(true)" :disabled="!canLaunch">
+            <button class="btn btn-secondary footer-btn" :disabled="true" title="Coming Soon…" style="opacity: 0.5; cursor: not-allowed;">
               Launch Headless
             </button>
             <button class="btn btn-primary footer-btn-primary" @click="handleLaunch(false)" :disabled="!canLaunch">
@@ -710,6 +846,7 @@ onUnmounted(() => {
 }
 
 .tpl-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1237,10 +1374,171 @@ onUnmounted(() => {
   border-radius: var(--radius-md);
   font-size: 0.6875rem;
   font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
-  color: var(--success-fg);
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.8;
+  margin: 0;
+}
+
+.cmd-flag {
+  color: var(--accent-fg);
+}
+
+.cmd-val {
+  color: var(--success-fg);
+}
+
+/* ── Template Card Actions ───────────────────────────────────────── */
+.tpl-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tpl-card:hover .tpl-card-actions {
+  opacity: 1;
+}
+
+.tpl-action-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.5625rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  background: var(--canvas-default);
+  color: var(--text-tertiary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tpl-action-btn:hover:not(:disabled) {
+  background: var(--canvas-inset);
+  color: var(--text-primary);
+}
+
+.tpl-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tpl-delete-btn {
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tpl-delete-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger-fg) 12%, transparent);
+  color: var(--danger-fg);
+}
+
+.tpl-confirm-delete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  margin-bottom: 4px;
+  color: var(--danger-fg);
+}
+
+.tpl-confirm-yes,
+.tpl-confirm-cancel {
+  padding: 1px 6px;
+  font-size: 0.625rem;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  cursor: pointer;
+  background: none;
+}
+
+.tpl-confirm-yes {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+}
+
+.tpl-confirm-yes:hover {
+  background: color-mix(in srgb, var(--danger-fg) 12%, transparent);
+}
+
+.tpl-confirm-cancel {
+  color: var(--text-secondary);
+}
+
+.tpl-confirm-cancel:hover {
+  background: var(--canvas-subtle);
+}
+
+/* ── Skeleton Loading ────────────────────────────────────────────── */
+.tpl-skeleton {
+  cursor: default;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: block;
+  width: 70%;
+  height: 0.75rem;
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Form Hint ───────────────────────────────────────────────────── */
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  display: block;
+}
+
+/* ── Disabled Toggle ─────────────────────────────────────────────── */
+.toggle-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-disabled .toggle-switch {
+  cursor: not-allowed;
+}
+
+/* ── Repo Picker ─────────────────────────────────────────────────── */
+.repo-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repo-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.repo-input-row .form-input {
+  flex: 1;
+}
+
+.repo-browse-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.repo-recent {
+  font-size: 0.75rem;
 }
 
 /* ── Context Menu ────────────────────────────────────────────────── */

@@ -1249,6 +1249,26 @@ mod commands {
         Ok(tracepilot_orchestrator::launcher::available_models())
     }
 
+    #[tauri::command]
+    pub async fn open_in_explorer(path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::launcher::open_in_explorer(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn open_in_terminal(path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::launcher::open_in_terminal(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     // -- Config Injector commands --
 
     #[tauri::command]
@@ -1514,6 +1534,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_worktree_disk_usage,
             commands::launch_session,
             commands::get_available_models,
+            commands::open_in_explorer,
+            commands::open_in_terminal,
             commands::get_agent_definitions,
             commands::save_agent_definition,
             commands::get_copilot_config,

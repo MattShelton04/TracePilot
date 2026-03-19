@@ -39,6 +39,8 @@ fn main() {
                     "get_worktree_disk_usage",
                     "launch_session",
                     "get_available_models",
+                    "open_in_explorer",
+                    "open_in_terminal",
                     "get_agent_definitions",
                     "save_agent_definition",
                     "get_copilot_config",

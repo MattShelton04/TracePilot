@@ -30,7 +30,37 @@ pub fn check_dependencies() -> SystemDependencies {
     }
 }
 
-/// Launch a new Copilot CLI session with the given configuration.
+/// Validate a model ID against known models (defence-in-depth against injection).
+fn validate_model(model: &str) -> Result<()> {
+    let known: Vec<String> = available_models().into_iter().map(|m| m.id).collect();
+    if known.iter().any(|id| id == model) {
+        Ok(())
+    } else {
+        Err(OrchestratorError::Launch(format!(
+            "Unknown model: {model}"
+        )))
+    }
+}
+
+/// Shell-quote a path for safe interpolation into a shell command string.
+/// On Windows wraps in double-quotes; on Unix uses single-quote escaping.
+fn shell_quote(s: &str) -> String {
+    #[cfg(windows)]
+    {
+        // Double-quote the path, escaping any inner double-quotes
+        format!("\"{}\"", s.replace('"', "\"\""))
+    }
+    #[cfg(not(windows))]
+    {
+        // Replace each ' with '\'' (end quote, escaped quote, start quote)
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
+/// Launch a new Copilot CLI session in a **new terminal window**.
+///
+/// NOTE: The returned `pid` is the PID of the **terminal wrapper process**, not
+/// the Copilot session itself. It is informational only.
 pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     let repo = Path::new(&config.repo_path);
     if !repo.exists() {
@@ -43,12 +73,12 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     // Build the copilot command arguments
     let mut args: Vec<String> = Vec::new();
 
-    // Always run headless if requested (no TUI, just a process)
     if config.headless {
         args.push("--acp".to_string());
     }
 
     if let Some(model) = &config.model {
+        validate_model(model)?;
         args.push("--model".to_string());
         args.push(model.clone());
     }
@@ -66,23 +96,128 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         );
     }
 
-    // Spawn the process directly (no shell wrapping for PID accuracy)
-    let child = Command::new("copilot")
-        .args(&args)
-        .current_dir(repo)
-        .envs(&envs)
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn copilot: {e}")))?;
+    let copilot_cmd = format!("copilot {}", args.join(" "));
+
+    // Spawn in a new terminal window so the user can interact with the session
+    #[cfg(windows)]
+    let child = {
+        Command::new("cmd")
+            .args(["/c", "start", "cmd", "/k", &copilot_cmd])
+            .current_dir(repo)
+            .envs(&envs)
+            .spawn()
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
+    };
+
+    #[cfg(target_os = "macos")]
+    let child = {
+        let escaped_cwd = shell_quote(&repo.display().to_string());
+        let script = format!(
+            "tell app \"Terminal\" to do script \"cd {} && {}\"",
+            escaped_cwd, copilot_cmd
+        );
+        Command::new("osascript")
+            .args(["-e", &script])
+            .spawn()
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
+    };
+
+    #[cfg(target_os = "linux")]
+    let child = {
+        let terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
+        let mut result = None;
+        for term in &terminals {
+            if let Ok(c) = Command::new(term)
+                .args(["-e", &copilot_cmd])
+                .current_dir(repo)
+                .envs(&envs)
+                .spawn()
+            {
+                result = Some(c);
+                break;
+            }
+        }
+        result.ok_or_else(|| OrchestratorError::Launch("No terminal emulator found".into()))?
+    };
 
     let pid = child.id();
-    let command = format!("copilot {}", args.join(" "));
 
     Ok(LaunchedSession {
         pid,
         worktree_path: None,
-        command,
+        command: copilot_cmd,
         launched_at: chrono::Utc::now().to_rfc3339(),
     })
+}
+
+/// Open a path in the system file explorer.
+pub fn open_in_explorer(path: &str) -> Result<()> {
+    let p = Path::new(path);
+    if !p.exists() {
+        return Err(OrchestratorError::Launch(format!("Path does not exist: {path}")));
+    }
+
+    #[cfg(windows)]
+    Command::new("explorer")
+        .arg(path)
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to open explorer: {e}")))?;
+
+    #[cfg(target_os = "macos")]
+    Command::new("open")
+        .arg(path)
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to open Finder: {e}")))?;
+
+    #[cfg(target_os = "linux")]
+    Command::new("xdg-open")
+        .arg(path)
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to open file manager: {e}")))?;
+
+    Ok(())
+}
+
+/// Open a new terminal window at the given directory.
+pub fn open_in_terminal(path: &str) -> Result<()> {
+    let p = Path::new(path);
+    if !p.exists() {
+        return Err(OrchestratorError::Launch(format!("Path does not exist: {path}")));
+    }
+
+    #[cfg(windows)]
+    Command::new("cmd")
+        .args(["/c", "start", "cmd", "/k", &format!("cd /d {}", shell_quote(path))])
+        .current_dir(p)
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let escaped = shell_quote(path);
+        let script = format!("tell app \"Terminal\" to do script \"cd {}\"", escaped);
+        Command::new("osascript")
+            .args(["-e", &script])
+            .spawn()
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
+        let mut launched = false;
+        for term in &terminals {
+            if Command::new(term).current_dir(p).spawn().is_ok() {
+                launched = true;
+                break;
+            }
+        }
+        if !launched {
+            return Err(OrchestratorError::Launch("No terminal emulator found".into()));
+        }
+    }
+
+    Ok(())
 }
 
 /// List available models.
@@ -204,5 +339,46 @@ mod tests {
         );
         assert_eq!(extract_version("1.0.8"), Some("1.0.8".to_string()));
         assert_eq!(extract_version("no version here"), None);
+    }
+
+    #[test]
+    fn test_validate_model_accepts_known() {
+        assert!(validate_model("claude-opus-4.6").is_ok());
+        assert!(validate_model("gpt-5.4").is_ok());
+        assert!(validate_model("claude-haiku-4.5").is_ok());
+    }
+
+    #[test]
+    fn test_validate_model_rejects_unknown() {
+        assert!(validate_model("unknown-model").is_err());
+        assert!(validate_model("'; rm -rf /").is_err());
+        assert!(validate_model("& calc &").is_err());
+    }
+
+    #[test]
+    fn test_shell_quote_plain_path() {
+        let quoted = shell_quote("C:\\git\\MyProject");
+        // On Windows, should be double-quoted
+        #[cfg(windows)]
+        assert_eq!(quoted, "\"C:\\git\\MyProject\"");
+        // On Unix, should be single-quoted
+        #[cfg(not(windows))]
+        assert_eq!(quoted, "'C:\\git\\MyProject'");
+    }
+
+    #[test]
+    fn test_shell_quote_path_with_spaces() {
+        let quoted = shell_quote("C:\\My Projects\\repo");
+        #[cfg(windows)]
+        assert_eq!(quoted, "\"C:\\My Projects\\repo\"");
+        #[cfg(not(windows))]
+        assert_eq!(quoted, "'C:\\My Projects\\repo'");
+    }
+
+    #[test]
+    fn test_shell_quote_path_with_ampersand() {
+        let quoted = shell_quote("C:\\A&B Corp\\repo");
+        #[cfg(windows)]
+        assert_eq!(quoted, "\"C:\\A&B Corp\\repo\"");
     }
 }

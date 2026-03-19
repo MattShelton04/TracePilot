@@ -40,14 +40,18 @@ export const useLauncherStore = defineStore('launcher', () => {
     loading.value = true;
     error.value = null;
     try {
-      const [deps, modelsData, templatesData] = await Promise.all([
+      const [depsResult, modelsResult, templatesResult] = await Promise.allSettled([
         checkSystemDeps(),
         getAvailableModels(),
         listSessionTemplates(),
       ]);
-      systemDeps.value = deps;
-      models.value = modelsData;
-      templates.value = templatesData;
+      if (depsResult.status === 'fulfilled') systemDeps.value = depsResult.value;
+      if (modelsResult.status === 'fulfilled') models.value = modelsResult.value;
+      if (templatesResult.status === 'fulfilled') templates.value = templatesResult.value;
+      const failures = [depsResult, modelsResult, templatesResult]
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+        .map((r) => String(r.reason));
+      if (failures.length) error.value = failures.join('; ');
     } catch (e) {
       error.value = String(e);
     } finally {

@@ -40,23 +40,40 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     loading.value = true;
     error.value = null;
     try {
-      const results = await Promise.allSettled([
+      // Fast path: system deps and version info load first (< 100ms)
+      const [depsResult, activeResult] = await Promise.allSettled([
         checkSystemDeps(),
-        listSessions(),
-        discoverCopilotVersions(),
         getActiveCopilotVersion(),
       ]);
 
-      const deps = results[0].status === 'fulfilled' ? results[0].value : null;
-      const sessions = results[1].status === 'fulfilled' ? results[1].value : [];
-      const versionsData = results[2].status === 'fulfilled' ? results[2].value : [];
-      const active = results[3].status === 'fulfilled' ? results[3].value : null;
-
+      const deps = depsResult.status === 'fulfilled' ? depsResult.value : null;
+      const active = activeResult.status === 'fulfilled' ? activeResult.value : null;
       systemDeps.value = deps;
+      activeVersion.value = active;
+
+      // Mark as loaded so the UI renders immediately with core info
+      loading.value = false;
+
+      // Background path: sessions + versions (can be slower)
+      const [sessionsResult, versionsResult] = await Promise.allSettled([
+        listSessions(),
+        discoverCopilotVersions(),
+      ]);
+
+      const sessions = sessionsResult.status === 'fulfilled' ? sessionsResult.value : [];
+      const versionsData = versionsResult.status === 'fulfilled' ? versionsResult.value : [];
+
+      // Surface background loading errors
+      const bgFailures = [sessionsResult, versionsResult]
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+        .map((r) => String(r.reason));
+      if (bgFailures.length) {
+        error.value = bgFailures.join('; ');
+      }
+
       totalSessions.value = sessions.length;
       activeSessions.value = sessions.filter((s) => s.isRunning).length;
       versions.value = versionsData;
-      activeVersion.value = active;
 
       // Generate activity feed from recent sessions
       activityFeed.value = sessions.slice(0, 6).map((s, i) => ({
@@ -69,7 +86,6 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       }));
     } catch (e) {
       error.value = String(e);
-    } finally {
       loading.value = false;
     }
   }
