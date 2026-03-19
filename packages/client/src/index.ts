@@ -100,8 +100,8 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
       currentVersion: '0.1.0',
       latestVersion: '0.1.0',
       hasUpdate: false,
-      releaseUrl: null,
-      publishedAt: null,
+      releaseUrl: undefined,
+      publishedAt: undefined,
     } as UpdateCheckResult,
     get_git_info: { commitHash: 'abc1234', branch: 'main' } as GitInfo,
     is_session_running: false,
@@ -315,3 +315,6 @@ export async function getGitInfo(): Promise<GitInfo> {
 }
 
 export type { SessionHealth };
+
+// Re-export orchestration module
+export * from './orchestration.js';

@@ -1,10 +1,43 @@
 # TracePilot Orchestration — Implementation Roadmap
 
-> **Generated**: 2026-03-19 | **Based on**: `copilot-cli-integration-report.md`, `copilot-sdk-deep-dive.md`
+> **Generated**: 2026-03-19 | **Updated**: 2026-03-19 | **Based on**: `copilot-cli-integration-report.md`, `copilot-sdk-deep-dive.md`
 >
 > This document is the concrete, actionable plan for implementing all orchestration features.
 > It maps every feature to its **routing** (where code lives), **technology** (Rust/Vue/SDK/CLI),
 > and **implementation details**.
+
+## Phase 1 Status: ✅ COMPLETE
+
+Phase 1 foundation has been implemented with the following deliverables:
+
+### New Rust Crate: `tracepilot-orchestrator`
+- **worktrees.rs** — Git worktree management (list, create, remove, prune, disk usage)
+- **launcher.rs** — Copilot CLI session launching, model listing, system dependency checks
+- **config_injector.rs** — Agent definition CRUD, global config, backups, diffs, atomic writes
+- **version_manager.rs** — Version discovery, active version detection, migration diffs
+- **templates.rs** — Session templates (default + user-saved), CRUD operations
+- **21 unit tests** all passing
+
+### New Tauri Commands (22 commands)
+All registered in `generate_handler![]` and `build.rs`:
+- System: `check_system_deps`
+- Worktrees: `list_worktrees`, `create_worktree`, `remove_worktree`, `prune_worktrees`, `list_branches`, `get_worktree_disk_usage`
+- Launcher: `launch_session`, `get_available_models`
+- Config: `get_agent_definitions`, `save_agent_definition`, `get_copilot_config`, `save_copilot_config`, `create_config_backup`, `list_config_backups`, `restore_config_backup`, `diff_config_files`
+- Versions: `discover_copilot_versions`, `get_active_copilot_version`, `get_migration_diffs`, `migrate_agent_definition`
+- Templates: `list_session_templates`, `save_session_template`, `delete_session_template`
+
+### Frontend
+- **Types**: `packages/types/src/orchestration.ts` — 15 interfaces
+- **Client**: `packages/client/src/orchestration.ts` — 22 functions + full mock data
+- **Stores**: 4 new Pinia stores (worktrees, launcher, configInjector, orchestrationHome)
+- **Views**: 4 new Vue views matching prototype designs:
+  - `OrchestrationHomeView.vue` — Command center dashboard
+  - `WorktreeManagerView.vue` — File-manager-style worktree management
+  - `SessionLauncherView.vue` — Split-panel launcher with live preview
+  - `ConfigInjectorView.vue` — Tabbed config editor with migration support
+- **Router**: 4 new routes under `/orchestration/*`
+- **Sidebar**: New "Orchestration" nav section with 4 items
 
 ---
 

@@ -166,6 +166,43 @@ const routes: RouteRecordRaw[] = [
       sidebarId: "settings",
     },
   },
+  // === Orchestration routes ===
+  {
+    path: "/orchestration",
+    name: "orchestration",
+    component: () => import("@/views/orchestration/OrchestrationHomeView.vue"),
+    meta: {
+      title: "Orchestration",
+      sidebarId: "orchestration",
+    },
+  },
+  {
+    path: "/orchestration/worktrees",
+    name: "worktree-manager",
+    component: () => import("@/views/orchestration/WorktreeManagerView.vue"),
+    meta: {
+      title: "Worktree Manager",
+      sidebarId: "worktrees",
+    },
+  },
+  {
+    path: "/orchestration/launcher",
+    name: "session-launcher",
+    component: () => import("@/views/orchestration/SessionLauncherView.vue"),
+    meta: {
+      title: "Session Launcher",
+      sidebarId: "launcher",
+    },
+  },
+  {
+    path: "/orchestration/config",
+    name: "config-injector",
+    component: () => import("@/views/orchestration/ConfigInjectorView.vue"),
+    meta: {
+      title: "Config Injector",
+      sidebarId: "config-injector",
+    },
+  },
   // 404 catch-all — must be last
   {
     path: "/:pathMatch(.*)*",

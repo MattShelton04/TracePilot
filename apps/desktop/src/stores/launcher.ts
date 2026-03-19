@@ -1,0 +1,106 @@
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import type {
+  LaunchConfig,
+  LaunchedSession,
+  ModelInfo,
+  SessionTemplate,
+  SystemDependencies,
+} from '@tracepilot/types';
+import {
+  launchSession as launchSessionApi,
+  getAvailableModels,
+  listSessionTemplates,
+  saveSessionTemplate as saveTemplateApi,
+  deleteSessionTemplate as deleteTemplateApi,
+  checkSystemDeps,
+} from '@tracepilot/client';
+
+export const useLauncherStore = defineStore('launcher', () => {
+  const models = ref<ModelInfo[]>([]);
+  const templates = ref<SessionTemplate[]>([]);
+  const recentLaunches = ref<LaunchedSession[]>([]);
+  const systemDeps = ref<SystemDependencies | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
+  const isReady = computed(
+    () => systemDeps.value?.gitAvailable && systemDeps.value?.copilotAvailable,
+  );
+
+  const modelsByTier = computed(() => {
+    const tiers: Record<string, ModelInfo[]> = {};
+    for (const m of models.value) {
+      (tiers[m.tier] ??= []).push(m);
+    }
+    return tiers;
+  });
+
+  async function initialize() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const [deps, modelsData, templatesData] = await Promise.all([
+        checkSystemDeps(),
+        getAvailableModels(),
+        listSessionTemplates(),
+      ]);
+      systemDeps.value = deps;
+      models.value = modelsData;
+      templates.value = templatesData;
+    } catch (e) {
+      error.value = String(e);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function launch(config: LaunchConfig): Promise<LaunchedSession | null> {
+    error.value = null;
+    try {
+      const session = await launchSessionApi(config);
+      recentLaunches.value = [session, ...recentLaunches.value.slice(0, 9)];
+      return session;
+    } catch (e) {
+      error.value = String(e);
+      return null;
+    }
+  }
+
+  async function saveTemplate(template: SessionTemplate): Promise<boolean> {
+    try {
+      await saveTemplateApi(template);
+      templates.value = await listSessionTemplates();
+      return true;
+    } catch (e) {
+      error.value = String(e);
+      return false;
+    }
+  }
+
+  async function deleteTemplate(id: string): Promise<boolean> {
+    try {
+      await deleteTemplateApi(id);
+      templates.value = templates.value.filter((t) => t.id !== id);
+      return true;
+    } catch (e) {
+      error.value = String(e);
+      return false;
+    }
+  }
+
+  return {
+    models,
+    templates,
+    recentLaunches,
+    systemDeps,
+    loading,
+    error,
+    isReady,
+    modelsByTier,
+    initialize,
+    launch,
+    saveTemplate,
+    deleteTemplate,
+  };
+});

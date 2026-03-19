@@ -7,6 +7,7 @@ edition.workspace = true
 [dependencies]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
+tracepilot-orchestrator = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
