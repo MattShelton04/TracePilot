@@ -115,6 +115,20 @@
   --agent-color-code-review: #f472b6;
   --agent-color-task: #fbbf24;
 
+  /* --- Chart Colors --- */
+  --chart-success: #34d399;
+  --chart-success-light: #6ee7b7;
+  --chart-danger: #fb7185;
+  --chart-danger-light: #fca5a5;
+  --chart-primary: #6366f1;
+  --chart-primary-light: #818cf8;
+  --chart-secondary: #a78bfa;
+  --chart-warning: #fbbf24;
+  --chart-info: #38bdf8;
+  --chart-cyan: #22d3ee;
+  --chart-orange: #f97316;
+  --chart-lime: #84cc16;
+
 }
 
 /* ===== LIGHT THEME ===== */

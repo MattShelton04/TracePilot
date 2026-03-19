@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { formatCost, formatNumber, formatPercent } from '@tracepilot/ui';
 import { computed, onMounted, ref, watch } from 'vue';
-import { formatNumber, formatCost } from '@tracepilot/ui';
+import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { usePreferencesStore } from '@/stores/preferences';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
-import TimeRangeFilter from '@/components/TimeRangeFilter.vue';
+import { MODEL_PALETTE } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
@@ -14,15 +15,24 @@ onMounted(() => {
   store.fetchAnalytics();
 });
 
-watch([() => store.selectedRepo, () => store.dateRange], () => {
-  store.fetchAnalytics({ force: true });
-}, { deep: true });
+watch(
+  [() => store.selectedRepo, () => store.dateRange],
+  () => {
+    store.fetchAnalytics({ force: true });
+  },
+  { deep: true },
+);
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
 
+const pageSubtitle = computed(() => {
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  return `Performance and cost metrics across all models${repoSuffix}`;
+});
+
 // ── Constants ────────────────────────────────────────────────
-const MODEL_COLORS = ['#6366f1', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee', '#f97316', '#84cc16'];
+const MODEL_COLORS = MODEL_PALETTE;
 
 // ── Enriched model data ──────────────────────────────────────
 interface ModelRow {
@@ -48,10 +58,13 @@ const modelRows = computed<ModelRow[]>(() => {
     const tokens = m.inputTokens + m.outputTokens;
     const percentage = grandTotal > 0 ? (tokens / grandTotal) * 100 : 0;
     const premiumRequests = m.premiumRequests;
-    const cacheHitRate = m.inputTokens > 0
-      ? m.cacheReadTokens / m.inputTokens * 100
-      : 0;
-    const cost = prefs.computeWholesaleCost(m.model, m.inputTokens, m.cacheReadTokens, m.outputTokens);
+    const cacheHitRate = m.inputTokens > 0 ? (m.cacheReadTokens / m.inputTokens) * 100 : 0;
+    const cost = prefs.computeWholesaleCost(
+      m.model,
+      m.inputTokens,
+      m.cacheReadTokens,
+      m.outputTokens,
+    );
     const copilotCost = premiumRequests * prefs.costPerPremiumRequest;
     return {
       model: m.model,
@@ -91,16 +104,31 @@ function bestIdx(arr: number[], higher = true): number {
   return best;
 }
 
-const bestCacheIdx = computed(() => bestIdx(modelRows.value.map(m => m.cacheHitRate)));
+const bestCacheIdx = computed(() => bestIdx(modelRows.value.map((m) => m.cacheHitRate)));
 const bestCostIdx = computed(() => {
-  const costs = modelRows.value.map(m => m.cost ?? Infinity);
-  if (costs.every(c => c === Infinity)) return -1;
+  const costs = modelRows.value.map((m) => m.cost ?? Infinity);
+  if (costs.every((c) => c === Infinity)) return -1;
   return bestIdx(costs, false);
 });
-const bestCopilotCostIdx = computed(() => bestIdx(modelRows.value.map(m => m.copilotCost), false));
+const bestCopilotCostIdx = computed(() =>
+  bestIdx(
+    modelRows.value.map((m) => m.copilotCost),
+    false,
+  ),
+);
 
 // ── Sort state ───────────────────────────────────────────────
-type SortKey = 'model' | 'tokens' | 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'percentage' | 'premiumRequests' | 'cacheHitRate' | 'cost' | 'copilotCost';
+type SortKey =
+  | 'model'
+  | 'tokens'
+  | 'inputTokens'
+  | 'outputTokens'
+  | 'cacheReadTokens'
+  | 'percentage'
+  | 'premiumRequests'
+  | 'cacheHitRate'
+  | 'cost'
+  | 'copilotCost';
 const sortKey = ref<SortKey>('tokens');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
@@ -142,7 +170,7 @@ const displayRows = computed<ModelRow[]>(() => {
   if (normMode.value === 'raw') return rows;
 
   if (normMode.value === 'per-10m-tokens') {
-    return rows.map(r => {
+    return rows.map((r) => {
       const divisor = r.tokens / 10_000_000 || 1;
       return {
         ...r,
@@ -168,16 +196,26 @@ const displayRows = computed<ModelRow[]>(() => {
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
     }),
-    { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, premiumRequests: 0, cost: 0, copilotCost: 0 },
+    {
+      tokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      premiumRequests: 0,
+      cost: 0,
+      copilotCost: 0,
+    },
   );
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     ...r,
     tokens: sums.tokens > 0 ? (r.tokens / sums.tokens) * 100 : 0,
     inputTokens: sums.inputTokens > 0 ? (r.inputTokens / sums.inputTokens) * 100 : 0,
     outputTokens: sums.outputTokens > 0 ? (r.outputTokens / sums.outputTokens) * 100 : 0,
-    cacheReadTokens: sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
-    premiumRequests: sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
+    cacheReadTokens:
+      sums.cacheReadTokens > 0 ? (r.cacheReadTokens / sums.cacheReadTokens) * 100 : 0,
+    premiumRequests:
+      sums.premiumRequests > 0 ? (r.premiumRequests / sums.premiumRequests) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
   }));
@@ -206,13 +244,16 @@ const radarModels = computed(() => {
 const radarAxes = ['Token Vol.', 'Cache Eff.', 'Premium Req.', 'Cost Eff.', 'Token Share'];
 
 function radarValues(row: ModelRow): number[] {
-  const maxTokens = Math.max(...modelRows.value.map(m => m.tokens), 1);
+  const maxTokens = Math.max(...modelRows.value.map((m) => m.tokens), 1);
   const tokenVol = row.tokens / maxTokens;
   const cacheEff = row.cacheHitRate / 100;
-  const maxPR = Math.max(...modelRows.value.map(m => m.premiumRequests), 1);
+  const maxPR = Math.max(...modelRows.value.map((m) => m.premiumRequests), 1);
   const prShare = row.premiumRequests / maxPR;
   const costPerToken = row.cost != null && row.tokens > 0 ? row.cost / row.tokens : 0;
-  const maxCostPerToken = Math.max(...modelRows.value.map(m => (m.cost ?? 0) / Math.max(m.tokens, 1)), 0.0001);
+  const maxCostPerToken = Math.max(
+    ...modelRows.value.map((m) => (m.cost ?? 0) / Math.max(m.tokens, 1)),
+    0.0001,
+  );
   const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
   const share = row.percentage / 100;
   return [tokenVol, cacheEff, prShare, costEff, share];
@@ -231,10 +272,12 @@ function radarPoint(axisIdx: number, value: number): { x: number; y: number } {
 }
 
 function radarPolygon(values: number[]): string {
-  return values.map((v, i) => {
-    const p = radarPoint(i, v);
-    return `${p.x},${p.y}`;
-  }).join(' ');
+  return values
+    .map((v, i) => {
+      const p = radarPoint(i, v);
+      return `${p.x},${p.y}`;
+    })
+    .join(' ');
 }
 
 function radarAxisEnd(idx: number): { x: number; y: number } {
@@ -256,17 +299,24 @@ const SCATTER_H = 250;
 const SCATTER_PAD = { top: 20, right: 30, bottom: 40, left: 70 };
 
 const scatterScale = computed(() => {
-  const maxT = Math.max(...modelRows.value.map(m => m.tokens), 1);
-  const maxC = Math.max(...modelRows.value.map(m => m.cost ?? 0), 0.01);
+  const maxT = Math.max(...modelRows.value.map((m) => m.tokens), 1);
+  const maxC = Math.max(...modelRows.value.map((m) => m.cost ?? 0), 0.01);
   return { maxT, maxC };
 });
 
 function scatterX(tokens: number): number {
-  return SCATTER_PAD.left + (tokens / scatterScale.value.maxT) * (SCATTER_W - SCATTER_PAD.left - SCATTER_PAD.right);
+  return (
+    SCATTER_PAD.left +
+    (tokens / scatterScale.value.maxT) * (SCATTER_W - SCATTER_PAD.left - SCATTER_PAD.right)
+  );
 }
 
 function scatterY(cost: number): number {
-  return SCATTER_H - SCATTER_PAD.bottom - (cost / scatterScale.value.maxC) * (SCATTER_H - SCATTER_PAD.top - SCATTER_PAD.bottom);
+  return (
+    SCATTER_H -
+    SCATTER_PAD.bottom -
+    (cost / scatterScale.value.maxC) * (SCATTER_H - SCATTER_PAD.top - SCATTER_PAD.bottom)
+  );
 }
 
 function scatterRadius(cacheHitRate: number): number {
@@ -277,18 +327,24 @@ function scatterRadius(cacheHitRate: number): number {
 const compareA = ref<string>('');
 const compareB = ref<string>('');
 
-watch(modelRows, (rows) => {
-  if (rows.length >= 2) {
-    if (!compareA.value || !rows.find(r => r.model === compareA.value)) compareA.value = rows[0].model;
-    if (!compareB.value || !rows.find(r => r.model === compareB.value)) compareB.value = rows[1].model;
-  } else if (rows.length === 1) {
-    compareA.value = rows[0].model;
-    compareB.value = '';
-  }
-}, { immediate: true });
+watch(
+  modelRows,
+  (rows) => {
+    if (rows.length >= 2) {
+      if (!compareA.value || !rows.find((r) => r.model === compareA.value))
+        compareA.value = rows[0].model;
+      if (!compareB.value || !rows.find((r) => r.model === compareB.value))
+        compareB.value = rows[1].model;
+    } else if (rows.length === 1) {
+      compareA.value = rows[0].model;
+      compareB.value = '';
+    }
+  },
+  { immediate: true },
+);
 
-const compareRowA = computed(() => displayRows.value.find(r => r.model === compareA.value));
-const compareRowB = computed(() => displayRows.value.find(r => r.model === compareB.value));
+const compareRowA = computed(() => displayRows.value.find((r) => r.model === compareA.value));
+const compareRowB = computed(() => displayRows.value.find((r) => r.model === compareB.value));
 
 interface CompareMetric {
   label: string;
@@ -304,32 +360,76 @@ const compareMetrics = computed<CompareMetric[]>(() => {
   const b = compareRowB.value;
   if (!a || !b) return [];
 
-  function delta(va: number, vb: number, higherIsBetter: boolean): Pick<CompareMetric, 'delta' | 'direction' | 'better'> {
+  function delta(
+    va: number,
+    vb: number,
+    higherIsBetter: boolean,
+  ): Pick<CompareMetric, 'delta' | 'direction' | 'better'> {
     const diff = va - vb;
     if (Math.abs(diff) < 0.001) return { delta: '—', direction: 'neutral', better: 'neutral' };
     const pct = vb !== 0 ? ((diff / Math.abs(vb)) * 100).toFixed(1) : '∞';
     const dir = diff > 0 ? 'up' : 'down';
-    const better = higherIsBetter ? (diff > 0 ? 'a' : 'b') : (diff < 0 ? 'a' : 'b');
+    const better = higherIsBetter ? (diff > 0 ? 'a' : 'b') : diff < 0 ? 'a' : 'b';
     return { delta: `${diff > 0 ? '+' : ''}${pct}%`, direction: dir as 'up' | 'down', better };
   }
 
   return [
-    { label: 'Total Tokens', valueA: fmtNorm(a.tokens), valueB: fmtNorm(b.tokens), ...delta(a.tokens, b.tokens, true) },
-    { label: 'Input Tokens', valueA: fmtNorm(a.inputTokens), valueB: fmtNorm(b.inputTokens), ...delta(a.inputTokens, b.inputTokens, true) },
-    { label: 'Output Tokens', valueA: fmtNorm(a.outputTokens), valueB: fmtNorm(b.outputTokens), ...delta(a.outputTokens, b.outputTokens, true) },
-    { label: 'Cache Read', valueA: fmtNorm(a.cacheReadTokens), valueB: fmtNorm(b.cacheReadTokens), ...delta(a.cacheReadTokens, b.cacheReadTokens, true) },
-    { label: 'Token Share', valueA: fmtPct(a.percentage), valueB: fmtPct(b.percentage), ...delta(a.percentage, b.percentage, true) },
-    { label: 'Premium Requests', valueA: fmtNorm(a.premiumRequests), valueB: fmtNorm(b.premiumRequests), ...delta(a.premiumRequests, b.premiumRequests, true) },
-    { label: 'Cache Hit Rate', valueA: fmtPct(a.cacheHitRate), valueB: fmtPct(b.cacheHitRate), ...delta(a.cacheHitRate, b.cacheHitRate, true) },
-    { label: 'Wholesale Cost', valueA: fmtNorm(a.cost, true), valueB: fmtNorm(b.cost, true), ...delta(a.cost ?? 0, b.cost ?? 0, false) },
-    { label: 'Copilot Cost', valueA: fmtNorm(a.copilotCost, true), valueB: fmtNorm(b.copilotCost, true), ...delta(a.copilotCost, b.copilotCost, false) },
+    {
+      label: 'Total Tokens',
+      valueA: fmtNorm(a.tokens),
+      valueB: fmtNorm(b.tokens),
+      ...delta(a.tokens, b.tokens, true),
+    },
+    {
+      label: 'Input Tokens',
+      valueA: fmtNorm(a.inputTokens),
+      valueB: fmtNorm(b.inputTokens),
+      ...delta(a.inputTokens, b.inputTokens, true),
+    },
+    {
+      label: 'Output Tokens',
+      valueA: fmtNorm(a.outputTokens),
+      valueB: fmtNorm(b.outputTokens),
+      ...delta(a.outputTokens, b.outputTokens, true),
+    },
+    {
+      label: 'Cache Read',
+      valueA: fmtNorm(a.cacheReadTokens),
+      valueB: fmtNorm(b.cacheReadTokens),
+      ...delta(a.cacheReadTokens, b.cacheReadTokens, true),
+    },
+    {
+      label: 'Token Share',
+      valueA: formatPercent(a.percentage),
+      valueB: formatPercent(b.percentage),
+      ...delta(a.percentage, b.percentage, true),
+    },
+    {
+      label: 'Premium Requests',
+      valueA: fmtNorm(a.premiumRequests),
+      valueB: fmtNorm(b.premiumRequests),
+      ...delta(a.premiumRequests, b.premiumRequests, true),
+    },
+    {
+      label: 'Cache Hit Rate',
+      valueA: formatPercent(a.cacheHitRate),
+      valueB: formatPercent(b.cacheHitRate),
+      ...delta(a.cacheHitRate, b.cacheHitRate, true),
+    },
+    {
+      label: 'Wholesale Cost',
+      valueA: fmtNorm(a.cost, true),
+      valueB: fmtNorm(b.cost, true),
+      ...delta(a.cost ?? 0, b.cost ?? 0, false),
+    },
+    {
+      label: 'Copilot Cost',
+      valueA: fmtNorm(a.copilotCost, true),
+      valueB: fmtNorm(b.copilotCost, true),
+      ...delta(a.copilotCost, b.copilotCost, false),
+    },
   ];
 });
-
-// ── Formatters ───────────────────────────────────────────────
-function fmtPct(v: number): string {
-  return `${v.toFixed(1)}%`;
-}
 </script>
 
 <template>
@@ -342,27 +442,7 @@ function fmtPct(v: number): string {
         </div>
 
         <template v-else-if="data">
-          <!-- Title + Filters -->
-          <div class="mb-4" style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <h1 class="page-title">Model Comparison</h1>
-              <p class="page-subtitle">
-                Performance and cost metrics across all models{{ store.selectedRepo ? ` in ${store.selectedRepo}` : '' }}
-              </p>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <TimeRangeFilter />
-              <select
-                :value="store.selectedRepo ?? ''"
-                class="filter-select"
-                aria-label="Filter by repository"
-                @change="store.setRepo(($event.target as HTMLSelectElement).value || null)"
-              >
-                <option value="">All Repositories</option>
-                <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
-              </select>
-            </div>
-          </div>
+          <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
 
           <!-- Empty State -->
           <div v-if="modelRows.length === 0" class="empty-state">
@@ -410,7 +490,7 @@ function fmtPct(v: number): string {
                   </div>
                   <div>
                     <div class="model-card-stat-label">Cache Hit</div>
-                    <div class="model-card-stat-value">{{ fmtPct(row.cacheHitRate) }}</div>
+                    <div class="model-card-stat-value">{{ formatPercent(row.cacheHitRate) }}</div>
                   </div>
                   <div>
                     <div class="model-card-stat-label">Premium Req.</div>
@@ -421,7 +501,7 @@ function fmtPct(v: number): string {
                 <div class="token-share-bar">
                   <div class="token-share-fill" :style="{ width: `${row.percentage}%`, background: row.color }" />
                 </div>
-                <div class="token-share-label">{{ fmtPct(row.percentage) }} of total tokens</div>
+                <div class="token-share-label">{{ formatPercent(row.percentage) }} of total tokens</div>
               </div>
             </div>
 
@@ -504,7 +584,7 @@ function fmtPct(v: number): string {
                       <td class="num-cell">{{ fmtNorm(row.cacheReadTokens) }}</td>
                       <td class="num-cell">
                         <div class="inline-progress">
-                          <span>{{ fmtPct(row.percentage) }}</span>
+                          <span>{{ formatPercent(row.percentage) }}</span>
                           <div class="inline-progress-bar">
                             <div class="inline-progress-fill" :style="{ width: `${row.percentage}%`, background: row.color }" />
                           </div>
@@ -515,7 +595,7 @@ function fmtPct(v: number): string {
                       </td>
                       <td class="num-cell">
                         <span :class="{ 'best-cell': row.model === modelRows[bestCacheIdx]?.model }">
-                          {{ fmtPct(row.cacheHitRate) }}
+                          {{ formatPercent(row.cacheHitRate) }}
                         </span>
                       </td>
                       <td v-if="costMode !== 'copilot'" class="num-cell">
@@ -658,7 +738,7 @@ function fmtPct(v: number): string {
                           :stroke="row.color"
                           stroke-width="1.5"
                         >
-                          <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatCost(row.cost) }}, {{ fmtPct(row.cacheHitRate) }} cache</title>
+                          <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatCost(row.cost) }}, {{ formatPercent(row.cacheHitRate) }} cache</title>
                         </circle>
                         <text
                           :x="scatterX(row.tokens)"
@@ -750,10 +830,6 @@ function fmtPct(v: number): string {
 </template>
 
 <style scoped>
-.mb-4 {
-  margin-bottom: 20px;
-}
-
 /* ── Empty State ──────────────────────────────────────────── */
 .empty-state {
   text-align: center;
@@ -789,8 +865,8 @@ function fmtPct(v: number): string {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .model-card:hover {
-  border-color: var(--border-accent, #6366f1);
-  box-shadow: 0 0 0 1px var(--border-accent, #6366f1);
+  border-color: var(--border-accent, var(--chart-primary));
+  box-shadow: 0 0 0 1px var(--border-accent, var(--chart-primary));
 }
 
 .model-card-name {
@@ -869,7 +945,7 @@ function fmtPct(v: number): string {
   white-space: nowrap;
 }
 .sort-header:hover {
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg, var(--chart-primary-light));
 }
 .sort-arrow {
   font-size: 0.6rem;
@@ -898,7 +974,7 @@ function fmtPct(v: number): string {
   padding: 2px 6px;
   margin: -2px -6px;
   display: inline-block;
-  color: #34d399;
+  color: var(--chart-success);
   font-weight: 600;
 }
 
@@ -996,10 +1072,10 @@ function fmtPct(v: number): string {
   font-weight: 500;
 }
 .delta-up {
-  color: #34d399;
+  color: var(--chart-success);
 }
 .delta-down {
-  color: #fb7185;
+  color: var(--chart-danger);
 }
 .delta-neutral {
   color: var(--text-tertiary);

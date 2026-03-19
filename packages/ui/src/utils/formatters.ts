@@ -5,7 +5,7 @@
 
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
-  if (ms == null || ms < 0) return "";
+  if (ms == null || ms < 0) return '';
   if (ms < 1000) return `${Math.round(ms * 100) / 100}ms`;
   const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
@@ -19,26 +19,26 @@ export function formatDuration(ms?: number | null): string {
 
 /** Format an ISO date string to locale date+time. */
 export function formatDate(dateStr?: string | null): string {
-  if (!dateStr) return "";
+  if (!dateStr) return '';
   return new Date(dateStr).toLocaleString();
 }
 
 /** Format an ISO date string to locale time only (HH:MM:SS). */
 export function formatTime(dateStr?: string | null): string {
-  if (!dateStr) return "";
+  if (!dateStr) return '';
   return new Date(dateStr).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
 }
 
 /** Format an ISO date string to a relative time string (e.g. "3m ago"). */
 export function formatRelativeTime(dateStr?: string | null): string {
-  if (!dateStr) return "";
+  if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
@@ -50,7 +50,7 @@ export function formatRelativeTime(dateStr?: string | null): string {
 
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
 export function formatNumber(n?: number | null): string {
-  if (n == null) return "0";
+  if (n == null) return '0';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
@@ -58,7 +58,7 @@ export function formatNumber(n?: number | null): string {
 
 /** Format a cost value as USD. */
 export function formatCost(cost?: number | null): string {
-  if (cost == null) return "$0.00";
+  if (cost == null) return '$0.00';
   return `$${cost.toFixed(2)}`;
 }
 
@@ -71,8 +71,44 @@ export function truncateText(text: string, maxLen = 1000): string {
 /** Format a live duration (in-progress timer) as clean whole seconds.
  *  Floors to nearest second to avoid fractional ticking. */
 export function formatLiveDuration(ms?: number | null): string {
-  if (ms == null || ms < 0) return "";
+  if (ms == null || ms < 0) return '';
   // Floor to whole seconds for clean second-by-second ticking
   const floored = Math.floor(ms / 1000) * 1000;
   return formatDuration(floored);
+}
+
+/** Format a rate (0–1) as a percentage string (e.g. 0.95 → "95.0%"). */
+export function formatRate(rate?: number | null): string {
+  if (rate == null) return '0.0%';
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+/** Format a percentage value (0–100) as a string (e.g. 95.1 → "95.1%"). */
+export function formatPercent(value?: number | null): string {
+  if (value == null) return '0.0%';
+  return `${value.toFixed(1)}%`;
+}
+
+/** Format an ISO date as a short M/D string (e.g. "3/19"). Uses UTC. */
+export function formatDateShort(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+}
+
+/** Format an ISO date as "Mar 19, 2026". Uses UTC. */
+export function formatDateMedium(iso?: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** Format a number with locale thousand separators (e.g. 1234 → "1,234"). */
+export function formatNumberFull(n?: number | null): string {
+  if (n == null) return '0';
+  return n.toLocaleString('en-US');
 }

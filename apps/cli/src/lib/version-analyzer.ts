@@ -11,29 +11,7 @@ import { homedir } from "node:os";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import yaml from "js-yaml";
-
-/**
- * Canonical list of event types TracePilot handles with typed parsing.
- * Must stay in sync with:
- *   - packages/types/src/known-events.ts
- *   - crates/tracepilot-core/src/models/event_types.rs (KNOWN_EVENT_TYPES)
- */
-const TRACEPILOT_KNOWN_EVENTS = [
-  "session.start", "session.shutdown", "session.resume", "session.error",
-  "session.info", "session.model_change", "session.context_changed",
-  "session.compaction_start", "session.compaction_complete", "session.plan_changed",
-  "session.workspace_file_changed",
-  "user.message", "assistant.message", "assistant.turn_start", "assistant.turn_end",
-  "tool.execution_start", "tool.execution_complete", "tool.user_requested",
-  "subagent.started", "subagent.completed", "subagent.failed",
-  "system.notification", "skill.invoked", "abort",
-  // New event types
-  "session.truncation", "assistant.reasoning", "system.message",
-  "session.warning", "session.mode_changed", "session.task_complete",
-  "subagent.selected", "subagent.deselected",
-  "hook.start", "hook.end",
-  "session.handoff", "session.import_legacy",
-] as const;
+import { TRACEPILOT_KNOWN_EVENTS } from "@tracepilot/types";
 
 // ── Types ────────────────────────────────────────────────────────────
 

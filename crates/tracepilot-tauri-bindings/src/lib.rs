@@ -152,17 +152,8 @@ mod commands {
     }
 
     fn truncate_utf8(s: &mut String, max_bytes: usize) {
-        if s.len() <= max_bytes {
-            return;
-        }
-
-        let truncate_at = s
-            .char_indices()
-            .map(|(idx, _)| idx)
-            .take_while(|idx| *idx <= max_bytes)
-            .last()
-            .unwrap_or(0);
-        s.truncate(truncate_at);
+        let truncated_len = tracepilot_core::utils::truncate_utf8(s.as_str(), max_bytes).len();
+        s.truncate(truncated_len);
     }
 
     fn summary_to_list_item(summary: tracepilot_core::SessionSummary, session_path: &Path) -> SessionListItem {
@@ -656,7 +647,7 @@ mod commands {
                     hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
-                    Err(e) => eprintln!("Analytics SQL fast path failed, falling back to disk scan: {e}"),
+                    Err(e) => tracing::warn!("Analytics SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 
@@ -697,7 +688,7 @@ mod commands {
                     hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
-                    Err(e) => eprintln!("Tool analysis SQL fast path failed, falling back to disk scan: {e}"),
+                    Err(e) => tracing::warn!("Tool analysis SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 
@@ -738,7 +729,7 @@ mod commands {
                     hide_empty.unwrap_or(false),
                 ) {
                     Ok(result) => return Ok(result),
-                    Err(e) => eprintln!("Code impact SQL fast path failed, falling back to disk scan: {e}"),
+                    Err(e) => tracing::warn!("Code impact SQL fast path failed, falling back to disk scan: {e}"),
                 }
             }
 

@@ -27,12 +27,7 @@ pub struct IndexingProgress {
 
 /// Default path for the TracePilot index database.
 pub fn default_index_db_path() -> PathBuf {
-    let home = if cfg!(windows) {
-        std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users\\default".to_string())
-    } else {
-        std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
-    };
-    PathBuf::from(home)
+    tracepilot_core::utils::home_dir()
         .join(".copilot")
         .join("tracepilot")
         .join("index.db")

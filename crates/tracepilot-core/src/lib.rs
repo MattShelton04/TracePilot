@@ -64,6 +64,7 @@ pub mod parsing;
 pub mod session;
 pub mod summary;
 pub mod turns;
+pub mod utils;
 
 #[cfg(test)]
 pub mod testing;

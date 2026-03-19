@@ -14,14 +14,7 @@ pub fn config_file_path() -> Option<PathBuf> {
 }
 
 fn home_dir() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE").map(PathBuf::from).ok()
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME").map(PathBuf::from).ok()
-    }
+    tracepilot_core::utils::home_dir_opt()
 }
 
 /// Top-level configuration.

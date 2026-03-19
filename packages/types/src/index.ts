@@ -11,7 +11,7 @@ export interface SessionListItem {
   turnCount?: number;
   currentModel?: string;
   /** Whether this session is currently running (has an `inuse.*.lock` file). */
-  isRunning?: boolean;
+  isRunning: boolean;
 }
 
 /** Full session detail from load_session_summary */
@@ -36,6 +36,7 @@ export interface SessionDetail {
 /** Shutdown metrics from session.shutdown event */
 export interface ShutdownMetrics {
   shutdownType?: string;
+  shutdownCount?: number;
   totalPremiumRequests?: number;
   totalApiDurationMs?: number;
   sessionStartTime?: number;
@@ -517,6 +518,37 @@ export interface ValidateSessionDirResult {
   sessionCount: number;
   error?: string;
 }
+
+// ===== Update & Git Types =====
+
+/** Result from checking for a newer TracePilot release. */
+export interface UpdateCheckResult {
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean;
+  releaseUrl: string | null;
+  publishedAt: string | null;
+}
+
+/** Git metadata for the running TracePilot instance. */
+export interface GitInfo {
+  commitHash: string;
+  branch: string;
+}
+
+/** A single entry in the release manifest used by the What's New modal. */
+export interface ReleaseManifestEntry {
+  version: string;
+  date: string;
+  notes: {
+    added: string[];
+    changed: string[];
+    fixed: string[];
+  };
+  requiresReindex?: boolean;
+}
+
+export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from './known-events';
 
 /** Enriched indexing progress payload emitted per session during reindexing. */
 export interface IndexingProgressPayload {

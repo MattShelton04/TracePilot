@@ -1,0 +1,16 @@
+# Normalize all text files to LF on checkout.
+# This prevents phantom "modified" diffs from tools (Tauri CLI, Cargo, Node)
+# that write files with LF on Windows, conflicting with CRLF from autocrlf=true.
+* text=auto eol=lf
+
+# Explicitly mark binary files so git never tries to normalize them.
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
