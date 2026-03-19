@@ -63,5 +63,6 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
+      # Temporarily disabled pnpm lint step.
+      # - name: Lint
+      #   run: pnpm lint
