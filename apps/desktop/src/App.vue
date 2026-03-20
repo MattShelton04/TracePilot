@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { checkConfigExists } from '@tracepilot/client';
-import type { ReleaseManifestEntry } from '@tracepilot/types';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
 import SetupWizard from '@/components/SetupWizard.vue';
-import UpdateBanner from '@/components/UpdateBanner.vue';
 import UpdateInstructionsModal from '@/components/UpdateInstructionsModal.vue';
 import WhatsNewModal from '@/components/WhatsNewModal.vue';
 import { initAppVersion, useAppVersion } from '@/composables/useAppVersion';
 import { runUpdateCheck } from '@/composables/useUpdateCheck';
+import { useWhatsNew } from '@/composables/useWhatsNew';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 
@@ -25,9 +24,15 @@ const { appVersion } = useAppVersion();
 const phase = ref<AppPhase>('loading');
 const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
-const showWhatsNew = ref(false);
-const whatsNewPreviousVersion = ref('');
-const whatsNewEntries = ref<ReleaseManifestEntry[]>([]);
+
+const {
+  showWhatsNew,
+  whatsNewPreviousVersion,
+  whatsNewCurrentVersion,
+  whatsNewEntries,
+  openWhatsNew,
+  closeWhatsNew,
+} = useWhatsNew();
 
 onMounted(async () => {
   // Initialize app version from Tauri runtime (or 'dev' in browser mode)
@@ -60,18 +65,7 @@ async function checkVersionChange() {
 
   const previous = prefsStore.lastSeenVersion;
   if (previous && previous !== current) {
-    // Load release manifest for "What's New" display
-    try {
-      const resp = await fetch('/release-manifest.json');
-      if (resp.ok) {
-        const manifest = await resp.json();
-        whatsNewEntries.value = manifest.versions ?? [];
-        whatsNewPreviousVersion.value = previous;
-        showWhatsNew.value = true;
-      }
-    } catch {
-      // Release manifest missing or invalid — skip "What's New"
-    }
+    await openWhatsNew(previous, current);
   }
   prefsStore.lastSeenVersion = current;
 }
@@ -134,19 +128,13 @@ const breadcrumbs = computed(() => {
     @complete="onIndexingComplete"
   />
   <div v-else-if="phase === 'app'" class="app-layout">
-    <!-- Update notification banner -->
-    <UpdateBanner
-      @view-details="showUpdateModal = true"
-      @dismiss="() => { /* banner handles its own dismiss state */ }"
-    />
-
     <!-- Ambient background (matches setup wizard aesthetic) -->
     <div class="app-bg" aria-hidden="true">
       <div class="app-dot-grid" />
       <div class="app-orb app-orb-1" />
       <div class="app-orb app-orb-2" />
     </div>
-    <AppSidebar />
+    <AppSidebar @view-update-details="showUpdateModal = true" />
     <div class="main-content">
       <div class="page-header-bar">
         <BreadcrumbNav :items="breadcrumbs" />
@@ -161,13 +149,13 @@ const breadcrumbs = computed(() => {
     @close="showUpdateModal = false"
   />
 
-  <!-- What's New modal (shown on version change) -->
+  <!-- What's New modal (shown on version change or reopened from settings) -->
   <WhatsNewModal
     v-if="showWhatsNew"
     :previous-version="whatsNewPreviousVersion"
-    :current-version="appVersion"
+    :current-version="whatsNewCurrentVersion"
     :entries="whatsNewEntries"
-    @close="showWhatsNew = false"
+    @close="closeWhatsNew"
   />
 </template>
 

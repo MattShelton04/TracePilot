@@ -5,6 +5,7 @@
   "permissions": [
     "core:default",
     "tracepilot:default",
-    "dialog:default"
+    "dialog:default",
+    "opener:default"
   ]
 }

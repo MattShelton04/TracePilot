@@ -5,6 +5,7 @@ import { SectionPanel } from '@tracepilot/ui';
 import { onMounted, ref } from 'vue';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
 import { useAppVersion } from '@/composables/useAppVersion';
+import { openExternal } from '@/utils/openExternal';
 
 defineProps<{
   sessionCount: number;
@@ -58,19 +59,19 @@ onMounted(async () => {
         </dl>
 
         <div class="about-links">
-          <a href="https://github.com/MattShelton04/TracePilot" target="_blank" rel="noopener">
+          <a href="#" @click.prevent="openExternal('https://github.com/MattShelton04/TracePilot')">
             GitHub Repository
           </a>
-          <a href="https://github.com/MattShelton04/TracePilot/wiki" target="_blank" rel="noopener">
+          <a href="#" @click.prevent="openExternal('https://github.com/MattShelton04/TracePilot/wiki')">
             Documentation
           </a>
-          <a href="https://github.com/MattShelton04/TracePilot/issues/new" target="_blank" rel="noopener">
+          <a href="#" @click.prevent="openExternal('https://github.com/MattShelton04/TracePilot/issues/new')">
             Report Issue
           </a>
         </div>
 
         <div class="about-footer">
-          Built with Tauri, Rust &amp; Vue
+          Built with Tauri, Rust &amp; Vue by Matt :)
         </div>
       </div>
     </SectionPanel>

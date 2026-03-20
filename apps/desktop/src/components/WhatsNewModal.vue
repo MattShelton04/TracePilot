@@ -47,7 +47,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
         </div>
 
         <div class="modal-body">
-          <p v-if="previousVersion" class="version-jump">
+          <p v-if="previousVersion && previousVersion !== '0.0.0'" class="version-jump">
             Updated from v{{ previousVersion }}
           </p>
 
@@ -130,7 +130,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 12px;
+  padding: 24px 24px 16px;
 }
 
 .modal-header h2 {
@@ -155,13 +155,15 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 }
 
 .modal-body {
-  padding: 0 24px 16px;
+  padding: 4px 24px 20px;
 }
 
 .version-jump {
   font-size: 13px;
   color: var(--color-fg-muted, #94a3b8);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.06));
 }
 
 .version-section {

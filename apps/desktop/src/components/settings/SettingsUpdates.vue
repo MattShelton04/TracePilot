@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import { ActionButton, FormSwitch, SectionPanel } from '@tracepilot/ui';
+import { useAppVersion } from '@/composables/useAppVersion';
 import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { useWhatsNew } from '@/composables/useWhatsNew';
+import { openExternal } from '@/utils/openExternal';
 import { usePreferencesStore } from '@/stores/preferences';
 
 const preferences = usePreferencesStore();
+const { appVersion } = useAppVersion();
 const { updateResult, updateCheckLoading, updateCheckError, runUpdateCheck } = useUpdateCheck();
+const { openWhatsNew } = useWhatsNew();
 
 async function handleCheckForUpdates() {
   await runUpdateCheck(true);
+}
+
+async function handleViewWhatsNew() {
+  await openWhatsNew('0.0.0', appVersion.value);
+}
+
+function handleOpenRelease() {
+  if (updateResult.value?.releaseUrl) {
+    openExternal(updateResult.value.releaseUrl);
+  }
 }
 </script>
 
@@ -41,11 +56,28 @@ async function handleCheckForUpdates() {
           {{ updateCheckLoading ? 'Checking…' : 'Check Now' }}
         </ActionButton>
       </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">What's New</div>
+          <div class="setting-description">
+            View the release notes for your current version.
+          </div>
+        </div>
+        <ActionButton size="sm" @click="handleViewWhatsNew">
+          View Release Notes
+        </ActionButton>
+      </div>
       <div v-if="updateResult && !updateCheckLoading" class="setting-row">
         <div class="update-check-result">
           <template v-if="updateResult.hasUpdate">
             🎉 <strong>v{{ updateResult.latestVersion }}</strong> is available!
-            <a v-if="updateResult.releaseUrl" :href="updateResult.releaseUrl" target="_blank" rel="noopener">
+            <a
+              v-if="updateResult.releaseUrl"
+              href="#"
+              class="release-link"
+              @click.prevent="handleOpenRelease"
+            >
               View release →
             </a>
           </template>
