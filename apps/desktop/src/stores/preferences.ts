@@ -47,7 +47,9 @@ function applyTheme(theme: ThemeOption) {
 export const usePreferencesStore = defineStore("preferences", () => {
   // ── Reactive state ──────────────────────────────────────────
 
-  const theme = ref<ThemeOption>("dark");
+  // Initialize theme from write-through cache to match main.ts (prevents flash)
+  const cachedTheme = localStorage.getItem("tracepilot-theme");
+  const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
   const hideEmptySessions = ref(true);
   const cliCommand = ref("copilot");
   const autoRefreshEnabled = ref(false);
@@ -143,12 +145,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       // Migrate ephemeral fields
       if (old.lastViewedSession) localStorage.setItem("tracepilot-last-session", old.lastViewedSession);
       if (old.lastSeenVersion) localStorage.setItem("tracepilot-last-seen-version", old.lastSeenVersion);
-
-      // Clear legacy key — migration is one-way
-      localStorage.removeItem("tracepilot-prefs");
     } catch {
-      // Corrupt localStorage — just clear it and move on
-      localStorage.removeItem("tracepilot-prefs");
+      // Corrupt localStorage — leave key in place; it'll be retried next launch
     }
 
     return config;
@@ -222,6 +220,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try {
+        // Re-read latest config from backend to avoid overwriting changes
+        // made by other components (e.g. SettingsDataStorage paths/autoIndex)
+        const freshConfig = await getConfig();
+        backendConfig = freshConfig;
         const config = buildConfig();
         await saveConfig(config);
         backendConfig = config;
@@ -232,13 +234,19 @@ export const usePreferencesStore = defineStore("preferences", () => {
   }
 
   // ── Hydrate from backend on store creation ─────────────────
+  let hydrateResolve: () => void;
+  const hydratePromise = new Promise<void>((resolve) => { hydrateResolve = resolve; });
+
   async function hydrate() {
     try {
       let config = await getConfig();
+      const hadLegacyPrefs = !!localStorage.getItem("tracepilot-prefs");
       // One-time migration from localStorage
-      if (localStorage.getItem("tracepilot-prefs")) {
+      if (hadLegacyPrefs) {
         config = migrateFromLocalStorage(config);
         await saveConfig(config);
+        // Only clear legacy key after save succeeds
+        localStorage.removeItem("tracepilot-prefs");
       }
       backendConfig = config;
       applyConfig(config);
@@ -246,6 +254,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       // Outside Tauri (dev mode) — keep defaults
     }
     hydrated = true;
+    hydrateResolve();
   }
 
   // Fire-and-forget hydration; the watch gate prevents premature saves
@@ -396,6 +405,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     favouriteModels,
     recentRepoPaths,
     applyTheme: () => applyTheme(theme.value),
+    /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
+    whenReady: hydratePromise,
     getWholesalePrice,
     getPremiumRequests,
     computeWholesaleCost,
