@@ -92,6 +92,13 @@ pub struct LaunchConfig {
     pub create_worktree: bool,
     #[serde(default)]
     pub auto_approve: bool,
+    /// The CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot".
+    #[serde(default = "default_cli_command")]
+    pub cli_command: String,
+}
+
+fn default_cli_command() -> String {
+    "copilot".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -66,10 +66,13 @@ const launchConfig = computed<LaunchConfig>(() => ({
   createWorktree: createWorktree.value,
   autoApprove: autoApprove.value,
   envVars: envVarsRecord.value,
+  cliCommand: prefsStore.cliCommand || 'copilot',
 }));
 
+const effectiveCli = computed(() => prefsStore.cliCommand || 'copilot');
+
 const cliCommand = computed(() => {
-  const parts = ['copilot'];
+  const parts = [effectiveCli.value];
   if (launchConfig.value.model) parts.push(`--model=${launchConfig.value.model}`);
   if (launchConfig.value.autoApprove) parts.push('--allow-all');
   if (launchConfig.value.prompt) {
@@ -79,7 +82,7 @@ const cliCommand = computed(() => {
 });
 
 const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
-  const parts: { flag: string; value?: string }[] = [{ flag: 'copilot' }];
+  const parts: { flag: string; value?: string }[] = [{ flag: effectiveCli.value }];
   if (launchConfig.value.model) {
     parts.push({ flag: '--model', value: launchConfig.value.model });
   }
@@ -88,6 +91,15 @@ const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
     parts.push({ flag: '# prompt', value: '→ clipboard' });
   }
   return parts;
+});
+
+// Preview path for worktree creation
+const worktreePreviewPath = computed(() => {
+  if (!createWorktree.value || !repoPath.value || !branch.value) return '';
+  const repoName = repoPath.value.replace(/\\/g, '/').split('/').pop() || '';
+  const sanitized = branch.value.replace(/[~^:?*[\]\\<>|]/g, '-').replace(/\.\./g, '-').replace(/\/+/g, '-');
+  const parent = repoPath.value.replace(/\\/g, '/').replace(/\/[^/]+$/, '');
+  return `${parent}/${repoName}-${sanitized}`.replace(/\//g, '\\');
 });
 
 const estimatedCost = computed(() => {
@@ -201,6 +213,7 @@ function removeEnvVar(idx: number) {
 async function handleLaunch(asHeadless = false) {
   if (!canLaunch.value || launching.value) return;
   launching.value = true;
+  store.error = null;
   const cfg = { ...launchConfig.value };
   if (asHeadless) cfg.headless = true;
   if (successTimer) clearTimeout(successTimer);
@@ -215,6 +228,11 @@ async function handleLaunch(asHeadless = false) {
         worktreePath: session.worktreePath,
       };
       successTimer = setTimeout(() => (launchSuccess.value = null), 8000);
+    } else if (store.error) {
+      // Scroll the error banner into view
+      nextTick(() => {
+        document.querySelector('.error-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
     }
   } finally {
     launching.value = false;
@@ -359,7 +377,8 @@ onUnmounted(() => {
         <!-- Error -->
         <div v-if="store.error" class="error-banner">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.343 13.657A8 8 0 1 1 13.66 2.343 8 8 0 0 1 2.343 13.657ZM6.03 4.97a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042L6.94 8 4.97 9.97a.749.749 0 0 0 .326 1.275.749.749 0 0 0 .734-.215L8 9.06l1.97 1.97a.749.749 0 0 0 1.275-.326.749.749 0 0 0-.215-.734L9.06 8l1.97-1.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L8 6.94Z"/></svg>
-          {{ store.error }}
+          <span class="error-text">{{ store.error }}</span>
+          <button class="error-dismiss" @click="store.error = null" title="Dismiss">✕</button>
         </div>
 
         <!-- ── Templates ─────────────────────────────────────── -->
@@ -455,10 +474,10 @@ onUnmounted(() => {
                   v-model="branch"
                   type="text"
                   class="form-input"
-                  placeholder="main"
+                  :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
                   @input="clearTemplateSelection"
                 />
-                <span class="form-hint">Will be created if it doesn't exist</span>
+                <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
               </div>
               <div class="form-group">
                 <label class="form-label">Model</label>
@@ -558,6 +577,11 @@ onUnmounted(() => {
                   <div v-if="!branch" class="worktree-warning">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/></svg>
                     <span>A branch name is required when creating a worktree. Enter one in the Branch field above.</span>
+                  </div>
+                  <div v-if="worktreePreviewPath" class="worktree-path-preview">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span class="wt-preview-label">Worktree folder:</span>
+                    <code class="wt-preview-path">{{ worktreePreviewPath }}</code>
                   </div>
                 </div>
               </Transition>
@@ -852,6 +876,18 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   color: var(--danger-fg);
   font-size: 0.8125rem;
+}
+.error-text { flex: 1; word-break: break-word; }
+.error-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  opacity: 0.7;
+  &:hover { opacity: 1; }
 }
 
 /* ── Section blocks ──────────────────────────────────────────────── */
@@ -1571,6 +1607,25 @@ onUnmounted(() => {
   color: var(--warning-fg);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.worktree-path-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-fg) 6%, transparent);
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+.wt-preview-label { white-space: nowrap; }
+.wt-preview-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-default);
+  word-break: break-all;
 }
 
 /* ── Repo Picker ─────────────────────────────────────────────────── */

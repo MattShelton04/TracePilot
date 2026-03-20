@@ -1041,37 +1041,78 @@ mod commands {
             let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)
                 .map_err(|e| e.to_string())?;
             Ok::<Option<std::path::PathBuf>, String>(
-                metadata.cwd.map(std::path::PathBuf::from).filter(|p| p.is_dir()),
+                metadata.cwd.map(std::path::PathBuf::from),
             )
         })
         .await
         .map_err(|e| e.to_string())??;
 
+        // Find a valid directory for the terminal: session CWD > its closest ancestor > home
+        let effective_cwd = session_cwd
+            .as_ref()
+            .and_then(|p| {
+                if p.is_dir() {
+                    return Some(p.clone());
+                }
+                // Walk up to find the closest ancestor that exists
+                let mut ancestor = p.parent();
+                while let Some(dir) = ancestor {
+                    if dir.is_dir() {
+                        return Some(dir.to_path_buf());
+                    }
+                    ancestor = dir.parent();
+                }
+                None
+            })
+            .or_else(|| {
+                std::env::var("USERPROFILE")
+                    .or_else(|_| std::env::var("HOME"))
+                    .ok()
+                    .map(std::path::PathBuf::from)
+                    .filter(|p| p.is_dir())
+            })
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+
         let cmd = format!("{} --resume {}", cli, session_id);
 
         #[cfg(windows)]
         {
-            let mut command = std::process::Command::new("cmd");
-            command.args(["/c", "start", "cmd", "/k", &cmd]);
-            if let Some(ref cwd) = session_cwd {
-                command.current_dir(cwd);
+            use std::os::windows::process::CommandExt;
+            const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
+            let escaped_cwd = effective_cwd.display().to_string().replace('\'', "''");
+            let ps_cmd = format!(
+                "$host.UI.RawUI.WindowTitle = 'Copilot Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming Copilot session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
+                escaped_cwd,
+                session_id,
+                cmd.replace('\'', "''")
+            );
+
+            // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
+            let encoded = tracepilot_orchestrator::launcher::encode_powershell_command(&ps_cmd);
+            let ps_result = std::process::Command::new("powershell")
+                .args(["-NoExit", "-EncodedCommand", &encoded])
+                .current_dir(&effective_cwd)
+                .creation_flags(CREATE_NEW_CONSOLE)
+                .spawn();
+
+            if ps_result.is_err() {
+                std::process::Command::new("cmd")
+                    .args(["/k", &cmd])
+                    .current_dir(&effective_cwd)
+                    .creation_flags(CREATE_NEW_CONSOLE)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open terminal: {}", e))?;
             }
-            command
-                .spawn()
-                .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
         #[cfg(target_os = "macos")]
         {
-            let script = if let Some(ref cwd) = session_cwd {
-                let escaped_cwd = cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
-                format!(
-                    "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
-                    escaped_cwd, cmd
-                )
-            } else {
-                format!("tell app \"Terminal\" to do script \"{}\"", cmd)
-            };
+            let escaped_cwd = effective_cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
+            let script = format!(
+                "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
+                escaped_cwd, cmd
+            );
             std::process::Command::new("osascript")
                 .args(["-e", &script])
                 .spawn()
@@ -1090,10 +1131,7 @@ mod commands {
             let mut launched = false;
             for term in &terminals {
                 let mut command = std::process::Command::new(term);
-                command.args(["-e", &cmd]);
-                if let Some(ref cwd) = session_cwd {
-                    command.current_dir(cwd);
-                }
+                command.args(["-e", &cmd]).current_dir(&effective_cwd);
                 if command.spawn().is_ok() {
                     launched = true;
                     break;

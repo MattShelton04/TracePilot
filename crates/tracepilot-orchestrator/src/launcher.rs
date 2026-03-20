@@ -9,6 +9,88 @@ use std::process::Command;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+/// Encode a PowerShell command string as Base64 UTF-16LE for use with -EncodedCommand.
+/// This bypasses all command-line escaping issues on Windows.
+#[cfg(windows)]
+pub fn encode_powershell_command(cmd: &str) -> String {
+    use std::io::Write;
+    let utf16: Vec<u8> = cmd.encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
+    let mut buf = Vec::new();
+    {
+        let mut encoder = Base64Encoder::new(&mut buf);
+        encoder.write_all(&utf16).unwrap();
+        encoder.finish().unwrap();
+    }
+    String::from_utf8(buf).unwrap()
+}
+
+/// Minimal base64 encoder (no external dependency needed).
+#[cfg(windows)]
+struct Base64Encoder<W: std::io::Write> {
+    writer: W,
+    buf: [u8; 3],
+    len: usize,
+}
+
+#[cfg(windows)]
+impl<W: std::io::Write> Base64Encoder<W> {
+    fn new(writer: W) -> Self { Self { writer, buf: [0; 3], len: 0 } }
+
+    fn finish(mut self) -> std::io::Result<()> {
+        if self.len > 0 {
+            self.encode_block()?;
+        }
+        Ok(())
+    }
+
+    fn encode_block(&mut self) -> std::io::Result<()> {
+        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let b = &self.buf;
+        let out = match self.len {
+            3 => [
+                CHARS[(b[0] >> 2) as usize],
+                CHARS[((b[0] & 0x03) << 4 | b[1] >> 4) as usize],
+                CHARS[((b[1] & 0x0f) << 2 | b[2] >> 6) as usize],
+                CHARS[(b[2] & 0x3f) as usize],
+            ],
+            2 => [
+                CHARS[(b[0] >> 2) as usize],
+                CHARS[((b[0] & 0x03) << 4 | b[1] >> 4) as usize],
+                CHARS[((b[1] & 0x0f) << 2) as usize],
+                b'=',
+            ],
+            1 => [
+                CHARS[(b[0] >> 2) as usize],
+                CHARS[((b[0] & 0x03) << 4) as usize],
+                b'=',
+                b'=',
+            ],
+            _ => return Ok(()),
+        };
+        self.writer.write_all(&out)?;
+        self.len = 0;
+        self.buf = [0; 3];
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        let mut written = 0;
+        for &byte in data {
+            self.buf[self.len] = byte;
+            self.len += 1;
+            if self.len == 3 {
+                self.encode_block()?;
+            }
+            written += 1;
+        }
+        Ok(written)
+    }
+    fn flush(&mut self) -> std::io::Result<()> { self.writer.flush() }
+}
+
 /// Resolve the copilot home directory.
 pub fn copilot_home() -> Result<std::path::PathBuf> {
     home_dir()
@@ -108,6 +190,14 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         (repo.to_path_buf(), None)
     };
 
+    // Sanitize CLI command — allow only safe characters
+    let cli = &config.cli_command;
+    if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
+        return Err(OrchestratorError::Launch(
+            "CLI command contains invalid characters".into(),
+        ));
+    }
+
     // Build the copilot command arguments
     let mut args: Vec<String> = Vec::new();
 
@@ -130,17 +220,27 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         );
     }
 
-    // Spawn in a new terminal window so the user can interact with the session.
-    // We do NOT pass the prompt via -p because that runs non-interactively and exits.
-    // Instead, we start an interactive session (copilot <flags>) and the user can
-    // paste the prompt if one was provided.
-    let copilot_cmd = format!("copilot {}", args.join(" "));
+    // Build the CLI command string using the user-configured CLI command
+    let copilot_cmd = if args.is_empty() {
+        cli.clone()
+    } else {
+        format!("{} {}", cli, args.join(" "))
+    };
+
+    // If a branch was specified but we're NOT creating a worktree, checkout the branch first
+    let checkout_cmd = if !config.create_worktree {
+        config.branch.as_deref().map(|b| {
+            let escaped = b.replace('\'', "''");
+            // Try checkout; if it fails (branch doesn't exist locally), try creating from remote
+            format!("git checkout '{b}'" , b = escaped)
+        })
+    } else {
+        None
+    };
 
     #[cfg(windows)]
     let child = {
         const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-        // Build a PowerShell command that sets the directory and runs copilot.
-        // Use single-quote escaping for the path (double any embedded single quotes).
         let escaped_dir = work_dir.display().to_string().replace('\'', "''");
 
         // If a prompt was provided, copy it to the clipboard so the user can paste it.
@@ -154,25 +254,99 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             String::new()
         };
 
+        // Optional branch checkout step: check dirty state, try checkout, auto-create from default branch
+        let checkout_step = if let Some(ref _cmd) = checkout_cmd {
+            let branch_name = config.branch.as_deref().unwrap_or("").replace('\'', "''");
+            // Determine base branch for new branch creation: use config.base_branch or detect default
+            let base_branch_expr = if let Some(ref bb) = config.base_branch {
+                format!("'{}'", bb.replace('\'', "''"))
+            } else {
+                // Auto-detect default branch in PowerShell
+                "$defaultBranch".to_string()
+            };
+            let detect_default = if config.base_branch.is_none() {
+                "$defaultBranch = (git symbolic-ref refs/remotes/origin/HEAD --short 2>$null); if (-not $defaultBranch) { $defaultBranch = 'origin/main' }; "
+            } else {
+                ""
+            };
+            format!(
+                concat!(
+                    // 1. Check for uncommitted changes
+                    "$dirty = (git status --porcelain 2>$null); ",
+                    "if ($dirty) {{ ",
+                    "  Write-Host 'Warning: You have uncommitted changes. Branch checkout may fail or carry changes over.' -ForegroundColor Yellow; ",
+                    "  Write-Host '' ",
+                    "}}; ",
+                    // 2. Detect default branch if needed
+                    "{}",
+                    // 3. Try checkout existing branch
+                    "Write-Host 'Checking out branch...' -ForegroundColor Yellow; ",
+                    "git checkout '{}' 2>&1; ",
+                    "if ($LASTEXITCODE -ne 0) {{ ",
+                    // 4. Branch doesn't exist, create from default branch
+                    "  Write-Host \"Branch not found, creating from {}...\" -ForegroundColor Yellow; ",
+                    "  git checkout -b '{}' {} 2>&1; ",
+                    "  if ($LASTEXITCODE -ne 0) {{ ",
+                    "    Write-Host \"Failed to create branch (exit code $LASTEXITCODE). Continuing on current branch.\" -ForegroundColor Red ",
+                    "  }} else {{ ",
+                    "    Write-Host 'New branch created and checked out.' -ForegroundColor Green ",
+                    "  }} ",
+                    "}} else {{ ",
+                    "  Write-Host 'Branch checked out.' -ForegroundColor Green ",
+                    "}}; Write-Host ''; ",
+                ),
+                detect_default,
+                branch_name,
+                base_branch_expr,
+                branch_name,
+                base_branch_expr,
+            )
+        } else {
+            String::new()
+        };
+
+        // Build the full PowerShell script with startup banner
         let ps_cmd = format!(
-            "Set-Location -LiteralPath '{}'; {}{}",
-            escaped_dir, clipboard_cmd, copilot_cmd
+            "$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
+            escaped_dir,
+            escaped_dir,
+            checkout_step,
+            clipboard_cmd,
+            copilot_cmd
         );
-        Command::new("powershell")
-            .args(["-NoExit", "-Command", &ps_cmd])
+
+        // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
+        let encoded = encode_powershell_command(&ps_cmd);
+        let ps_result = Command::new("powershell")
+            .args(["-NoExit", "-EncodedCommand", &encoded])
             .current_dir(&work_dir)
             .envs(&envs)
             .creation_flags(CREATE_NEW_CONSOLE)
-            .spawn()
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
+            .spawn();
+
+        match ps_result {
+            Ok(child) => child,
+            Err(_) => {
+                let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
+                let cmd_str = format!("cd /d \"{}\" && {}echo Starting Copilot session... && {}", work_dir.display(), checkout_prefix, copilot_cmd);
+                Command::new("cmd")
+                    .args(["/k", &cmd_str])
+                    .current_dir(&work_dir)
+                    .envs(&envs)
+                    .creation_flags(CREATE_NEW_CONSOLE)
+                    .spawn()
+                    .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
+            }
+        }
     };
 
     #[cfg(target_os = "macos")]
     let child = {
         let escaped_cwd = shell_quote(&work_dir.display().to_string());
+        let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
         let script = format!(
-            "tell app \"Terminal\" to do script \"cd {} && {}\"",
-            escaped_cwd, copilot_cmd
+            "tell app \"Terminal\" to do script \"cd {} && {}{}\"",
+            escaped_cwd, checkout_prefix, copilot_cmd
         );
         Command::new("osascript")
             .args(["-e", &script])
@@ -250,11 +424,17 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
     #[cfg(windows)]
     {
         const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-        Command::new("powershell")
+        let ps = Command::new("powershell")
             .current_dir(p)
             .creation_flags(CREATE_NEW_CONSOLE)
-            .spawn()
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+            .spawn();
+        if ps.is_err() {
+            Command::new("cmd")
+                .current_dir(p)
+                .creation_flags(CREATE_NEW_CONSOLE)
+                .spawn()
+                .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -445,5 +625,40 @@ mod tests {
         let quoted = shell_quote("C:\\A&B Corp\\repo");
         #[cfg(windows)]
         assert_eq!(quoted, "\"C:\\A&B Corp\\repo\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_encode_powershell_command() {
+        // "Write-Host 'hi'" encoded as UTF-16LE then Base64
+        let cmd = "Write-Host 'hi'";
+        let encoded = encode_powershell_command(cmd);
+        // Verify it's valid base64 and decodes back to correct UTF-16LE
+        let bytes = (0..encoded.len())
+            .step_by(4)
+            .flat_map(|i| {
+                let chunk = &encoded[i..std::cmp::min(i + 4, encoded.len())];
+                let vals: Vec<u8> = chunk.bytes().map(|b| match b {
+                    b'A'..=b'Z' => b - b'A',
+                    b'a'..=b'z' => b - b'a' + 26,
+                    b'0'..=b'9' => b - b'0' + 52,
+                    b'+' => 62,
+                    b'/' => 63,
+                    b'=' => 0,
+                    _ => panic!("invalid base64"),
+                }).collect();
+                let pad = chunk.bytes().filter(|&b| b == b'=').count();
+                let mut out = Vec::new();
+                out.push((vals[0] << 2) | (vals[1] >> 4));
+                if pad < 2 { out.push((vals[1] << 4) | (vals[2] >> 2)); }
+                if pad < 1 { out.push((vals[2] << 6) | vals[3]); }
+                out
+            })
+            .collect::<Vec<u8>>();
+        let decoded: String = bytes.chunks(2)
+            .filter_map(|c| if c.len() == 2 { Some(u16::from_le_bytes([c[0], c[1]])) } else { None })
+            .filter_map(|c| char::from_u32(c as u32))
+            .collect();
+        assert_eq!(decoded, cmd);
     }
 }

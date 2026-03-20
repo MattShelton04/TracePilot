@@ -354,15 +354,20 @@ async function handleCleanStale() {
 async function handleLockInline(wt: WorktreeInfo) {
   const ok = await store.lockWorktree(wt.path, undefined, wt.repoRoot);
   if (ok) {
+    // Sync selectedWorktree immediately so the detail panel updates
+    if (selectedWorktree.value?.path === wt.path) {
+      selectedWorktree.value = { ...selectedWorktree.value, isLocked: true };
+    }
     showToast('Worktree locked');
   }
 }
 
-
-
 async function handleUnlock(wt: WorktreeInfo) {
   const ok = await store.unlockWorktree(wt.path, wt.repoRoot);
   if (ok) {
+    if (selectedWorktree.value?.path === wt.path) {
+      selectedWorktree.value = { ...selectedWorktree.value, isLocked: false, lockedReason: undefined };
+    }
     showToast('Worktree unlocked');
   }
 }
@@ -440,7 +445,7 @@ watch(() => store.worktrees, () => {
       selectedWorktree.value = still;
     }
   }
-});
+}, { deep: true });
 </script>
 
 <template>
@@ -755,25 +760,23 @@ watch(() => store.worktrees, () => {
               <button class="icon-btn" title="Open Terminal" @click="handleOpenTerminal(wt.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
               </button>
-              <button
-                v-if="!wt.isMainWorktree && !wt.isLocked"
-                class="icon-btn"
-                title="Lock Worktree"
-                @click="handleLockInline(wt)"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <button class="icon-btn" title="Launch Session Here" @click="navigateToLauncher(wt)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
               </button>
               <button
-                v-else-if="!wt.isMainWorktree && wt.isLocked"
                 class="icon-btn"
-                title="Unlock Worktree"
-                @click="handleUnlock(wt)"
+                :title="wt.isMainWorktree ? 'Cannot lock main worktree' : wt.isLocked ? 'Unlock Worktree' : 'Lock Worktree'"
+                :disabled="wt.isMainWorktree"
+                @click="wt.isLocked ? handleUnlock(wt) : handleLockInline(wt)"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
+                <svg v-if="wt.isLocked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
               </button>
-              <span v-else class="icon-btn-spacer" />
-              <button class="icon-btn icon-btn--danger" title="Remove" @click="confirmDelete(wt)"
-                v-if="!wt.isMainWorktree"
+              <button
+                class="icon-btn icon-btn--danger"
+                :title="wt.isMainWorktree ? 'Cannot remove main worktree' : wt.isLocked ? 'Unlock to remove' : 'Remove'"
+                :disabled="wt.isMainWorktree || wt.isLocked"
+                @click="confirmDelete(wt)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
@@ -889,24 +892,20 @@ watch(() => store.worktrees, () => {
                 View Session
               </button>
               <button
-                v-if="!selectedWorktree.isLocked && !selectedWorktree.isMainWorktree"
                 class="btn btn-sm"
-                @click="handleLockInline(selectedWorktree!)"
+                :disabled="selectedWorktree.isMainWorktree"
+                :title="selectedWorktree.isMainWorktree ? 'Cannot lock main worktree' : selectedWorktree.isLocked ? 'Unlock' : 'Lock'"
+                @click="selectedWorktree!.isLocked ? handleUnlock(selectedWorktree!) : handleLockInline(selectedWorktree!)"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                Lock
+                <svg v-if="selectedWorktree.isLocked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                {{ selectedWorktree.isLocked ? 'Unlock' : 'Lock' }}
               </button>
               <button
-                v-else-if="selectedWorktree.isLocked && !selectedWorktree.isMainWorktree"
-                class="btn btn-sm"
-                @click="handleUnlock(selectedWorktree!)"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
-                Unlock
-              </button>
-              <button
-                v-if="!selectedWorktree.isMainWorktree"
-                class="btn btn-sm btn-danger" @click="confirmDelete(selectedWorktree!)">
+                class="btn btn-sm btn-danger"
+                :disabled="selectedWorktree.isMainWorktree || selectedWorktree.isLocked"
+                :title="selectedWorktree.isMainWorktree ? 'Cannot remove main worktree' : selectedWorktree.isLocked ? 'Unlock to remove' : 'Remove worktree'"
+                @click="confirmDelete(selectedWorktree!)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                 Remove
               </button>
@@ -1686,6 +1685,18 @@ watch(() => store.worktrees, () => {
 .icon-btn--danger:hover {
   background: var(--danger-subtle);
   color: var(--danger-fg);
+}
+
+.icon-btn:disabled,
+.icon-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+.icon-btn:disabled:hover,
+.icon-btn[disabled]:hover {
+  background: transparent;
+  color: var(--text-tertiary);
 }
 
 .icon-btn-spacer {

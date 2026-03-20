@@ -62,6 +62,8 @@ export interface LaunchConfig {
   envVars: Record<string, string>;
   createWorktree: boolean;
   autoApprove: boolean;
+  /** CLI command to use (e.g. "copilot", "gh copilot-cli"). Defaults to "copilot". */
+  cliCommand?: string;
 }
 
 export interface LaunchedSession {
