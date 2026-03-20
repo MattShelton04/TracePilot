@@ -468,3 +468,103 @@ Same pattern — add match arms, push to `turn.session_events`.
 |---|---|---|
 | `apps/desktop/src/views/tabs/OverviewTab.vue` | 151–198 | Renders incident list with severity badges, summaries, expandable JSON detail |
 | `apps/desktop/src/views/tabs/EventsTab.vue` | 39–42 | Color-codes event type badges |
+
+---
+
+## 9. Implementation Progress — Approach A
+
+### Status: ✅ Core Implementation Complete
+
+Approach A (embed session events in `ConversationTurn` via Rust turn reconstructor) has been fully implemented. All data flows end-to-end from Rust through serde serialization to TypeScript types.
+
+### Event Types Implemented (7/7)
+
+| Wire Event | Severity | Summary Logic | Status |
+|---|---|---|---|
+| `session.error` | `error` | Fallback chain: `message` → `error_type` → `HTTP {status_code}` → "Session error" | ✅ |
+| `session.warning` | `warning` | `message` field, fallback "Session warning" | ✅ |
+| `session.compaction_start` | `info` | Static: "Context compaction started" | ✅ |
+| `session.compaction_complete` | `info`/`warning` | Token count on success; error message on failure | ✅ |
+| `session.truncation` | `warning` | Tokens + messages removed, with partial fallbacks | ✅ |
+| `session.plan_changed` | `info` | "Agent plan updated" + operation name | ✅ |
+| `session.mode_changed` | `info` | "Mode: {prev} → {new}" with partial fallbacks | ✅ |
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `crates/tracepilot-core/src/models/conversation.rs` | Added `SessionEventSeverity` enum, `TurnSessionEvent` struct, `session_events` field on `ConversationTurn` |
+| `crates/tracepilot-core/src/models/mod.rs` | Added re-exports for `SessionEventSeverity`, `TurnSessionEvent` |
+| `crates/tracepilot-core/src/turns/mod.rs` | Added `pending_session_events` buffer, `push_session_event()` helper, 7 match arms, buffer flush on `UserMessage` and `finalize()`, tail event attachment to last turn |
+| `crates/tracepilot-core/src/turns/tests.rs` | 20 new tests covering all 7 event types, summary fallbacks, buffering, backward compat, serialization round-trip |
+| `crates/tracepilot-core/src/analytics/aggregator.rs` | Updated `make_turn_with_tools()` test helper with `session_events: Vec::new()` |
+| `packages/types/src/index.ts` | Added `SessionEventSeverity` type, `TurnSessionEvent` interface, `sessionEvents?` field on `ConversationTurn` |
+| `packages/client/src/mock/index.ts` | Added example `sessionEvents` to mock turns 1 and 3 |
+
+### Test Coverage
+
+- **20 new Rust tests** — all 7 event types, summary fallback chains, multi-event turns, between-turn buffering, pre-first-turn events, trailing events, backward-compat deserialization, serialization round-trip
+- **153 total Rust tests** (core), **17 indexer tests** — all passing
+- **394 frontend tests** (267 UI + 127 desktop) — all passing
+- **Full typecheck** — clean across all 5 packages
+
+### Key Design Decisions
+
+1. **Pending events buffer** — Session events arriving between turns (after `TurnEnd`, before next `UserMessage`) are buffered in `pending_session_events: Vec<TurnSessionEvent>` and flushed into the next turn. Events at the very end of a session attach to the last turn in `finalize()`.
+
+2. **`SessionEventSeverity` enum** — Used a proper Rust enum (`Error`, `Warning`, `Info`) instead of free-form `String`. Serializes as lowercase via `#[serde(rename_all = "lowercase")]`. TypeScript side uses `'error' | 'warning' | 'info'` union type.
+
+3. **No raw `data` field** — Omitted `data: Option<serde_json::Value>` from `TurnSessionEvent` to keep the turn payload lightweight. Detail can be fetched from EventsTab when needed.
+
+4. **`#[serde(default)]` for backward compatibility** — The `session_events` field defaults to `Vec::new()` when deserializing old data that lacks the field.
+
+---
+
+## 10. Rich Rendering Suggestions
+
+The following suggestions describe how each event type could be rendered in the frontend timeline/conversation views. These are **future work** and not yet implemented.
+
+### 10.1 Session Errors (`session.error`)
+
+- **Conversation Tab**: Red banner inline between tool calls, showing error message and HTTP status code
+- **Agent Tree**: Red ⚠️ icon on the turn node, expandable to show error details
+- **Waterfall**: Red vertical line marker at the timestamp
+- **Data available**: `error_type`, `message`, `status_code`, `url` (from `SessionErrorData`)
+- **Rendering hint**: Rate limit errors (`error_type == "rate_limit"`) could show a retry countdown or "⏳ Rate limited" badge
+
+### 10.2 Session Warnings (`session.warning`)
+
+- **Conversation Tab**: Yellow/amber banner with warning message
+- **Agent Tree**: Yellow ⚠️ badge on turn node
+- **Waterfall**: Amber vertical marker line
+- **Data available**: `warning_type`, `message` (from `SessionWarningData`)
+
+### 10.3 Compaction Events (`session.compaction_start` + `session.compaction_complete`)
+
+- **Conversation Tab**: Collapsible "🗜️ Context compaction" banner showing before/after token counts
+- **Agent Tree**: Dashed horizontal divider with "Compaction" label
+- **Waterfall**: Shaded region between start and complete timestamps
+- **Data available**: `pre_compaction_tokens`, `summary_content`, `checkpoint_number`, `compaction_tokens_used` (from `CompactionCompleteData`)
+- **Rendering hint**: Show token count delta (e.g., "50k → 32k tokens") and success/failure badge
+
+### 10.4 Truncation Events (`session.truncation`)
+
+- **Conversation Tab**: Orange "✂️ Context truncated" banner with token/message counts
+- **Agent Tree**: Scissor icon (✂️) on turn node with tooltip
+- **Waterfall**: Orange marker line
+- **Data available**: `tokens_removed_during_truncation`, `messages_removed_during_truncation`, `pre_truncation_tokens_in_messages`, `performed_by` (from `SessionTruncationData`)
+- **Rendering hint**: Show both absolute count and percentage removed
+
+### 10.5 Plan Changed Events (`session.plan_changed`)
+
+- **Conversation Tab**: Blue "📋 Plan updated" banner with operation type
+- **Agent Tree**: Plan icon on turn node
+- **Data available**: `operation` (e.g., "replace", "append") from `PlanChangedData`
+- **Rendering hint**: Could show a diff view if plan content becomes available in future versions
+
+### 10.6 Mode Changed Events (`session.mode_changed`)
+
+- **Conversation Tab**: Subtle "Mode: X → Y" transition banner
+- **Agent Tree**: Mode badge on turn node
+- **Data available**: `previous_mode`, `new_mode` (from `SessionModeChangedData`)
+- **Rendering hint**: Use pill badges with mode names (e.g., "normal → plan")

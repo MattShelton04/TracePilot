@@ -149,6 +149,10 @@ export const MOCK_TURNS: ConversationTurn[] = [
     durationMs: 72000,
     isComplete: true,
     timestamp: new Date(Date.now() - 82800000).toISOString(),
+    sessionEvents: [
+      { eventType: "session.compaction_start", timestamp: new Date(Date.now() - 82770000).toISOString(), severity: "info", summary: "Context compaction started" },
+      { eventType: "session.compaction_complete", timestamp: new Date(Date.now() - 82765000).toISOString(), severity: "info", summary: "Compaction complete (48000 tokens)" },
+    ],
   },
   {
     turnIndex: 2,
@@ -220,6 +224,11 @@ export const MOCK_TURNS: ConversationTurn[] = [
     durationMs: 72000,
     isComplete: true,
     timestamp: new Date(Date.now() - 75600000).toISOString(),
+    sessionEvents: [
+      { eventType: "session.error", timestamp: new Date(Date.now() - 75570000).toISOString(), severity: "error", summary: "Rate limit exceeded" },
+      { eventType: "session.truncation", timestamp: new Date(Date.now() - 75545000).toISOString(), severity: "warning", summary: "Truncated 15000 tokens, 42 messages" },
+      { eventType: "session.mode_changed", timestamp: new Date(Date.now() - 75540000).toISOString(), severity: "info", summary: "Mode: normal → plan" },
+    ],
   },
   // ── Turn 4: 8 subagents (edge-case stress test with 2 parallel groups) ──
   {

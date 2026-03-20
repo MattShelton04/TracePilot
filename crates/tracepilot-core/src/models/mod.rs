@@ -6,6 +6,7 @@ pub mod session_summary;
 
 pub use conversation::ConversationTurn;
 pub use conversation::TurnToolCall;
+pub use conversation::{SessionEventSeverity, TurnSessionEvent};
 pub use event_types::SessionEventType;
 pub use session_summary::{SessionSummary, ShutdownMetrics};
 
