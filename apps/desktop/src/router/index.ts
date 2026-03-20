@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 import type {} from "./types";
+import { usePreferencesStore } from "@/stores/preferences";
 
 // Lazy-loaded view imports for code splitting
 const SessionListView = () => import("@/views/SessionListView.vue");
@@ -101,6 +102,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Health Scoring",
       sidebarId: "health",
+      featureFlag: "healthScoring",
     },
   },
   {
@@ -146,6 +148,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Session Replay",
       sidebarId: "replay",
+      featureFlag: "sessionReplay",
     },
   },
   {
@@ -155,6 +158,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Export",
       sidebarId: "export",
+      featureFlag: "exportView",
     },
   },
   {
@@ -164,6 +168,43 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "Settings",
       sidebarId: "settings",
+    },
+  },
+  // === Orchestration routes ===
+  {
+    path: "/orchestration",
+    name: "orchestration",
+    component: () => import("@/views/orchestration/OrchestrationHomeView.vue"),
+    meta: {
+      title: "Orchestration",
+      sidebarId: "orchestration",
+    },
+  },
+  {
+    path: "/orchestration/worktrees",
+    name: "worktree-manager",
+    component: () => import("@/views/orchestration/WorktreeManagerView.vue"),
+    meta: {
+      title: "Worktree Manager",
+      sidebarId: "worktrees",
+    },
+  },
+  {
+    path: "/orchestration/launcher",
+    name: "session-launcher",
+    component: () => import("@/views/orchestration/SessionLauncherView.vue"),
+    meta: {
+      title: "Session Launcher",
+      sidebarId: "launcher",
+    },
+  },
+  {
+    path: "/orchestration/config",
+    name: "config-injector",
+    component: () => import("@/views/orchestration/ConfigInjectorView.vue"),
+    meta: {
+      title: "Config Injector",
+      sidebarId: "config-injector",
     },
   },
   // 404 catch-all — must be last
@@ -178,6 +219,17 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
+});
+
+// Gate feature-flagged routes
+router.beforeEach((to) => {
+  const flag = to.meta?.featureFlag as string | undefined;
+  if (flag) {
+    const prefs = usePreferencesStore();
+    if (!prefs.isFeatureEnabled(flag)) {
+      return { name: "sessions" };
+    }
+  }
 });
 
 export default router;

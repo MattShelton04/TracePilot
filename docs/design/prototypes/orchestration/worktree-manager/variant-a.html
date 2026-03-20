@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Worktree Manager (File Manager)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* === File Manager Layout === */
+    .wt-layout {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* --- Repo Tree Panel --- */
+    .repo-panel {
+      background: var(--canvas-inset);
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .repo-panel-header {
+      padding: 12px 14px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .repo-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+    }
+    .repo-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      transition: all var(--transition-fast);
+      user-select: none;
+    }
+    .repo-item:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+    }
+    .repo-item.active {
+      background: var(--accent-subtle);
+      color: var(--text-primary);
+    }
+    .repo-item .repo-icon {
+      width: 16px;
+      height: 16px;
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    .repo-item.active .repo-icon { opacity: 1; }
+    .repo-item .repo-count {
+      margin-left: auto;
+      font-size: 0.6875rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+    }
+    .repo-item.active .repo-count { color: var(--text-tertiary); }
+    .repo-disk-summary {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .repo-disk-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+    }
+    .repo-disk-item .label { color: var(--text-tertiary); flex: 1; }
+    .repo-disk-item .value { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .repo-disk-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .repo-disk-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--gradient-accent);
+      transition: width var(--transition-slow);
+    }
+
+    /* --- Main Worktree Area --- */
+    .wt-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .wt-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+      background: var(--canvas-subtle);
+    }
+    .wt-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* --- Worktree Rows --- */
+    .wt-row {
+      display: grid;
+      grid-template-columns: 32px 1.4fr 120px 110px 100px 80px 140px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+      cursor: pointer;
+    }
+    .wt-row:hover { background: var(--neutral-subtle); }
+    .wt-row.selected { background: var(--accent-subtle); border-left: 3px solid var(--accent-emphasis); }
+    .wt-row.stale-row { border-left: 3px solid var(--warning-fg); }
+    .wt-row-header {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: default;
+      padding: 8px 18px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-inset);
+    }
+    .wt-row-header:hover { background: var(--canvas-inset); }
+    .wt-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .wt-icon.active { background: var(--success-muted); color: var(--success-fg); }
+    .wt-icon.stale { background: var(--warning-muted); color: var(--warning-fg); }
+    .wt-icon.completed { background: var(--done-muted); color: var(--done-fg); }
+    .wt-path { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); }
+    .wt-path-sub { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+    .wt-session-link { font-size: 0.75rem; color: var(--accent-fg); text-decoration: none; cursor: pointer; }
+    .wt-session-link:hover { text-decoration: underline; }
+    .wt-no-session { font-size: 0.75rem; color: var(--text-placeholder); font-style: italic; }
+
+    /* --- Disk bar --- */
+    .disk-bar-container { display: flex; align-items: center; gap: 6px; }
+    .disk-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .disk-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width var(--transition-slow);
+    }
+    .disk-bar-fill.low { background: var(--success-fg); }
+    .disk-bar-fill.mid { background: var(--accent-fg); }
+    .disk-bar-fill.high { background: var(--warning-fg); }
+    .disk-bar-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      min-width: 42px;
+    }
+
+    /* --- Row Actions --- */
+    .wt-actions { display: flex; gap: 2px; }
+    .wt-actions .btn-ghost { padding: 4px 6px; }
+
+    /* --- Detail Panel --- */
+    .detail-panel {
+      border-top: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      flex-shrink: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-slow), padding var(--transition-slow);
+    }
+    .detail-panel.open {
+      max-height: 300px;
+      padding: 18px;
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .detail-item-label {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 500;
+      margin-bottom: 3px;
+    }
+    .detail-item-value {
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+    }
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* --- Summary Strip --- */
+    .summary-strip {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    .summary-item {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .summary-item strong {
+      color: var(--text-primary);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Stale Warning Banner --- */
+    .stale-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px;
+      background: var(--warning-subtle);
+      border-bottom: 1px solid rgba(251,191,36,0.12);
+      font-size: 0.75rem;
+      color: var(--warning-fg);
+    }
+    .stale-banner strong { font-weight: 600; }
+    .stale-banner .spacer { flex: 1; }
+
+    @media (max-width: 960px) {
+      .wt-layout { grid-template-columns: 1fr; }
+      .repo-panel { display: none; }
+      .wt-row { grid-template-columns: 28px 1fr 90px 80px; }
+      .wt-row > :nth-child(3),
+      .wt-row > :nth-child(6) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div>
+          <h1 class="page-title">Worktree Manager</h1>
+          <p class="page-subtitle">File manager — manage git worktrees for parallel sessions</p>
+        </div>
+      </div>
+      <div class="wt-layout" id="wtLayout">
+
+        <!-- Repository Tree Panel -->
+        <div class="repo-panel">
+          <div class="repo-panel-header">Repositories</div>
+          <div class="repo-tree" id="repoTree"></div>
+          <div class="repo-disk-summary" id="repoDiskSummary"></div>
+        </div>
+
+        <!-- Main Worktree Area -->
+        <div class="wt-main">
+          <!-- Toolbar -->
+          <div class="wt-toolbar">
+            <button class="btn btn-primary btn-sm" onclick="openCreateDialog()">
+              <span style="display:flex;align-items:center;" id="iconPlus"></span> Create Worktree
+            </button>
+            <button class="btn btn-sm" id="btnClean" onclick="cleanStale()">
+              <span style="display:flex;align-items:center;" id="iconTrash"></span> Clean Stale
+            </button>
+            <button class="btn btn-sm" onclick="pruneAll()">
+              <span style="display:flex;align-items:center;" id="iconRefresh"></span> Prune
+            </button>
+            <div class="toolbar-divider"></div>
+            <div class="search-container" style="max-width:220px;">
+              <input type="text" class="search-input" placeholder="Filter worktrees…" id="searchInput" oninput="renderList()" style="padding-left:10px;">
+            </div>
+            <span style="flex:1"></span>
+            <div class="summary-strip" id="summaryStrip"></div>
+          </div>
+
+          <!-- Stale warning banner -->
+          <div class="stale-banner" id="staleBanner"></div>
+
+          <!-- Column Headers -->
+          <div class="wt-row wt-row-header">
+            <div></div>
+            <div>Path / Branch</div>
+            <div>Session</div>
+            <div>Disk</div>
+            <div>Status</div>
+            <div>Created</div>
+            <div style="text-align:right;">Actions</div>
+          </div>
+
+          <!-- Worktree Rows -->
+          <div class="wt-list" id="wtList"></div>
+
+          <!-- Detail Panel -->
+          <div class="detail-panel" id="detailPanel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Worktree Dialog -->
+  <div class="modal-overlay hidden" id="createDialog" onclick="if(event.target===this)closeCreateDialog()">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="text-title-md">Create Worktree</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeCreateDialog()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Repository</label>
+          <select class="form-input" id="createRepo" onchange="updateCreatePath()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Base Branch</label>
+          <select class="form-input" id="createBase"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Branch Name</label>
+          <input class="form-input" id="createBranch" placeholder="feat/new-feature" oninput="updateCreatePath()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Worktree Path</label>
+          <input class="form-input font-mono" id="createPath" placeholder="Auto-generated" readonly style="color:var(--text-tertiary);">
+        </div>
+        <div style="padding:10px 14px;background:var(--accent-subtle);border-radius:var(--radius-md);font-size:0.75rem;color:var(--text-secondary);margin-top:8px;">
+          💡 The worktree will be created adjacent to the main repo directory. You can link a Copilot session to it after creation.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm" onclick="closeCreateDialog()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="closeCreateDialog()">Create Worktree</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Dialog -->
+  <div class="modal-overlay hidden" id="deleteDialog" onclick="if(event.target===this)closeDeleteDialog()">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <span class="text-title-md" style="color:var(--danger-fg);">Remove Worktree</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeDeleteDialog()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:12px;">Are you sure you want to remove this worktree? This will delete the directory and all uncommitted changes.</p>
+        <div id="deleteTarget" style="padding:10px 14px;background:var(--danger-subtle);border:1px solid var(--danger-muted);border-radius:var(--radius-md);font-size:0.75rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm" onclick="closeDeleteDialog()">Cancel</button>
+        <button class="btn btn-sm" style="background:var(--danger-emphasis);color:white;border-color:transparent;" onclick="closeDeleteDialog()">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    // Initialize sidebar and icons
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('worktrees');
+    document.getElementById('iconPlus').innerHTML = ORCH_ICONS.plus;
+    document.getElementById('iconTrash').innerHTML = ORCH_ICONS.trash;
+    document.getElementById('iconRefresh').innerHTML = ORCH_ICONS.refresh;
+
+    // State
+    let selectedRepo = null;
+    let selectedWt = null;
+    const maxDisk = Math.max(...ORCH_WORKTREES.map(w => w.diskMB));
+    const totalDiskMB = ORCH_WORKTREES.reduce((s, w) => s + w.diskMB, 0);
+    const totalDiskGB = (totalDiskMB / 1024).toFixed(2);
+
+    function getRepoWorktrees(repoName) {
+      if (!repoName) return ORCH_WORKTREES;
+      return ORCH_WORKTREES.filter(w => w.repo === repoName);
+    }
+
+    function countByRepo() {
+      const counts = {};
+      ORCH_WORKTREES.forEach(w => { counts[w.repo] = (counts[w.repo] || 0) + 1; });
+      return counts;
+    }
+
+    function diskByRepo() {
+      const disks = {};
+      ORCH_WORKTREES.forEach(w => { disks[w.repo] = (disks[w.repo] || 0) + w.diskMB; });
+      return disks;
+    }
+
+    function renderRepoTree() {
+      const counts = countByRepo();
+      const allItem = { name: 'All Repositories', repoName: null, count: ORCH_WORKTREES.length };
+      const items = [allItem, ...ORCH_REPOS.filter(r => counts[r.name]).map(r => ({
+        name: r.name, repoName: r.name, count: counts[r.name] || 0
+      }))];
+
+      document.getElementById('repoTree').innerHTML = items.map(r => `
+        <div class="repo-item${selectedRepo === r.repoName ? ' active' : ''}" onclick="selectRepo(${r.repoName ? "'" + r.repoName + "'" : 'null'})">
+          <span class="repo-icon">${ORCH_ICONS.gitBranch}</span>
+          <span class="truncate">${r.name}</span>
+          <span class="repo-count">${r.count}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderDiskSummary() {
+      const disks = diskByRepo();
+      const maxRepoDisk = Math.max(...Object.values(disks));
+      let html = `<div class="repo-disk-item"><span class="label">Total Disk</span><span class="value">${totalDiskGB} GB</span></div>`;
+      html += `<div class="repo-disk-bar"><div class="repo-disk-fill" style="width:100%"></div></div>`;
+
+      Object.entries(disks).sort((a, b) => b[1] - a[1]).forEach(([repo, mb]) => {
+        const pct = Math.round((mb / totalDiskMB) * 100);
+        html += `<div class="repo-disk-item"><span class="label">${repo}</span><span class="value">${mb} MB (${pct}%)</span></div>`;
+      });
+      document.getElementById('repoDiskSummary').innerHTML = html;
+    }
+
+    function selectRepo(name) {
+      selectedRepo = name;
+      selectedWt = null;
+      document.getElementById('detailPanel').classList.remove('open');
+      renderRepoTree();
+      renderList();
+    }
+
+    function statusBadge(status) {
+      const map = { active: 'badge-success', stale: 'badge-warning', completed: 'badge-done' };
+      return `<span class="badge ${map[status] || 'badge-neutral'}">${status}</span>`;
+    }
+
+    function diskBar(mb) {
+      const pct = Math.round((mb / maxDisk) * 100);
+      const cls = pct < 40 ? 'low' : pct < 70 ? 'mid' : 'high';
+      return `<div class="disk-bar-container">
+        <div class="disk-bar"><div class="disk-bar-fill ${cls}" style="width:${pct}%"></div></div>
+        <span class="disk-bar-label">${mb} MB</span>
+      </div>`;
+    }
+
+    function renderSummary() {
+      const active = ORCH_WORKTREES.filter(w => w.status === 'active').length;
+      const stale = ORCH_WORKTREES.filter(w => w.status === 'stale').length;
+      const completed = ORCH_WORKTREES.filter(w => w.status === 'completed').length;
+      document.getElementById('summaryStrip').innerHTML = `
+        <span class="summary-item">Total: <strong>${ORCH_WORKTREES.length}</strong></span>
+        <span class="summary-item">Active: <strong style="color:var(--success-fg)">${active}</strong></span>
+        <span class="summary-item">Stale: <strong style="color:var(--warning-fg)">${stale}</strong></span>
+        <span class="summary-item">Disk: <strong>${totalDiskGB} GB</strong></span>
+      `;
+
+      // Stale banner
+      const staleMB = ORCH_WORKTREES.filter(w => w.status === 'stale').reduce((s, w) => s + w.diskMB, 0);
+      if (stale > 0) {
+        document.getElementById('staleBanner').innerHTML = `
+          <span style="display:flex;align-items:center;">${ORCH_ICONS.warning}</span>
+          <strong>${stale} stale worktrees</strong> — ${staleMB} MB reclaimable
+          <span class="spacer"></span>
+          <button class="btn btn-sm" style="border-color:var(--warning-fg);color:var(--warning-fg);" onclick="cleanStale()">Clean Now</button>
+        `;
+        document.getElementById('staleBanner').style.display = 'flex';
+      } else {
+        document.getElementById('staleBanner').style.display = 'none';
+      }
+    }
+
+    function renderList() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      let filtered = selectedRepo ? getRepoWorktrees(selectedRepo) : ORCH_WORKTREES;
+      if (search) {
+        filtered = filtered.filter(w =>
+          w.branch.toLowerCase().includes(search) ||
+          w.path.toLowerCase().includes(search) ||
+          w.repo.toLowerCase().includes(search)
+        );
+      }
+
+      if (filtered.length === 0) {
+        document.getElementById('wtList').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">${ORCH_ICONS.gitBranch}</div>
+            <div class="empty-state-title">No worktrees found</div>
+            <div class="empty-state-desc">Try adjusting your filter or create a new worktree.</div>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('wtList').innerHTML = filtered.map(wt => {
+        const session = wt.session ? ORCH_ACTIVE_SESSIONS.find(s => s.id === wt.session) : null;
+        const isSelected = selectedWt === wt.id;
+        const staleClass = wt.status === 'stale' ? ' stale-row' : '';
+        const selClass = isSelected ? ' selected' : '';
+
+        return `
+          <div class="wt-row${staleClass}${selClass}" onclick="selectWorktree('${wt.id}')">
+            <div class="wt-icon ${wt.status}">${ORCH_ICONS.gitBranch}</div>
+            <div>
+              <div class="wt-path truncate">${wt.branch}</div>
+              <div class="wt-path-sub truncate font-mono">${wt.path}</div>
+            </div>
+            <div>${session
+              ? `<a class="wt-session-link" onclick="event.stopPropagation()">${session.id}</a><div style="font-size:0.625rem;color:var(--text-placeholder);margin-top:1px;">${session.statusLabel}</div>`
+              : '<span class="wt-no-session">No session</span>'}</div>
+            <div>${diskBar(wt.diskMB)}</div>
+            <div>${statusBadge(wt.status)}</div>
+            <div style="font-size:0.6875rem;color:var(--text-tertiary)">${formatRelativeTime(wt.createdAt)}</div>
+            <div class="wt-actions" style="justify-content:flex-end;" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-sm" title="Open Folder">${ORCH_ICONS.box}</button>
+              <button class="btn btn-ghost btn-sm" title="Terminal">${ORCH_ICONS.terminal}</button>
+              <button class="btn btn-ghost btn-sm" title="Link Session">${ORCH_ICONS.rocket}</button>
+              <button class="btn btn-ghost btn-sm" title="Remove" style="color:var(--danger-fg)" onclick="confirmDelete('${wt.id}')">${ORCH_ICONS.trash}</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function selectWorktree(id) {
+      selectedWt = selectedWt === id ? null : id;
+      if (!selectedWt) {
+        document.getElementById('detailPanel').classList.remove('open');
+        renderList();
+        return;
+      }
+      const wt = ORCH_WORKTREES.find(w => w.id === id);
+      if (!wt) return;
+      const session = wt.session ? ORCH_ACTIVE_SESSIONS.find(s => s.id === wt.session) : null;
+      const panel = document.getElementById('detailPanel');
+      panel.classList.add('open');
+      panel.innerHTML = `
+        <div class="detail-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="wt-icon ${wt.status}" style="width:24px;height:24px;font-size:11px;">${ORCH_ICONS.gitBranch}</div>
+            <span class="text-title-md">${wt.branch}</span>
+            ${statusBadge(wt.status)}
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="selectedWt=null;document.getElementById('detailPanel').classList.remove('open');renderList();">✕</button>
+        </div>
+        <div class="detail-grid">
+          <div><div class="detail-item-label">Repository</div><div class="detail-item-value">${wt.repo}</div></div>
+          <div><div class="detail-item-label">Branch</div><div class="detail-item-value">${wt.branch}</div></div>
+          <div><div class="detail-item-label">Path</div><div class="detail-item-value font-mono" style="font-size:0.75rem">${wt.path}</div></div>
+          <div><div class="detail-item-label">Disk Usage</div><div class="detail-item-value">${wt.diskMB} MB</div></div>
+          <div><div class="detail-item-label">Session</div><div class="detail-item-value">${session ? session.id + ' — ' + session.statusLabel : 'Not linked'}</div></div>
+          <div><div class="detail-item-label">Created</div><div class="detail-item-value">${new Date(wt.createdAt).toLocaleString()}</div></div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn btn-sm">${ORCH_ICONS.box} Open Folder</button>
+          <button class="btn btn-sm">${ORCH_ICONS.terminal} Open Terminal</button>
+          <button class="btn btn-sm">${ORCH_ICONS.rocket} ${session ? 'View Session' : 'Link Session'}</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-sm" style="color:var(--danger-fg)" onclick="confirmDelete('${wt.id}')">${ORCH_ICONS.trash} Remove</button>
+        </div>`;
+      renderList();
+    }
+
+    // Create dialog
+    function openCreateDialog() {
+      const sel = document.getElementById('createRepo');
+      sel.innerHTML = ORCH_REPOS.map(r => `<option value="${r.id}" data-path="${r.path}">${r.name}</option>`).join('');
+      updateCreateBase();
+      document.getElementById('createBranch').value = '';
+      document.getElementById('createPath').value = '';
+      document.getElementById('createDialog').classList.remove('hidden');
+    }
+    function updateCreateBase() {
+      const repoId = document.getElementById('createRepo').value;
+      const repo = ORCH_REPOS.find(r => r.id === repoId);
+      const base = document.getElementById('createBase');
+      base.innerHTML = repo ? repo.branches.map(b => `<option>${b}</option>`).join('') : '';
+    }
+    function updateCreatePath() {
+      const repoId = document.getElementById('createRepo').value;
+      const repo = ORCH_REPOS.find(r => r.id === repoId);
+      const branch = document.getElementById('createBranch').value.replace(/\//g, '-');
+      if (repo && branch) {
+        document.getElementById('createPath').value = repo.path + '-wt-' + branch;
+      }
+      updateCreateBase();
+    }
+    function closeCreateDialog() { document.getElementById('createDialog').classList.add('hidden'); }
+
+    // Delete dialog
+    function confirmDelete(id) {
+      const wt = ORCH_WORKTREES.find(w => w.id === id);
+      if (!wt) return;
+      document.getElementById('deleteTarget').innerHTML = `
+        <div style="font-weight:500;color:var(--text-primary);margin-bottom:4px;">${wt.branch}</div>
+        <div class="font-mono" style="color:var(--text-tertiary);font-size:0.6875rem;">${wt.path}</div>
+      `;
+      document.getElementById('deleteDialog').classList.remove('hidden');
+    }
+    function closeDeleteDialog() { document.getElementById('deleteDialog').classList.add('hidden'); }
+
+    function cleanStale() {
+      const count = ORCH_WORKTREES.filter(w => w.status === 'stale').length;
+      alert(`Cleaning ${count} stale worktrees…`);
+    }
+    function pruneAll() { alert('Pruning all repositories…'); }
+
+    // Init
+    renderRepoTree();
+    renderDiskSummary();
+    renderSummary();
+    renderList();
+  </script>
+</body>
+</html>

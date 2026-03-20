@@ -1,12 +1,37 @@
 # TracePilot Technical Debt & Improvement Report
 
 **Generated**: 2026-03-15
-**Last Updated**: 2026-03-17 — Rust backend optimization pass applied (see §1.1)
+**Last Updated**: 2026-03-17 — Rust backend optimization pass applied (see §1.1); lint baseline captured (see §1.2)
 **Scope**: Full codebase audit — Rust backend (4 crates), Vue/TypeScript frontend (desktop app + shared packages), infrastructure
 **Codebase size**: ~7,300 lines Rust, ~16,000 lines TS/Vue, ~1,400 lines global CSS
 **Review process**: Initial analysis by 6 parallel Opus 4.6 agents; reviewed by Claude Opus 4.6, GPT 5.4, GPT 5.3 Codex, and Gemini 3 Pro; findings consolidated and corrected.
 
 > **Confidence notes**: Counts marked with `~` are approximate. Line numbers are best-effort and may drift as the codebase evolves. All P0/P1 items were verified against source; P2/P3 items are high-confidence but less rigorously spot-checked.
+
+---
+
+### 1.2 Biome Lint Baseline (captured at setup)
+
+Baseline captured with `pnpm lint` (`biome check .`) against 325 files. New code should not introduce new violations.
+
+| Category | Count |
+|----------|-------|
+| Errors   | 2,190 |
+| Warnings | 2,991 |
+| Infos    | 283   |
+
+Top contributors:
+- `lint/complexity/noCommaOperator` — 1,788 warnings (generated/vendor code)
+- `assist/source/organizeImports` — 169 errors
+- `lint/suspicious/noDoubleEquals` — 105 errors
+- `lint/correctness/noUnusedVariables` — 592 warnings
+- `lint/correctness/noUnusedImports` — 118 warnings
+- `lint/complexity/useOptionalChain` — 107 warnings
+- `lint/style/noNonNullAssertion` — 58 warnings
+- `lint/suspicious/noExplicitAny` — 43 warnings
+
+Scripts: `pnpm lint` (check), `pnpm lint:fix` (auto-fix).
+Pre-commit hook added to `lefthook.yml` — staged TS/JS/JSON files are checked on each commit.
 
 ---
 

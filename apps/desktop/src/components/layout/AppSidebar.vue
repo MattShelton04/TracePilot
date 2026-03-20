@@ -20,20 +20,43 @@ function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
 }
 
-const primaryNav = [
+interface NavItem {
+  id: string;
+  label: string;
+  to: string;
+  icon: string;
+  featureFlag?: string;
+}
+
+const primaryNav: NavItem[] = [
   { id: 'sessions', label: 'Sessions', to: '/', icon: 'sessions' },
   { id: 'analytics', label: 'Analytics', to: '/analytics', icon: 'analytics' },
-  { id: 'health', label: 'Health', to: '/health', icon: 'health' },
+  { id: 'health', label: 'Health', to: '/health', icon: 'health', featureFlag: 'healthScoring' },
   { id: 'tools', label: 'Tools', to: '/tools', icon: 'tools' },
   { id: 'code', label: 'Code', to: '/code', icon: 'code' },
 ];
 
-const advancedNav = [
+const advancedNav: NavItem[] = [
   { id: 'models', label: 'Models', to: '/models', icon: 'models' },
   { id: 'compare', label: 'Compare', to: '/compare', icon: 'compare' },
-  { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay' },
-  { id: 'export', label: 'Export', to: '/export', icon: 'export' },
+  { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay', featureFlag: 'sessionReplay' },
+  { id: 'export', label: 'Export', to: '/export', icon: 'export', featureFlag: 'exportView' },
   { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings' },
+];
+
+const visiblePrimaryNav = computed(() =>
+  primaryNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+);
+
+const visibleAdvancedNav = computed(() =>
+  advancedNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+);
+
+const orchestrationNav: NavItem[] = [
+  { id: 'orchestration', label: 'Command Center', to: '/orchestration', icon: 'orchestration' },
+  { id: 'worktrees', label: 'Worktrees', to: '/orchestration/worktrees', icon: 'worktrees' },
+  { id: 'launcher', label: 'Launcher', to: '/orchestration/launcher', icon: 'launcher' },
+  { id: 'config-injector', label: 'Config', to: '/orchestration/config', icon: 'config' },
 ];
 </script>
 
@@ -51,7 +74,7 @@ const advancedNav = [
     <nav class="sidebar-nav">
       <!-- Primary -->
       <router-link
-        v-for="item in primaryNav"
+        v-for="item in visiblePrimaryNav"
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
@@ -80,7 +103,7 @@ const advancedNav = [
       <div class="sidebar-section-title">Advanced</div>
 
       <router-link
-        v-for="item in advancedNav"
+        v-for="item in visibleAdvancedNav"
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
@@ -98,6 +121,30 @@ const advancedNav = [
           <svg v-else-if="item.icon === 'export'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4 6l4-4 4 4M2 12h12v2H2z"/></svg>
           <!-- settings -->
           <svg v-else-if="item.icon === 'settings'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M13 3l-1.5 1.5M4.5 11.5L3 13"/></svg>
+        </span>
+        <span>{{ item.label }}</span>
+      </router-link>
+
+      <!-- Orchestration section -->
+      <div class="sidebar-section-title">Orchestration</div>
+
+      <router-link
+        v-for="item in orchestrationNav"
+        :key="item.id"
+        :to="item.to"
+        :data-nav-id="item.id"
+        class="sidebar-nav-item"
+        :class="{ active: activeSidebarId === item.id }"
+      >
+        <span class="nav-icon">
+          <!-- orchestration (command center) -->
+          <svg v-if="item.icon === 'orchestration'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M8 3v3M8 10v3M3 8h3M10 8h3"/></svg>
+          <!-- worktrees -->
+          <svg v-else-if="item.icon === 'worktrees'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v12M3 8h4v6M3 4h8v4"/></svg>
+          <!-- launcher -->
+          <svg v-else-if="item.icon === 'launcher'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14V5l8-3v12"/><path d="M4 9h8"/></svg>
+          <!-- config -->
+          <svg v-else-if="item.icon === 'config'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h12"/><circle cx="5" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="8" r="1.5" fill="currentColor"/><circle cx="7" cy="12" r="1.5" fill="currentColor"/></svg>
         </span>
         <span>{{ item.label }}</span>
       </router-link>

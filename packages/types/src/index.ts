@@ -1,3 +1,5 @@
+export * from './orchestration.js';
+
 /** Session list item (enriched from workspace.yaml + events) */
 export interface SessionListItem {
   id: string;

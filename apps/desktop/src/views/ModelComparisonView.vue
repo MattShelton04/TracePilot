@@ -507,7 +507,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 
             <!-- Performance Matrix Table -->
             <div class="section-panel mb-4">
-              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div class="section-panel-header panel-header-flex">
                 <span>Performance Matrix</span>
                 <div class="matrix-toggles">
                   <div class="cost-toggle">
@@ -522,19 +522,19 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                   </div>
                 </div>
               </div>
-              <div class="section-panel-body scrollable-section" style="padding: 0;">
+              <div class="section-panel-body scrollable-section panel-body-flush">
                 <table class="data-table matrix-table" aria-label="Model performance comparison matrix">
                   <colgroup>
-                    <col style="width: 18%;" />
-                    <col style="width: 11%;" />
-                    <col style="width: 11%;" />
-                    <col style="width: 9%;" />
-                    <col style="width: 9%;" />
-                    <col style="width: 13%;" />
-                    <col style="width: 8%;" />
-                    <col style="width: 8%;" />
-                    <col v-if="costMode !== 'copilot'" style="width: 8%;" />
-                    <col v-if="costMode !== 'wholesale'" style="width: 8%;" />
+                    <col class="col-model" />
+                    <col class="col-total" />
+                    <col class="col-input" />
+                    <col class="col-output" />
+                    <col class="col-cached" />
+                    <col class="col-share" />
+                    <col class="col-prem-req" />
+                    <col class="col-cache-hit" />
+                    <col v-if="costMode !== 'copilot'" class="col-cost" />
+                    <col v-if="costMode !== 'wholesale'" class="col-cost" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -758,7 +758,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 
             <!-- Side-by-Side Comparison -->
             <div class="section-panel mb-4">
-              <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div class="section-panel-header panel-header-flex">
                 <span>Side-by-Side Comparison</span>
                 <div class="norm-toggle">
                   <button :class="['toggle-btn', { active: normMode === 'raw' }]" @click="normMode = 'raw'">Raw</button>
@@ -782,10 +782,10 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                   </div>
                   <table class="data-table compare-table" aria-label="Side-by-side model comparison">
                     <colgroup>
-                      <col style="width: 25%;" />
-                      <col style="width: 25%;" />
-                      <col style="width: 25%;" />
-                      <col style="width: 25%;" />
+                      <col class="col-quarter" />
+                      <col class="col-quarter" />
+                      <col class="col-quarter" />
+                      <col class="col-quarter" />
                     </colgroup>
                     <thead>
                       <tr>
@@ -807,7 +807,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
                     </thead>
                     <tbody>
                       <tr v-for="metric in compareMetrics" :key="metric.label">
-                        <td style="font-weight: 500;">{{ metric.label }}</td>
+                        <td class="metric-label">{{ metric.label }}</td>
                         <td class="num-cell" :class="{ 'compare-better': metric.better === 'a' }">{{ metric.valueA }}</td>
                         <td class="num-cell delta-cell">
                           <span :class="`delta-${metric.direction}`">
@@ -1119,5 +1119,62 @@ const compareMetrics = computed<CompareMetric[]>(() => {
   background: var(--canvas-subtle);
   color: var(--text-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Extracted inline styles ─────────────────────────────── */
+.panel-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panel-body-flush {
+  padding: 0;
+}
+
+.col-model {
+  width: 18%;
+}
+
+.col-total {
+  width: 11%;
+}
+
+.col-input {
+  width: 11%;
+}
+
+.col-output {
+  width: 9%;
+}
+
+.col-cached {
+  width: 9%;
+}
+
+.col-share {
+  width: 13%;
+}
+
+.col-prem-req {
+  width: 8%;
+}
+
+.col-cache-hit {
+  width: 8%;
+}
+
+.col-cost {
+  width: 8%;
+}
+
+.col-quarter {
+  width: 25%;
+}
+
+.metric-label {
+  font-weight: 500;
 }
 </style>

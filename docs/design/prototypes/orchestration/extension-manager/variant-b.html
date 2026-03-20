@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Extension Manager (Dev Tools)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Split panel layout */
+    .panel-layout { display: flex; height: calc(100vh - 48px); overflow: hidden; }
+    .panel-left {
+      width: 280px; min-width: 220px; border-right: 1px solid var(--border-default);
+      display: flex; flex-direction: column; background: var(--canvas-subtle);
+    }
+    .panel-right {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .panel-right-top { flex: 1; overflow-y: auto; padding: 24px 28px; min-height: 0; }
+    .panel-bottom {
+      height: 180px; min-height: 120px; border-top: 1px solid var(--border-default);
+      display: flex; flex-direction: column; background: var(--canvas-inset);
+    }
+
+    /* Resize handle */
+    .resize-handle {
+      height: 6px; cursor: row-resize; display: flex; align-items: center; justify-content: center;
+      background: var(--canvas-inset); border-top: 1px solid var(--border-default);
+    }
+    .resize-handle::after {
+      content: ''; width: 32px; height: 3px; border-radius: 2px;
+      background: var(--border-default); transition: background var(--transition-fast);
+    }
+    .resize-handle:hover::after { background: var(--accent-fg); }
+
+    /* File tree */
+    .tree-header {
+      padding: 14px 16px 10px; font-size: 0.6875rem; font-weight: 600;
+      color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .tree-header-actions { display: flex; gap: 4px; }
+    .tree-header-actions button {
+      background: none; border: none; color: var(--text-tertiary); cursor: pointer;
+      padding: 2px; border-radius: var(--radius-sm); transition: color var(--transition-fast);
+    }
+    .tree-header-actions button:hover { color: var(--accent-fg); }
+    .tree-section { padding: 0 8px; }
+    .tree-scope {
+      padding: 6px 10px; font-size: 0.6875rem; font-weight: 600;
+      color: var(--text-tertiary); display: flex; align-items: center; gap: 6px;
+      cursor: pointer; user-select: none; border-radius: var(--radius-sm);
+    }
+    .tree-scope:hover { background: var(--canvas-overlay); }
+    .tree-scope .arrow {
+      font-size: 8px; transition: transform var(--transition-fast); display: inline-block;
+    }
+    .tree-scope.open .arrow { transform: rotate(90deg); }
+    .tree-items { padding-left: 12px; overflow: hidden; }
+    .tree-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+      font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer;
+      border-radius: var(--radius-sm); transition: all var(--transition-fast);
+      position: relative;
+    }
+    .tree-item:hover { background: var(--canvas-overlay); color: var(--text-primary); }
+    .tree-item.selected {
+      background: var(--accent-muted, rgba(99,102,241,0.1)); color: var(--accent-fg);
+    }
+    .tree-item.selected::before {
+      content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px;
+      border-radius: 2px; background: var(--accent-emphasis);
+    }
+    .tree-item-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tree-item-icon svg { width: 14px; height: 14px; }
+    .tree-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-item-status {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .tree-item-status.active { background: var(--success-fg); box-shadow: 0 0 6px var(--success-fg); }
+    .tree-item-status.disabled { background: var(--text-placeholder); }
+
+    /* Detail panel */
+    .detail-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: var(--text-tertiary); gap: 8px;
+    }
+    .detail-empty-icon { font-size: 32px; opacity: 0.4; }
+    .detail-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+    }
+    .detail-title { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
+    .detail-actions { display: flex; gap: 6px; align-items: center; }
+
+    /* Code preview */
+    .code-block {
+      background: var(--canvas-inset); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 20px;
+    }
+    .code-block-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; background: var(--canvas-subtle); border-bottom: 1px solid var(--border-default);
+      font-size: 0.6875rem; color: var(--text-tertiary);
+    }
+    .code-block-header .file-path { font-family: "JetBrains Mono", monospace; }
+    .code-content {
+      padding: 14px 0; font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.75rem; line-height: 1.7; overflow-x: auto; counter-reset: line;
+    }
+    .code-line {
+      display: flex; padding: 0 14px; min-height: 20px;
+    }
+    .code-line:hover { background: rgba(255,255,255,0.03); }
+    .code-line-num {
+      width: 36px; flex-shrink: 0; text-align: right; padding-right: 14px;
+      color: var(--text-placeholder); user-select: none;
+    }
+    .code-line-text { flex: 1; white-space: pre; }
+    /* Syntax highlight tokens */
+    .hl-kw { color: var(--done-fg); }
+    .hl-fn { color: var(--accent-fg); }
+    .hl-str { color: var(--success-fg); }
+    .hl-cmt { color: var(--text-placeholder); font-style: italic; }
+    .hl-const { color: var(--warning-fg); }
+    .hl-type { color: #f472b6; }
+    .hl-op { color: var(--text-secondary); }
+
+    /* Hook registrations */
+    .hook-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .hook-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border-radius: var(--radius-md); background: var(--canvas-subtle);
+      border: 1px solid var(--border-muted);
+    }
+    .hook-name {
+      font-family: "JetBrains Mono", monospace; font-size: 0.8125rem;
+      color: var(--accent-fg); font-weight: 500; flex: 1;
+    }
+    .hook-line { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    /* Validation panel */
+    .validation-section { margin-bottom: 20px; }
+    .validation-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .validation-header .icon { font-size: 16px; }
+    .validation-title { font-size: 0.875rem; font-weight: 600; }
+    .validation-result {
+      padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.8125rem;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .validation-result.ok { background: rgba(52,211,153,0.08); color: var(--success-fg); border: 1px solid rgba(52,211,153,0.2); }
+    .validation-result.warn { background: rgba(251,191,36,0.08); color: var(--warning-fg); border: 1px solid rgba(251,191,36,0.2); }
+    .validation-result.err { background: rgba(251,113,133,0.08); color: var(--danger-fg); border: 1px solid rgba(251,113,133,0.2); }
+
+    /* Bottom log panel */
+    .log-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; border-bottom: 1px solid var(--border-muted);
+      font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.03em; flex-shrink: 0;
+    }
+    .log-body {
+      flex: 1; overflow-y: auto; padding: 10px 16px;
+      font-family: "JetBrains Mono", monospace; font-size: 0.6875rem; line-height: 1.8;
+    }
+    .log-entry { display: flex; gap: 10px; }
+    .log-ts { color: var(--text-placeholder); white-space: nowrap; user-select: none; }
+    .log-level-ok { color: var(--success-fg); }
+    .log-level-warn { color: var(--warning-fg); }
+    .log-level-err { color: var(--danger-fg); }
+    .log-level-info { color: var(--accent-fg); }
+    .log-msg { color: var(--text-secondary); }
+
+    /* Section label */
+    .section-label {
+      font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px;
+    }
+
+    /* Toggle (reused from variant-a concept) */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; }
+    .toggle-label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
+    .toggle {
+      position: relative; width: 36px; height: 20px; cursor: pointer;
+      background: var(--border-default); border-radius: 10px; border: none;
+      transition: background var(--transition-fast);
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; transition: transform var(--transition-fast);
+    }
+    .toggle.active { background: var(--success-fg); }
+    .toggle.active::after { transform: translateX(16px); }
+
+    /* Scope badge */
+    .badge-scope-project { background: rgba(99,102,241,0.12); color: var(--accent-fg); }
+    .badge-scope-user { background: rgba(161,161,170,0.12); color: var(--neutral-fg); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+      border-radius: var(--radius-lg); background: var(--canvas-overlay);
+      border: 1px solid var(--border-default); box-shadow: var(--shadow-lg);
+      font-size: 0.8125rem; color: var(--text-primary); z-index: 1000;
+      transform: translateY(80px); opacity: 0; transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content" style="overflow:hidden;">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Extension Manager</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-a.html" class="btn btn-sm btn-ghost">App Store View</a>
+        </div>
+      </div>
+
+      <div class="panel-layout">
+        <!-- LEFT: File Tree -->
+        <div class="panel-left">
+          <div class="tree-header">
+            <span>Extensions</span>
+            <div class="tree-header-actions">
+              <button title="New extension" onclick="showToast('Create wizard coming soon…')">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+              </button>
+              <button title="Refresh" onclick="showToast('Extensions refreshed')">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 8a5.5 5.5 0 0 1 9.3-3.9L13.5 2v4h-4l1.7-1.8A3.8 3.8 0 0 0 4.2 8"/><path d="M13.5 8a5.5 5.5 0 0 1-9.3 3.9L2.5 14v-4h4l-1.7 1.8A3.8 3.8 0 0 0 11.8 8"/></svg>
+              </button>
+            </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding-bottom:12px;" id="fileTree"></div>
+        </div>
+
+        <!-- RIGHT: Detail + Bottom log -->
+        <div class="panel-right">
+          <div class="panel-right-top" id="detailPanel">
+            <div class="detail-empty">
+              <div class="detail-empty-icon">🧩</div>
+              <div style="font-size:0.875rem;">Select an extension to inspect</div>
+              <div style="font-size:0.75rem;">Browse the file tree on the left</div>
+            </div>
+          </div>
+          <div class="resize-handle" id="resizeHandle"></div>
+          <div class="panel-bottom" id="logPanel">
+            <div class="log-header">
+              <span>Validation Log</span>
+              <button class="btn btn-ghost" style="padding:2px 8px;font-size:0.625rem;" onclick="clearLog()">Clear</button>
+            </div>
+            <div class="log-body" id="logBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.getElementById('sidebar').innerHTML = generateOrchSidebar('extensions');
+    initTheme();
+
+    // --- Mock code for each extension ---
+    const CODE_PREVIEWS = {
+      'auto-lint': {
+        validation: { status: 'ok', label: '✅ Syntax OK', details: 'All exports valid. No issues found.' },
+        hookLines: { 'onPostToolUse': 5 },
+        code: [
+          { text: '<span class="hl-cmt">// Auto-Lint Extension — runs linter after file edits</span>' },
+          { text: '<span class="hl-kw">import</span> { <span class="hl-fn">execSync</span> } <span class="hl-kw">from</span> <span class="hl-str">\'child_process\'</span>;' },
+          { text: '' },
+          { text: '<span class="hl-kw">export</span> <span class="hl-kw">default</span> {' },
+          { text: '  <span class="hl-fn">onPostToolUse</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> { toolName, result } <span class="hl-op">=</span> <span class="hl-type">context</span>;' },
+          { text: '    <span class="hl-kw">if</span> (toolName <span class="hl-op">===</span> <span class="hl-str">\'edit\'</span> <span class="hl-op">||</span> toolName <span class="hl-op">===</span> <span class="hl-str">\'create\'</span>) {' },
+          { text: '      <span class="hl-kw">const</span> filePath <span class="hl-op">=</span> result<span class="hl-op">?.</span>path;' },
+          { text: '      <span class="hl-kw">if</span> (filePath<span class="hl-op">?.</span><span class="hl-fn">endsWith</span>(<span class="hl-str">\'.ts\'</span>) <span class="hl-op">||</span> filePath<span class="hl-op">?.</span><span class="hl-fn">endsWith</span>(<span class="hl-str">\'.js\'</span>)) {' },
+          { text: '        <span class="hl-fn">execSync</span>(<span class="hl-str">`npx eslint --fix ${filePath}`</span>);' },
+          { text: '        <span class="hl-kw">return</span> { <span class="hl-const">linted</span>: <span class="hl-const">true</span>, filePath };' },
+          { text: '      }' },
+          { text: '    }' },
+          { text: '  }' },
+          { text: '};' },
+        ]
+      },
+      'context-injector': {
+        validation: { status: 'ok', label: '✅ Syntax OK', details: 'All exports valid. 2 hooks registered.' },
+        hookLines: { 'onSessionStart': 4, 'onUserPromptSubmitted': 13 },
+        code: [
+          { text: '<span class="hl-cmt">// Context Injector — adds project context to prompts</span>' },
+          { text: '<span class="hl-kw">import</span> { <span class="hl-fn">readFileSync</span> } <span class="hl-kw">from</span> <span class="hl-str">\'fs\'</span>;' },
+          { text: '' },
+          { text: '<span class="hl-kw">export</span> <span class="hl-kw">default</span> {' },
+          { text: '  <span class="hl-fn">onSessionStart</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> rules <span class="hl-op">=</span> <span class="hl-fn">readFileSync</span>(<span class="hl-str">\'.github/copilot-rules.md\'</span>, <span class="hl-str">\'utf-8\'</span>);' },
+          { text: '    <span class="hl-type">context</span>.<span class="hl-fn">injectSystemPrompt</span>(rules);' },
+          { text: '    <span class="hl-kw">return</span> { <span class="hl-const">injected</span>: <span class="hl-const">true</span>, <span class="hl-const">bytes</span>: rules.<span class="hl-const">length</span> };' },
+          { text: '  },' },
+          { text: '' },
+          { text: '  <span class="hl-cmt">// Augment every user prompt with context hints</span>' },
+          { text: '  <span class="hl-cmt">// when project-specific keywords are detected</span>' },
+          { text: '' },
+          { text: '  <span class="hl-fn">onUserPromptSubmitted</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> { prompt } <span class="hl-op">=</span> <span class="hl-type">context</span>;' },
+          { text: '    <span class="hl-kw">if</span> (prompt.<span class="hl-fn">includes</span>(<span class="hl-str">\'auth\'</span>)) {' },
+          { text: '      <span class="hl-type">context</span>.<span class="hl-fn">appendContext</span>(<span class="hl-str">\'See docs/auth.md\'</span>);' },
+          { text: '    }' },
+          { text: '  }' },
+          { text: '};' },
+        ]
+      },
+      'tool-guard': {
+        validation: { status: 'warn', label: '⚠️ Warning', details: 'Unused export "onSessionEnd" at line 22. Consider removing.' },
+        hookLines: { 'onPreToolUse': 5 },
+        code: [
+          { text: '<span class="hl-cmt">// Tool Guard — blocks dangerous tool executions</span>' },
+          { text: '<span class="hl-kw">const</span> <span class="hl-const">BLOCKED_PATTERNS</span> <span class="hl-op">=</span> [' },
+          { text: '  <span class="hl-str">/rm\\s+-rf/</span>, <span class="hl-str">/DROP\\s+TABLE/i</span>, <span class="hl-str">/format\\s+[A-Z]:/i</span>' },
+          { text: '];' },
+          { text: '' },
+          { text: '<span class="hl-kw">export</span> <span class="hl-kw">default</span> {' },
+          { text: '  <span class="hl-fn">onPreToolUse</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> { toolName, args } <span class="hl-op">=</span> <span class="hl-type">context</span>;' },
+          { text: '    <span class="hl-kw">if</span> (toolName <span class="hl-op">===</span> <span class="hl-str">\'powershell\'</span> <span class="hl-op">||</span> toolName <span class="hl-op">===</span> <span class="hl-str">\'bash\'</span>) {' },
+          { text: '      <span class="hl-kw">const</span> cmd <span class="hl-op">=</span> args<span class="hl-op">?.</span>command <span class="hl-op">||</span> <span class="hl-str">\'\'</span>;' },
+          { text: '      <span class="hl-kw">for</span> (<span class="hl-kw">const</span> pattern <span class="hl-kw">of</span> <span class="hl-const">BLOCKED_PATTERNS</span>) {' },
+          { text: '        <span class="hl-kw">if</span> (pattern.<span class="hl-fn">test</span>(cmd)) {' },
+          { text: '          <span class="hl-kw">return</span> { <span class="hl-const">blocked</span>: <span class="hl-const">true</span>, <span class="hl-const">reason</span>: <span class="hl-str">`Matched: ${pattern}`</span> };' },
+          { text: '        }' },
+          { text: '      }' },
+          { text: '    }' },
+          { text: '    <span class="hl-kw">return</span> { <span class="hl-const">blocked</span>: <span class="hl-const">false</span> };' },
+          { text: '  }' },
+          { text: '};' },
+        ]
+      },
+      'cost-tracker': {
+        validation: { status: 'ok', label: '✅ Syntax OK', details: 'All exports valid. 2 hooks registered.' },
+        hookLines: { 'onPostToolUse': 6, 'onSessionEnd': 16 },
+        code: [
+          { text: '<span class="hl-cmt">// Cost Tracker — records token usage per session</span>' },
+          { text: '<span class="hl-kw">import</span> { <span class="hl-fn">appendFileSync</span> } <span class="hl-kw">from</span> <span class="hl-str">\'fs\'</span>;' },
+          { text: '' },
+          { text: '<span class="hl-kw">let</span> <span class="hl-const">sessionCost</span> <span class="hl-op">=</span> <span class="hl-const">0</span>;' },
+          { text: '' },
+          { text: '<span class="hl-kw">export</span> <span class="hl-kw">default</span> {' },
+          { text: '  <span class="hl-fn">onPostToolUse</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> { tokensUsed, model } <span class="hl-op">=</span> <span class="hl-type">context</span>;' },
+          { text: '    <span class="hl-kw">const</span> rate <span class="hl-op">=</span> model.<span class="hl-fn">includes</span>(<span class="hl-str">\'opus\'</span>) <span class="hl-op">?</span> <span class="hl-const">0.015</span> <span class="hl-op">:</span> <span class="hl-const">0.003</span>;' },
+          { text: '    <span class="hl-const">sessionCost</span> <span class="hl-op">+=</span> (tokensUsed <span class="hl-op">/</span> <span class="hl-const">1000</span>) <span class="hl-op">*</span> rate;' },
+          { text: '  },' },
+          { text: '' },
+          { text: '  <span class="hl-cmt">// Flush accumulated costs to log on session end</span>' },
+          { text: '  <span class="hl-cmt">// Appends a JSON line per session</span>' },
+          { text: '' },
+          { text: '  <span class="hl-fn">onSessionEnd</span>(<span class="hl-type">context</span>) {' },
+          { text: '    <span class="hl-kw">const</span> entry <span class="hl-op">=</span> <span class="hl-const">JSON</span>.<span class="hl-fn">stringify</span>({' },
+          { text: '      session: <span class="hl-type">context</span>.sessionId,' },
+          { text: '      cost: <span class="hl-const">sessionCost</span>.<span class="hl-fn">toFixed</span>(<span class="hl-const">4</span>),' },
+          { text: '      timestamp: <span class="hl-kw">new</span> <span class="hl-type">Date</span>().<span class="hl-fn">toISOString</span>()' },
+          { text: '    });' },
+          { text: '    <span class="hl-fn">appendFileSync</span>(<span class="hl-str">\'~/.copilot/cost-log.jsonl\'</span>, entry <span class="hl-op">+</span> <span class="hl-str">\'\\n\'</span>);' },
+          { text: '  }' },
+          { text: '};' },
+        ]
+      },
+    };
+
+    // Validation log entries
+    const LOG_ENTRIES = [
+      { ts: '00:00.012', level: 'info', msg: 'Extension manager initialized' },
+      { ts: '00:00.045', level: 'ok', msg: '[auto-lint] Loaded — 1 hook registered (onPostToolUse)' },
+      { ts: '00:00.048', level: 'ok', msg: '[context-injector] Loaded — 2 hooks registered (onSessionStart, onUserPromptSubmitted)' },
+      { ts: '00:00.051', level: 'warn', msg: '[tool-guard] Warning: unused export "onSessionEnd" at line 22' },
+      { ts: '00:00.052', level: 'ok', msg: '[tool-guard] Loaded — 1 hook registered (onPreToolUse) [disabled]' },
+      { ts: '00:00.058', level: 'ok', msg: '[cost-tracker] Loaded — 2 hooks registered (onPostToolUse, onSessionEnd)' },
+      { ts: '00:00.060', level: 'info', msg: '4 extensions loaded (3 active, 1 disabled). 6 hook registrations total.' },
+    ];
+
+    let selectedExtId = null;
+
+    // --- Render file tree ---
+    function renderTree() {
+      const tree = document.getElementById('fileTree');
+      const byScope = { project: [], user: [] };
+      ORCH_EXTENSIONS.forEach(e => byScope[e.scope].push(e));
+
+      const renderScope = (label, icon, exts, open) => {
+        const items = exts.map(e => `
+          <div class="tree-item${selectedExtId === e.id ? ' selected' : ''}" data-id="${e.id}" onclick="selectExtension('${e.id}')">
+            <span class="tree-item-icon">${ORCH_ICONS.puzzle}</span>
+            <span class="tree-item-name">${e.name}</span>
+            <span class="tree-item-status ${e.status}"></span>
+          </div>
+        `).join('');
+        return `
+          <div class="tree-section">
+            <div class="tree-scope open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none';">
+              <span class="arrow">▶</span> ${icon} ${label}
+              <span style="margin-left:auto;font-size:0.5625rem;color:var(--text-placeholder);">${exts.length}</span>
+            </div>
+            <div class="tree-items" style="display:block;">${items}</div>
+          </div>`;
+      };
+
+      tree.innerHTML =
+        renderScope('Project Scope', '📁', byScope.project, true) +
+        renderScope('User-Global', '👤', byScope.user, true);
+    }
+
+    // --- Render detail panel ---
+    function selectExtension(id) {
+      selectedExtId = id;
+      renderTree();
+      const ext = ORCH_EXTENSIONS.find(e => e.id === id);
+      if (!ext) return;
+
+      const preview = CODE_PREVIEWS[id];
+      if (!preview) return;
+
+      const v = preview.validation;
+      const vClass = v.status === 'ok' ? 'ok' : v.status === 'warn' ? 'warn' : 'err';
+
+      const codeHtml = preview.code.map((line, i) =>
+        `<div class="code-line"><span class="code-line-num">${i + 1}</span><span class="code-line-text">${line.text || '&nbsp;'}</span></div>`
+      ).join('');
+
+      const hooksHtml = Object.entries(preview.hookLines).map(([hook, lineNum]) =>
+        `<div class="hook-item">
+          <span class="hook-name">${hook}</span>
+          <span class="hook-line">Line ${lineNum}</span>
+        </div>`
+      ).join('');
+
+      const panel = document.getElementById('detailPanel');
+      panel.innerHTML = `
+        <div class="detail-header">
+          <div>
+            <div class="detail-title">${ext.name}</div>
+            <div style="font-size:0.8125rem;color:var(--text-secondary);margin-top:2px;">${ext.description}</div>
+          </div>
+          <div class="detail-actions">
+            <div class="toggle-wrap">
+              <span class="toggle-label">${ext.status === 'active' ? 'Active' : 'Disabled'}</span>
+              <button class="toggle ${ext.status === 'active' ? 'active' : ''}" onclick="toggleExt('${ext.id}', this)"></button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="validateExt('${ext.id}')">Validate</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger-fg);" onclick="showToast('${ext.name} would be deleted')">Delete</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <span class="badge badge-sm badge-scope-${ext.scope}">${ext.scope === 'project' ? '📁 Project' : '👤 User'}</span>
+          <span class="badge badge-sm badge-${vClass === 'ok' ? 'success' : vClass === 'warn' ? 'warning' : 'danger'}">${v.label}</span>
+        </div>
+
+        <div class="section-label">Code Preview</div>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="file-path">${ext.path}</span>
+            <span>${preview.code.length} lines</span>
+          </div>
+          <div class="code-content">${codeHtml}</div>
+        </div>
+
+        <div class="section-label">Hook Registrations</div>
+        <div class="hook-list">${hooksHtml}</div>
+
+        <div class="section-label">Validation</div>
+        <div class="validation-result ${vClass}">
+          <span>${v.label}</span>
+          <span style="margin-left:auto;font-size:0.75rem;opacity:0.8;">${v.details}</span>
+        </div>
+      `;
+      panel.scrollTop = 0;
+    }
+
+    // --- Render validation log ---
+    function renderLog() {
+      const body = document.getElementById('logBody');
+      body.innerHTML = LOG_ENTRIES.map(e =>
+        `<div class="log-entry">
+          <span class="log-ts">${e.ts}</span>
+          <span class="log-level-${e.level}" style="min-width:32px;">${e.level === 'ok' ? '✓' : e.level === 'warn' ? '⚠' : e.level === 'err' ? '✗' : 'ℹ'}</span>
+          <span class="log-msg">${e.msg}</span>
+        </div>`
+      ).join('');
+    }
+
+    function clearLog() {
+      document.getElementById('logBody').innerHTML =
+        '<div class="log-entry"><span class="log-ts">--:--</span><span class="log-level-info">ℹ</span><span class="log-msg">Log cleared</span></div>';
+    }
+
+    // --- Toggle extension ---
+    function toggleExt(id, btn) {
+      const ext = ORCH_EXTENSIONS.find(e => e.id === id);
+      if (!ext) return;
+      ext.status = ext.status === 'active' ? 'disabled' : 'active';
+      btn.classList.toggle('active');
+      btn.previousElementSibling.textContent = ext.status === 'active' ? 'Active' : 'Disabled';
+      renderTree();
+      addLogEntry(ext.status === 'active' ? 'ok' : 'info', `[${ext.name}] ${ext.status === 'active' ? 'Enabled' : 'Disabled'}`);
+    }
+
+    // --- Validate extension ---
+    function validateExt(id) {
+      const ext = ORCH_EXTENSIONS.find(e => e.id === id);
+      const preview = CODE_PREVIEWS[id];
+      if (!ext || !preview) return;
+      addLogEntry('info', `Validating ${ext.name}…`);
+      setTimeout(() => {
+        const v = preview.validation;
+        addLogEntry(v.status === 'ok' ? 'ok' : v.status === 'warn' ? 'warn' : 'err', `[${ext.name}] ${v.details}`);
+      }, 300);
+    }
+
+    function addLogEntry(level, msg) {
+      const body = document.getElementById('logBody');
+      const now = new Date();
+      const ts = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+      const symbol = level === 'ok' ? '✓' : level === 'warn' ? '⚠' : level === 'err' ? '✗' : 'ℹ';
+      body.innerHTML += `<div class="log-entry"><span class="log-ts">${ts}</span><span class="log-level-${level}" style="min-width:32px;">${symbol}</span><span class="log-msg">${msg}</span></div>`;
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // --- Resize handle for bottom panel ---
+    (function initResize() {
+      const handle = document.getElementById('resizeHandle');
+      const bottom = document.getElementById('logPanel');
+      const rightPanel = document.querySelector('.panel-right');
+      let startY, startH;
+
+      handle.addEventListener('mousedown', e => {
+        startY = e.clientY;
+        startH = bottom.offsetHeight;
+        const onMove = ev => {
+          const delta = startY - ev.clientY;
+          bottom.style.height = Math.max(80, Math.min(400, startH + delta)) + 'px';
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    })();
+
+    // Toast
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // --- Init ---
+    renderTree();
+    renderLog();
+    // Auto-select first extension
+    if (ORCH_EXTENSIONS.length > 0) selectExtension(ORCH_EXTENSIONS[0].id);
+  </script>
+</body>
+</html>

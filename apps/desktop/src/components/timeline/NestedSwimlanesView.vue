@@ -5,6 +5,8 @@ import {
   Badge,
   ExpandChevron,
   EmptyState,
+  ToolDetailPanel,
+  TerminologyLegend,
   formatDuration,
   formatLiveDuration,
   formatTime,
@@ -13,10 +15,11 @@ import {
   toolCategory,
   categoryColor,
   formatArgsSummary,
+  extractPrompt,
+  AGENT_COLORS,
+  inferAgentTypeFromToolCall,
   useToggleSet,
   useLiveDuration,
-  ToolArgsRenderer,
-  ToolResultRenderer,
 } from "@tracepilot/ui";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -58,9 +61,6 @@ function setAssistantMsgIdx(turnIndex: number, idx: number) {
   assistantMsgIndex.value.set(turnIndex, idx);
 }
 
-// ── Terminology legend toggle ────────────────────────────────
-const showLegend = ref(false);
-
 // ── Click-to-select detail panel ─────────────────────────────
 const selectedTool = ref<TurnToolCall | null>(null);
 
@@ -86,13 +86,7 @@ function closeDetail() {
   selectedTool.value = null;
 }
 
-function formatDetailTime(iso?: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 });
-}
-
-const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
+const allToolCalls= computed(() => store.turns.flatMap(t => t.toolCalls));
 
 // Re-resolve selectedTool after data refresh so the detail panel stays open.
 // On refresh, store.turns gets a new array with new object references; we match by toolCallId.
@@ -129,34 +123,16 @@ function turnOwnsSelected(turn: ConversationTurn): boolean {
   return turn.toolCalls.includes(sel);
 }
 
-function selectedNestedCount(): number {
-  const sel = selectedTool.value;
-  if (!sel?.isSubagent || !sel.toolCallId) return 0;
-  return allToolCalls.value.filter((tc) => tc.parentToolCallId === sel.toolCallId).length;
+function countNestedTools(agent: TurnToolCall): number {
+  if (!agent.toolCallId) return 0;
+  return allToolCalls.value.filter((tc) => tc.parentToolCallId === agent.toolCallId).length;
 }
 
-function extractPrompt(args: unknown): string | null {
-  if (!args || typeof args !== 'object') return null;
-  const obj = args as Record<string, unknown>;
-  const raw = obj.prompt ?? obj.description;
-  return typeof raw === 'string' ? raw : null;
-}
+// ── Subagent lane color ──────────────────────────────────────
 
-// ── Subagent lane color map ──────────────────────────────────
-
-const AGENT_COLORS: Record<string, string> = {
-  explore: "var(--agent-color-explore)",
-  "general-purpose": "var(--agent-color-general-purpose)",
-  "code-review": "var(--agent-color-code-review)",
-  task: "var(--agent-color-task)",
-};
-
-function agentColor(toolName: string): string {
-  const key = toolName.toLowerCase().replace(/[_ ]/g, "-");
-  for (const [pattern, color] of Object.entries(AGENT_COLORS)) {
-    if (key.includes(pattern)) return color;
-  }
-  return "var(--accent-fg)";
+function agentColor(agent: TurnToolCall): string {
+  const type = inferAgentTypeFromToolCall(agent);
+  return AGENT_COLORS[type] ?? "var(--accent-fg)";
 }
 
 // ── Phase grouping ───────────────────────────────────────────
@@ -342,6 +318,14 @@ const parallelAgentIds = computed<Set<string>>(() => {
   }
   return result;
 });
+
+// ── Terminology legend items ─────────────────────────────────
+const swimlaneTerms = [
+  { term: 'Phase', definition: 'A group of turns initiated by one user prompt' },
+  { term: 'Turn', definition: 'A single assistant response cycle (may include tool calls and subagent invocations)' },
+  { term: 'Subagent', definition: 'An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)' },
+  { term: 'Direct Tools', definition: 'Tool calls made directly by the main agent (not delegated to subagents)' },
+];
 </script>
 
 <template>
@@ -361,32 +345,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
     </div>
 
     <!-- Terminology legend -->
-    <div v-if="store.turns.length" class="legend-container">
-      <button class="legend-toggle" @click="showLegend = !showLegend">
-        ℹ Terminology
-        <span class="legend-chevron" :class="{ 'legend-chevron--open': showLegend }">›</span>
-      </button>
-      <div v-if="showLegend" class="legend-body">
-        <dl class="legend-list">
-          <div class="legend-item">
-            <dt class="legend-term">Phase</dt>
-            <dd class="legend-def">A group of turns initiated by one user prompt</dd>
-          </div>
-          <div class="legend-item">
-            <dt class="legend-term">Turn</dt>
-            <dd class="legend-def">A single assistant response cycle (may include tool calls and subagent invocations)</dd>
-          </div>
-          <div class="legend-item">
-            <dt class="legend-term">Subagent</dt>
-            <dd class="legend-def">An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)</dd>
-          </div>
-          <div class="legend-item">
-            <dt class="legend-term">Direct Tools</dt>
-            <dd class="legend-def">Tool calls made directly by the main agent (not delegated to subagents)</dd>
-          </div>
-        </dl>
-      </div>
-    </div>
+    <TerminologyLegend v-if="store.turns.length" :items="swimlaneTerms" />
 
     <!-- Phases -->
     <div
@@ -399,6 +358,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
         class="phase-header"
         role="button"
         tabindex="0"
+        :aria-label="`Toggle phase ${phase.index + 1}: ${phase.label}`"
         :aria-expanded="!phases.has(phase.index)"
         @click="phases.toggle(phase.index)"
         @keydown.enter.space.prevent="phases.toggle(phase.index)"
@@ -429,6 +389,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
             class="turn-header"
             role="button"
             tabindex="0"
+            :aria-label="`Toggle turn ${turn.turnIndex}${turn.userMessage ? ': ' + truncateText(turn.userMessage, 60) : ''}`"
             :aria-expanded="!turnSet.has(turnKey(phase.index, turn))"
             @click="turnSet.toggle(turnKey(phase.index, turn))"
             @keydown.enter.space.prevent="turnSet.toggle(turnKey(phase.index, turn))"
@@ -472,6 +433,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   :title="turn.userMessage"
                   role="button"
                   tabindex="0"
+                  :aria-label="`Expand user message: ${truncateText(turn.userMessage, 50)}`"
                   @click="expandedMessages.toggle(`${turn.turnIndex}-user`)"
                   @keydown.enter.space.prevent="expandedMessages.toggle(`${turn.turnIndex}-user`)"
                 >
@@ -503,6 +465,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   :title="turn.assistantMessages.find(m => m.content.trim())?.content.slice(0, 200)"
                   role="button"
                   tabindex="0"
+                  aria-label="Expand assistant message"
                   @click="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
                   @keydown.enter.space.prevent="expandedMessages.toggle(`${turn.turnIndex}-assistant`)"
                 >
@@ -546,7 +509,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
               v-for="(agent, agentIdx) in subagents(turn)"
               :key="agent.toolCallId ?? `${agent.toolName}-${agentIdx}`"
               class="subagent-lane"
-              :style="{ '--agent-color': agentColor(agent.toolName) }"
+              :style="{ '--agent-color': agentColor(agent) }"
             >
               <!-- Subagent header -->
               <div
@@ -554,6 +517,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                 :class="{ 'subagent-header--selected': isSelected(agent) }"
                 role="button"
                 tabindex="0"
+                :aria-label="`Select agent: ${agent.agentDisplayName ?? agent.toolName}`"
                 :aria-expanded="!agentSet.has(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
                 @click="selectTool(agent)"
                 @keydown.enter.space.prevent="selectTool(agent)"
@@ -562,6 +526,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                   class="subagent-chevron"
                   role="button"
                   tabindex="0"
+                  :aria-label="`Toggle ${agent.agentDisplayName ?? agent.toolName} expansion`"
                   @click.stop="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
                   @keydown.enter.space.stop.prevent="agentSet.toggle(agentKey(turnKey(phase.index, turn), agent, agentIdx))"
                 >
@@ -611,6 +576,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                       :title="toolTooltip(tc)"
                       role="button"
                       tabindex="0"
+                      :aria-label="`Select tool: ${tc.toolName}`"
                       @click.stop="selectTool(tc)"
                       @keydown.enter.space.prevent="selectTool(tc)"
                     >
@@ -640,6 +606,7 @@ const parallelAgentIds = computed<Set<string>>(() => {
                     :title="toolTooltip(tc)"
                     role="button"
                     tabindex="0"
+                    :aria-label="`Select tool: ${tc.toolName}`"
                     @click.stop="selectTool(tc)"
                     @keydown.enter.space.prevent="selectTool(tc)"
                   >
@@ -651,79 +618,16 @@ const parallelAgentIds = computed<Set<string>>(() => {
             </div>
 
             <!-- Detail panel (shown when a tool in this turn is selected) -->
-            <div
+            <ToolDetailPanel
               v-if="selectedTool && turnOwnsSelected(turn)"
-              class="detail-panel"
-            >
-              <div class="detail-header">
-                <span class="detail-title">
-                  <span class="detail-icon">{{ toolIcon(selectedTool.toolName) }}</span>
-                  {{ selectedTool.toolName }}
-                </span>
-                <span v-if="selectedTool.intentionSummary" class="tool-call-intent" style="margin-left: 8px;">{{ selectedTool.intentionSummary }}</span>
-                <button class="detail-close" @click.stop="closeDetail" title="Close detail panel">✕ Close</button>
-              </div>
-              <div class="detail-body">
-                <div class="detail-grid">
-                  <template v-if="selectedTool.model">
-                    <span class="detail-label">Model</span>
-                    <span class="detail-value"><Badge variant="done">{{ selectedTool.model }}</Badge></span>
-                  </template>
-                  <span class="detail-label">Status</span>
-                  <span class="detail-value">
-                    <span class="detail-badge" :class="selectedTool.success === false ? 'detail-badge--fail' : selectedTool.success === true ? 'detail-badge--ok' : 'detail-badge--pending'">
-                      {{ selectedTool.success === false ? '✕ Failed' : selectedTool.success === true ? '✓ Success' : '⏳ In Progress' }}
-                    </span>
-                  </span>
-                  <template v-if="selectedTool.durationMs != null">
-                    <span class="detail-label">Duration</span>
-                    <span class="detail-value detail-mono">{{ formatDuration(selectedTool.durationMs) }}</span>
-                  </template>
-                  <template v-if="selectedTool.startedAt">
-                    <span class="detail-label">Started at</span>
-                    <span class="detail-value detail-mono">{{ formatDetailTime(selectedTool.startedAt) }}</span>
-                  </template>
-                  <template v-if="selectedTool.completedAt">
-                    <span class="detail-label">Completed at</span>
-                    <span class="detail-value detail-mono">{{ formatDetailTime(selectedTool.completedAt) }}</span>
-                  </template>
-                  <template v-if="selectedTool.isSubagent">
-                    <span class="detail-label">Agent</span>
-                    <span class="detail-value">{{ selectedTool.agentDisplayName ?? selectedTool.toolName }}</span>
-                    <template v-if="selectedTool.agentDescription">
-                      <span class="detail-label">Description</span>
-                      <span class="detail-value detail-secondary">{{ selectedTool.agentDescription }}</span>
-                    </template>
-                    <span class="detail-label">Nested tools</span>
-                    <span class="detail-value">{{ selectedNestedCount() }}</span>
-                  </template>
-                  <template v-if="selectedTool?.isSubagent && extractPrompt(selectedTool?.arguments)">
-                    <div class="detail-section" style="grid-column: 1 / -1;">
-                      <div class="detail-label">Prompt</div>
-                      <pre class="detail-prompt">{{ extractPrompt(selectedTool.arguments) }}</pre>
-                    </div>
-                  </template>
-                </div>
-                <!-- Arguments (rich renderer) -->
-                <ToolArgsRenderer :tc="selectedTool" :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)" />
-
-                <!-- Result (rich renderer) -->
-                <div v-if="selectedTool.resultContent || (selectedTool.toolCallId && fullResults.has(selectedTool.toolCallId))" class="tool-result-section">
-                  <ToolResultRenderer
-                    :tc="selectedTool"
-                    :content="fullResults.get(selectedTool.toolCallId ?? '') ?? selectedTool.resultContent ?? ''"
-                    :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)"
-                    :is-truncated="!!(selectedTool.toolCallId && selectedTool.resultContent?.includes('…[truncated]') && !fullResults.has(selectedTool.toolCallId))"
-                    :loading="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"
-                    @load-full="loadFullResult(selectedTool.toolCallId!)"
-                  />
-                </div>
-                <div v-if="selectedTool.error" class="detail-error">
-                  <span class="detail-error-label">Error</span>
-                  <span class="detail-error-msg">{{ selectedTool.error }}</span>
-                </div>
-              </div>
-            </div>
+              :tc="selectedTool"
+              :full-result="fullResults.get(selectedTool.toolCallId ?? '')"
+              :loading-full-result="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"
+              :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)"
+              :child-tool-count="selectedTool.isSubagent ? countNestedTools(selectedTool) : undefined"
+              @close="selectedTool = null"
+              @load-full-result="loadFullResult"
+            />
           </div>
         </div>
       </div>
@@ -1124,75 +1028,6 @@ const parallelAgentIds = computed<Set<string>>(() => {
 }
 
 /* ── Terminology legend ────────────────────────────────── */
-.legend-container {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--canvas-raised);
-  overflow: hidden;
-}
-
-.legend-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 12px;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.legend-toggle:hover {
-  color: var(--text-primary);
-}
-
-.legend-chevron {
-  margin-left: auto;
-  font-size: 0.875rem;
-  transition: transform var(--transition-fast);
-  transform: rotate(0deg);
-}
-
-.legend-chevron--open {
-  transform: rotate(90deg);
-}
-
-.legend-body {
-  padding: 4px 12px 10px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.legend-list {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.legend-term {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  min-width: 80px;
-}
-
-.legend-def {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  margin: 0;
-}
 
 /* ── Clickable bar styles ──────────────────────────────── */
 .nested-swimlanes .swimlane-bar--tool {
@@ -1212,193 +1047,6 @@ const parallelAgentIds = computed<Set<string>>(() => {
 /* ── Detail panel ──────────────────────────────────────── */
 .detail-panel {
   margin: 6px 12px 8px 40px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--canvas-raised);
-  backdrop-filter: blur(8px);
-  overflow: hidden;
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--canvas-overlay);
-}
-
-.detail-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.detail-icon {
-  font-size: 1rem;
-}
-
-.detail-close {
-  border: none;
-  background: none;
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.detail-close:hover {
-  background: var(--canvas-subtle);
-  color: var(--text-primary);
-}
-
-.detail-body {
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  align-items: baseline;
-}
-
-.detail-label {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.detail-value {
-  font-size: 0.75rem;
-  color: var(--text-primary);
-}
-
-.detail-value.detail-mono {
-  font-family: var(--font-mono, monospace);
-  font-variant-numeric: tabular-nums;
-}
-
-.detail-value.detail-secondary {
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.detail-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  font-size: 0.625rem;
-  font-weight: 600;
-}
-
-.detail-badge--ok {
-  background: var(--success-subtle);
-  color: var(--success-fg);
-}
-
-.detail-badge--fail {
-  background: var(--danger-subtle);
-  color: var(--danger-fg);
-}
-
-.detail-badge--pending {
-  background: var(--warning-subtle, rgba(251, 191, 36, 0.15));
-  color: var(--warning-fg, #fbbf24);
-}
-
-.detail-prompt {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  white-space: pre-wrap;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 8px;
-  background: var(--canvas-default);
-  border-radius: 6px;
-  border: 1px solid var(--border-default);
-  margin: 0;
-}
-
-.detail-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.detail-section-title {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.detail-section-toggle {
-  font-size: 0.625rem;
-}
-
-.detail-args {
-  margin: 0;
-  padding: 8px;
-  font-size: 0.625rem;
-  font-family: var(--font-mono, monospace);
-  background: var(--canvas-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.detail-show-more {
-  align-self: flex-start;
-  border: none;
-  background: none;
-  color: var(--accent-fg);
-  font-size: 0.625rem;
-  cursor: pointer;
-  padding: 2px 0;
-}
-
-.detail-show-more:hover {
-  text-decoration: underline;
-}
-
-.detail-error {
-  display: flex;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--danger-subtle);
-  border: 1px solid var(--danger-muted, var(--danger-fg));
-  border-radius: var(--radius-sm);
-  align-items: baseline;
-}
-
-.detail-error-label {
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--danger-fg);
-  white-space: nowrap;
-}
-
-.detail-error-msg {
-  font-size: 0.6875rem;
-  color: var(--danger-fg);
-  word-break: break-word;
 }
 
 /* ── Responsive ─────────────────────────────────────────── */
