@@ -108,6 +108,21 @@ export interface ConversationTurn {
   transformedUserMessage?: string;
   /** File attachments provided with the user message. */
   attachments?: unknown[];
+  /** Session-level events (errors, compactions, etc.) that occurred during this turn. */
+  sessionEvents?: TurnSessionEvent[];
+}
+
+/** Severity level for session events embedded in a conversation turn. */
+export type SessionEventSeverity = 'error' | 'warning' | 'info';
+
+/** A session-level event that occurred during a conversation turn. */
+export interface TurnSessionEvent {
+  /** Wire event type (e.g. "session.error", "session.compaction_complete"). */
+  eventType: string;
+  timestamp?: string;
+  severity: SessionEventSeverity;
+  /** Human-readable summary of what happened. */
+  summary: string;
 }
 
 /** A tool call within a turn */
@@ -527,7 +542,17 @@ export const DEFAULT_TOOL_RENDERING_PREFS: ToolRenderingPreferences = {
 
 // ===== Configuration Types =====
 
-/** TracePilot application configuration */
+/** Per-model wholesale pricing entry */
+export interface ModelPriceEntry {
+  model: string;
+  inputPerM: number;
+  cachedInputPerM: number;
+  outputPerM: number;
+  /** Premium request multiplier (e.g. 1x, 3x, 0.33x). 0 = free tier. */
+  premiumRequests: number;
+}
+
+/** TracePilot application configuration — persisted in config.toml */
 export interface TracePilotConfig {
   version: number;
   paths: {
@@ -536,6 +561,29 @@ export interface TracePilotConfig {
   };
   general: {
     autoIndexOnLaunch: boolean;
+    cliCommand: string;
+  };
+  ui: {
+    theme: string;
+    hideEmptySessions: boolean;
+    autoRefreshEnabled: boolean;
+    autoRefreshIntervalSeconds: number;
+    checkForUpdates: boolean;
+    favouriteModels: string[];
+    recentRepoPaths: string[];
+  };
+  pricing: {
+    costPerPremiumRequest: number;
+    models: ModelPriceEntry[];
+  };
+  toolRendering: {
+    enabled: boolean;
+    toolOverrides: Record<string, boolean>;
+  };
+  features: {
+    exportView: boolean;
+    healthScoring: boolean;
+    sessionReplay: boolean;
   };
 }
 

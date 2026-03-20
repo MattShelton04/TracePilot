@@ -122,13 +122,36 @@ async function finishSetup() {
   setupError.value = '';
   try {
     const config: TracePilotConfig = {
-      version: 1,
+      version: 2,
       paths: {
         sessionStateDir: sessionDir.value.trim(),
         indexDbPath: dbPath.value.trim(),
       },
       general: {
         autoIndexOnLaunch: autoIndex.value,
+        cliCommand: 'copilot',
+      },
+      ui: {
+        theme: 'dark',
+        hideEmptySessions: true,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSeconds: 5,
+        checkForUpdates: false,
+        favouriteModels: ['claude-opus-4.6', 'gpt-5.4', 'gpt-5.3-codex'],
+        recentRepoPaths: [],
+      },
+      pricing: {
+        costPerPremiumRequest: 0.04,
+        models: [],
+      },
+      toolRendering: {
+        enabled: true,
+        toolOverrides: {},
+      },
+      features: {
+        exportView: false,
+        healthScoring: false,
+        sessionReplay: false,
       },
     };
     await saveConfig(config);

@@ -1,0 +1,163 @@
+//! Read-only session query methods.
+
+use anyhow::Result;
+use rusqlite::{params_from_iter, types::ToSql};
+use std::collections::HashSet;
+use std::path::PathBuf;
+
+use super::types::*;
+use super::IndexDb;
+
+impl IndexDb {
+    /// List indexed sessions with optional filters.
+    pub fn list_sessions(
+        &self,
+        limit: Option<usize>,
+        filter_repo: Option<&str>,
+        filter_branch: Option<&str>,
+        hide_empty: bool,
+    ) -> Result<Vec<IndexedSession>> {
+        let mut sql = String::from(
+            "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count FROM sessions WHERE 1=1",
+        );
+        let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
+
+        if hide_empty {
+            sql.push_str(" AND turn_count IS NOT NULL AND turn_count > 0");
+        }
+
+        if let Some(repo) = filter_repo {
+            sql.push_str(" AND repository = ?");
+            query_params.push(Box::new(repo.to_string()));
+        }
+        if let Some(branch) = filter_branch {
+            sql.push_str(" AND branch = ?");
+            query_params.push(Box::new(branch.to_string()));
+        }
+
+        sql.push_str(" ORDER BY updated_at DESC");
+        if let Some(limit) = limit {
+            sql.push_str(&format!(" LIMIT {}", limit));
+        }
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+        let rows = stmt.query_map(params_from_iter(refs), |row| {
+            Ok(IndexedSession {
+                id: row.get(0)?,
+                path: row.get(1)?,
+                summary: row.get(2)?,
+                repository: row.get(3)?,
+                branch: row.get(4)?,
+                cwd: row.get(5)?,
+                host_type: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+                event_count: row.get(9)?,
+                turn_count: row.get(10)?,
+                current_model: row.get(11)?,
+                error_count: row.get(12)?,
+                rate_limit_count: row.get(13)?,
+                compaction_count: row.get(14)?,
+                truncation_count: row.get(15)?,
+            })
+        })?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
+    }
+
+    /// Return the total number of indexed sessions (fast `SELECT COUNT(*)`).
+    pub fn session_count(&self) -> Result<usize> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
+        Ok(count as usize)
+    }
+
+    /// Return the set of all session IDs currently in the index.
+    pub fn all_indexed_ids(&self) -> Result<HashSet<String>> {
+        let mut stmt = self.conn.prepare("SELECT id FROM sessions")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut ids = HashSet::new();
+        for row in rows {
+            ids.insert(row?);
+        }
+        Ok(ids)
+    }
+
+    /// Get a session's filesystem path from the index.
+    pub fn get_session_path(&self, session_id: &str) -> Result<Option<PathBuf>> {
+        let path: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT path FROM sessions WHERE id = ?1",
+                [session_id],
+                |row| row.get(0),
+            )
+            .ok();
+        Ok(path.map(PathBuf::from))
+    }
+
+    /// Full-text search across session metadata and conversation content.
+    pub fn search(&self, query: &str) -> Result<Vec<String>> {
+        let mut results = HashSet::new();
+
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM sessions_fts WHERE sessions_fts MATCH ?1")?;
+        let ids = stmt.query_map([query], |row| row.get::<_, String>(0))?;
+        for id in ids.flatten() {
+            results.insert(id);
+        }
+
+        let mut stmt = self
+            .conn
+            .prepare("SELECT session_id FROM conversation_fts WHERE conversation_fts MATCH ?1")?;
+        let ids = stmt.query_map([query], |row| row.get::<_, String>(0))?;
+        for id in ids.flatten() {
+            results.insert(id);
+        }
+
+        Ok(results.into_iter().collect())
+    }
+
+    /// Get distinct CWD paths from all indexed sessions (for repo discovery).
+    pub fn distinct_session_cwds(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut cwds = Vec::new();
+        for row in rows {
+            cwds.push(row?);
+        }
+        Ok(cwds)
+    }
+
+    /// Query incidents for a specific session.
+    pub fn get_session_incidents(&self, session_id: &str) -> Result<Vec<IndexedIncident>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT event_type, source_event_type, timestamp, severity, summary, detail_json
+             FROM session_incidents WHERE session_id = ?1 ORDER BY timestamp",
+        )?;
+        let rows = stmt.query_map([session_id], |row| {
+            Ok(IndexedIncident {
+                event_type: row.get(0)?,
+                source_event_type: row.get(1)?,
+                timestamp: row.get(2)?,
+                severity: row.get(3)?,
+                summary: row.get(4)?,
+                detail_json: row.get(5)?,
+            })
+        })?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
+}

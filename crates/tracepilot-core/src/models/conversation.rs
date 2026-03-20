@@ -19,6 +19,30 @@ pub struct AttributedMessage {
     pub agent_display_name: Option<String>,
 }
 
+/// Severity level for session events embedded in a conversation turn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionEventSeverity {
+    Error,
+    Warning,
+    Info,
+}
+
+/// A session-level event that occurred during a conversation turn.
+///
+/// These capture important session state changes (errors, compactions, truncations,
+/// plan/mode changes) that are otherwise invisible in the conversation timeline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnSessionEvent {
+    /// Wire event type (e.g. "session.error", "session.compaction_complete").
+    pub event_type: String,
+    pub timestamp: Option<DateTime<Utc>>,
+    pub severity: SessionEventSeverity,
+    /// Human-readable summary of what happened.
+    pub summary: String,
+}
+
 /// A single conversation turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +71,9 @@ pub struct ConversationTurn {
     pub transformed_user_message: Option<String>,
     /// User message attachments (file selections, code snippets).
     pub attachments: Option<Vec<serde_json::Value>>,
+    /// Session-level events (errors, compactions, etc.) that occurred during this turn.
+    #[serde(default)]
+    pub session_events: Vec<TurnSessionEvent>,
 }
 
 /// A tool call within a conversation turn.

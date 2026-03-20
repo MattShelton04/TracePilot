@@ -81,6 +81,36 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
   const idx = findToolCallIndex(turn, tc);
   expandedToolDetails.toggle(`${prefix}${turn.turnIndex}-${idx}`);
 }
+
+// ── Session event helpers ──
+
+import type { SessionEventSeverity } from "@tracepilot/types";
+
+function severityVariant(severity: SessionEventSeverity): 'danger' | 'warning' | 'neutral' {
+  if (severity === 'error') return 'danger';
+  if (severity === 'warning') return 'warning';
+  return 'neutral';
+}
+
+function severityIcon(severity: SessionEventSeverity): string {
+  if (severity === 'error') return '🔴';
+  if (severity === 'warning') return '🟡';
+  return 'ℹ️';
+}
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  'session.error': 'Error',
+  'session.warning': 'Warning',
+  'session.compaction_start': 'Compaction',
+  'session.compaction_complete': 'Compaction',
+  'session.truncation': 'Truncation',
+  'session.plan_changed': 'Plan',
+  'session.mode_changed': 'Mode',
+};
+
+function eventTypeLabel(eventType: string): string {
+  return EVENT_TYPE_LABELS[eventType] ?? eventType.replace('session.', '');
+}
 </script>
 
 <template>
@@ -253,6 +283,15 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
         <div v-if="turn.outputTokens" class="turn-reasoning">
           <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
         </div>
+
+        <!-- Session events (errors, compactions, etc.) -->
+        <div v-if="turn.sessionEvents?.length" class="session-events-list">
+          <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+            <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
+            <span class="session-event-summary">{{ se.summary }}</span>
+            <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -340,6 +379,14 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
               />
             </div>
           </template>
+
+          <!-- Session events (compact) -->
+          <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
+            <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+              <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
+              <span class="session-event-summary">{{ se.summary }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -411,6 +458,15 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
               <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
             </div>
           </template>
+
+          <!-- Session events (timeline) -->
+          <div v-if="turn.sessionEvents?.length" class="session-events-list">
+            <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
+              <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
+              <span class="session-event-summary">{{ se.summary }}</span>
+              <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -562,5 +618,42 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
 .fab-leave-to {
   opacity: 0;
   transform: scale(0.8) translateY(8px);
+}
+
+/* ── Session events ─────────────────────────────── */
+.session-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 2px 48px;
+}
+.session-events-list.compact {
+  margin-left: 0;
+  margin-top: 8px;
+}
+.session-event-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  border-left: 3px solid transparent;
+}
+.session-event-error {
+  background: color-mix(in srgb, var(--danger-fg, #f87171) 8%, transparent);
+  border-left-color: var(--danger-fg, #f87171);
+}
+.session-event-warning {
+  background: color-mix(in srgb, var(--warning-fg, #fbbf24) 8%, transparent);
+  border-left-color: var(--warning-fg, #fbbf24);
+}
+.session-event-info {
+  background: color-mix(in srgb, var(--accent-fg, #60a5fa) 6%, transparent);
+  border-left-color: var(--accent-fg, #60a5fa);
+}
+.session-event-summary {
+  flex: 1;
+  color: var(--fg-secondary, #a0a0a0);
 }
 </style>

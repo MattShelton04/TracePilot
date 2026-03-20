@@ -28,12 +28,12 @@ This report captures architectural and code quality improvements identified duri
 
 ---
 
-## 3. Split Large Rust Modules
+## 3. ~~Split Large Rust Modules~~ ✅ PARTIALLY DONE
 
-**Files:** `index_db.rs` (~1865 lines), `tauri-bindings/lib.rs` (~1063 lines)
+**Status:** `index_db.rs` decomposition completed. `tauri-bindings/lib.rs` still pending.
 
-- **index_db.rs:** Split into sub-modules: `schema.rs` (migrations), `write.rs` (insert/update), `read.rs` (queries), `fts.rs` (full-text search), `types.rs` (structs).
-- **tauri-bindings/lib.rs:** Group commands into modules by domain: `session_commands.rs`, `indexing_commands.rs`, `config_commands.rs`, `analytics_commands.rs`. Keep the handler registration in `lib.rs`.
+- **index_db.rs:** Split into `index_db/` directory module with 7 files: `mod.rs` (thin orchestrator), `types.rs`, `migrations.rs`, `helpers.rs`, `session_writer.rs`, `session_reader.rs`, `analytics_queries.rs`. Pure `extract_session_analytics()` function extracted from `upsert_session()` (tech debt §17).
+- **tauri-bindings/lib.rs:** Still a single file — group commands into domain modules as a future improvement.
 
 **Impact:** Better code navigation, easier to locate and modify specific queries/commands.
 
@@ -115,21 +115,17 @@ This report captures architectural and code quality improvements identified duri
 
 ---
 
-## 11. Split `index_db.rs` (1,858 lines — Highest Priority)
+## 11. ~~Split `index_db.rs` (1,858 lines — Highest Priority)~~ ✅ DONE
 
-**Files:** `crates/tracepilot-indexer/src/index_db.rs` (1,858 lines)
-
-This single file contains schema migrations, the 400-line `upsert_session()` method (analytics extraction + 5 child table UPSERTs via SAVEPOINT), 3 analytics query methods (170+ lines each), SQL helpers, and tests. Split into:
-
-- **`migrations.rs`** — Schema definitions (4 migrations) + versioned migration runner
-- **`writer.rs`** — `upsert_session()` (analytics extraction + 5 child table UPSERTs via SAVEPOINT)
-- **`reader.rs`** — `list_sessions()`, `search()`, `get_session_path()`, `session_count()`, `all_indexed_ids()`, `prune_deleted()`, `needs_reindex()`
-- **`analytics_queries.rs`** — `query_analytics()` (170 lines, 7 SQL statements), `query_tool_analysis()` (125 lines), `query_code_impact()` (133 lines)
-- **`sql_helpers.rs`** — `build_date_repo_filter()`, `query_day_tokens/sessions/cost()`, `query_model_distribution()`, `compute_duration_stats()`
-
-**Impact:** Each sub-module becomes independently testable with a clear single responsibility. Schema migrations can be reviewed without scrolling past 1,400 lines of query logic.
-
-**Recommendation:** Start by extracting `migrations.rs` (lowest coupling), then `analytics_queries.rs` (self-contained read-only functions), then tackle the writer/reader split last since they share the `IndexDb` struct.
+**Status:** Completed. Decomposed into `index_db/` directory module:
+- `mod.rs` — Thin orchestrator (~70 lines): `IndexDb` struct, `open_or_create`, `begin/commit_transaction`
+- `types.rs` — All types (`SessionIndexInfo`, `IndexedSession`, `IndexedIncident`, `ModelMetricsRow`, `ToolCallRow`, `ActivityRow`, `ModifiedFileRow`, `SessionAnalytics`, `SessionFileMeta`) + constants
+- `migrations.rs` — `MIGRATION_1`–`MIGRATION_5` + `run_migrations()`
+- `helpers.rs` — SQL filter builders, day-query functions, `compute_duration_stats`
+- `session_writer.rs` — `upsert_session` (orchestrator) + pure `extract_session_analytics()` + `needs_reindex`, `prune_deleted`
+- `session_reader.rs` — `list_sessions`, `search`, `session_count`, `all_indexed_ids`, `get_session_path`, `get_session_incidents`
+- `analytics_queries.rs` — `query_analytics`, `query_tool_analysis`, `query_code_impact`
+- All 17 existing tests pass. External callers unchanged.
 
 ---
 
@@ -210,15 +206,9 @@ Currently a stub — only `render_json()` works. `export_session()` returns `bai
 
 ---
 
-## 17. Extract `upsert_session()` Analytics Logic
+## 17. ~~Extract `upsert_session()` Analytics Logic~~ ✅ DONE
 
-**Files:** `crates/tracepilot-indexer/src/index_db.rs` — `upsert_session()` (~400 lines)
-
-The `upsert_session()` method loads a session, extracts analytics, computes health scores, builds FTS content, and writes to 5 tables — all in one method. This makes it difficult to test the analytics extraction logic in isolation.
-
-**Impact:** Any change to analytics extraction risks breaking the database write path. Unit testing requires a full SQLite database even for pure computation logic.
-
-**Recommendation:** Extract the analytics extraction into a separate testable pure function that takes a `SessionLoadResult` and returns a structured `SessionAnalytics` value. The `upsert_session()` method then becomes a thin orchestrator: load → extract → write. The pure function can be tested without a database.
+**Status:** Completed as part of the `index_db.rs` decomposition (§11). Pure `extract_session_analytics()` function in `session_writer.rs` takes `SessionSummary`, typed events, and diagnostics → returns `SessionAnalytics` struct. Independently testable without a database. `upsert_session()` is now a thin orchestrator: load → extract → write.
 
 ---
 

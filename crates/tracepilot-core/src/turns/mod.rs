@@ -37,7 +37,9 @@
 
 use std::collections::HashMap;
 
-use crate::models::conversation::{AttributedMessage, ConversationTurn, TurnToolCall};
+use crate::models::conversation::{
+    AttributedMessage, ConversationTurn, SessionEventSeverity, TurnSessionEvent, TurnToolCall,
+};
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{TypedEvent, TypedEventData};
 use chrono::{DateTime, Utc};
@@ -104,6 +106,9 @@ struct TurnReconstructor {
     tool_call_index: HashMap<String, (usize, usize)>,
     /// Tracks the most recent session-level model, so new turns inherit it.
     session_model: Option<String>,
+    /// Session events buffered while no turn is active.
+    /// Flushed into the next real turn when one is opened.
+    pending_session_events: Vec<TurnSessionEvent>,
 }
 
 const CURRENT_TURN_SENTINEL: usize = usize::MAX;
@@ -116,6 +121,7 @@ impl TurnReconstructor {
             tool_call_intentions: HashMap::new(),
             tool_call_index: HashMap::new(),
             session_model: None,
+            pending_session_events: Vec::new(),
         }
     }
 
@@ -133,6 +139,8 @@ impl TurnReconstructor {
                     data.attachments.clone(),
                 );
                 turn.model = self.session_model.clone();
+                // Flush any session events that occurred between turns
+                turn.session_events.append(&mut self.pending_session_events);
                 self.current_turn = Some(turn);
             }
 
@@ -410,6 +418,129 @@ impl TurnReconstructor {
                 }
             }
 
+            // ── Session-level events ────────────────────────────────────
+            (SessionEventType::SessionError, TypedEventData::SessionError(data)) => {
+                let summary = data
+                    .message
+                    .as_deref()
+                    .or(data.error_type.as_deref())
+                    .map(|s| s.to_string())
+                    .or_else(|| data.status_code.map(|c| format!("HTTP {c}")))
+                    .unwrap_or_else(|| "Session error".to_string());
+                self.push_session_event(
+                    "session.error",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Error,
+                    summary,
+                );
+            }
+
+            (SessionEventType::SessionWarning, TypedEventData::SessionWarning(data)) => {
+                let summary = data
+                    .message
+                    .clone()
+                    .unwrap_or_else(|| "Session warning".to_string());
+                self.push_session_event(
+                    "session.warning",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Warning,
+                    summary,
+                );
+            }
+
+            (
+                SessionEventType::SessionCompactionStart,
+                TypedEventData::CompactionStart(_data),
+            ) => {
+                self.push_session_event(
+                    "session.compaction_start",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Info,
+                    "Context compaction started".to_string(),
+                );
+            }
+
+            (
+                SessionEventType::SessionCompactionComplete,
+                TypedEventData::CompactionComplete(data),
+            ) => {
+                let has_error = data.error.is_some();
+                let severity = if data.success == Some(true) && !has_error {
+                    SessionEventSeverity::Info
+                } else {
+                    SessionEventSeverity::Warning
+                };
+                let summary = match (data.pre_compaction_tokens, data.success, &data.error) {
+                    (Some(tokens), Some(true), None) => {
+                        format!("Compaction complete ({tokens} tokens)")
+                    }
+                    (_, Some(false), _) | (_, None, Some(_)) => data
+                        .error
+                        .as_ref()
+                        .map(|e| format!("Compaction failed: {e}"))
+                        .unwrap_or_else(|| "Compaction failed".to_string()),
+                    (Some(tokens), _, _) => format!("Compaction complete ({tokens} tokens)"),
+                    _ => "Compaction complete".to_string(),
+                };
+                self.push_session_event(
+                    "session.compaction_complete",
+                    event.raw.timestamp,
+                    severity,
+                    summary,
+                );
+            }
+
+            (
+                SessionEventType::SessionTruncation,
+                TypedEventData::SessionTruncation(data),
+            ) => {
+                let summary = match (
+                    data.tokens_removed_during_truncation,
+                    data.messages_removed_during_truncation,
+                ) {
+                    (Some(tokens), Some(msgs)) => {
+                        format!("Truncated {tokens} tokens, {msgs} messages")
+                    }
+                    (Some(tokens), None) => format!("Truncated {tokens} tokens"),
+                    (None, Some(msgs)) => format!("Truncated {msgs} messages"),
+                    _ => "Context truncated".to_string(),
+                };
+                self.push_session_event(
+                    "session.truncation",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Warning,
+                    summary,
+                );
+            }
+
+            (SessionEventType::SessionPlanChanged, TypedEventData::PlanChanged(data)) => {
+                let summary = data
+                    .operation
+                    .as_ref()
+                    .map(|op| format!("Agent plan updated ({op})"))
+                    .unwrap_or_else(|| "Agent plan updated".to_string());
+                self.push_session_event(
+                    "session.plan_changed",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Info,
+                    summary,
+                );
+            }
+
+            (SessionEventType::SessionModeChanged, TypedEventData::SessionModeChanged(data)) => {
+                let summary = match (&data.previous_mode, &data.new_mode) {
+                    (Some(prev), Some(new)) => format!("Mode: {prev} → {new}"),
+                    (None, Some(new)) => format!("Mode changed to {new}"),
+                    _ => "Mode changed".to_string(),
+                };
+                self.push_session_event(
+                    "session.mode_changed",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Info,
+                    summary,
+                );
+            }
+
             _ => {}
         }
     }
@@ -417,6 +548,21 @@ impl TurnReconstructor {
     /// Finalize any in-progress turn, run post-processing, and return all turns.
     fn finalize(mut self) -> Vec<ConversationTurn> {
         self.finalize_current_turn(false, None);
+
+        // Attach any remaining buffered session events to the last turn,
+        // or create a synthetic turn if no turns exist (e.g., failed-start sessions).
+        if !self.pending_session_events.is_empty() {
+            if let Some(last) = self.turns.last_mut() {
+                last.session_events
+                    .append(&mut self.pending_session_events);
+            } else {
+                let ts = self.pending_session_events.first().and_then(|e| e.timestamp);
+                let mut turn = new_turn(0, ts, None, None, None, None);
+                turn.session_events.append(&mut self.pending_session_events);
+                self.turns.push(turn);
+            }
+        }
+
         infer_subagent_models(&mut self.turns);
         finalize_subagent_completion(&mut self.turns);
         resolve_agent_display_names(&mut self.turns);
@@ -425,10 +571,35 @@ impl TurnReconstructor {
 
     // ── State helpers ─────────────────────────────────────────────────
 
+    /// Push a session event into the current turn, or buffer it for the next one.
+    fn push_session_event(
+        &mut self,
+        event_type: &str,
+        timestamp: Option<DateTime<Utc>>,
+        severity: SessionEventSeverity,
+        summary: String,
+    ) {
+        let se = TurnSessionEvent {
+            event_type: event_type.to_string(),
+            timestamp,
+            severity,
+            summary,
+        };
+        if let Some(turn) = &mut self.current_turn {
+            turn.session_events.push(se);
+        } else {
+            self.pending_session_events.push(se);
+        }
+    }
+
     fn ensure_current_turn(&mut self, timestamp: Option<DateTime<Utc>>) -> &mut ConversationTurn {
-        self.current_turn.get_or_insert_with(|| {
-            new_turn(self.turns.len(), timestamp, None, None, None, None)
-        })
+        if self.current_turn.is_none() {
+            let mut turn = new_turn(self.turns.len(), timestamp, None, None, None, None);
+            // Flush any session events that occurred while no turn was active
+            turn.session_events.append(&mut self.pending_session_events);
+            self.current_turn = Some(turn);
+        }
+        self.current_turn.as_mut().unwrap()
     }
 
     fn finalize_current_turn(&mut self, is_complete: bool, end_timestamp: Option<DateTime<Utc>>) {
@@ -561,6 +732,7 @@ fn new_turn(
         output_tokens: None,
         transformed_user_message,
         attachments,
+        session_events: Vec::new(),
     }
 }
 

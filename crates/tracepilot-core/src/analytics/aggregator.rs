@@ -828,6 +828,7 @@ mod tests {
             output_tokens: None,
             transformed_user_message: None,
             attachments: None,
+            session_events: Vec::new(),
         }
     }
 
