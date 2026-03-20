@@ -35,7 +35,11 @@ const filteredEvents = computed(() => {
 const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
 
-function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' {
+function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' | 'danger' {
+  if (type === 'session.error') return 'danger';
+  if (type === 'session.warning') return 'warning';
+  if (type.startsWith('session.compaction')) return 'warning';
+  if (type === 'session.truncation') return 'warning';
   if (type.startsWith("session.")) return "accent";
   if (type.startsWith("user.")) return "success";
   if (type.startsWith("assistant.")) return "done";

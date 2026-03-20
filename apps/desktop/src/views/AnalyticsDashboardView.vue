@@ -290,18 +290,142 @@ const costChart = computed(() => {
     .filter((_, i) => i % stride === 0);
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
+
+// ── Incident trend chart ─────────────────────────────────────
+const incidentNormalize = ref(false);
+
+const incidentChart = computed(() => {
+  if (!data.value?.incidentsByDay?.length) return null;
+  const pts = data.value.incidentsByDay;
+  const sessionsPerDay = data.value.sessionsPerDay ?? [];
+
+  // Build a lookup for sessions count per day (for normalization)
+  const sessionMap = new Map<string, number>();
+  for (const s of sessionsPerDay) {
+    sessionMap.set(s.date, s.count);
+  }
+
+  // Compute values per bar — split errors into rateLimits + otherErrors
+  const barData = pts.map(p => {
+    const otherErrors = Math.max(0, p.errors - p.rateLimits);
+    const sessions = sessionMap.get(p.date) || 1;
+    const norm = incidentNormalize.value ? sessions : 1;
+    return {
+      date: p.date,
+      rateLimits: p.rateLimits / norm,
+      otherErrors: otherErrors / norm,
+      compactions: p.compactions / norm,
+      truncations: p.truncations / norm,
+      rawRateLimits: p.rateLimits,
+      rawOtherErrors: otherErrors,
+      rawCompactions: p.compactions,
+      rawTruncations: p.truncations,
+      total: (p.rateLimits + otherErrors + p.compactions + p.truncations) / norm,
+    };
+  });
+
+  const maxVal = Math.max(0.5, ...barData.map(b => b.total));
+  const barW = Math.max(4, Math.min(18, (CHART_W) / barData.length - 2));
+
+  const bars = barData.map((b, i) => {
+    const x = CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W;
+    const truncH = (b.truncations / maxVal) * CHART_H;
+    const compH = (b.compactions / maxVal) * CHART_H;
+    const otherH = (b.otherErrors / maxVal) * CHART_H;
+    const rlH = (b.rateLimits / maxVal) * CHART_H;
+    return {
+      x,
+      ...b,
+      // Stacked from bottom: truncations, compactions, other errors, rate limits
+      truncRect: { y: CHART_BOTTOM - truncH, h: truncH },
+      compRect: { y: CHART_BOTTOM - truncH - compH, h: compH },
+      otherRect: { y: CHART_BOTTOM - truncH - compH - otherH, h: otherH },
+      rlRect: { y: CHART_BOTTOM - truncH - compH - otherH - rlH, h: rlH },
+    };
+  });
+
+  // Nice Y-axis ticks
+  const yTicks = 5;
+  const step = maxVal <= 1 ? 0.2 : Math.ceil(maxVal / (yTicks - 1));
+  const yLabels = Array.from({ length: yTicks }, (_, i) => {
+    const value = maxVal <= 1 ? +(i * step).toFixed(1) : Math.round(i * step);
+    return { value, y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
+  });
+
+  const stride = labelStride(barData.length);
+  const xLabels = barData
+    .map((b, i) => ({ label: formatDateShort(b.date), x: CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W }))
+    .filter((_, i) => i % stride === 0);
+
+  return { bars, yLabels, xLabels, barW, maxVal };
+});
+
+function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErrors: number; compactions: number; truncations: number; rawRateLimits: number; rawOtherErrors: number; rawCompactions: number; rawTruncations: number }): string {
+  const d = formatDateMedium(bar.date);
+  if (incidentNormalize.value) {
+    const parts: string[] = [];
+    if (bar.rateLimits > 0) parts.push(`${bar.rateLimits.toFixed(1)} rate limits/session`);
+    if (bar.otherErrors > 0) parts.push(`${bar.otherErrors.toFixed(1)} errors/session`);
+    if (bar.compactions > 0) parts.push(`${bar.compactions.toFixed(1)} compactions/session`);
+    if (bar.truncations > 0) parts.push(`${bar.truncations.toFixed(1)} truncations/session`);
+    return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
+  }
+  const parts: string[] = [];
+  if (bar.rawRateLimits > 0) parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? 's' : ''}`);
+  if (bar.rawOtherErrors > 0) parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? 's' : ''}`);
+  if (bar.rawCompactions > 0) parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
+  if (bar.rawTruncations > 0) parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
+  return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
+}
+
+function onIncidentChartMouseMove(event: MouseEvent) {
+  if (tooltip.pinned) return;
+  const chart = incidentChart.value;
+  if (!chart) return;
+  const svg = (event.target as SVGElement)?.closest('svg');
+  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
+  if (!svg || !container) return;
+
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX;
+  pt.y = event.clientY;
+  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+
+  let bestIdx = 0;
+  let bestDist = Math.abs(svgPt.x - chart.bars[0].x);
+  for (let i = 1; i < chart.bars.length; i++) {
+    const d = Math.abs(svgPt.x - chart.bars[i].x);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  }
+
+  tooltip.visible = true;
+  tooltip.content = formatIncidentTooltip(chart.bars[bestIdx]);
+  tooltip.chartId = 'incidents';
+  tooltip.highlightIndex = bestIdx;
+  positionTooltip(event, container);
+}
+
+function onIncidentChartClick(event: MouseEvent) {
+  if (tooltip.pinned && tooltip.chartId === 'incidents') {
+    tooltip.pinned = false;
+    return;
+  }
+  tooltip.pinned = false;
+  onIncidentChartMouseMove(event);
+  tooltip.pinned = true;
+}
 </script>
 
 <template>
   <div class="page-content">
     <div class="page-content-inner">
+      <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading analytics…">
         <div v-if="store.analyticsError" class="error-state">
           <p>Failed to load analytics: {{ store.analyticsError }}</p>
           <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
 
           <!-- Stats Row -->
           <div class="grid-5 mb-4">
@@ -324,6 +448,26 @@ const costChart = computed(() => {
             <div class="stat-card">
               <div class="stat-card-value warning">{{ data.averageHealthScore.toFixed(2) }}</div>
               <div class="stat-card-label">Avg Health Score</div>
+            </div>
+          </div>
+
+          <!-- Incident Stats -->
+          <div class="grid-4 mb-4">
+            <div class="stat-card stat-card--incident-error">
+              <div class="stat-card-value">{{ data.sessionsWithErrors }}</div>
+              <div class="stat-card-label">Sessions with Errors</div>
+            </div>
+            <div class="stat-card stat-card--incident-ratelimit">
+              <div class="stat-card-value">{{ data.totalRateLimits }}</div>
+              <div class="stat-card-label">Total Rate Limits</div>
+            </div>
+            <div class="stat-card stat-card--incident-compaction">
+              <div class="stat-card-value">{{ data.totalCompactions }}</div>
+              <div class="stat-card-label">Total Compactions</div>
+            </div>
+            <div class="stat-card stat-card--incident-truncation">
+              <div class="stat-card-value">{{ data.totalTruncations }}</div>
+              <div class="stat-card-label">Total Truncations</div>
             </div>
           </div>
 
@@ -379,6 +523,10 @@ const costChart = computed(() => {
                   <div class="metric-item" :title="'Average tokens processed per second of API wait time — a measure of model throughput across all sessions.'">
                     <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
                     <span class="metric-label">Tokens / API Second</span>
+                  </div>
+                  <div class="metric-item" :title="'Average context compactions per session — based on all sessions in the current filter. Higher values indicate sessions hitting context limits frequently.'">
+                    <span class="metric-value">{{ data.totalSessions > 0 ? (data.totalCompactions / data.totalSessions).toFixed(1) : '0' }}</span>
+                    <span class="metric-label">Avg Compactions / Session</span>
                   </div>
                 </div>
               </div>
@@ -797,6 +945,137 @@ const costChart = computed(() => {
               </div>
             </div>
           </div>
+
+          <!-- Incidents Over Time (full-width, polished chart) -->
+          <div v-if="incidentChart" class="section-panel mb-4">
+            <div class="section-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Incidents Over Time</span>
+              <label class="incident-normalize-toggle" title="Show incidents per session per day for a normalized view">
+                <input type="checkbox" v-model="incidentNormalize" />
+                <span>Per Session</span>
+              </label>
+            </div>
+            <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
+              <svg
+                viewBox="0 0 500 200"
+                width="100%"
+                role="img"
+                :aria-label="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
+                @mousemove="onIncidentChartMouseMove($event)"
+                @click="onIncidentChartClick($event)"
+              >
+                <!-- Grid lines -->
+                <line
+                  v-for="(yl, yi) in incidentChart.yLabels"
+                  :key="`ig-${yi}`"
+                  :x1="CHART_LEFT"
+                  :y1="yl.y"
+                  :x2="CHART_RIGHT"
+                  :y2="yl.y"
+                  class="chart-grid-line"
+                  stroke-dasharray="4,3"
+                />
+                <!-- Axes -->
+                <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
+                <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
+                <!-- Y labels -->
+                <text
+                  v-for="(yl, yi) in incidentChart.yLabels"
+                  :key="`iy-${yi}`"
+                  :x="CHART_LEFT - 7"
+                  :y="yl.y + 3"
+                  text-anchor="end"
+                  font-size="9"
+                  class="chart-label"
+                >{{ yl.value }}</text>
+                <!-- Stacked bars -->
+                <g v-for="(bar, i) in incidentChart.bars" :key="`ib-${i}`">
+                  <!-- Truncations (bottom) -->
+                  <rect
+                    v-if="bar.truncRect.h > 0.5"
+                    :x="bar.x - incidentChart.barW / 2"
+                    :y="bar.truncRect.y"
+                    :width="incidentChart.barW"
+                    :height="bar.truncRect.h"
+                    fill="var(--text-tertiary, #9ca3af)"
+                    rx="1"
+                    class="chart-bar"
+                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+                  />
+                  <!-- Compactions -->
+                  <rect
+                    v-if="bar.compRect.h > 0.5"
+                    :x="bar.x - incidentChart.barW / 2"
+                    :y="bar.compRect.y"
+                    :width="incidentChart.barW"
+                    :height="bar.compRect.h"
+                    fill="var(--chart-secondary, #6366f1)"
+                    rx="1"
+                    class="chart-bar"
+                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+                  />
+                  <!-- Other Errors -->
+                  <rect
+                    v-if="bar.otherRect.h > 0.5"
+                    :x="bar.x - incidentChart.barW / 2"
+                    :y="bar.otherRect.y"
+                    :width="incidentChart.barW"
+                    :height="bar.otherRect.h"
+                    fill="var(--color-danger, #ef4444)"
+                    rx="1"
+                    class="chart-bar"
+                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+                  />
+                  <!-- Rate Limits (top) -->
+                  <rect
+                    v-if="bar.rlRect.h > 0.5"
+                    :x="bar.x - incidentChart.barW / 2"
+                    :y="bar.rlRect.y"
+                    :width="incidentChart.barW"
+                    :height="bar.rlRect.h"
+                    fill="var(--color-warning, #f59e0b)"
+                    rx="1"
+                    class="chart-bar"
+                    :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+                  />
+                </g>
+                <!-- Invisible overlay for mouse capture -->
+                <rect
+                  :x="CHART_LEFT"
+                  :y="CHART_TOP"
+                  :width="CHART_W"
+                  :height="CHART_H"
+                  fill="transparent"
+                  class="chart-overlay"
+                />
+                <!-- X labels -->
+                <text
+                  v-for="(xl, xi) in incidentChart.xLabels"
+                  :key="`ix-${xi}`"
+                  :x="xl.x"
+                  y="192"
+                  text-anchor="middle"
+                  font-size="8"
+                  class="chart-label"
+                >{{ xl.label }}</text>
+              </svg>
+              <!-- Tooltip -->
+              <div
+                v-if="tooltip.visible && tooltip.chartId === 'incidents'"
+                class="chart-tooltip"
+                :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
+                :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
+              >{{ tooltip.content }}</div>
+              <!-- Legend -->
+              <div class="incident-chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background: var(--color-warning, #f59e0b);"></span> Rate Limits</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--color-danger, #ef4444);"></span> Other Errors</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary, #6366f1);"></span> Compactions</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary, #9ca3af);"></span> Truncations</span>
+              </div>
+            </div>
+          </div>
+
         </template>
       </LoadingOverlay>
     </div>
@@ -996,6 +1275,66 @@ const costChart = computed(() => {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+.stat-card--incident-error {
+  border-left: 3px solid var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 6%, var(--surface-secondary));
+}
+
+.stat-card--incident-ratelimit {
+  border-left: 3px solid var(--color-warning, #f59e0b);
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 6%, var(--surface-secondary));
+}
+
+.stat-card--incident-compaction {
+  border-left: 3px solid var(--chart-secondary, #6366f1);
+  background: color-mix(in srgb, var(--chart-secondary, #6366f1) 6%, var(--surface-secondary));
+}
+
+.stat-card--incident-truncation {
+  border-left: 3px solid var(--text-tertiary, #9ca3af);
+  background: color-mix(in srgb, var(--text-tertiary, #9ca3af) 6%, var(--surface-secondary));
+}
+
+.incident-chart-legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  padding: 10px 0 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.incident-normalize-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.incident-normalize-toggle input {
+  accent-color: var(--accent-primary);
+  cursor: pointer;
 }
 
 .cache-hit-rate-label strong {

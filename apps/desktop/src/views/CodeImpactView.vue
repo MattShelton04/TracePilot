@@ -103,13 +103,13 @@ const timelineChart = computed(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
+      <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading code impact data…">
         <div v-if="store.codeImpactError" class="error-state">
           <p>Failed to load code impact data: {{ store.codeImpactError }}</p>
           <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">

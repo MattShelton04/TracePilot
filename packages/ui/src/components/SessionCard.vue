@@ -64,6 +64,12 @@ function isActive(session: SessionListItem): boolean {
         <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
         {{ session.turnCount }}
       </span>
+      <span v-if="session.errorCount" class="flex items-center gap-1 stat-item--danger" :title="`${session.errorCount} errors (${session.rateLimitCount || 0} rate limits)`">
+        ⚠ {{ session.errorCount }}
+      </span>
+      <span v-if="session.compactionCount" class="flex items-center gap-1" title="Context compactions">
+        ↻ {{ session.compactionCount }}
+      </span>
       <span class="ml-auto" style="color: var(--text-tertiary);" :title="session.updatedAt">
         {{ relativeTime(session.updatedAt) }}
       </span>
@@ -97,5 +103,9 @@ function isActive(session: SessionListItem): boolean {
 .active-badge {
   flex-shrink: 0;
   font-size: 0.625rem;
+}
+
+.stat-item--danger {
+  color: var(--color-danger, #ef4444);
 }
 </style>

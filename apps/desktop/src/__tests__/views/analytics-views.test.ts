@@ -65,6 +65,14 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     attentionCount: 2,
     criticalCount: 1,
   },
+  sessionsWithErrors: 2,
+  totalRateLimits: 3,
+  totalCompactions: 5,
+  totalTruncations: 1,
+  incidentsByDay: [
+    { date: "2026-03-18", errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
+    { date: "2026-03-19", errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
+  ],
 };
 
 const FIXTURE_TOOL_ANALYSIS: ToolAnalysisData = {
@@ -229,7 +237,7 @@ describe('AnalyticsDashboardView', () => {
 
     expect(wrapper.text()).toContain('Failed to load analytics');
     expect(wrapper.text()).toContain('Backend unavailable');
-    expect(wrapper.find('button').text()).toContain('Retry');
+    expect(wrapper.find('.error-state button').text()).toContain('Retry');
   });
 
   it('does not render StubBanner', async () => {

@@ -435,6 +435,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
+      <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading model comparison…">
         <div v-if="store.analyticsError" class="error-state">
           <p>Failed to load analytics: {{ store.analyticsError }}</p>
@@ -442,7 +443,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
         </div>
 
         <template v-else-if="data">
-          <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
 
           <!-- Empty State -->
           <div v-if="modelRows.length === 0" class="empty-state">

@@ -50,6 +50,14 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     attentionCount: 2,
     criticalCount: 1,
   },
+  sessionsWithErrors: 2,
+  totalRateLimits: 3,
+  totalCompactions: 5,
+  totalTruncations: 1,
+  incidentsByDay: [
+    { date: "2026-03-18", errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
+    { date: "2026-03-19", errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
+  ],
 };
 
 const FIXTURE_TOOL_ANALYSIS: ToolAnalysisData = {

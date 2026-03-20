@@ -57,6 +57,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             summary.event_count,
             summary.shutdown_metrics.as_ref(),
             None,
+            None,
         );
         health_score_sum += health.score;
 
@@ -269,6 +270,14 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             attention_count,
             critical_count,
         },
+        // Note: incident fields default to 0 in fallback path because SessionAnalyticsInput
+        // does not carry incident counts. The SQL fast path (query_analytics) returns real values.
+        // This is acceptable since the fallback only fires before first indexing.
+        sessions_with_errors: 0,
+        total_rate_limits: 0,
+        total_compactions: 0,
+        total_truncations: 0,
+        incidents_by_day: Vec::new(),
     }
 }
 

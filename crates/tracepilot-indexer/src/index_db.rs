@@ -26,7 +26,7 @@ pub struct SessionIndexInfo {
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-const CURRENT_ANALYTICS_VERSION: i64 = 2;
+const CURRENT_ANALYTICS_VERSION: i64 = 3;
 
 /// Named row for per-model metrics (replaces opaque 7-tuple).
 struct ModelMetricsRow {
@@ -164,6 +164,59 @@ const MIGRATION_4: &str = r#"
 ALTER TABLE session_tool_calls ADD COLUMN calls_with_duration INTEGER DEFAULT 0;
 "#;
 
+const MIGRATION_5: &str = r#"
+-- Session-level incident counters for fast list/analytics queries
+ALTER TABLE sessions ADD COLUMN error_count INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN rate_limit_count INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN warning_count INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN compaction_count INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN truncation_count INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN last_error_type TEXT;
+ALTER TABLE sessions ADD COLUMN last_error_message TEXT;
+ALTER TABLE sessions ADD COLUMN total_compaction_input_tokens INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN total_compaction_output_tokens INTEGER DEFAULT 0;
+
+-- Detailed per-incident log for drill-down
+CREATE TABLE IF NOT EXISTS session_incidents (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source_event_type TEXT NOT NULL,
+    timestamp TEXT,
+    severity TEXT,
+    summary TEXT,
+    detail_json TEXT,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_session_incidents_session ON session_incidents(session_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_session_incidents_type ON session_incidents(event_type);
+"#;
+
+/// Maximum incidents stored per session to prevent DB bloat.
+const MAX_INCIDENTS_PER_SESSION: usize = 100;
+
+/// Row for the session_incidents table.
+#[derive(Debug)]
+struct IncidentRow {
+    event_type: String,
+    source_event_type: String,
+    timestamp: Option<String>,
+    severity: String,
+    summary: String,
+    detail_json: Option<String>,
+}
+
+/// Public return struct for session incident queries.
+#[derive(Debug, Clone)]
+pub struct IndexedIncident {
+    pub event_type: String,
+    pub source_event_type: String,
+    pub timestamp: Option<String>,
+    pub severity: String,
+    pub summary: String,
+    pub detail_json: Option<String>,
+}
+
 pub struct IndexDb {
     conn: Connection,
 }
@@ -182,6 +235,10 @@ pub struct IndexedSession {
     pub event_count: Option<i64>,
     pub turn_count: Option<i64>,
     pub current_model: Option<String>,
+    pub error_count: Option<i64>,
+    pub rate_limit_count: Option<i64>,
+    pub compaction_count: Option<i64>,
+    pub truncation_count: Option<i64>,
 }
 
 impl IndexDb {
@@ -321,13 +378,7 @@ impl IndexDb {
             }
         }
 
-        // Health score
-        let health = tracepilot_core::health::compute_health(
-            summary.event_count,
-            summary.shutdown_metrics.as_ref(),
-            diagnostics.as_ref(),
-        );
-        let health_score = health.score;
+        // Health score — computed below, after event-level analytics are ready.
 
         let events_meta = get_events_mtime_and_size(session_path);
         let events_mtime = events_meta.as_ref().map(|(m, _)| m.clone());
@@ -343,6 +394,17 @@ impl IndexDb {
         );
         let fts_limit: usize = FTS_CONTENT_MAX_BYTES;
         let mut actual_tool_call_count: i64 = 0;
+
+        let mut error_count: i64 = 0;
+        let mut rate_limit_count: i64 = 0;
+        let mut warning_count: i64 = 0;
+        let mut compaction_count: i64 = 0;
+        let mut truncation_count: i64 = 0;
+        let mut last_error_type: Option<String> = None;
+        let mut last_error_message: Option<String> = None;
+        let mut total_compaction_input: i64 = 0;
+        let mut total_compaction_output: i64 = 0;
+        let mut incidents: Vec<IncidentRow> = Vec::new();
 
         if let Some(ref events) = typed_events {
             let mut tool_starts: HashMap<String, (String, Option<chrono::DateTime<chrono::Utc>>)> =
@@ -416,6 +478,81 @@ impl IndexDb {
                             }
                         }
                     }
+                    TypedEventData::SessionError(d) => {
+                        error_count += 1;
+                        let is_rate_limit = d.error_type.as_deref() == Some("rate_limit");
+                        if is_rate_limit { rate_limit_count += 1; }
+                        last_error_type = d.error_type.clone();
+                        last_error_message = d.message.clone();
+                        if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                            let summary = if is_rate_limit {
+                                "Rate limit hit".into()
+                            } else {
+                                d.message.clone().unwrap_or_default()
+                            };
+                            incidents.push(IncidentRow {
+                                event_type: "error".into(),
+                                source_event_type: "session.error".into(),
+                                timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                                severity: "error".into(),
+                                summary,
+                                detail_json: serde_json::to_string(&event.raw.data).ok(),
+                            });
+                        }
+                    }
+                    TypedEventData::SessionWarning(d) => {
+                        warning_count += 1;
+                        if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                            incidents.push(IncidentRow {
+                                event_type: "warning".into(),
+                                source_event_type: "session.warning".into(),
+                                timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                                severity: "warning".into(),
+                                summary: d.message.clone().unwrap_or_default(),
+                                detail_json: serde_json::to_string(&event.raw.data).ok(),
+                            });
+                        }
+                    }
+                    TypedEventData::CompactionComplete(d) => {
+                        compaction_count += 1;
+                        if let Some(usage) = &d.compaction_tokens_used {
+                            total_compaction_input += usage.input.unwrap_or(0) as i64;
+                            total_compaction_output += usage.output.unwrap_or(0) as i64;
+                        }
+                        if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                            incidents.push(IncidentRow {
+                                event_type: "compaction".into(),
+                                source_event_type: "session.compaction_complete".into(),
+                                timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                                severity: if d.success == Some(true) { "info" } else { "warning" }.into(),
+                                summary: format!(
+                                    "Compaction {} (checkpoint #{}): {} tokens before compaction",
+                                    if d.success == Some(true) { "succeeded" } else { "failed" },
+                                    d.checkpoint_number.unwrap_or(0),
+                                    d.pre_compaction_tokens.unwrap_or(0),
+                                ),
+                                detail_json: serde_json::to_string(&event.raw.data).ok(),
+                            });
+                        }
+                    }
+                    TypedEventData::SessionTruncation(d) => {
+                        truncation_count += 1;
+                        if incidents.len() < MAX_INCIDENTS_PER_SESSION {
+                            incidents.push(IncidentRow {
+                                event_type: "truncation".into(),
+                                source_event_type: "session.truncation".into(),
+                                timestamp: event.raw.timestamp.as_ref().map(|t| t.to_rfc3339()),
+                                severity: "warning".into(),
+                                summary: format!(
+                                    "Truncated {} tokens ({} messages) by {}",
+                                    d.tokens_removed_during_truncation.unwrap_or(0),
+                                    d.messages_removed_during_truncation.unwrap_or(0),
+                                    d.performed_by.as_deref().unwrap_or("unknown"),
+                                ),
+                                detail_json: serde_json::to_string(&event.raw.data).ok(),
+                            });
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -449,6 +586,22 @@ impl IndexDb {
                 }
             }
         }
+
+        // Health score — computed after event-level analytics
+        let incident_counts = tracepilot_core::health::SessionIncidentCounts {
+            error_count: error_count as usize,
+            rate_limit_count: rate_limit_count as usize,
+            warning_count: warning_count as usize,
+            compaction_count: compaction_count as usize,
+            truncation_count: truncation_count as usize,
+        };
+        let health = tracepilot_core::health::compute_health(
+            summary.event_count,
+            summary.shutdown_metrics.as_ref(),
+            diagnostics.as_ref(),
+            Some(&incident_counts),
+        );
+        let health_score = health.score;
 
         // Build the lightweight info to return to callers.
         let index_info = SessionIndexInfo {
@@ -488,6 +641,10 @@ impl IndexDb {
                 "DELETE FROM conversation_fts WHERE session_id = ?1",
                 [&session_id],
             )?;
+            self.conn.execute(
+                "DELETE FROM session_incidents WHERE session_id = ?1",
+                [&session_id],
+            )?;
 
             // UPSERT the session row
             self.conn.execute(
@@ -499,10 +656,13 @@ impl IndexDb {
                     workspace_mtime,
                     total_tokens, total_cost, tool_call_count, lines_added, lines_removed,
                     duration_ms, health_score, events_mtime, events_size, analytics_version,
+                    error_count, rate_limit_count, warning_count, compaction_count, truncation_count,
+                    last_error_type, last_error_message, total_compaction_input_tokens, total_compaction_output_tokens,
                     indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29,
+                    ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -522,6 +682,12 @@ impl IndexDb {
                     duration_ms=excluded.duration_ms, health_score=excluded.health_score,
                     events_mtime=excluded.events_mtime, events_size=excluded.events_size,
                     analytics_version=excluded.analytics_version,
+                    error_count=excluded.error_count, rate_limit_count=excluded.rate_limit_count,
+                    warning_count=excluded.warning_count, compaction_count=excluded.compaction_count,
+                    truncation_count=excluded.truncation_count,
+                    last_error_type=excluded.last_error_type, last_error_message=excluded.last_error_message,
+                    total_compaction_input_tokens=excluded.total_compaction_input_tokens,
+                    total_compaction_output_tokens=excluded.total_compaction_output_tokens,
                     indexed_at=excluded.indexed_at",
                 params![
                     summary.id,
@@ -553,6 +719,15 @@ impl IndexDb {
                     events_mtime,
                     events_size,
                     CURRENT_ANALYTICS_VERSION,
+                    error_count,
+                    rate_limit_count,
+                    warning_count,
+                    compaction_count,
+                    truncation_count,
+                    last_error_type,
+                    last_error_message,
+                    total_compaction_input,
+                    total_compaction_output,
                 ],
             )?;
 
@@ -603,6 +778,21 @@ impl IndexDb {
                     "INSERT INTO conversation_fts (session_id, content) VALUES (?1, ?2)",
                     params![session_id, truncated],
                 )?;
+            }
+
+            // INSERT child rows: incidents
+            {
+                let mut stmt = self.conn.prepare(
+                    "INSERT INTO session_incidents
+                        (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+                )?;
+                for inc in &incidents {
+                    stmt.execute(params![
+                        session_id, inc.event_type, inc.source_event_type,
+                        inc.timestamp, inc.severity, inc.summary, inc.detail_json
+                    ])?;
+                }
             }
 
             Ok(())
@@ -706,7 +896,7 @@ impl IndexDb {
         hide_empty: bool,
     ) -> Result<Vec<IndexedSession>> {
         let mut sql = String::from(
-            "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model FROM sessions WHERE 1=1",
+            "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count FROM sessions WHERE 1=1",
         );
         let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
 
@@ -744,6 +934,10 @@ impl IndexDb {
                 event_count: row.get(9)?,
                 turn_count: row.get(10)?,
                 current_model: row.get(11)?,
+                error_count: row.get(12)?,
+                rate_limit_count: row.get(13)?,
+                compaction_count: row.get(14)?,
+                truncation_count: row.get(15)?,
             })
         })?;
 
@@ -859,13 +1053,17 @@ impl IndexDb {
                     COUNT(CASE WHEN health_score >= 0.8 THEN 1 END),
                     COUNT(CASE WHEN health_score >= 0.5 AND health_score < 0.8 THEN 1 END),
                     COUNT(CASE WHEN health_score < 0.5 THEN 1 END),
-                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_tokens END), 0)
+                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_tokens END), 0),
+                    COUNT(CASE WHEN error_count > 0 THEN 1 END),
+                    COALESCE(SUM(rate_limit_count), 0),
+                    COALESCE(SUM(compaction_count), 0),
+                    COALESCE(SUM(truncation_count), 0)
              FROM sessions s{}",
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests, total_api_duration_ms_sum, healthy_count, attention_count, critical_count, total_tokens_with_duration): (
-            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32, i64,
+        let (total_sessions, total_tokens, total_cost, avg_health, total_turns, total_tool_calls, sessions_with_turns, total_premium_requests, total_api_duration_ms_sum, healthy_count, attention_count, critical_count, total_tokens_with_duration, sessions_with_errors, total_rate_limits, total_compactions, total_truncations): (
+            u32, i64, f64, f64, i64, i64, u32, f64, i64, u32, u32, u32, i64, u32, i64, i64, i64,
         ) = self.conn.query_row(&agg_sql, params_from_iter(refs.iter().copied()), |row| {
             Ok((
                 row.get(0)?,
@@ -881,6 +1079,10 @@ impl IndexDb {
                 row.get(10)?,
                 row.get(11)?,
                 row.get(12)?,
+                row.get(13)?,
+                row.get(14)?,
+                row.get(15)?,
+                row.get(16)?,
             ))
         })?;
 
@@ -985,6 +1187,30 @@ impl IndexDb {
             0.0
         };
 
+        // Incidents by day (grouped by session date)
+        let ibd_sql = format!(
+            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,
+                    COALESCE(SUM(s.error_count), 0),
+                    COALESCE(SUM(s.rate_limit_count), 0),
+                    COALESCE(SUM(s.compaction_count), 0),
+                    COALESCE(SUM(s.truncation_count), 0)
+             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            where_clause
+        );
+        let refs = to_refs(&bind_values);
+        let mut ibd_stmt = self.conn.prepare(&ibd_sql)?;
+        let incidents_by_day: Vec<DayIncidents> = ibd_stmt
+            .query_map(params_from_iter(refs.iter().copied()), |row| {
+                Ok(DayIncidents {
+                    date: row.get(0)?,
+                    errors: row.get::<_, i64>(1)? as u64,
+                    rate_limits: row.get::<_, i64>(2)? as u64,
+                    compactions: row.get::<_, i64>(3)? as u64,
+                    truncations: row.get::<_, i64>(4)? as u64,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+
         Ok(AnalyticsData {
             total_sessions,
             total_tokens: total_tokens as u64,
@@ -1008,6 +1234,11 @@ impl IndexDb {
                 attention_count,
                 critical_count,
             },
+            sessions_with_errors,
+            total_rate_limits: total_rate_limits as u64,
+            total_compactions: total_compactions as u64,
+            total_truncations: total_truncations as u64,
+            incidents_by_day,
         })
     }
 
@@ -1272,6 +1503,29 @@ impl IndexDb {
             changes_by_day,
         })
     }
+
+    /// Query incidents for a specific session.
+    pub fn get_session_incidents(&self, session_id: &str) -> Result<Vec<IndexedIncident>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT event_type, source_event_type, timestamp, severity, summary, detail_json
+             FROM session_incidents WHERE session_id = ?1 ORDER BY timestamp"
+        )?;
+        let rows = stmt.query_map([session_id], |row| {
+            Ok(IndexedIncident {
+                event_type: row.get(0)?,
+                source_event_type: row.get(1)?,
+                timestamp: row.get(2)?,
+                severity: row.get(3)?,
+                summary: row.get(4)?,
+                detail_json: row.get(5)?,
+            })
+        })?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
 }
 
 fn run_migrations(conn: &Connection) -> Result<()> {
@@ -1293,6 +1547,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 2: enriched schema", MIGRATION_2),
         ("Migration 3: analytics schema", MIGRATION_3),
         ("Migration 4: tool duration tracking", MIGRATION_4),
+        ("Migration 5: incident tracking", MIGRATION_5),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
@@ -1575,8 +1830,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 4);
-        assert_eq!(count1, 4);
+        assert_eq!(v1, 5);
+        assert_eq!(count1, 5);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -1584,7 +1839,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 4);
+        assert_eq!(count2, 5);
     }
 
     #[test]
@@ -2056,5 +2311,94 @@ updated_at: "{updated_at}"
             |row| row.get(0),
         ).unwrap();
         assert_eq!(tool_count_after, 0, "child rows should cascade delete");
+    }
+
+    /// Write a session with incident-generating events (errors, compaction, truncation).
+    fn write_session_with_incidents(root: &Path, session_id: &str) -> std::path::PathBuf {
+        let session_dir = root.join(session_id);
+        fs::create_dir_all(&session_dir).unwrap();
+        fs::write(
+            session_dir.join("workspace.yaml"),
+            format!(
+                r#"id: {session_id}
+summary: "Session with incidents"
+repository: "org/repo"
+branch: "main"
+cwd: 'C:\test\{session_id}'
+host_type: cli
+created_at: "2026-03-10T07:14:50Z"
+updated_at: "2026-03-10T07:15:00Z"
+"#
+            ),
+        )
+        .unwrap();
+        fs::write(
+            session_dir.join("events.jsonl"),
+            concat!(
+                r#"{"type":"user.message","data":{"content":"hello","interactionId":"int-1"},"id":"evt-1","timestamp":"2026-03-10T07:14:51.000Z","parentId":null}"#, "\n",
+                r#"{"type":"session.error","data":{"errorType":"rate_limit","message":"Rate limit exceeded","statusCode":429},"id":"evt-2","timestamp":"2026-03-10T07:14:52.000Z","parentId":null}"#, "\n",
+                r#"{"type":"session.error","data":{"errorType":"api_error","message":"Internal server error","statusCode":500},"id":"evt-3","timestamp":"2026-03-10T07:14:53.000Z","parentId":null}"#, "\n",
+                r#"{"type":"session.compaction_complete","data":{"preCompactionTokens":50000,"success":true,"checkpointNumber":1,"compactionTokensUsed":{"input":2000,"output":1000}},"id":"evt-4","timestamp":"2026-03-10T07:14:54.000Z","parentId":null}"#, "\n",
+                r#"{"type":"session.truncation","data":{"tokensRemovedDuringTruncation":5000,"messagesRemovedDuringTruncation":3,"performedBy":"BasicTruncator","tokenLimit":100000},"id":"evt-5","timestamp":"2026-03-10T07:14:55.000Z","parentId":null}"#, "\n",
+                r#"{"type":"assistant.message","data":{"messageId":"msg-1","content":"hi","interactionId":"int-1"},"id":"evt-6","timestamp":"2026-03-10T07:14:56.000Z","parentId":"evt-1"}"#, "\n",
+            ),
+        )
+        .unwrap();
+        session_dir
+    }
+
+    #[test]
+    fn test_incident_indexing_and_retrieval() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session_with_incidents(
+            tmp.path(),
+            "aaaa1111-1111-1111-1111-111111111111",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        // Verify aggregate counts on the session row
+        let sessions = db.list_sessions(None, None, None, false).unwrap();
+        assert_eq!(sessions.len(), 1);
+        let s = &sessions[0];
+        assert_eq!(s.error_count, Some(2), "should count 2 errors");
+        assert_eq!(s.rate_limit_count, Some(1), "should count 1 rate limit");
+        assert_eq!(s.compaction_count, Some(1), "should count 1 compaction");
+        assert_eq!(s.truncation_count, Some(1), "should count 1 truncation");
+
+        // Verify individual incident rows
+        let incidents = db
+            .get_session_incidents("aaaa1111-1111-1111-1111-111111111111")
+            .unwrap();
+        assert_eq!(incidents.len(), 4, "should have 4 incident rows");
+
+        // First incident: rate limit error
+        assert_eq!(incidents[0].event_type, "error");
+        assert_eq!(incidents[0].source_event_type, "session.error");
+        assert_eq!(incidents[0].severity, "error"); // rate limits are errors
+        assert_eq!(incidents[0].summary, "Rate limit hit");
+
+        // Second incident: API error
+        assert_eq!(incidents[1].event_type, "error");
+        assert_eq!(incidents[1].severity, "error");
+
+        // Third incident: compaction
+        assert_eq!(incidents[2].event_type, "compaction");
+        assert_eq!(incidents[2].source_event_type, "session.compaction_complete");
+        assert_eq!(incidents[2].severity, "info"); // successful compaction
+        assert!(incidents[2].summary.contains("succeeded"));
+
+        // Fourth incident: truncation
+        assert_eq!(incidents[3].event_type, "truncation");
+        assert_eq!(incidents[3].severity, "warning");
+        assert!(incidents[3].summary.contains("5000 tokens"));
+
+        // Verify analytics aggregation includes incident data
+        let analytics = db.query_analytics(None, None, None, false).unwrap();
+        assert_eq!(analytics.sessions_with_errors, 1);
+        assert_eq!(analytics.total_rate_limits, 1);
+        assert_eq!(analytics.total_compactions, 1);
+        assert_eq!(analytics.total_truncations, 1);
     }
 }

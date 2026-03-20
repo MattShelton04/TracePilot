@@ -121,13 +121,13 @@ const successFailureChart = computed(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
+      <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading tool analysis…">
         <div v-if="store.toolAnalysisError" class="error-state">
           <p>Failed to load tool analysis: {{ store.toolAnalysisError }}</p>
           <button class="btn btn-primary" @click="store.fetchToolAnalysis({ force: true })">Retry</button>
         </div>
         <template v-else-if="data">
-          <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
 
           <!-- Stat Cards -->
           <div class="grid-4 mb-4">

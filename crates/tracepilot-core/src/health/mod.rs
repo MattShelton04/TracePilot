@@ -49,6 +49,16 @@ pub enum HealthSeverity {
     Error,
 }
 
+/// Event-level incident counts for health scoring.
+#[derive(Debug, Default)]
+pub struct SessionIncidentCounts {
+    pub error_count: usize,
+    pub rate_limit_count: usize,
+    pub warning_count: usize,
+    pub compaction_count: usize,
+    pub truncation_count: usize,
+}
+
 /// Compute health for a session based on available metrics and parse diagnostics.
 ///
 /// # Heuristics
@@ -65,6 +75,7 @@ pub fn compute_health(
     event_count: Option<usize>,
     shutdown_metrics: Option<&crate::models::session_summary::ShutdownMetrics>,
     diagnostics: Option<&ParseDiagnostics>,
+    incidents: Option<&SessionIncidentCounts>,
 ) -> SessionHealth {
     let mut flags = Vec::new();
 
@@ -151,6 +162,46 @@ pub fn compute_health(
         }
     }
 
+    // Incident-based heuristics
+    if let Some(inc) = incidents {
+        if inc.rate_limit_count > 0 {
+            let severity = if inc.rate_limit_count >= 3 {
+                HealthSeverity::Error
+            } else {
+                HealthSeverity::Warning
+            };
+            flags.push(HealthFlag {
+                severity,
+                category: "rate_limit".to_string(),
+                message: format!(
+                    "{} rate limit error(s) during session",
+                    inc.rate_limit_count
+                ),
+            });
+        }
+        if inc.error_count > inc.rate_limit_count {
+            let other_errors = inc.error_count - inc.rate_limit_count;
+            flags.push(HealthFlag {
+                severity: HealthSeverity::Warning,
+                category: "errors".to_string(),
+                message: format!(
+                    "{} non-rate-limit error(s) during session",
+                    other_errors
+                ),
+            });
+        }
+        if inc.truncation_count >= 3 {
+            flags.push(HealthFlag {
+                severity: HealthSeverity::Warning,
+                category: "context_pressure".to_string(),
+                message: format!(
+                    "{} context truncation(s) — high context window pressure",
+                    inc.truncation_count
+                ),
+            });
+        }
+    }
+
     let score = if flags.is_empty() {
         1.0
     } else {
@@ -176,21 +227,21 @@ mod tests {
 
     #[test]
     fn healthy_session_scores_1() {
-        let health = compute_health(Some(100), Some(&Default::default()), None);
+        let health = compute_health(Some(100), Some(&Default::default()), None, None);
         assert_eq!(health.score, 1.0);
         assert!(health.flags.is_empty());
     }
 
     #[test]
     fn large_session_gets_warning() {
-        let health = compute_health(Some(6000), Some(&Default::default()), None);
+        let health = compute_health(Some(6000), Some(&Default::default()), None, None);
         assert!(health.score < 1.0);
         assert!(health.flags.iter().any(|f| f.category == "size"));
     }
 
     #[test]
     fn missing_shutdown_info_flag() {
-        let health = compute_health(Some(10), None, None);
+        let health = compute_health(Some(10), None, None, None);
         assert!(health.flags.iter().any(|f| f.category == "lifecycle"));
         // Info flags don't deduct score
         assert_eq!(health.score, 1.0);
@@ -207,7 +258,7 @@ mod tests {
             unknown_event_types: unknown,
             ..Default::default()
         };
-        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag));
+        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag), None);
         assert!(health.flags.iter().any(|f| f.category == "compatibility"));
     }
 
@@ -225,7 +276,7 @@ mod tests {
             deserialization_failures: failures,
             ..Default::default()
         };
-        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag));
+        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag), None);
         assert!(health.score < 1.0);
         assert!(health.flags.iter().any(|f| f.category == "parsing"));
     }
@@ -238,7 +289,7 @@ mod tests {
             fallback_events: 20,
             ..Default::default()
         };
-        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag));
+        let health = compute_health(Some(100), Some(&Default::default()), Some(&diag), None);
         assert!(health.flags.iter().any(|f| f.message.contains("fell back")));
     }
 
@@ -249,8 +300,37 @@ mod tests {
             malformed_lines: 3,
             ..Default::default()
         };
-        let health = compute_health(Some(50), Some(&Default::default()), Some(&diag));
+        let health = compute_health(Some(50), Some(&Default::default()), Some(&diag), None);
         assert!(health.score < 1.0);
         assert!(health.flags.iter().any(|f| f.message.contains("malformed")));
+    }
+
+    #[test]
+    fn rate_limit_warning() {
+        let inc = SessionIncidentCounts { rate_limit_count: 1, error_count: 1, ..Default::default() };
+        let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
+        assert!(health.score < 1.0);
+        assert!(health.flags.iter().any(|f| f.category == "rate_limit"));
+    }
+
+    #[test]
+    fn severe_rate_limits_error() {
+        let inc = SessionIncidentCounts { rate_limit_count: 5, error_count: 5, ..Default::default() };
+        let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
+        assert!(health.flags.iter().any(|f| matches!(f.severity, HealthSeverity::Error)));
+    }
+
+    #[test]
+    fn truncation_pressure_warning() {
+        let inc = SessionIncidentCounts { truncation_count: 4, ..Default::default() };
+        let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
+        assert!(health.flags.iter().any(|f| f.category == "context_pressure"));
+    }
+
+    #[test]
+    fn no_incidents_no_flags() {
+        let inc = SessionIncidentCounts::default();
+        let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
+        assert_eq!(health.score, 1.0);
     }
 }
