@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useAutoScroll } from "@/composables/useAutoScroll";
+import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
-  ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge,
+  ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge, ReasoningBlock,
   formatDuration, formatTime, formatNumber, truncateText,
-  toolIcon, toolCategory, categoryColor, formatArgsSummary,
-  useSessionTabLoader, useToggleSet,
-  groupTurnByAgent, buildSubagentIndex, hasSubagents,
-  type AgentSection,
+  toolIcon, toolCategory, categoryColor,
+  useSessionTabLoader, useToggleSet, useConversationSections,
   AGENT_COLORS,
-  agentStatusFromToolCall,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -28,13 +26,15 @@ const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFu
   () => store.sessionId
 );
 
-// Auto-scroll: find the .page-content scroll container and track scroll state
-const scrollContainer = ref<HTMLElement | null>(null);
+// Shared derived data from turns
+const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
+  useConversationSections(() => store.turns);
 
+// Auto-scroll
+const scrollContainer = ref<HTMLElement | null>(null);
 onMounted(() => {
   scrollContainer.value = document.querySelector('.page-content');
 });
-
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } = useAutoScroll({
   containerRef: scrollContainer,
   watchSource: () => store.turns,
@@ -60,54 +60,27 @@ useSessionTabLoader(
   }
 );
 
-// Cache formatArgsSummary per tool call
-const argsSummaryCache = computed(() => {
-  const cache = new Map<string, string>();
-  for (const turn of store.turns) {
-    for (let i = 0; i < turn.toolCalls.length; i++) {
-      const tc = turn.toolCalls[i];
-      cache.set(`${turn.turnIndex}-${i}`, formatArgsSummary(tc.arguments, tc.toolName));
-    }
-  }
-  return cache;
-});
-
-function getArgsSummary(turnIndex: number, tcIdx: number): string {
-  return argsSummaryCache.value.get(`${turnIndex}-${tcIdx}`) || "";
+/** Build prop object for ToolCallItem — eliminates repeated 10-prop bindings. */
+function tcProps(turn: ConversationTurn, tc: TurnToolCall, prefix = "", variant: "full" | "compact" = "full") {
+  const idx = findToolCallIndex(turn, tc);
+  const key = `${prefix}${turn.turnIndex}-${idx}`;
+  return {
+    tc,
+    variant,
+    argsSummary: getArgsSummary(turn.turnIndex, idx),
+    expanded: expandedToolDetails.has(key),
+    fullResult: tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined,
+    loadingFullResult: tc.toolCallId ? loadingResults.has(tc.toolCallId) : false,
+    failedFullResult: tc.toolCallId ? failedResults.has(tc.toolCallId) : false,
+    richEnabled: preferences.isRichRenderingEnabled(tc.toolName),
+    _key: key,
+  };
 }
 
-// Pre-compute session-wide subagent index for cross-turn attribution
-const globalSubagentMap = computed(() => buildSubagentIndex(store.turns));
-
-// Pre-compute agent-grouped sections per turn
-const groupedSections = computed(() => {
-  const subMap = globalSubagentMap.value;
-  const map = new Map<number, AgentSection[]>();
-  for (const turn of store.turns) {
-    map.set(turn.turnIndex, groupTurnByAgent(turn, subMap));
-  }
-  return map;
-});
-
-function getSections(turnIndex: number): AgentSection[] {
-  return groupedSections.value.get(turnIndex) ?? [];
+function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "") {
+  const idx = findToolCallIndex(turn, tc);
+  expandedToolDetails.toggle(`${prefix}${turn.turnIndex}-${idx}`);
 }
-
-// Find the flat tool call index for a tool call within a section
-function findToolCallIndex(turn: typeof store.turns[0], tc: { toolCallId?: string; toolName: string }): number {
-  if (tc.toolCallId) {
-    const idx = turn.toolCalls.findIndex(t => t.toolCallId === tc.toolCallId);
-    if (idx >= 0) return idx;
-  }
-  return turn.toolCalls.indexOf(tc as typeof turn.toolCalls[0]);
-}
-
-const totalToolCalls = computed(() =>
-  store.turns.reduce((sum, t) => sum + t.toolCalls.length, 0)
-);
-const totalDurationMs = computed(() =>
-  store.turns.reduce((sum, t) => sum + (t.durationMs ?? 0), 0)
-);
 </script>
 
 <template>
@@ -147,22 +120,12 @@ const totalDurationMs = computed(() =>
           <!-- ── Main Agent Section ── -->
           <template v-if="!section.agentId">
             <!-- Reasoning (main agent) -->
-            <div v-if="section.reasoning.length > 0" class="turn-reasoning">
-              <button
-                class="reasoning-toggle"
-                :aria-expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)"
-                @click="expandedReasoning.toggle(`${turn.turnIndex}-main-${sIdx}`)"
-              >
-                <ExpandChevron :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)" />
-                💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
-              </button>
-              <div v-if="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)" class="reasoning-content" tabindex="0">
-                <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
-                  <hr v-if="rIdx > 0" class="reasoning-divider" />
-                  {{ text }}
-                </template>
-              </div>
-            </div>
+            <ReasoningBlock
+              class="turn-reasoning"
+              :reasoning="section.reasoning"
+              :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)"
+              @toggle="expandedReasoning.toggle(`${turn.turnIndex}-main-${sIdx}`)"
+            />
 
             <!-- Assistant messages (main agent) -->
             <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`main-msg-${idx}`" class="turn-item">
@@ -206,14 +169,8 @@ const totalDurationMs = computed(() =>
                   <ToolCallItem
                     v-for="tc in section.toolCalls"
                     :key="tc.toolCallId ?? tc.toolName"
-                    :tc="tc"
-                    :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
-                    :expanded="expandedToolDetails.has(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
-                    :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
-                    :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
-                    :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
-                    :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
-                    @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                    v-bind="tcProps(turn, tc)"
+                    @toggle="toggleToolDetail(turn, tc)"
                     @load-full-result="handleLoadFullResult"
                     @retry-full-result="handleRetryResult"
                   />
@@ -248,22 +205,12 @@ const totalDurationMs = computed(() =>
 
             <div v-if="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)" class="subagent-content">
               <!-- Subagent reasoning -->
-              <div v-if="section.reasoning.length > 0" class="turn-reasoning">
-                <button
-                  class="reasoning-toggle"
-                  :aria-expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)"
-                  @click="expandedReasoning.toggle(`${turn.turnIndex}-${section.agentId}`)"
-                >
-                  <ExpandChevron :expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)" />
-                  💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
-                </button>
-                <div v-if="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)" class="reasoning-content" tabindex="0">
-                  <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
-                    <hr v-if="rIdx > 0" class="reasoning-divider" />
-                    {{ text }}
-                  </template>
-                </div>
-              </div>
+              <ReasoningBlock
+                class="turn-reasoning"
+                :reasoning="section.reasoning"
+                :expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)"
+                @toggle="expandedReasoning.toggle(`${turn.turnIndex}-${section.agentId}`)"
+              />
 
               <!-- Subagent messages -->
               <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`sub-msg-${idx}`" class="turn-item subagent-message">
@@ -284,15 +231,8 @@ const totalDurationMs = computed(() =>
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
                   :key="tc.toolCallId ?? tc.toolName"
-                  :tc="tc"
-                  variant="compact"
-                  :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
-                  :expanded="expandedToolDetails.has(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
-                  :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
-                  :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
-                  :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
-                  :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
-                  @toggle="expandedToolDetails.toggle(`${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  v-bind="tcProps(turn, tc, '', 'compact')"
+                  @toggle="toggleToolDetail(turn, tc)"
                   @load-full-result="handleLoadFullResult"
                   @retry-full-result="handleRetryResult"
                 />
@@ -428,23 +368,15 @@ const totalDurationMs = computed(() =>
           <!-- Agent-grouped content in timeline -->
           <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`tl-s-${sIdx}`">
             <!-- Reasoning -->
-            <div v-if="section.reasoning.length > 0">
-              <button
-                class="reasoning-toggle"
-                :aria-expanded="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
-                @click="expandedReasoning.toggle(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
-              >
-                <ExpandChevron :expanded="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)" />
-                <AgentBadge v-if="section.agentId" :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
-                💭 {{ section.reasoning.length }} reasoning block{{ section.reasoning.length !== 1 ? 's' : '' }}
-              </button>
-              <div v-if="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)" class="reasoning-content" tabindex="0">
-                <template v-for="(text, rIdx) in section.reasoning" :key="rIdx">
-                  <hr v-if="rIdx > 0" class="reasoning-divider" />
-                  {{ text }}
-                </template>
-              </div>
-            </div>
+            <ReasoningBlock
+              :reasoning="section.reasoning"
+              :expanded="expandedReasoning.has(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+              @toggle="expandedReasoning.toggle(`tl-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+            >
+              <template v-if="section.agentId" #prefix>
+                <AgentBadge :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
+              </template>
+            </ReasoningBlock>
 
             <!-- Tool calls with agent context -->
             <div v-if="section.toolCalls.length > 0">
@@ -462,15 +394,8 @@ const totalDurationMs = computed(() =>
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
                   :key="tc.toolCallId ?? tc.toolName"
-                  :tc="tc"
-                  variant="compact"
-                  :args-summary="getArgsSummary(turn.turnIndex, findToolCallIndex(turn, tc))"
-                  :expanded="expandedToolDetails.has(`tl-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
-                  :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
-                  :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
-                  :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
-                  :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
-                  @toggle="expandedToolDetails.toggle(`tl-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
+                  v-bind="tcProps(turn, tc, 'tl-', 'compact')"
+                  @toggle="toggleToolDetail(turn, tc, 'tl-')"
                   @load-full-result="handleLoadFullResult"
                   @retry-full-result="handleRetryResult"
                 />

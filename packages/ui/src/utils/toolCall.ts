@@ -61,3 +61,11 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName.startsWith("github-mcp-server") && a.method) return String(a.method);
   return "";
 }
+
+/** Extract prompt/description text from tool-call arguments. */
+export function extractPrompt(args: unknown): string | null {
+  if (!args || typeof args !== "object") return null;
+  const obj = args as Record<string, unknown>;
+  const raw = obj.prompt ?? obj.description;
+  return typeof raw === "string" ? raw : null;
+}

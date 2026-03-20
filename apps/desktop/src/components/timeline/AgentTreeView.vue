@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
+import { computed, ref, nextTick, watch } from "vue";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -20,6 +20,8 @@ import {
   ToolResultRenderer,
   inferAgentTypeFromToolCall,
   AGENT_COLORS,
+  extractPrompt,
+  useTimelineNavigation,
   agentStatusFromToolCall,
   STATUS_ICONS,
   buildSubagentContentIndex,
@@ -69,7 +71,6 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
   () => store.sessionId
 );
 const selectedNodeId = ref<string | null>(null);
-const agentTurnIndex = ref(0);
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
@@ -101,6 +102,12 @@ const agentTurns = computed<ConversationTurn[]>(() =>
   store.turns.filter((t) => t.toolCalls.some((tc) => tc.isSubagent)),
 );
 
+const { turnIndex: agentTurnIndex, prevTurn: navPrev, nextTurn: navNext } = useTimelineNavigation({
+  turns: agentTurns,
+  rootRef,
+  onEscape: () => { selectedNodeId.value = null; },
+});
+
 const currentTurn = computed<ConversationTurn | undefined>(
   () => agentTurns.value[agentTurnIndex.value],
 );
@@ -113,23 +120,15 @@ const turnNavLabel = computed(() => {
   return `Turn ${turn.turnIndex} (${pos} of ${total} with agents)`;
 });
 
-function prevAgentTurn() {
-  if (agentTurnIndex.value > 0) {
-    agentTurnIndex.value--;
-    selectedNodeId.value = null;
-    expandedToolCalls.clear();
-    expandedReasoning.clear();
-  }
-}
+// Side effects on turn change (clear selection & expanded state)
+watch(agentTurnIndex, () => {
+  selectedNodeId.value = null;
+  expandedToolCalls.clear();
+  expandedReasoning.clear();
+});
 
-function nextAgentTurn() {
-  if (agentTurnIndex.value < agentTurns.value.length - 1) {
-    agentTurnIndex.value++;
-    selectedNodeId.value = null;
-    expandedToolCalls.clear();
-    expandedReasoning.clear();
-  }
-}
+function prevAgentTurn() { navPrev(); }
+function nextAgentTurn() { navNext(); }
 
 // ---------------------------------------------------------------------------
 // Agent Type Detection
@@ -560,41 +559,13 @@ const selectedNode = computed<AgentNode | null>(() => {
 });
 
 function agentPrompt(node: AgentNode): string | null {
-  const tc = node.toolCallRef;
-  if (!tc?.arguments || typeof tc.arguments !== "object") return null;
-  const args = tc.arguments as Record<string, unknown>;
-  const raw = args.prompt ?? args.description;
-  return typeof raw === "string" ? raw : null;
+  return extractPrompt(node.toolCallRef?.arguments ?? null);
 }
 
 function selectNode(id: string) {
   selectedNodeId.value = selectedNodeId.value === id ? null : id;
   expandedToolCalls.clear();
 }
-
-// ---------------------------------------------------------------------------
-// Keyboard Navigation
-// ---------------------------------------------------------------------------
-
-function handleKeydown(e: KeyboardEvent) {
-  if (!rootRef.value?.contains(document.activeElement)) return;
-  if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    prevAgentTurn();
-  } else if (e.key === "ArrowRight") {
-    e.preventDefault();
-    nextAgentTurn();
-  } else if (e.key === "Escape") {
-    selectedNodeId.value = null;
-  }
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", handleKeydown);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("keydown", handleKeydown);
-});
 
 // Start/stop live timer based on whether any node is in-progress
 const hasInProgress = computed(() => {
@@ -688,6 +659,8 @@ watch(
             :width="layout.width"
             :height="canvasHeight"
             :viewBox="`0 0 ${layout.width} ${canvasHeight}`"
+            role="img"
+            aria-label="Agent tree visualization showing the hierarchical structure of agent and tool call execution"
           >
             <!-- Static base line (subtle, behind the animated one) -->
             <path
@@ -757,6 +730,7 @@ watch(
               <span>{{ ln.node.toolCount }} tool{{ ln.node.toolCount !== 1 ? "s" : "" }}</span>
               <span class="agent-node-status" :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }">
                 {{ STATUS_ICONS[ln.node.status] }}
+                <span v-if="ln.node.status === 'in-progress'" class="sr-only">In progress</span>
               </span>
             </div>
           </div>
@@ -977,6 +951,21 @@ watch(
 </template>
 
 <style scoped>
+/* ------------------------------------------------------------------ */
+/* Screen-reader only utility                                          */
+/* ------------------------------------------------------------------ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Root                                                                */
 /* ------------------------------------------------------------------ */

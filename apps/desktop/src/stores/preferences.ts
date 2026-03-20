@@ -173,6 +173,11 @@ export const usePreferencesStore = defineStore("preferences", () => {
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
+  const featureFlags = ref<Record<string, boolean>>({
+    exportView: false,
+    healthScoring: false,
+    sessionReplay: false,
+  });
   const favouriteModels = ref<string[]>([
     "claude-opus-4.6",
     "gpt-5.4",
@@ -239,6 +244,14 @@ export const usePreferencesStore = defineStore("preferences", () => {
             toolOverrides: parsed.toolRendering.toolOverrides ?? {},
           };
         }
+        if (parsed.featureFlags && typeof parsed.featureFlags === 'object') {
+          const savedFlags = parsed.featureFlags as Record<string, unknown>;
+          for (const key of Object.keys(featureFlags.value)) {
+            if (typeof savedFlags[key] === 'boolean') {
+              featureFlags.value[key] = savedFlags[key] as boolean;
+            }
+          }
+        }
         if (Array.isArray(parsed.favouriteModels))
           favouriteModels.value = parsed.favouriteModels;
         if (Array.isArray(parsed.recentRepoPaths))
@@ -264,6 +277,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         checkForUpdates: checkForUpdates.value,
         lastSeenVersion: lastSeenVersion.value,
         toolRendering: toolRendering.value,
+        featureFlags: featureFlags.value,
         favouriteModels: favouriteModels.value,
         recentRepoPaths: recentRepoPaths.value,
       }),
@@ -294,6 +308,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       checkForUpdates,
       lastSeenVersion,
       toolRendering,
+      featureFlags,
       favouriteModels,
       recentRepoPaths,
     ],
@@ -390,6 +405,16 @@ export const usePreferencesStore = defineStore("preferences", () => {
     };
   }
 
+  /** Check if a feature flag is enabled. */
+  function isFeatureEnabled(flag: string): boolean {
+    return featureFlags.value[flag] ?? false;
+  }
+
+  /** Toggle a feature flag on or off. */
+  function toggleFeature(flag: string): void {
+    featureFlags.value[flag] = !featureFlags.value[flag];
+  }
+
   return {
     theme,
     lastViewedSession,
@@ -402,6 +427,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     checkForUpdates,
     lastSeenVersion,
     toolRendering,
+    featureFlags,
     favouriteModels,
     recentRepoPaths,
     applyTheme: () => applyTheme(theme.value),
@@ -415,5 +441,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     isRichRenderingEnabled,
     setToolRenderingOverride,
     resetToolRendering,
+    isFeatureEnabled,
+    toggleFeature,
   };
 });

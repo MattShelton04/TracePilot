@@ -1,34 +1,5 @@
 export * from './orchestration.js';
 
-/** Update check result from GitHub releases. */
-export interface UpdateCheckResult {
-  currentVersion: string;
-  latestVersion?: string;
-  hasUpdate: boolean;
-  releaseUrl?: string;
-  publishedAt?: string;
-}
-
-/** Git info for the running TracePilot instance. */
-export interface GitInfo {
-  commitHash?: string;
-  branch?: string;
-}
-
-/** A single entry in the release manifest for "What's New" display. */
-export interface ReleaseManifestEntry {
-  version: string;
-  date?: string;
-  requiresReindex?: boolean;
-  highlights?: string[];
-  changes?: string[];
-  notes?: {
-    added: string[];
-    changed: string[];
-    fixed: string[];
-  };
-}
-
 /** Session list item (enriched from workspace.yaml + events) */
 export interface SessionListItem {
   id: string;
