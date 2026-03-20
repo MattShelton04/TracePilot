@@ -207,13 +207,19 @@ A PowerShell script handles version bumps across the entire monorepo:
 After running the script:
 
 ```bash
-# 1. Update CHANGELOG.md with the new version's changes
-# 2. Update release-manifest.json with release notes for the UI
-# 3. Commit and tag
+# 1. Update CHANGELOG.md: rename [Unreleased] → [0.2.0] - YYYY-MM-DD, add new empty [Unreleased] section
+# 2. Update apps/desktop/public/release-manifest.json with release notes for the UI
+# 3. Commit on a release branch
+git checkout -b release/v0.2.0
 git add -A
 git commit -m "chore: release v0.2.0"
-git tag v0.2.0
-git push && git push --tags
+git push -u origin release/v0.2.0
+
+# 4. Open a PR to main — let CI run and review the release
+# 5. After merging, tag the merge commit on main
+git checkout main && git pull
+git tag -s v0.2.0 -m "Release v0.2.0"
+git push --tags
 ```
 
 > **Prerequisite:** Install `cargo-edit` for the `set-version` command: `cargo install cargo-edit`

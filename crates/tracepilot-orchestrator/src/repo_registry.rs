@@ -267,8 +267,16 @@ mod tests {
 
     #[test]
     fn test_repo_name_from_path() {
-        assert_eq!(repo_name_from_path("C:\\git\\MyProject"), "MyProject");
-        assert_eq!(repo_name_from_path("/home/user/my-repo"), "my-repo");
+        #[cfg(windows)]
+        {
+            assert_eq!(repo_name_from_path("C:\\git\\MyProject"), "MyProject");
+            assert_eq!(repo_name_from_path("C:\\git\\MyProject\\"), "MyProject");
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(repo_name_from_path("/home/user/my-repo"), "my-repo");
+            assert_eq!(repo_name_from_path("/home/user/my-repo/"), "my-repo");
+        }
     }
 
     #[test]

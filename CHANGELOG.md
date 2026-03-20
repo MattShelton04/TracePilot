@@ -8,10 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Orchestration feature (preview): launch Copilot CLI sessions, manage git worktrees, and inject config — all from the desktop app (#48)
+- Config injection: set default models for Copilot CLI subagents (explore, task, code-review, general-purpose) to increase their effectiveness (#48)
+- Git worktree management with repo registry persistence, disk usage tracking, branch listing, and lock/unlock support (#54)
+- Session incident tracking with health scoring incidents displayed in overview tab and analytics dashboard (#50)
+- Compaction and rate limit event rendering in conversation view (#52)
+- What's New improvements: sidebar version link reopens modal, "View Release Notes" button in Settings, update notification moved to sidebar footer (#55)
+- External link support via tauri-plugin-opener with Tauri/browser fallback (#55)
+- Automated Windows installer and standalone exe builds in release workflow (#53)
+- Feature flags system with experimental features toggle in Settings (#49)
+- Time range filter enhancements for analytics views (#50)
 
 ### Changed
+- Decomposed SettingsView into 8 focused sub-components for maintainability (#49)
+- Decomposed SetupWizard into step components with extracted navigation composable (#49)
+- Refactored data access layer: centralised database queries and preferences storage with `prefsStore.whenReady` for reliable config hydration at startup (#51)
+- Improved CLI tool reliability and command utilities (#47)
 
 ### Fixed
+- Terminal instances no longer shut down when the application exits — new 3-tier detach strategy (`CREATE_BREAKAWAY_FROM_JOB` → WMI `Win32_Process.Create` → graceful `CREATE_NEW_CONSOLE` fallback) (#56)
+- Agent Tree and Todo dependency graph rendering bugs (#52)
+- External links now open in system browser instead of failing silently (#55)
+- What's New modal no longer shows "Updated from v0.0.0" when manually opened (#55)
 
 ## [0.2.0] - 2026-03-19
 

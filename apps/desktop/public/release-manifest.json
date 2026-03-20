@@ -1,6 +1,32 @@
 {
   "versions": [
     {
+      "version": "0.3.0",
+      "date": "2026-03-21",
+      "notes": {
+        "added": [
+          "Orchestration (preview): launch Copilot sessions, manage worktrees, and inject config from the desktop app",
+          "Config injection: set default models for subagents to increase their effectiveness",
+          "Git worktree management with repo registry, disk usage tracking, and lock/unlock",
+          "Session incidents: health issues now surface in the overview and analytics views",
+          "Compaction and rate limit events are now visible in the conversation view",
+          "What's New: click the version in the sidebar to revisit release notes anytime",
+          "Windows installer and standalone exe now included in GitHub releases",
+          "Feature flags: opt in to experimental features from Settings"
+        ],
+        "changed": [
+          "Analytics views load faster with shared utilities under the hood",
+          "Preferences now load reliably at startup"
+        ],
+        "fixed": [
+          "Launched terminal sessions no longer close when you quit TracePilot",
+          "Agent Tree and Todo dependency graph rendering issues",
+          "External links now open correctly in your default browser"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.2.0",
       "date": "2026-03-19",
       "notes": {
