@@ -1041,37 +1041,78 @@ mod commands {
             let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)
                 .map_err(|e| e.to_string())?;
             Ok::<Option<std::path::PathBuf>, String>(
-                metadata.cwd.map(std::path::PathBuf::from).filter(|p| p.is_dir()),
+                metadata.cwd.map(std::path::PathBuf::from),
             )
         })
         .await
         .map_err(|e| e.to_string())??;
 
+        // Find a valid directory for the terminal: session CWD > its closest ancestor > home
+        let effective_cwd = session_cwd
+            .as_ref()
+            .and_then(|p| {
+                if p.is_dir() {
+                    return Some(p.clone());
+                }
+                // Walk up to find the closest ancestor that exists
+                let mut ancestor = p.parent();
+                while let Some(dir) = ancestor {
+                    if dir.is_dir() {
+                        return Some(dir.to_path_buf());
+                    }
+                    ancestor = dir.parent();
+                }
+                None
+            })
+            .or_else(|| {
+                std::env::var("USERPROFILE")
+                    .or_else(|_| std::env::var("HOME"))
+                    .ok()
+                    .map(std::path::PathBuf::from)
+                    .filter(|p| p.is_dir())
+            })
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+
         let cmd = format!("{} --resume {}", cli, session_id);
 
         #[cfg(windows)]
         {
-            let mut command = std::process::Command::new("cmd");
-            command.args(["/c", "start", "cmd", "/k", &cmd]);
-            if let Some(ref cwd) = session_cwd {
-                command.current_dir(cwd);
+            use std::os::windows::process::CommandExt;
+            const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
+            let escaped_cwd = effective_cwd.display().to_string().replace('\'', "''");
+            let ps_cmd = format!(
+                "$host.UI.RawUI.WindowTitle = 'Copilot Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming Copilot session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
+                escaped_cwd,
+                session_id,
+                cmd.replace('\'', "''")
+            );
+
+            // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
+            let encoded = tracepilot_orchestrator::launcher::encode_powershell_command(&ps_cmd);
+            let ps_result = std::process::Command::new("powershell")
+                .args(["-NoExit", "-EncodedCommand", &encoded])
+                .current_dir(&effective_cwd)
+                .creation_flags(CREATE_NEW_CONSOLE)
+                .spawn();
+
+            if ps_result.is_err() {
+                std::process::Command::new("cmd")
+                    .args(["/k", &cmd])
+                    .current_dir(&effective_cwd)
+                    .creation_flags(CREATE_NEW_CONSOLE)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open terminal: {}", e))?;
             }
-            command
-                .spawn()
-                .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
         #[cfg(target_os = "macos")]
         {
-            let script = if let Some(ref cwd) = session_cwd {
-                let escaped_cwd = cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
-                format!(
-                    "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
-                    escaped_cwd, cmd
-                )
-            } else {
-                format!("tell app \"Terminal\" to do script \"{}\"", cmd)
-            };
+            let escaped_cwd = effective_cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
+            let script = format!(
+                "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
+                escaped_cwd, cmd
+            );
             std::process::Command::new("osascript")
                 .args(["-e", &script])
                 .spawn()
@@ -1090,10 +1131,7 @@ mod commands {
             let mut launched = false;
             for term in &terminals {
                 let mut command = std::process::Command::new(term);
-                command.args(["-e", &cmd]);
-                if let Some(ref cwd) = session_cwd {
-                    command.current_dir(cwd);
-                }
+                command.args(["-e", &cmd]).current_dir(&effective_cwd);
                 if command.spawn().is_ok() {
                     launched = true;
                     break;
@@ -1272,6 +1310,157 @@ mod commands {
     pub async fn get_worktree_disk_usage(path: String) -> Result<u64, String> {
         tokio::task::spawn_blocking(move || {
             tracepilot_orchestrator::worktrees::disk_usage_bytes(std::path::Path::new(&path))
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn is_git_repo(path: String) -> Result<bool, String> {
+        Ok(tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::is_git_repo(std::path::Path::new(&path))
+        })
+        .await
+        .map_err(|e| e.to_string())?)
+    }
+
+    #[tauri::command]
+    pub async fn lock_worktree(
+        repo_path: String,
+        worktree_path: String,
+        reason: Option<String>,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::lock_worktree(
+                std::path::Path::new(&repo_path),
+                std::path::Path::new(&worktree_path),
+                reason.as_deref(),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn unlock_worktree(
+        repo_path: String,
+        worktree_path: String,
+    ) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::unlock_worktree(
+                std::path::Path::new(&repo_path),
+                std::path::Path::new(&worktree_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_worktree_details(
+        worktree_path: String,
+    ) -> Result<tracepilot_orchestrator::WorktreeDetails, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::get_worktree_details(
+                std::path::Path::new(&worktree_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_default_branch(repo_path: String) -> Result<String, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::get_default_branch(
+                std::path::Path::new(&repo_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn fetch_remote(
+        repo_path: String,
+        branch: Option<String>,
+    ) -> Result<String, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::fetch_remote(
+                std::path::Path::new(&repo_path),
+                branch.as_deref(),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    // -- Repository Registry commands --
+
+    #[tauri::command]
+    pub async fn list_registered_repos(
+    ) -> Result<Vec<tracepilot_orchestrator::RegisteredRepo>, String> {
+        tokio::task::spawn_blocking(
+            tracepilot_orchestrator::repo_registry::list_registered_repos,
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+    }
+
+    #[tauri::command]
+    pub async fn add_registered_repo(
+        path: String,
+    ) -> Result<tracepilot_orchestrator::RegisteredRepo, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::repo_registry::add_repo(
+                &path,
+                tracepilot_orchestrator::RepoSource::Manual,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn remove_registered_repo(path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::repo_registry::remove_repo(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn discover_repos_from_sessions(
+        state: tauri::State<'_, SharedConfig>,
+    ) -> Result<Vec<tracepilot_orchestrator::RegisteredRepo>, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        // Query the index DB for distinct CWD paths
+        let cwds = tokio::task::spawn_blocking(move || -> Result<Vec<String>, String> {
+            if !index_path.exists() {
+                return Ok(Vec::new());
+            }
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+            db.distinct_session_cwds().map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+
+        // Resolve to git roots and register
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::repo_registry::discover_repos_from_sessions(&cwds)
                 .map_err(|e| e.to_string())
         })
         .await
@@ -1581,6 +1770,16 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::prune_worktrees,
             commands::list_branches,
             commands::get_worktree_disk_usage,
+            commands::is_git_repo,
+            commands::lock_worktree,
+            commands::unlock_worktree,
+            commands::get_worktree_details,
+            commands::get_default_branch,
+            commands::fetch_remote,
+            commands::list_registered_repos,
+            commands::add_registered_repo,
+            commands::remove_registered_repo,
+            commands::discover_repos_from_sessions,
             commands::launch_session,
             commands::get_available_models,
             commands::open_in_explorer,

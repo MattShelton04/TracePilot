@@ -89,6 +89,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: Some("fix/".into()),
+                base_branch: None,
                 model: Some("claude-sonnet-4.6".into()),
                 prompt: None,
                 headless: false,
@@ -97,6 +98,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
                 env_vars: Default::default(),
                 create_worktree: true,
                 auto_approve: true,
+                cli_command: "copilot".into(),
             },
             tags: vec!["bugfix".into(), "quick".into()],
             created_at: now.clone(),
@@ -110,6 +112,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: Some("feature/".into()),
+                base_branch: None,
                 model: Some("claude-opus-4.6".into()),
                 prompt: None,
                 headless: false,
@@ -118,6 +121,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
                 env_vars: Default::default(),
                 create_worktree: true,
                 auto_approve: false,
+                cli_command: "copilot".into(),
             },
             tags: vec!["feature".into(), "premium".into()],
             created_at: now.clone(),
@@ -131,6 +135,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: None,
+                base_branch: None,
                 model: Some("claude-sonnet-4.6".into()),
                 prompt: Some("Review the recent changes and provide feedback".into()),
                 headless: false,
@@ -139,6 +144,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
+                cli_command: "copilot".into(),
             },
             tags: vec!["review".into()],
             created_at: now,
@@ -189,6 +195,7 @@ mod tests {
             config: crate::types::LaunchConfig {
                 repo_path: "/tmp/test".into(),
                 branch: None,
+                base_branch: None,
                 model: None,
                 prompt: None,
                 headless: false,
@@ -197,6 +204,7 @@ mod tests {
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
+                cli_command: "copilot".into(),
             },
             tags: vec![],
             created_at: "2025-01-01T00:00:00Z".into(),

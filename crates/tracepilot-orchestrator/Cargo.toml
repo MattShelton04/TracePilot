@@ -15,6 +15,7 @@ tracing = { workspace = true }
 semver = { workspace = true }
 
 similar = "2"
+walkdir = "2"
 
 [dev-dependencies]
 tempfile = { workspace = true }

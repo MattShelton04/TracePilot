@@ -20,6 +20,10 @@ pub enum OrchestratorError {
     Template(String),
     #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Worktree error: {0}")]
+    Worktree(String),
+    #[error("Registry error: {0}")]
+    Registry(String),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;

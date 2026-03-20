@@ -164,8 +164,9 @@ onUnmounted(() => {
             </svg>
             <div class="hero-value">{{ store.worktreeCount || '—' }}</div>
             <div class="hero-label">Worktrees</div>
-            <div class="hero-sub" v-if="store.worktreeCount > 0">{{ store.staleWorktreeCount }} stale · {{ formatBytes(store.totalDiskUsage) }} total</div>
-            <div class="hero-sub" v-else>Load via Worktree Manager</div>
+            <div class="hero-sub" v-if="store.worktreeCount > 0">{{ store.registeredRepos.length }} repos · {{ store.staleWorktreeCount }} stale · {{ formatBytes(store.totalDiskUsage) }}</div>
+            <div class="hero-sub" v-else-if="store.registeredRepos.length > 0">{{ store.registeredRepos.length }} registered repos</div>
+            <div class="hero-sub" v-else>No repos registered yet</div>
           </div>
 
           <!-- Budget Used -->

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
 import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
+const worktreeStore = useWorktreesStore();
+const route = useRoute();
 const launching = ref(false);
 let successTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -26,7 +30,7 @@ const selectedTemplateId = ref<string | null>(null);
 const showAdvanced = ref(false);
 const showTemplateForm = ref(false);
 const templateForm = reactive({ name: '', description: '', category: '' });
-const launchSuccess = ref<{ pid: number; command: string } | null>(null);
+const launchSuccess = ref<{ pid: number; command: string; worktreePath?: string } | null>(null);
 const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
 const confirmingDeleteId = ref<string | null>(null);
 
@@ -48,9 +52,12 @@ const envVarsRecord = computed(() => {
   return rec;
 });
 
+const baseBranch = ref('');
+
 const launchConfig = computed<LaunchConfig>(() => ({
   repoPath: repoPath.value,
   branch: branch.value || undefined,
+  baseBranch: createWorktree.value && baseBranch.value ? baseBranch.value : undefined,
   model: selectedModel.value || undefined,
   prompt: prompt.value || undefined,
   customInstructions: customInstructions.value || undefined,
@@ -59,50 +66,40 @@ const launchConfig = computed<LaunchConfig>(() => ({
   createWorktree: createWorktree.value,
   autoApprove: autoApprove.value,
   envVars: envVarsRecord.value,
+  cliCommand: prefsStore.cliCommand || 'copilot',
 }));
 
+const effectiveCli = computed(() => prefsStore.cliCommand || 'copilot');
+
 const cliCommand = computed(() => {
-  const parts = ['copilot'];
-  if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
-  if (launchConfig.value.reasoningEffort && launchConfig.value.reasoningEffort !== 'medium') {
-    parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
+  const parts = [effectiveCli.value];
+  if (launchConfig.value.model) parts.push(`--model=${launchConfig.value.model}`);
+  if (launchConfig.value.autoApprove) parts.push('--allow-all');
+  if (launchConfig.value.prompt) {
+    parts.push(`\\\n  # Prompt will be copied to clipboard`);
   }
-  if (launchConfig.value.autoApprove) parts.push('--acp');
-  if (launchConfig.value.headless) parts.push('--headless');
-  if (launchConfig.value.createWorktree) parts.push('--worktree');
-  if (launchConfig.value.branch) parts.push(`--branch ${launchConfig.value.branch}`);
-  if (launchConfig.value.customInstructions) {
-    parts.push(`--instructions "${launchConfig.value.customInstructions}"`);
-  }
-  if (launchConfig.value.repoPath) parts.push(`\\\n  --cwd "${launchConfig.value.repoPath}"`);
-  if (launchConfig.value.prompt) parts.push(`\\\n  "${launchConfig.value.prompt}"`);
   return parts.join(' ');
 });
 
 const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
-  const parts: { flag: string; value?: string }[] = [{ flag: 'copilot' }];
+  const parts: { flag: string; value?: string }[] = [{ flag: effectiveCli.value }];
   if (launchConfig.value.model) {
     parts.push({ flag: '--model', value: launchConfig.value.model });
   }
-  if (launchConfig.value.reasoningEffort && launchConfig.value.reasoningEffort !== 'medium') {
-    parts.push({ flag: '--reasoning-effort', value: launchConfig.value.reasoningEffort });
-  }
-  if (launchConfig.value.autoApprove) parts.push({ flag: '--acp' });
-  if (launchConfig.value.headless) parts.push({ flag: '--headless' });
-  if (launchConfig.value.createWorktree) parts.push({ flag: '--worktree' });
-  if (launchConfig.value.branch) {
-    parts.push({ flag: '--branch', value: launchConfig.value.branch });
-  }
-  if (launchConfig.value.customInstructions) {
-    parts.push({ flag: '--instructions', value: `"${launchConfig.value.customInstructions}"` });
-  }
-  if (launchConfig.value.repoPath) {
-    parts.push({ flag: '--cwd', value: `"${launchConfig.value.repoPath}"` });
-  }
+  if (launchConfig.value.autoApprove) parts.push({ flag: '--allow-all' });
   if (launchConfig.value.prompt) {
-    parts.push({ flag: '', value: `"${launchConfig.value.prompt}"` });
+    parts.push({ flag: '# prompt', value: '→ clipboard' });
   }
   return parts;
+});
+
+// Preview path for worktree creation
+const worktreePreviewPath = computed(() => {
+  if (!createWorktree.value || !repoPath.value || !branch.value) return '';
+  const repoName = repoPath.value.replace(/\\/g, '/').split('/').pop() || '';
+  const sanitized = branch.value.replace(/[~^:?*[\]\\<>|]/g, '-').replace(/\.\./g, '-').replace(/\/+/g, '-');
+  const parent = repoPath.value.replace(/\\/g, '/').replace(/\/[^/]+$/, '');
+  return `${parent}/${repoName}-${sanitized}`.replace(/\//g, '\\');
 });
 
 const estimatedCost = computed(() => {
@@ -113,7 +110,11 @@ const estimatedCost = computed(() => {
   return `~$${cost.toFixed(2)} (${pr}x premium requests)`;
 });
 
-const canLaunch= computed(() => repoPath.value.trim().length > 0 && !store.loading);
+const canLaunch= computed(() => {
+  if (!repoPath.value.trim() || store.loading) return false;
+  if (createWorktree.value && !branch.value.trim()) return false;
+  return true;
+});
 
 function tierLabel(tier: string): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -145,6 +146,7 @@ function applyTemplate(tplId: string) {
   branch.value = tpl.config.branch ?? '';
   selectedModel.value = tpl.config.model ?? '';
   createWorktree.value = tpl.config.createWorktree;
+  baseBranch.value = tpl.config.baseBranch ?? '';
   autoApprove.value = tpl.config.autoApprove;
   headless.value = tpl.config.headless;
   reasoningEffort.value = (tpl.config.reasoningEffort as 'low' | 'medium' | 'high') ?? 'medium';
@@ -211,6 +213,7 @@ function removeEnvVar(idx: number) {
 async function handleLaunch(asHeadless = false) {
   if (!canLaunch.value || launching.value) return;
   launching.value = true;
+  store.error = null;
   const cfg = { ...launchConfig.value };
   if (asHeadless) cfg.headless = true;
   if (successTimer) clearTimeout(successTimer);
@@ -219,8 +222,17 @@ async function handleLaunch(asHeadless = false) {
     if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
     const session = await store.launch(cfg);
     if (session) {
-      launchSuccess.value = { pid: session.pid, command: session.command };
-      successTimer = setTimeout(() => (launchSuccess.value = null), 5000);
+      launchSuccess.value = {
+        pid: session.pid,
+        command: session.command,
+        worktreePath: session.worktreePath,
+      };
+      successTimer = setTimeout(() => (launchSuccess.value = null), 8000);
+    } else if (store.error) {
+      // Scroll the error banner into view
+      nextTick(() => {
+        document.querySelector('.error-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
     }
   } finally {
     launching.value = false;
@@ -275,9 +287,26 @@ async function copyCommand() {
   } catch { /* clipboard not available in some envs */ }
 }
 
-onMounted(() => {
+onMounted(async () => {
   store.initialize();
   document.addEventListener('click', closeContextMenu);
+
+  // Load registered repos for the dropdown
+  if (worktreeStore.registeredRepos.length === 0) {
+    await worktreeStore.loadRegisteredRepos();
+  }
+
+  // Pre-fill from query params (e.g., navigated from Worktree Manager)
+  if (route.query.repoPath) {
+    repoPath.value = String(route.query.repoPath);
+  }
+  if (route.query.branch) {
+    branch.value = String(route.query.branch);
+  }
+  if (route.query.createWorktree === 'true') {
+    createWorktree.value = true;
+    showAdvanced.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -297,6 +326,9 @@ onUnmounted(() => {
         <div>
           <strong>Session launched</strong> — PID {{ launchSuccess.pid }}
           <div class="toast-cmd">{{ launchSuccess.command }}</div>
+          <div v-if="launchSuccess.worktreePath" class="toast-cmd" style="margin-top: 4px; color: var(--success-fg);">
+            📂 Worktree: {{ launchSuccess.worktreePath }}
+          </div>
         </div>
       </div>
     </Transition>
@@ -345,7 +377,8 @@ onUnmounted(() => {
         <!-- Error -->
         <div v-if="store.error" class="error-banner">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.343 13.657A8 8 0 1 1 13.66 2.343 8 8 0 0 1 2.343 13.657ZM6.03 4.97a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042L6.94 8 4.97 9.97a.749.749 0 0 0 .326 1.275.749.749 0 0 0 .734-.215L8 9.06l1.97 1.97a.749.749 0 0 0 1.275-.326.749.749 0 0 0-.215-.734L9.06 8l1.97-1.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L8 6.94Z"/></svg>
-          {{ store.error }}
+          <span class="error-text">{{ store.error }}</span>
+          <button class="error-dismiss" @click="store.error = null" title="Dismiss">✕</button>
         </div>
 
         <!-- ── Templates ─────────────────────────────────────── -->
@@ -410,12 +443,17 @@ onUnmounted(() => {
                 <label class="form-label">Repository <span class="required">*</span></label>
                 <div class="repo-picker">
                   <select
-                    v-if="prefsStore.recentRepoPaths.length"
+                    v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
                     class="form-input form-select repo-recent"
                     @change="selectRecentRepo"
                   >
-                    <option value="">Recent repos…</option>
-                    <option v-for="p in prefsStore.recentRepoPaths" :key="p" :value="p">{{ p }}</option>
+                    <option value="">Select a repository…</option>
+                    <optgroup v-if="worktreeStore.registeredRepos.length" label="Registered Repositories">
+                      <option v-for="r in worktreeStore.registeredRepos" :key="r.path" :value="r.path">{{ r.name }} — {{ r.path }}</option>
+                    </optgroup>
+                    <optgroup v-if="prefsStore.recentRepoPaths.length" label="Recent">
+                      <option v-for="p in prefsStore.recentRepoPaths" :key="p" :value="p">{{ p }}</option>
+                    </optgroup>
                   </select>
                   <div class="repo-input-row">
                     <input
@@ -436,10 +474,10 @@ onUnmounted(() => {
                   v-model="branch"
                   type="text"
                   class="form-input"
-                  placeholder="main"
+                  :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
                   @input="clearTemplateSelection"
                 />
-                <span class="form-hint">Will be created if it doesn't exist</span>
+                <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
               </div>
               <div class="form-group">
                 <label class="form-label">Model</label>
@@ -481,6 +519,7 @@ onUnmounted(() => {
               placeholder="Describe the task…"
               @input="clearTemplateSelection"
             />
+            <span class="form-hint">Prompt will be copied to your clipboard when the session launches — paste it with Ctrl+V</span>
           </div>
         </section>
 
@@ -508,22 +547,44 @@ onUnmounted(() => {
                   <span class="toggle-thumb" />
                 </button>
               </div>
-              <div class="toggle-row toggle-disabled">
+              <div class="toggle-row">
                 <div class="toggle-info">
                   <span class="toggle-label">Create Worktree</span>
-                  <span class="toggle-desc">See Worktree Manager for worktree operations</span>
+                  <span class="toggle-desc">Create a new git worktree and launch the session inside it</span>
                 </div>
                 <button
                   class="toggle-switch"
                   :class="{ on: createWorktree }"
                   role="switch"
                   :aria-checked="createWorktree"
-                  disabled
-                  title="Worktree parameter is not supported by the backend"
+                  @click="createWorktree = !createWorktree; clearTemplateSelection()"
                 >
                   <span class="toggle-thumb" />
                 </button>
               </div>
+              <Transition name="slide">
+                <div v-if="createWorktree" class="worktree-options">
+                  <div class="form-group" style="margin: 8px 0 0 0">
+                    <label class="form-label">Base Branch</label>
+                    <input
+                      v-model="baseBranch"
+                      type="text"
+                      class="form-input"
+                      placeholder="main (defaults to current HEAD)"
+                    />
+                    <span class="form-hint">The branch to base the new worktree on. A new branch matching the session branch will be created from this base.</span>
+                  </div>
+                  <div v-if="!branch" class="worktree-warning">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/></svg>
+                    <span>A branch name is required when creating a worktree. Enter one in the Branch field above.</span>
+                  </div>
+                  <div v-if="worktreePreviewPath" class="worktree-path-preview">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span class="wt-preview-label">Worktree folder:</span>
+                    <code class="wt-preview-path">{{ worktreePreviewPath }}</code>
+                  </div>
+                </div>
+              </Transition>
               <div class="toggle-row toggle-row-last toggle-disabled" title="Coming Soon…">
                 <div class="toggle-info">
                   <span class="toggle-label">Headless Mode</span>
@@ -663,7 +724,7 @@ onUnmounted(() => {
               </div>
               <div class="config-row" v-if="prompt">
                 <span class="config-key">Prompt</span>
-                <span class="config-val">{{ truncate(prompt, 40) }}</span>
+                <span class="config-val">{{ truncate(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(📋 clipboard)</span></span>
               </div>
             </div>
 
@@ -815,6 +876,18 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   color: var(--danger-fg);
   font-size: 0.8125rem;
+}
+.error-text { flex: 1; word-break: break-word; }
+.error-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  opacity: 0.7;
+  &:hover { opacity: 1; }
 }
 
 /* ── Section blocks ──────────────────────────────────────────────── */
@@ -1514,6 +1587,45 @@ onUnmounted(() => {
 
 .toggle-disabled .toggle-switch {
   cursor: not-allowed;
+}
+
+/* ── Worktree Options ────────────────────────────────────────────── */
+.worktree-options {
+  padding: 0 0 0 16px;
+  border-left: 2px solid var(--border-default);
+  margin-left: 8px;
+}
+
+.worktree-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warning-fg) 10%, transparent);
+  color: var(--warning-fg);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.worktree-path-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-fg) 6%, transparent);
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+.wt-preview-label { white-space: nowrap; }
+.wt-preview-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-default);
+  word-break: break-all;
 }
 
 /* ── Repo Picker ─────────────────────────────────────────────────── */

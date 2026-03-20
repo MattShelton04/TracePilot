@@ -125,6 +125,19 @@ impl IndexDb {
         Ok(results.into_iter().collect())
     }
 
+    /// Get distinct CWD paths from all indexed sessions (for repo discovery).
+    pub fn distinct_session_cwds(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut cwds = Vec::new();
+        for row in rows {
+            cwds.push(row?);
+        }
+        Ok(cwds)
+    }
+
     /// Query incidents for a specific session.
     pub fn get_session_incidents(&self, session_id: &str) -> Result<Vec<IndexedIncident>> {
         let mut stmt = self.conn.prepare(

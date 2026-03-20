@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { SystemDependencies, CopilotVersion, WorktreeInfo } from '@tracepilot/types';
+import type { SystemDependencies, CopilotVersion, WorktreeInfo, RegisteredRepo } from '@tracepilot/types';
 import {
   checkSystemDeps,
   listSessions,
   discoverCopilotVersions,
   getActiveCopilotVersion,
   listWorktrees,
+  listRegisteredRepos,
 } from '@tracepilot/client';
 
 export interface ActivityEvent {
@@ -25,6 +26,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
   const worktreeCount = ref(0);
   const staleWorktreeCount = ref(0);
   const totalDiskUsage = ref(0);
+  const registeredRepos = ref<RegisteredRepo[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const activityFeed = ref<ActivityEvent[]>([]);
@@ -84,6 +86,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
           : `Session completed in ${s.repository ?? 'unknown'}`,
         timestamp: s.updatedAt ?? s.createdAt ?? new Date().toISOString(),
       }));
+
+      // Load worktree stats from all registered repos
+      await loadWorktreeStatsFromRegistry();
     } catch (e) {
       error.value = String(e);
       loading.value = false;
@@ -102,6 +107,36 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     }
   }
 
+  async function loadWorktreeStatsFromRegistry() {
+    try {
+      const repos = await listRegisteredRepos();
+      registeredRepos.value = repos;
+      if (repos.length === 0) return;
+
+      let totalWt = 0;
+      let staleWt = 0;
+      let totalDisk = 0;
+
+      const results = await Promise.allSettled(
+        repos.map((r) => listWorktrees(r.path)),
+      );
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          const wts = result.value;
+          totalWt += wts.length;
+          staleWt += wts.filter((w: WorktreeInfo) => w.status === 'stale').length;
+          totalDisk += wts.reduce((sum: number, w: WorktreeInfo) => sum + (w.diskUsageBytes ?? 0), 0);
+        }
+      }
+
+      worktreeCount.value = totalWt;
+      staleWorktreeCount.value = staleWt;
+      totalDiskUsage.value = totalDisk;
+    } catch {
+      // Non-critical
+    }
+  }
+
   return {
     systemDeps,
     totalSessions,
@@ -111,6 +146,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     worktreeCount,
     staleWorktreeCount,
     totalDiskUsage,
+    registeredRepos,
     loading,
     error,
     activityFeed,
@@ -118,5 +154,6 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     copilotVersionStr,
     initialize,
     loadWorktreeStats,
+    loadWorktreeStatsFromRegistry,
   };
 });
