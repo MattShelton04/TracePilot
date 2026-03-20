@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
-import { openInExplorer, openInTerminal } from '@tracepilot/client';
+import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -20,21 +20,24 @@ const showCreateModal = ref(false);
 const showDeleteModal = ref(false);
 const deleteTarget = ref<WorktreeInfo | null>(null);
 const forceDelete = ref(false);
+const deleting = ref(false);
 const pruneMessage = ref<string | null>(null);
 const cleaningStale = ref(false);
 const actionToast = ref<string | null>(null);
 const worktreeDetails = ref<WorktreeDetails | null>(null);
 const detailsLoading = ref(false);
+const refreshing = ref(false);
 
 // Create form state
 const newBranch = ref('');
 const newBaseBranch = ref('');
 const newTargetDir = ref('');
 
-// Lock form
-const lockReason = ref('');
-const showLockModal = ref(false);
-const lockTarget = ref<WorktreeInfo | null>(null);
+
+
+// Default branch + fetch state
+const defaultBranch = ref('');
+const fetchingRemote = ref(false);
 
 /* ─── Lifecycle ───────────────────────────────────────────────── */
 onMounted(async () => {
@@ -61,7 +64,7 @@ const staleWorktrees = computed(() =>
 );
 
 const maxWorktreeDisk = computed(() =>
-  Math.max(...store.worktrees.map((w) => w.diskUsageBytes ?? 0), 1),
+  Math.max(...filteredWorktrees.value.map((w) => w.diskUsageBytes ?? 0), 1),
 );
 
 const worktreeCountByRepo = computed(() => {
@@ -96,10 +99,12 @@ const computedWorktreePath = computed(() => {
   if (!newBranch.value.trim()) return '';
   const repoPath = selectedRepoPath.value || store.currentRepoPath;
   if (!repoPath) return '';
-  const base = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
-  const parent = base.split('/').slice(0, -1).join('/');
-  const sanitized = newBranch.value.trim().replace(/\//g, '-');
-  return `${parent}/${sanitized}`;
+  const normalized = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
+  const parts = normalized.split('/');
+  const repoName = parts[parts.length - 1];
+  const parent = parts.slice(0, -1).join('/');
+  const sanitized = newBranch.value.trim().replace(/[\/\s~^:?*[\]\\<>|"]/g, '-');
+  return `${parent}/${repoName}-${sanitized}`;
 });
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
@@ -228,7 +233,8 @@ async function selectWorktree(wt: WorktreeInfo) {
   }
 }
 
-function openCreateModal() {
+async function openCreateModal() {
+  store.error = null;
   newBranch.value = '';
   newBaseBranch.value = '';
   newTargetDir.value = '';
@@ -236,6 +242,16 @@ function openCreateModal() {
     store.currentRepoPath = selectedRepoPath.value;
   }
   showCreateModal.value = true;
+  // Load default branch and set it as base branch default
+  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  if (repoPath) {
+    try {
+      defaultBranch.value = await getDefaultBranch(repoPath);
+      newBaseBranch.value = defaultBranch.value;
+    } catch {
+      defaultBranch.value = '';
+    }
+  }
 }
 
 async function handleCreate() {
@@ -253,10 +269,17 @@ async function handleCreate() {
   if (result) {
     showCreateModal.value = false;
     prefsStore.addRecentRepoPath(repoPath);
+    showToast(`Created worktree: ${result.branch}`);
+    // Hydrate disk usage for the new worktree
+    store.hydrateDiskUsage(result.path);
+  } else if (store.error) {
+    // Error is displayed in the modal via store.error
+    // No need to close modal - user can fix and retry
   }
 }
 
 function confirmDelete(wt: WorktreeInfo) {
+  store.error = null;
   deleteTarget.value = wt;
   forceDelete.value = false;
   showDeleteModal.value = true;
@@ -264,16 +287,26 @@ function confirmDelete(wt: WorktreeInfo) {
 
 async function handleDelete() {
   if (!deleteTarget.value) return;
-  const ok = await store.deleteWorktree(
-    deleteTarget.value.path,
-    forceDelete.value,
-    deleteTarget.value.repoRoot,
-  );
-  if (ok) {
-    if (selectedWorktree.value?.path === deleteTarget.value.path) {
-      selectedWorktree.value = null;
-      worktreeDetails.value = null;
+  deleting.value = true;
+  try {
+    const ok = await store.deleteWorktree(
+      deleteTarget.value.path,
+      forceDelete.value,
+      deleteTarget.value.repoRoot,
+    );
+    if (ok) {
+      if (selectedWorktree.value?.path === deleteTarget.value.path) {
+        selectedWorktree.value = null;
+        worktreeDetails.value = null;
+      }
+      showToast('Worktree removed');
+    } else {
+      // Re-sync worktree list — git may have partially removed it
+      await store.loadAllWorktrees();
+      showToast(store.error || 'Failed to remove worktree');
     }
+  } finally {
+    deleting.value = false;
     showDeleteModal.value = false;
     deleteTarget.value = null;
   }
@@ -318,29 +351,35 @@ async function handleCleanStale() {
 }
 
 /* ─── Lock/Unlock ────────────────────────────────────────────── */
-function openLockModal(wt: WorktreeInfo) {
-  lockTarget.value = wt;
-  lockReason.value = '';
-  showLockModal.value = true;
-}
-
-async function handleLock() {
-  if (!lockTarget.value) return;
-  const ok = await store.lockWorktree(
-    lockTarget.value.path,
-    lockReason.value.trim() || undefined,
-    lockTarget.value.repoRoot,
-  );
+async function handleLockInline(wt: WorktreeInfo) {
+  const ok = await store.lockWorktree(wt.path, undefined, wt.repoRoot);
   if (ok) {
-    showLockModal.value = false;
     showToast('Worktree locked');
   }
 }
+
+
 
 async function handleUnlock(wt: WorktreeInfo) {
   const ok = await store.unlockWorktree(wt.path, wt.repoRoot);
   if (ok) {
     showToast('Worktree unlocked');
+  }
+}
+
+async function handleFetchRemote() {
+  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  if (!repoPath) return;
+  fetchingRemote.value = true;
+  try {
+    await fetchRemote(repoPath);
+    // Reload branches after fetching
+    await store.loadBranches(repoPath);
+    showToast('Fetched latest from remote');
+  } catch (e) {
+    showToast(`Fetch failed: ${e}`);
+  } finally {
+    fetchingRemote.value = false;
   }
 }
 
@@ -352,11 +391,28 @@ function navigateToSession(sessionId: string) {
 function navigateToLauncher(wt: WorktreeInfo) {
   router.push({
     path: '/orchestration/launcher',
-    query: { repoPath: wt.repoRoot, branch: wt.branch },
+    query: { repoPath: wt.path, branch: wt.branch },
   });
 }
 
 /* ─── External Actions ────────────────────────────────────────── */
+async function handleRefresh() {
+  // In-place refresh: animate button, keep table visible, update data silently
+  refreshing.value = true;
+  try {
+    await store.loadAllWorktrees();
+    if (selectedWorktree.value) {
+      try {
+        worktreeDetails.value = await store.fetchWorktreeDetails(selectedWorktree.value.path);
+      } catch {
+        // Worktree may have been removed externally
+      }
+    }
+  } finally {
+    refreshing.value = false;
+  }
+}
+
 async function handleOpenExplorer(path: string) {
   try {
     await openInExplorer(path);
@@ -488,8 +544,8 @@ watch(() => store.worktrees, () => {
 
     <!-- ─── RIGHT PANEL ────────────────────────────────────────── -->
     <main class="right-panel">
-      <!-- Loading state -->
-      <div v-if="store.loading" class="empty-state">
+      <!-- Loading state (only on initial load, not refresh) -->
+      <div v-if="store.loading && !loaded" class="empty-state">
         <span class="spinner" />
         <span class="empty-state-text">Loading worktrees…</span>
       </div>
@@ -536,7 +592,11 @@ watch(() => store.worktrees, () => {
           </button>
           <button class="btn btn-sm" @click="handlePrune">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
-            Prune
+            {{ selectedRepoPath ? 'Prune This Repo' : 'Prune All Repos' }}
+          </button>
+          <button class="btn btn-sm" @click="handleRefresh" :disabled="refreshing" :class="{ 'btn-refreshing': refreshing }">
+            <svg :class="{ 'spin-animation': refreshing }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+            {{ refreshing ? 'Refreshing…' : 'Refresh' }}
           </button>
 
           <div class="toolbar-divider" />
@@ -621,8 +681,14 @@ watch(() => store.worktrees, () => {
             @click="selectWorktree(wt)"
           >
             <!-- Icon -->
-            <div class="wt-row-icon" :class="'wt-row-icon--' + wt.status">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <div class="wt-row-icon" :class="wt.isMainWorktree ? 'wt-row-icon--main' : 'wt-row-icon--' + wt.status">
+              <!-- Main worktree: folder-git icon -->
+              <svg v-if="wt.isMainWorktree" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="15" r="2" />
+              </svg>
+              <!-- Linked worktree: git branch icon -->
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="6" y1="3" x2="6" y2="15" />
                 <circle cx="18" cy="6" r="3" />
                 <circle cx="6" cy="18" r="3" />
@@ -632,7 +698,10 @@ watch(() => store.worktrees, () => {
 
             <!-- Branch + path -->
             <div class="wt-row-info">
-              <span class="wt-row-branch">{{ wt.branch }}</span>
+              <div class="wt-row-branch-line">
+                <span class="wt-row-branch">{{ wt.branch }}</span>
+                <span v-if="wt.isMainWorktree" class="badge badge-main">Main</span>
+              </div>
               <span class="wt-row-path" :title="wt.path">{{ wt.path }}</span>
             </div>
 
@@ -687,22 +756,25 @@ watch(() => store.worktrees, () => {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
               </button>
               <button
-                v-if="!wt.isLocked"
+                v-if="!wt.isMainWorktree && !wt.isLocked"
                 class="icon-btn"
                 title="Lock Worktree"
-                @click="openLockModal(wt)"
+                @click="handleLockInline(wt)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
               </button>
               <button
-                v-else
+                v-else-if="!wt.isMainWorktree && wt.isLocked"
                 class="icon-btn"
                 title="Unlock Worktree"
                 @click="handleUnlock(wt)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
               </button>
-              <button class="icon-btn icon-btn--danger" title="Remove" @click="confirmDelete(wt)">
+              <span v-else class="icon-btn-spacer" />
+              <button class="icon-btn icon-btn--danger" title="Remove" @click="confirmDelete(wt)"
+                v-if="!wt.isMainWorktree"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
             </div>
@@ -714,8 +786,12 @@ watch(() => store.worktrees, () => {
           <template v-if="selectedWorktree">
             <div class="detail-header">
               <div class="detail-header-left">
-                <div class="wt-row-icon" :class="'wt-row-icon--' + selectedWorktree.status">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <div class="wt-row-icon" :class="selectedWorktree.isMainWorktree ? 'wt-row-icon--main' : 'wt-row-icon--' + selectedWorktree.status">
+                  <svg v-if="selectedWorktree.isMainWorktree" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="15" r="2" />
+                  </svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="6" y1="3" x2="6" y2="15" />
                     <circle cx="18" cy="6" r="3" />
                     <circle cx="6" cy="18" r="3" />
@@ -813,22 +889,24 @@ watch(() => store.worktrees, () => {
                 View Session
               </button>
               <button
-                v-if="!selectedWorktree.isLocked"
+                v-if="!selectedWorktree.isLocked && !selectedWorktree.isMainWorktree"
                 class="btn btn-sm"
-                @click="openLockModal(selectedWorktree!)"
+                @click="handleLockInline(selectedWorktree!)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                 Lock
               </button>
               <button
-                v-else
+                v-else-if="selectedWorktree.isLocked && !selectedWorktree.isMainWorktree"
                 class="btn btn-sm"
                 @click="handleUnlock(selectedWorktree!)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
                 Unlock
               </button>
-              <button class="btn btn-sm btn-danger" @click="confirmDelete(selectedWorktree!)">
+              <button
+                v-if="!selectedWorktree.isMainWorktree"
+                class="btn btn-sm btn-danger" @click="confirmDelete(selectedWorktree!)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                 Remove
               </button>
@@ -851,6 +929,7 @@ watch(() => store.worktrees, () => {
             </div>
 
             <div class="modal-body">
+              <div v-if="store.error" class="modal-error">{{ store.error }}</div>
               <div class="form-group">
                 <label class="form-label" for="cw-repo">Repository</label>
                 <input
@@ -883,6 +962,18 @@ watch(() => store.worktrees, () => {
                 />
               </div>
 
+              <div class="form-group form-group--inline">
+                <button
+                  class="btn btn-sm"
+                  :disabled="fetchingRemote"
+                  @click="handleFetchRemote"
+                >
+                  <span v-if="fetchingRemote" class="spinner spinner--sm" />
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+                  {{ fetchingRemote ? 'Fetching…' : 'Fetch Latest from Remote' }}
+                </button>
+              </div>
+
               <div class="form-group">
                 <label class="form-label" for="cw-branch">New Branch Name</label>
                 <input
@@ -909,8 +1000,6 @@ watch(() => store.worktrees, () => {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-fg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
                 <span>A worktree lets you check out a branch in a separate directory so you can work on multiple branches simultaneously without stashing changes.</span>
               </div>
-
-              <div v-if="store.error" class="modal-error">{{ store.error }}</div>
             </div>
 
             <div class="modal-footer">
@@ -949,14 +1038,20 @@ watch(() => store.worktrees, () => {
                 <span>Force delete (even if there are uncommitted changes)</span>
               </label>
 
-              <div v-if="store.error" class="modal-error">{{ store.error }}</div>
+              <div v-if="store.error" class="modal-error">
+                {{ store.error }}
+                <div v-if="store.error.includes('Permission denied')" class="modal-error-hint">
+                  <strong>Tip:</strong> Close any editors, terminals, or file explorers that may have files open in this worktree, then try again with "Force delete" checked.
+                </div>
+              </div>
             </div>
 
             <div class="modal-footer">
-              <button class="btn btn-sm" @click="showDeleteModal = false">Cancel</button>
-              <button class="btn btn-sm btn-danger" @click="handleDelete">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                {{ forceDelete ? 'Force Remove' : 'Remove' }}
+              <button class="btn btn-sm" @click="showDeleteModal = false" :disabled="deleting">Cancel</button>
+              <button class="btn btn-sm btn-danger" @click="handleDelete" :disabled="deleting">
+                <span v-if="deleting" class="spinner spinner--sm" />
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                {{ deleting ? 'Removing…' : (forceDelete ? 'Force Remove' : 'Remove') }}
               </button>
             </div>
           </div>
@@ -964,56 +1059,15 @@ watch(() => store.worktrees, () => {
       </Transition>
     </Teleport>
 
-    <!-- ─── Lock Worktree Modal ────────────────────────────────── -->
+    <!-- ─── Toast Notification (teleported to body so it's above modals) ── -->
     <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showLockModal" class="modal-overlay" @click.self="showLockModal = false">
-          <div class="modal-dialog modal-dialog--sm" role="dialog" aria-labelledby="lock-wt-title">
-            <div class="modal-header">
-              <h2 id="lock-wt-title" class="modal-title">Lock Worktree</h2>
-              <button class="icon-btn" aria-label="Close" @click="showLockModal = false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-
-            <div class="modal-body">
-              <p class="delete-warning-text">Locking a worktree prevents it from being pruned or accidentally deleted.</p>
-              <div v-if="lockTarget" class="delete-target-box" style="border-color: var(--accent-muted); background: var(--accent-subtle);">
-                <div class="delete-target-branch">{{ lockTarget.branch }}</div>
-                <div class="delete-target-path">{{ lockTarget.path }}</div>
-              </div>
-              <div class="form-group" style="margin-top: 12px;">
-                <label class="form-label" for="lock-reason">Reason (optional)</label>
-                <input
-                  id="lock-reason"
-                  v-model="lockReason"
-                  type="text"
-                  class="form-input"
-                  placeholder="e.g. Active development, do not prune"
-                />
-              </div>
-              <div v-if="store.error" class="modal-error">{{ store.error }}</div>
-            </div>
-
-            <div class="modal-footer">
-              <button class="btn btn-sm" @click="showLockModal = false">Cancel</button>
-              <button class="btn btn-primary btn-sm" @click="handleLock">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                Lock
-              </button>
-            </div>
-          </div>
+      <Transition name="toast">
+        <div v-if="actionToast" class="toast-notification">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+          {{ actionToast }}
         </div>
       </Transition>
     </Teleport>
-
-    <!-- ─── Toast Notification ───────────────────────────────────── -->
-    <Transition name="toast">
-      <div v-if="actionToast" class="toast-notification">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-        {{ actionToast }}
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -1634,6 +1688,13 @@ watch(() => store.worktrees, () => {
   color: var(--danger-fg);
 }
 
+.icon-btn-spacer {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
 /* ─── Detail Panel ────────────────────────────────────────────── */
 .detail-panel {
   border-top: 1px solid var(--border-default);
@@ -1645,7 +1706,7 @@ watch(() => store.worktrees, () => {
 }
 
 .detail-panel--open {
-  max-height: 340px;
+  max-height: 500px;
 }
 
 .detail-header {
@@ -1985,6 +2046,20 @@ watch(() => store.worktrees, () => {
   z-index: 9999;
 }
 
+/* ─── Refresh Animation ──────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-animation {
+  animation: spin 0.8s linear infinite;
+}
+
+.btn-refreshing {
+  opacity: 0.7;
+}
+
 .toast-enter-active,
 .toast-leave-active {
   transition: opacity 0.2s, transform 0.2s;
@@ -1994,5 +2069,39 @@ watch(() => store.worktrees, () => {
 .toast-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.wt-row-icon--main {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+}
+
+.badge-main {
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-muted);
+  font-size: 0.625rem;
+  padding: 1px 6px;
+}
+
+.wt-row-branch-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-group--inline {
+  display: flex;
+  align-items: center;
+}
+
+.modal-error-hint {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  background: var(--neutral-subtle);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
 }
 </style>

@@ -66,9 +66,10 @@ The branch name is validated against git naming rules. Invalid characters are sa
 
 Locking prevents accidental deletion of a worktree:
 
-- Click the **lock icon** on any worktree row, or use the lock button in the detail panel
-- Provide an optional reason (e.g., "Active development — do not remove")
+- Click the **lock icon** on any linked worktree row to toggle lock status instantly
 - Locked worktrees show a 🔒 icon and cannot be deleted without force
+- The main worktree cannot be locked or unlocked (it cannot be removed anyway)
+- Lock/unlock icons are hidden for the main working tree to avoid confusion
 
 ### 5. Delete & Clean Up
 
@@ -84,8 +85,9 @@ Click any worktree to expand the detail panel showing:
 - Branch name and full path
 - Disk usage
 - Lock status and reason
-- **On-demand details**: Uncommitted changes count, ahead/behind remote counts
-- Quick actions: Open Folder, Open Terminal, Lock/Unlock, Launch Session Here, Delete
+- **On-demand details**: Uncommitted changes count, ahead/behind tracking for the worktree's own branch (falls back to default branch if no upstream is configured)
+- Quick actions: Open Folder, Open Terminal (PowerShell), Lock/Unlock, Launch Session Here, Delete
+- **Refresh** button in the toolbar reloads worktree data without losing your selected repo or worktree state
 
 ---
 
@@ -110,7 +112,9 @@ TracePilot will:
 
 ### Launch from Worktree Manager
 
-In the Worktree Manager, click **Launch Session Here** in any worktree's detail panel or row actions. This pre-fills the launcher with the repository path and branch.
+In the Worktree Manager, click **Launch Session Here** in any worktree's detail panel or row actions. This pre-fills the launcher with the worktree's actual path (not the repo root) and branch name.
+
+> **CLI Flags**: TracePilot uses the correct Copilot CLI flags: `--model=MODEL`, `--allow-all`, and `-p PROMPT`. The live CLI preview shows exactly what will be executed.
 
 ---
 
@@ -173,12 +177,23 @@ This means if you've used Copilot in 10 different repos, they'll all appear auto
 - Names cannot start or end with `.` or `/`
 - Names cannot contain `..` or `@{`
 
+### "A branch named 'X' already exists"
+- If the branch already exists in git, TracePilot will check it out in the new worktree instead of creating it fresh
+- If the branch is already checked out in another worktree, git will refuse to create the new worktree — you'll need a different branch name
+- The error message explains the specific reason for failure
+
 ### "Cannot delete locked worktree"
 - Unlock the worktree first, or use "Force delete" in the delete dialog
 
 ### "Stale worktree detected"
 - The worktree directory was deleted outside TracePilot
 - Use "Prune" or "Clean Stale" to remove the stale entries
+
+### "Permission denied" when deleting
+- Close any editors, terminals, or file explorers that have files open in the worktree
+- On Windows, file locks from other processes (e.g., VS Code, antivirus) can prevent deletion
+- Try closing applications, then retry the delete
+- If the error persists, delete the folder manually and use "Prune" to clean up the git metadata
 
 ### Disk usage shows 0 or —
 - Disk usage is calculated asynchronously after the worktree list loads
@@ -256,3 +271,5 @@ All worktree operations are exposed as Tauri plugin commands under `plugin:trace
 | `add_registered_repo` | Register a new repository |
 | `remove_registered_repo` | Unregister a repository |
 | `discover_repos_from_sessions` | Auto-discover repos from session history |
+| `get_default_branch` | Get the default branch for a repo |
+| `fetch_remote` | Fetch latest from remote before operations |

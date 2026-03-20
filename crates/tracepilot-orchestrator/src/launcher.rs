@@ -6,6 +6,9 @@ use crate::worktrees;
 use std::path::Path;
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 /// Resolve the copilot home directory.
 pub fn copilot_home() -> Result<std::path::PathBuf> {
     home_dir()
@@ -45,6 +48,7 @@ fn validate_model(model: &str) -> Result<()> {
 
 /// Shell-quote a path for safe interpolation into a shell command string.
 /// On Windows wraps in double-quotes; on Unix uses single-quote escaping.
+#[allow(dead_code)] // Used in macOS/Linux cfg blocks
 fn shell_quote(s: &str) -> String {
     #[cfg(windows)]
     {
@@ -107,21 +111,17 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     // Build the copilot command arguments
     let mut args: Vec<String> = Vec::new();
 
-    if config.headless {
-        args.push("--acp".to_string());
-    }
-
     if let Some(model) = &config.model {
         validate_model(model)?;
-        args.push("--model".to_string());
-        args.push(model.clone());
+        args.push(format!("--model={}", model));
+    }
+
+    if config.auto_approve {
+        args.push("--allow-all".to_string());
     }
 
     // Set environment variables
     let mut envs = config.env_vars.clone();
-    if config.auto_approve {
-        envs.insert("COPILOT_AUTO_APPROVE".to_string(), "true".to_string());
-    }
 
     if let Some(effort) = &config.reasoning_effort {
         envs.insert(
@@ -130,15 +130,39 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         );
     }
 
+    // Spawn in a new terminal window so the user can interact with the session.
+    // We do NOT pass the prompt via -p because that runs non-interactively and exits.
+    // Instead, we start an interactive session (copilot <flags>) and the user can
+    // paste the prompt if one was provided.
     let copilot_cmd = format!("copilot {}", args.join(" "));
 
-    // Spawn in a new terminal window so the user can interact with the session
     #[cfg(windows)]
     let child = {
-        Command::new("cmd")
-            .args(["/c", "start", "cmd", "/k", &copilot_cmd])
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+        // Build a PowerShell command that sets the directory and runs copilot.
+        // Use single-quote escaping for the path (double any embedded single quotes).
+        let escaped_dir = work_dir.display().to_string().replace('\'', "''");
+
+        // If a prompt was provided, copy it to the clipboard so the user can paste it.
+        let clipboard_cmd = if let Some(prompt) = &config.prompt {
+            let escaped_prompt = prompt.replace('\'', "''");
+            format!(
+                "Set-Clipboard '{}'; Write-Host '  Prompt copied to clipboard - press Ctrl+V to paste' -ForegroundColor Green; Write-Host '';",
+                escaped_prompt
+            )
+        } else {
+            String::new()
+        };
+
+        let ps_cmd = format!(
+            "Set-Location -LiteralPath '{}'; {}{}",
+            escaped_dir, clipboard_cmd, copilot_cmd
+        );
+        Command::new("powershell")
+            .args(["-NoExit", "-Command", &ps_cmd])
             .current_dir(&work_dir)
             .envs(&envs)
+            .creation_flags(CREATE_NEW_CONSOLE)
             .spawn()
             .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
     };
@@ -192,10 +216,14 @@ pub fn open_in_explorer(path: &str) -> Result<()> {
     }
 
     #[cfg(windows)]
-    Command::new("explorer")
-        .arg(path)
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open explorer: {e}")))?;
+    {
+        // Windows explorer requires backslash paths
+        let win_path = path.replace('/', "\\");
+        Command::new("explorer")
+            .arg(&win_path)
+            .spawn()
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to open explorer: {e}")))?;
+    }
 
     #[cfg(target_os = "macos")]
     Command::new("open")
@@ -220,11 +248,14 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
     }
 
     #[cfg(windows)]
-    Command::new("cmd")
-        .args(["/c", "start", "cmd", "/k", &format!("cd /d {}", shell_quote(path))])
-        .current_dir(p)
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+    {
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+        Command::new("powershell")
+            .current_dir(p)
+            .creation_flags(CREATE_NEW_CONSOLE)
+            .spawn()
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
+    }
 
     #[cfg(target_os = "macos")]
     {

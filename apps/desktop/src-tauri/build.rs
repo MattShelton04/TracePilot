@@ -42,6 +42,8 @@ fn main() {
                     "lock_worktree",
                     "unlock_worktree",
                     "get_worktree_details",
+                    "get_default_branch",
+                    "fetch_remote",
                     "list_registered_repos",
                     "add_registered_repo",
                     "remove_registered_repo",

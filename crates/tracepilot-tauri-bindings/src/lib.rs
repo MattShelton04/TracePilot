@@ -1335,6 +1335,34 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    #[tauri::command]
+    pub async fn get_default_branch(repo_path: String) -> Result<String, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::get_default_branch(
+                std::path::Path::new(&repo_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn fetch_remote(
+        repo_path: String,
+        branch: Option<String>,
+    ) -> Result<String, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::worktrees::fetch_remote(
+                std::path::Path::new(&repo_path),
+                branch.as_deref(),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     // -- Repository Registry commands --
 
     #[tauri::command]
@@ -1708,6 +1736,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::lock_worktree,
             commands::unlock_worktree,
             commands::get_worktree_details,
+            commands::get_default_branch,
+            commands::fetch_remote,
             commands::list_registered_repos,
             commands::add_registered_repo,
             commands::remove_registered_repo,

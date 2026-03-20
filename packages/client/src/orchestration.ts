@@ -89,6 +89,14 @@ export async function getWorktreeDetails(worktreePath: string): Promise<Worktree
   return invoke<WorktreeDetails>('get_worktree_details', { worktreePath });
 }
 
+export async function getDefaultBranch(repoPath: string): Promise<string> {
+  return invoke<string>('get_default_branch', { repoPath });
+}
+
+export async function fetchRemote(repoPath: string, branch?: string): Promise<string> {
+  return invoke<string>('fetch_remote', { repoPath, branch: branch ?? null });
+}
+
 // ─── Repository Registry Commands ─────────────────────────────────
 
 export async function listRegisteredRepos(): Promise<RegisteredRepo[]> {
@@ -321,6 +329,8 @@ function getMockData<T>(cmd: string): T {
 
     open_in_explorer: undefined,
     open_in_terminal: undefined,
+    get_default_branch: 'main',
+    fetch_remote: '',
 
     get_agent_definitions: [
       {

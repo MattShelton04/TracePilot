@@ -3,11 +3,13 @@ import { ref, computed, reactive, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
+const worktreeStore = useWorktreesStore();
 const route = useRoute();
 const launching = ref(false);
 let successTimer: ReturnType<typeof setTimeout> | null = null;
@@ -68,18 +70,11 @@ const launchConfig = computed<LaunchConfig>(() => ({
 
 const cliCommand = computed(() => {
   const parts = ['copilot'];
-  if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
-  if (launchConfig.value.reasoningEffort && launchConfig.value.reasoningEffort !== 'medium') {
-    parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
+  if (launchConfig.value.model) parts.push(`--model=${launchConfig.value.model}`);
+  if (launchConfig.value.autoApprove) parts.push('--allow-all');
+  if (launchConfig.value.prompt) {
+    parts.push(`\\\n  # Prompt will be copied to clipboard`);
   }
-  if (launchConfig.value.autoApprove) parts.push('--acp');
-  if (launchConfig.value.headless) parts.push('--headless');
-  if (launchConfig.value.branch) parts.push(`--branch ${launchConfig.value.branch}`);
-  if (launchConfig.value.customInstructions) {
-    parts.push(`--instructions "${launchConfig.value.customInstructions}"`);
-  }
-  if (launchConfig.value.repoPath) parts.push(`\\\n  --cwd "${launchConfig.value.repoPath}"`);
-  if (launchConfig.value.prompt) parts.push(`\\\n  "${launchConfig.value.prompt}"`);
   return parts.join(' ');
 });
 
@@ -88,22 +83,9 @@ const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
   if (launchConfig.value.model) {
     parts.push({ flag: '--model', value: launchConfig.value.model });
   }
-  if (launchConfig.value.reasoningEffort && launchConfig.value.reasoningEffort !== 'medium') {
-    parts.push({ flag: '--reasoning-effort', value: launchConfig.value.reasoningEffort });
-  }
-  if (launchConfig.value.autoApprove) parts.push({ flag: '--acp' });
-  if (launchConfig.value.headless) parts.push({ flag: '--headless' });
-  if (launchConfig.value.branch) {
-    parts.push({ flag: '--branch', value: launchConfig.value.branch });
-  }
-  if (launchConfig.value.customInstructions) {
-    parts.push({ flag: '--instructions', value: `"${launchConfig.value.customInstructions}"` });
-  }
-  if (launchConfig.value.repoPath) {
-    parts.push({ flag: '--cwd', value: `"${launchConfig.value.repoPath}"` });
-  }
+  if (launchConfig.value.autoApprove) parts.push({ flag: '--allow-all' });
   if (launchConfig.value.prompt) {
-    parts.push({ flag: '', value: `"${launchConfig.value.prompt}"` });
+    parts.push({ flag: '# prompt', value: '→ clipboard' });
   }
   return parts;
 });
@@ -287,9 +269,14 @@ async function copyCommand() {
   } catch { /* clipboard not available in some envs */ }
 }
 
-onMounted(() => {
+onMounted(async () => {
   store.initialize();
   document.addEventListener('click', closeContextMenu);
+
+  // Load registered repos for the dropdown
+  if (worktreeStore.registeredRepos.length === 0) {
+    await worktreeStore.loadRegisteredRepos();
+  }
 
   // Pre-fill from query params (e.g., navigated from Worktree Manager)
   if (route.query.repoPath) {
@@ -437,12 +424,17 @@ onUnmounted(() => {
                 <label class="form-label">Repository <span class="required">*</span></label>
                 <div class="repo-picker">
                   <select
-                    v-if="prefsStore.recentRepoPaths.length"
+                    v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
                     class="form-input form-select repo-recent"
                     @change="selectRecentRepo"
                   >
-                    <option value="">Recent repos…</option>
-                    <option v-for="p in prefsStore.recentRepoPaths" :key="p" :value="p">{{ p }}</option>
+                    <option value="">Select a repository…</option>
+                    <optgroup v-if="worktreeStore.registeredRepos.length" label="Registered Repositories">
+                      <option v-for="r in worktreeStore.registeredRepos" :key="r.path" :value="r.path">{{ r.name }} — {{ r.path }}</option>
+                    </optgroup>
+                    <optgroup v-if="prefsStore.recentRepoPaths.length" label="Recent">
+                      <option v-for="p in prefsStore.recentRepoPaths" :key="p" :value="p">{{ p }}</option>
+                    </optgroup>
                   </select>
                   <div class="repo-input-row">
                     <input
@@ -508,6 +500,7 @@ onUnmounted(() => {
               placeholder="Describe the task…"
               @input="clearTemplateSelection"
             />
+            <span class="form-hint">Prompt will be copied to your clipboard when the session launches — paste it with Ctrl+V</span>
           </div>
         </section>
 
@@ -707,7 +700,7 @@ onUnmounted(() => {
               </div>
               <div class="config-row" v-if="prompt">
                 <span class="config-key">Prompt</span>
-                <span class="config-val">{{ truncate(prompt, 40) }}</span>
+                <span class="config-val">{{ truncate(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(📋 clipboard)</span></span>
               </div>
             </div>
 

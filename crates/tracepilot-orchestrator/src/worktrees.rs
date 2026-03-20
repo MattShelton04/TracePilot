@@ -36,6 +36,36 @@ pub fn is_git_repo(path: &Path) -> bool {
             .unwrap_or(false)
 }
 
+/// Get the default branch of a repository (usually "main" or "master").
+/// Checks `init.defaultBranch` config, then falls back to HEAD of origin, then "main".
+pub fn get_default_branch(repo_path: &Path) -> Result<String> {
+    // Try symbolic-ref of origin/HEAD first (most reliable for cloned repos)
+    if let Ok(ref_str) = git(repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD"]) {
+        if let Some(branch) = ref_str.strip_prefix("refs/remotes/origin/") {
+            return Ok(branch.to_string());
+        }
+    }
+    // Fall back to the branch that HEAD points to in the main worktree
+    if let Ok(head_ref) = git(repo_path, &["symbolic-ref", "--short", "HEAD"]) {
+        if !head_ref.is_empty() {
+            return Ok(head_ref);
+        }
+    }
+    // Last resort
+    Ok("main".to_string())
+}
+
+/// Fetch the latest changes from the remote for a given branch.
+pub fn fetch_remote(repo_path: &Path, branch: Option<&str>) -> Result<String> {
+    let mut args = vec!["fetch", "origin"];
+    if let Some(b) = branch {
+        validate_branch_name(b)?;
+        args.push(b);
+    }
+    args.push("--prune");
+    git(repo_path, &args)
+}
+
 /// List all worktrees for the repo at `repo_path`.
 pub fn list_worktrees(repo_path: &Path) -> Result<Vec<WorktreeInfo>> {
     let repo_root = get_repo_root(repo_path)?;
@@ -72,16 +102,26 @@ pub fn create_worktree(request: &CreateWorktreeRequest) -> Result<WorktreeInfo> 
     let target_str = target.to_string_lossy().to_string();
     args.push(&target_str);
 
-    // If base_branch is specified, create a new branch from it
-    let new_branch_arg;
-    if let Some(base) = &request.base_branch {
-        // Validate base branch to prevent git argument injection
-        validate_branch_name(base)?;
-        args.push("-b");
-        args.push(&request.branch);
-        new_branch_arg = base.clone();
-        args.push(&new_branch_arg);
+    // Check if the branch already exists locally
+    let branch_exists = git(repo, &["rev-parse", "--verify", &format!("refs/heads/{}", &request.branch)]).is_ok();
+
+    let base_branch_owned: String;
+    if !branch_exists {
+        if let Some(base) = &request.base_branch {
+            // Validate base branch to prevent git argument injection
+            validate_branch_name(base)?;
+            // Create new branch from base
+            args.push("-b");
+            args.push(&request.branch);
+            base_branch_owned = base.clone();
+            args.push(&base_branch_owned);
+        } else {
+            // Let git create the branch (will create from HEAD)
+            args.push("-b");
+            args.push(&request.branch);
+        }
     } else {
+        // Branch already exists — just check it out in the new worktree
         args.push(&request.branch);
     }
 
@@ -213,23 +253,36 @@ pub fn get_worktree_details(worktree_path: &Path) -> Result<WorktreeDetails> {
     let status_output = git(worktree_path, &["status", "--porcelain"]).unwrap_or_default();
     let uncommitted_count = status_output.lines().filter(|l| !l.is_empty()).count();
 
-    // Ahead/behind tracking branch
-    let (ahead, behind) = match git(
-        worktree_path,
-        &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
-    ) {
-        Ok(output) => {
+    // Ahead/behind tracking: try upstream first, then fall back to origin default branch
+    let (ahead, behind) = {
+        let parse_count = |output: &str| -> (usize, usize) {
             let parts: Vec<&str> = output.split_whitespace().collect();
             if parts.len() == 2 {
-                (
-                    parts[0].parse().unwrap_or(0),
-                    parts[1].parse().unwrap_or(0),
-                )
+                (parts[0].parse().unwrap_or(0), parts[1].parse().unwrap_or(0))
             } else {
                 (0, 0)
             }
+        };
+
+        if let Ok(output) = git(
+            worktree_path,
+            &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+        ) {
+            parse_count(&output)
+        } else if let Ok(default_branch) = get_default_branch(worktree_path) {
+            // No upstream — compare against origin/default_branch
+            let remote_ref = format!("origin/{}", default_branch);
+            if let Ok(output) = git(
+                worktree_path,
+                &["rev-list", "--left-right", "--count", &format!("HEAD...{}", remote_ref)],
+            ) {
+                parse_count(&output)
+            } else {
+                (0, 0)
+            }
+        } else {
+            (0, 0)
         }
-        Err(_) => (0, 0), // No upstream configured
     };
 
     Ok(WorktreeDetails {

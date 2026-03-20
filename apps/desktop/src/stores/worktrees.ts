@@ -243,6 +243,17 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     }
   }
 
+  function hydrateDiskUsage(worktreePath: string) {
+    getWorktreeDiskUsage(worktreePath)
+      .then((bytes) => {
+        const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
+        if (idx >= 0) {
+          worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }
+
   // ─── Repository Registry Actions ──────────────────────────────────
 
   async function loadRegisteredRepos() {
@@ -337,6 +348,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     lockWorktree,
     unlockWorktree,
     fetchWorktreeDetails,
+    hydrateDiskUsage,
     // Registry actions
     loadRegisteredRepos,
     addRepo,
