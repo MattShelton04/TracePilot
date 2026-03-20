@@ -1077,9 +1077,6 @@ mod commands {
 
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-
             let escaped_cwd = effective_cwd.display().to_string().replace('\'', "''");
             let ps_cmd = format!(
                 "$host.UI.RawUI.WindowTitle = 'Copilot Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming Copilot session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
@@ -1088,22 +1085,13 @@ mod commands {
                 cmd.replace('\'', "''")
             );
 
-            // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
             let encoded = tracepilot_orchestrator::launcher::encode_powershell_command(&ps_cmd);
-            let ps_result = std::process::Command::new("powershell")
-                .args(["-NoExit", "-EncodedCommand", &encoded])
-                .current_dir(&effective_cwd)
-                .creation_flags(CREATE_NEW_CONSOLE)
-                .spawn();
-
-            if ps_result.is_err() {
-                std::process::Command::new("cmd")
-                    .args(["/k", &cmd])
-                    .current_dir(&effective_cwd)
-                    .creation_flags(CREATE_NEW_CONSOLE)
-                    .spawn()
-                    .map_err(|e| format!("Failed to open terminal: {}", e))?;
-            }
+            tracepilot_orchestrator::launcher::spawn_outside_job(
+                "powershell",
+                &["-NoExit", "-EncodedCommand", &encoded],
+                &effective_cwd,
+            )
+            .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
         #[cfg(target_os = "macos")]

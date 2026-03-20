@@ -144,6 +144,94 @@ fn shell_quote(s: &str) -> String {
     }
 }
 
+/// Spawn a process in a new console window that survives parent-app shutdown.
+///
+/// On Windows, Tauri/WebView2 places child processes in a Job Object with
+/// `KILL_ON_JOB_CLOSE`. We use a three-tier strategy to escape it:
+///
+/// 1. **`CREATE_BREAKAWAY_FROM_JOB`** — fastest, works if the Job allows breakaway.
+/// 2. **WMI `Win32_Process.Create`** — delegates creation to the WMI service process,
+///    which is outside the Job Object entirely.
+/// 3. **Plain `CREATE_NEW_CONSOLE`** — graceful degradation; terminal may die with app.
+#[cfg(windows)]
+pub fn spawn_outside_job(
+    program: &str,
+    args: &[&str],
+    work_dir: &Path,
+) -> std::result::Result<u32, OrchestratorError> {
+    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    // Strategy 1: direct spawn with breakaway flag
+    match Command::new(program)
+        .args(args)
+        .current_dir(work_dir)
+        .creation_flags(CREATE_NEW_CONSOLE | CREATE_BREAKAWAY_FROM_JOB)
+        .spawn()
+    {
+        Ok(child) => return Ok(child.id()),
+        Err(e) if e.raw_os_error() == Some(5) => {
+            tracing::debug!("CREATE_BREAKAWAY_FROM_JOB denied, falling back to WMI");
+        }
+        Err(e) => return Err(OrchestratorError::Launch(format!("Failed to spawn terminal: {e}"))),
+    }
+
+    // Strategy 2: WMI Win32_Process.Create (runs via wmiprvse.exe, outside job)
+    let cmd_line = if args.is_empty() {
+        format!("\"{}\"", program)
+    } else {
+        let quoted_args: Vec<String> = args
+            .iter()
+            .map(|a| {
+                if a.contains(' ') {
+                    format!("\"{}\"", a)
+                } else {
+                    a.to_string()
+                }
+            })
+            .collect();
+        format!("\"{}\" {}", program, quoted_args.join(" "))
+    };
+
+    let escaped_cmd = cmd_line.replace('\'', "''");
+    let escaped_dir = work_dir.display().to_string().replace('\'', "''");
+    let wmi_script = format!(
+        "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create \
+         -Arguments @{{CommandLine='{escaped_cmd}'; CurrentDirectory='{escaped_dir}'}}; \
+         if ($r.ReturnValue -ne 0) {{ throw \"WMI Create failed (code $($r.ReturnValue))\" }}; \
+         $r.ProcessId"
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &wmi_script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| OrchestratorError::Launch(format!("WMI fallback failed: {e}")))?;
+
+    if output.status.success() {
+        let pid = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(0);
+        tracing::info!("Terminal spawned via WMI (pid {pid})");
+        return Ok(pid);
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    tracing::warn!("WMI fallback failed: {stderr}");
+
+    // Strategy 3: plain CREATE_NEW_CONSOLE (terminal may die with parent)
+    tracing::warn!("All detach strategies failed; terminal may not survive app exit");
+    let child = Command::new(program)
+        .args(args)
+        .current_dir(work_dir)
+        .creation_flags(CREATE_NEW_CONSOLE)
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn terminal: {e}")))?;
+    Ok(child.id())
+}
+
 /// Launch a new Copilot CLI session in a **new terminal window**.
 ///
 /// If `create_worktree` is true and a `branch` is specified, a new git worktree
@@ -239,8 +327,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     };
 
     #[cfg(windows)]
-    let child = {
-        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+    let pid = {
         let escaped_dir = work_dir.display().to_string().replace('\'', "''");
 
         // If a prompt was provided, copy it to the clipboard so the user can paste it.
@@ -305,9 +392,21 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             String::new()
         };
 
+        // Inject env vars into the PowerShell script so they survive WMI spawning
+        let env_setup: String = envs
+            .iter()
+            .map(|(k, v)| {
+                format!(
+                    "$env:{} = '{}'; ",
+                    k,
+                    v.replace('\'', "''")
+                )
+            })
+            .collect();
+
         // Build the full PowerShell script with startup banner
         let ps_cmd = format!(
-            "$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
+            "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
             escaped_dir,
             escaped_dir,
             checkout_step,
@@ -317,31 +416,15 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
         // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
         let encoded = encode_powershell_command(&ps_cmd);
-        let ps_result = Command::new("powershell")
-            .args(["-NoExit", "-EncodedCommand", &encoded])
-            .current_dir(&work_dir)
-            .envs(&envs)
-            .creation_flags(CREATE_NEW_CONSOLE)
-            .spawn();
-
-        match ps_result {
-            Ok(child) => child,
-            Err(_) => {
-                let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
-                let cmd_str = format!("cd /d \"{}\" && {}echo Starting Copilot session... && {}", work_dir.display(), checkout_prefix, copilot_cmd);
-                Command::new("cmd")
-                    .args(["/k", &cmd_str])
-                    .current_dir(&work_dir)
-                    .envs(&envs)
-                    .creation_flags(CREATE_NEW_CONSOLE)
-                    .spawn()
-                    .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
-            }
-        }
+        spawn_outside_job(
+            "powershell",
+            &["-NoExit", "-EncodedCommand", &encoded],
+            &work_dir,
+        )?
     };
 
     #[cfg(target_os = "macos")]
-    let child = {
+    let pid = {
         let escaped_cwd = shell_quote(&work_dir.display().to_string());
         let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
         let script = format!(
@@ -352,10 +435,11 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .args(["-e", &script])
             .spawn()
             .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
+            .id()
     };
 
     #[cfg(target_os = "linux")]
-    let child = {
+    let pid = {
         let terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
         let mut result = None;
         for term in &terminals {
@@ -369,10 +453,8 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
                 break;
             }
         }
-        result.ok_or_else(|| OrchestratorError::Launch("No terminal emulator found".into()))?
+        result.ok_or_else(|| OrchestratorError::Launch("No terminal emulator found".into()))?.id()
     };
-
-    let pid = child.id();
 
     Ok(LaunchedSession {
         pid,
@@ -423,18 +505,7 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
 
     #[cfg(windows)]
     {
-        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-        let ps = Command::new("powershell")
-            .current_dir(p)
-            .creation_flags(CREATE_NEW_CONSOLE)
-            .spawn();
-        if ps.is_err() {
-            Command::new("cmd")
-                .current_dir(p)
-                .creation_flags(CREATE_NEW_CONSOLE)
-                .spawn()
-                .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
-        }
+        spawn_outside_job("powershell", &[], p)?;
     }
 
     #[cfg(target_os = "macos")]
