@@ -7,6 +7,7 @@ import type {
   TodosResponse,
   CheckpointEntry,
   ShutdownMetrics,
+  SessionIncident,
 } from "@tracepilot/types";
 import {
   getSessionDetail,
@@ -15,6 +16,7 @@ import {
   getSessionTodos,
   getSessionCheckpoints,
   getShutdownMetrics,
+  getSessionIncidents,
 } from "@tracepilot/client";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
@@ -25,6 +27,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const todos = ref<TodosResponse | null>(null);
   const checkpoints = ref<CheckpointEntry[]>([]);
   const shutdownMetrics = ref<ShutdownMetrics | null>(null);
+  const incidents = ref<SessionIncident[]>([]);
 
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -49,6 +52,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     todos.value = null;
     checkpoints.value = [];
     shutdownMetrics.value = null;
+    incidents.value = [];
 
     try {
       const result = await getSessionDetail(id);
@@ -144,6 +148,22 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
+  async function loadIncidents() {
+    const id = sessionId.value;
+    if (!id || loaded.value.has("incidents")) return;
+    const token = requestToken;
+
+    try {
+      const result = await getSessionIncidents(id);
+      if (requestToken !== token) return;
+      incidents.value = result;
+      loaded.value.add("incidents");
+    } catch (e) {
+      if (requestToken !== token) return;
+      console.warn("Failed to load incidents:", e);
+    }
+  }
+
   function reset() {
     sessionId.value = null;
     detail.value = null;
@@ -152,6 +172,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     todos.value = null;
     checkpoints.value = [];
     shutdownMetrics.value = null;
+    incidents.value = [];
     loaded.value.clear();
     loading.value = false;
     error.value = null;
@@ -233,6 +254,18 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       );
     }
 
+    if (sections.has("incidents")) {
+      promises.push(
+        getSessionIncidents(id).then((result) => {
+          if (requestToken !== token) return;
+          incidents.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.warn("Failed to refresh incidents:", e);
+        })
+      );
+    }
+
     await Promise.allSettled(promises);
   }
 
@@ -244,6 +277,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     todos,
     checkpoints,
     shutdownMetrics,
+    incidents,
     loading,
     error,
     loaded,
@@ -253,6 +287,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadTodos,
     loadCheckpoints,
     loadShutdownMetrics,
+    loadIncidents,
     reset,
     refreshAll,
   };

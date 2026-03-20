@@ -28,6 +28,10 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     updatedAt: new Date(Date.now() - 3600000).toISOString(),
     isRunning: false,
+    errorCount: 2,
+    rateLimitCount: 1,
+    compactionCount: 0,
+    truncationCount: 0,
   },
   {
     id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -610,6 +614,17 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     attentionCount: 14,
     criticalCount: 5,
   },
+  sessionsWithErrors: 3,
+  totalRateLimits: 7,
+  totalCompactions: 12,
+  totalTruncations: 2,
+  incidentsByDay: [
+    { date: "2026-03-15", errors: 1, rateLimits: 1, compactions: 2, truncations: 0 },
+    { date: "2026-03-16", errors: 0, rateLimits: 0, compactions: 3, truncations: 1 },
+    { date: "2026-03-17", errors: 2, rateLimits: 2, compactions: 1, truncations: 0 },
+    { date: "2026-03-18", errors: 0, rateLimits: 0, compactions: 4, truncations: 1 },
+    { date: "2026-03-19", errors: 1, rateLimits: 1, compactions: 2, truncations: 0 },
+  ],
 };
 
 export const MOCK_TOOL_ANALYSIS: ToolAnalysisData = {

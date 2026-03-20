@@ -42,6 +42,11 @@ pub struct AnalyticsData {
     pub productivity_metrics: ProductivityMetrics,
     pub cache_stats: CacheStats,
     pub health_distribution: HealthDistribution,
+    pub sessions_with_errors: u32,
+    pub total_rate_limits: u64,
+    pub total_compactions: u64,
+    pub total_truncations: u64,
+    pub incidents_by_day: Vec<DayIncidents>,
 }
 
 /// Token usage for a single day.
@@ -81,6 +86,17 @@ pub struct ModelDistEntry {
 pub struct DayCost {
     pub date: String,
     pub cost: f64,
+}
+
+/// Incident counts for a single day.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayIncidents {
+    pub date: String,
+    pub errors: u64,
+    pub rate_limits: u64,
+    pub compactions: u64,
+    pub truncations: u64,
 }
 
 /// API duration statistics (avg, median, p95) computed from `total_api_duration_ms`.

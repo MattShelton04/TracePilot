@@ -23,6 +23,22 @@ pub struct SessionListItem {
     pub current_model: Option<String>,
     /// Whether this session is currently running (has an `inuse.*.lock` file).
     pub is_running: bool,
+    // Incident counts (populated from index DB; None in fallback disk-scan path)
+    pub error_count: Option<usize>,
+    pub rate_limit_count: Option<usize>,
+    pub compaction_count: Option<usize>,
+    pub truncation_count: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionIncidentItem {
+    pub event_type: String,
+    pub source_event_type: String,
+    pub timestamp: Option<String>,
+    pub severity: String,
+    pub summary: String,
+    pub detail_json: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -96,8 +112,9 @@ pub struct IndexingProgressPayload {
 
 mod commands {
     use super::{
-        config, EventItem, EventsResponse, GitInfo, IndexingProgressPayload, SessionListItem,
-        SharedConfig, TodosResponse, TracePilotConfig, UpdateCheckResult, ValidateSessionDirResult,
+        config, EventItem, EventsResponse, GitInfo, IndexingProgressPayload, SessionIncidentItem,
+        SessionListItem, SharedConfig, TodosResponse, TracePilotConfig, UpdateCheckResult,
+        ValidateSessionDirResult,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -173,6 +190,10 @@ mod commands {
                 .as_ref()
                 .and_then(|metrics| metrics.current_model.clone()),
             is_running,
+            error_count: None,
+            rate_limit_count: None,
+            compaction_count: None,
+            truncation_count: None,
         }
     }
 
@@ -245,6 +266,10 @@ mod commands {
                                 turn_count: s.turn_count.map(|v| v as usize),
                                 current_model: s.current_model,
                                 is_running,
+                                error_count: s.error_count.map(|v| v as usize),
+                                rate_limit_count: s.rate_limit_count.map(|v| v as usize),
+                                compaction_count: s.compaction_count.map(|v| v as usize),
+                                truncation_count: s.truncation_count.map(|v| v as usize),
                             }
                         })
                         .collect());
@@ -313,6 +338,38 @@ mod commands {
             )
             .map_err(|e| e.to_string())?;
             tracepilot_core::summary::load_session_summary(&path).map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn get_session_incidents(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+    ) -> Result<Vec<SessionIncidentItem>, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+            let incidents = db
+                .get_session_incidents(&session_id)
+                .map_err(|e| e.to_string())?;
+            Ok(incidents
+                .into_iter()
+                .map(|i| SessionIncidentItem {
+                    event_type: i.event_type,
+                    source_event_type: i.source_event_type,
+                    timestamp: i.timestamp,
+                    severity: i.severity,
+                    summary: i.summary,
+                    detail_json: i
+                        .detail_json
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                })
+                .collect())
         })
         .await
         .map_err(|e| e.to_string())?
@@ -1492,6 +1549,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .invoke_handler(tauri::generate_handler![
             commands::list_sessions,
             commands::get_session_detail,
+            commands::get_session_incidents,
             commands::get_session_turns,
             commands::get_session_events,
             commands::get_session_todos,

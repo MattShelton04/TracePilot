@@ -14,6 +14,20 @@ export interface SessionListItem {
   currentModel?: string;
   /** Whether this session is currently running (has an `inuse.*.lock` file). */
   isRunning: boolean;
+  errorCount?: number;
+  rateLimitCount?: number;
+  compactionCount?: number;
+  truncationCount?: number;
+}
+
+/** A session incident (error, rate limit, compaction, or truncation). */
+export interface SessionIncident {
+  eventType: string;
+  sourceEventType: string;
+  timestamp?: string;
+  severity: 'error' | 'warning' | 'info';
+  summary: string;
+  detailJson?: unknown;
 }
 
 /** Full session detail from load_session_summary */
@@ -221,6 +235,17 @@ export interface AnalyticsData {
   cacheStats: CacheStats;
   /** Distribution of sessions by health score tier */
   healthDistribution: HealthDistribution;
+  sessionsWithErrors: number;
+  totalRateLimits: number;
+  totalCompactions: number;
+  totalTruncations: number;
+  incidentsByDay: Array<{
+    date: string;
+    errors: number;
+    rateLimits: number;
+    compactions: number;
+    truncations: number;
+  }>;
 }
 
 /** API duration statistics (avg, median, p95) computed from total_api_duration_ms */
@@ -550,7 +575,7 @@ export interface ReleaseManifestEntry {
   requiresReindex?: boolean;
 }
 
-export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from './known-events';
+export { TRACEPILOT_KNOWN_EVENTS, type TracePilotKnownEvent } from './known-events.js';
 
 /** Enriched indexing progress payload emitted per session during reindexing. */
 export interface IndexingProgressPayload {

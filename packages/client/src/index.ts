@@ -10,6 +10,7 @@ import type {
   HealthScoringData,
   SessionDetail,
   SessionHealth,
+  SessionIncident,
   SessionListItem,
   ShutdownMetrics,
   TodosResponse,
@@ -56,6 +57,24 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
   const mocks: Record<string, unknown> = {
     list_sessions: MOCK_SESSIONS,
     get_session_detail: getMockSessionDetail(mockSessionId),
+    get_session_incidents: [
+      {
+        eventType: 'error',
+        sourceEventType: 'session.error',
+        timestamp: '2025-01-15T10:30:00Z',
+        severity: 'error' as const,
+        summary: 'Rate limit exceeded (429)',
+        detailJson: { statusCode: 429, errorCode: 'rate_limit' },
+      },
+      {
+        eventType: 'compaction',
+        sourceEventType: 'session.compaction_complete',
+        timestamp: '2025-01-15T11:00:00Z',
+        severity: 'info' as const,
+        summary: 'Compaction: 45000 → 12000 tokens',
+        detailJson: { preCompactionTokens: 45000, postCompactionTokens: 12000 },
+      },
+    ],
     get_session_turns: MOCK_TURNS,
     get_session_events: MOCK_EVENTS,
     get_session_todos: MOCK_TODOS,
@@ -133,6 +152,10 @@ export async function listSessions(options?: {
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail> {
   return invoke<SessionDetail>('get_session_detail', { sessionId });
+}
+
+export async function getSessionIncidents(sessionId: string): Promise<SessionIncident[]> {
+  return invoke<SessionIncident[]>('get_session_incidents', { sessionId });
 }
 
 export async function getSessionTurns(sessionId: string): Promise<ConversationTurn[]> {

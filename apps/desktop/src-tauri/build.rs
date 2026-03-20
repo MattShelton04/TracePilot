@@ -6,6 +6,7 @@ fn main() {
                 .commands(&[
                     "list_sessions",
                     "get_session_detail",
+                    "get_session_incidents",
                     "get_session_turns",
                     "get_session_events",
                     "get_session_todos",
