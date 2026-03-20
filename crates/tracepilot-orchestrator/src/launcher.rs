@@ -1,7 +1,8 @@
 //! Copilot CLI session launcher.
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies};
+use crate::types::{CreateWorktreeRequest, LaunchConfig, LaunchedSession, ModelInfo, SystemDependencies};
+use crate::worktrees;
 use std::path::Path;
 use std::process::Command;
 
@@ -59,6 +60,9 @@ fn shell_quote(s: &str) -> String {
 
 /// Launch a new Copilot CLI session in a **new terminal window**.
 ///
+/// If `create_worktree` is true and a `branch` is specified, a new git worktree
+/// will be created first and used as the working directory.
+///
 /// NOTE: The returned `pid` is the PID of the **terminal wrapper process**, not
 /// the Copilot session itself. It is informational only.
 pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
@@ -69,6 +73,36 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             config.repo_path
         )));
     }
+
+    // Handle worktree creation if requested
+    let (work_dir, worktree_path) = if config.create_worktree {
+        let branch = config.branch.as_deref().ok_or_else(|| {
+            OrchestratorError::Launch(
+                "Branch is required when creating a worktree".into(),
+            )
+        })?;
+
+        let request = CreateWorktreeRequest {
+            repo_path: config.repo_path.clone(),
+            branch: branch.to_string(),
+            base_branch: config.base_branch.clone(),
+            target_dir: None,
+        };
+
+        match worktrees::create_worktree(&request) {
+            Ok(wt) => {
+                let wt_path = wt.path.clone();
+                (std::path::PathBuf::from(&wt.path), Some(wt_path))
+            }
+            Err(e) => {
+                return Err(OrchestratorError::Launch(format!(
+                    "Failed to create worktree: {e}"
+                )));
+            }
+        }
+    } else {
+        (repo.to_path_buf(), None)
+    };
 
     // Build the copilot command arguments
     let mut args: Vec<String> = Vec::new();
@@ -83,7 +117,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         args.push(model.clone());
     }
 
-    // Set COPILOT_AUTO_APPROVE for auto-approve mode
+    // Set environment variables
     let mut envs = config.env_vars.clone();
     if config.auto_approve {
         envs.insert("COPILOT_AUTO_APPROVE".to_string(), "true".to_string());
@@ -103,7 +137,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     let child = {
         Command::new("cmd")
             .args(["/c", "start", "cmd", "/k", &copilot_cmd])
-            .current_dir(repo)
+            .current_dir(&work_dir)
             .envs(&envs)
             .spawn()
             .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
@@ -111,7 +145,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     #[cfg(target_os = "macos")]
     let child = {
-        let escaped_cwd = shell_quote(&repo.display().to_string());
+        let escaped_cwd = shell_quote(&work_dir.display().to_string());
         let script = format!(
             "tell app \"Terminal\" to do script \"cd {} && {}\"",
             escaped_cwd, copilot_cmd
@@ -129,7 +163,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         for term in &terminals {
             if let Ok(c) = Command::new(term)
                 .args(["-e", &copilot_cmd])
-                .current_dir(repo)
+                .current_dir(&work_dir)
                 .envs(&envs)
                 .spawn()
             {
@@ -144,7 +178,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     Ok(LaunchedSession {
         pid,
-        worktree_path: None,
+        worktree_path,
         command: copilot_cmd,
         launched_at: chrono::Utc::now().to_rfc3339(),
     })

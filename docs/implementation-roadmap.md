@@ -155,50 +155,72 @@ Every feature is routed through one of these technology paths:
 
 ## Detailed Implementation: Phase 1
 
-### 1.1 Git Worktree Manager
+### 1.1 Git Worktree Manager ✅ IMPLEMENTED
 
 **Technology**: Pure Rust + `git` CLI commands (no SDK needed)
 
-**New Rust module**: `crates/tracepilot-orchestrator/src/worktrees.rs`
+**Rust modules**:
+- `crates/tracepilot-orchestrator/src/worktrees.rs` — Core worktree operations
+- `crates/tracepilot-orchestrator/src/repo_registry.rs` — Repository registry with JSON persistence
 
 ```
-Functions needed:
-├── list_worktrees(repo_path) → Vec<Worktree>
-│   └── Parses `git worktree list --porcelain`
-├── create_worktree(repo_path, branch, target_dir) → Result<Worktree>
-│   └── Runs `git worktree add <path> -b <branch>` or `git worktree add <path> <existing-branch>`
-├── remove_worktree(worktree_path) → Result<()>
-│   └── Runs `git worktree remove <path>` (checks no active session first)
+Implemented functions:
+├── list_worktrees(repo_path) → Vec<WorktreeInfo>
+│   └── Parses `git worktree list --porcelain` with locked status detection
+├── create_worktree(request) → Result<WorktreeInfo>
+│   └── Creates worktree, validates branch name, verifies creation via re-list
+├── remove_worktree(repo_path, worktree_path, force) → Result<()>
+│   └── Supports force deletion for uncommitted changes
 ├── prune_worktrees(repo_path) → Result<PruneResult>
-│   └── Runs `git worktree prune`
+│   └── Before/after comparison for reliable prune counting
 ├── get_disk_usage(path) → u64
-│   └── Recursive directory size calculation
-└── link_session_to_worktree(session_id, worktree_path) → Result<()>
-    └── Metadata association stored in TracePilot config
+│   └── Fully recursive via walkdir crate
+├── lock_worktree(repo_path, worktree_path, reason) → Result<()>
+├── unlock_worktree(repo_path, worktree_path) → Result<()>
+├── get_worktree_details(repo_path, worktree_path) → WorktreeDetails
+│   └── On-demand: uncommitted count, ahead/behind remote
+├── get_repo_root(path) → String
+│   └── Resolves any path to canonical git root
+├── is_git_repo(path) → bool
+├── validate_branch_name(name) → bool
+├── list_branches(repo_path) → Vec<String>
+│   └── Local + remote branches, deduplicated and sorted
+├── list_registered_repos() → Vec<RegisteredRepo>
+├── add_repo(path) → RegisteredRepo
+├── remove_repo(path) → ()
+└── discover_repos_from_sessions(cwds) → Vec<RegisteredRepo>
+    └── Resolves session CWDs to git roots, deduplicates, registers new repos
 ```
 
-**Tauri commands** (in `tracepilot-tauri-bindings`):
-- `list_worktrees(repo_path: String) → Vec<WorktreeInfo>`
-- `create_worktree(repo_path: String, branch: String, target_dir: Option<String>) → WorktreeInfo`
-- `remove_worktree(worktree_path: String) → ()`
-- `prune_worktrees(repo_path: String) → PruneResult`
+**Tauri commands** (14 total in `tracepilot-tauri-bindings`):
+- `list_worktrees`, `create_worktree`, `remove_worktree`, `prune_worktrees`
+- `list_branches`, `get_worktree_disk_usage`
+- `lock_worktree`, `unlock_worktree`, `get_worktree_details`, `is_git_repo`
+- `list_registered_repos`, `add_registered_repo`, `remove_registered_repo`, `discover_repos_from_sessions`
 
-**Vue page**: `apps/desktop/src/views/WorktreeManagerView.vue`
-- Lists worktrees with session associations
-- Create dialog (repo picker → branch name → optional custom path)
-- Disk usage bars
-- Cleanup actions (remove, prune stale)
-- Link to associated session detail if active
+**Vue page**: `apps/desktop/src/views/orchestration/WorktreeManagerView.vue`
+- Repository registry sidebar with add/remove/discover
+- Sortable worktree table with lock status indicators
+- On-demand detail panel (uncommitted changes, ahead/behind)
+- Create/delete modals with force-delete and branch validation
+- Session navigation and "Launch Session Here" integration
+- Disk usage monitoring and stale worktree cleanup
+
+**Pinia store**: `apps/desktop/src/stores/worktrees.ts`
+- Full CRUD + registry + lock/unlock + sort + multi-repo support
 
 **Router**: `/orchestration/worktrees`
 
 ---
 
-### 1.2 Session Launcher
+### 1.2 Session Launcher (✅ Worktree integration complete)
 
 **Technology**: Rust process spawning (`std::process::Command`) + git CLI for branch listing
 
-**New Rust module**: `crates/tracepilot-orchestrator/src/launcher.rs`
+**Rust module**: `crates/tracepilot-orchestrator/src/launcher.rs`
+- When `create_worktree = true` and `branch` is set, creates a worktree first then launches inside it
+- `base_branch` field allows specifying which branch to base the new worktree on
+- Returns `worktree_path` in `LaunchedSession` on success
 
 ```
 Functions needed:

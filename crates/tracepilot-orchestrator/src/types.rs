@@ -15,8 +15,11 @@ pub struct WorktreeInfo {
     pub is_bare: bool,
     pub disk_usage_bytes: Option<u64>,
     pub status: WorktreeStatus,
+    pub is_locked: bool,
+    pub locked_reason: Option<String>,
     pub linked_session_id: Option<String>,
     pub created_at: Option<String>,
+    pub repo_root: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -24,7 +27,15 @@ pub struct WorktreeInfo {
 pub enum WorktreeStatus {
     Active,
     Stale,
-    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeDetails {
+    pub path: String,
+    pub uncommitted_count: usize,
+    pub ahead: usize,
+    pub behind: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +54,25 @@ pub struct PruneResult {
     pub messages: Vec<String>,
 }
 
+// ─── Repository Registry Types ────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisteredRepo {
+    pub path: String,
+    pub name: String,
+    pub added_at: String,
+    pub last_used_at: Option<String>,
+    pub source: RepoSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum RepoSource {
+    Manual,
+    SessionDiscovery,
+}
+
 // ─── Launcher Types ───────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +80,7 @@ pub struct PruneResult {
 pub struct LaunchConfig {
     pub repo_path: String,
     pub branch: Option<String>,
+    pub base_branch: Option<String>,
     pub model: Option<String>,
     pub prompt: Option<String>,
     pub headless: bool,

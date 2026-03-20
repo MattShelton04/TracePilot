@@ -11,9 +11,19 @@ export interface WorktreeInfo {
   isMainWorktree: boolean;
   isBare: boolean;
   diskUsageBytes?: number;
-  status: 'active' | 'stale' | 'completed';
+  status: 'active' | 'stale';
+  isLocked: boolean;
+  lockedReason?: string;
   linkedSessionId?: string;
   createdAt?: string;
+  repoRoot: string;
+}
+
+export interface WorktreeDetails {
+  path: string;
+  uncommittedCount: number;
+  ahead: number;
+  behind: number;
 }
 
 export interface CreateWorktreeRequest {
@@ -28,11 +38,22 @@ export interface PruneResult {
   messages: string[];
 }
 
+// ─── Repository Registry Types ────────────────────────────────────
+
+export interface RegisteredRepo {
+  path: string;
+  name: string;
+  addedAt: string;
+  lastUsedAt?: string;
+  source: 'manual' | 'session-discovery';
+}
+
 // ─── Launcher Types ───────────────────────────────────────────────
 
 export interface LaunchConfig {
   repoPath: string;
   branch?: string;
+  baseBranch?: string;
   model?: string;
   prompt?: string;
   headless: boolean;

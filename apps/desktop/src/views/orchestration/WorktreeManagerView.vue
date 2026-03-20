@@ -1,30 +1,49 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import type { CreateWorktreeRequest, WorktreeInfo } from '@tracepilot/types';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
 import { openInExplorer, openInTerminal } from '@tracepilot/client';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 
+const router = useRouter();
 const store = useWorktreesStore();
 const prefsStore = usePreferencesStore();
 
 /* ─── Local State ─────────────────────────────────────────────── */
-const repoPathInput = ref('');
 const loaded = ref(false);
 const searchQuery = ref('');
 const selectedWorktree = ref<WorktreeInfo | null>(null);
+const selectedRepoPath = ref<string | null>(null);
 const showCreateModal = ref(false);
 const showDeleteModal = ref(false);
 const deleteTarget = ref<WorktreeInfo | null>(null);
+const forceDelete = ref(false);
 const pruneMessage = ref<string | null>(null);
-const selectedSidebarItem = ref<'all' | string>('all');
-const linkSessionToast = ref<string | null>(null);
+const cleaningStale = ref(false);
+const actionToast = ref<string | null>(null);
+const worktreeDetails = ref<WorktreeDetails | null>(null);
+const detailsLoading = ref(false);
 
 // Create form state
 const newBranch = ref('');
 const newBaseBranch = ref('');
 const newTargetDir = ref('');
+
+// Lock form
+const lockReason = ref('');
+const showLockModal = ref(false);
+const lockTarget = ref<WorktreeInfo | null>(null);
+
+/* ─── Lifecycle ───────────────────────────────────────────────── */
+onMounted(async () => {
+  await store.loadRegisteredRepos();
+  if (store.registeredRepos.length > 0) {
+    loaded.value = true;
+    await store.loadAllWorktrees();
+  }
+});
 
 /* ─── Computed ────────────────────────────────────────────────── */
 const totalDiskUsage = computed(() =>
@@ -37,53 +56,28 @@ const staleDiskUsage = computed(() =>
     .reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
 );
 
-const activeCount = computed(() =>
-  store.worktrees.filter((w) => w.status === 'active').length,
-);
-
-const staleCount = computed(() =>
-  store.worktrees.filter((w) => w.status === 'stale').length,
-);
-
 const staleWorktrees = computed(() =>
   store.worktrees.filter((w) => w.status === 'stale'),
 );
 
-const diskUsagePercent = computed(() => {
-  const max = Math.max(totalDiskUsage.value, 1);
-  const used = totalDiskUsage.value - staleDiskUsage.value;
-  return Math.min(100, Math.round((used / max) * 100));
-});
-
-const uniqueRepos = computed(() => {
-  const repos = new Set<string>();
-  for (const wt of store.worktrees) {
-    const parts = wt.path.replace(/\\/g, '/').split('/');
-    const repoName = parts[parts.length - 2] || parts[parts.length - 1] || wt.path;
-    repos.add(repoName);
-  }
-  return [...repos];
-});
+const maxWorktreeDisk = computed(() =>
+  Math.max(...store.worktrees.map((w) => w.diskUsageBytes ?? 0), 1),
+);
 
 const worktreeCountByRepo = computed(() => {
   const counts = new Map<string, number>();
   for (const wt of store.worktrees) {
-    const parts = wt.path.replace(/\\/g, '/').split('/');
-    const repoName = parts[parts.length - 2] || parts[parts.length - 1] || wt.path;
-    counts.set(repoName, (counts.get(repoName) ?? 0) + 1);
+    const key = wt.repoRoot;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
 });
 
 const filteredWorktrees = computed(() => {
-  let list = store.worktrees;
+  let list = store.sortedWorktrees;
 
-  // Filter by sidebar selection (repo)
-  if (selectedSidebarItem.value !== 'all') {
-    list = list.filter((w) => {
-      const repoName = w.path.replace(/\\/g, '/').split('/').slice(-2, -1)[0] ?? '';
-      return repoName === selectedSidebarItem.value;
-    });
+  if (selectedRepoPath.value) {
+    list = list.filter((w) => w.repoRoot === selectedRepoPath.value);
   }
 
   if (searchQuery.value.trim()) {
@@ -100,7 +94,9 @@ const filteredWorktrees = computed(() => {
 
 const computedWorktreePath = computed(() => {
   if (!newBranch.value.trim()) return '';
-  const base = store.currentRepoPath.replace(/\\/g, '/').replace(/\/$/, '');
+  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  if (!repoPath) return '';
+  const base = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
   const parent = base.split('/').slice(0, -1).join('/');
   const sanitized = newBranch.value.trim().replace(/\//g, '-');
   return `${parent}/${sanitized}`;
@@ -132,47 +128,123 @@ function formatRelativeTime(iso?: string): string {
 }
 
 function diskBarPercent(wt: WorktreeInfo): number {
-  if (!wt.diskUsageBytes || !totalDiskUsage.value) return 0;
-  return Math.min(100, Math.round((wt.diskUsageBytes / totalDiskUsage.value) * 100));
+  if (!wt.diskUsageBytes) return 0;
+  return Math.min(100, Math.round((wt.diskUsageBytes / maxWorktreeDisk.value) * 100));
 }
 
 function diskBarColor(wt: WorktreeInfo): string {
   const pct = diskBarPercent(wt);
-  if (pct < 30) return 'var(--success-fg)';
-  if (pct < 70) return 'var(--accent-fg)';
+  if (pct < 40) return 'var(--success-fg)';
+  if (pct < 75) return 'var(--accent-fg)';
   return 'var(--warning-fg)';
 }
 
-/* ─── Actions ─────────────────────────────────────────────────── */
-async function handleLoad() {
-  const path = repoPathInput.value.trim();
-  if (!path) return;
-  pruneMessage.value = null;
-  selectedWorktree.value = null;
-  try {
-    await Promise.all([store.loadWorktrees(path), store.loadBranches(path)]);
-    loaded.value = true;
-    prefsStore.addRecentRepoPath(path);
-  } catch {
-    // loaded stays false so error UI is shown
+function showToast(message: string, duration = 3000) {
+  actionToast.value = message;
+  setTimeout(() => { actionToast.value = null; }, duration);
+}
+
+function sortIcon(field: 'branch' | 'status' | 'createdAt' | 'diskUsageBytes'): string {
+  if (store.sortBy !== field) return '';
+  return store.sortDirection === 'asc' ? '↑' : '↓';
+}
+
+/* ─── Repo Registry Actions ──────────────────────────────────── */
+async function handleAddRepo() {
+  const selected = await browseForDirectory({ title: 'Select Git Repository' });
+  if (selected) {
+    const result = await store.addRepo(selected);
+    if (result) {
+      showToast(`Added ${result.name}`);
+      loaded.value = true;
+      await store.loadAllWorktrees();
+    } else if (store.error) {
+      showToast(store.error);
+    }
   }
 }
 
-function selectWorktree(wt: WorktreeInfo) {
-  selectedWorktree.value = selectedWorktree.value?.path === wt.path ? null : wt;
+async function handleRemoveRepo(path: string) {
+  const ok = await store.removeRepo(path);
+  if (ok) {
+    if (selectedRepoPath.value === path) {
+      selectedRepoPath.value = null;
+    }
+    showToast('Repository removed');
+  }
+}
+
+async function handleDiscoverRepos() {
+  const found = await store.discoverRepos();
+  if (found.length > 0) {
+    loaded.value = true;
+    showToast(`Discovered ${found.length} repo${found.length > 1 ? 's' : ''}`);
+    await store.loadAllWorktrees();
+  } else {
+    showToast('No new repositories discovered');
+  }
+}
+
+async function handleSelectRepo(repoPath: string | null) {
+  selectedRepoPath.value = repoPath;
+  selectedWorktree.value = null;
+  worktreeDetails.value = null;
+
+  if (repoPath) {
+    store.currentRepoPath = repoPath;
+    // Load branches for the selected repo (for create modal)
+    store.loadBranches(repoPath);
+  } else {
+    store.currentRepoPath = '';
+  }
+  // Always load ALL worktrees so sidebar counts remain correct.
+  // filteredWorktrees handles per-repo filtering in the view.
+  await store.loadAllWorktrees();
+}
+
+/* ─── Worktree Actions ────────────────────────────────────────── */
+async function handleLoad() {
+  store.error = null;
+  pruneMessage.value = null;
+  selectedWorktree.value = null;
+  worktreeDetails.value = null;
+  loaded.value = true;
+  await store.loadAllWorktrees();
+}
+
+async function selectWorktree(wt: WorktreeInfo) {
+  if (selectedWorktree.value?.path === wt.path) {
+    selectedWorktree.value = null;
+    worktreeDetails.value = null;
+    return;
+  }
+  selectedWorktree.value = wt;
+  worktreeDetails.value = null;
+  detailsLoading.value = true;
+  try {
+    worktreeDetails.value = await store.fetchWorktreeDetails(wt.path);
+  } finally {
+    detailsLoading.value = false;
+  }
 }
 
 function openCreateModal() {
   newBranch.value = '';
   newBaseBranch.value = '';
   newTargetDir.value = '';
+  if (selectedRepoPath.value) {
+    store.currentRepoPath = selectedRepoPath.value;
+  }
   showCreateModal.value = true;
 }
 
 async function handleCreate() {
   if (!newBranch.value.trim()) return;
+  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  if (!repoPath) return;
+
   const request: CreateWorktreeRequest = {
-    repoPath: store.currentRepoPath,
+    repoPath,
     branch: newBranch.value.trim(),
     baseBranch: newBaseBranch.value.trim() || undefined,
     targetDir: newTargetDir.value.trim() || undefined,
@@ -180,20 +252,27 @@ async function handleCreate() {
   const result = await store.addWorktree(request);
   if (result) {
     showCreateModal.value = false;
+    prefsStore.addRecentRepoPath(repoPath);
   }
 }
 
 function confirmDelete(wt: WorktreeInfo) {
   deleteTarget.value = wt;
+  forceDelete.value = false;
   showDeleteModal.value = true;
 }
 
 async function handleDelete() {
   if (!deleteTarget.value) return;
-  const ok = await store.deleteWorktree(deleteTarget.value.path);
+  const ok = await store.deleteWorktree(
+    deleteTarget.value.path,
+    forceDelete.value,
+    deleteTarget.value.repoRoot,
+  );
   if (ok) {
     if (selectedWorktree.value?.path === deleteTarget.value.path) {
       selectedWorktree.value = null;
+      worktreeDetails.value = null;
     }
     showDeleteModal.value = false;
     deleteTarget.value = null;
@@ -202,49 +281,87 @@ async function handleDelete() {
 
 async function handlePrune() {
   pruneMessage.value = null;
-  const result = await store.prune();
-  if (result) {
+  if (selectedRepoPath.value) {
+    // Prune a specific repo
+    const result = await store.prune(selectedRepoPath.value);
+    if (result) {
+      pruneMessage.value =
+        result.prunedCount > 0
+          ? `Pruned ${result.prunedCount} stale worktree(s).`
+          : 'Nothing to prune — all worktrees are clean.';
+    }
+  } else {
+    // Prune all registered repos
+    let totalPruned = 0;
+    for (const repo of store.registeredRepos) {
+      const result = await store.prune(repo.path);
+      if (result) totalPruned += result.prunedCount;
+    }
     pruneMessage.value =
-      result.prunedCount > 0
-        ? `Pruned ${result.prunedCount} stale worktree(s).`
+      totalPruned > 0
+        ? `Pruned ${totalPruned} stale worktree(s) across all repos.`
         : 'Nothing to prune — all worktrees are clean.';
   }
 }
 
 async function handleCleanStale() {
-  for (const wt of staleWorktrees.value) {
-    await store.deleteWorktree(wt.path, true);
-  }
-  selectedWorktree.value = null;
-}
-
-async function handleBrowse() {
-  const selected = await browseForDirectory({ title: 'Select Git Repository' });
-  if (selected) {
-    repoPathInput.value = selected;
-  }
-}
-
-function handleSelectRecentRepo(event: Event) {
-  const value = (event.target as HTMLSelectElement).value;
-  if (value) {
-    repoPathInput.value = value;
+  cleaningStale.value = true;
+  try {
+    for (const wt of staleWorktrees.value) {
+      await store.deleteWorktree(wt.path, true, wt.repoRoot);
+    }
+    selectedWorktree.value = null;
+    worktreeDetails.value = null;
+  } finally {
+    cleaningStale.value = false;
   }
 }
 
-function showLinkSessionToast() {
-  linkSessionToast.value = 'Session linking coming in Phase 2';
-  setTimeout(() => { linkSessionToast.value = null; }, 3000);
+/* ─── Lock/Unlock ────────────────────────────────────────────── */
+function openLockModal(wt: WorktreeInfo) {
+  lockTarget.value = wt;
+  lockReason.value = '';
+  showLockModal.value = true;
 }
 
-const actionToast = ref<string | null>(null);
+async function handleLock() {
+  if (!lockTarget.value) return;
+  const ok = await store.lockWorktree(
+    lockTarget.value.path,
+    lockReason.value.trim() || undefined,
+    lockTarget.value.repoRoot,
+  );
+  if (ok) {
+    showLockModal.value = false;
+    showToast('Worktree locked');
+  }
+}
 
+async function handleUnlock(wt: WorktreeInfo) {
+  const ok = await store.unlockWorktree(wt.path, wt.repoRoot);
+  if (ok) {
+    showToast('Worktree unlocked');
+  }
+}
+
+/* ─── Navigation ──────────────────────────────────────────────── */
+function navigateToSession(sessionId: string) {
+  router.push({ name: 'session-overview', params: { id: sessionId } });
+}
+
+function navigateToLauncher(wt: WorktreeInfo) {
+  router.push({
+    path: '/orchestration/launcher',
+    query: { repoPath: wt.repoRoot, branch: wt.branch },
+  });
+}
+
+/* ─── External Actions ────────────────────────────────────────── */
 async function handleOpenExplorer(path: string) {
   try {
     await openInExplorer(path);
   } catch (e) {
-    actionToast.value = `Failed to open folder: ${e}`;
-    setTimeout(() => { actionToast.value = null; }, 3000);
+    showToast(`Failed to open folder: ${e}`);
   }
 }
 
@@ -252,16 +369,20 @@ async function handleOpenTerminal(path: string) {
   try {
     await openInTerminal(path);
   } catch (e) {
-    actionToast.value = `Failed to open terminal: ${e}`;
-    setTimeout(() => { actionToast.value = null; }, 3000);
+    showToast(`Failed to open terminal: ${e}`);
   }
 }
 
+/* ─── Watchers ────────────────────────────────────────────────── */
 watch(() => store.worktrees, () => {
   if (selectedWorktree.value) {
     const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
-    if (!still) selectedWorktree.value = null;
-    else selectedWorktree.value = still;
+    if (!still) {
+      selectedWorktree.value = null;
+      worktreeDetails.value = null;
+    } else {
+      selectedWorktree.value = still;
+    }
   }
 });
 </script>
@@ -272,61 +393,38 @@ watch(() => store.worktrees, () => {
     <aside class="left-panel">
       <div class="left-header">Repositories</div>
 
-      <!-- Repo path input -->
-      <div class="repo-input-area">
-        <select
-          class="form-input form-input--sm repo-select"
-          @change="handleSelectRecentRepo"
-        >
-          <option value="">Select recent repo…</option>
-          <option
-            v-for="rp in prefsStore.recentRepoPaths"
-            :key="rp"
-            :value="rp"
-          >{{ rp }}</option>
-        </select>
-        <div class="repo-input-row">
-          <input
-            v-model="repoPathInput"
-            type="text"
-            class="form-input form-input--sm"
-            placeholder="Enter repo path…"
-            @keydown.enter="handleLoad"
-          />
-          <button
-            class="btn btn-sm"
-            title="Browse for directory"
-            @click="handleBrowse"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-          </button>
-          <button
-            class="btn btn-primary btn-sm"
-            :disabled="!repoPathInput.trim() || store.loading"
-            @click="handleLoad"
-          >
-            {{ store.loading ? '…' : 'Load' }}
-          </button>
-        </div>
+      <!-- Repo actions -->
+      <div class="repo-actions">
+        <button class="btn btn-primary btn-sm repo-action-btn" @click="handleAddRepo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          Add Repository
+        </button>
+        <button class="btn btn-sm repo-action-btn" @click="handleDiscoverRepos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          Discover from Sessions
+        </button>
       </div>
 
       <!-- Repo tree -->
       <div class="repo-tree">
-        <template v-if="loaded && store.worktrees.length">
+        <template v-if="store.registeredRepos.length">
+          <!-- All worktrees item -->
           <div
             class="tree-item"
-            :class="{ 'tree-item--active': selectedSidebarItem === 'all' }"
-            @click="selectedSidebarItem = 'all'"
+            :class="{ 'tree-item--active': selectedRepoPath === null }"
+            @click="handleSelectRepo(null)"
           >
             <span class="tree-item-label">All Worktrees</span>
             <span class="tree-count-badge">{{ store.worktreeCount }}</span>
           </div>
+
+          <!-- Each registered repo -->
           <div
-            v-for="repo in uniqueRepos"
-            :key="repo"
+            v-for="repo in store.registeredRepos"
+            :key="repo.path"
             class="tree-item"
-            :class="{ 'tree-item--active': selectedSidebarItem === repo }"
-            @click="selectedSidebarItem = repo"
+            :class="{ 'tree-item--active': selectedRepoPath === repo.path }"
+            @click="handleSelectRepo(repo.path)"
           >
             <svg class="tree-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="6" y1="3" x2="6" y2="15" />
@@ -334,23 +432,48 @@ watch(() => store.worktrees, () => {
               <circle cx="6" cy="18" r="3" />
               <path d="M18 9a9 9 0 0 1-9 9" />
             </svg>
-            <span class="tree-item-label">{{ repo }}</span>
-            <span class="tree-count-badge">{{ worktreeCountByRepo.get(repo) ?? 0 }}</span>
+            <span class="tree-item-label" :title="repo.path">{{ repo.name }}</span>
+            <span class="tree-count-badge">{{ worktreeCountByRepo.get(repo.path) ?? 0 }}</span>
+            <button
+              class="tree-remove-btn"
+              title="Remove repository"
+              @click.stop="handleRemoveRepo(repo.path)"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
           </div>
         </template>
-        <div v-else-if="!loaded" class="tree-empty">
+
+        <div v-else-if="!store.reposLoading" class="tree-empty">
           <svg class="tree-empty-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           </svg>
-          <span>Load a repository to begin</span>
+          <span>Add a repository to begin</span>
+        </div>
+
+        <div v-if="store.reposLoading" class="tree-empty">
+          <span class="spinner spinner--sm" />
+          <span>Loading repos…</span>
         </div>
       </div>
 
       <!-- Disk summary -->
-      <div v-if="loaded" class="disk-summary">
+      <div v-if="loaded && store.worktrees.length" class="disk-summary">
         <div class="disk-summary-row">
           <span class="disk-summary-label">Total Worktrees</span>
           <span class="disk-summary-value">{{ store.worktreeCount }}</span>
+        </div>
+        <div class="disk-summary-row">
+          <span class="disk-summary-label">Active</span>
+          <span class="disk-summary-value">{{ store.activeCount }}</span>
+        </div>
+        <div class="disk-summary-row">
+          <span class="disk-summary-label">Stale</span>
+          <span class="disk-summary-value disk-summary-value--stale">{{ store.staleCount }}</span>
+        </div>
+        <div class="disk-summary-row">
+          <span class="disk-summary-label">Locked</span>
+          <span class="disk-summary-value">{{ store.lockedCount }}</span>
         </div>
         <div class="disk-summary-row">
           <span class="disk-summary-label">Disk Usage</span>
@@ -359,9 +482,6 @@ watch(() => store.worktrees, () => {
         <div class="disk-summary-row">
           <span class="disk-summary-label">Reclaimable</span>
           <span class="disk-summary-value disk-summary-value--stale">{{ formatBytes(staleDiskUsage) }}</span>
-        </div>
-        <div class="disk-progress-track">
-          <div class="disk-progress-fill" :style="{ width: diskUsagePercent + '%' }" />
         </div>
       </div>
     </aside>
@@ -382,6 +502,7 @@ watch(() => store.worktrees, () => {
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
         <span class="empty-state-text">{{ store.error }}</span>
+        <button class="btn btn-sm" @click="handleLoad">Retry</button>
       </div>
 
       <!-- Not loaded -->
@@ -392,8 +513,8 @@ watch(() => store.worktrees, () => {
           <circle cx="6" cy="18" r="3" />
           <path d="M18 9a9 9 0 0 1-9 9" />
         </svg>
-        <span class="empty-state-title">No Repository Loaded</span>
-        <span class="empty-state-text">Enter a repository path and click <strong>Load</strong> to get started.</span>
+        <span class="empty-state-title">No Repositories Registered</span>
+        <span class="empty-state-text">Click <strong>Add Repository</strong> or <strong>Discover from Sessions</strong> in the sidebar to get started.</span>
       </div>
 
       <!-- Main content -->
@@ -404,9 +525,14 @@ watch(() => store.worktrees, () => {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             Create Worktree
           </button>
-          <button class="btn btn-sm" :disabled="staleCount === 0" @click="handleCleanStale">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
-            Clean Stale
+          <button
+            class="btn btn-sm"
+            :disabled="store.staleCount === 0 || cleaningStale"
+            @click="handleCleanStale"
+          >
+            <span v-if="cleaningStale" class="spinner spinner--sm" />
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+            {{ cleaningStale ? 'Cleaning…' : 'Clean Stale' }}
           </button>
           <button class="btn btn-sm" @click="handlePrune">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
@@ -427,8 +553,12 @@ watch(() => store.worktrees, () => {
 
           <div class="toolbar-summary">
             <span class="summary-item">Total: <strong>{{ store.worktreeCount }}</strong></span>
-            <span class="summary-item summary-item--success">Active: <strong>{{ activeCount }}</strong></span>
-            <span class="summary-item summary-item--warning">Stale: <strong>{{ staleCount }}</strong></span>
+            <span class="summary-item summary-item--success">Active: <strong>{{ store.activeCount }}</strong></span>
+            <span class="summary-item summary-item--warning">Stale: <strong>{{ store.staleCount }}</strong></span>
+            <span class="summary-item">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <strong>{{ store.lockedCount }}</strong>
+            </span>
             <span class="summary-item">Disk: <strong>{{ formatBytes(totalDiskUsage) }}</strong></span>
           </div>
         </div>
@@ -440,24 +570,36 @@ watch(() => store.worktrees, () => {
         </div>
 
         <!-- Stale warning banner -->
-        <div v-if="staleCount > 0" class="stale-banner">
+        <div v-if="store.staleCount > 0" class="stale-banner">
           <svg class="stale-banner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          <span><strong>{{ staleCount }} stale worktree{{ staleCount > 1 ? 's' : '' }}</strong> — {{ formatBytes(staleDiskUsage) }} reclaimable</span>
-          <button class="btn btn-sm stale-banner-btn" @click="handleCleanStale">Clean Now</button>
+          <span><strong>{{ store.staleCount }} stale worktree{{ store.staleCount > 1 ? 's' : '' }}</strong> — {{ formatBytes(staleDiskUsage) }} reclaimable</span>
+          <button
+            class="btn btn-sm stale-banner-btn"
+            :disabled="cleaningStale"
+            @click="handleCleanStale"
+          >{{ cleaningStale ? 'Cleaning…' : 'Clean Now' }}</button>
         </div>
 
-        <!-- Column headers -->
+        <!-- Column headers (sortable) -->
         <div class="col-headers">
           <span />
-          <span>Path / Branch</span>
+          <span class="col-header-sortable" @click="store.setSortBy('branch')">
+            Path / Branch {{ sortIcon('branch') }}
+          </span>
           <span>Session</span>
-          <span>Disk</span>
-          <span>Status</span>
-          <span>Created</span>
+          <span class="col-header-sortable" @click="store.setSortBy('diskUsageBytes')">
+            Disk {{ sortIcon('diskUsageBytes') }}
+          </span>
+          <span class="col-header-sortable" @click="store.setSortBy('status')">
+            Status {{ sortIcon('status') }}
+          </span>
+          <span class="col-header-sortable" @click="store.setSortBy('createdAt')">
+            Created {{ sortIcon('createdAt') }}
+          </span>
           <span>Actions</span>
         </div>
 
@@ -496,7 +638,11 @@ watch(() => store.worktrees, () => {
 
             <!-- Session -->
             <div class="wt-row-session">
-              <a v-if="wt.linkedSessionId" class="session-link">{{ wt.linkedSessionId.slice(0, 8) }}</a>
+              <span
+                v-if="wt.linkedSessionId"
+                class="session-link"
+                @click.stop="navigateToSession(wt.linkedSessionId)"
+              >{{ wt.linkedSessionId.slice(0, 8) }}</span>
               <span v-else class="session-none">No session</span>
             </div>
 
@@ -508,9 +654,25 @@ watch(() => store.worktrees, () => {
               <span class="disk-label">{{ formatBytes(wt.diskUsageBytes) }}</span>
             </div>
 
-            <!-- Status -->
+            <!-- Status + Lock -->
             <div class="wt-row-status">
               <span class="badge" :class="'badge-' + wt.status">{{ wt.status }}</span>
+              <svg
+                v-if="wt.isLocked"
+                class="lock-icon"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                :title="wt.lockedReason ? `Locked: ${wt.lockedReason}` : 'Locked'"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             </div>
 
             <!-- Created -->
@@ -524,8 +686,21 @@ watch(() => store.worktrees, () => {
               <button class="icon-btn" title="Open Terminal" @click="handleOpenTerminal(wt.path)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
               </button>
-              <button class="icon-btn" title="Link Session" @click="showLinkSessionToast">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+              <button
+                v-if="!wt.isLocked"
+                class="icon-btn"
+                title="Lock Worktree"
+                @click="openLockModal(wt)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </button>
+              <button
+                v-else
+                class="icon-btn"
+                title="Unlock Worktree"
+                @click="handleUnlock(wt)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
               </button>
               <button class="icon-btn icon-btn--danger" title="Remove" @click="confirmDelete(wt)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
@@ -549,8 +724,12 @@ watch(() => store.worktrees, () => {
                 </div>
                 <span class="detail-branch">{{ selectedWorktree.branch }}</span>
                 <span class="badge" :class="'badge-' + selectedWorktree.status">{{ selectedWorktree.status }}</span>
+                <span v-if="selectedWorktree.isLocked" class="badge badge-locked" :title="selectedWorktree.lockedReason">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  locked
+                </span>
               </div>
-              <button class="icon-btn" @click="selectedWorktree = null">
+              <button class="icon-btn" @click="selectedWorktree = null; worktreeDetails = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
@@ -558,7 +737,7 @@ watch(() => store.worktrees, () => {
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-item-label">Repository</span>
-                <span class="detail-item-value">{{ store.currentRepoPath }}</span>
+                <span class="detail-item-value">{{ selectedWorktree.repoRoot }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-item-label">Branch</span>
@@ -574,12 +753,42 @@ watch(() => store.worktrees, () => {
               </div>
               <div class="detail-item">
                 <span class="detail-item-label">Session</span>
-                <span class="detail-item-value">{{ selectedWorktree.linkedSessionId || '—' }}</span>
+                <span class="detail-item-value">
+                  <span
+                    v-if="selectedWorktree.linkedSessionId"
+                    class="session-link"
+                    @click="navigateToSession(selectedWorktree.linkedSessionId!)"
+                  >{{ selectedWorktree.linkedSessionId }}</span>
+                  <span v-else>—</span>
+                </span>
               </div>
               <div class="detail-item">
                 <span class="detail-item-label">Created</span>
                 <span class="detail-item-value">{{ formatRelativeTime(selectedWorktree.createdAt) }}</span>
               </div>
+              <!-- On-demand details -->
+              <template v-if="detailsLoading">
+                <div class="detail-item">
+                  <span class="detail-item-label">Details</span>
+                  <span class="detail-item-value"><span class="spinner spinner--sm" /> Loading…</span>
+                </div>
+              </template>
+              <template v-else-if="worktreeDetails">
+                <div class="detail-item">
+                  <span class="detail-item-label">Uncommitted</span>
+                  <span class="detail-item-value">{{ worktreeDetails.uncommittedCount }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-item-label">Ahead / Behind</span>
+                  <span class="detail-item-value">{{ worktreeDetails.ahead }} ↑ / {{ worktreeDetails.behind }} ↓</span>
+                </div>
+              </template>
+              <template v-if="selectedWorktree.isLocked && selectedWorktree.lockedReason">
+                <div class="detail-item">
+                  <span class="detail-item-label">Lock Reason</span>
+                  <span class="detail-item-value">{{ selectedWorktree.lockedReason }}</span>
+                </div>
+              </template>
             </div>
 
             <div class="detail-actions">
@@ -591,11 +800,35 @@ watch(() => store.worktrees, () => {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
                 Open Terminal
               </button>
-              <button class="btn btn-sm" @click="showLinkSessionToast">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-                {{ selectedWorktree.linkedSessionId ? 'View Session' : 'Link Session' }}
+              <button class="btn btn-sm" @click="navigateToLauncher(selectedWorktree!)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                Launch Session Here
               </button>
-              <button class="btn btn-sm btn-danger" @click="confirmDelete(selectedWorktree)">
+              <button
+                v-if="selectedWorktree.linkedSessionId"
+                class="btn btn-sm"
+                @click="navigateToSession(selectedWorktree.linkedSessionId!)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                View Session
+              </button>
+              <button
+                v-if="!selectedWorktree.isLocked"
+                class="btn btn-sm"
+                @click="openLockModal(selectedWorktree!)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                Lock
+              </button>
+              <button
+                v-else
+                class="btn btn-sm"
+                @click="handleUnlock(selectedWorktree!)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5" /></svg>
+                Unlock
+              </button>
+              <button class="btn btn-sm btn-danger" @click="confirmDelete(selectedWorktree!)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                 Remove
               </button>
@@ -624,7 +857,7 @@ watch(() => store.worktrees, () => {
                   id="cw-repo"
                   type="text"
                   class="form-input"
-                  :value="store.currentRepoPath"
+                  :value="selectedRepoPath || store.currentRepoPath"
                   readonly
                 />
               </div>
@@ -710,6 +943,12 @@ watch(() => store.worktrees, () => {
                 <div class="delete-target-branch">{{ deleteTarget.branch }}</div>
                 <div class="delete-target-path">{{ deleteTarget.path }}</div>
               </div>
+
+              <label class="force-delete-label">
+                <input v-model="forceDelete" type="checkbox" class="force-delete-checkbox" />
+                <span>Force delete (even if there are uncommitted changes)</span>
+              </label>
+
               <div v-if="store.error" class="modal-error">{{ store.error }}</div>
             </div>
 
@@ -717,7 +956,50 @@ watch(() => store.worktrees, () => {
               <button class="btn btn-sm" @click="showDeleteModal = false">Cancel</button>
               <button class="btn btn-sm btn-danger" @click="handleDelete">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                Remove
+                {{ forceDelete ? 'Force Remove' : 'Remove' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ─── Lock Worktree Modal ────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showLockModal" class="modal-overlay" @click.self="showLockModal = false">
+          <div class="modal-dialog modal-dialog--sm" role="dialog" aria-labelledby="lock-wt-title">
+            <div class="modal-header">
+              <h2 id="lock-wt-title" class="modal-title">Lock Worktree</h2>
+              <button class="icon-btn" aria-label="Close" @click="showLockModal = false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+
+            <div class="modal-body">
+              <p class="delete-warning-text">Locking a worktree prevents it from being pruned or accidentally deleted.</p>
+              <div v-if="lockTarget" class="delete-target-box" style="border-color: var(--accent-muted); background: var(--accent-subtle);">
+                <div class="delete-target-branch">{{ lockTarget.branch }}</div>
+                <div class="delete-target-path">{{ lockTarget.path }}</div>
+              </div>
+              <div class="form-group" style="margin-top: 12px;">
+                <label class="form-label" for="lock-reason">Reason (optional)</label>
+                <input
+                  id="lock-reason"
+                  v-model="lockReason"
+                  type="text"
+                  class="form-input"
+                  placeholder="e.g. Active development, do not prune"
+                />
+              </div>
+              <div v-if="store.error" class="modal-error">{{ store.error }}</div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-sm" @click="showLockModal = false">Cancel</button>
+              <button class="btn btn-primary btn-sm" @click="handleLock">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                Lock
               </button>
             </div>
           </div>
@@ -727,14 +1009,8 @@ watch(() => store.worktrees, () => {
 
     <!-- ─── Toast Notification ───────────────────────────────────── -->
     <Transition name="toast">
-      <div v-if="linkSessionToast" class="toast-notification">
+      <div v-if="actionToast" class="toast-notification">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-        {{ linkSessionToast }}
-      </div>
-    </Transition>
-    <Transition name="toast">
-      <div v-if="actionToast" class="toast-notification toast-notification--error">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
         {{ actionToast }}
       </div>
     </Transition>
@@ -773,19 +1049,16 @@ watch(() => store.worktrees, () => {
   color: var(--text-tertiary);
 }
 
-.repo-input-area {
-  padding: 8px 12px;
-}
-
-.repo-input-row {
+.repo-actions {
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  padding: 4px 12px 8px;
 }
 
-.repo-select {
+.repo-action-btn {
   width: 100%;
-  margin-bottom: 6px;
-  cursor: pointer;
+  justify-content: center;
 }
 
 .repo-tree {
@@ -854,6 +1127,30 @@ watch(() => store.worktrees, () => {
   padding: 0 6px;
 }
 
+.tree-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-placeholder);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.tree-item:hover .tree-remove-btn {
+  opacity: 1;
+}
+
+.tree-remove-btn:hover {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
 .tree-empty {
   display: flex;
   flex-direction: column;
@@ -896,21 +1193,6 @@ watch(() => store.worktrees, () => {
 
 .disk-summary-value--stale {
   color: var(--warning-fg);
-}
-
-.disk-progress-track {
-  margin-top: 8px;
-  height: 4px;
-  background: var(--neutral-muted);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.disk-progress-fill {
-  height: 100%;
-  background: var(--gradient-accent);
-  border-radius: 2px;
-  transition: width var(--transition-normal);
 }
 
 /* ─── Right Panel ─────────────────────────────────────────────── */
@@ -959,6 +1241,12 @@ watch(() => store.worktrees, () => {
   border-top-color: var(--accent-fg);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
 }
 
 @keyframes spin {
@@ -1027,6 +1315,9 @@ watch(() => store.worktrees, () => {
 }
 
 .summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   color: var(--text-tertiary);
   white-space: nowrap;
@@ -1098,6 +1389,16 @@ watch(() => store.worktrees, () => {
   background: var(--canvas-inset);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+}
+
+.col-header-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.col-header-sortable:hover {
+  color: var(--text-primary);
 }
 
 /* ─── Worktree List ───────────────────────────────────────────── */
@@ -1175,11 +1476,6 @@ watch(() => store.worktrees, () => {
 .wt-row-icon--stale {
   background: var(--warning-muted);
   color: var(--warning-fg);
-}
-
-.wt-row-icon--completed {
-  background: var(--done-muted);
-  color: var(--done-fg);
 }
 
 /* Row info */
@@ -1262,6 +1558,7 @@ watch(() => store.worktrees, () => {
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 2px 8px;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -1282,10 +1579,22 @@ watch(() => store.worktrees, () => {
   border: 1px solid var(--warning-muted);
 }
 
-.badge-completed {
-  color: var(--done-fg);
-  background: var(--done-subtle);
-  border: 1px solid var(--done-muted);
+.badge-locked {
+  color: var(--text-secondary);
+  background: var(--neutral-muted);
+  border: 1px solid var(--border-default);
+}
+
+/* Lock icon in row */
+.wt-row-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lock-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
 /* Created */
@@ -1336,7 +1645,7 @@ watch(() => store.worktrees, () => {
 }
 
 .detail-panel--open {
-  max-height: 300px;
+  max-height: 340px;
 }
 
 .detail-header {
@@ -1395,6 +1704,7 @@ watch(() => store.worktrees, () => {
 
 .detail-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px 18px 14px;
 }
@@ -1489,6 +1799,21 @@ watch(() => store.worktrees, () => {
 .form-input--mono {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.75rem;
+}
+
+/* ─── Force Delete Checkbox ───────────────────────────────────── */
+.force-delete-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.force-delete-checkbox {
+  accent-color: var(--danger-fg);
 }
 
 /* ─── Modal ───────────────────────────────────────────────────── */
@@ -1658,11 +1983,6 @@ watch(() => store.worktrees, () => {
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
-}
-
-.toast-notification--error {
-  border-color: var(--danger-emphasis, #da3633);
-  color: var(--danger-fg, #f85149);
 }
 
 .toast-enter-active,

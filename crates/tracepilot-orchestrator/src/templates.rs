@@ -89,6 +89,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: Some("fix/".into()),
+                base_branch: None,
                 model: Some("claude-sonnet-4.6".into()),
                 prompt: None,
                 headless: false,
@@ -110,6 +111,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: Some("feature/".into()),
+                base_branch: None,
                 model: Some("claude-opus-4.6".into()),
                 prompt: None,
                 headless: false,
@@ -131,6 +133,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: None,
+                base_branch: None,
                 model: Some("claude-sonnet-4.6".into()),
                 prompt: Some("Review the recent changes and provide feedback".into()),
                 headless: false,
@@ -189,6 +192,7 @@ mod tests {
             config: crate::types::LaunchConfig {
                 repo_path: "/tmp/test".into(),
                 branch: None,
+                base_branch: None,
                 model: None,
                 prompt: None,
                 headless: false,

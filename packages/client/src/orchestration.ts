@@ -13,8 +13,10 @@ import type {
   MigrationDiff,
   ModelInfo,
   PruneResult,
+  RegisteredRepo,
   SessionTemplate,
   SystemDependencies,
+  WorktreeDetails,
   WorktreeInfo,
 } from '@tracepilot/types';
 
@@ -65,6 +67,44 @@ export async function listBranches(repoPath: string): Promise<string[]> {
 
 export async function getWorktreeDiskUsage(path: string): Promise<number> {
   return invoke<number>('get_worktree_disk_usage', { path });
+}
+
+export async function isGitRepo(path: string): Promise<boolean> {
+  return invoke<boolean>('is_git_repo', { path });
+}
+
+export async function lockWorktree(
+  repoPath: string,
+  worktreePath: string,
+  reason?: string,
+): Promise<void> {
+  return invoke<void>('lock_worktree', { repoPath, worktreePath, reason: reason ?? null });
+}
+
+export async function unlockWorktree(repoPath: string, worktreePath: string): Promise<void> {
+  return invoke<void>('unlock_worktree', { repoPath, worktreePath });
+}
+
+export async function getWorktreeDetails(worktreePath: string): Promise<WorktreeDetails> {
+  return invoke<WorktreeDetails>('get_worktree_details', { worktreePath });
+}
+
+// ─── Repository Registry Commands ─────────────────────────────────
+
+export async function listRegisteredRepos(): Promise<RegisteredRepo[]> {
+  return invoke<RegisteredRepo[]>('list_registered_repos');
+}
+
+export async function addRegisteredRepo(path: string): Promise<RegisteredRepo> {
+  return invoke<RegisteredRepo>('add_registered_repo', { path });
+}
+
+export async function removeRegisteredRepo(path: string): Promise<void> {
+  return invoke<void>('remove_registered_repo', { path });
+}
+
+export async function discoverReposFromSessions(): Promise<RegisteredRepo[]> {
+  return invoke<RegisteredRepo[]>('discover_repos_from_sessions');
 }
 
 // ─── Launcher Commands ────────────────────────────────────────────
@@ -179,7 +219,9 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 524288000,
         status: 'active',
+        isLocked: false,
         createdAt: '2025-01-10T10:00:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
       {
         path: 'C:\\git\\MyProject-feature-auth',
@@ -189,8 +231,10 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 104857600,
         status: 'active',
+        isLocked: false,
         linkedSessionId: 'session-abc-123',
         createdAt: '2025-01-16T14:30:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
       {
         path: 'C:\\git\\MyProject-feature-ui',
@@ -200,8 +244,11 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 89128960,
         status: 'active',
+        isLocked: true,
+        lockedReason: 'In use by CI pipeline',
         linkedSessionId: 'session-def-456',
         createdAt: '2025-01-17T09:15:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
       {
         path: 'C:\\git\\MyProject-fix-bug-123',
@@ -211,7 +258,9 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 52428800,
         status: 'stale',
+        isLocked: false,
         createdAt: '2025-01-12T16:45:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
       {
         path: 'C:\\git\\MyProject-hotfix-perf',
@@ -221,17 +270,9 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 41943040,
         status: 'stale',
+        isLocked: false,
         createdAt: '2025-01-11T11:00:00Z',
-      },
-      {
-        path: 'C:\\git\\MyProject-refactor-api',
-        branch: 'refactor/api-v2',
-        headCommit: 'eee5555',
-        isMainWorktree: false,
-        isBare: false,
-        diskUsageBytes: 73400320,
-        status: 'completed',
-        createdAt: '2025-01-14T08:20:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
       {
         path: 'C:\\git\\MyProject-test-e2e',
@@ -241,7 +282,9 @@ function getMockData<T>(cmd: string): T {
         isBare: false,
         diskUsageBytes: 31457280,
         status: 'active',
+        isLocked: false,
         createdAt: '2025-01-18T13:00:00Z',
+        repoRoot: 'C:\\git\\MyProject',
       },
     ] satisfies WorktreeInfo[],
 
@@ -252,7 +295,9 @@ function getMockData<T>(cmd: string): T {
       isMainWorktree: false,
       isBare: false,
       status: 'active',
+      isLocked: false,
       createdAt: new Date().toISOString(),
+      repoRoot: 'C:\\git\\MyProject',
     } satisfies WorktreeInfo,
 
     prune_worktrees: { prunedCount: 0, messages: [] } satisfies PruneResult,
@@ -537,6 +582,41 @@ function getMockData<T>(cmd: string): T {
 
     // Write operations return void
     remove_worktree: undefined,
+    is_git_repo: true,
+    lock_worktree: undefined,
+    unlock_worktree: undefined,
+    get_worktree_details: {
+      path: 'C:\\git\\MyProject-feature-auth',
+      uncommittedCount: 3,
+      ahead: 2,
+      behind: 0,
+    } satisfies WorktreeDetails,
+
+    // Repository registry
+    list_registered_repos: [
+      {
+        path: 'C:\\git\\MyProject',
+        name: 'MyProject',
+        addedAt: '2025-01-10T10:00:00Z',
+        lastUsedAt: '2025-01-18T14:00:00Z',
+        source: 'manual',
+      },
+      {
+        path: 'C:\\git\\AnotherRepo',
+        name: 'AnotherRepo',
+        addedAt: '2025-01-12T08:00:00Z',
+        source: 'session-discovery',
+      },
+    ] satisfies RegisteredRepo[],
+    add_registered_repo: {
+      path: 'C:\\git\\NewRepo',
+      name: 'NewRepo',
+      addedAt: new Date().toISOString(),
+      source: 'manual',
+    } satisfies RegisteredRepo,
+    remove_registered_repo: undefined,
+    discover_repos_from_sessions: [] satisfies RegisteredRepo[],
+
     save_agent_definition: undefined,
     save_copilot_config: undefined,
     create_config_backup: {
