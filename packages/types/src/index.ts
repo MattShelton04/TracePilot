@@ -108,6 +108,21 @@ export interface ConversationTurn {
   transformedUserMessage?: string;
   /** File attachments provided with the user message. */
   attachments?: unknown[];
+  /** Session-level events (errors, compactions, etc.) that occurred during this turn. */
+  sessionEvents?: TurnSessionEvent[];
+}
+
+/** Severity level for session events embedded in a conversation turn. */
+export type SessionEventSeverity = 'error' | 'warning' | 'info';
+
+/** A session-level event that occurred during a conversation turn. */
+export interface TurnSessionEvent {
+  /** Wire event type (e.g. "session.error", "session.compaction_complete"). */
+  eventType: string;
+  timestamp?: string;
+  severity: SessionEventSeverity;
+  /** Human-readable summary of what happened. */
+  summary: string;
 }
 
 /** A tool call within a turn */
