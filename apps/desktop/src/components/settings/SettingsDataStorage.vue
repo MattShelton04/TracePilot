@@ -10,7 +10,7 @@ import {
 } from '@tracepilot/client';
 import type { IndexingProgressPayload } from '@tracepilot/types';
 import { ActionButton, FormInput, FormSwitch, SectionPanel } from '@tracepilot/ui';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
@@ -103,6 +103,17 @@ async function persistSessionDir() {
   }
 }
 
+// Persist autoIndexOnLaunch when toggled
+watch(autoIndexOnLaunch, async (value) => {
+  try {
+    const config = await getConfig();
+    config.general.autoIndexOnLaunch = value;
+    await saveConfig(config);
+  } catch {
+    /* non-fatal */
+  }
+});
+
 async function clearCache() {
   clearing.value = true;
   reindexResult.value = null;
@@ -127,7 +138,13 @@ async function doFactoryReset() {
   resetting.value = true;
   try {
     await factoryResetApi();
+    // Clear all TracePilot localStorage keys
     localStorage.removeItem('tracepilot-prefs');
+    localStorage.removeItem('tracepilot-theme');
+    localStorage.removeItem('tracepilot-last-session');
+    localStorage.removeItem('tracepilot-last-seen-version');
+    localStorage.removeItem('tracepilot-update-check');
+    localStorage.removeItem('tracepilot-dismissed-update');
     window.location.reload();
   } catch (e) {
     resetting.value = false;

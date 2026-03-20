@@ -1,174 +1,64 @@
-import type { RichRenderableToolName, ToolRenderingPreferences } from '@tracepilot/types';
+import { getConfig, saveConfig } from '@tracepilot/client';
+import type {
+  ModelPriceEntry,
+  RichRenderableToolName,
+  ToolRenderingPreferences,
+  TracePilotConfig,
+} from '@tracepilot/types';
 import { DEFAULT_TOOL_RENDERING_PREFS } from '@tracepilot/types';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 
 export type ThemeOption = 'dark' | 'light';
 
-/** Per-model wholesale pricing ($ per 1M tokens) */
-export interface ModelWholesalePrice {
-  model: string;
-  inputPerM: number;
-  cachedInputPerM: number;
-  outputPerM: number;
-  /** Premium request multiplier (e.g. 1x, 3x, 0.33x). 0 = free tier. */
-  premiumRequests: number;
-}
+// Re-export for backwards compat — consumers that imported ModelWholesalePrice
+// now use the shared ModelPriceEntry type from @tracepilot/types.
+export type ModelWholesalePrice = ModelPriceEntry;
 
 /** Default wholesale prices for common models ($ per 1M tokens) */
-export const DEFAULT_WHOLESALE_PRICES: ModelWholesalePrice[] = [
-  {
-    model: "claude-sonnet-4.6",
-    inputPerM: 3.0,
-    cachedInputPerM: 0.3,
-    outputPerM: 15.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "claude-sonnet-4.5",
-    inputPerM: 3.0,
-    cachedInputPerM: 0.3,
-    outputPerM: 15.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "claude-haiku-4.5",
-    inputPerM: 1.0,
-    cachedInputPerM: 0.1,
-    outputPerM: 5.0,
-    premiumRequests: 0.33,
-  },
-  {
-    model: "claude-opus-4.6",
-    inputPerM: 5.0,
-    cachedInputPerM: 0.5,
-    outputPerM: 25.0,
-    premiumRequests: 3,
-  },
-  {
-    model: "claude-opus-4.6-fast",
-    inputPerM: 5.0,
-    cachedInputPerM: 0.5,
-    outputPerM: 25.0,
-    premiumRequests: 30,
-  },
-  {
-    model: "claude-opus-4.5",
-    inputPerM: 5.0,
-    cachedInputPerM: 0.5,
-    outputPerM: 25.0,
-    premiumRequests: 3,
-  },
-  {
-    model: "claude-sonnet-4",
-    inputPerM: 3.0,
-    cachedInputPerM: 0.3,
-    outputPerM: 15.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gemini-3-pro-preview",
-    inputPerM: 3.0,
-    cachedInputPerM: 0.3,
-    outputPerM: 16.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.4",
-    inputPerM: 2.5,
-    cachedInputPerM: 0.25,
-    outputPerM: 15.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.3-codex",
-    inputPerM: 1.75,
-    cachedInputPerM: 0.175,
-    outputPerM: 14.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.2-codex",
-    inputPerM: 1.75,
-    cachedInputPerM: 0.175,
-    outputPerM: 14.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.2",
-    inputPerM: 2.5,
-    cachedInputPerM: 0.25,
-    outputPerM: 15.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.1-codex-max",
-    inputPerM: 1.75,
-    cachedInputPerM: 0.175,
-    outputPerM: 14.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.1-codex",
-    inputPerM: 1.75,
-    cachedInputPerM: 0.175,
-    outputPerM: 14.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.1",
-    inputPerM: 10.0,
-    cachedInputPerM: 1.0,
-    outputPerM: 40.0,
-    premiumRequests: 1,
-  },
-  {
-    model: "gpt-5.4-mini",
-    inputPerM: 0.4,
-    cachedInputPerM: 0.04,
-    outputPerM: 1.6,
-    premiumRequests: 0.33,
-  },
-  {
-    model: "gpt-5.1-codex-mini",
-    inputPerM: 0.4,
-    cachedInputPerM: 0.04,
-    outputPerM: 1.6,
-    premiumRequests: 0.33,
-  },
-  {
-    model: "gpt-5-mini",
-    inputPerM: 0.4,
-    cachedInputPerM: 0.04,
-    outputPerM: 1.6,
-    premiumRequests: 0,
-  },
-  {
-    model: "gpt-4.1",
-    inputPerM: 8.0,
-    cachedInputPerM: 0.8,
-    outputPerM: 24.0,
-    premiumRequests: 0,
-  },
+export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = [
+  { model: "claude-sonnet-4.6", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
+  { model: "claude-sonnet-4.5", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
+  { model: "claude-haiku-4.5", inputPerM: 1.0, cachedInputPerM: 0.1, outputPerM: 5.0, premiumRequests: 0.33 },
+  { model: "claude-opus-4.6", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 3 },
+  { model: "claude-opus-4.6-fast", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 30 },
+  { model: "claude-opus-4.5", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 3 },
+  { model: "claude-sonnet-4", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
+  { model: "gemini-3-pro-preview", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 16.0, premiumRequests: 1 },
+  { model: "gpt-5.4", inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0, premiumRequests: 1 },
+  { model: "gpt-5.3-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
+  { model: "gpt-5.2-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
+  { model: "gpt-5.2", inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0, premiumRequests: 1 },
+  { model: "gpt-5.1-codex-max", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
+  { model: "gpt-5.1-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
+  { model: "gpt-5.1", inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 40.0, premiumRequests: 1 },
+  { model: "gpt-5.4-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0.33 },
+  { model: "gpt-5.1-codex-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0.33 },
+  { model: "gpt-5-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0 },
+  { model: "gpt-4.1", inputPerM: 8.0, cachedInputPerM: 0.8, outputPerM: 24.0, premiumRequests: 0 },
 ];
 
 function applyTheme(theme: ThemeOption) {
   document.documentElement.setAttribute("data-theme", theme);
+  // Write-through cache for instant theme on next launch (no flash)
+  localStorage.setItem("tracepilot-theme", theme);
 }
 
 export const usePreferencesStore = defineStore("preferences", () => {
-  const theme = ref<ThemeOption>("dark");
-  const lastViewedSession = ref<string | null>(null);
-  const costPerPremiumRequest = ref(0.04);
-  const modelWholesalePrices = ref<ModelWholesalePrice[]>([
-    ...DEFAULT_WHOLESALE_PRICES,
-  ]);
+  // ── Reactive state ──────────────────────────────────────────
+
+  // Initialize theme from write-through cache to match main.ts (prevents flash)
+  const cachedTheme = localStorage.getItem("tracepilot-theme");
+  const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
   const hideEmptySessions = ref(true);
   const cliCommand = ref("copilot");
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(5);
   const checkForUpdates = ref(false);
-  const lastSeenVersion = ref<string | null>(null);
+  const favouriteModels = ref<string[]>(["claude-opus-4.6", "gpt-5.4", "gpt-5.3-codex"]);
+  const recentRepoPaths = ref<string[]>([]);
+  const costPerPremiumRequest = ref(0.04);
+  const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
   const toolRendering = ref<ToolRenderingPreferences>({
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
@@ -178,127 +68,215 @@ export const usePreferencesStore = defineStore("preferences", () => {
     healthScoring: false,
     sessionReplay: false,
   });
-  const favouriteModels = ref<string[]>([
-    "claude-opus-4.6",
-    "gpt-5.4",
-    "gpt-5.3-codex",
-  ]);
-  const recentRepoPaths = ref<string[]>([]);
 
-  // Persist to localStorage
-  function load() {
+  // Ephemeral state — stays in localStorage only
+  const lastViewedSession = ref<string | null>(
+    localStorage.getItem("tracepilot-last-session"),
+  );
+  const lastSeenVersion = ref<string | null>(
+    localStorage.getItem("tracepilot-last-seen-version"),
+  );
+
+  // ── Hydration gate ──────────────────────────────────────────
+  // Prevents reactive watches from persisting default values to disk
+  // before the real config has been loaded from the backend.
+  let hydrated = false;
+
+  // ── Backend reference ───────────────────────────────────────
+  // We store the last-known full config so we can merge preference
+  // changes back without clobbering paths/version fields.
+  let backendConfig: TracePilotConfig | null = null;
+
+  // ── localStorage migration ──────────────────────────────────
+  // On first load after upgrade, pull old prefs into config.toml
+  // and remove the legacy key.
+  function migrateFromLocalStorage(config: TracePilotConfig): TracePilotConfig {
+    const raw = localStorage.getItem("tracepilot-prefs");
+    if (!raw) return config;
+
     try {
-      const saved = localStorage.getItem("tracepilot-prefs");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (
-          parsed.theme &&
-          (parsed.theme === "dark" || parsed.theme === "light")
-        ) {
-          theme.value = parsed.theme;
-        }
-        // Migrate legacy "system" theme to "dark"
-        if (parsed.lastViewedSession)
-          lastViewedSession.value = parsed.lastViewedSession;
-        if (typeof parsed.costPerPremiumRequest === "number")
-          costPerPremiumRequest.value = parsed.costPerPremiumRequest;
-        if (Array.isArray(parsed.modelWholesalePrices)) {
-          // Migrate: merge saved prices with defaults to backfill premiumRequests
-          const saved = parsed.modelWholesalePrices as ModelWholesalePrice[];
-          modelWholesalePrices.value = DEFAULT_WHOLESALE_PRICES.map((def) => {
-            const existing = saved.find((s) => s.model === def.model);
-            if (existing) {
-              return {
-                ...def,
-                ...existing,
-                premiumRequests: existing.premiumRequests ?? def.premiumRequests,
-              };
-            }
-            return def;
-          });
-          // Also include any user-added models not in defaults
-          for (const s of saved) {
-            if (!DEFAULT_WHOLESALE_PRICES.find((d) => d.model === s.model)) {
-              modelWholesalePrices.value.push({ ...s, premiumRequests: s.premiumRequests ?? 1 });
-            }
+      const old = JSON.parse(raw);
+
+      // UI section
+      if (old.theme === "dark" || old.theme === "light") config.ui.theme = old.theme;
+      if (typeof old.hideEmptySessions === "boolean") config.ui.hideEmptySessions = old.hideEmptySessions;
+      if (typeof old.autoRefreshEnabled === "boolean") config.ui.autoRefreshEnabled = old.autoRefreshEnabled;
+      if (typeof old.autoRefreshIntervalSeconds === "number") config.ui.autoRefreshIntervalSeconds = old.autoRefreshIntervalSeconds;
+      if (typeof old.checkForUpdates === "boolean") config.ui.checkForUpdates = old.checkForUpdates;
+      if (Array.isArray(old.favouriteModels)) config.ui.favouriteModels = old.favouriteModels;
+      if (Array.isArray(old.recentRepoPaths)) config.ui.recentRepoPaths = old.recentRepoPaths;
+
+      // General
+      if (typeof old.cliCommand === "string") config.general.cliCommand = old.cliCommand;
+
+      // Pricing
+      if (typeof old.costPerPremiumRequest === "number") config.pricing.costPerPremiumRequest = old.costPerPremiumRequest;
+      if (Array.isArray(old.modelWholesalePrices)) {
+        // Merge with defaults: preserve user customizations, backfill new fields
+        const saved = old.modelWholesalePrices as ModelPriceEntry[];
+        config.pricing.models = DEFAULT_WHOLESALE_PRICES.map((def) => {
+          const existing = saved.find((s) => s.model === def.model);
+          return existing ? { ...def, ...existing, premiumRequests: existing.premiumRequests ?? def.premiumRequests } : def;
+        });
+        // Include any user-added models not in defaults
+        for (const s of saved) {
+          if (!DEFAULT_WHOLESALE_PRICES.find((d) => d.model === s.model)) {
+            config.pricing.models.push({ ...s, premiumRequests: s.premiumRequests ?? 1 });
           }
         }
-        if (typeof parsed.hideEmptySessions === "boolean")
-          hideEmptySessions.value = parsed.hideEmptySessions;
-        if (typeof parsed.cliCommand === "string")
-          cliCommand.value = parsed.cliCommand;
-        if (typeof parsed.autoRefreshEnabled === "boolean")
-          autoRefreshEnabled.value = parsed.autoRefreshEnabled;
-        if (typeof parsed.autoRefreshIntervalSeconds === "number")
-          autoRefreshIntervalSeconds.value = parsed.autoRefreshIntervalSeconds;
-        if (typeof parsed.checkForUpdates === "boolean")
-          checkForUpdates.value = parsed.checkForUpdates;
-        if (typeof parsed.lastSeenVersion === "string")
-          lastSeenVersion.value = parsed.lastSeenVersion;
-        if (parsed.toolRendering && typeof parsed.toolRendering === "object") {
-          toolRendering.value = {
-            enabled:
-              typeof parsed.toolRendering.enabled === "boolean"
-                ? parsed.toolRendering.enabled
-                : true,
-            toolOverrides: parsed.toolRendering.toolOverrides ?? {},
-          };
-        }
-        if (parsed.featureFlags && typeof parsed.featureFlags === 'object') {
-          const savedFlags = parsed.featureFlags as Record<string, unknown>;
-          for (const key of Object.keys(featureFlags.value)) {
-            if (typeof savedFlags[key] === 'boolean') {
-              featureFlags.value[key] = savedFlags[key] as boolean;
-            }
-          }
-        }
-        if (Array.isArray(parsed.favouriteModels))
-          favouriteModels.value = parsed.favouriteModels;
-        if (Array.isArray(parsed.recentRepoPaths))
-          recentRepoPaths.value = parsed.recentRepoPaths;
       }
+
+      // Tool rendering
+      if (old.toolRendering && typeof old.toolRendering === "object") {
+        config.toolRendering.enabled = typeof old.toolRendering.enabled === "boolean" ? old.toolRendering.enabled : true;
+        config.toolRendering.toolOverrides = old.toolRendering.toolOverrides ?? {};
+      }
+
+      // Features
+      if (old.featureFlags && typeof old.featureFlags === "object") {
+        for (const key of Object.keys(config.features)) {
+          const k = key as keyof typeof config.features;
+          if (typeof old.featureFlags[key] === "boolean") {
+            (config.features as Record<string, boolean>)[k] = old.featureFlags[key] as boolean;
+          }
+        }
+      }
+
+      // Migrate ephemeral fields
+      if (old.lastViewedSession) localStorage.setItem("tracepilot-last-session", old.lastViewedSession);
+      if (old.lastSeenVersion) localStorage.setItem("tracepilot-last-seen-version", old.lastSeenVersion);
     } catch {
-      /* ignore */
+      // Corrupt localStorage — leave key in place; it'll be retried next launch
     }
+
+    return config;
   }
 
-  function save() {
-    localStorage.setItem(
-      "tracepilot-prefs",
-      JSON.stringify({
+  // ── Apply config → reactive refs ───────────────────────────
+  function applyConfig(config: TracePilotConfig) {
+    theme.value = (config.ui.theme === "light" ? "light" : "dark") as ThemeOption;
+    hideEmptySessions.value = config.ui.hideEmptySessions;
+    autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
+    autoRefreshIntervalSeconds.value = config.ui.autoRefreshIntervalSeconds;
+    checkForUpdates.value = config.ui.checkForUpdates;
+    favouriteModels.value = [...config.ui.favouriteModels];
+    recentRepoPaths.value = [...config.ui.recentRepoPaths];
+    cliCommand.value = config.general.cliCommand;
+    costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
+    modelWholesalePrices.value = config.pricing.models.length > 0
+      ? [...config.pricing.models]
+      : [...DEFAULT_WHOLESALE_PRICES];
+    toolRendering.value = {
+      enabled: config.toolRendering.enabled,
+      toolOverrides: { ...config.toolRendering.toolOverrides },
+    };
+    featureFlags.value = {
+      exportView: config.features.exportView,
+      healthScoring: config.features.healthScoring,
+      sessionReplay: config.features.sessionReplay,
+    };
+  }
+
+  // ── Build config from reactive state ───────────────────────
+  function buildConfig(): TracePilotConfig {
+    const base = backendConfig ?? {
+      version: 2,
+      paths: { sessionStateDir: "", indexDbPath: "" },
+      general: { autoIndexOnLaunch: true, cliCommand: "copilot" },
+      ui: { theme: "dark", hideEmptySessions: true, autoRefreshEnabled: false, autoRefreshIntervalSeconds: 5, checkForUpdates: false, favouriteModels: [], recentRepoPaths: [] },
+      pricing: { costPerPremiumRequest: 0.04, models: [] },
+      toolRendering: { enabled: true, toolOverrides: {} },
+      features: { exportView: false, healthScoring: false, sessionReplay: false },
+    };
+    return {
+      ...base,
+      general: { ...base.general, cliCommand: cliCommand.value },
+      ui: {
         theme: theme.value,
-        lastViewedSession: lastViewedSession.value,
-        costPerPremiumRequest: costPerPremiumRequest.value,
-        modelWholesalePrices: modelWholesalePrices.value,
         hideEmptySessions: hideEmptySessions.value,
-        cliCommand: cliCommand.value,
         autoRefreshEnabled: autoRefreshEnabled.value,
         autoRefreshIntervalSeconds: autoRefreshIntervalSeconds.value,
         checkForUpdates: checkForUpdates.value,
-        lastSeenVersion: lastSeenVersion.value,
-        toolRendering: toolRendering.value,
-        featureFlags: featureFlags.value,
-        favouriteModels: favouriteModels.value,
-        recentRepoPaths: recentRepoPaths.value,
-      }),
-    );
+        favouriteModels: [...favouriteModels.value],
+        recentRepoPaths: [...recentRepoPaths.value],
+      },
+      pricing: {
+        costPerPremiumRequest: costPerPremiumRequest.value,
+        models: [...modelWholesalePrices.value],
+      },
+      toolRendering: {
+        enabled: toolRendering.value.enabled,
+        toolOverrides: { ...toolRendering.value.toolOverrides },
+      },
+      features: { ...featureFlags.value } as TracePilotConfig['features'],
+    };
   }
 
-  load();
+  // ── Debounced persist to backend ───────────────────────────
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Watch theme changes: update DOM
-  watch(
-    theme,
-    (newTheme) => {
-      applyTheme(newTheme);
-    },
-    { immediate: true },
-  );
+  function scheduleSave() {
+    if (!hydrated) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        // Re-read latest config from backend to avoid overwriting changes
+        // made by other components (e.g. SettingsDataStorage paths/autoIndex)
+        const freshConfig = await getConfig();
+        backendConfig = freshConfig;
+        const config = buildConfig();
+        await saveConfig(config);
+        backendConfig = config;
+      } catch (e) {
+        console.warn("[preferences] Failed to persist config:", e);
+      }
+    }, 300);
+  }
 
+  // ── Hydrate from backend on store creation ─────────────────
+  let hydrateResolve: () => void;
+  const hydratePromise = new Promise<void>((resolve) => { hydrateResolve = resolve; });
+
+  async function hydrate() {
+    try {
+      let config = await getConfig();
+      const hadLegacyPrefs = !!localStorage.getItem("tracepilot-prefs");
+      // One-time migration from localStorage
+      if (hadLegacyPrefs) {
+        config = migrateFromLocalStorage(config);
+        await saveConfig(config);
+        // Only clear legacy key after save succeeds
+        localStorage.removeItem("tracepilot-prefs");
+      }
+      backendConfig = config;
+      applyConfig(config);
+    } catch {
+      // Outside Tauri (dev mode) — keep defaults
+    }
+    hydrated = true;
+    hydrateResolve();
+  }
+
+  // Fire-and-forget hydration; the watch gate prevents premature saves
+  hydrate();
+
+  // ── Persist ephemeral state to localStorage ────────────────
+  watch(lastViewedSession, (v) => {
+    if (v) localStorage.setItem("tracepilot-last-session", v);
+    else localStorage.removeItem("tracepilot-last-session");
+  });
+  watch(lastSeenVersion, (v) => {
+    if (v) localStorage.setItem("tracepilot-last-seen-version", v);
+    else localStorage.removeItem("tracepilot-last-seen-version");
+  });
+
+  // Watch theme changes: update DOM + write-through cache
+  watch(theme, (newTheme) => { applyTheme(newTheme); }, { immediate: true });
+
+  // Watch all config-backed refs → debounced save to backend
   watch(
     [
       theme,
-      lastViewedSession,
       costPerPremiumRequest,
       modelWholesalePrices,
       hideEmptySessions,
@@ -306,31 +284,27 @@ export const usePreferencesStore = defineStore("preferences", () => {
       autoRefreshEnabled,
       autoRefreshIntervalSeconds,
       checkForUpdates,
-      lastSeenVersion,
       toolRendering,
       featureFlags,
       favouriteModels,
       recentRepoPaths,
     ],
-    save,
+    scheduleSave,
     { deep: true },
   );
 
+  // ── Public API ─────────────────────────────────────────────
+
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
-  function getWholesalePrice(
-    modelName: string,
-  ): ModelWholesalePrice | undefined {
+  function getWholesalePrice(modelName: string): ModelPriceEntry | undefined {
     const lower = modelName.toLowerCase();
-    // Sort candidates by descending model name length so the most specific match wins
     const sorted = [...modelWholesalePrices.value].sort(
       (a, b) => b.model.length - a.model.length,
     );
     return (
       sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
       sorted.find((p) =>
-        lower.startsWith(
-          p.model.toLowerCase().split("-").slice(0, 2).join("-"),
-        ),
+        lower.startsWith(p.model.toLowerCase().split("-").slice(0, 2).join("-")),
       )
     );
   }
@@ -352,7 +326,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     );
   }
 
-  function addWholesalePrice(price: ModelWholesalePrice) {
+  function addWholesalePrice(price: ModelPriceEntry) {
     modelWholesalePrices.value.push(price);
   }
 
@@ -431,6 +405,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     favouriteModels,
     recentRepoPaths,
     applyTheme: () => applyTheme(theme.value),
+    /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
+    whenReady: hydratePromise,
     getWholesalePrice,
     getPremiumRequests,
     computeWholesaleCost,
