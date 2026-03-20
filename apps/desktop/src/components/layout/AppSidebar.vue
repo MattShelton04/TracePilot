@@ -3,10 +3,18 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
 import { useAppVersion } from '@/composables/useAppVersion';
+import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { useWhatsNew } from '@/composables/useWhatsNew';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 
+const emit = defineEmits<{
+  'view-update-details': [];
+}>();
+
 const { appVersion } = useAppVersion();
+const { updateResult } = useUpdateCheck();
+const { openWhatsNew } = useWhatsNew();
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
@@ -18,6 +26,14 @@ const currentTheme = computed(() => prefsStore.theme);
 
 function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
+}
+
+const hasUpdate = computed(() => {
+  return updateResult.value?.hasUpdate === true;
+});
+
+async function handleVersionClick() {
+  await openWhatsNew('0.0.0', appVersion.value);
 }
 
 interface NavItem {
@@ -151,23 +167,46 @@ const orchestrationNav: NavItem[] = [
     </nav>
 
     <!-- Footer -->
-    <div class="sidebar-footer">
-      <span class="sidebar-version">v{{ appVersion }}</span>
-      <button
-        class="theme-toggle"
-        :aria-label="`Current theme: ${currentTheme}. Click to switch.`"
-        @click="toggleTheme"
-      >
-        <!-- Sun (shown in dark mode) -->
-        <svg v-if="currentTheme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="8" cy="8" r="3" />
-          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M12.5 3.5l-1.5 1.5M5 11l-1.5 1.5" />
-        </svg>
-        <!-- Moon (shown in light mode) -->
-        <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" />
-        </svg>
-      </button>
+    <div class="sidebar-footer-area">
+      <!-- Update available notification -->
+      <Transition name="sidebar-update-slide">
+        <div v-if="hasUpdate" class="sidebar-update-notice">
+          <div class="sidebar-update-content">
+            <span class="sidebar-update-icon">🎉</span>
+            <span class="sidebar-update-text">
+              <strong>v{{ updateResult?.latestVersion }}</strong> available
+            </span>
+          </div>
+          <button class="sidebar-update-btn" @click="emit('view-update-details')">
+            Update
+          </button>
+        </div>
+      </Transition>
+
+      <div class="sidebar-footer">
+        <button
+          class="sidebar-version-btn"
+          title="View release notes"
+          @click="handleVersionClick"
+        >
+          v{{ appVersion }}
+        </button>
+        <button
+          class="theme-toggle"
+          :aria-label="`Current theme: ${currentTheme}. Click to switch.`"
+          @click="toggleTheme"
+        >
+          <!-- Sun (shown in dark mode) -->
+          <svg v-if="currentTheme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="3" />
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M12.5 3.5l-1.5 1.5M5 11l-1.5 1.5" />
+          </svg>
+          <!-- Moon (shown in light mode) -->
+          <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" />
+          </svg>
+        </button>
+      </div>
     </div>
   </aside>
 </template>

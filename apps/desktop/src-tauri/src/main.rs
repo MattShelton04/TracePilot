@@ -7,6 +7,7 @@ fn main() {
     tauri::Builder::default()
         .manage(shared_config)
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tracepilot_tauri_bindings::init())
         .run(tauri::generate_context!())
         .expect("error while running TracePilot");

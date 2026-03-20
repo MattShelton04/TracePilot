@@ -1,0 +1,42 @@
+import type { ReleaseManifestEntry } from '@tracepilot/types';
+import { ref } from 'vue';
+
+const showWhatsNew = ref(false);
+const whatsNewPreviousVersion = ref('');
+const whatsNewCurrentVersion = ref('');
+const whatsNewEntries = ref<ReleaseManifestEntry[]>([]);
+
+async function fetchManifest(): Promise<ReleaseManifestEntry[]> {
+  try {
+    const resp = await fetch('/release-manifest.json');
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return data.versions ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Open the What's New modal for a specific version range. */
+export async function openWhatsNew(previous: string, current: string): Promise<void> {
+  const entries = await fetchManifest();
+  whatsNewEntries.value = entries;
+  whatsNewPreviousVersion.value = previous;
+  whatsNewCurrentVersion.value = current;
+  showWhatsNew.value = true;
+}
+
+export function closeWhatsNew(): void {
+  showWhatsNew.value = false;
+}
+
+export function useWhatsNew() {
+  return {
+    showWhatsNew,
+    whatsNewPreviousVersion,
+    whatsNewCurrentVersion,
+    whatsNewEntries,
+    openWhatsNew,
+    closeWhatsNew,
+  };
+}

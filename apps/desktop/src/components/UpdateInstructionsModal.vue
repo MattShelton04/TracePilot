@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { openExternal } from '@/utils/openExternal';
 
 const emit = defineEmits<{
   close: [];
@@ -10,6 +11,12 @@ const { updateResult } = useUpdateCheck();
 
 const version = computed(() => updateResult.value?.latestVersion ?? '');
 const releaseUrl = computed(() => updateResult.value?.releaseUrl);
+
+function handleOpenRelease() {
+  if (releaseUrl.value) {
+    openExternal(releaseUrl.value);
+  }
+}
 </script>
 
 <template>
@@ -60,7 +67,7 @@ const releaseUrl = computed(() => updateResult.value?.releaseUrl);
           </div>
 
           <div v-if="releaseUrl" class="update-links">
-            <a :href="releaseUrl" target="_blank" rel="noopener">
+            <a href="#" @click.prevent="handleOpenRelease">
               View full release notes on GitHub →
             </a>
           </div>
@@ -101,7 +108,7 @@ const releaseUrl = computed(() => updateResult.value?.releaseUrl);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 12px;
+  padding: 24px 24px 16px;
 }
 
 .modal-header h2 {
@@ -126,7 +133,7 @@ const releaseUrl = computed(() => updateResult.value?.releaseUrl);
 }
 
 .modal-body {
-  padding: 0 24px 16px;
+  padding: 4px 24px 20px;
 }
 
 .update-intro {
