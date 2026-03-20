@@ -968,6 +968,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
   z-index: var(--z-modal);
   backdrop-filter: blur(4px);
 }
+.modal-overlay.hidden {
+  display: none;
+}
 .modal {
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);

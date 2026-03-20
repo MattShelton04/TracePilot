@@ -9,6 +9,7 @@ const newModelName = ref('');
 const newInputPerM = ref(0);
 const newCachedInputPerM = ref(0);
 const newOutputPerM = ref(0);
+const newPremiumRequests = ref(1);
 
 function addModelPrice() {
   if (!newModelName.value.trim()) return;
@@ -17,11 +18,13 @@ function addModelPrice() {
     inputPerM: newInputPerM.value,
     cachedInputPerM: newCachedInputPerM.value,
     outputPerM: newOutputPerM.value,
+    premiumRequests: newPremiumRequests.value,
   });
   newModelName.value = '';
   newInputPerM.value = 0;
   newCachedInputPerM.value = 0;
   newOutputPerM.value = 0;
+  newPremiumRequests.value = 1;
 }
 </script>
 
@@ -64,6 +67,7 @@ function addModelPrice() {
               <th>Input / 1M</th>
               <th>Cached / 1M</th>
               <th>Output / 1M</th>
+              <th>Premium Req.</th>
               <th class="pricing-col-action"></th>
             </tr>
           </thead>
@@ -95,6 +99,16 @@ function addModelPrice() {
                   type="number"
                   :model-value="price.outputPerM"
                   @update:model-value="preferences.modelWholesalePrices[idx].outputPerM = Number($event)"
+                  step="0.01"
+                  min="0"
+                  class="pricing-input"
+                />
+              </td>
+              <td class="text-center">
+                <FormInput
+                  type="number"
+                  :model-value="price.premiumRequests"
+                  @update:model-value="preferences.modelWholesalePrices[idx].premiumRequests = Number($event)"
                   step="0.01"
                   min="0"
                   class="pricing-input"
@@ -135,6 +149,15 @@ function addModelPrice() {
                 <FormInput
                   type="number"
                   v-model="newOutputPerM"
+                  step="0.01"
+                  min="0"
+                  class="pricing-input"
+                />
+              </td>
+              <td class="text-center">
+                <FormInput
+                  type="number"
+                  v-model="newPremiumRequests"
                   step="0.01"
                   min="0"
                   class="pricing-input"

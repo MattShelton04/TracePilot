@@ -4,6 +4,7 @@ members = [
     "crates/tracepilot-core",
     "crates/tracepilot-indexer",
     "crates/tracepilot-export",
+    "crates/tracepilot-orchestrator",
     "crates/tracepilot-tauri-bindings",
     "crates/tracepilot-bench",
     "apps/desktop/src-tauri",
@@ -39,3 +40,4 @@ semver = "1"
 tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }
 tracepilot-export = { path = "crates/tracepilot-export" }
+tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }

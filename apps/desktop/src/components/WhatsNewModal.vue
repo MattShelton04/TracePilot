@@ -61,24 +61,24 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
               <span class="version-date">{{ entry.date }}</span>
             </h3>
 
-            <div v-if="entry.notes.added.length" class="change-group">
+            <div v-if="entry.notes?.added?.length" class="change-group">
               <h4 class="change-group-title added-title">✨ Added</h4>
               <ul>
-                <li v-for="item in entry.notes.added" :key="item">{{ item }}</li>
+                <li v-for="item in entry.notes?.added" :key="item">{{ item }}</li>
               </ul>
             </div>
 
-            <div v-if="entry.notes.changed.length" class="change-group">
+            <div v-if="entry.notes?.changed?.length" class="change-group">
               <h4 class="change-group-title changed-title">🔄 Changed</h4>
               <ul>
-                <li v-for="item in entry.notes.changed" :key="item">{{ item }}</li>
+                <li v-for="item in entry.notes?.changed" :key="item">{{ item }}</li>
               </ul>
             </div>
 
-            <div v-if="entry.notes.fixed.length" class="change-group">
+            <div v-if="entry.notes?.fixed?.length" class="change-group">
               <h4 class="change-group-title fixed-title">🐛 Fixed</h4>
               <ul>
-                <li v-for="item in entry.notes.fixed" :key="item">{{ item }}</li>
+                <li v-for="item in entry.notes?.fixed" :key="item">{{ item }}</li>
               </ul>
             </div>
 

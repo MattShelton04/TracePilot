@@ -11,36 +11,160 @@ export interface ModelWholesalePrice {
   inputPerM: number;
   cachedInputPerM: number;
   outputPerM: number;
+  /** Premium request multiplier (e.g. 1x, 3x, 0.33x). 0 = free tier. */
+  premiumRequests: number;
 }
 
 /** Default wholesale prices for common models ($ per 1M tokens) */
 export const DEFAULT_WHOLESALE_PRICES: ModelWholesalePrice[] = [
-  { model: 'claude-opus-4.6', inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0 },
-  { model: 'claude-opus-4.5', inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0 },
-  { model: 'claude-sonnet-4.6', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
-  { model: 'claude-sonnet-4.5', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
-  { model: 'claude-sonnet-4', inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0 },
-  { model: 'claude-haiku-4.5', inputPerM: 1.0, cachedInputPerM: 0.1, outputPerM: 5.0 },
-  { model: 'gpt-5.4', inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0 },
-  { model: 'gpt-5.3-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
-  { model: 'gpt-5.2-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
-  { model: 'gpt-5.1-codex', inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0 },
-  { model: 'gpt-5.1', inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 40.0 },
-  { model: 'gpt-4.1', inputPerM: 8.0, cachedInputPerM: 0.8, outputPerM: 24.0 },
-  { model: 'gemini-3-pro-preview', inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 30.0 },
+  {
+    model: "claude-sonnet-4.6",
+    inputPerM: 3.0,
+    cachedInputPerM: 0.3,
+    outputPerM: 15.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "claude-sonnet-4.5",
+    inputPerM: 3.0,
+    cachedInputPerM: 0.3,
+    outputPerM: 15.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "claude-haiku-4.5",
+    inputPerM: 1.0,
+    cachedInputPerM: 0.1,
+    outputPerM: 5.0,
+    premiumRequests: 0.33,
+  },
+  {
+    model: "claude-opus-4.6",
+    inputPerM: 5.0,
+    cachedInputPerM: 0.5,
+    outputPerM: 25.0,
+    premiumRequests: 3,
+  },
+  {
+    model: "claude-opus-4.6-fast",
+    inputPerM: 5.0,
+    cachedInputPerM: 0.5,
+    outputPerM: 25.0,
+    premiumRequests: 30,
+  },
+  {
+    model: "claude-opus-4.5",
+    inputPerM: 5.0,
+    cachedInputPerM: 0.5,
+    outputPerM: 25.0,
+    premiumRequests: 3,
+  },
+  {
+    model: "claude-sonnet-4",
+    inputPerM: 3.0,
+    cachedInputPerM: 0.3,
+    outputPerM: 15.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gemini-3-pro-preview",
+    inputPerM: 3.0,
+    cachedInputPerM: 0.3,
+    outputPerM: 16.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.4",
+    inputPerM: 2.5,
+    cachedInputPerM: 0.25,
+    outputPerM: 15.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.3-codex",
+    inputPerM: 1.75,
+    cachedInputPerM: 0.175,
+    outputPerM: 14.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.2-codex",
+    inputPerM: 1.75,
+    cachedInputPerM: 0.175,
+    outputPerM: 14.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.2",
+    inputPerM: 2.5,
+    cachedInputPerM: 0.25,
+    outputPerM: 15.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.1-codex-max",
+    inputPerM: 1.75,
+    cachedInputPerM: 0.175,
+    outputPerM: 14.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.1-codex",
+    inputPerM: 1.75,
+    cachedInputPerM: 0.175,
+    outputPerM: 14.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.1",
+    inputPerM: 10.0,
+    cachedInputPerM: 1.0,
+    outputPerM: 40.0,
+    premiumRequests: 1,
+  },
+  {
+    model: "gpt-5.4-mini",
+    inputPerM: 0.4,
+    cachedInputPerM: 0.04,
+    outputPerM: 1.6,
+    premiumRequests: 0.33,
+  },
+  {
+    model: "gpt-5.1-codex-mini",
+    inputPerM: 0.4,
+    cachedInputPerM: 0.04,
+    outputPerM: 1.6,
+    premiumRequests: 0.33,
+  },
+  {
+    model: "gpt-5-mini",
+    inputPerM: 0.4,
+    cachedInputPerM: 0.04,
+    outputPerM: 1.6,
+    premiumRequests: 0,
+  },
+  {
+    model: "gpt-4.1",
+    inputPerM: 8.0,
+    cachedInputPerM: 0.8,
+    outputPerM: 24.0,
+    premiumRequests: 0,
+  },
 ];
 
 function applyTheme(theme: ThemeOption) {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute("data-theme", theme);
 }
 
-export const usePreferencesStore = defineStore('preferences', () => {
-  const theme = ref<ThemeOption>('dark');
+export const usePreferencesStore = defineStore("preferences", () => {
+  const theme = ref<ThemeOption>("dark");
   const lastViewedSession = ref<string | null>(null);
   const costPerPremiumRequest = ref(0.04);
-  const modelWholesalePrices = ref<ModelWholesalePrice[]>([...DEFAULT_WHOLESALE_PRICES]);
+  const modelWholesalePrices = ref<ModelWholesalePrice[]>([
+    ...DEFAULT_WHOLESALE_PRICES,
+  ]);
   const hideEmptySessions = ref(true);
-  const cliCommand = ref('copilot');
+  const cliCommand = ref("copilot");
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(5);
   const checkForUpdates = ref(false);
@@ -54,37 +178,67 @@ export const usePreferencesStore = defineStore('preferences', () => {
     healthScoring: false,
     sessionReplay: false,
   });
+  const favouriteModels = ref<string[]>([
+    "claude-opus-4.6",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+  ]);
+  const recentRepoPaths = ref<string[]>([]);
 
   // Persist to localStorage
   function load() {
     try {
-      const saved = localStorage.getItem('tracepilot-prefs');
+      const saved = localStorage.getItem("tracepilot-prefs");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.theme && (parsed.theme === 'dark' || parsed.theme === 'light')) {
+        if (
+          parsed.theme &&
+          (parsed.theme === "dark" || parsed.theme === "light")
+        ) {
           theme.value = parsed.theme;
         }
         // Migrate legacy "system" theme to "dark"
-        if (parsed.lastViewedSession) lastViewedSession.value = parsed.lastViewedSession;
-        if (typeof parsed.costPerPremiumRequest === 'number')
+        if (parsed.lastViewedSession)
+          lastViewedSession.value = parsed.lastViewedSession;
+        if (typeof parsed.costPerPremiumRequest === "number")
           costPerPremiumRequest.value = parsed.costPerPremiumRequest;
-        if (Array.isArray(parsed.modelWholesalePrices))
-          modelWholesalePrices.value = parsed.modelWholesalePrices;
-        if (typeof parsed.hideEmptySessions === 'boolean')
+        if (Array.isArray(parsed.modelWholesalePrices)) {
+          // Migrate: merge saved prices with defaults to backfill premiumRequests
+          const saved = parsed.modelWholesalePrices as ModelWholesalePrice[];
+          modelWholesalePrices.value = DEFAULT_WHOLESALE_PRICES.map((def) => {
+            const existing = saved.find((s) => s.model === def.model);
+            if (existing) {
+              return {
+                ...def,
+                ...existing,
+                premiumRequests: existing.premiumRequests ?? def.premiumRequests,
+              };
+            }
+            return def;
+          });
+          // Also include any user-added models not in defaults
+          for (const s of saved) {
+            if (!DEFAULT_WHOLESALE_PRICES.find((d) => d.model === s.model)) {
+              modelWholesalePrices.value.push({ ...s, premiumRequests: s.premiumRequests ?? 1 });
+            }
+          }
+        }
+        if (typeof parsed.hideEmptySessions === "boolean")
           hideEmptySessions.value = parsed.hideEmptySessions;
-        if (typeof parsed.cliCommand === 'string') cliCommand.value = parsed.cliCommand;
-        if (typeof parsed.autoRefreshEnabled === 'boolean')
+        if (typeof parsed.cliCommand === "string")
+          cliCommand.value = parsed.cliCommand;
+        if (typeof parsed.autoRefreshEnabled === "boolean")
           autoRefreshEnabled.value = parsed.autoRefreshEnabled;
-        if (typeof parsed.autoRefreshIntervalSeconds === 'number')
+        if (typeof parsed.autoRefreshIntervalSeconds === "number")
           autoRefreshIntervalSeconds.value = parsed.autoRefreshIntervalSeconds;
-        if (typeof parsed.checkForUpdates === 'boolean')
+        if (typeof parsed.checkForUpdates === "boolean")
           checkForUpdates.value = parsed.checkForUpdates;
-        if (typeof parsed.lastSeenVersion === 'string')
+        if (typeof parsed.lastSeenVersion === "string")
           lastSeenVersion.value = parsed.lastSeenVersion;
-        if (parsed.toolRendering && typeof parsed.toolRendering === 'object') {
+        if (parsed.toolRendering && typeof parsed.toolRendering === "object") {
           toolRendering.value = {
             enabled:
-              typeof parsed.toolRendering.enabled === 'boolean'
+              typeof parsed.toolRendering.enabled === "boolean"
                 ? parsed.toolRendering.enabled
                 : true,
             toolOverrides: parsed.toolRendering.toolOverrides ?? {},
@@ -98,6 +252,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
             }
           }
         }
+        if (Array.isArray(parsed.favouriteModels))
+          favouriteModels.value = parsed.favouriteModels;
+        if (Array.isArray(parsed.recentRepoPaths))
+          recentRepoPaths.value = parsed.recentRepoPaths;
       }
     } catch {
       /* ignore */
@@ -106,7 +264,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function save() {
     localStorage.setItem(
-      'tracepilot-prefs',
+      "tracepilot-prefs",
       JSON.stringify({
         theme: theme.value,
         lastViewedSession: lastViewedSession.value,
@@ -120,6 +278,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
         lastSeenVersion: lastSeenVersion.value,
         toolRendering: toolRendering.value,
         featureFlags: featureFlags.value,
+        favouriteModels: favouriteModels.value,
+        recentRepoPaths: recentRepoPaths.value,
       }),
     );
   }
@@ -149,19 +309,29 @@ export const usePreferencesStore = defineStore('preferences', () => {
       lastSeenVersion,
       toolRendering,
       featureFlags,
+      favouriteModels,
+      recentRepoPaths,
     ],
     save,
     { deep: true },
   );
 
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
-  function getWholesalePrice(modelName: string): ModelWholesalePrice | undefined {
+  function getWholesalePrice(
+    modelName: string,
+  ): ModelWholesalePrice | undefined {
     const lower = modelName.toLowerCase();
     // Sort candidates by descending model name length so the most specific match wins
-    const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
+    const sorted = [...modelWholesalePrices.value].sort(
+      (a, b) => b.model.length - a.model.length,
+    );
     return (
       sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
-      sorted.find((p) => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')))
+      sorted.find((p) =>
+        lower.startsWith(
+          p.model.toLowerCase().split("-").slice(0, 2).join("-"),
+        ),
+      )
     );
   }
 
@@ -187,7 +357,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   function removeWholesalePrice(model: string) {
-    modelWholesalePrices.value = modelWholesalePrices.value.filter((p) => p.model !== model);
+    modelWholesalePrices.value = modelWholesalePrices.value.filter(
+      (p) => p.model !== model,
+    );
   }
 
   function resetWholesalePrices() {
@@ -197,13 +369,32 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Check if rich rendering is enabled for a specific tool. */
   function isRichRenderingEnabled(toolName: string): boolean {
     if (!toolRendering.value.enabled) return false;
-    const override = toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
+    const override =
+      toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
     return override ?? true;
   }
 
   /** Set the per-tool rendering override. */
-  function setToolRenderingOverride(toolName: RichRenderableToolName, enabled: boolean) {
+  function setToolRenderingOverride(
+    toolName: RichRenderableToolName,
+    enabled: boolean,
+  ) {
     toolRendering.value.toolOverrides[toolName] = enabled;
+  }
+
+  /** Look up premium request multiplier for a model. */
+  function getPremiumRequests(modelId: string): number {
+    const price = getWholesalePrice(modelId);
+    return price?.premiumRequests ?? 1;
+  }
+
+  /** Add a repo path to recents (max 10, deduped, most recent first). */
+  function addRecentRepoPath(path: string) {
+    const normalized = path.replace(/\\/g, '/').replace(/\/$/, '');
+    recentRepoPaths.value = [
+      normalized,
+      ...recentRepoPaths.value.filter((p) => p !== normalized),
+    ].slice(0, 10);
   }
 
   /** Reset tool rendering preferences to defaults. */
@@ -237,12 +428,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     lastSeenVersion,
     toolRendering,
     featureFlags,
+    favouriteModels,
+    recentRepoPaths,
     applyTheme: () => applyTheme(theme.value),
     getWholesalePrice,
+    getPremiumRequests,
     computeWholesaleCost,
     addWholesalePrice,
     removeWholesalePrice,
     resetWholesalePrices,
+    addRecentRepoPath,
     isRichRenderingEnabled,
     setToolRenderingOverride,
     resetToolRendering,

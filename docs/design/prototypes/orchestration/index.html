@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Orchestration Prototypes Index</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", -apple-system, sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      min-height: 100vh;
+      padding: 40px;
+      line-height: 1.5;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #a1a1aa;
+      font-size: 0.9375rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .header .count-badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.15);
+      color: #818cf8;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-top: 14px;
+    }
+    .tier-label {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    .tier-1 { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .tier-2 { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .tier-3 { background: rgba(99,102,241,0.15); color: #818cf8; }
+
+    .category {
+      margin-bottom: 44px;
+    }
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .category-icon {
+      font-size: 1.25rem;
+    }
+    .category-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .category-count {
+      font-size: 0.75rem;
+      color: #71717a;
+      background: rgba(255,255,255,0.06);
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .category-desc {
+      font-size: 0.8125rem;
+      color: #71717a;
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: #111113;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 180ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+    .card:hover {
+      border-color: rgba(99,102,241,0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.1);
+    }
+    .card:hover::before { opacity: 1; }
+    .card-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-desc {
+      font-size: 0.8125rem;
+      color: #a1a1aa;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .variants {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .variant-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 6px;
+      color: #818cf8;
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 150ms ease;
+    }
+    .variant-link:hover {
+      background: rgba(99,102,241,0.15);
+      border-color: rgba(99,102,241,0.4);
+      color: #a5b4fc;
+    }
+    .variant-link .variant-label {
+      font-size: 0.6875rem;
+      color: #71717a;
+    }
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 16px;
+      background: rgba(99,102,241,0.06);
+      border-radius: 10px;
+      border: 1px solid rgba(99,102,241,0.12);
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #818cf8;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-label {
+      font-size: 0.6875rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .meta {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      color: #52525b;
+      font-size: 0.75rem;
+    }
+    .meta a { color: #818cf8; text-decoration: none; }
+    .meta a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⏱ TracePilot Orchestration Prototypes</h1>
+    <p>Interactive HTML prototypes for the Copilot CLI orchestration features. Each page has multiple design variants for comparison and review.</p>
+    <div class="count-badge">25 prototypes across 11 pages</div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-value">11</div><div class="stat-label">Pages</div></div>
+      <div class="stat"><div class="stat-value">25</div><div class="stat-label">Prototypes</div></div>
+      <div class="stat"><div class="stat-value">3</div><div class="stat-label">Tiers</div></div>
+      <div class="stat"><div class="stat-value">562</div><div class="stat-label">Total KB</div></div>
+    </div>
+  </div>
+
+  <!-- Tier 1: Quick Wins -->
+  <div class="category">
+    <div class="category-header">
+      <span class="category-icon">🔴</span>
+      <span class="category-title">Tier 1 — Quick Wins</span>
+      <span class="tier-label tier-1">Priority</span>
+      <span class="category-count">12 prototypes</span>
+    </div>
+    <div class="category-desc">Pure file I/O + CLI spawning. No sidecar needed. Ship first.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">🚀 Session Launcher</div>
+        <div class="card-desc">Launch new Copilot CLI sessions with pre-configured settings. Repo, branch, model, prompt, templates — one-click start with "dry run" command preview.</div>
+        <div class="variants">
+          <a class="variant-link" href="session-launcher/variant-a.html">A <span class="variant-label">Wizard</span></a>
+          <a class="variant-link" href="session-launcher/variant-b.html">B <span class="variant-label">Single Page</span></a>
+          <a class="variant-link" href="session-launcher/variant-c.html">C <span class="variant-label">Split Panel</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Mission Control</div>
+        <div class="card-desc">Real-time fleet management dashboard. Active sessions, status badges, token counters, health scores, staleness indicators, activity feed.</div>
+        <div class="variants">
+          <a class="variant-link" href="mission-control/variant-a.html">A <span class="variant-label">Card Grid</span></a>
+          <a class="variant-link" href="mission-control/variant-b.html">B <span class="variant-label">Data Table</span></a>
+          <a class="variant-link" href="mission-control/variant-c.html">C <span class="variant-label">Kanban</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔧 Configuration Injector</div>
+        <div class="card-desc">Modify agent YAML definitions, config.json, and environment variables. Diff preview, backup/restore, auto-update warnings.</div>
+        <div class="variants">
+          <a class="variant-link" href="config-injector/variant-a.html">A <span class="variant-label">Tabbed</span></a>
+          <a class="variant-link" href="config-injector/variant-b.html">B <span class="variant-label">Accordion</span></a>
+          <a class="variant-link" href="config-injector/variant-c.html">C <span class="variant-label">IDE Split</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌳 Git Worktree Manager</div>
+        <div class="card-desc">Create, manage, and clean up git worktrees for parallel sessions. Disk usage tracking, stale detection, session linking.</div>
+        <div class="variants">
+          <a class="variant-link" href="worktree-manager/variant-a.html">A <span class="variant-label">File Manager</span></a>
+          <a class="variant-link" href="worktree-manager/variant-b.html">B <span class="variant-label">Timeline</span></a>
+          <a class="variant-link" href="worktree-manager/variant-c.html">C <span class="variant-label">Cards</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 2: Core UX -->
+  <div class="category">
+    <div class="category-header">
+      <span class="category-icon">🟠</span>
+      <span class="category-title">Tier 2 — Core UX</span>
+      <span class="tier-label tier-2">Next Up</span>
+      <span class="category-count">7 prototypes</span>
+    </div>
+    <div class="category-desc">Enhanced user experience. Templates, extensions, cost tracking, and the landing page.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">🏠 Orchestration Home</div>
+        <div class="card-desc">Landing page with quick stats, action buttons, activity feed, system health, and onboarding progress. First impression page.</div>
+        <div class="variants">
+          <a class="variant-link" href="orchestration-home/variant-a.html">A <span class="variant-label">Command Center</span></a>
+          <a class="variant-link" href="orchestration-home/variant-b.html">B <span class="variant-label">Onboarding</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🧩 Extension Manager</div>
+        <div class="card-desc">Browse, create, validate, and manage Copilot CLI extensions. Template library, hook coverage matrix, validation status.</div>
+        <div class="variants">
+          <a class="variant-link" href="extension-manager/variant-a.html">A <span class="variant-label">App Store</span></a>
+          <a class="variant-link" href="extension-manager/variant-b.html">B <span class="variant-label">Dev Tools</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💰 Cost & Budget Tracker</div>
+        <div class="card-desc">Token usage, premium request monitoring, budget guardrails, cost projections, per-model breakdown, alert configuration.</div>
+        <div class="variants">
+          <a class="variant-link" href="cost-tracker/variant-a.html">A <span class="variant-label">Dashboard</span></a>
+          <a class="variant-link" href="cost-tracker/variant-b.html">B <span class="variant-label">Compact</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔌 MCP Server Manager</div>
+        <div class="card-desc">Configure, test, and monitor Model Context Protocol servers. Tool browser, connectivity testing, latency monitoring.</div>
+        <div class="variants">
+          <a class="variant-link" href="mcp-manager/variant-a.html">A <span class="variant-label">Admin Panel</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 3: Advanced -->
+  <div class="category">
+    <div class="category-header">
+      <span class="category-icon">🟡</span>
+      <span class="category-title">Tier 3 — Advanced & Vision</span>
+      <span class="tier-label tier-3">Future</span>
+      <span class="category-count">6 prototypes</span>
+    </div>
+    <div class="category-desc">Fleet management, experimentation, and cross-session intelligence.</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">🧪 A/B Testing Arena</div>
+        <div class="card-desc">Run same task with different models/prompts in parallel. Side-by-side comparison, winner selection, model leaderboard.</div>
+        <div class="variants">
+          <a class="variant-link" href="ab-testing/variant-a.html">A <span class="variant-label">Split Screen</span></a>
+          <a class="variant-link" href="ab-testing/variant-b.html">B <span class="variant-label">Tournament</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Batch Operations</div>
+        <div class="card-desc">Execute tasks across multiple repos with queue management. Concurrency control, pipeline visualization, retry logic.</div>
+        <div class="variants">
+          <a class="variant-link" href="batch-operations/variant-a.html">A <span class="variant-label">Pipeline</span></a>
+          <a class="variant-link" href="batch-operations/variant-b.html">B <span class="variant-label">List</span></a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🧠 Session Knowledge Base</div>
+        <div class="card-desc">Browse and curate cross-session memories. Scope by repo, search, inject into new sessions, knowledge graph visualization.</div>
+        <div class="variants">
+          <a class="variant-link" href="knowledge-base/variant-a.html">A <span class="variant-label">Graph</span></a>
+          <a class="variant-link" href="knowledge-base/variant-b.html">B <span class="variant-label">Card List</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <p>Generated from <a href="../../copilot-cli-integration-report.md">copilot-cli-integration-report.md</a> • Design system: Variant C</p>
+    <p>Plan: <a href="../../orchestration-pages-plan.md">orchestration-pages-plan.md</a> • Reviews: <a href="../../reviews/">docs/reviews/</a></p>
+    <p style="margin-top:8px;">TracePilot v0.2.0 • March 2026</p>
+  </div>
+</body>
+</html>

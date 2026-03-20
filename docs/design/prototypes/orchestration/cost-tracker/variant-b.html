@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Cost &amp; Budget Tracker (Compact)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/design-system-c.css">
+  <style>
+    /* Single-column compact layout */
+    .cost-stack { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
+
+    /* Compact panel */
+    .cpanel { background: var(--canvas-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 18px 20px; }
+    .cpanel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .cpanel-title { font-size: 0.75rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+    .cpanel-action { font-size: 0.6875rem; color: var(--accent-fg); cursor: pointer; background: none; border: none; font-family: inherit; }
+    .cpanel-action:hover { text-decoration: underline; }
+
+    /* Budget status card */
+    .budget-status { display: flex; flex-direction: column; gap: 12px; }
+    .budget-top { display: flex; align-items: center; gap: 16px; }
+    .budget-numbers { flex: 1; }
+    .budget-used { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    .budget-limit { font-size: 0.8125rem; color: var(--text-tertiary); }
+    .budget-pct-badge { padding: 4px 10px; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 600; }
+    .budget-pct-badge.ok { background: var(--success-muted); color: var(--success-fg); }
+    .budget-pct-badge.warn { background: var(--warning-muted); color: var(--warning-fg); }
+    .budget-pct-badge.critical { background: var(--danger-muted); color: var(--danger-fg); }
+
+    /* Progress bar */
+    .progress-track { width: 100%; height: 10px; background: var(--neutral-muted); border-radius: var(--radius-full); overflow: visible; position: relative; }
+    .progress-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.6s ease, background 0.4s ease; }
+    .progress-markers { position: absolute; inset: 0; pointer-events: none; }
+    .progress-marker { position: absolute; top: -2px; width: 2px; height: 14px; border-radius: 1px; transform: translateX(-50%); }
+    .progress-marker.warn { background: var(--warning-emphasis); }
+    .progress-marker.crit { background: var(--danger-emphasis); }
+
+    /* Projection text */
+    .projection { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--canvas-inset); border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; }
+    .projection-icon { font-size: 0.875rem; }
+    .projection strong { color: var(--text-primary); }
+
+    /* Quick stats row */
+    .quick-stats { display: flex; gap: 12px; }
+    .qstat { flex: 1; padding: 10px; background: var(--canvas-inset); border-radius: var(--radius-md); text-align: center; }
+    .qstat-value { font-size: 1rem; font-weight: 700; line-height: 1.2; }
+    .qstat-label { font-size: 0.5625rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+    /* Alert configuration */
+    .alert-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-icon-wrap { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 0.875rem; flex-shrink: 0; }
+    .alert-icon-wrap.warn-bg { background: var(--warning-muted); }
+    .alert-icon-wrap.crit-bg { background: var(--danger-muted); }
+    .alert-icon-wrap.pause-bg { background: var(--accent-muted); }
+    .alert-info { flex: 1; }
+    .alert-name { font-size: 0.8125rem; font-weight: 500; }
+    .alert-desc { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .alert-control input[type="number"] { width: 56px; padding: 4px 8px; background: var(--canvas-default); border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.8125rem; font-family: inherit; text-align: center; }
+    .alert-control input[type="number"]:focus { outline: none; border-color: var(--accent-emphasis); box-shadow: 0 0 0 2px var(--accent-muted); }
+
+    /* Model badges inline */
+    .model-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+    .model-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--canvas-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); font-size: 0.75rem; white-space: nowrap; transition: border-color var(--transition-fast); }
+    .model-badge:hover { border-color: var(--border-accent); }
+    .model-badge-icon { font-size: 0.8125rem; }
+    .model-badge-name { font-weight: 500; }
+    .model-badge-pct { color: var(--text-tertiary); }
+    .model-badge-cost { font-weight: 600; color: var(--accent-fg); }
+    .model-badge-bar { width: 32px; height: 4px; background: var(--neutral-muted); border-radius: 2px; overflow: hidden; }
+    .model-badge-bar-fill { height: 100%; border-radius: 2px; }
+    .mbb-opus { background: var(--done-emphasis); }
+    .mbb-sonnet { background: var(--accent-emphasis); }
+    .mbb-gpt { background: var(--success-emphasis); }
+    .mbb-haiku { background: var(--warning-emphasis); }
+    .mbb-other { background: var(--neutral-emphasis); }
+
+    /* Session compact list */
+    .session-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+    .session-item:last-child { border-bottom: none; }
+    .session-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .session-dot.working { background: var(--success-fg); animation: pulse 2s infinite; }
+    .session-dot.idle { background: var(--warning-fg); }
+    .session-dot.error { background: var(--danger-fg); }
+    .session-meta { flex: 1; min-width: 0; }
+    .session-meta-top { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; }
+    .session-meta-id { font-family: "JetBrains Mono", monospace; font-size: 0.6875rem; color: var(--accent-fg); }
+    .session-meta-repo { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-meta-bottom { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+    .session-cost { text-align: right; flex-shrink: 0; }
+    .session-cost-value { font-size: 0.875rem; font-weight: 600; }
+    .session-cost-tokens { font-size: 0.625rem; color: var(--text-tertiary); }
+
+    /* Embeddable widget mode indicator */
+    .widget-hint { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--accent-subtle); border: 1px dashed var(--accent-muted); border-radius: var(--radius-md); font-size: 0.6875rem; color: var(--accent-fg); margin-bottom: 4px; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="../orchestration-home/variant-a.html">Orchestration</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Cost &amp; Budget</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <a href="variant-a.html" class="btn btn-sm btn-ghost">Full Dashboard</a>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="page-content-inner" style="max-width:640px;">
+          <div class="widget-hint">
+            <span>📌</span>
+            <span>Compact view — embeddable as a widget panel in other views</span>
+          </div>
+
+          <h1 class="page-title" style="font-size:1.125rem;">Cost &amp; Budget</h1>
+          <p class="page-subtitle" style="margin-bottom:18px;">Premium request usage and budget guardrails</p>
+
+          <div class="cost-stack">
+
+            <!-- Budget Status Card -->
+            <div class="cpanel">
+              <div class="cpanel-header">
+                <span class="cpanel-title">Budget Status</span>
+                <span class="budget-pct-badge" id="pctBadge">—%</span>
+              </div>
+              <div class="budget-status">
+                <div class="budget-top">
+                  <div class="budget-numbers">
+                    <div class="budget-used" id="budgetUsed">—</div>
+                    <div class="budget-limit" id="budgetLimitText">of — premium requests</div>
+                  </div>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" id="progressFill"></div>
+                  <div class="progress-markers">
+                    <div class="progress-marker warn" id="pWarnMarker"></div>
+                    <div class="progress-marker crit" id="pCritMarker"></div>
+                  </div>
+                </div>
+                <div class="projection" id="projectionBox">
+                  <span class="projection-icon">📈</span>
+                  <span id="projectionText">Calculating…</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats" id="quickStats"></div>
+
+            <!-- Alert Configuration -->
+            <div class="cpanel">
+              <div class="cpanel-header">
+                <span class="cpanel-title">Alert Thresholds</span>
+                <button class="cpanel-action" onclick="saveAlerts()">Save</button>
+              </div>
+              <div id="alertConfig">
+                <div class="alert-row">
+                  <div class="alert-icon-wrap warn-bg">⚠️</div>
+                  <div class="alert-info">
+                    <div class="alert-name">Warning Alert</div>
+                    <div class="alert-desc">Notification when usage crosses threshold</div>
+                  </div>
+                  <div class="alert-control">
+                    <input type="number" id="alertWarn" min="1" max="99" value="75" onchange="updateProgress()">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">%</span>
+                  </div>
+                </div>
+                <div class="alert-row">
+                  <div class="alert-icon-wrap crit-bg">🔴</div>
+                  <div class="alert-info">
+                    <div class="alert-name">Critical Alert</div>
+                    <div class="alert-desc">Urgent notification before budget is exhausted</div>
+                  </div>
+                  <div class="alert-control">
+                    <input type="number" id="alertCrit" min="1" max="100" value="90" onchange="updateProgress()">
+                    <span style="font-size:0.75rem;color:var(--text-tertiary);">%</span>
+                  </div>
+                </div>
+                <div class="alert-row">
+                  <div class="alert-icon-wrap pause-bg">⏸️</div>
+                  <div class="alert-info">
+                    <div class="alert-name">Auto-pause Sessions</div>
+                    <div class="alert-desc">Pause all sessions when limit is reached</div>
+                  </div>
+                  <div class="alert-control">
+                    <div class="form-switch on" id="autoPauseSwitch" onclick="toggleSwitch(this)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model Cost Breakdown (badges) -->
+            <div class="cpanel">
+              <div class="cpanel-header">
+                <span class="cpanel-title">Cost by Model</span>
+              </div>
+              <div class="model-badges" id="modelBadges"></div>
+            </div>
+
+            <!-- Recent Session Costs -->
+            <div class="cpanel">
+              <div class="cpanel-header">
+                <span class="cpanel-title">Active Session Costs</span>
+                <span style="font-size:0.6875rem;color:var(--text-tertiary);" id="sessionCount">—</span>
+              </div>
+              <div id="sessionList"></div>
+            </div>
+
+          </div><!-- /cost-stack -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../orchestration-shared.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateOrchSidebar('cost');
+      renderBudgetStatus();
+      renderQuickStats();
+      renderModelBadges();
+      renderSessionList();
+    });
+
+    /* ---- Budget Status ---- */
+    function renderBudgetStatus() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const pct = (b.used / b.limit) * 100;
+
+      document.getElementById('budgetUsed').textContent = b.used;
+      document.getElementById('budgetLimitText').textContent = `of ${b.limit} premium requests (${b.period})`;
+
+      const badge = document.getElementById('pctBadge');
+      badge.textContent = Math.round(pct) + '%';
+      badge.className = 'budget-pct-badge ' + (pct >= 90 ? 'critical' : pct >= 75 ? 'warn' : 'ok');
+
+      updateProgress();
+      renderProjection();
+    }
+
+    function updateProgress() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const pct = (b.used / b.limit) * 100;
+      const warn = parseFloat(document.getElementById('alertWarn').value) || 75;
+      const crit = parseFloat(document.getElementById('alertCrit').value) || 90;
+
+      const fill = document.getElementById('progressFill');
+      fill.style.width = pct + '%';
+      fill.style.background = pct >= crit ? 'var(--danger-emphasis)' : pct >= warn ? 'var(--warning-emphasis)' : 'var(--success-emphasis)';
+
+      document.getElementById('pWarnMarker').style.left = warn + '%';
+      document.getElementById('pCritMarker').style.left = crit + '%';
+    }
+
+    function renderProjection() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const totalReqs = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.requests, 0);
+      const dailyAvg = totalReqs / ORCH_BUDGET.dailySpend.length;
+      const daysRemaining = 30 - 19;
+      const projected = Math.round(b.used + dailyAvg * daysRemaining);
+
+      const txt = document.getElementById('projectionText');
+      if (projected > b.limit) {
+        txt.innerHTML = `At current rate, you'll use <strong>~${projected}/${b.limit}</strong> requests this month — <strong style="color:var(--danger-fg);">over budget</strong>`;
+      } else {
+        txt.innerHTML = `At current rate, you'll use <strong>~${projected}/${b.limit}</strong> requests this month`;
+      }
+    }
+
+    /* ---- Quick Stats ---- */
+    function renderQuickStats() {
+      const b = ORCH_BUDGET.premiumRequests;
+      const totalCost = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.cost, 0);
+      const totalReqs = ORCH_BUDGET.dailySpend.reduce((s, d) => s + d.requests, 0);
+      const dailyAvg = Math.round(totalReqs / ORCH_BUDGET.dailySpend.length);
+      const remaining = b.limit - b.used;
+      const daysLeft = dailyAvg > 0 ? Math.floor(remaining / dailyAvg) : '∞';
+
+      const stats = [
+        { value: remaining, label: 'Remaining' },
+        { value: dailyAvg + '/d', label: 'Daily Avg' },
+        { value: formatCost(totalCost), label: '7-Day Spend' },
+        { value: daysLeft + 'd', label: 'Days Left' },
+      ];
+
+      document.getElementById('quickStats').innerHTML = stats.map(s =>
+        `<div class="qstat"><div class="qstat-value">${s.value}</div><div class="qstat-label">${s.label}</div></div>`
+      ).join('');
+    }
+
+    /* ---- Model Badges ---- */
+    function renderModelBadges() {
+      const models = ORCH_BUDGET.modelBreakdown;
+      const colorMap = {
+        'claude-opus-4.6': 'mbb-opus',
+        'claude-sonnet-4.6': 'mbb-sonnet',
+        'gpt-5.4': 'mbb-gpt',
+        'claude-haiku-4.5': 'mbb-haiku',
+        'other': 'mbb-other',
+      };
+      const iconMap = {
+        'claude-opus-4.6': '🟣',
+        'claude-sonnet-4.6': '🔵',
+        'gpt-5.4': '🟢',
+        'claude-haiku-4.5': '⚡',
+        'other': '◽',
+      };
+
+      document.getElementById('modelBadges').innerHTML = models.map(m => {
+        const cls = colorMap[m.model] || 'mbb-other';
+        const icon = iconMap[m.model] || '◽';
+        const name = m.model === 'other' ? 'Other' : (ORCH_MODELS.find(x => x.id === m.model)?.name || m.model);
+        return `<div class="model-badge">
+          <span class="model-badge-icon">${icon}</span>
+          <span class="model-badge-name">${name}</span>
+          <div class="model-badge-bar"><div class="model-badge-bar-fill ${cls}" style="width:${m.pct}%;"></div></div>
+          <span class="model-badge-pct">${m.pct}%</span>
+          <span class="model-badge-cost">${formatCost(m.cost)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    /* ---- Session List ---- */
+    function renderSessionList() {
+      const sessions = ORCH_ACTIVE_SESSIONS;
+      document.getElementById('sessionCount').textContent = sessions.length + ' active';
+
+      document.getElementById('sessionList').innerHTML = sessions.map(s => {
+        const totalTokens = formatNumber(s.tokensIn + s.tokensOut);
+        return `<div class="session-item">
+          <div class="session-dot ${s.status}"></div>
+          <div class="session-meta">
+            <div class="session-meta-top">
+              <span class="session-meta-repo">${s.repo}</span>
+              <span class="session-meta-id">${s.id}</span>
+            </div>
+            <div class="session-meta-bottom">${s.branch} · ${s.model.split('-').slice(-1)[0]} · ${formatDuration(s.elapsed)}</div>
+          </div>
+          <div class="session-cost">
+            <div class="session-cost-value">${s.premiumReqs.toFixed(2)} req</div>
+            <div class="session-cost-tokens">${totalTokens} tokens</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    /* ---- Interactions ---- */
+    function toggleSwitch(el) { el.classList.toggle('on'); }
+
+    function saveAlerts() {
+      const warn = document.getElementById('alertWarn').value;
+      const crit = document.getElementById('alertCrit').value;
+      const autoPause = document.getElementById('autoPauseSwitch').classList.contains('on');
+      alert(`Alerts saved!\n\nWarning: ${warn}%\nCritical: ${crit}%\nAuto-pause: ${autoPause ? 'On' : 'Off'}`);
+    }
+  </script>
+</body>
+</html>

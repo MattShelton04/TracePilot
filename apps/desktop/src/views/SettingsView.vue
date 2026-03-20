@@ -19,7 +19,7 @@ const sessionCount = computed(() => {
   return indexed || sessionsStore.sessions.length;
 });
 
-const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—');
+const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇö');
 </script>
 
 <template>
@@ -52,7 +52,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
 
 <!-- Shared styles for all settings sub-components -->
 <style>
-/* ── Section spacing ──────────────────────────────────────── */
+/* Section spacing */
 .settings-root .settings-section {
   margin-bottom: 24px;
 }
@@ -66,7 +66,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   margin-bottom: 10px;
 }
 
-/* ── Setting rows ─────────────────────────────────────────── */
+/* Setting rows */
 .settings-root .setting-row {
   display: flex;
   align-items: center;
@@ -119,7 +119,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   color: var(--text-secondary);
 }
 
-/* ── Danger button override ───────────────────────────────── */
+/* Danger button override */
 .settings-root .btn-danger {
   color: var(--danger-fg);
   border-color: var(--danger-muted);
@@ -139,7 +139,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   color: var(--text-secondary);
 }
 
-/* ── Input widths ─────────────────────────────────────────── */
+/* Input widths */
 .settings-root .input-narrow-center {
   width: 80px;
   text-align: center;
@@ -160,7 +160,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   text-align: center;
 }
 
-/* ── Danger row ───────────────────────────────────────────── */
+/* Danger row */
 .settings-root .setting-row-danger {
   border-top: 1px solid var(--danger-muted);
 }
@@ -173,7 +173,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   color: var(--danger-fg);
 }
 
-/* ── Stacked / end row modifiers ──────────────────────────── */
+/* Stacked / end row modifiers */
 .settings-root .setting-row-stacked {
   flex-direction: column;
   align-items: stretch;
@@ -191,7 +191,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
   justify-content: flex-end;
 }
 
-/* ── Utility classes ──────────────────────────────────────── */
+/* Utility classes */
 .settings-root .text-left {
   text-align: left;
 }

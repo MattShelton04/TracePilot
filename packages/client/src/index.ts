@@ -315,3 +315,6 @@ export async function getGitInfo(): Promise<GitInfo> {
 }
 
 export type { SessionHealth };
+
+// Re-export orchestration module
+export * from './orchestration.js';
