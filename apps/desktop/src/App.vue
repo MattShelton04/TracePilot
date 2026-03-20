@@ -38,6 +38,8 @@ onMounted(async () => {
     if (exists) {
       phase.value = 'app';
       sessionsStore.fetchSessions();
+      // Wait for preferences to load from config.toml before using config-backed values
+      await prefsStore.whenReady;
       // Post-load hooks: version change detection + update check
       await checkVersionChange();
       if (prefsStore.checkForUpdates) {
