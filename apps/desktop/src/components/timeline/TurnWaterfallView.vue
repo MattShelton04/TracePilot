@@ -420,6 +420,14 @@ function rowArgsSummary(row: WaterfallRow): string {
             <button
               class="nav-btn"
               :disabled="!canPrev"
+              @click="jumpTo(0)"
+              aria-label="Jump to earliest turn"
+            >
+              ⏮ Earliest
+            </button>
+            <button
+              class="nav-btn"
+              :disabled="!canPrev"
               @click="prevTurn"
               aria-label="Previous turn"
             >
@@ -433,6 +441,14 @@ function rowArgsSummary(row: WaterfallRow): string {
               aria-label="Next turn"
             >
               Next ▶
+            </button>
+            <button
+              class="nav-btn"
+              :disabled="!canNext"
+              @click="jumpTo(turns.length - 1)"
+              aria-label="Jump to latest turn"
+            >
+              Latest ⏭
             </button>
           </div>
 

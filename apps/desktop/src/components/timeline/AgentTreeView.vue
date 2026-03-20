@@ -102,7 +102,7 @@ const agentTurns = computed<ConversationTurn[]>(() =>
   store.turns.filter((t) => t.toolCalls.some((tc) => tc.isSubagent)),
 );
 
-const { turnIndex: agentTurnIndex, prevTurn: navPrev, nextTurn: navNext } = useTimelineNavigation({
+const { turnIndex: agentTurnIndex, canPrev: canPrevAgent, canNext: canNextAgent, prevTurn: navPrev, nextTurn: navNext, jumpTo: agentJumpTo } = useTimelineNavigation({
   turns: agentTurns,
   rootRef,
   onEscape: () => { selectedNodeId.value = null; },
@@ -129,6 +129,8 @@ watch(agentTurnIndex, () => {
 
 function prevAgentTurn() { navPrev(); }
 function nextAgentTurn() { navNext(); }
+function jumpToEarliestAgent() { agentJumpTo(0); }
+function jumpToLatestAgent() { agentJumpTo(agentTurns.value.length - 1); }
 
 // ---------------------------------------------------------------------------
 // Agent Type Detection
@@ -584,7 +586,7 @@ watch(hasInProgress, (val) => {
 
 // Reset index when turns structurally change (new session loaded),
 // but preserve selection when turns are appended or soft-refreshed.
-let lastTurnKey = "";
+let lastTurnKey = store.turns.map(t => t.turnIndex).join(",");
 watch(
   () => store.turns,
   (newTurns) => {
@@ -630,6 +632,14 @@ watch(
       <div class="turn-nav">
         <button
           class="turn-nav-btn"
+          :disabled="!canPrevAgent"
+          @click="jumpToEarliestAgent"
+          aria-label="Jump to earliest agent turn"
+        >
+          ⏮ Earliest
+        </button>
+        <button
+          class="turn-nav-btn"
           :disabled="agentTurnIndex === 0"
           @click="prevAgentTurn"
           aria-label="Previous agent turn"
@@ -644,6 +654,14 @@ watch(
           aria-label="Next agent turn"
         >
           Next ▶
+        </button>
+        <button
+          class="turn-nav-btn"
+          :disabled="!canNextAgent"
+          @click="jumpToLatestAgent"
+          aria-label="Jump to latest agent turn"
+        >
+          Latest ⏭
         </button>
       </div>
 

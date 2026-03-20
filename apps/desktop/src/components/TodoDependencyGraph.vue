@@ -308,12 +308,16 @@ const edgePaths = computed(() =>
     const y2 = to.y;
     const cy1 = y1 + (y2 - y1) * 0.4;
     const cy2 = y1 + (y2 - y1) * 0.6;
+    // Retain horizontal offset in last control point so the arrow
+    // tangent reflects the actual approach angle instead of always
+    // pointing straight down.
+    const cx2 = x2 + (x1 - x2) * 0.25;
     const targetTodo = filteredTodos.value.find(t => t.id === e.to);
     const status = targetTodo?.status || "pending";
     const color = STATUS_COLOR[status]?.stroke ?? STATUS_COLOR.pending.stroke;
     return {
       id: `edge-${i}`,
-      d: `M${x1},${y1} C${x1},${cy1} ${x2},${cy2} ${x2},${y2}`,
+      d: `M${x1},${y1} C${x1},${cy1} ${cx2},${cy2} ${x2},${y2}`,
       color,
       status,
       from: e.from,
@@ -345,22 +349,30 @@ function nodeClass(todo: TodoItem): string {
   if (todo.status === "done") classes.push("done-node");
   if (selectedNodeId.value === todo.id) classes.push("selected");
 
+  // Determine which node drives highlighting: hover takes priority, then selection
+  const activeId = hoveredNodeId.value ?? selectedNodeId.value;
+
   if (searchMatchIds.value) {
     classes.push(searchMatchIds.value.has(todo.id) ? "search-match" : "search-dim");
-  } else if (hoveredNodeId.value) {
-    const connected = getConnectedNodeIds(hoveredNodeId.value);
-    classes.push(connected.has(todo.id) ? "highlighted" : "faded");
+  } else if (activeId) {
+    const connected = getConnectedNodeIds(activeId);
+    if (connected.has(todo.id)) {
+      classes.push("highlighted");
+    } else if (selectedNodeId.value !== todo.id) {
+      classes.push("faded");
+    }
   }
   return classes.join(" ");
 }
 
 function edgeClass(edge: { from: string; to: string }): string {
   const classes = ["dag-edge"];
+  const activeId = hoveredNodeId.value ?? selectedNodeId.value;
   if (searchMatchIds.value) {
     const hasMatch = searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to);
     classes.push(hasMatch ? "search-match" : "search-dim");
-  } else if (hoveredNodeId.value) {
-    classes.push(isEdgeConnected(edge, hoveredNodeId.value) ? "highlighted" : "faded");
+  } else if (activeId) {
+    classes.push(isEdgeConnected(edge, activeId) ? "highlighted" : "faded");
   }
   return classes.join(" ");
 }
@@ -369,8 +381,9 @@ function edgeOpacity(edge: { from: string; to: string }): number {
   if (searchMatchIds.value) {
     return (searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to)) ? 0.6 : 0.08;
   }
-  if (!hoveredNodeId.value) return 0.35;
-  return isEdgeConnected(edge, hoveredNodeId.value) ? 0.8 : 0.1;
+  const activeId = hoveredNodeId.value ?? selectedNodeId.value;
+  if (!activeId) return 0.35;
+  return isEdgeConnected(edge, activeId) ? 0.8 : 0.1;
 }
 
 function truncate(s: string, len: number): string {
@@ -870,7 +883,8 @@ watch(filteredTodos, () => {
 /* Node styles */
 .dag-node { cursor: pointer; transition: opacity 0.2s ease; }
 .dag-node:hover .node-rect { filter: brightness(1.2); }
-.dag-node.selected .node-rect { stroke-width: 2.5; }
+.dag-node.selected .node-rect { stroke-width: 2.5; filter: brightness(1.3); }
+.dag-node.selected { opacity: 1 !important; }
 .dag-node.faded { opacity: 0.25; }
 .dag-node.highlighted { opacity: 1; }
 .dag-node.search-match { opacity: 1; }
