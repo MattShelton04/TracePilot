@@ -287,6 +287,20 @@ pnpm test
 pnpm typecheck
 ```
 
+### Testing CI Locally
+
+You can run the CI workflow locally using [`act`](https://github.com/nektos/act), which simulates GitHub Actions in Docker containers. The `.actrc` file in the project root configures the correct Docker images.
+
+```bash
+# Install act (Windows)
+winget install nektos.act
+
+# Run the CI check workflow
+act -W .github/workflows/ci.yml -j check
+```
+
+> **Note:** The release workflow's `build-installers` job runs on `windows-latest`, which `act` cannot simulate in Docker. To test release changes, use the `workflow_dispatch` trigger: go to **Actions → Release → Run workflow**, enter a version tag (e.g. `v0.3.0-test`), and it will create a draft release you can inspect and delete afterwards.
+
 ### Benchmarks
 
 TracePilot includes [Criterion](https://github.com/bheisler/criterion.rs) benchmarks with deterministic synthetic data generators:
