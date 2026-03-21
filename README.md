@@ -306,7 +306,8 @@ The release workflow signs update artifacts with an Ed25519 keypair so installed
 | Secret | Value |
 |--------|-------|
 | `TAURI_SIGNING_PRIVATE_KEY` | Contents of `.tauri-updater-key` (generated via `pnpm tauri signer generate`) |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password used during key generation (empty string if none) |
+
+The key was generated without a password, so no `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret is needed (the workflow hardcodes an empty string).
 
 The public key is already embedded in `tauri.conf.json`. When these secrets are set, the release workflow produces a `latest.json` manifest and `.sig` signature files alongside each installer — enabling one-click updates for users running the installed app.
 
