@@ -153,7 +153,7 @@ All 15 pages are implemented as Vue 3 single-file components. Pages marked **[ST
 | 11 | **Health Scoring** | `HealthScoringView.vue` | 🔶 STUB | Health rings, attention grid, flags table |
 | 12 | **Export** | `ExportView.vue` | 🔶 STUB | Config + live preview, format selection |
 | 13 | **Session Comparison** | `SessionComparisonView.vue` | 🔶 STUB | Side-by-side diff, model usage breakdown |
-| 14 | **Session Replay** | `SessionReplayView.vue` | 🔶 STUB | Transport controls, step-by-step playback |
+| 14 | **Session Replay** | `SessionReplayView.vue` | ✅ DONE | Transport controls, step-by-step playback, rich rendering |
 | 15 | **Settings** | `SettingsView.vue` | 🔶 STUB | 5 sections (General, Data, Health, Shortcuts, About) |
 
 > **STUB pages** have full UI chrome (sidebar, breadcrumbs, correct layout) and realistic mock data so the design can be validated. They will be connected to Rust backends in Phases 3–6.
@@ -338,7 +338,12 @@ Full reference: [`docs/design/design-system.md`](../docs/design/design-system.md
 - [ ] Session evolution view (same task across multiple attempts)
 
 ### 6.2 — Session Replay
-- [ ] Step-through conversation replay with timeline scrubber
+- [x] Step-through conversation replay with timeline scrubber
+- [x] Rich content rendering (markdown, code highlighting, tool renderers)
+- [x] Playback controls (play/pause, speed, keyboard shortcuts)
+- [x] Two-column layout (conversation + detail sidebar)
+- [x] Model switch banners, event ticker, agent grouping
+- [x] Unit tests for controller, transform, and markdown renderer
 - [ ] Highlight what the assistant was "thinking" at each step
 - [ ] Show tool call inputs/outputs inline
 - [ ] Playback speed control
@@ -484,7 +489,7 @@ These standards apply throughout development:
 | Health Scoring | 🔶 STUB | Health rings, attention grid, flags table |
 | Export | 🔶 STUB | Config + live preview, format selection |
 | Session Comparison | 🔶 STUB | Side-by-side diff, model usage breakdown |
-| Session Replay | 🔶 STUB | Transport controls, step-by-step playback |
+| Session Replay | ✅ DONE | Transport controls, step-by-step playback, rich rendering |
 | Settings | 🔶 STUB | 5 sections (General, Data, Health, Shortcuts, About) |
 | Variant C design system | ✅ | 60+ CSS tokens, 120+ classes, Inter font, dark/light themes |
 | Pinia state management | ✅ | Session list + detail stores with lazy loading |
