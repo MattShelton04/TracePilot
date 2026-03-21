@@ -165,22 +165,22 @@ impl IndexDb {
 
     /// Check if the event cache is populated for a session.
     ///
-    /// Returns `true` if events have been cached (byte_offset > 0),
-    /// even if the session has zero events (valid for sessions with empty events.jsonl).
+    /// Uses the `events_cached` flag column, which is set to 1 after successful
+    /// caching. This correctly handles empty sessions (0 events, byte_offset = 0).
     pub fn has_cached_events(&self, session_id: &str) -> bool {
         self.conn
             .query_row(
-                "SELECT events_byte_offset FROM sessions WHERE id = ?1",
+                "SELECT events_cached FROM sessions WHERE id = ?1",
                 [session_id],
                 |row| row.get::<_, Option<i64>>(0),
             )
             .ok()
             .flatten()
             .unwrap_or(0)
-            > 0
+            == 1
     }
 
-    /// Read cached events with keyset pagination.
+    /// Read cached events with keyset pagination (metadata only, no payload).
     ///
     /// Returns `(events, total_count, has_more)`. Uses `event_index >= start_index`
     /// for efficient deep pagination (avoids SQL OFFSET).
@@ -203,7 +203,8 @@ impl IndexDb {
         // Fetch one extra row to determine has_more
         let fetch_limit = limit + 1;
         let mut stmt = self.conn.prepare(
-            "SELECT event_index, event_type, event_id, timestamp, parent_id, data_json
+            "SELECT event_index, event_type, event_id, timestamp, parent_id,
+                    byte_offset, line_length, tool_call_id
              FROM session_events
              WHERE session_id = ?1 AND event_index >= ?2
              ORDER BY event_index ASC
@@ -219,7 +220,9 @@ impl IndexDb {
                     event_id: row.get(2)?,
                     timestamp: row.get(3)?,
                     parent_id: row.get(4)?,
-                    data_json: row.get(5)?,
+                    byte_offset: row.get::<_, i64>(5)? as u64,
+                    line_length: row.get::<_, i64>(6)? as u64,
+                    tool_call_id: row.get(7)?,
                 })
             },
         )?;
@@ -237,30 +240,60 @@ impl IndexDb {
         Ok((events, total_count, has_more))
     }
 
-    /// Read all cached conversation turns for a session.
+    /// Get the byte offset and line length for a specific event.
     ///
-    /// Deserializes stored JSON blobs back into `ConversationTurn` values.
-    /// Returns an empty Vec if no turns are cached (either never cached, or
-    /// the session genuinely has zero turns — both are valid).
-    pub fn get_cached_turns(
+    /// Used for on-demand event data reads: seek to `byte_offset` in events.jsonl,
+    /// read `line_length` bytes, parse the JSON line.
+    pub fn get_event_data_offset(
         &self,
         session_id: &str,
-    ) -> Result<Vec<tracepilot_core::ConversationTurn>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT turn_json FROM session_turns
-             WHERE session_id = ?1 ORDER BY turn_index ASC",
-        )?;
+        event_index: usize,
+    ) -> Result<Option<(u64, u64)>> {
+        let result = self
+            .conn
+            .query_row(
+                "SELECT byte_offset, line_length FROM session_events
+                 WHERE session_id = ?1 AND event_index = ?2",
+                rusqlite::params![session_id, event_index as i64],
+                |row| {
+                    Ok((row.get::<_, i64>(0)? as u64, row.get::<_, i64>(1)? as u64))
+                },
+            );
 
-        let rows = stmt.query_map([session_id], |row| row.get::<_, String>(0))?;
-
-        let mut turns = Vec::new();
-        for row in rows {
-            let json = row?;
-            let turn: tracepilot_core::ConversationTurn = serde_json::from_str(&json)
-                .map_err(|e| anyhow::anyhow!("Failed to deserialize cached turn: {}", e))?;
-            turns.push(turn);
+        match result {
+            Ok(offset) => Ok(Some(offset)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
         }
-        Ok(turns)
+    }
+
+    /// Find the byte offset of a tool.execution_complete event by tool_call_id.
+    ///
+    /// Returns `(byte_offset, line_length)` for the matching event (last match wins),
+    /// which can be used to seek directly to the event's JSON line in events.jsonl.
+    pub fn get_tool_result_offset(
+        &self,
+        session_id: &str,
+        tool_call_id: &str,
+    ) -> Result<Option<(u64, u64)>> {
+        let result = self
+            .conn
+            .query_row(
+                "SELECT byte_offset, line_length FROM session_events
+                 WHERE session_id = ?1 AND tool_call_id = ?2
+                 ORDER BY event_index DESC
+                 LIMIT 1",
+                rusqlite::params![session_id, tool_call_id],
+                |row| {
+                    Ok((row.get::<_, i64>(0)? as u64, row.get::<_, i64>(1)? as u64))
+                },
+            );
+
+        match result {
+            Ok(offset) => Ok(Some(offset)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Read cached ShutdownData + shutdown count for a session.
@@ -358,30 +391,15 @@ impl IndexDb {
         }
     }
 
-    /// Find cached events matching a specific tool call ID.
+    /// Find byte offset for a tool.execution_complete event by tool_call_id.
     ///
-    /// Searches `session_events` for `tool.execution_complete` events whose
-    /// `data_json` contains the tool_call_id. Returns the *last* matching event's
-    /// data_json (by event_index), matching the disk fallback's "last match wins" behavior.
+    /// Returns `(byte_offset, line_length)` for seeking directly to the event's
+    /// JSON line in events.jsonl. Returns `None` if no match is cached.
     pub fn get_cached_tool_result(
         &self,
         session_id: &str,
         tool_call_id: &str,
-    ) -> Result<Option<String>> {
-        // Use the event_type index + JSON extract for efficient lookup
-        let result: Option<String> = self
-            .conn
-            .query_row(
-                "SELECT data_json FROM session_events
-                 WHERE session_id = ?1
-                   AND event_type = 'tool.execution_complete'
-                   AND json_extract(data_json, '$.toolCallId') = ?2
-                 ORDER BY event_index DESC
-                 LIMIT 1",
-                rusqlite::params![session_id, tool_call_id],
-                |row| row.get(0),
-            )
-            .ok();
-        Ok(result)
+    ) -> Result<Option<(u64, u64)>> {
+        self.get_tool_result_offset(session_id, tool_call_id)
     }
 }

@@ -5,11 +5,22 @@ use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use tracepilot_core::models::event_types::SessionEventType;
 use tracepilot_core::parsing::events::TypedEventData;
 use tracepilot_core::utils::truncate_utf8;
 
 use super::types::*;
 use super::IndexDb;
+
+/// Extract tool_call_id from a typed event (only for tool.execution_complete events).
+fn extract_tool_call_id(event_type: &SessionEventType, data: &TypedEventData) -> Option<String> {
+    if matches!(event_type, SessionEventType::ToolExecutionComplete) {
+        if let TypedEventData::ToolExecutionComplete(d) = data {
+            return d.tool_call_id.clone();
+        }
+    }
+    None
+}
 
 impl IndexDb {
     /// Insert or update a session in the index, computing analytics from events.
@@ -76,10 +87,6 @@ impl IndexDb {
             )?;
             self.conn.execute(
                 "DELETE FROM session_events WHERE session_id = ?1",
-                [&session_id],
-            )?;
-            self.conn.execute(
-                "DELETE FROM session_turns WHERE session_id = ?1",
                 [&session_id],
             )?;
 
@@ -253,22 +260,32 @@ impl IndexDb {
                 }
             }
 
-            // ── Cache events, turns, and shutdown data ────────────────
+            // ── Cache event metadata + shutdown data ─────────────────
+            // Parse events with byte offsets for the lean cache.
+            // The typed_events from load_session_summary are used for analytics;
+            // we need a separate offset-aware parse for cache population.
+            let events_path = session_path.join("events.jsonl");
+            if events_path.exists() {
+                match tracepilot_core::parsing::events::parse_typed_events_with_offsets(&events_path) {
+                    Ok(parsed) => {
+                        self.cache_session_events(
+                            &session_id,
+                            &parsed.events,
+                            parsed.final_byte_offset,
+                        )?;
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            session_id = %session_id,
+                            error = %e,
+                            "Failed to parse events with offsets for caching; cache will be empty"
+                        );
+                    }
+                }
+            }
+
+            // Cache shutdown data (uses the already-parsed typed_events)
             if let Some(ref events) = typed_events {
-                // Compute byte offset: the position after the last complete
-                // newline-terminated line. If the file ends with \n (normal case),
-                // this equals the file size. If there's a partial trailing line
-                // (mid-write), we subtract the partial bytes so incremental parsing
-                // can re-read that line once it's complete.
-                let events_path = session_path.join("events.jsonl");
-                let byte_offset = compute_safe_byte_offset(&events_path);
-                self.cache_session_events(&session_id, events, byte_offset)?;
-
-                // Reconstruct and cache turns
-                let turns = tracepilot_core::reconstruct_turns(events);
-                self.cache_session_turns(&session_id, &turns)?;
-
-                // Cache shutdown data
                 if let Some((shutdown_data, count)) =
                     tracepilot_core::parsing::events::extract_combined_shutdown_data(events)
                 {
@@ -439,10 +456,13 @@ impl IndexDb {
     ///
     /// Deletes any existing cached events first (use for full reindex).
     /// Stores each event's envelope fields + raw data JSON for reconstruction.
+    /// Cache lean event metadata (no payload data) with per-event byte offsets.
+    ///
+    /// Replaces all cached events for the session. Sets `events_cached = 1`.
     pub fn cache_session_events(
         &self,
         session_id: &str,
-        events: &[tracepilot_core::parsing::events::TypedEvent],
+        events: &[tracepilot_core::parsing::events::TypedEventWithOffset],
         byte_offset: u64,
     ) -> Result<()> {
         // Clear existing cached events
@@ -452,95 +472,71 @@ impl IndexDb {
         )?;
 
         let mut stmt = self.conn.prepare(
-            "INSERT INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, data_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, byte_offset, line_length, tool_call_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         )?;
 
-        for (idx, event) in events.iter().enumerate() {
-            let data_json = serde_json::to_string(&event.raw.data)
-                .unwrap_or_else(|_| "{}".to_string());
+        for (idx, ewo) in events.iter().enumerate() {
+            let tool_call_id = extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data);
             stmt.execute(params![
                 session_id,
                 idx as i64,
-                event.event_type.to_string(),
-                event.raw.id,
-                event.raw.timestamp.map(|t| t.to_rfc3339()),
-                event.raw.parent_id,
-                data_json,
+                ewo.event.event_type.to_string(),
+                ewo.event.raw.id,
+                ewo.event.raw.timestamp.map(|t| t.to_rfc3339()),
+                ewo.event.raw.parent_id,
+                ewo.byte_offset as i64,
+                ewo.line_length as i64,
+                tool_call_id,
             ])?;
         }
 
-        // Update byte offset and line count on the session row
+        // Update byte offset, line count, and cache flag on the session row
         self.conn.execute(
-            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2 WHERE id = ?3",
+            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2, events_cached = 1 WHERE id = ?3",
             params![byte_offset as i64, events.len() as i64, session_id],
         )?;
 
         Ok(())
     }
 
-    /// Append newly parsed events to the session_events cache (incremental mode).
+    /// Append newly parsed events to the lean session_events cache (incremental mode).
     ///
     /// Does NOT delete existing rows. Inserts new events starting at `start_index`.
     pub fn append_cached_events(
         &self,
         session_id: &str,
-        new_events: &[tracepilot_core::parsing::events::TypedEvent],
+        new_events: &[tracepilot_core::parsing::events::TypedEventWithOffset],
         start_index: usize,
         new_byte_offset: u64,
     ) -> Result<()> {
         let mut stmt = self.conn.prepare(
-            "INSERT OR REPLACE INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, data_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT OR REPLACE INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, byte_offset, line_length, tool_call_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         )?;
 
-        for (i, event) in new_events.iter().enumerate() {
+        for (i, ewo) in new_events.iter().enumerate() {
             let event_index = start_index + i;
-            let data_json = serde_json::to_string(&event.raw.data)
-                .unwrap_or_else(|_| "{}".to_string());
+            let tool_call_id = extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data);
             stmt.execute(params![
                 session_id,
                 event_index as i64,
-                event.event_type.to_string(),
-                event.raw.id,
-                event.raw.timestamp.map(|t| t.to_rfc3339()),
-                event.raw.parent_id,
-                data_json,
+                ewo.event.event_type.to_string(),
+                ewo.event.raw.id,
+                ewo.event.raw.timestamp.map(|t| t.to_rfc3339()),
+                ewo.event.raw.parent_id,
+                ewo.byte_offset as i64,
+                ewo.line_length as i64,
+                tool_call_id,
             ])?;
         }
 
         // Update byte offset and total line count
         let total_count = (start_index + new_events.len()) as i64;
         self.conn.execute(
-            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2 WHERE id = ?3",
+            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2, events_cached = 1 WHERE id = ?3",
             params![new_byte_offset as i64, total_count, session_id],
         )?;
-
-        Ok(())
-    }
-
-    /// Store pre-reconstructed conversation turns as JSON blobs.
-    ///
-    /// Deletes any existing cached turns first (always fully regenerated).
-    pub fn cache_session_turns(
-        &self,
-        session_id: &str,
-        turns: &[tracepilot_core::ConversationTurn],
-    ) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM session_turns WHERE session_id = ?1",
-            [session_id],
-        )?;
-
-        let mut stmt = self.conn.prepare(
-            "INSERT INTO session_turns (session_id, turn_index, turn_json) VALUES (?1, ?2, ?3)",
-        )?;
-
-        for (idx, turn) in turns.iter().enumerate() {
-            let json = serde_json::to_string(turn)
-                .with_context(|| format!("Failed to serialize turn {}", idx))?;
-            stmt.execute(params![session_id, idx as i64, json])?;
-        }
 
         Ok(())
     }

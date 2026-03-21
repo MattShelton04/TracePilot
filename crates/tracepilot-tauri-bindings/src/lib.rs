@@ -124,6 +124,26 @@ mod commands {
 
     const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 
+    /// LRU capacity for in-memory turn cache (number of sessions to keep).
+    const TURN_CACHE_CAPACITY: usize = 10;
+
+    /// In-memory LRU cache for reconstructed conversation turns.
+    ///
+    /// Turns are expensive to store in SQLite (176 MB in v1) but cheap to
+    /// reconstruct from events. We cache the most recently accessed sessions'
+    /// turns in memory to avoid redundant reparsing for tab switches.
+    pub type TurnCache = Arc<
+        std::sync::Mutex<
+            lru::LruCache<String, Vec<tracepilot_core::ConversationTurn>>,
+        >,
+    >;
+
+    pub fn create_turn_cache() -> TurnCache {
+        Arc::new(std::sync::Mutex::new(lru::LruCache::new(
+            std::num::NonZeroUsize::new(TURN_CACHE_CAPACITY).unwrap(),
+        )))
+    }
+
     /// Convert an `IndexingProgress` from the indexer into our Tauri event payload and emit it.
     fn emit_indexing_progress(
         app: &tauri::AppHandle,
@@ -215,6 +235,32 @@ mod commands {
             return None;
         }
         Some(db)
+    }
+
+    /// Read a single event's JSON data by seeking to its byte offset in events.jsonl.
+    ///
+    /// Returns the parsed `data` field from the raw event JSON line.
+    fn read_event_at_offset(
+        events_path: &std::path::Path,
+        byte_offset: u64,
+        line_length: u64,
+    ) -> Result<serde_json::Value, String> {
+        use std::io::{Read, Seek, SeekFrom};
+
+        let mut file = std::fs::File::open(events_path).map_err(|e| e.to_string())?;
+        file.seek(SeekFrom::Start(byte_offset))
+            .map_err(|e| e.to_string())?;
+
+        let mut buf = vec![0u8; line_length as usize];
+        file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+
+        // Parse the JSON line and extract just the "data" field
+        let raw: serde_json::Value =
+            serde_json::from_slice(&buf).map_err(|e| e.to_string())?;
+        Ok(raw
+            .get("data")
+            .cloned()
+            .unwrap_or(serde_json::Value::Object(Default::default())))
     }
 
     // ── Existing Commands (updated for config) ───────────────────────
@@ -461,28 +507,25 @@ mod commands {
     #[tauri::command]
     pub async fn get_session_turns(
         state: tauri::State<'_, SharedConfig>,
+        turn_cache: tauri::State<'_, TurnCache>,
         session_id: String,
     ) -> Result<Vec<tracepilot_core::ConversationTurn>, String> {
+        // Fast path: check in-memory LRU cache
+        {
+            let mut cache = turn_cache.lock().unwrap();
+            if let Some(turns) = cache.get(&session_id) {
+                return Ok(turns.clone());
+            }
+        }
+
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
-        let index_path = cfg.index_db_path();
+        let cache_handle = turn_cache.inner().clone();
+        let sid = session_id.clone();
 
-        tokio::task::spawn_blocking(move || {
-            // Fast path: read cached turns from index DB
-            if let Some(db) = open_index_db(&index_path) {
-                if db.has_cached_events(&session_id) {
-                    match db.get_cached_turns(&session_id) {
-                        Ok(turns) => return Ok(turns),
-                        Err(e) => {
-                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
-                        }
-                    }
-                }
-            }
-
-            // Fallback: parse from disk
+        let turns = tokio::task::spawn_blocking(move || {
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
-                &session_id,
+                &sid,
                 &session_state_dir,
             )
             .map_err(|e| e.to_string())?;
@@ -490,10 +533,18 @@ mod commands {
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
                 .map_err(|e| e.to_string())?
                 .events;
-            Ok(tracepilot_core::turns::reconstruct_turns(&events))
+            Ok::<_, String>(tracepilot_core::turns::reconstruct_turns(&events))
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())??;
+
+        // Store in LRU cache for future hits
+        {
+            let mut cache = cache_handle.lock().unwrap();
+            cache.put(session_id, turns.clone());
+        }
+
+        Ok(turns)
     }
 
     #[tauri::command]
@@ -523,8 +574,7 @@ mod commands {
                                     timestamp: ce.timestamp,
                                     id: ce.event_id,
                                     parent_id: ce.parent_id,
-                                    data: serde_json::from_str(&ce.data_json)
-                                        .unwrap_or(serde_json::Value::Null),
+                                    data: serde_json::Value::Object(Default::default()),
                                 })
                                 .collect();
                             return Ok(EventsResponse {
@@ -571,6 +621,62 @@ mod commands {
                 total_count,
                 has_more: end < total_count,
             })
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Fetch a single event's full data payload by seeking to its byte offset.
+    ///
+    /// Used for on-demand event expansion in the Events tab. The lean event cache
+    /// stores metadata only; this command reads the original JSON line from disk.
+    #[tauri::command]
+    pub async fn get_event_data(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+        event_index: u32,
+    ) -> Result<serde_json::Value, String> {
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let events_path = path.join("events.jsonl");
+
+            // Fast path: use cached byte offset for O(1) seek
+            if let Some(db) = open_index_db(&index_path) {
+                if let Ok(Some((byte_offset, line_length))) =
+                    db.get_event_data_offset(&session_id, event_index as usize)
+                {
+                    match read_event_at_offset(&events_path, byte_offset, line_length) {
+                        Ok(data) => return Ok(data),
+                        Err(e) => {
+                            tracing::warn!(
+                                session_id = %session_id,
+                                event_index = event_index,
+                                error = %e,
+                                "Byte-offset seek failed, falling back to full parse"
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Fallback: parse full file and index into it
+            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                .map_err(|e| e.to_string())?
+                .events;
+            let idx = event_index as usize;
+            if idx < events.len() {
+                Ok(serde_json::to_value(&events[idx].raw.data).unwrap_or_default())
+            } else {
+                Ok(serde_json::Value::Object(Default::default()))
+            }
         })
         .await
         .map_err(|e| e.to_string())?
@@ -1154,15 +1260,29 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            // Fast path: query cached events by tool_call_id
+            // Fast path: look up byte offset from event cache, then seek to it
             if let Some(db) = open_index_db(&index_path) {
                 if db.has_cached_events(&session_id) {
                     match db.get_cached_tool_result(&session_id, &tool_call_id) {
-                        Ok(Some(data_json)) => {
-                            // Parse the cached data_json and extract the "result" field
-                            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&data_json)
-                            {
-                                return Ok(data.get("result").cloned());
+                        Ok(Some((byte_offset, line_length))) => {
+                            // Seek directly to the event in events.jsonl
+                            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                                &session_id,
+                                &session_state_dir,
+                            )
+                            .map_err(|e| e.to_string())?;
+                            let events_path = path.join("events.jsonl");
+                            match read_event_at_offset(&events_path, byte_offset, line_length) {
+                                Ok(data) => {
+                                    return Ok(data.get("result").cloned());
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        session_id = %session_id,
+                                        error = %e,
+                                        "Byte-offset seek failed, falling back to full parse"
+                                    );
+                                }
                             }
                         }
                         Ok(None) => {
@@ -2113,6 +2233,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
             app.manage(std::sync::Arc::new(tokio::sync::Semaphore::new(1)));
+            app.manage(commands::create_turn_cache());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -2121,6 +2242,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_session_incidents,
             commands::get_session_turns,
             commands::get_session_events,
+            commands::get_event_data,
             commands::get_session_todos,
             commands::get_session_checkpoints,
             commands::get_shutdown_metrics,

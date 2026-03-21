@@ -9,6 +9,7 @@ fn main() {
                     "get_session_incidents",
                     "get_session_turns",
                     "get_session_events",
+                    "get_event_data",
                     "get_session_todos",
                     "get_session_checkpoints",
                     "get_shutdown_metrics",

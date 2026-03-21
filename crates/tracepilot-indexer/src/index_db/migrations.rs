@@ -191,6 +191,40 @@ ALTER TABLE sessions ADD COLUMN events_line_count INTEGER DEFAULT 0;
 ALTER TABLE sessions ADD COLUMN shutdown_data_json TEXT;
 "#;
 
+pub(super) const MIGRATION_7: &str = r#"
+-- v2: Lean event metadata cache (replaces v1 heavy blob cache).
+-- Drop the large data_json-containing table and the redundant turns table.
+DROP TABLE IF EXISTS session_turns;
+DROP TABLE IF EXISTS session_events;
+
+-- Recreate session_events with metadata only + byte offsets for surgical reads.
+CREATE TABLE IF NOT EXISTS session_events (
+    session_id TEXT NOT NULL,
+    event_index INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    event_id TEXT,
+    timestamp TEXT,
+    parent_id TEXT,
+    byte_offset INTEGER NOT NULL,
+    line_length INTEGER NOT NULL,
+    tool_call_id TEXT,
+    PRIMARY KEY (session_id, event_index),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_events_type
+    ON session_events(session_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_session_events_tool_call
+    ON session_events(session_id, tool_call_id)
+    WHERE tool_call_id IS NOT NULL;
+
+-- Cache presence flag (byte_offset=0 is ambiguous for empty files).
+ALTER TABLE sessions ADD COLUMN events_cached INTEGER DEFAULT 0;
+
+-- Reset all cache markers so reindex repopulates with the lean schema.
+UPDATE sessions SET events_byte_offset = 0, events_line_count = 0, events_cached = 0;
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -213,6 +247,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 4: tool duration tracking", MIGRATION_4),
         ("Migration 5: incident tracking", MIGRATION_5),
         ("Migration 6: event cache + checkpointing", MIGRATION_6),
+        ("Migration 7: lean event cache v2", MIGRATION_7),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
@@ -223,6 +258,13 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
             tx.execute_batch(sql)?;
             tx.execute("INSERT INTO schema_version (version) VALUES (?1)", [version])?;
             tx.commit()?;
+
+            // Migration 7 drops ~1 GB of blob data; VACUUM to reclaim disk space.
+            // VACUUM cannot run inside a transaction, so we run it post-commit.
+            if version == 7 {
+                tracing::info!("Running VACUUM after migration 7 to reclaim disk space");
+                let _ = conn.execute_batch("VACUUM");
+            }
         }
     }
 

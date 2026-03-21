@@ -131,8 +131,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 6);
-        assert_eq!(count1, 6);
+        assert_eq!(v1, 7);
+        assert_eq!(count1, 7);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -140,7 +140,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 6);
+        assert_eq!(count2, 7);
     }
 
     #[test]
@@ -764,13 +764,13 @@ updated_at: "2026-03-10T07:15:00Z"
     }
 
     #[test]
-    fn test_cached_turns_round_trip() {
+    fn test_event_cache_has_byte_offsets() {
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
         let session_dir = write_session(
             tmp.path(),
-            "turns-test-01",
-            "Turns test",
+            "offset-test-01",
+            "Offset test",
             "test-repo",
             "main",
             "Hello there",
@@ -779,9 +779,39 @@ updated_at: "2026-03-10T07:15:00Z"
 
         db.upsert_session(&session_dir).unwrap();
 
-        let turns = db.get_cached_turns("turns-test-01").unwrap();
-        assert!(!turns.is_empty());
-        assert!(turns[0].user_message.is_some());
+        let (events, _, _) = db.get_cached_events("offset-test-01", 0, 100).unwrap();
+        assert_eq!(events.len(), 2);
+        // First event should start at byte 0
+        assert_eq!(events[0].byte_offset, 0);
+        assert!(events[0].line_length > 0);
+        // Second event should start after the first event's line
+        assert_eq!(events[1].byte_offset, events[0].line_length);
+        assert!(events[1].line_length > 0);
+    }
+
+    #[test]
+    fn test_get_event_data_offset() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "evdata-test-01",
+            "EvData test",
+            "test-repo",
+            "main",
+            "Hello",
+            "World",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        // Valid event index
+        let offset = db.get_event_data_offset("evdata-test-01", 0).unwrap();
+        assert!(offset.is_some());
+
+        // Invalid event index
+        let offset = db.get_event_data_offset("evdata-test-01", 999).unwrap();
+        assert!(offset.is_none());
     }
 
     #[test]

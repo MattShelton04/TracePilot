@@ -114,6 +114,22 @@ pub struct ParsedEvents {
     pub diagnostics: ParseDiagnostics,
 }
 
+/// A typed event with its byte position in the source file.
+#[derive(Debug)]
+pub struct TypedEventWithOffset {
+    pub event: TypedEvent,
+    pub byte_offset: u64,
+    pub line_length: u64,
+}
+
+/// Result of parsing with byte offsets.
+pub struct ParsedEventsWithOffsets {
+    pub events: Vec<TypedEventWithOffset>,
+    /// Byte offset after the last complete line (checkpoint for incremental parsing).
+    pub final_byte_offset: u64,
+    pub diagnostics: ParseDiagnostics,
+}
+
 /// Parse all events from an `events.jsonl` file into raw envelopes.
 ///
 /// Reads line-by-line, skipping empty lines and logging malformed JSON.
@@ -146,6 +162,79 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
     }
 
     Ok((events, malformed))
+}
+
+/// A parsed event together with its byte position in the source file.
+#[derive(Debug)]
+pub struct EventWithOffset {
+    pub event: RawEvent,
+    /// Absolute byte offset of the start of this event's line in the file.
+    pub byte_offset: u64,
+    /// Byte length of the complete line (including the trailing `\n`).
+    pub line_length: u64,
+}
+
+/// Parse all events from an `events.jsonl` file, tracking byte offsets.
+///
+/// Returns each event with its `(byte_offset, line_length)` for direct seeking.
+/// Empty and malformed lines are skipped (advancing the position) but don't
+/// produce entries. The final `new_byte_offset` is the position after the last
+/// complete newline-terminated line (safe checkpoint for incremental parsing).
+pub fn parse_events_with_offsets(path: &Path) -> Result<(Vec<EventWithOffset>, u64, usize)> {
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to open {}", path.display()),
+        source: Some(Box::new(e)),
+    })?;
+
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf).map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to read {}", path.display()),
+        source: Some(Box::new(e)),
+    })?;
+
+    let mut events = Vec::new();
+    let mut malformed = 0usize;
+    let mut consumed = 0u64;
+
+    for line_bytes in buf.split_inclusive(|&b| b == b'\n') {
+        let line_start = consumed;
+        let line_len = line_bytes.len() as u64;
+
+        // Partial trailing line (no \n) — stop here
+        if !line_bytes.ends_with(b"\n") {
+            break;
+        }
+
+        consumed += line_len;
+
+        let line = match std::str::from_utf8(line_bytes) {
+            Ok(s) => s.trim(),
+            Err(_) => {
+                malformed += 1;
+                continue;
+            }
+        };
+
+        if line.is_empty() {
+            continue;
+        }
+
+        match serde_json::from_str::<RawEvent>(line) {
+            Ok(event) => events.push(EventWithOffset {
+                event,
+                byte_offset: line_start,
+                line_length: line_len,
+            }),
+            Err(e) => {
+                tracing::warn!(line_offset = line_start, error = %e, "Skipping malformed event line");
+                malformed += 1;
+            }
+        }
+    }
+
+    Ok((events, consumed, malformed))
 }
 
 /// Result of an incremental JSONL parse from a byte offset.
@@ -455,6 +544,50 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
 
     diagnostics.log_summary();
     Ok(ParsedEvents { events, diagnostics })
+}
+
+/// Parse all events with byte offsets for each event's position in the file.
+///
+/// Used by the indexer to build the lean metadata cache with per-event byte offsets.
+pub fn parse_typed_events_with_offsets(path: &Path) -> Result<ParsedEventsWithOffsets> {
+    let (raw_events_with_offsets, final_offset, malformed) = parse_events_with_offsets(path)?;
+    let mut diagnostics = ParseDiagnostics {
+        malformed_lines: malformed,
+        ..Default::default()
+    };
+    let mut events = Vec::with_capacity(raw_events_with_offsets.len());
+
+    for ewo in raw_events_with_offsets {
+        let event_type = SessionEventType::parse_wire(ewo.event.event_type.as_str());
+        let (typed_data, warning) = typed_data_from_raw(&event_type, &ewo.event.data);
+
+        diagnostics.total_events += 1;
+        if matches!(typed_data, TypedEventData::Other(_)) {
+            diagnostics.fallback_events += 1;
+        } else {
+            diagnostics.typed_events += 1;
+        }
+        if let Some(ref w) = warning {
+            diagnostics.record_warning(w);
+        }
+
+        events.push(TypedEventWithOffset {
+            event: TypedEvent {
+                raw: ewo.event,
+                event_type,
+                typed_data,
+            },
+            byte_offset: ewo.byte_offset,
+            line_length: ewo.line_length,
+        });
+    }
+
+    diagnostics.log_summary();
+    Ok(ParsedEventsWithOffsets {
+        events,
+        final_byte_offset: final_offset,
+        diagnostics,
+    })
 }
 
 /// Collect ALL `session.shutdown` events and combine their per-instance metrics.

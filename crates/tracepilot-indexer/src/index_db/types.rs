@@ -5,8 +5,8 @@ pub(super) const FTS_CONTENT_MAX_BYTES: usize = 100_000;
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-/// v4: Added event/turn caching + byte-offset checkpointing.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 4;
+/// v5: Lean event cache v2 — metadata + byte offsets, no data blobs.
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 5;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -188,60 +188,11 @@ pub(super) fn get_events_mtime_and_size(session_path: &std::path::Path) -> Optio
     Some((dt.to_rfc3339(), meta.len()))
 }
 
-/// Compute the byte offset to the end of the last complete newline-terminated line.
-///
-/// If the file ends with `\n`, this equals the file size.
-/// If there's a partial trailing line (mid-write), we return the offset after the
-/// last `\n` so incremental parsing can re-read that incomplete line later.
-pub(super) fn compute_safe_byte_offset(events_path: &std::path::Path) -> u64 {
-    use std::io::{Read, Seek, SeekFrom};
-
-    let Ok(mut file) = std::fs::File::open(events_path) else {
-        return 0;
-    };
-    let Ok(meta) = file.metadata() else {
-        return 0;
-    };
-    let file_size = meta.len();
-    if file_size == 0 {
-        return 0;
-    }
-
-    // Check last byte: if it's '\n', the file ends cleanly
-    let tail_size = std::cmp::min(file_size, 4096) as usize;
-    let Ok(_) = file.seek(SeekFrom::End(-(tail_size as i64))) else {
-        return 0;
-    };
-    let mut buf = vec![0u8; tail_size];
-    let Ok(n) = file.read(&mut buf) else {
-        return 0;
-    };
-    let buf = &buf[..n];
-
-    if buf.last() == Some(&b'\n') {
-        // File ends cleanly — all lines are complete
-        file_size
-    } else {
-        // Partial trailing line: find the last '\n' and return offset after it
-        match buf.iter().rposition(|&b| b == b'\n') {
-            Some(pos) => {
-                // pos is relative to the start of our tail buffer
-                let offset_in_file = (file_size - tail_size as u64) + (pos as u64) + 1;
-                offset_in_file
-            }
-            None => {
-                // No newline in the entire tail — either file has no complete lines,
-                // or the file is smaller than 4096 and has no newlines at all.
-                // Safe default: don't checkpoint anything
-                0
-            }
-        }
-    }
-}
-
 // ── Event cache types ─────────────────────────────────────────────────
 
-/// A cached event row from the `session_events` table.
+/// A lean cached event row from the `session_events` table.
+///
+/// Contains metadata + byte offset for surgical disk reads — no payload data.
 #[derive(Debug, Clone)]
 pub struct CachedEvent {
     pub event_index: usize,
@@ -249,7 +200,12 @@ pub struct CachedEvent {
     pub event_id: Option<String>,
     pub timestamp: Option<String>,
     pub parent_id: Option<String>,
-    pub data_json: String,
+    /// Absolute byte offset of this event's line in events.jsonl.
+    pub byte_offset: u64,
+    /// Byte length of the complete line (including trailing `\n`).
+    pub line_length: u64,
+    /// Tool call ID (only populated for tool.execution_complete events).
+    pub tool_call_id: Option<String>,
 }
 
 /// Decision for how to reindex a session.

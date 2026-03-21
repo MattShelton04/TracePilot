@@ -15,6 +15,7 @@ tracing = { workspace = true }
 chrono = { workspace = true }
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["rt", "sync"] }
+lru = "0.12"
 uuid = "1"
 reqwest = { workspace = true }
 semver = { workspace = true }

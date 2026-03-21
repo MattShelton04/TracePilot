@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **SQLite event cache**: Session events, turns, and shutdown data are now cached in the index database during reindex, eliminating repeated parsing of `events.jsonl` files
+- **Lean event metadata cache (v2)**: Replaced heavyweight blob cache with metadata-only `session_events` table storing byte offsets for surgical disk reads — DB size reduced from **1.07 GB to ~50 MB** (98% reduction)
+- **On-demand event data**: New `get_event_data` command fetches a single event's payload via O(1) byte-offset seek instead of full-file parsing
+- **In-memory LRU turn cache**: 10-session LRU cache for reconstructed conversation turns eliminates SQLite turn blob storage (saved 176 MB)
+- **Per-event byte offsets**: `parse_typed_events_with_offsets()` tracks byte position and line length for every event during JSONL parsing
+- **Tool call ID indexing**: Partial index on `tool_call_id` enables O(1) tool result lookups via byte-offset seek
+- **Migration 7**: Drops v1 heavy tables (`session_turns`, old `session_events`), recreates lean schema with `byte_offset`, `line_length`, `tool_call_id` columns, adds `events_cached` flag, auto-VACUUMs to reclaim disk space
 - **Incremental JSONL parser**: `parse_events_jsonl_from_offset()` enables byte-offset checkpointing for append-only event files
-- **Cache-first Tauri commands**: `get_session_detail`, `get_session_turns`, `get_session_events`, `get_shutdown_metrics`, `search_sessions`, and `get_tool_result` now serve from SQLite cache with automatic disk fallback
-- **Migration 6**: New `session_events` and `session_turns` tables with checkpointing columns (`events_byte_offset`, `events_line_count`, `shutdown_data_json`)
 - **ReindexDecision enum**: Sessions are classified as Skip/FullReindex/IncrementalAppend for smarter reindex scheduling
 - Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files
 - **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level
@@ -20,8 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
 
 ### Changed
-- Session detail views are now **10-100x faster** for cached sessions (SQL query vs re-parsing MB of JSON)
-- Bumped `CURRENT_ANALYTICS_VERSION` to 4 (triggers full reindex to populate event cache on first launch)
+- Events tab now returns `{}` for event data payloads (metadata only); full data loaded on demand via `get_event_data`
+- Turns are no longer stored in SQLite — served from in-memory LRU cache backed by disk parsing
+- Session detail views remain **10-100x faster** for cached sessions (lean SQL query vs re-parsing MB of JSON)
+- Bumped `CURRENT_ANALYTICS_VERSION` to 5 (triggers full reindex to populate lean event cache on first launch)
 - Removed "Settings are stored locally" stub banner from Settings page
 
 ## [0.3.0] - 2026-03-21
