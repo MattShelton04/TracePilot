@@ -215,6 +215,8 @@ function eventTypeLabel(eventType: string): string {
                   />
                 </div>
               </div>
+            </div>
+          </template>
 
           <!-- ── Subagent Section ── -->
           <div
