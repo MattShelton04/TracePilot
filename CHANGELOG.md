@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Turns are no longer stored in SQLite — served from in-memory LRU cache backed by disk parsing
 - Session detail views remain **10-100x faster** for cached sessions (lean SQL query vs re-parsing MB of JSON)
 - Bumped `CURRENT_ANALYTICS_VERSION` to 5 (triggers full reindex to populate lean event cache on first launch)
+- Eliminated double-parse of `events.jsonl` during reindex via `load_session_summary_with_preparsed()` — offset parse feeds both cache population and summary computation in a single pass
 - Removed "Settings are stored locally" stub banner from Settings page
 
 ## [0.3.0] - 2026-03-21
