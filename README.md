@@ -116,7 +116,7 @@ That's it. `pnpm start` installs dependencies and launches the app automatically
 
 Pre-built Windows installers and a standalone `.exe` are available on the [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases) page. Download the latest version and run — no build tools required.
 
-> **⚠️ Code Signing:** TracePilot is not code-signed (code signing certificates are cost-prohibitive for open-source projects). Windows SmartScreen will show a warning when you first run the installer or exe. Click **"More info"** → **"Run anyway"** to proceed. The source code is fully auditable in this repository.
+> **⚠️ Code Signing:** TracePilot is not code-signed — it's not worth the cost at this stage. Windows SmartScreen will show a warning when you first run the installer or exe. Click **"More info"** → **"Run anyway"** to proceed. The source code is fully auditable in this repository, and Option A (build from source) is available if you prefer to avoid unsigned binaries.
 
 #### Frontend-Only Mode
 

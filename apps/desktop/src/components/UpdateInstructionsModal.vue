@@ -60,8 +60,9 @@ function handleOpenRelease() {
                 href="#"
                 @click.prevent="handleOpenRelease"
               >GitHub Releases page</a><template v-else>GitHub Releases page</template>.
-              Note: TracePilot is not code-signed, so Windows may show a SmartScreen warning — click
-              "More info" → "Run anyway" to proceed.
+              Note: TracePilot is not code-signed (not worth the cost at this stage), so Windows may
+              show a SmartScreen warning — click "More info" → "Run anyway" to proceed.
+              Option A (build from source) is available if you prefer to avoid unsigned binaries.
             </p>
           </div>
 
