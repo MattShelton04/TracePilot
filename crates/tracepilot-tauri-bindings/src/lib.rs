@@ -330,7 +330,9 @@ mod commands {
         state: tauri::State<'_, SharedConfig>,
         session_id: String,
     ) -> Result<tracepilot_core::SessionSummary, String> {
-        let session_state_dir = read_config(&state).session_state_dir();
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
@@ -338,6 +340,86 @@ mod commands {
                 &session_state_dir,
             )
             .map_err(|e| e.to_string())?;
+
+            // Fast path: construct SessionSummary from indexed data
+            if let Some(db) = open_index_db(&index_path) {
+                if let Ok(Some(data)) = db.get_session_indexed_data(&session_id) {
+                    // Cheap file-existence checks for dynamic booleans
+                    let has_events = path.join("events.jsonl").exists();
+                    let has_session_db = path.join("session.db").exists();
+                    let has_plan = path.join("plan.md").exists();
+                    let checkpoints_dir = path.join("checkpoints");
+                    let has_checkpoints = checkpoints_dir.is_dir()
+                        && std::fs::read_dir(&checkpoints_dir)
+                            .map(|mut d| d.next().is_some())
+                            .unwrap_or(false);
+
+                    // Build ShutdownMetrics from cached shutdown_data_json for full fidelity,
+                    // falling back to indexed columns if shutdown_data_json is absent.
+                    let shutdown_metrics = if let Some(ref json) = data.shutdown_data_json {
+                        // Parse wrapper: {"data": ShutdownData, "shutdown_count": u32}
+                        if let Ok(wrapper) = serde_json::from_str::<serde_json::Value>(json) {
+                            let sd: Option<tracepilot_core::models::event_types::ShutdownData> =
+                                wrapper
+                                    .get("data")
+                                    .cloned()
+                                    .and_then(|v| serde_json::from_value(v).ok());
+                            let count = wrapper
+                                .get("shutdown_count")
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1) as u32;
+                            sd.map(|d| {
+                                tracepilot_core::summary::shutdown_data_to_metrics(&d, count)
+                            })
+                        } else {
+                            None
+                        }
+                    } else if data.shutdown_type.is_some()
+                        || data.current_model.is_some()
+                        || data.total_premium_requests.is_some()
+                    {
+                        // Legacy fallback: partial ShutdownMetrics from indexed columns
+                        Some(tracepilot_core::ShutdownMetrics {
+                            shutdown_type: data.shutdown_type,
+                            current_model: data.current_model,
+                            total_premium_requests: data.total_premium_requests,
+                            total_api_duration_ms: data.total_api_duration_ms.map(|v| v as u64),
+                            ..Default::default()
+                        })
+                    } else {
+                        None
+                    };
+
+                    return Ok(tracepilot_core::SessionSummary {
+                        id: data.id,
+                        summary: data.summary,
+                        repository: data.repository,
+                        branch: data.branch,
+                        cwd: data.cwd,
+                        host_type: data.host_type,
+                        created_at: data.created_at.and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(&s)
+                                .ok()
+                                .map(|d| d.with_timezone(&chrono::Utc))
+                        }),
+                        updated_at: data.updated_at.and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(&s)
+                                .ok()
+                                .map(|d| d.with_timezone(&chrono::Utc))
+                        }),
+                        event_count: data.event_count.map(|c| c as usize),
+                        turn_count: data.turn_count.map(|c| c as usize),
+                        has_events,
+                        has_session_db,
+                        has_plan,
+                        has_checkpoints,
+                        checkpoint_count: data.checkpoint_count.map(|c| c as usize),
+                        shutdown_metrics,
+                    });
+                }
+            }
+
+            // Fallback: load from disk
             tracepilot_core::summary::load_session_summary(&path).map_err(|e| e.to_string())
         })
         .await
@@ -381,9 +463,24 @@ mod commands {
         state: tauri::State<'_, SharedConfig>,
         session_id: String,
     ) -> Result<Vec<tracepilot_core::ConversationTurn>, String> {
-        let session_state_dir = read_config(&state).session_state_dir();
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
+            // Fast path: read cached turns from index DB
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_cached_events(&session_id) {
+                    match db.get_cached_turns(&session_id) {
+                        Ok(turns) => return Ok(turns),
+                        Err(e) => {
+                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                        }
+                    }
+                }
+            }
+
+            // Fallback: parse from disk
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
                 &session_id,
                 &session_state_dir,
@@ -406,12 +503,44 @@ mod commands {
         offset: Option<u32>,
         limit: Option<u32>,
     ) -> Result<EventsResponse, String> {
-        // NOTE: Currently parses the entire events.jsonl on every page request.
-        // For Phase 3, consider caching parsed events in Tauri managed state
-        // or implementing streaming/seek-based pagination.
-        let session_state_dir = read_config(&state).session_state_dir();
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
+            let start_index = offset.unwrap_or(0) as usize;
+            let page_limit = limit.unwrap_or(u32::MAX) as usize;
+
+            // Fast path: read from event cache
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_cached_events(&session_id) {
+                    match db.get_cached_events(&session_id, start_index, page_limit) {
+                        Ok((cached, total_count, has_more)) => {
+                            let event_items: Vec<EventItem> = cached
+                                .into_iter()
+                                .map(|ce| EventItem {
+                                    event_type: ce.event_type,
+                                    timestamp: ce.timestamp,
+                                    id: ce.event_id,
+                                    parent_id: ce.parent_id,
+                                    data: serde_json::from_str(&ce.data_json)
+                                        .unwrap_or(serde_json::Value::Null),
+                                })
+                                .collect();
+                            return Ok(EventsResponse {
+                                events: event_items,
+                                total_count,
+                                has_more,
+                            });
+                        }
+                        Err(e) => {
+                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                        }
+                    }
+                }
+            }
+
+            // Fallback: parse from disk
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
                 &session_id,
                 &session_state_dir,
@@ -423,10 +552,8 @@ mod commands {
                 .events;
 
             let total_count = events.len();
-            let offset = offset.unwrap_or(0) as usize;
-            let limit = limit.unwrap_or(total_count as u32) as usize;
-            let start = offset.min(total_count);
-            let end = start.saturating_add(limit).min(total_count);
+            let start = start_index.min(total_count);
+            let end = start.saturating_add(page_limit).min(total_count);
 
             let event_items = events[start..end]
                 .iter()
@@ -509,9 +636,28 @@ mod commands {
         state: tauri::State<'_, SharedConfig>,
         session_id: String,
     ) -> Result<Option<tracepilot_core::models::event_types::ShutdownData>, String> {
-        let session_state_dir = read_config(&state).session_state_dir();
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
+            // Fast path: read from cached shutdown_data_json
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_cached_events(&session_id) {
+                    match db.get_cached_shutdown_data(&session_id) {
+                        Ok(Some((data, _count))) => return Ok(Some(data)),
+                        Ok(None) => {
+                            // Cache has no shutdown data — session may have shut down
+                            // after last reindex. Fall through to disk.
+                        }
+                        Err(e) => {
+                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                        }
+                    }
+                }
+            }
+
+            // Fallback: parse from disk
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
                 &session_id,
                 &session_state_dir,
@@ -548,8 +694,34 @@ mod commands {
                 .map_err(|e| e.to_string())?;
             let result_ids = db.search(&query).map_err(|e| e.to_string())?;
             let mut sessions = Vec::new();
+
             for session_id in result_ids {
-                // Use index DB path lookup (no disk scan) instead of resolve_session_path
+                // Fast path: construct from indexed data (no disk I/O)
+                if let Ok(Some(data)) = db.get_session_indexed_data(&session_id) {
+                    let session_path = std::path::PathBuf::from(&data.path);
+                    let is_running =
+                        tracepilot_core::session::discovery::has_lock_file(&session_path);
+                    sessions.push(SessionListItem {
+                        id: data.id,
+                        summary: data.summary,
+                        repository: data.repository,
+                        branch: data.branch,
+                        host_type: data.host_type,
+                        created_at: data.created_at,
+                        updated_at: data.updated_at,
+                        event_count: data.event_count.map(|c| c as usize),
+                        turn_count: data.turn_count.map(|c| c as usize),
+                        current_model: data.current_model,
+                        is_running,
+                        error_count: None,
+                        rate_limit_count: None,
+                        compaction_count: None,
+                        truncation_count: None,
+                    });
+                    continue;
+                }
+
+                // Fallback: load from disk
                 let path = match db.get_session_path(&session_id) {
                     Ok(Some(p)) => p,
                     _ => match tracepilot_core::session::discovery::resolve_session_path_in(
@@ -977,9 +1149,34 @@ mod commands {
         session_id: String,
         tool_call_id: String,
     ) -> Result<Option<serde_json::Value>, String> {
-        let session_state_dir = read_config(&state).session_state_dir();
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
+            // Fast path: query cached events by tool_call_id
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_cached_events(&session_id) {
+                    match db.get_cached_tool_result(&session_id, &tool_call_id) {
+                        Ok(Some(data_json)) => {
+                            // Parse the cached data_json and extract the "result" field
+                            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&data_json)
+                            {
+                                return Ok(data.get("result").cloned());
+                            }
+                        }
+                        Ok(None) => {
+                            // Cache miss — tool result may be from events added after
+                            // last reindex. Fall through to disk.
+                        }
+                        Err(e) => {
+                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                        }
+                    }
+                }
+            }
+
+            // Fallback: parse from disk
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
                 &session_id,
                 &session_state_dir,
@@ -990,7 +1187,6 @@ mod commands {
                 .map_err(|e| e.to_string())?
                 .events;
 
-            // Return the last matching completion event (latest wins for duplicate completions)
             let mut last_result: Option<serde_json::Value> = None;
             for event in &events {
                 if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(

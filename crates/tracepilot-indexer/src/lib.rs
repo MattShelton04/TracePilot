@@ -129,6 +129,11 @@ pub fn reindex_incremental_with_progress(
 }
 
 /// Incremental reindex with enriched progress callback including per-session data.
+///
+/// Uses `reindex_decision` to determine the optimal strategy per session:
+/// - `Skip`: no changes detected, skip entirely.
+/// - `FullReindex`: workspace/analytics changed, or file shrank (compaction).
+/// - `IncrementalAppend`: only new events appended — parse from byte offset.
 pub fn reindex_incremental_with_rich_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
@@ -147,48 +152,81 @@ pub fn reindex_incremental_with_rich_progress(
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
 
-    // Batch size for transaction grouping — amortizes WAL fsyncs while keeping
-    // lock duration reasonable for concurrent readers.
     const BATCH_SIZE: usize = 100;
     let mut batch_count = 0;
     let mut in_transaction = false;
 
     for (i, session) in sessions.iter().enumerate() {
-        let info = if db.needs_reindex(&session.id, &session.path) {
-            // Start a new batch transaction if needed
-            if !in_transaction {
-                db.begin_transaction()?;
-                in_transaction = true;
-                batch_count = 0;
+        let decision = db.reindex_decision(&session.id, &session.path);
+
+        let info = match decision {
+            index_db::ReindexDecision::Skip => {
+                skipped += 1;
+                None
             }
-
-            match db.upsert_session(&session.path) {
-                Ok(info) => {
-                    indexed += 1;
-                    batch_count += 1;
-                    running_tokens += info.total_tokens;
-                    running_events += info.event_count as u64;
-                    if let Some(ref repo) = info.repository {
-                        seen_repos.insert(repo.clone());
-                    }
-
-                    // Commit batch when reaching BATCH_SIZE
-                    if batch_count >= BATCH_SIZE {
-                        db.commit_transaction()?;
-                        in_transaction = false;
-                    }
-
-                    Some(info)
+            index_db::ReindexDecision::FullReindex => {
+                if !in_transaction {
+                    db.begin_transaction()?;
+                    in_transaction = true;
+                    batch_count = 0;
                 }
-                Err(e) => {
-                    tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
-                    None
+
+                match db.upsert_session(&session.path) {
+                    Ok(info) => {
+                        indexed += 1;
+                        batch_count += 1;
+                        running_tokens += info.total_tokens;
+                        running_events += info.event_count as u64;
+                        if let Some(ref repo) = info.repository {
+                            seen_repos.insert(repo.clone());
+                        }
+                        if batch_count >= BATCH_SIZE {
+                            db.commit_transaction()?;
+                            in_transaction = false;
+                        }
+                        Some(info)
+                    }
+                    Err(e) => {
+                        tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+                        None
+                    }
                 }
             }
-        } else {
-            skipped += 1;
-            None
+            index_db::ReindexDecision::IncrementalAppend { .. } => {
+                // For now, IncrementalAppend degrades to a full reindex.
+                // The upsert_session path already handles cache population efficiently.
+                // True incremental append (without re-reading the full file) requires
+                // incremental analytics computation, which is a future optimization.
+                if !in_transaction {
+                    db.begin_transaction()?;
+                    in_transaction = true;
+                    batch_count = 0;
+                }
+
+                match db.upsert_session(&session.path) {
+                    Ok(info) => {
+                        indexed += 1;
+                        batch_count += 1;
+                        running_tokens += info.total_tokens;
+                        running_events += info.event_count as u64;
+                        if let Some(ref repo) = info.repository {
+                            seen_repos.insert(repo.clone());
+                        }
+                        Some(info)
+                    }
+                    Err(e) => {
+                        tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+                        None
+                    }
+                }
+            }
         };
+
+        if batch_count >= BATCH_SIZE && in_transaction {
+            db.commit_transaction()?;
+            in_transaction = false;
+        }
+
         on_progress(&IndexingProgress {
             current: i + 1,
             total,
@@ -199,12 +237,10 @@ pub fn reindex_incremental_with_rich_progress(
         });
     }
 
-    // Commit any remaining batch
     if in_transaction {
         db.commit_transaction()?;
     }
 
-    // Prune sessions that no longer exist on disk
     match db.prune_deleted(&live_ids) {
         Ok(pruned) if pruned > 0 => {
             tracing::info!(pruned, "Pruned deleted sessions from index");

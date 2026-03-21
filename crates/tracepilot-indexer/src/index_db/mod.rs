@@ -20,7 +20,10 @@ use rusqlite::Connection;
 use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
-pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
+pub use types::{
+    CachedEvent, IndexedIncident, IndexedSession, ReindexDecision, SessionIndexInfo,
+    SessionIndexedData,
+};
 
 use migrations::run_migrations;
 
@@ -128,8 +131,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 5);
-        assert_eq!(count1, 5);
+        assert_eq!(v1, 6);
+        assert_eq!(count1, 6);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -137,7 +140,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 5);
+        assert_eq!(count2, 6);
     }
 
     #[test]
@@ -698,5 +701,154 @@ updated_at: "2026-03-10T07:15:00Z"
         assert_eq!(analytics.total_rate_limits, 1);
         assert_eq!(analytics.total_compactions, 1);
         assert_eq!(analytics.total_truncations, 1);
+    }
+
+    #[test]
+    fn test_event_cache_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "cache-test-01",
+            "Cache test",
+            "test-repo",
+            "main",
+            "Hello",
+            "World",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        // Verify events were cached
+        assert!(db.has_cached_events("cache-test-01"));
+
+        // Read cached events
+        let (events, total, has_more) = db.get_cached_events("cache-test-01", 0, 100).unwrap();
+        assert_eq!(total, 2);
+        assert_eq!(events.len(), 2);
+        assert!(!has_more);
+        assert_eq!(events[0].event_type, "user.message");
+        assert_eq!(events[1].event_type, "assistant.message");
+        assert_eq!(events[0].event_index, 0);
+        assert_eq!(events[1].event_index, 1);
+    }
+
+    #[test]
+    fn test_event_cache_pagination() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "page-test-01",
+            "Page test",
+            "test-repo",
+            "main",
+            "Hello",
+            "World",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        // Page 1: first event only
+        let (events, total, has_more) = db.get_cached_events("page-test-01", 0, 1).unwrap();
+        assert_eq!(total, 2);
+        assert_eq!(events.len(), 1);
+        assert!(has_more);
+        assert_eq!(events[0].event_type, "user.message");
+
+        // Page 2: second event using keyset pagination
+        let (events, _, has_more) = db.get_cached_events("page-test-01", 1, 1).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(!has_more);
+        assert_eq!(events[0].event_type, "assistant.message");
+    }
+
+    #[test]
+    fn test_cached_turns_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "turns-test-01",
+            "Turns test",
+            "test-repo",
+            "main",
+            "Hello there",
+            "Hi! How can I help?",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        let turns = db.get_cached_turns("turns-test-01").unwrap();
+        assert!(!turns.is_empty());
+        assert!(turns[0].user_message.is_some());
+    }
+
+    #[test]
+    fn test_session_indexed_data_reader() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "indexed-data-01",
+            "Indexed data test",
+            "my-repo",
+            "develop",
+            "Test msg",
+            "Reply msg",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        let data = db.get_session_indexed_data("indexed-data-01").unwrap();
+        assert!(data.is_some());
+        let data = data.unwrap();
+        assert_eq!(data.id, "indexed-data-01");
+        assert_eq!(data.repository.as_deref(), Some("my-repo"));
+        assert_eq!(data.branch.as_deref(), Some("develop"));
+        assert_eq!(data.event_count, Some(2));
+
+        // Non-existent session returns None
+        let missing = db.get_session_indexed_data("nonexistent-id").unwrap();
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_has_cached_events_false_before_upsert() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        assert!(!db.has_cached_events("nonexistent-session"));
+    }
+
+    #[test]
+    fn test_reindex_decision_skip_when_unchanged() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = write_session(
+            tmp.path(),
+            "decision-test-01",
+            "Decision test",
+            "repo",
+            "main",
+            "Hi",
+            "Hello",
+        );
+
+        db.upsert_session(&session_dir).unwrap();
+
+        // Without any file changes, should return Skip
+        let decision = db.reindex_decision("decision-test-01", &session_dir);
+        assert_eq!(decision, types::ReindexDecision::Skip);
+    }
+
+    #[test]
+    fn test_reindex_decision_full_when_new() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+        let session_dir = tmp.path().join("new-session");
+        std::fs::create_dir_all(&session_dir).unwrap();
+
+        let decision = db.reindex_decision("brand-new-session", &session_dir);
+        assert_eq!(decision, types::ReindexDecision::FullReindex);
     }
 }

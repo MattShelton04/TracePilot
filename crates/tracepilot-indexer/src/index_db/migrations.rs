@@ -156,6 +156,41 @@ CREATE INDEX IF NOT EXISTS idx_session_incidents_session ON session_incidents(se
 CREATE INDEX IF NOT EXISTS idx_session_incidents_type ON session_incidents(event_type);
 "#;
 
+pub(super) const MIGRATION_6: &str = r#"
+-- Cached raw events for fast session detail queries.
+-- Avoids re-parsing events.jsonl on every detail/events/turns request.
+CREATE TABLE IF NOT EXISTS session_events (
+    session_id TEXT NOT NULL,
+    event_index INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    event_id TEXT,
+    timestamp TEXT,
+    parent_id TEXT,
+    data_json TEXT NOT NULL,
+    PRIMARY KEY (session_id, event_index),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_events_type
+    ON session_events(session_id, event_type);
+
+-- Cached pre-reconstructed conversation turns as JSON blobs.
+CREATE TABLE IF NOT EXISTS session_turns (
+    session_id TEXT NOT NULL,
+    turn_index INTEGER NOT NULL,
+    turn_json TEXT NOT NULL,
+    PRIMARY KEY (session_id, turn_index),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+-- Byte-offset checkpoint for incremental JSONL parsing.
+ALTER TABLE sessions ADD COLUMN events_byte_offset INTEGER DEFAULT 0;
+-- Cached line count for fast total_count without COUNT(*).
+ALTER TABLE sessions ADD COLUMN events_line_count INTEGER DEFAULT 0;
+-- Serialized ShutdownData JSON for get_shutdown_metrics fast path.
+ALTER TABLE sessions ADD COLUMN shutdown_data_json TEXT;
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -177,6 +212,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 3: analytics schema", MIGRATION_3),
         ("Migration 4: tool duration tracking", MIGRATION_4),
         ("Migration 5: incident tracking", MIGRATION_5),
+        ("Migration 6: event cache + checkpointing", MIGRATION_6),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

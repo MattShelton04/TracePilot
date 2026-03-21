@@ -49,7 +49,7 @@ impl IndexDb {
         self.conn.execute_batch("SAVEPOINT upsert_session")?;
 
         let result = (|| -> Result<()> {
-            // Delete child table rows first
+            // Delete child table rows first (including event/turn cache)
             self.conn.execute(
                 "DELETE FROM session_model_metrics WHERE session_id = ?1",
                 [&session_id],
@@ -72,6 +72,14 @@ impl IndexDb {
             )?;
             self.conn.execute(
                 "DELETE FROM session_incidents WHERE session_id = ?1",
+                [&session_id],
+            )?;
+            self.conn.execute(
+                "DELETE FROM session_events WHERE session_id = ?1",
+                [&session_id],
+            )?;
+            self.conn.execute(
+                "DELETE FROM session_turns WHERE session_id = ?1",
                 [&session_id],
             )?;
 
@@ -245,6 +253,29 @@ impl IndexDb {
                 }
             }
 
+            // ── Cache events, turns, and shutdown data ────────────────
+            if let Some(ref events) = typed_events {
+                // Compute byte offset: the position after the last complete
+                // newline-terminated line. If the file ends with \n (normal case),
+                // this equals the file size. If there's a partial trailing line
+                // (mid-write), we subtract the partial bytes so incremental parsing
+                // can re-read that line once it's complete.
+                let events_path = session_path.join("events.jsonl");
+                let byte_offset = compute_safe_byte_offset(&events_path);
+                self.cache_session_events(&session_id, events, byte_offset)?;
+
+                // Reconstruct and cache turns
+                let turns = tracepilot_core::reconstruct_turns(events);
+                self.cache_session_turns(&session_id, &turns)?;
+
+                // Cache shutdown data
+                if let Some((shutdown_data, count)) =
+                    tracepilot_core::parsing::events::extract_combined_shutdown_data(events)
+                {
+                    self.cache_shutdown_data(&session_id, &shutdown_data, count)?;
+                }
+            }
+
             Ok(())
         })();
 
@@ -309,6 +340,232 @@ impl IndexDb {
         }
 
         false
+    }
+
+    // ── Event cache methods ──────────────────────────────────────────────
+
+    /// Determine how to reindex a session: Skip, FullReindex, or IncrementalAppend.
+    ///
+    /// Returns `IncrementalAppend` when only new events have been appended
+    /// (events_mtime changed but size grew, and workspace_mtime is unchanged).
+    /// Returns `FullReindex` when the file shrank, workspace changed, or analytics
+    /// version is outdated. Returns `Skip` when nothing changed.
+    pub fn reindex_decision(&self, session_id: &str, session_path: &Path) -> ReindexDecision {
+        let current_ws_mtime = get_workspace_mtime(session_path);
+        let current_events = get_events_mtime_and_size(session_path);
+
+        let stored: Option<(
+            Option<String>,
+            Option<String>,
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+        )> = self
+            .conn
+            .query_row(
+                "SELECT workspace_mtime, events_mtime, events_size, analytics_version, events_byte_offset
+                 FROM sessions WHERE id = ?1",
+                [session_id],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<i64>>(2)?,
+                        row.get::<_, Option<i64>>(3)?,
+                        row.get::<_, Option<i64>>(4)?,
+                    ))
+                },
+            )
+            .ok();
+
+        let Some((stored_ws_mtime, stored_ev_mtime, stored_ev_size, stored_av, stored_offset)) =
+            stored
+        else {
+            return ReindexDecision::FullReindex; // Not indexed yet
+        };
+
+        // Analytics version mismatch → full reindex
+        if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
+            return ReindexDecision::FullReindex;
+        }
+
+        // Workspace.yaml changed → full reindex (metadata may have changed)
+        if stored_ws_mtime.as_deref() != current_ws_mtime.as_deref() {
+            return ReindexDecision::FullReindex;
+        }
+
+        match (&current_events, &stored_ev_mtime) {
+            (Some((cur_mtime, cur_size)), Some(st_mtime)) => {
+                let cur_size_i64 = *cur_size as i64;
+                let prev_size = stored_ev_size.unwrap_or(0);
+
+                if cur_mtime == st_mtime && cur_size_i64 == prev_size {
+                    return ReindexDecision::Skip; // Nothing changed
+                }
+
+                // File shrank → truncated/compacted → full reindex
+                if cur_size_i64 < prev_size {
+                    return ReindexDecision::FullReindex;
+                }
+
+                // File grew (append-only) and workspace unchanged → incremental
+                let offset = stored_offset.unwrap_or(0);
+                if offset > 0 && cur_size_i64 > prev_size {
+                    let cached_count = self
+                        .conn
+                        .query_row(
+                            "SELECT COUNT(*) FROM session_events WHERE session_id = ?1",
+                            [session_id],
+                            |row| row.get::<_, i64>(0),
+                        )
+                        .unwrap_or(0);
+
+                    return ReindexDecision::IncrementalAppend {
+                        byte_offset: offset as u64,
+                        cached_event_count: cached_count,
+                    };
+                }
+
+                // Default: mtime changed but size unchanged → full reindex (possible in-place edit)
+                ReindexDecision::FullReindex
+            }
+            (Some(_), None) => ReindexDecision::FullReindex,
+            (None, Some(_)) => ReindexDecision::FullReindex,
+            (None, None) => ReindexDecision::Skip,
+        }
+    }
+
+    /// Store parsed events in the session_events cache table.
+    ///
+    /// Deletes any existing cached events first (use for full reindex).
+    /// Stores each event's envelope fields + raw data JSON for reconstruction.
+    pub fn cache_session_events(
+        &self,
+        session_id: &str,
+        events: &[tracepilot_core::parsing::events::TypedEvent],
+        byte_offset: u64,
+    ) -> Result<()> {
+        // Clear existing cached events
+        self.conn.execute(
+            "DELETE FROM session_events WHERE session_id = ?1",
+            [session_id],
+        )?;
+
+        let mut stmt = self.conn.prepare(
+            "INSERT INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, data_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        )?;
+
+        for (idx, event) in events.iter().enumerate() {
+            let data_json = serde_json::to_string(&event.raw.data)
+                .unwrap_or_else(|_| "{}".to_string());
+            stmt.execute(params![
+                session_id,
+                idx as i64,
+                event.event_type.to_string(),
+                event.raw.id,
+                event.raw.timestamp.map(|t| t.to_rfc3339()),
+                event.raw.parent_id,
+                data_json,
+            ])?;
+        }
+
+        // Update byte offset and line count on the session row
+        self.conn.execute(
+            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2 WHERE id = ?3",
+            params![byte_offset as i64, events.len() as i64, session_id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Append newly parsed events to the session_events cache (incremental mode).
+    ///
+    /// Does NOT delete existing rows. Inserts new events starting at `start_index`.
+    pub fn append_cached_events(
+        &self,
+        session_id: &str,
+        new_events: &[tracepilot_core::parsing::events::TypedEvent],
+        start_index: usize,
+        new_byte_offset: u64,
+    ) -> Result<()> {
+        let mut stmt = self.conn.prepare(
+            "INSERT OR REPLACE INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, data_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        )?;
+
+        for (i, event) in new_events.iter().enumerate() {
+            let event_index = start_index + i;
+            let data_json = serde_json::to_string(&event.raw.data)
+                .unwrap_or_else(|_| "{}".to_string());
+            stmt.execute(params![
+                session_id,
+                event_index as i64,
+                event.event_type.to_string(),
+                event.raw.id,
+                event.raw.timestamp.map(|t| t.to_rfc3339()),
+                event.raw.parent_id,
+                data_json,
+            ])?;
+        }
+
+        // Update byte offset and total line count
+        let total_count = (start_index + new_events.len()) as i64;
+        self.conn.execute(
+            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2 WHERE id = ?3",
+            params![new_byte_offset as i64, total_count, session_id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Store pre-reconstructed conversation turns as JSON blobs.
+    ///
+    /// Deletes any existing cached turns first (always fully regenerated).
+    pub fn cache_session_turns(
+        &self,
+        session_id: &str,
+        turns: &[tracepilot_core::ConversationTurn],
+    ) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM session_turns WHERE session_id = ?1",
+            [session_id],
+        )?;
+
+        let mut stmt = self.conn.prepare(
+            "INSERT INTO session_turns (session_id, turn_index, turn_json) VALUES (?1, ?2, ?3)",
+        )?;
+
+        for (idx, turn) in turns.iter().enumerate() {
+            let json = serde_json::to_string(turn)
+                .with_context(|| format!("Failed to serialize turn {}", idx))?;
+            stmt.execute(params![session_id, idx as i64, json])?;
+        }
+
+        Ok(())
+    }
+
+    /// Store serialized ShutdownData JSON for fast retrieval.
+    ///
+    /// Stores a JSON object wrapping the ShutdownData and shutdown_count,
+    /// enabling full-fidelity ShutdownMetrics reconstruction from cache.
+    pub fn cache_shutdown_data(
+        &self,
+        session_id: &str,
+        shutdown_data: &tracepilot_core::models::event_types::ShutdownData,
+        shutdown_count: u32,
+    ) -> Result<()> {
+        let wrapper = serde_json::json!({
+            "data": shutdown_data,
+            "shutdown_count": shutdown_count,
+        });
+        let json = serde_json::to_string(&wrapper)
+            .with_context(|| "Failed to serialize ShutdownData wrapper")?;
+        self.conn.execute(
+            "UPDATE sessions SET shutdown_data_json = ?1 WHERE id = ?2",
+            params![json, session_id],
+        )?;
+        Ok(())
     }
 
     /// Remove sessions from the index whose IDs are not in the given set of live IDs.

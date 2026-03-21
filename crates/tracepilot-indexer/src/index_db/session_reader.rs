@@ -160,4 +160,228 @@ impl IndexDb {
         }
         Ok(result)
     }
+
+    // ── Event cache readers ───────────────────────────────────────────
+
+    /// Check if the event cache is populated for a session.
+    ///
+    /// Returns `true` if events have been cached (byte_offset > 0),
+    /// even if the session has zero events (valid for sessions with empty events.jsonl).
+    pub fn has_cached_events(&self, session_id: &str) -> bool {
+        self.conn
+            .query_row(
+                "SELECT events_byte_offset FROM sessions WHERE id = ?1",
+                [session_id],
+                |row| row.get::<_, Option<i64>>(0),
+            )
+            .ok()
+            .flatten()
+            .unwrap_or(0)
+            > 0
+    }
+
+    /// Read cached events with keyset pagination.
+    ///
+    /// Returns `(events, total_count, has_more)`. Uses `event_index >= start_index`
+    /// for efficient deep pagination (avoids SQL OFFSET).
+    pub fn get_cached_events(
+        &self,
+        session_id: &str,
+        start_index: usize,
+        limit: usize,
+    ) -> Result<(Vec<CachedEvent>, usize, bool)> {
+        // Get total count from the sessions row (fast, no COUNT(*) scan)
+        let total_count: usize = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(events_line_count, 0) FROM sessions WHERE id = ?1",
+                [session_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as usize;
+
+        // Fetch one extra row to determine has_more
+        let fetch_limit = limit + 1;
+        let mut stmt = self.conn.prepare(
+            "SELECT event_index, event_type, event_id, timestamp, parent_id, data_json
+             FROM session_events
+             WHERE session_id = ?1 AND event_index >= ?2
+             ORDER BY event_index ASC
+             LIMIT ?3",
+        )?;
+
+        let rows = stmt.query_map(
+            rusqlite::params![session_id, start_index as i64, fetch_limit as i64],
+            |row| {
+                Ok(CachedEvent {
+                    event_index: row.get::<_, i64>(0)? as usize,
+                    event_type: row.get(1)?,
+                    event_id: row.get(2)?,
+                    timestamp: row.get(3)?,
+                    parent_id: row.get(4)?,
+                    data_json: row.get(5)?,
+                })
+            },
+        )?;
+
+        let mut events: Vec<CachedEvent> = Vec::new();
+        for row in rows {
+            events.push(row?);
+        }
+
+        let has_more = events.len() > limit;
+        if has_more {
+            events.truncate(limit);
+        }
+
+        Ok((events, total_count, has_more))
+    }
+
+    /// Read all cached conversation turns for a session.
+    ///
+    /// Deserializes stored JSON blobs back into `ConversationTurn` values.
+    /// Returns an empty Vec if no turns are cached (either never cached, or
+    /// the session genuinely has zero turns — both are valid).
+    pub fn get_cached_turns(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<tracepilot_core::ConversationTurn>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT turn_json FROM session_turns
+             WHERE session_id = ?1 ORDER BY turn_index ASC",
+        )?;
+
+        let rows = stmt.query_map([session_id], |row| row.get::<_, String>(0))?;
+
+        let mut turns = Vec::new();
+        for row in rows {
+            let json = row?;
+            let turn: tracepilot_core::ConversationTurn = serde_json::from_str(&json)
+                .map_err(|e| anyhow::anyhow!("Failed to deserialize cached turn: {}", e))?;
+            turns.push(turn);
+        }
+        Ok(turns)
+    }
+
+    /// Read cached ShutdownData + shutdown count for a session.
+    ///
+    /// Returns `None` if the session has no cached shutdown data (either not
+    /// cached yet, or the session has no shutdown event).
+    pub fn get_cached_shutdown_data(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<(tracepilot_core::models::event_types::ShutdownData, u32)>> {
+        let json: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT shutdown_data_json FROM sessions WHERE id = ?1",
+                [session_id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+
+        match json {
+            Some(j) if !j.is_empty() => {
+                let wrapper: serde_json::Value = serde_json::from_str(&j)
+                    .map_err(|e| anyhow::anyhow!("Failed to deserialize shutdown data: {}", e))?;
+                let data: tracepilot_core::models::event_types::ShutdownData =
+                    serde_json::from_value(wrapper.get("data").cloned().unwrap_or_default())
+                        .map_err(|e| {
+                            anyhow::anyhow!("Failed to deserialize ShutdownData: {}", e)
+                        })?;
+                let count = wrapper
+                    .get("shutdown_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1) as u32;
+                Ok(Some((data, count)))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get a session's indexed data suitable for constructing a SessionSummary.
+    ///
+    /// Returns key fields from the sessions table. The caller must do cheap
+    /// file-existence checks for `has_session_db`, `has_plan`, `has_checkpoints`
+    /// etc., as these are dynamic state, not cached.
+    pub fn get_session_indexed_data(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<SessionIndexedData>> {
+        let result = self.conn.query_row(
+            "SELECT id, path, summary, repository, branch, cwd, host_type,
+                    created_at, updated_at, event_count, turn_count,
+                    has_plan, has_checkpoints, checkpoint_count,
+                    shutdown_type, current_model, total_premium_requests,
+                    total_api_duration_ms, total_tokens, total_cost,
+                    tool_call_count, lines_added, lines_removed, duration_ms,
+                    health_score, shutdown_data_json
+             FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| {
+                Ok(SessionIndexedData {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    summary: row.get(2)?,
+                    repository: row.get(3)?,
+                    branch: row.get(4)?,
+                    cwd: row.get(5)?,
+                    host_type: row.get(6)?,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                    event_count: row.get(9)?,
+                    turn_count: row.get(10)?,
+                    has_plan: row.get(11)?,
+                    has_checkpoints: row.get(12)?,
+                    checkpoint_count: row.get(13)?,
+                    shutdown_type: row.get(14)?,
+                    current_model: row.get(15)?,
+                    total_premium_requests: row.get(16)?,
+                    total_api_duration_ms: row.get(17)?,
+                    total_tokens: row.get(18)?,
+                    total_cost: row.get(19)?,
+                    tool_call_count: row.get(20)?,
+                    lines_added: row.get(21)?,
+                    lines_removed: row.get(22)?,
+                    duration_ms: row.get(23)?,
+                    health_score: row.get(24)?,
+                    shutdown_data_json: row.get(25)?,
+                })
+            },
+        );
+
+        match result {
+            Ok(data) => Ok(Some(data)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Find cached events matching a specific tool call ID.
+    ///
+    /// Searches `session_events` for `tool.execution_complete` events whose
+    /// `data_json` contains the tool_call_id. Returns the *last* matching event's
+    /// data_json (by event_index), matching the disk fallback's "last match wins" behavior.
+    pub fn get_cached_tool_result(
+        &self,
+        session_id: &str,
+        tool_call_id: &str,
+    ) -> Result<Option<String>> {
+        // Use the event_type index + JSON extract for efficient lookup
+        let result: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT data_json FROM session_events
+                 WHERE session_id = ?1
+                   AND event_type = 'tool.execution_complete'
+                   AND json_extract(data_json, '$.toolCallId') = ?2
+                 ORDER BY event_index DESC
+                 LIMIT 1",
+                rusqlite::params![session_id, tool_call_id],
+                |row| row.get(0),
+            )
+            .ok();
+        Ok(result)
+    }
 }

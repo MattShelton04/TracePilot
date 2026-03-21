@@ -151,7 +151,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
 }
 
 /// Convert [`ShutdownData`] (event-level) to [`ShutdownMetrics`] (summary-level).
-fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> ShutdownMetrics {
+pub fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> ShutdownMetrics {
     ShutdownMetrics {
         shutdown_type: data.shutdown_type.clone(),
         total_premium_requests: data.total_premium_requests,

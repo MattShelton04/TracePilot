@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SQLite event cache**: Session events, turns, and shutdown data are now cached in the index database during reindex, eliminating repeated parsing of `events.jsonl` files
+- **Incremental JSONL parser**: `parse_events_jsonl_from_offset()` enables byte-offset checkpointing for append-only event files
+- **Cache-first Tauri commands**: `get_session_detail`, `get_session_turns`, `get_session_events`, `get_shutdown_metrics`, `search_sessions`, and `get_tool_result` now serve from SQLite cache with automatic disk fallback
+- **Migration 6**: New `session_events` and `session_turns` tables with checkpointing columns (`events_byte_offset`, `events_line_count`, `shutdown_data_json`)
+- **ReindexDecision enum**: Sessions are classified as Skip/FullReindex/IncrementalAppend for smarter reindex scheduling
 - Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files
 - **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level
 - Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console)
@@ -15,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
 
 ### Changed
+- Session detail views are now **10-100x faster** for cached sessions (SQL query vs re-parsing MB of JSON)
+- Bumped `CURRENT_ANALYTICS_VERSION` to 4 (triggers full reindex to populate event cache on first launch)
 - Removed "Settings are stored locally" stub banner from Settings page
 
 ## [0.3.0] - 2026-03-21

@@ -5156,6 +5156,7 @@ dependencies = [
 name = "tracepilot-tauri-bindings"
 version = "0.3.0"
 dependencies = [
+ "chrono",
  "reqwest 0.12.28",
  "semver",
  "serde",

@@ -148,6 +148,127 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
     Ok((events, malformed))
 }
 
+/// Result of an incremental JSONL parse from a byte offset.
+pub struct IncrementalParseResult {
+    /// Newly parsed raw events (only those after the offset).
+    pub events: Vec<RawEvent>,
+    /// Byte offset just past the last successfully parsed, newline-terminated line.
+    /// Safe to use as the starting offset for the next incremental parse.
+    pub new_byte_offset: u64,
+    /// Number of malformed lines encountered (excluding a potential partial trailing line).
+    pub malformed_lines: usize,
+}
+
+/// Parse events.jsonl starting from a byte offset (incremental mode).
+///
+/// Used for checkpointed parsing of append-only JSONL files. Only reads bytes
+/// from `byte_offset` to EOF, parsing each newline-terminated line as a [`RawEvent`].
+///
+/// **Safety guarantees:**
+/// - If the file size is less than `byte_offset`, returns an error indicating the
+///   file was truncated/rewritten (caller should trigger a full re-parse).
+/// - The returned `new_byte_offset` only advances past fully newline-terminated,
+///   successfully parsed lines. A partial trailing line (no `\n`) is never consumed.
+/// - Malformed but newline-terminated lines are skipped and counted.
+pub fn parse_events_jsonl_from_offset(
+    path: &Path,
+    byte_offset: u64,
+) -> Result<IncrementalParseResult> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path).map_err(|e| TracePilotError::ParseError {
+        context: format!("Failed to open {}", path.display()),
+        source: Some(Box::new(e)),
+    })?;
+
+    let file_len = file
+        .metadata()
+        .map_err(|e| TracePilotError::ParseError {
+            context: format!("Failed to stat {}", path.display()),
+            source: Some(Box::new(e)),
+        })?
+        .len();
+
+    // If file is smaller than our checkpoint, it was truncated/rewritten.
+    if file_len < byte_offset {
+        return Err(TracePilotError::ParseError {
+            context: format!(
+                "events.jsonl was truncated (size {} < offset {}): {}",
+                file_len,
+                byte_offset,
+                path.display()
+            ),
+            source: None,
+        });
+    }
+
+    // If no new bytes, return empty result.
+    if file_len == byte_offset {
+        return Ok(IncrementalParseResult {
+            events: Vec::new(),
+            new_byte_offset: byte_offset,
+            malformed_lines: 0,
+        });
+    }
+
+    file.seek(SeekFrom::Start(byte_offset)).map_err(|e| {
+        TracePilotError::ParseError {
+            context: format!("Failed to seek to offset {}", byte_offset),
+            source: Some(Box::new(e)),
+        }
+    })?;
+
+    // Read the remaining bytes into a buffer.
+    let remaining = (file_len - byte_offset) as usize;
+    let mut buf = Vec::with_capacity(remaining);
+    file.read_to_end(&mut buf).map_err(|e| {
+        TracePilotError::ParseError {
+            context: format!("Failed to read from offset {}", byte_offset),
+            source: Some(Box::new(e)),
+        }
+    })?;
+
+    let mut events = Vec::new();
+    let mut malformed = 0usize;
+    let mut consumed = 0u64; // bytes consumed relative to byte_offset
+
+    // Process only complete newline-terminated lines.
+    for line_bytes in buf.split_inclusive(|&b| b == b'\n') {
+        // If the last chunk doesn't end with \n, it's a partial write — stop here.
+        if !line_bytes.ends_with(b"\n") {
+            break;
+        }
+
+        consumed += line_bytes.len() as u64;
+
+        let line = match std::str::from_utf8(line_bytes) {
+            Ok(s) => s.trim(),
+            Err(_) => {
+                malformed += 1;
+                continue;
+            }
+        };
+
+        if line.is_empty() {
+            continue;
+        }
+
+        match serde_json::from_str::<RawEvent>(line) {
+            Ok(event) => events.push(event),
+            Err(e) => {
+                tracing::warn!(error = %e, "Skipping malformed event line in incremental parse");
+                malformed += 1;
+            }
+        }
+    }
+
+    Ok(IncrementalParseResult {
+        events,
+        new_byte_offset: byte_offset + consumed,
+        malformed_lines: malformed,
+    })
+}
+
 /// Deserialize the `data` field of a [`RawEvent`] into the appropriate typed variant.
 ///
 /// Returns `(typed_data, optional_warning)`. On success, the warning is `None`.
@@ -156,7 +277,7 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
 ///
 /// The `ContextChanged` variant wraps `SessionContext` — the same struct used
 /// by `session.start` and `session.resume`.
-pub(crate) fn typed_data_from_raw(
+pub fn typed_data_from_raw(
     event_type: &SessionEventType,
     data: &Value,
 ) -> (TypedEventData, Option<EventParseWarning>) {
@@ -762,5 +883,89 @@ mod tests {
         assert_eq!(o_usg.output_tokens, Some(1000));
         assert_eq!(o_usg.cache_read_tokens, Some(1500));
         assert_eq!(o_usg.cache_write_tokens, Some(200));
+    }
+
+    // ── Incremental parser tests ─────────────────────────────────────
+
+    #[test]
+    fn test_incremental_parse_from_zero() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sample_file(&dir);
+        let result = parse_events_jsonl_from_offset(&path, 0).unwrap();
+        assert_eq!(result.events.len(), 8);
+        assert_eq!(result.malformed_lines, 0);
+        assert!(result.new_byte_offset > 0);
+    }
+
+    #[test]
+    fn test_incremental_parse_appended_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+
+        // Write initial events
+        let initial = concat!(
+            r#"{"type":"user.message","data":{"content":"Hello"},"id":"e1","timestamp":"2026-03-10T07:14:51.000Z","parentId":null}"#,
+            "\n",
+        );
+        std::fs::write(&path, initial).unwrap();
+        let initial_len = initial.len() as u64;
+
+        // Parse from 0 to get baseline
+        let result = parse_events_jsonl_from_offset(&path, 0).unwrap();
+        assert_eq!(result.events.len(), 1);
+        assert_eq!(result.new_byte_offset, initial_len);
+
+        // Append a new event
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let appended = r#"{"type":"assistant.message","data":{"content":"Hi!"},"id":"e2","timestamp":"2026-03-10T07:14:52.000Z","parentId":"e1"}"#;
+        writeln!(f, "{}", appended).unwrap();
+
+        // Parse from the saved offset — should only see the new event
+        let result2 = parse_events_jsonl_from_offset(&path, initial_len).unwrap();
+        assert_eq!(result2.events.len(), 1);
+        assert_eq!(result2.events[0].event_type, "assistant.message");
+        assert!(result2.new_byte_offset > initial_len);
+    }
+
+    #[test]
+    fn test_incremental_parse_no_new_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        let content = r#"{"type":"user.message","data":{"content":"Hello"},"id":"e1","timestamp":"2026-03-10T07:14:51.000Z","parentId":null}"#.to_string() + "\n";
+        std::fs::write(&path, &content).unwrap();
+
+        let offset = content.len() as u64;
+        let result = parse_events_jsonl_from_offset(&path, offset).unwrap();
+        assert!(result.events.is_empty());
+        assert_eq!(result.new_byte_offset, offset);
+    }
+
+    #[test]
+    fn test_incremental_parse_truncated_file_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        std::fs::write(&path, "short\n").unwrap();
+
+        // Offset beyond file size should return error
+        let result = parse_events_jsonl_from_offset(&path, 999);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_incremental_parse_partial_line_safety() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+
+        // Write a complete line followed by a partial line (no trailing \n)
+        let complete = r#"{"type":"user.message","data":{"content":"Hello"},"id":"e1","timestamp":"2026-03-10T07:14:51.000Z","parentId":null}"#.to_string() + "\n";
+        let partial = r#"{"type":"assistant.message","data":{"content":"Hi!"},"id":"e2"}"#;
+        let content = format!("{}{}", complete, partial);
+        std::fs::write(&path, &content).unwrap();
+
+        let result = parse_events_jsonl_from_offset(&path, 0).unwrap();
+        // Should only parse the complete line, not the partial one
+        assert_eq!(result.events.len(), 1);
+        assert_eq!(result.new_byte_offset, complete.len() as u64);
     }
 }
