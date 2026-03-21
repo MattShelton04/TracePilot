@@ -1,5 +1,3 @@
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { getInstallType } from '@tracepilot/client';
 import { ref } from 'vue';
 
@@ -41,6 +39,7 @@ async function installUpdate(): Promise<void> {
   progress.value = 0;
 
   try {
+    const { check } = await import('@tauri-apps/plugin-updater');
     const update = await check();
 
     if (!update) {
@@ -69,6 +68,7 @@ async function installUpdate(): Promise<void> {
     });
 
     status.value = 'done';
+    const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Auto-update failed';
