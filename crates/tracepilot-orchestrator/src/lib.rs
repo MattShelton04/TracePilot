@@ -6,6 +6,7 @@
 pub mod config_injector;
 pub mod error;
 pub mod launcher;
+pub mod process;
 pub mod repo_registry;
 pub mod templates;
 pub mod types;

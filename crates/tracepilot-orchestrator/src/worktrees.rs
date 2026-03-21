@@ -3,14 +3,10 @@
 use crate::error::{OrchestratorError, Result};
 use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, WorktreeInfo, WorktreeStatus};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// Run a git command in the given directory, returning stdout on success.
 fn git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(repo_path)
-        .output()?;
+    let output = crate::process::run_hidden("git", args, Some(repo_path))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -28,10 +24,7 @@ pub fn get_repo_root(path: &Path) -> Result<String> {
 /// Check if a path is a valid git repository.
 pub fn is_git_repo(path: &Path) -> bool {
     path.is_dir()
-        && Command::new("git")
-            .args(["rev-parse", "--git-dir"])
-            .current_dir(path)
-            .output()
+        && crate::process::run_hidden("git", &["rev-parse", "--git-dir"], Some(path))
             .map(|o| o.status.success())
             .unwrap_or(false)
 }
@@ -315,9 +308,7 @@ pub fn validate_branch_name(name: &str) -> Result<()> {
         return Err(OrchestratorError::Worktree("Branch name cannot be empty".into()));
     }
     // Use git check-ref-format to validate
-    let output = Command::new("git")
-        .args(["check-ref-format", "--branch", name])
-        .output()?;
+    let output = crate::process::run_hidden("git", &["check-ref-format", "--branch", name], None)?;
     if output.status.success() {
         Ok(())
     } else {
