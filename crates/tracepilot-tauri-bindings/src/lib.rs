@@ -1086,51 +1086,22 @@ mod commands {
                 cmd.replace('\'', "''")
             );
 
-            let encoded = tracepilot_orchestrator::launcher::encode_powershell_command(&ps_cmd);
-            tracepilot_orchestrator::launcher::spawn_outside_job(
+            let encoded = tracepilot_orchestrator::process::encode_powershell_command(&ps_cmd);
+            tracepilot_orchestrator::process::spawn_detached_terminal(
                 "powershell",
                 &["-NoExit", "-EncodedCommand", &encoded],
                 &effective_cwd,
+                None,
             )
             .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
-        #[cfg(target_os = "macos")]
+        #[cfg(not(windows))]
         {
-            let escaped_cwd = effective_cwd.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
-            let script = format!(
-                "tell app \"Terminal\" to do script \"cd '{}' && {}\"",
-                escaped_cwd, cmd
-            );
-            std::process::Command::new("osascript")
-                .args(["-e", &script])
-                .spawn()
-                .map_err(|e| format!("Failed to open terminal: {}", e))?;
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let terminals = [
-                "x-terminal-emulator",
-                "gnome-terminal",
-                "konsole",
-                "xfce4-terminal",
-                "xterm",
-            ];
-            let mut launched = false;
-            for term in &terminals {
-                let mut command = std::process::Command::new(term);
-                command.args(["-e", &cmd]).current_dir(&effective_cwd);
-                if command.spawn().is_ok() {
-                    launched = true;
-                    break;
-                }
-            }
-            if !launched {
-                return Err(
-                    "No terminal emulator found. Please run the command manually.".to_string(),
-                );
-            }
+            tracepilot_orchestrator::process::spawn_detached_terminal(
+                &cmd, &[], &effective_cwd, None,
+            )
+            .map_err(|e| format!("Failed to open terminal: {}", e))?;
         }
 
         Ok(())
@@ -1219,9 +1190,7 @@ mod commands {
     #[tauri::command]
     pub async fn get_git_info() -> GitInfo {
         let run = |args: &[&str]| -> Option<String> {
-            std::process::Command::new("git")
-                .args(args)
-                .output()
+            tracepilot_orchestrator::process::run_hidden("git", args, None)
                 .ok()
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .map(|s| s.trim().to_string())
