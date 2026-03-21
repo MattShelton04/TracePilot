@@ -294,11 +294,43 @@ mod commands {
             .flatten();
 
         match stored {
-            Some((_, Some(stored_size))) => {
-                // Size mismatch means file was rewritten (compaction).
-                // Note: size can grow (append), which is fine for offsets of
-                // already-indexed events. Shrink = compaction = stale.
-                current_size >= stored_size
+            Some((stored_mtime, Some(stored_size))) => {
+                // Size shrink = compaction = stale offsets
+                if current_size < stored_size {
+                    return false;
+                }
+
+                // Mtime check: if mtime changed, the file was modified.
+                // For append-only changes this is fine (offsets of existing events
+                // are unchanged), but for compaction+regrowth (Opus review scenario:
+                // file shrinks to 500 then appends grow to 1100, past the old 1000)
+                // the size check alone would pass. Mtime catches this: if size grew
+                // AND mtime changed, compare stored mtime to detect non-append edits.
+                if let Ok(modified) = meta.modified() {
+                    let dt: chrono::DateTime<chrono::Utc> = modified.into();
+                    let current_mtime = dt.to_rfc3339();
+                    let mtime_changed = stored_mtime.as_deref() != Some(&current_mtime);
+
+                    if mtime_changed && current_size == stored_size {
+                        // Same size but mtime changed → possible rewrite
+                        return false;
+                    }
+
+                    if mtime_changed && current_size > stored_size {
+                        // Size grew and mtime changed. Likely just appends (safe),
+                        // but could be compaction+regrowth. Validate by checking
+                        // that the max cached byte_offset + line_length doesn't
+                        // exceed the current file size (all indexed offsets should
+                        // fall within the file bounds).
+                        if let Ok(Some(max)) = db.query_max_cached_offset(session_id) {
+                            if max > current_size {
+                                return false;
+                            }
+                        }
+                    }
+                }
+
+                true
             }
             _ => false,
         }

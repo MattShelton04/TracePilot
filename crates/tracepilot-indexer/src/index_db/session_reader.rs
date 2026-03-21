@@ -182,6 +182,21 @@ impl IndexDb {
         }
     }
 
+    /// Returns the maximum (byte_offset + line_length) across all cached events for a session.
+    /// Used to verify that cached offsets still fall within the current file bounds.
+    pub fn query_max_cached_offset(&self, session_id: &str) -> Result<Option<i64>> {
+        let result = self.conn.query_row(
+            "SELECT MAX(byte_offset + line_length) FROM session_events WHERE session_id = ?1",
+            [session_id],
+            |row| row.get::<_, Option<i64>>(0),
+        );
+        match result {
+            Ok(v) => Ok(v),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// Check if the event cache is populated for a session.
     ///
     /// Uses the `events_cached` flag column, which is set to 1 after successful

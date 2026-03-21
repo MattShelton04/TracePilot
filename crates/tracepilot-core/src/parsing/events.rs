@@ -202,34 +202,51 @@ pub fn parse_events_with_offsets(path: &Path) -> Result<(Vec<EventWithOffset>, u
         let line_start = consumed;
         let line_len = line_bytes.len() as u64;
 
-        // Partial trailing line (no \n) — stop here
-        if !line_bytes.ends_with(b"\n") {
-            break;
-        }
-
-        consumed += line_len;
+        // Partial trailing line (no \n) — try to parse it anyway (could be
+        // a valid final line if the writer didn't add a trailing newline).
+        // We do NOT advance `consumed` past it so the checkpoint stays safe
+        // for incremental parsing.
+        let is_complete_line = line_bytes.ends_with(b"\n");
 
         let line = match std::str::from_utf8(line_bytes) {
             Ok(s) => s.trim(),
             Err(_) => {
+                if is_complete_line {
+                    consumed += line_len;
+                }
                 malformed += 1;
                 continue;
             }
         };
 
         if line.is_empty() {
+            if is_complete_line {
+                consumed += line_len;
+            }
             continue;
         }
 
         match serde_json::from_str::<RawEvent>(line) {
-            Ok(event) => events.push(EventWithOffset {
-                event,
-                byte_offset: line_start,
-                line_length: line_len,
-            }),
+            Ok(event) => {
+                events.push(EventWithOffset {
+                    event,
+                    byte_offset: line_start,
+                    line_length: line_len,
+                });
+                // Only advance checkpoint for complete lines so incremental
+                // parsing resumes safely after the last newline-terminated line.
+                if is_complete_line {
+                    consumed += line_len;
+                }
+            }
             Err(e) => {
-                tracing::warn!(line_offset = line_start, error = %e, "Skipping malformed event line");
-                malformed += 1;
+                // If line lacks newline, it's likely an incomplete write — don't count as malformed
+                if is_complete_line {
+                    tracing::warn!(line_offset = line_start, error = %e, "Skipping malformed event line");
+                    malformed += 1;
+                    consumed += line_len;
+                }
+                // else: partial trailing line that isn't valid JSON — silently skip
             }
         }
     }
