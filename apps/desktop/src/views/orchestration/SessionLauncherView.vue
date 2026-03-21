@@ -124,7 +124,11 @@ const hasDismissedDefaults = computed(() =>
 );
 
 function tierLabel(tier: string): string {
-  return getTierLabel(tier as 'premium' | 'standard' | 'fast');
+  if (tier === 'premium' || tier === 'standard' || tier === 'fast') {
+    return getTierLabel(tier);
+  }
+  // For non-tier strings (e.g. reasoning effort: low/medium/high), capitalize
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
 function truncate(s: string, max: number): string {

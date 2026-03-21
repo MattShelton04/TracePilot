@@ -7,7 +7,7 @@
  */
 
 import type { TracePilotConfig } from './index.js';
-import { DEFAULT_FAVOURITE_MODELS, getDefaultWholesalePrices } from './models.js';
+import { DEFAULT_FAVOURITE_MODELS } from './models.js';
 
 /** Current config schema version. */
 export const CONFIG_VERSION = 2;
@@ -69,8 +69,8 @@ export function createDefaultConfig(
     },
     pricing: {
       costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
-      models: overrides?.pricing?.models ?? [],
       ...overrides?.pricing,
+      models: overrides?.pricing?.models ?? [],
     },
     toolRendering: {
       enabled: true,

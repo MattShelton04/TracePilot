@@ -66,7 +66,7 @@ export const MODEL_REGISTRY: readonly ModelDefinition[] = [
   { id: 'gpt-5.1-codex-mini',   name: 'GPT-5.1 Codex Mini',   tier: 'fast',     inputPerM: 0.4,   cachedInputPerM: 0.04,  outputPerM: 1.6,   premiumRequests: 0.33 },
   { id: 'gpt-5-mini',           name: 'GPT-5 Mini',           tier: 'fast',     inputPerM: 0.4,   cachedInputPerM: 0.04,  outputPerM: 1.6,   premiumRequests: 0    },
   { id: 'gpt-4.1',              name: 'GPT-4.1',              tier: 'fast',     inputPerM: 8.0,   cachedInputPerM: 0.8,   outputPerM: 24.0,  premiumRequests: 0    },
-] as const;
+];
 
 // ─── Derived helpers ─────────────────────────────────────────────────
 
