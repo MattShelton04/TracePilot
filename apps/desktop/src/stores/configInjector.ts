@@ -13,6 +13,7 @@ import {
   getCopilotConfig,
   saveCopilotConfig as saveCopilotApi,
   createConfigBackup as createBackupApi,
+  deleteConfigBackup as deleteBackupApi,
   listConfigBackups,
   restoreConfigBackup as restoreBackupApi,
   discoverCopilotVersions,
@@ -105,15 +106,17 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     }
   }
 
-  async function createBackup(filePath: string, label: string): Promise<boolean> {
+  async function createBackup(filePath: string, label: string, silent = false): Promise<boolean> {
     try {
       await createBackupApi(filePath, label);
       backups.value = await listConfigBackups();
-      successMessage.value = 'Backup created';
-      setTimeout(() => { successMessage.value = null; }, 3000);
+      if (!silent) {
+        successMessage.value = 'Backup created';
+        setTimeout(() => { successMessage.value = null; }, 3000);
+      }
       return true;
     } catch (e) {
-      error.value = String(e);
+      if (!silent) error.value = String(e);
       return false;
     }
   }
@@ -123,6 +126,19 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await restoreBackupApi(backupPath, restoreTo);
       successMessage.value = 'Backup restored';
       await initialize(); // Reload everything
+      setTimeout(() => { successMessage.value = null; }, 3000);
+      return true;
+    } catch (e) {
+      error.value = String(e);
+      return false;
+    }
+  }
+
+  async function deleteBackup(backupPath: string): Promise<boolean> {
+    try {
+      await deleteBackupApi(backupPath);
+      backups.value = await listConfigBackups();
+      successMessage.value = 'Backup deleted';
       setTimeout(() => { successMessage.value = null; }, 3000);
       return true;
     } catch (e) {
@@ -173,6 +189,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     saveGlobalConfig,
     createBackup,
     restoreBackup,
+    deleteBackup,
     loadMigrationDiffs,
     migrateAgent,
   };
