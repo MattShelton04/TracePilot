@@ -127,14 +127,23 @@ mod commands {
     /// LRU capacity for in-memory turn cache (number of sessions to keep).
     const TURN_CACHE_CAPACITY: usize = 10;
 
+    /// Cached turn data with file freshness metadata for invalidation.
+    #[derive(Clone)]
+    pub struct CachedTurns {
+        pub turns: Vec<tracepilot_core::ConversationTurn>,
+        /// File size of events.jsonl when turns were parsed.
+        pub file_size: u64,
+    }
+
     /// In-memory LRU cache for reconstructed conversation turns.
     ///
     /// Turns are expensive to store in SQLite (176 MB in v1) but cheap to
     /// reconstruct from events. We cache the most recently accessed sessions'
     /// turns in memory to avoid redundant reparsing for tab switches.
+    /// Each entry includes file_size for staleness detection on active sessions.
     pub type TurnCache = Arc<
         std::sync::Mutex<
-            lru::LruCache<String, Vec<tracepilot_core::ConversationTurn>>,
+            lru::LruCache<String, CachedTurns>,
         >,
     >;
 
@@ -261,6 +270,38 @@ mod commands {
             .get("data")
             .cloned()
             .unwrap_or(serde_json::Value::Object(Default::default())))
+    }
+
+    /// Check whether cached byte offsets are trustworthy for a session.
+    ///
+    /// Compares current file mtime/size against what was recorded during indexing.
+    /// If they diverge (e.g. compaction rewrote the file), offsets are stale.
+    fn are_offsets_fresh(
+        db: &tracepilot_indexer::index_db::IndexDb,
+        session_id: &str,
+        events_path: &std::path::Path,
+    ) -> bool {
+        let meta = match std::fs::metadata(events_path) {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+        let current_size = meta.len() as i64;
+
+        // Query indexed mtime + size
+        let stored: Option<(Option<String>, Option<i64>)> = db
+            .query_events_file_meta(session_id)
+            .ok()
+            .flatten();
+
+        match stored {
+            Some((_, Some(stored_size))) => {
+                // Size mismatch means file was rewritten (compaction).
+                // Note: size can grow (append), which is fine for offsets of
+                // already-indexed events. Shrink = compaction = stale.
+                current_size >= stored_size
+            }
+            _ => false,
+        }
     }
 
     // ── Existing Commands (updated for config) ───────────────────────
@@ -510,27 +551,37 @@ mod commands {
         turn_cache: tauri::State<'_, TurnCache>,
         session_id: String,
     ) -> Result<Vec<tracepilot_core::ConversationTurn>, String> {
-        // Fast path: check in-memory LRU cache
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+
+        // Resolve the session path + get current events.jsonl size for freshness check
+        let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
+            &session_id,
+            &session_state_dir,
+        )
+        .map_err(|e| e.to_string())?;
+        let events_path = session_path.join("events.jsonl");
+        let current_file_size = std::fs::metadata(&events_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // Fast path: check in-memory LRU cache with file freshness validation
         {
             let mut cache = turn_cache.lock().unwrap();
-            if let Some(turns) = cache.get(&session_id) {
-                return Ok(turns.clone());
+            if let Some(cached) = cache.get(&session_id) {
+                if cached.file_size == current_file_size {
+                    return Ok(cached.turns.clone());
+                }
+                // File changed — evict stale entry
             }
         }
 
-        let cfg = read_config(&state);
-        let session_state_dir = cfg.session_state_dir();
         let cache_handle = turn_cache.inner().clone();
         let sid = session_id.clone();
+        let ep = events_path.clone();
 
         let turns = tokio::task::spawn_blocking(move || {
-            let path = tracepilot_core::session::discovery::resolve_session_path_in(
-                &sid,
-                &session_state_dir,
-            )
-            .map_err(|e| e.to_string())?;
-            let events_path = path.join("events.jsonl");
-            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+            let events = tracepilot_core::parsing::events::parse_typed_events(&ep)
                 .map_err(|e| e.to_string())?
                 .events;
             Ok::<_, String>(tracepilot_core::turns::reconstruct_turns(&events))
@@ -538,10 +589,16 @@ mod commands {
         .await
         .map_err(|e| e.to_string())??;
 
-        // Store in LRU cache for future hits
+        // Store in LRU cache with file size for future freshness checks
         {
             let mut cache = cache_handle.lock().unwrap();
-            cache.put(session_id, turns.clone());
+            cache.put(
+                sid,
+                CachedTurns {
+                    turns: turns.clone(),
+                    file_size: current_file_size,
+                },
+            );
         }
 
         Ok(turns)
@@ -648,20 +705,22 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
 
-            // Fast path: use cached byte offset for O(1) seek
+            // Fast path: use cached byte offset for O(1) seek (with freshness check)
             if let Some(db) = open_index_db(&index_path) {
-                if let Ok(Some((byte_offset, line_length))) =
-                    db.get_event_data_offset(&session_id, event_index as usize)
-                {
-                    match read_event_at_offset(&events_path, byte_offset, line_length) {
-                        Ok(data) => return Ok(data),
-                        Err(e) => {
-                            tracing::warn!(
-                                session_id = %session_id,
-                                event_index = event_index,
-                                error = %e,
-                                "Byte-offset seek failed, falling back to full parse"
-                            );
+                if are_offsets_fresh(&db, &session_id, &events_path) {
+                    if let Ok(Some((byte_offset, line_length))) =
+                        db.get_event_data_offset(&session_id, event_index as usize)
+                    {
+                        match read_event_at_offset(&events_path, byte_offset, line_length) {
+                            Ok(data) => return Ok(data),
+                            Err(e) => {
+                                tracing::warn!(
+                                    session_id = %session_id,
+                                    event_index = event_index,
+                                    error = %e,
+                                    "Byte-offset seek failed, falling back to full parse"
+                                );
+                            }
                         }
                     }
                 }
@@ -1263,36 +1322,56 @@ mod commands {
             // Fast path: look up byte offset from event cache, then seek to it
             if let Some(db) = open_index_db(&index_path) {
                 if db.has_cached_events(&session_id) {
-                    match db.get_cached_tool_result(&session_id, &tool_call_id) {
-                        Ok(Some((byte_offset, line_length))) => {
-                            // Seek directly to the event in events.jsonl
-                            let path = tracepilot_core::session::discovery::resolve_session_path_in(
-                                &session_id,
-                                &session_state_dir,
-                            )
-                            .map_err(|e| e.to_string())?;
-                            let events_path = path.join("events.jsonl");
-                            match read_event_at_offset(&events_path, byte_offset, line_length) {
-                                Ok(data) => {
-                                    return Ok(data.get("result").cloned());
-                                }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        session_id = %session_id,
-                                        error = %e,
-                                        "Byte-offset seek failed, falling back to full parse"
-                                    );
+                    // Resolve path early for freshness check
+                    let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                        &session_id,
+                        &session_state_dir,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    let events_path = path.join("events.jsonl");
+
+                    if are_offsets_fresh(&db, &session_id, &events_path) {
+                        match db.get_cached_tool_result(&session_id, &tool_call_id) {
+                            Ok(Some((byte_offset, line_length))) => {
+                                match read_event_at_offset(&events_path, byte_offset, line_length) {
+                                    Ok(data) => {
+                                        return Ok(data.get("result").cloned());
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            session_id = %session_id,
+                                            error = %e,
+                                            "Byte-offset seek failed, falling back to full parse"
+                                        );
+                                    }
                                 }
                             }
-                        }
-                        Ok(None) => {
-                            // Cache miss — tool result may be from events added after
-                            // last reindex. Fall through to disk.
-                        }
-                        Err(e) => {
-                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                            Ok(None) => {
+                                // Cache miss — fall through to disk.
+                            }
+                            Err(e) => {
+                                tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
+                            }
                         }
                     }
+
+                    // Fallback using already-resolved path
+                    let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                        .map_err(|e| e.to_string())?
+                        .events;
+
+                    let mut last_result: Option<serde_json::Value> = None;
+                    for event in &events {
+                        if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(
+                            ref data,
+                        ) = event.typed_data
+                        {
+                            if data.tool_call_id.as_deref() == Some(&tool_call_id) {
+                                last_result = data.result.clone();
+                            }
+                        }
+                    }
+                    return Ok(last_result);
                 }
             }
 

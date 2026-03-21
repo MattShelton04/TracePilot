@@ -163,6 +163,25 @@ impl IndexDb {
 
     // ── Event cache readers ───────────────────────────────────────────
 
+    /// Query the indexed events file metadata (mtime, size) for freshness checks.
+    ///
+    /// Used to verify cached byte offsets are still valid before using them.
+    pub fn query_events_file_meta(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<(Option<String>, Option<i64>)>> {
+        let result = self.conn.query_row(
+            "SELECT events_mtime, events_size FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
+        );
+        match result {
+            Ok(meta) => Ok(Some(meta)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// Check if the event cache is populated for a session.
     ///
     /// Uses the `events_cached` flag column, which is set to 1 after successful

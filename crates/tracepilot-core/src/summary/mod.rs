@@ -35,7 +35,7 @@ pub struct SessionLoadResult {
 /// (`events.jsonl`, `session.db`, `plan.md`, `checkpoints/`) are optional
 /// and their presence is reflected in the summary flags.
 pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
-    load_session_summary_impl(session_dir, false).map(|r| r.summary)
+    load_session_summary_impl(session_dir, false, None).map(|r| r.summary)
 }
 
 /// Load a session summary along with parsed events for reuse.
@@ -43,10 +43,26 @@ pub fn load_session_summary(session_dir: &Path) -> Result<SessionSummary> {
 /// Used by the indexer to avoid re-parsing `events.jsonl` for FTS indexing
 /// and tool call extraction.
 pub fn load_session_summary_with_events(session_dir: &Path) -> Result<SessionLoadResult> {
-    load_session_summary_impl(session_dir, true)
+    load_session_summary_impl(session_dir, true, None)
 }
 
-fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<SessionLoadResult> {
+/// Load a session summary using pre-parsed events (avoids re-reading events.jsonl).
+///
+/// Used by the indexer when events have already been parsed with byte offsets
+/// for cache population, to avoid a redundant second parse of the same file.
+pub fn load_session_summary_with_preparsed(
+    session_dir: &Path,
+    typed_events: Vec<TypedEvent>,
+    diagnostics: ParseDiagnostics,
+) -> Result<SessionLoadResult> {
+    load_session_summary_impl(session_dir, true, Some((typed_events, diagnostics)))
+}
+
+fn load_session_summary_impl(
+    session_dir: &Path,
+    retain_events: bool,
+    preparsed: Option<(Vec<TypedEvent>, ParseDiagnostics)>,
+) -> Result<SessionLoadResult> {
     // 1. Parse workspace.yaml (required)
     let workspace_path = session_dir.join("workspace.yaml");
     if !workspace_path.exists() {
@@ -76,58 +92,67 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
         shutdown_metrics: None,
     };
 
-    // 2–5. Events processing — parse ONCE, derive count from len()
+    // 2–5. Events processing
     let events_path = session_dir.join("events.jsonl");
     let mut typed_events_out = None;
     let mut diagnostics_out = None;
 
-    if events_path.exists() {
+    // Use pre-parsed events if provided, otherwise parse from disk
+    let parsed_events = if let Some((events, diags)) = preparsed {
+        if events_path.exists() {
+            summary.has_events = true;
+        }
+        Some((events, diags))
+    } else if events_path.exists() {
         summary.has_events = true;
-
         match parse_typed_events(&events_path) {
-            Ok(parsed) => {
-                let typed_events = parsed.events;
-                diagnostics_out = Some(parsed.diagnostics);
-
-                // Derive event count from parsed events (no separate count_events call)
-                summary.event_count = Some(typed_events.len());
-
-                // Shutdown metrics (summed across all shutdown events for resumed sessions)
-                if let Some((sd, count)) = extract_combined_shutdown_data(&typed_events) {
-                    summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
-                }
-
-                // Turn count
-                let turns = reconstruct_turns(&typed_events);
-                let stats = turn_stats(&turns);
-                summary.turn_count = Some(stats.total_turns);
-
-                // Context enrichment from session.start event
-                if let Some(start_data) = extract_session_start(&typed_events)
-                    && let Some(ctx) = &start_data.context
-                {
-                    if summary.repository.is_none() {
-                        summary.repository = ctx.repository.clone();
-                    }
-                    if summary.branch.is_none() {
-                        summary.branch = ctx.branch.clone();
-                    }
-                    if summary.host_type.is_none() {
-                        summary.host_type = ctx.host_type.clone();
-                    }
-                }
-
-                if retain_events {
-                    typed_events_out = Some(typed_events);
-                }
-            }
+            Ok(parsed) => Some((parsed.events, parsed.diagnostics)),
             Err(e) => {
                 tracing::warn!(
                     path = %events_path.display(),
                     error = %e,
                     "Failed to parse events.jsonl; proceeding without event data"
                 );
+                None
             }
+        }
+    } else {
+        None
+    };
+
+    if let Some((typed_events, diagnostics)) = parsed_events {
+        diagnostics_out = Some(diagnostics);
+
+        // Derive event count from parsed events (no separate count_events call)
+        summary.event_count = Some(typed_events.len());
+
+        // Shutdown metrics (summed across all shutdown events for resumed sessions)
+        if let Some((sd, count)) = extract_combined_shutdown_data(&typed_events) {
+            summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
+        }
+
+        // Turn count
+        let turns = reconstruct_turns(&typed_events);
+        let stats = turn_stats(&turns);
+        summary.turn_count = Some(stats.total_turns);
+
+        // Context enrichment from session.start event
+        if let Some(start_data) = extract_session_start(&typed_events)
+            && let Some(ctx) = &start_data.context
+        {
+            if summary.repository.is_none() {
+                summary.repository = ctx.repository.clone();
+            }
+            if summary.branch.is_none() {
+                summary.branch = ctx.branch.clone();
+            }
+            if summary.host_type.is_none() {
+                summary.host_type = ctx.host_type.clone();
+            }
+        }
+
+        if retain_events {
+            typed_events_out = Some(typed_events);
         }
     }
 

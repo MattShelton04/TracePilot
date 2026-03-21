@@ -25,22 +25,45 @@ fn extract_tool_call_id(event_type: &SessionEventType, data: &TypedEventData) ->
 impl IndexDb {
     /// Insert or update a session in the index, computing analytics from events.
     pub fn upsert_session(&self, session_path: &Path) -> Result<SessionIndexInfo> {
-        let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)
-            .with_context(|| {
-                format!(
-                    "Failed to load session summary: {}",
-                    session_path.display()
-                )
-            })?;
+        // Single parse pass: parse events.jsonl with byte offsets.
+        // The offset data is used for the lean cache; the typed events are
+        // fed into load_session_summary to avoid a second parse of the same file.
+        let events_path = session_path.join("events.jsonl");
+        let offset_parse = if events_path.exists() {
+            tracepilot_core::parsing::events::parse_typed_events_with_offsets(&events_path).ok()
+        } else {
+            None
+        };
+
+        // Build the session summary. If we have pre-parsed events, hand them
+        // to the summary builder so it doesn't re-read events.jsonl.
+        let load_result = if let Some(ref parsed) = offset_parse {
+            let typed_events: Vec<tracepilot_core::parsing::events::TypedEvent> =
+                parsed.events.iter().map(|ewo| ewo.event.clone()).collect();
+            tracepilot_core::summary::load_session_summary_with_preparsed(
+                session_path,
+                typed_events,
+                parsed.diagnostics.clone(),
+            )
+        } else {
+            tracepilot_core::summary::load_session_summary_with_events(session_path)
+        }
+        .with_context(|| {
+            format!(
+                "Failed to load session summary: {}",
+                session_path.display()
+            )
+        })?;
+
         let summary = load_result.summary;
-        let typed_events = load_result.typed_events;
         let diagnostics = load_result.diagnostics;
+        let typed_events_for_analytics = load_result.typed_events;
 
         let file_meta = SessionFileMeta::from_session_path(session_path);
 
         let analytics = extract_session_analytics(
             &summary,
-            &typed_events,
+            &typed_events_for_analytics,
             diagnostics.as_ref(),
             &file_meta,
         );
@@ -87,6 +110,12 @@ impl IndexDb {
             )?;
             self.conn.execute(
                 "DELETE FROM session_events WHERE session_id = ?1",
+                [&session_id],
+            )?;
+            // Reset cache markers immediately so stale flags don't persist
+            // if the parse below fails or is skipped.
+            self.conn.execute(
+                "UPDATE sessions SET events_cached = 0, events_byte_offset = 0, events_line_count = 0 WHERE id = ?1",
                 [&session_id],
             )?;
 
@@ -261,31 +290,16 @@ impl IndexDb {
             }
 
             // ── Cache event metadata + shutdown data ─────────────────
-            // Parse events with byte offsets for the lean cache.
-            // The typed_events from load_session_summary are used for analytics;
-            // we need a separate offset-aware parse for cache population.
-            let events_path = session_path.join("events.jsonl");
-            if events_path.exists() {
-                match tracepilot_core::parsing::events::parse_typed_events_with_offsets(&events_path) {
-                    Ok(parsed) => {
-                        self.cache_session_events(
-                            &session_id,
-                            &parsed.events,
-                            parsed.final_byte_offset,
-                        )?;
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            session_id = %session_id,
-                            error = %e,
-                            "Failed to parse events with offsets for caching; cache will be empty"
-                        );
-                    }
-                }
+            if let Some(ref parsed) = offset_parse {
+                self.cache_session_events(
+                    &session_id,
+                    &parsed.events,
+                    parsed.final_byte_offset,
+                )?;
             }
 
-            // Cache shutdown data (uses the already-parsed typed_events)
-            if let Some(ref events) = typed_events {
+            // Cache shutdown data
+            if let Some(ref events) = typed_events_for_analytics {
                 if let Some((shutdown_data, count)) =
                     tracepilot_core::parsing::events::extract_combined_shutdown_data(events)
                 {
