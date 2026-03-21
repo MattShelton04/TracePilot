@@ -232,17 +232,15 @@ TracePilot can check GitHub for newer releases:
 
 ### Keeping Up-to-Date
 
-**From source:**
+How you update depends on how you installed TracePilot:
 
-```bash
-cd TracePilot
-git pull origin main
-pnpm start
-```
+| Install type | How to update |
+|-------------|--------------|
+| **Source** (`pnpm start`) | `git pull` then `pnpm start` — the app detects the new version on launch |
+| **Installer** (NSIS/MSI) | One-click auto-update: the app downloads and installs the update in-app, then relaunches |
+| **Standalone exe** | Download the latest `.exe` from the [Releases page](https://github.com/MattShelton04/TracePilot/releases) and replace the old file |
 
-**Installer / Exe:** Download the latest release from the [Releases page](https://github.com/MattShelton04/TracePilot/releases) and run it.
-
-The app will detect the version change on next launch and show a "What's New" modal with release notes.
+> **Tip:** The NSIS installer is the recommended binary option — it's the only one that supports automatic in-app updates.
 
 ## Development
 
@@ -298,18 +296,6 @@ act -W .github/workflows/ci.yml -j check
 ```
 
 > **Note:** The release workflow's `build-installers` job runs on `windows-latest`, which `act` cannot simulate in Docker. To test release changes, use the `workflow_dispatch` trigger: go to **Actions → Release → Run workflow**, enter a version tag (e.g. `v0.3.0-test`), and it will create a draft release you can inspect and delete afterwards.
-
-### Auto-Updater Setup (Maintainers)
-
-The release workflow signs update artifacts with an Ed25519 keypair so installed copies can auto-update in-app. Two GitHub repository secrets are required:
-
-| Secret | Value |
-|--------|-------|
-| `TAURI_SIGNING_PRIVATE_KEY` | Contents of `.tauri-updater-key` (generated via `pnpm tauri signer generate`) |
-
-The key was generated without a password, so no `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret is needed (the workflow hardcodes an empty string).
-
-The public key is already embedded in `tauri.conf.json`. When these secrets are set, the release workflow produces a `latest.json` manifest and `.sig` signature files alongside each installer — enabling one-click updates for users running the installed app.
 
 ### Benchmarks
 

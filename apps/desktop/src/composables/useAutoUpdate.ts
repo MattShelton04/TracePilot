@@ -1,34 +1,37 @@
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { isDevBuild } from '@tracepilot/client';
+import { getInstallType } from '@tracepilot/client';
 import { ref } from 'vue';
 
 export type AutoUpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'done' | 'error';
+export type InstallType = 'source' | 'installed' | 'portable' | 'unknown';
 
 const status = ref<AutoUpdateStatus>('idle');
 const progress = ref(0);
 const errorMessage = ref<string | null>(null);
-const isDevMode = ref<boolean | null>(null);
+const installType = ref<InstallType>('unknown');
 
-async function detectDevMode(): Promise<boolean> {
-  if (isDevMode.value !== null) return isDevMode.value;
+async function detectInstallType(): Promise<InstallType> {
+  if (installType.value !== 'unknown') return installType.value;
   try {
-    isDevMode.value = await isDevBuild();
+    installType.value = (await getInstallType()) as InstallType;
   } catch {
-    // If the command fails (e.g. browser mock), assume dev
-    isDevMode.value = true;
+    // Browser mock / non-Tauri environment → treat as source
+    installType.value = 'source';
   }
-  return isDevMode.value;
+  return installType.value;
 }
 
 /**
  * Download and install the latest update, then relaunch the app.
- * Only works for production (non-dev) builds.
+ * Only works for NSIS-installed builds.
  */
 async function installUpdate(): Promise<void> {
-  const isDev = await detectDevMode();
-  if (isDev) {
-    errorMessage.value = 'Auto-update is not available in dev mode. Use git pull instead.';
+  const type = await detectInstallType();
+  if (type !== 'installed') {
+    errorMessage.value = type === 'source'
+      ? 'Auto-update is not available in dev mode. Use git pull instead.'
+      : 'Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.';
     status.value = 'error';
     return;
   }
@@ -78,8 +81,8 @@ export function useAutoUpdate() {
     status,
     progress,
     errorMessage,
-    isDevMode,
-    detectDevMode,
+    installType,
+    detectInstallType,
     installUpdate,
   };
 }

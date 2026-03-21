@@ -1138,11 +1138,23 @@ mod commands {
 
     // ── Update Detection Commands ────────────────────────────────
 
-    /// Returns true when the app was compiled in debug mode (i.e. `tauri dev`).
-    /// Used by the frontend to decide between auto-update vs git-pull instructions.
+    /// Returns the installation type: "source", "installed", or "portable".
+    /// - "source": debug/dev build (running via `tauri dev`)
+    /// - "installed": NSIS installer location (supports auto-update)
+    /// - "portable": standalone exe (manual update only)
     #[tauri::command]
-    pub fn is_dev_build() -> bool {
-        cfg!(debug_assertions)
+    pub fn get_install_type() -> String {
+        if cfg!(debug_assertions) {
+            return "source".to_string();
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            let path = exe.to_string_lossy().to_lowercase();
+            // NSIS installs to %LOCALAPPDATA%\{identifier}\
+            if path.contains("appdata") && path.contains("dev.tracepilot.app") {
+                return "installed".to_string();
+            }
+        }
+        "portable".to_string()
     }
 
     #[tauri::command]
@@ -1892,7 +1904,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_tool_result,
             commands::resume_session_in_terminal,
             commands::check_for_updates,
-            commands::is_dev_build,
+            commands::get_install_type,
             commands::get_git_info,
             // Orchestration commands
             commands::check_system_deps,

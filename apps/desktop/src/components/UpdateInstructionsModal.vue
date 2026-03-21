@@ -9,11 +9,10 @@ const emit = defineEmits<{
 }>();
 
 const { updateResult } = useUpdateCheck();
-const { status, progress, errorMessage, isDevMode, detectDevMode, installUpdate } = useAutoUpdate();
+const { status, progress, errorMessage, installType, detectInstallType, installUpdate } = useAutoUpdate();
 
 const version = computed(() => updateResult.value?.latestVersion ?? '');
 const releaseUrl = computed(() => updateResult.value?.releaseUrl);
-const canAutoUpdate = computed(() => isDevMode.value === false);
 const isUpdating = computed(() => ['checking', 'downloading', 'installing', 'done'].includes(status.value));
 
 const statusText = computed(() => {
@@ -26,7 +25,7 @@ const statusText = computed(() => {
   }
 });
 
-onMounted(() => detectDevMode());
+onMounted(() => detectInstallType());
 
 function handleOpenRelease() {
   if (releaseUrl.value) {
@@ -46,75 +45,87 @@ function handleOpenRelease() {
 
         <div class="modal-body">
           <p class="update-intro">
-            A new version of TracePilot is available. Choose how to update:
+            A new version of TracePilot is available.
           </p>
 
-          <!-- Auto-update (production builds only) -->
-          <div v-if="canAutoUpdate" class="update-method auto-update-section">
-            <h3 class="method-title">Install automatically</h3>
-            <p class="method-description">
-              Download and install the update in the background. The app will restart when ready.
-            </p>
-            <div v-if="isUpdating" class="auto-update-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: progress + '%' }" />
+          <!-- ── INSTALLED (NSIS/MSI) ── auto-update with progress -->
+          <template v-if="installType === 'installed'">
+            <div class="update-method auto-update-section">
+              <h3 class="method-title">Install automatically</h3>
+              <p class="method-description">
+                Download and install the update in the background. The app will restart when ready.
+              </p>
+              <div v-if="isUpdating" class="auto-update-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: progress + '%' }" />
+                </div>
+                <span class="progress-text">{{ statusText }}</span>
               </div>
-              <span class="progress-text">{{ statusText }}</span>
+              <div v-else-if="status === 'error'" class="auto-update-error">
+                {{ errorMessage }}
+              </div>
+              <button
+                v-if="!isUpdating"
+                class="modal-btn install-btn"
+                :disabled="status === 'done'"
+                @click="installUpdate"
+              >
+                {{ status === 'error' ? 'Retry' : 'Install Update' }}
+              </button>
             </div>
-            <div v-else-if="status === 'error'" class="auto-update-error">
-              {{ errorMessage }}
-            </div>
-            <button
-              v-if="!isUpdating"
-              class="modal-btn install-btn"
-              :disabled="status === 'done'"
-              @click="installUpdate"
-            >
-              {{ status === 'error' ? 'Retry' : 'Install Update' }}
-            </button>
-          </div>
+          </template>
 
-          <!-- Source update (always shown) -->
-          <div class="update-method">
-            <h3 class="method-title">
-              {{ canAutoUpdate ? 'Or update from source' : 'Option A: Source update (recommended)' }}
-            </h3>
-            <div class="update-steps">
-              <ol>
-                <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
-                <li>Navigate to your TracePilot directory</li>
-                <li>
-                  Pull the latest code:
-                  <code>git pull</code>
-                </li>
-                <li>
-                  Relaunch TracePilot:
-                  <code>pnpm start</code>
-                </li>
-              </ol>
+          <!-- ── SOURCE (dev build) ── git pull instructions -->
+          <template v-else-if="installType === 'source'">
+            <div class="update-method">
+              <h3 class="method-title">Update from source</h3>
+              <div class="update-steps">
+                <ol>
+                  <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
+                  <li>Navigate to your TracePilot directory</li>
+                  <li>
+                    Pull the latest code:
+                    <code>git pull</code>
+                  </li>
+                  <li>
+                    Relaunch TracePilot:
+                    <code>pnpm start</code>
+                  </li>
+                </ol>
+              </div>
             </div>
-          </div>
+          </template>
 
-          <!-- Manual download (dev mode only — auto-update covers this for production) -->
-          <div v-if="!canAutoUpdate" class="update-method">
-            <h3 class="method-title">Option B: Download installer</h3>
-            <p class="method-description">
-              Download the latest installer or standalone <code>.exe</code> from the
-              <a
-                v-if="releaseUrl"
-                href="#"
-                @click.prevent="handleOpenRelease"
-              >GitHub Releases page</a><template v-else>GitHub Releases page</template>.
-              Note: TracePilot is not code-signed (not worth the cost at this stage), so Windows may
-              show a SmartScreen warning — click "More info" → "Run anyway" to proceed.
-              Option A (build from source) is available if you prefer to avoid unsigned binaries.
-            </p>
-          </div>
+          <!-- ── PORTABLE (standalone exe) ── re-download instructions -->
+          <template v-else>
+            <div class="update-method">
+              <h3 class="method-title">Download the latest version</h3>
+              <p class="method-description">
+                You're running the standalone <code>.exe</code>. Download the updated version from the
+                <a
+                  v-if="releaseUrl"
+                  href="#"
+                  @click.prevent="handleOpenRelease"
+                >GitHub Releases page</a><template v-else>GitHub Releases page</template>
+                and replace your current file.
+              </p>
+              <p class="method-description" style="margin-top: 8px;">
+                <strong>Tip:</strong> Installing via the NSIS installer enables one-click auto-updates
+                in future versions.
+              </p>
+            </div>
+          </template>
 
           <div class="update-note">
-            <strong>Note:</strong> If <code>git pull</code> fails due to conflicts,
-            use <code>git stash</code> or <code>git reset --hard origin/main</code>
-            (discards local changes) to resolve.
+            <template v-if="installType === 'source'">
+              <strong>Note:</strong> If <code>git pull</code> fails due to conflicts,
+              use <code>git stash</code> or <code>git reset --hard origin/main</code>
+              (discards local changes) to resolve.
+            </template>
+            <template v-else>
+              <strong>Note:</strong> TracePilot is not code-signed (not worth the cost at this stage),
+              so Windows may show a SmartScreen warning — click "More info" → "Run anyway" to proceed.
+            </template>
           </div>
 
           <div v-if="releaseUrl" class="update-links">
