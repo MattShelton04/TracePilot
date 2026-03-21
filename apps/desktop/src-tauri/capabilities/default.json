@@ -6,6 +6,7 @@
     "core:default",
     "tracepilot:default",
     "dialog:default",
+    "log:default",
     "opener:default"
   ]
 }

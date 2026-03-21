@@ -67,6 +67,9 @@ fn main() {
                     "list_session_templates",
                     "save_session_template",
                     "delete_session_template",
+                    // Logging commands
+                    "get_log_path",
+                    "export_logs",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

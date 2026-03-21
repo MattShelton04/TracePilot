@@ -112,6 +112,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
       pricing: { costPerPremiumRequest: 0.04, models: [] },
       toolRendering: { enabled: true, toolOverrides: {} },
       features: { exportView: false, healthScoring: false, sessionReplay: false },
+      logging: { level: 'info' },
     },
     save_config: undefined,
     validate_session_dir: { valid: true, sessionCount: 47 },
@@ -136,6 +137,8 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     } as UpdateCheckResult,
     get_git_info: { commitHash: 'abc1234', branch: 'main' } as GitInfo,
     is_session_running: false,
+    get_log_path: '~/.local/share/dev.tracepilot.app/logs',
+    export_logs: 'Exported 1 log file(s) to /tmp/tracepilot-logs.txt',
   };
   if (!(cmd in mocks)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
@@ -347,6 +350,18 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
 /** Get git info (commit hash, branch) for the running instance. */
 export async function getGitInfo(): Promise<GitInfo> {
   return invoke<GitInfo>('get_git_info');
+}
+
+// ── Logging Commands ──────────────────────────────────────────
+
+/** Get the application log directory path. */
+export async function getLogPath(): Promise<string> {
+  return invoke<string>('get_log_path');
+}
+
+/** Export all log files to a single destination file. */
+export async function exportLogs(destination: string): Promise<string> {
+  return invoke<string>('export_logs', { destination });
 }
 
 export type { SessionHealth };
