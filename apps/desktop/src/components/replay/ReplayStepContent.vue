@@ -4,8 +4,12 @@
  *
  * Reuses existing UI components (ToolCallItem, ReasoningBlock, AgentBadge, etc.)
  * and the MarkdownContent component for rich assistant message rendering.
+ *
+ * Large-content handling:
+ * - Tool calls capped at MAX_VISIBLE_TOOLS per section, with "Show N more" toggle
+ * - Long messages truncated at MAX_MESSAGE_CHARS with "Show more" toggle
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import type { ReplayStep } from '@tracepilot/types';
 import {
@@ -17,12 +21,16 @@ import {
   MarkdownContent,
   formatDuration,
   formatTime,
-  formatNumber,
   toolIcon,
   AGENT_COLORS,
   useConversationSections,
   useToggleSet,
 } from '@tracepilot/ui';
+
+/** Max tool calls shown before requiring expand */
+const MAX_VISIBLE_TOOLS = 8;
+/** Max characters in a message bubble before truncation */
+const MAX_MESSAGE_CHARS = 3000;
 
 const props = defineProps<{
   step: ReplayStep;
@@ -57,6 +65,10 @@ const collapsedTools = useToggleSet<string>();
 // Tool detail toggles — behavior inverts when there are ≤ 5 tool calls (auto-expand)
 const toolDetailToggles = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
+// Tracks which tool sections have been "Show all" expanded (for capping)
+const expandedToolSections = useToggleSet<string>();
+// Tracks which messages have been "Show more" expanded
+const expandedMessages = useToggleSet<string>();
 
 // Use conversation sections for agent grouping (full session for cross-turn attribution)
 const { getSections, getArgsSummary, findToolCallIndex } = useConversationSections(
@@ -65,18 +77,48 @@ const { getSections, getArgsSummary, findToolCallIndex } = useConversationSectio
 
 const sections = computed(() => getSections(props.turn.turnIndex));
 
-// Auto-expand individual tool details when ≤ 5 tool calls in the step
-const totalToolCalls = computed(() =>
-  sections.value.reduce((sum, s) => sum + s.toolCalls.length, 0),
+// Auto-expand individual tool details when ≤ 5 tool calls in main sections only.
+// Subagent sections use compact variant and don't auto-expand.
+const mainSectionToolCount = computed(() =>
+  sections.value
+    .filter((s) => !s.agentId)
+    .reduce((sum, s) => sum + s.toolCalls.length, 0),
 );
 
 function isToolDetailExpanded(key: string): boolean {
-  if (totalToolCalls.value <= 5) {
-    // Few tools: expanded by default, toggle = collapse
+  if (mainSectionToolCount.value <= 5) {
     return !toolDetailToggles.has(key);
   }
-  // Many tools: collapsed by default, toggle = expand
   return toolDetailToggles.has(key);
+}
+
+/** Get visible tool calls for a section, respecting the cap */
+function visibleToolCalls(sectionIdx: number, toolCalls: TurnToolCall[]): TurnToolCall[] {
+  const key = `${props.step.index}-${sectionIdx}`;
+  if (toolCalls.length <= MAX_VISIBLE_TOOLS || expandedToolSections.has(key)) {
+    return toolCalls;
+  }
+  return toolCalls.slice(0, MAX_VISIBLE_TOOLS);
+}
+
+/** Count of hidden tool calls for a section */
+function hiddenToolCount(sectionIdx: number, toolCalls: TurnToolCall[]): number {
+  const key = `${props.step.index}-${sectionIdx}`;
+  if (toolCalls.length <= MAX_VISIBLE_TOOLS || expandedToolSections.has(key)) return 0;
+  return toolCalls.length - MAX_VISIBLE_TOOLS;
+}
+
+/** Check if a message should be truncated */
+function shouldTruncateMessage(msg: string, msgKey: string): boolean {
+  return msg.length > MAX_MESSAGE_CHARS && !expandedMessages.has(msgKey);
+}
+
+/** Get display text for a message, truncating if needed */
+function displayMessage(msg: string, msgKey: string): string {
+  if (shouldTruncateMessage(msg, msgKey)) {
+    return msg.slice(0, MAX_MESSAGE_CHARS);
+  }
+  return msg;
 }
 
 /** Build ToolCallItem prop object (mirrors ConversationTab pattern). */
@@ -124,7 +166,21 @@ const hasAssistantContent = computed(() =>
         <span class="msg-meta">Turn {{ step.turnIndex }}</span>
       </div>
       <div class="message-bubble user-bubble">
-        <MarkdownContent :content="step.userMessage!" />
+        <MarkdownContent :content="displayMessage(step.userMessage!, `user-${step.index}`)" />
+        <button
+          v-if="shouldTruncateMessage(step.userMessage!, `user-${step.index}`)"
+          class="show-more-btn"
+          @click="expandedMessages.toggle(`user-${step.index}`)"
+        >
+          Show more ({{ Math.round((step.userMessage!.length - MAX_MESSAGE_CHARS) / 1000) }}k chars hidden)
+        </button>
+        <button
+          v-else-if="step.userMessage!.length > MAX_MESSAGE_CHARS"
+          class="show-more-btn"
+          @click="expandedMessages.toggle(`user-${step.index}`)"
+        >
+          Show less
+        </button>
       </div>
     </div>
 
@@ -154,7 +210,21 @@ const hasAssistantContent = computed(() =>
             <span v-if="step.timestamp" class="msg-time">{{ formatTime(step.timestamp) }}</span>
           </div>
           <div class="message-bubble assistant-bubble">
-            <MarkdownContent :content="msg" />
+            <MarkdownContent :content="displayMessage(msg, `asst-${step.index}-${msgIdx}`)" />
+            <button
+              v-if="shouldTruncateMessage(msg, `asst-${step.index}-${msgIdx}`)"
+              class="show-more-btn"
+              @click="expandedMessages.toggle(`asst-${step.index}-${msgIdx}`)"
+            >
+              Show more ({{ Math.round((msg.length - MAX_MESSAGE_CHARS) / 1000) }}k chars hidden)
+            </button>
+            <button
+              v-else-if="msg.length > MAX_MESSAGE_CHARS"
+              class="show-more-btn"
+              @click="expandedMessages.toggle(`asst-${step.index}-${msgIdx}`)"
+            >
+              Show less
+            </button>
           </div>
         </div>
 
@@ -180,13 +250,27 @@ const hasAssistantContent = computed(() =>
 
           <div v-if="!collapsedTools.has(`${step.index}-${sIdx}`)" class="tools-list">
             <ToolCallItem
-              v-for="tc in section.toolCalls"
+              v-for="tc in visibleToolCalls(sIdx, section.toolCalls)"
               :key="tc.toolCallId ?? tc.toolName"
               v-bind="tcProps(tc)"
               @toggle="toggleToolDetail(tc)"
               @load-full-result="emit('load-full-result', $event)"
               @retry-full-result="emit('retry-full-result', $event)"
             />
+            <button
+              v-if="hiddenToolCount(sIdx, section.toolCalls) > 0"
+              class="show-more-tools-btn"
+              @click="expandedToolSections.toggle(`${step.index}-${sIdx}`)"
+            >
+              Show {{ hiddenToolCount(sIdx, section.toolCalls) }} more tool calls
+            </button>
+            <button
+              v-else-if="section.toolCalls.length > MAX_VISIBLE_TOOLS"
+              class="show-more-tools-btn"
+              @click="expandedToolSections.toggle(`${step.index}-${sIdx}`)"
+            >
+              Show fewer tool calls
+            </button>
           </div>
         </div>
       </template>
@@ -216,13 +300,27 @@ const hasAssistantContent = computed(() =>
 
           <div v-for="(msg, idx) in section.messages.filter((m) => m.trim())" :key="`sub-msg-${idx}`" class="step-message subagent-msg">
             <div class="message-bubble assistant-bubble subagent-bubble">
-              <MarkdownContent :content="msg" max-height="300px" />
+              <MarkdownContent :content="displayMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)" max-height="300px" />
+              <button
+                v-if="shouldTruncateMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)"
+                class="show-more-btn"
+                @click="expandedMessages.toggle(`sub-${step.index}-${section.agentId}-${idx}`)"
+              >
+                Show more ({{ Math.round((msg.length - MAX_MESSAGE_CHARS) / 1000) }}k chars hidden)
+              </button>
+              <button
+                v-else-if="msg.length > MAX_MESSAGE_CHARS"
+                class="show-more-btn"
+                @click="expandedMessages.toggle(`sub-${step.index}-${section.agentId}-${idx}`)"
+              >
+                Show less
+              </button>
             </div>
           </div>
 
           <div v-if="section.toolCalls.length > 0" class="step-tools subagent-tools">
             <ToolCallItem
-              v-for="tc in section.toolCalls"
+              v-for="tc in visibleToolCalls(sIdx, section.toolCalls)"
               :key="tc.toolCallId ?? tc.toolName"
               v-bind="tcProps(tc)"
               variant="compact"
@@ -230,6 +328,20 @@ const hasAssistantContent = computed(() =>
               @load-full-result="emit('load-full-result', $event)"
               @retry-full-result="emit('retry-full-result', $event)"
             />
+            <button
+              v-if="hiddenToolCount(sIdx, section.toolCalls) > 0"
+              class="show-more-tools-btn"
+              @click="expandedToolSections.toggle(`${step.index}-${sIdx}`)"
+            >
+              Show {{ hiddenToolCount(sIdx, section.toolCalls) }} more tool calls
+            </button>
+            <button
+              v-else-if="section.toolCalls.length > MAX_VISIBLE_TOOLS"
+              class="show-more-tools-btn"
+              @click="expandedToolSections.toggle(`${step.index}-${sIdx}`)"
+            >
+              Show fewer tool calls
+            </button>
           </div>
         </div>
       </div>
@@ -367,6 +479,45 @@ const hasAssistantContent = computed(() =>
 .event-error { background: var(--danger-subtle); }
 .event-warning { background: var(--warning-subtle); }
 .event-info { background: var(--canvas-inset); }
+
+/* Show more / truncation controls */
+.show-more-btn {
+  display: block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: transparent;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.show-more-btn:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+}
+.show-more-tools-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: var(--canvas-inset);
+  border: 1px dashed var(--border-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.show-more-tools-btn:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+  border-style: solid;
+}
 
 /* Reasoning */
 .step-reasoning { margin-bottom: 8px; }

@@ -8,8 +8,9 @@
  */
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Badge, EmptyState, SkeletonLoader, ErrorAlert } from '@tracepilot/ui';
+import { Badge, EmptyState, SkeletonLoader, ErrorAlert, SessionCard } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
+import { useSessionsStore } from '@/stores/sessions';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useToolResultLoader } from '@/composables/useToolResultLoader';
 import { useReplayController } from '@/composables/useReplayController';
@@ -23,10 +24,27 @@ import ReplayEventTicker from '@/components/replay/ReplayEventTicker.vue';
 const route = useRoute();
 const router = useRouter();
 const store = useSessionDetailStore();
+const sessionsStore = useSessionsStore();
 const preferences = usePreferencesStore();
 
 // Session ID from route
 const sessionId = computed(() => route.params.id as string | undefined);
+
+// Recent sessions for empty-state picker (sorted by update, capped at 12)
+const recentSessions = computed(() => {
+  const all = [...sessionsStore.sessions]
+    .filter((s) => (s.turnCount ?? 0) > 0)
+    .sort((a, b) => {
+      const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return tb - ta;
+    });
+  return all.slice(0, 12);
+});
+
+function openReplay(id: string) {
+  router.push({ name: 'replay', params: { id } });
+}
 
 // Tool result lazy loader
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
@@ -74,7 +92,7 @@ watch(
     if (!conversationRef.value) return;
     const stepEl = conversationRef.value.querySelector(`[data-step="${controller.currentStep.value}"]`);
     if (stepEl) {
-      stepEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   },
 );
@@ -88,6 +106,10 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown);
+  // Load sessions list for empty-state picker (if not already loaded)
+  if (sessionsStore.sessions.length === 0) {
+    sessionsStore.fetchSessions();
+  }
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
@@ -137,18 +159,40 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
   <div class="page-content">
     <div class="page-content-inner">
 
-      <!-- ═════════════ NO SESSION ID → PICKER ═════════════ -->
+      <!-- ═════════════ NO SESSION ID → RECENT SESSIONS PICKER ═════════════ -->
       <template v-if="!sessionId">
         <header class="replay-header">
           <div class="header-left">
-            <h1>🎬 Session Replay</h1>
+            <h1>Session Replay</h1>
             <span class="header-subtitle">Step through any Copilot session operation by operation</span>
           </div>
         </header>
+
+        <div class="picker-hint">
+          <span class="hint-icon">💡</span>
+          <span>You can also open replay from any session's detail page using the <strong>Replay</strong> button.</span>
+        </div>
+
+        <!-- Recent sessions grid -->
+        <div v-if="sessionsStore.loading" class="loading-state">
+          <SkeletonLoader :lines="4" />
+        </div>
+        <template v-else-if="recentSessions.length > 0">
+          <h2 class="picker-section-title">Recent Sessions</h2>
+          <div class="picker-grid">
+            <SessionCard
+              v-for="s in recentSessions"
+              :key="s.id"
+              :session="s"
+              @select="openReplay"
+            />
+          </div>
+        </template>
         <EmptyState
-          icon="▶"
-          title="Select a session to replay"
-          description="Navigate to a session detail page and click the Replay button, or choose a session from the Sessions view."
+          v-else
+          icon="📭"
+          title="No sessions found"
+          description="No indexed sessions with conversation data. Run a Copilot session first, then come back here."
         />
       </template>
 
@@ -156,7 +200,7 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
       <template v-else-if="initialLoading">
         <header class="replay-header">
           <div class="header-left">
-            <h1>🎬 Session Replay</h1>
+            <h1>Session Replay</h1>
           </div>
         </header>
         <div class="loading-state">
@@ -168,7 +212,7 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
       <template v-else-if="store.error">
         <header class="replay-header">
           <div class="header-left">
-            <h1>🎬 Session Replay</h1>
+            <h1>Session Replay</h1>
           </div>
         </header>
         <ErrorAlert :message="store.error" />
@@ -178,7 +222,7 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
       <template v-else-if="replaySteps.length === 0">
         <header class="replay-header">
           <div class="header-left">
-            <h1>🎬 Session Replay</h1>
+            <h1>Session Replay</h1>
             <span class="header-subtitle">{{ store.detail?.id }}</span>
           </div>
         </header>
@@ -194,7 +238,7 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
         <!-- Header -->
         <header class="replay-header">
           <div class="header-left">
-            <h1>🎬 Session Replay</h1>
+            <h1>Session Replay</h1>
             <div class="header-badges">
               <Badge v-if="store.detail?.repository" variant="accent">{{ store.detail.repository }}</Badge>
               <Badge v-if="store.detail?.branch" variant="success">{{ store.detail.branch }}</Badge>
@@ -202,7 +246,7 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
               <Badge v-if="totalToolCalls" variant="warning">{{ totalToolCalls }} tool calls</Badge>
             </div>
           </div>
-          <button class="back-btn" @click="router.push({ name: 'session-detail', params: { id: sessionId } })" title="Back to session detail">
+          <button class="back-btn" @click="router.push({ name: 'session-overview', params: { id: sessionId } })" title="Back to session detail">
             ← Detail
           </button>
         </header>
@@ -328,6 +372,44 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
 
 /* ── Loading / Empty ───────────────────────────────────────── */
 .loading-state { padding: 40px 0; }
+
+/* ── Session Picker (empty state) ─────────────────────────── */
+.picker-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.hint-icon { font-size: 1rem; flex-shrink: 0; }
+.picker-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin: 0 0 12px;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.picker-grid :deep(.card) {
+  cursor: pointer;
+}
+.picker-grid :deep(.flex.flex-wrap) {
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.picker-grid :deep(.flex.items-center.gap-3) {
+  margin-top: 4px;
+}
 
 /* ── Layout ────────────────────────────────────────────────── */
 .replay-layout {
