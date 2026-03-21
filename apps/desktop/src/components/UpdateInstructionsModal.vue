@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { useAutoUpdate } from '@/composables/useAutoUpdate';
 import { openExternal } from '@/utils/openExternal';
 
 const emit = defineEmits<{
@@ -8,9 +9,24 @@ const emit = defineEmits<{
 }>();
 
 const { updateResult } = useUpdateCheck();
+const { status, progress, errorMessage, isDevMode, detectDevMode, installUpdate } = useAutoUpdate();
 
 const version = computed(() => updateResult.value?.latestVersion ?? '');
 const releaseUrl = computed(() => updateResult.value?.releaseUrl);
+const canAutoUpdate = computed(() => isDevMode.value === false);
+const isUpdating = computed(() => ['checking', 'downloading', 'installing', 'done'].includes(status.value));
+
+const statusText = computed(() => {
+  switch (status.value) {
+    case 'checking': return 'Checking for update…';
+    case 'downloading': return `Downloading… ${progress.value}%`;
+    case 'installing': return 'Installing…';
+    case 'done': return 'Relaunching…';
+    default: return '';
+  }
+});
+
+onMounted(() => detectDevMode());
 
 function handleOpenRelease() {
   if (releaseUrl.value) {
@@ -33,8 +49,36 @@ function handleOpenRelease() {
             A new version of TracePilot is available. Choose how to update:
           </p>
 
+          <!-- Auto-update (production builds only) -->
+          <div v-if="canAutoUpdate" class="update-method auto-update-section">
+            <h3 class="method-title">Install automatically</h3>
+            <p class="method-description">
+              Download and install the update in the background. The app will restart when ready.
+            </p>
+            <div v-if="isUpdating" class="auto-update-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progress + '%' }" />
+              </div>
+              <span class="progress-text">{{ statusText }}</span>
+            </div>
+            <div v-else-if="status === 'error'" class="auto-update-error">
+              {{ errorMessage }}
+            </div>
+            <button
+              v-if="!isUpdating"
+              class="modal-btn install-btn"
+              :disabled="status === 'done'"
+              @click="installUpdate"
+            >
+              {{ status === 'error' ? 'Retry' : 'Install Update' }}
+            </button>
+          </div>
+
+          <!-- Source update (always shown) -->
           <div class="update-method">
-            <h3 class="method-title">Option A: Source update (recommended)</h3>
+            <h3 class="method-title">
+              {{ canAutoUpdate ? 'Or update from source' : 'Option A: Source update (recommended)' }}
+            </h3>
             <div class="update-steps">
               <ol>
                 <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
@@ -51,7 +95,8 @@ function handleOpenRelease() {
             </div>
           </div>
 
-          <div class="update-method">
+          <!-- Manual download (dev mode only — auto-update covers this for production) -->
+          <div v-if="!canAutoUpdate" class="update-method">
             <h3 class="method-title">Option B: Download installer</h3>
             <p class="method-description">
               Download the latest installer or standalone <code>.exe</code> from the
@@ -261,5 +306,51 @@ function handleOpenRelease() {
 
 .modal-btn:hover {
   background: var(--color-accent-emphasis-hover, #4f46e5);
+}
+
+.auto-update-section {
+  padding: 16px;
+  background: var(--color-accent-subtle, rgba(99, 102, 241, 0.08));
+  border-radius: 10px;
+  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.06));
+}
+
+.install-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.auto-update-progress {
+  margin-top: 12px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent-emphasis, #6366f1);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-fg-muted, #94a3b8);
+}
+
+.auto-update-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.1));
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-danger-fg, #ef4444);
 }
 </style>

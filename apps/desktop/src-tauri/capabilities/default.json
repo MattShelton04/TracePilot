@@ -7,6 +7,8 @@
     "tracepilot:default",
     "dialog:default",
     "log:default",
-    "opener:default"
+    "opener:default",
+    "process:default",
+    "updater:default"
   ]
 }

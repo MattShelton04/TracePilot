@@ -347,6 +347,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   return invoke<UpdateCheckResult>('check_for_updates');
 }
 
+/** Returns true when running a debug/dev build (i.e. `tauri dev`). */
+export async function isDevBuild(): Promise<boolean> {
+  return invoke<boolean>('is_dev_build');
+}
+
 /** Get git info (commit hash, branch) for the running instance. */
 export async function getGitInfo(): Promise<GitInfo> {
   return invoke<GitInfo>('get_git_info');

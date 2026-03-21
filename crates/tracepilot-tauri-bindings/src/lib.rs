@@ -1138,6 +1138,13 @@ mod commands {
 
     // ── Update Detection Commands ────────────────────────────────
 
+    /// Returns true when the app was compiled in debug mode (i.e. `tauri dev`).
+    /// Used by the frontend to decide between auto-update vs git-pull instructions.
+    #[tauri::command]
+    pub fn is_dev_build() -> bool {
+        cfg!(debug_assertions)
+    }
+
     #[tauri::command]
     pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
         let current_str = env!("CARGO_PKG_VERSION");
@@ -1885,6 +1892,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_tool_result,
             commands::resume_session_in_terminal,
             commands::check_for_updates,
+            commands::is_dev_build,
             commands::get_git_info,
             // Orchestration commands
             commands::check_system_deps,

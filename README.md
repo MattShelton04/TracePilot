@@ -299,6 +299,17 @@ act -W .github/workflows/ci.yml -j check
 
 > **Note:** The release workflow's `build-installers` job runs on `windows-latest`, which `act` cannot simulate in Docker. To test release changes, use the `workflow_dispatch` trigger: go to **Actions → Release → Run workflow**, enter a version tag (e.g. `v0.3.0-test`), and it will create a draft release you can inspect and delete afterwards.
 
+### Auto-Updater Setup (Maintainers)
+
+The release workflow signs update artifacts with an Ed25519 keypair so installed copies can auto-update in-app. Two GitHub repository secrets are required:
+
+| Secret | Value |
+|--------|-------|
+| `TAURI_SIGNING_PRIVATE_KEY` | Contents of `.tauri-updater-key` (generated via `pnpm tauri signer generate`) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password used during key generation (empty string if none) |
+
+The public key is already embedded in `tauri.conf.json`. When these secrets are set, the release workflow produces a `latest.json` manifest and `.sig` signature files alongside each installer — enabling one-click updates for users running the installed app.
+
 ### Benchmarks
 
 TracePilot includes [Criterion](https://github.com/bheisler/criterion.rs) benchmarks with deterministic synthetic data generators:
