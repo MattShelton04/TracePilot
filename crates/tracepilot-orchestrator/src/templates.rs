@@ -12,6 +12,69 @@ pub fn templates_dir() -> Result<PathBuf> {
     Ok(dir)
 }
 
+/// Path to the file tracking which default templates have been dismissed.
+fn dismissed_defaults_path() -> Result<PathBuf> {
+    Ok(templates_dir()?.join("dismissed_defaults.json"))
+}
+
+/// Read the set of dismissed default template IDs.
+fn read_dismissed_defaults() -> Result<Vec<String>> {
+    let path = dismissed_defaults_path()?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(&path)?;
+    let ids: Vec<String> = serde_json::from_str(&content).unwrap_or_default();
+    Ok(ids)
+}
+
+/// Write the set of dismissed default template IDs.
+fn write_dismissed_defaults(ids: &[String]) -> Result<()> {
+    let path = dismissed_defaults_path()?;
+    let content = serde_json::to_string_pretty(ids)?;
+    std::fs::write(&path, content)?;
+    Ok(())
+}
+
+/// Dismiss a default template so it no longer appears.
+pub fn dismiss_default_template(id: &str) -> Result<()> {
+    let defaults = default_templates();
+    if !defaults.iter().any(|t| t.id == id) {
+        return Err(OrchestratorError::NotFound(format!(
+            "Not a default template: {id}"
+        )));
+    }
+    let mut dismissed = read_dismissed_defaults()?;
+    if !dismissed.contains(&id.to_string()) {
+        dismissed.push(id.to_string());
+        write_dismissed_defaults(&dismissed)?;
+    }
+    Ok(())
+}
+
+/// Restore a previously dismissed default template.
+pub fn restore_default_template(id: &str) -> Result<()> {
+    let mut dismissed = read_dismissed_defaults()?;
+    dismissed.retain(|d| d != id);
+    write_dismissed_defaults(&dismissed)?;
+    Ok(())
+}
+
+/// Restore all dismissed default templates at once.
+pub fn restore_all_default_templates() -> Result<()> {
+    let path = dismissed_defaults_path()?;
+    if path.exists() {
+        std::fs::remove_file(&path)?;
+    }
+    Ok(())
+}
+
+/// Check whether any default templates have been dismissed.
+pub fn has_dismissed_defaults() -> Result<bool> {
+    let dismissed = read_dismissed_defaults()?;
+    Ok(!dismissed.is_empty())
+}
+
 /// List all saved templates.
 pub fn list_templates() -> Result<Vec<SessionTemplate>> {
     let dir = templates_dir()?;
@@ -25,6 +88,10 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) == Some("json") {
+            // Skip the dismissed_defaults metadata file
+            if path.file_stem().and_then(|s| s.to_str()) == Some("dismissed_defaults") {
+                continue;
+            }
             let content = std::fs::read_to_string(&path)?;
             match serde_json::from_str::<SessionTemplate>(&content) {
                 Ok(template) => templates.push(template),
@@ -41,6 +108,13 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
 
 /// Save a new template.
 pub fn save_template(template: &SessionTemplate) -> Result<()> {
+    // Prevent collision with internal metadata file
+    if template.id == "dismissed_defaults" {
+        return Err(OrchestratorError::NotFound(
+            "Template ID 'dismissed_defaults' is reserved".into(),
+        ));
+    }
+
     let dir = templates_dir()?;
     let path = dir.join(format!("{}.json", template.id));
     let temp = dir.join(format!(".{}.json.tmp", template.id));
@@ -51,27 +125,61 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
     Ok(())
 }
 
-/// Delete a template by ID.
+/// Delete a template by ID. For default templates, this dismisses them instead.
 pub fn delete_template(id: &str) -> Result<()> {
+    // Prevent accidental deletion of internal metadata file
+    if id == "dismissed_defaults" {
+        return Err(OrchestratorError::NotFound(
+            "Template ID 'dismissed_defaults' is reserved".into(),
+        ));
+    }
+
+    // Check if it's a default template — dismiss instead of file delete
+    let defaults = default_templates();
+    if defaults.iter().any(|t| t.id == id) {
+        // Dismiss first to avoid data loss if the file delete succeeds but dismiss fails
+        dismiss_default_template(id)?;
+        // Then remove any user override file if it exists
+        let dir = templates_dir()?;
+        let path = dir.join(format!("{id}.json"));
+        if path.exists() {
+            std::fs::remove_file(&path)?;
+        }
+        return Ok(());
+    }
+
     let dir = templates_dir()?;
     let path = dir.join(format!("{id}.json"));
     if !path.exists() {
-        return Err(OrchestratorError::NotFound(format!("Template not found: {id}")));
+        return Err(OrchestratorError::NotFound(format!(
+            "Template not found: {id}"
+        )));
     }
     std::fs::remove_file(&path)?;
     Ok(())
 }
 
 /// Increment usage count for a template.
+/// For default templates that haven't been saved yet, creates a user override.
 pub fn increment_usage(id: &str) -> Result<()> {
     let dir = templates_dir()?;
     let path = dir.join(format!("{id}.json"));
-    if !path.exists() {
-        return Err(OrchestratorError::NotFound(format!("Template not found: {id}")));
-    }
 
-    let content = std::fs::read_to_string(&path)?;
-    let mut template: SessionTemplate = serde_json::from_str(&content)?;
+    let mut template = if path.exists() {
+        let content = std::fs::read_to_string(&path)?;
+        serde_json::from_str(&content)?
+    } else {
+        // Check if it's a default template
+        match default_templates().into_iter().find(|t| t.id == id) {
+            Some(t) => t,
+            None => {
+                return Err(OrchestratorError::NotFound(format!(
+                    "Template not found: {id}"
+                )));
+            }
+        }
+    };
+
     template.usage_count += 1;
     save_template(&template)?;
     Ok(())
@@ -82,80 +190,73 @@ pub fn default_templates() -> Vec<SessionTemplate> {
     let now = chrono::Utc::now().to_rfc3339();
     vec![
         SessionTemplate {
-            id: "default-bugfix".into(),
-            name: "Bug Fix".into(),
-            description: "Quick bug fix session with auto-approve".into(),
-            category: "Development".into(),
-            config: crate::types::LaunchConfig {
-                repo_path: String::new(),
-                branch: Some("fix/".into()),
-                base_branch: None,
-                model: Some("claude-sonnet-4.6".into()),
-                prompt: None,
-                headless: false,
-                reasoning_effort: None,
-                custom_instructions: None,
-                env_vars: Default::default(),
-                create_worktree: true,
-                auto_approve: true,
-                cli_command: "copilot".into(),
-            },
-            tags: vec!["bugfix".into(), "quick".into()],
-            created_at: now.clone(),
-            usage_count: 0,
-        },
-        SessionTemplate {
-            id: "default-feature".into(),
-            name: "Feature Development".into(),
-            description: "Full feature development with premium model".into(),
-            category: "Development".into(),
-            config: crate::types::LaunchConfig {
-                repo_path: String::new(),
-                branch: Some("feature/".into()),
-                base_branch: None,
-                model: Some("claude-opus-4.6".into()),
-                prompt: None,
-                headless: false,
-                reasoning_effort: Some("high".into()),
-                custom_instructions: None,
-                env_vars: Default::default(),
-                create_worktree: true,
-                auto_approve: false,
-                cli_command: "copilot".into(),
-            },
-            tags: vec!["feature".into(), "premium".into()],
-            created_at: now.clone(),
-            usage_count: 0,
-        },
-        SessionTemplate {
-            id: "default-review".into(),
-            name: "Code Review".into(),
-            description: "Code review session with explore agent".into(),
-            category: "Review".into(),
+            id: "default-multi-agent-review".into(),
+            name: "Multi Agent Code Review".into(),
+            description: "Comprehensive code review using multiple AI models".into(),
+            icon: Some("🔍".into()),
+            category: "Quality".into(),
             config: crate::types::LaunchConfig {
                 repo_path: String::new(),
                 branch: None,
                 base_branch: None,
-                model: Some("claude-sonnet-4.6".into()),
-                prompt: Some("Review the recent changes and provide feedback".into()),
+                model: Some("claude-opus-4.6".into()),
+                prompt: Some(
+                    "Spin up opus 4.6, GPT 5.4, Codex 5.3, and Gemini subagents to do a \
+                     comprehensive code review of the changes on this branch (git diff). \
+                     Consolidate and validate their feedback, and provide a summary."
+                        .into(),
+                ),
                 headless: false,
-                reasoning_effort: None,
+                reasoning_effort: Some("high".into()),
                 custom_instructions: None,
                 env_vars: Default::default(),
                 create_worktree: false,
                 auto_approve: false,
                 cli_command: "copilot".into(),
             },
-            tags: vec!["review".into()],
+            tags: vec!["review".into(), "multi-agent".into(), "premium".into()],
+            created_at: now.clone(),
+            usage_count: 0,
+        },
+        SessionTemplate {
+            id: "default-write-tests".into(),
+            name: "Write Tests".into(),
+            description: "Generate comprehensive test coverage for recent changes".into(),
+            icon: Some("🧪".into()),
+            category: "Quality".into(),
+            config: crate::types::LaunchConfig {
+                repo_path: String::new(),
+                branch: None,
+                base_branch: None,
+                model: Some("claude-sonnet-4.6".into()),
+                prompt: Some(
+                    "Analyze the recent changes and generate comprehensive tests. \
+                     Cover edge cases, error paths, and integration scenarios."
+                        .into(),
+                ),
+                headless: false,
+                reasoning_effort: Some("high".into()),
+                custom_instructions: None,
+                env_vars: Default::default(),
+                create_worktree: false,
+                auto_approve: false,
+                cli_command: "copilot".into(),
+            },
+            tags: vec!["testing".into(), "coverage".into()],
             created_at: now,
             usage_count: 0,
         },
     ]
 }
 
-/// Return all templates (defaults + user-saved).
+/// Return all templates (non-dismissed defaults + user-saved).
 pub fn all_templates() -> Result<Vec<SessionTemplate>> {
-    let mut templates = default_templates();
+    let dismissed = read_dismissed_defaults().unwrap_or_default();
+    let mut templates: Vec<SessionTemplate> = default_templates()
+        .into_iter()
+        .filter(|t| !dismissed.contains(&t.id))
+        .collect();
+
     let user_templates = list_templates()?;
 
     // User templates override defaults with same ID
@@ -173,25 +274,63 @@ pub fn all_templates() -> Result<Vec<SessionTemplate>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    // Thread-safety for tests that use env vars
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_temp_home<F: FnOnce()>(f: F) {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = TempDir::new().unwrap();
+        // Create .copilot so copilot_home() succeeds
+        std::fs::create_dir_all(tmp.path().join(".copilot")).unwrap();
+        let old = std::env::var("HOME").ok();
+        let old_userprofile = std::env::var("USERPROFILE").ok();
+        // SAFETY: Tests using this helper are serialized via ENV_LOCK mutex.
+        unsafe {
+            std::env::set_var("HOME", tmp.path());
+            std::env::set_var("USERPROFILE", tmp.path());
+        }
+        f();
+        unsafe {
+            match old {
+                Some(v) => std::env::set_var("HOME", v),
+                None => std::env::remove_var("HOME"),
+            }
+            match old_userprofile {
+                Some(v) => std::env::set_var("USERPROFILE", v),
+                None => std::env::remove_var("USERPROFILE"),
+            }
+        }
+    }
 
     #[test]
     fn test_default_templates_not_empty() {
         let templates = default_templates();
-        assert_eq!(templates.len(), 3);
-        assert!(templates.iter().any(|t| t.id == "default-bugfix"));
-        assert!(templates.iter().any(|t| t.id == "default-feature"));
-        assert!(templates.iter().any(|t| t.id == "default-review"));
+        assert_eq!(templates.len(), 2);
+        assert!(templates.iter().any(|t| t.id == "default-multi-agent-review"));
+        assert!(templates.iter().any(|t| t.id == "default-write-tests"));
     }
 
     #[test]
-    fn test_save_and_list_templates() {
-        // This test would need a temp dir override for templates_dir()
-        // In integration tests we'd mock the path. For unit tests, we test serialization.
+    fn test_default_templates_have_icons() {
+        let templates = default_templates();
+        for t in &templates {
+            assert!(t.icon.is_some(), "Template {} should have an icon", t.id);
+        }
+        assert_eq!(templates[0].icon.as_deref(), Some("🔍"));
+        assert_eq!(templates[1].icon.as_deref(), Some("🧪"));
+    }
+
+    #[test]
+    fn test_template_serialization_roundtrip() {
         let template = SessionTemplate {
             id: "test-1".into(),
             name: "Test Template".into(),
             description: "A test".into(),
             category: "Test".into(),
+            icon: Some("🚀".into()),
             config: crate::types::LaunchConfig {
                 repo_path: "/tmp/test".into(),
                 branch: None,
@@ -215,5 +354,217 @@ mod tests {
         let parsed: SessionTemplate = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.id, "test-1");
         assert_eq!(parsed.usage_count, 5);
+        assert_eq!(parsed.icon.as_deref(), Some("🚀"));
+    }
+
+    #[test]
+    fn test_template_deserialization_without_icon() {
+        // Backward compat: old templates without icon field should parse fine
+        let json = r#"{
+            "id": "old-template",
+            "name": "Old Template",
+            "description": "No icon field",
+            "category": "Test",
+            "config": {
+                "repoPath": "",
+                "headless": false,
+                "envVars": {},
+                "createWorktree": false,
+                "autoApprove": false
+            },
+            "tags": [],
+            "createdAt": "2025-01-01T00:00:00Z",
+            "usageCount": 0
+        }"#;
+        let parsed: SessionTemplate = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.id, "old-template");
+        assert!(parsed.icon.is_none());
+    }
+
+    #[test]
+    fn test_dismiss_and_restore_default_template() {
+        with_temp_home(|| {
+            // All defaults should appear initially
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2);
+
+            // Dismiss one
+            dismiss_default_template("default-write-tests").unwrap();
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 1);
+            assert_eq!(all[0].id, "default-multi-agent-review");
+
+            // Restore it
+            restore_default_template("default-write-tests").unwrap();
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2);
+        });
+    }
+
+    #[test]
+    fn test_dismiss_nondefault_fails() {
+        with_temp_home(|| {
+            let result = dismiss_default_template("nonexistent");
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_delete_default_template_dismisses_it() {
+        with_temp_home(|| {
+            let all_before = all_templates().unwrap();
+            assert_eq!(all_before.len(), 2);
+
+            // delete_template on a default should dismiss it, not error
+            delete_template("default-write-tests").unwrap();
+            let all_after = all_templates().unwrap();
+            assert_eq!(all_after.len(), 1);
+            assert!(!all_after.iter().any(|t| t.id == "default-write-tests"));
+        });
+    }
+
+    #[test]
+    fn test_save_and_list_user_template() {
+        with_temp_home(|| {
+            let template = SessionTemplate {
+                id: "user-custom-1".into(),
+                name: "Custom Template".into(),
+                description: "A user template".into(),
+                category: "Custom".into(),
+                icon: Some("⭐".into()),
+                config: crate::types::LaunchConfig {
+                    repo_path: "/tmp/test".into(),
+                    branch: None,
+                    base_branch: None,
+                    model: None,
+                    prompt: None,
+                    headless: false,
+                    reasoning_effort: None,
+                    custom_instructions: None,
+                    env_vars: Default::default(),
+                    create_worktree: false,
+                    auto_approve: false,
+                    cli_command: "copilot".into(),
+                },
+                tags: vec![],
+                created_at: "2025-01-01T00:00:00Z".into(),
+                usage_count: 0,
+            };
+
+            save_template(&template).unwrap();
+            let all = all_templates().unwrap();
+            // 2 defaults + 1 user
+            assert_eq!(all.len(), 3);
+            assert!(all.iter().any(|t| t.id == "user-custom-1"));
+        });
+    }
+
+    #[test]
+    fn test_restore_all_default_templates() {
+        with_temp_home(|| {
+            // Dismiss both defaults
+            dismiss_default_template("default-multi-agent-review").unwrap();
+            dismiss_default_template("default-write-tests").unwrap();
+            assert_eq!(all_templates().unwrap().len(), 0);
+            assert!(has_dismissed_defaults().unwrap());
+
+            // Restore all at once
+            restore_all_default_templates().unwrap();
+            assert_eq!(all_templates().unwrap().len(), 2);
+            assert!(!has_dismissed_defaults().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_has_dismissed_defaults() {
+        with_temp_home(|| {
+            assert!(!has_dismissed_defaults().unwrap());
+            dismiss_default_template("default-write-tests").unwrap();
+            assert!(has_dismissed_defaults().unwrap());
+            restore_default_template("default-write-tests").unwrap();
+            assert!(!has_dismissed_defaults().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_reserved_id_rejected_on_save() {
+        with_temp_home(|| {
+            let template = SessionTemplate {
+                id: "dismissed_defaults".into(),
+                name: "Sneaky".into(),
+                description: "Trying to overwrite metadata".into(),
+                category: "Test".into(),
+                icon: None,
+                config: crate::types::LaunchConfig {
+                    repo_path: String::new(),
+                    branch: None,
+                    base_branch: None,
+                    model: None,
+                    prompt: None,
+                    headless: false,
+                    reasoning_effort: None,
+                    custom_instructions: None,
+                    env_vars: Default::default(),
+                    create_worktree: false,
+                    auto_approve: false,
+                    cli_command: "copilot".into(),
+                },
+                tags: vec![],
+                created_at: "2025-01-01T00:00:00Z".into(),
+                usage_count: 0,
+            };
+            let result = save_template(&template);
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_reserved_id_rejected_on_delete() {
+        with_temp_home(|| {
+            let result = delete_template("dismissed_defaults");
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_default_templates_have_prompts() {
+        let templates = default_templates();
+        for t in &templates {
+            assert!(
+                t.config.prompt.is_some(),
+                "Default template {} should have a prompt",
+                t.id
+            );
+        }
+    }
+
+    #[test]
+    fn test_increment_usage_default_template() {
+        with_temp_home(|| {
+            // Default templates start with usage_count 0
+            let all = all_templates().unwrap();
+            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            assert_eq!(review.usage_count, 0);
+
+            // Increment creates a user override file
+            increment_usage("default-multi-agent-review").unwrap();
+            let all = all_templates().unwrap();
+            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            assert_eq!(review.usage_count, 1);
+
+            // Second increment reads from the file
+            increment_usage("default-multi-agent-review").unwrap();
+            let all = all_templates().unwrap();
+            let review = all.iter().find(|t| t.id == "default-multi-agent-review").unwrap();
+            assert_eq!(review.usage_count, 2);
+        });
+    }
+
+    #[test]
+    fn test_increment_usage_nonexistent_fails() {
+        with_temp_home(|| {
+            let result = increment_usage("nonexistent-template");
+            assert!(result.is_err());
+        });
     }
 }

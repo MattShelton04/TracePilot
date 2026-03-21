@@ -29,7 +29,7 @@ const envVars = reactive<{ key: string; value: string }[]>([]);
 const selectedTemplateId = ref<string | null>(null);
 const showAdvanced = ref(false);
 const showTemplateForm = ref(false);
-const templateForm = reactive({ name: '', description: '', category: '' });
+const templateForm = reactive({ name: '', description: '', category: '', icon: '' });
 const launchSuccess = ref<{ pid: number; command: string; worktreePath?: string } | null>(null);
 const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
 const confirmingDeleteId = ref<string | null>(null);
@@ -116,6 +116,11 @@ const canLaunch= computed(() => {
   return true;
 });
 
+const defaultTemplateIds = ['default-multi-agent-review', 'default-write-tests'];
+const hasDismissedDefaults = computed(() =>
+  defaultTemplateIds.some((id) => !store.templates.some((t) => t.id === id)),
+);
+
 function tierLabel(tier: string): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
@@ -127,6 +132,10 @@ function truncate(s: string, max: number): string {
 function extractEmoji(name: string): string {
   const match = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
   return match ? match[0] : '📄';
+}
+
+function templateIcon(tpl: SessionTemplate): string {
+  return tpl.icon || extractEmoji(tpl.name);
 }
 
 function templateDisplayName(name: string): string {
@@ -142,7 +151,10 @@ function applyTemplate(tplId: string) {
   const tpl = store.templates.find((t: SessionTemplate) => t.id === tplId);
   if (!tpl) return;
   selectedTemplateId.value = tplId;
-  repoPath.value = tpl.config.repoPath;
+  // Only override repoPath if the template specifies one
+  if (tpl.config.repoPath) {
+    repoPath.value = tpl.config.repoPath;
+  }
   branch.value = tpl.config.branch ?? '';
   selectedModel.value = tpl.config.model ?? '';
   createWorktree.value = tpl.config.createWorktree;
@@ -222,6 +234,10 @@ async function handleLaunch(asHeadless = false) {
     if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
     const session = await store.launch(cfg);
     if (session) {
+      // Track template usage if one was selected
+      if (selectedTemplateId.value) {
+        store.incrementUsage(selectedTemplateId.value);
+      }
       launchSuccess.value = {
         pid: session.pid,
         command: session.command,
@@ -252,6 +268,7 @@ async function handleSaveTemplate() {
     name: templateForm.name,
     description: templateForm.description,
     category: templateForm.category,
+    icon: templateForm.icon.trim() || undefined,
     tags: [],
     config: launchConfig.value,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
@@ -261,6 +278,7 @@ async function handleSaveTemplate() {
   templateForm.name = '';
   templateForm.description = '';
   templateForm.category = '';
+  templateForm.icon = '';
 }
 
 function openContextMenu(e: MouseEvent, tplId: string) {
@@ -291,9 +309,12 @@ onMounted(async () => {
   store.initialize();
   document.addEventListener('click', closeContextMenu);
 
-  // Load registered repos for the dropdown
+  // Load registered repos for the dropdown, discovering from sessions if needed
   if (worktreeStore.registeredRepos.length === 0) {
     await worktreeStore.loadRegisteredRepos();
+    if (worktreeStore.registeredRepos.length === 0) {
+      await worktreeStore.discoverRepos();
+    }
   }
 
   // Pre-fill from query params (e.g., navigated from Worktree Manager)
@@ -382,8 +403,18 @@ onUnmounted(() => {
         </div>
 
         <!-- ── Templates ─────────────────────────────────────── -->
-        <section v-if="store.loading || store.templates.length" class="section-block">
-          <h2 class="section-label">Saved Templates</h2>
+        <section v-if="store.loading || store.templates.length || hasDismissedDefaults" class="section-block">
+          <div class="section-header-row">
+            <h2 class="section-label">Saved Templates</h2>
+            <button
+              v-if="hasDismissedDefaults"
+              class="tpl-restore-btn"
+              title="Restore dismissed default templates"
+              @click="store.restoreDefaults()"
+            >
+              ↻ Restore Defaults
+            </button>
+          </div>
           <div v-if="store.loading && !store.templates.length" class="tpl-grid">
             <div v-for="n in 3" :key="n" class="tpl-card tpl-skeleton">
               <span class="tpl-emoji">⏳</span>
@@ -419,14 +450,17 @@ onUnmounted(() => {
                   @click="deleteTemplateInline(tpl.id)"
                 >×</button>
               </div>
-              <template v-if="confirmingDeleteId === tpl.id">
-                <div class="tpl-confirm-delete" @click.stop>
-                  <span>Delete?</span>
-                  <button class="tpl-confirm-yes" @click="deleteTemplateInline(tpl.id)">Yes</button>
-                  <button class="tpl-confirm-cancel" @click="cancelDeleteInline">Cancel</button>
+              <!-- Delete confirmation overlay -->
+              <Transition name="fade">
+                <div v-if="confirmingDeleteId === tpl.id" class="tpl-delete-overlay" @click.stop>
+                  <span class="tpl-delete-overlay-text">Delete this template?</span>
+                  <div class="tpl-delete-overlay-actions">
+                    <button class="tpl-confirm-yes" @click="deleteTemplateInline(tpl.id)">Delete</button>
+                    <button class="tpl-confirm-cancel" @click="cancelDeleteInline">Cancel</button>
+                  </div>
                 </div>
-              </template>
-              <span class="tpl-emoji">{{ extractEmoji(tpl.name) }}</span>
+              </Transition>
+              <span class="tpl-emoji">{{ templateIcon(tpl) }}</span>
               <span class="tpl-name">{{ templateDisplayName(tpl.name) }}</span>
               <span v-if="tpl.description" class="tpl-desc">{{ tpl.description }}</span>
               <span class="tpl-stats">Used {{ tpl.usageCount }} times</span>
@@ -445,6 +479,7 @@ onUnmounted(() => {
                   <select
                     v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
                     class="form-input form-select repo-recent"
+                    :value="repoPath"
                     @change="selectRecentRepo"
                   >
                     <option value="">Select a repository…</option>
@@ -570,9 +605,9 @@ onUnmounted(() => {
                       v-model="baseBranch"
                       type="text"
                       class="form-input"
-                      placeholder="main (defaults to current HEAD)"
+                      placeholder="Leave blank to use current HEAD"
                     />
-                    <span class="form-hint">The branch to base the new worktree on. A new branch matching the session branch will be created from this base.</span>
+                    <span class="form-hint">The branch to base the new worktree on. If left blank, the worktree is created from the current HEAD.</span>
                   </div>
                   <div v-if="!branch" class="worktree-warning">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/></svg>
@@ -637,16 +672,23 @@ onUnmounted(() => {
               <div class="form-grid-2col">
                 <div class="form-group">
                   <label class="form-label">Template Name <span class="required">*</span></label>
-                  <input v-model="templateForm.name" type="text" class="form-input" placeholder="🚀 My Template" />
+                  <input v-model="templateForm.name" type="text" class="form-input" placeholder="My Template" />
                 </div>
                 <div class="form-group">
                   <label class="form-label">Category</label>
                   <input v-model="templateForm.category" type="text" class="form-input" placeholder="e.g. frontend" />
                 </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Description</label>
-                <input v-model="templateForm.description" type="text" class="form-input" placeholder="Quick description of this template" />
+              <div class="form-grid-2col">
+                <div class="form-group">
+                  <label class="form-label">Description</label>
+                  <input v-model="templateForm.description" type="text" class="form-input" placeholder="Quick description of this template" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Icon</label>
+                  <input v-model="templateForm.icon" type="text" class="form-input tpl-icon-input" placeholder="🚀" maxlength="14" />
+                  <span class="form-hint">Emoji shown on the template card</span>
+                </div>
               </div>
               <button
                 class="btn btn-primary"
@@ -902,6 +944,29 @@ onUnmounted(() => {
   color: var(--text-tertiary);
   letter-spacing: 0.04em;
   margin: 0 0 10px;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tpl-restore-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 10px;
+}
+.tpl-restore-btn:hover {
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-emphasis);
 }
 
 .section-panel {
@@ -1253,6 +1318,13 @@ onUnmounted(() => {
   margin-top: 0;
 }
 
+.tpl-icon-input {
+  width: 60px;
+  text-align: center;
+  font-size: 1.25rem;
+  padding: 4px 8px;
+}
+
 /* ── Buttons ─────────────────────────────────────────────────────── */
 .btn {
   padding: 8px 16px;
@@ -1515,24 +1587,42 @@ onUnmounted(() => {
   color: var(--danger-fg);
 }
 
-.tpl-confirm-delete {
+/* ── Template Delete Overlay ──────────────────────────────────────── */
+.tpl-delete-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  font-size: 0.6875rem;
-  margin-bottom: 4px;
+  justify-content: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--canvas-default) 92%, transparent);
+  backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
+}
+
+.tpl-delete-overlay-text {
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--danger-fg);
+}
+
+.tpl-delete-overlay-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .tpl-confirm-yes,
 .tpl-confirm-cancel {
-  padding: 1px 6px;
-  font-size: 0.625rem;
+  padding: 3px 10px;
+  font-size: 0.6875rem;
   font-family: inherit;
   border: 1px solid var(--border-default);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   background: none;
+  font-weight: 500;
 }
 
 .tpl-confirm-yes {
@@ -1550,6 +1640,17 @@ onUnmounted(() => {
 
 .tpl-confirm-cancel:hover {
   background: var(--canvas-subtle);
+}
+
+/* ── Fade Transition ─────────────────────────────────────────────── */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* ── Skeleton Loading ────────────────────────────────────────────── */

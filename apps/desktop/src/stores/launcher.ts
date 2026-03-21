@@ -13,6 +13,8 @@ import {
   listSessionTemplates,
   saveSessionTemplate as saveTemplateApi,
   deleteSessionTemplate as deleteTemplateApi,
+  restoreDefaultTemplates as restoreDefaultsApi,
+  incrementTemplateUsage as incrementUsageApi,
   checkSystemDeps,
 } from '@tracepilot/client';
 
@@ -93,6 +95,28 @@ export const useLauncherStore = defineStore('launcher', () => {
     }
   }
 
+  async function restoreDefaults(): Promise<boolean> {
+    try {
+      await restoreDefaultsApi();
+      templates.value = await listSessionTemplates();
+      return true;
+    } catch (e) {
+      error.value = String(e);
+      return false;
+    }
+  }
+
+  async function incrementUsage(id: string): Promise<void> {
+    try {
+      await incrementUsageApi(id);
+      // Update local count optimistically
+      const tpl = templates.value.find((t) => t.id === id);
+      if (tpl) tpl.usageCount += 1;
+    } catch {
+      // Non-critical — don't surface errors for usage tracking
+    }
+  }
+
   return {
     models,
     templates,
@@ -106,5 +130,7 @@ export const useLauncherStore = defineStore('launcher', () => {
     launch,
     saveTemplate,
     deleteTemplate,
+    restoreDefaults,
+    incrementUsage,
   };
 });
