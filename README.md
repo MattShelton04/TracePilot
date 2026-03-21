@@ -94,32 +94,29 @@ Pre-populated prices cover Claude (Opus, Sonnet, Haiku), GPT (5.4, 5.1, 4.1, Cod
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.85+)
-- [Node.js](https://nodejs.org/) (20+)
-- [pnpm](https://pnpm.io/) (9+)
-- Platform-specific Tauri dependencies — see the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/)
 - GitHub Copilot CLI with session history in `~/.copilot/session-state/`
 
 ### Install & Run
 
+#### Option A: From Source (recommended)
+
+Requires [Rust](https://rustup.rs/) (1.85+), [Node.js](https://nodejs.org/) (20+), [pnpm](https://pnpm.io/) (9+), and [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+
 ```bash
-# Clone the repository
 git clone https://github.com/MattShelton04/TracePilot.git
 cd TracePilot
-
-# Install frontend dependencies
-pnpm install
-
-# Build Rust crates
-cargo build
-
-# Run the desktop app in development mode (Rust backend + Vue frontend, hot reload)
-pnpm tauri dev
+pnpm start
 ```
 
-On first launch, the setup wizard will guide you through configuration and index your sessions.
+That's it. `pnpm start` installs dependencies and launches the app automatically. On first launch, the setup wizard will guide you through configuration and index your sessions.
 
-> **Note:** `pnpm tauri dev` opens a Tauri desktop window — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
+> **Note:** A Tauri desktop window will open — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
+
+#### Option B: Download Installer / Exe
+
+Pre-built Windows installers and a standalone `.exe` are available on the [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases) page. Download the latest version and run — no build tools required.
+
+> **⚠️ Code Signing:** TracePilot is not code-signed — it's not worth the cost at this stage. Windows SmartScreen will show a warning when you first run the installer or exe. Click **"More info"** → **"Run anyway"** to proceed. The source code is fully auditable in this repository, and Option A (build from source) is available if you prefer to avoid unsigned binaries.
 
 #### Frontend-Only Mode
 
@@ -235,16 +232,15 @@ TracePilot can check GitHub for newer releases:
 
 ### Keeping Up-to-Date
 
-Since TracePilot is distributed via git clone:
+How you update depends on how you installed TracePilot:
 
-```bash
-cd TracePilot
-git pull origin main
-pnpm install          # in case dependencies changed
-pnpm tauri dev        # restart the app
-```
+| Install type | How to update |
+|-------------|--------------|
+| **Source** (`pnpm start`) | `git pull` then `pnpm start` — the app detects the new version on launch |
+| **Installer** (NSIS/MSI) | One-click auto-update: the app downloads and installs the update in-app, then relaunches |
+| **Standalone exe** | Download the latest `.exe` from the [Releases page](https://github.com/MattShelton04/TracePilot/releases) and replace the old file |
 
-The app will detect the version change on next launch and show a "What's New" modal with release notes.
+> **Tip:** The NSIS installer is the recommended binary option — it's the only one that supports automatic in-app updates.
 
 ## Development
 
@@ -314,6 +310,12 @@ cargo bench -p tracepilot-bench
 | **Parsing** | `parse_typed_events`, `reconstruct_turns` | JSONL parsing throughput (100–10K events), turn reconstruction (100–2K events) |
 | **Analytics** | `compute_analytics`, `compute_tool_analysis`, `compute_code_impact` | Dashboard aggregation across 10–100 sessions |
 | **Indexer** | `upsert_session`, `search`, `query_analytics` | SQLite write speed, FTS5 search latency, analytics query performance (10–100 sessions) |
+
+#### CI Benchmarks
+
+Benchmarks run in GitHub Actions via manual trigger (**Actions → Benchmarks → Run workflow**). Results are tracked over time on [GitHub Pages](https://MattShelton04.github.io/TracePilot/dev/bench/) with trend charts powered by [`github-action-benchmark`](https://github.com/benchmark-action/github-action-benchmark).
+
+Each run also uploads Criterion's HTML reports as a downloadable artifact for detailed analysis.
 
 ### Linting & Formatting
 

@@ -7,8 +7,9 @@ import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 import type { IndexingProgressPayload } from '@tracepilot/types';
+import { safeListen } from '@/utils/tauriEvents';
 
 const router = useRouter();
 const store = useSessionsStore();
@@ -38,13 +39,13 @@ function onSelect(sessionId: string) {
 
 onMounted(async () => {
   unlisteners.push(
-    await listen<IndexingProgressPayload>('indexing-progress', (event) => {
+    await safeListen<IndexingProgressPayload>('indexing-progress', (event) => {
       indexingProgress.value = event.payload;
     }),
-    await listen('indexing-started', () => {
+    await safeListen('indexing-started', () => {
       indexingProgress.value = null;
     }),
-    await listen('indexing-finished', () => {
+    await safeListen('indexing-finished', () => {
       indexingProgress.value = null;
     }),
   );

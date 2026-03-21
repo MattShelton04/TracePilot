@@ -347,6 +347,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   return invoke<UpdateCheckResult>('check_for_updates');
 }
 
+/** Returns the install type: "source" | "installed" | "portable". */
+export async function getInstallType(): Promise<string> {
+  return invoke<string>('get_install_type');
+}
+
 /** Get git info (commit hash, branch) for the running instance. */
 export async function getGitInfo(): Promise<GitInfo> {
   return invoke<GitInfo>('get_git_info');

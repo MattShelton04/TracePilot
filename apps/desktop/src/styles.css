@@ -361,6 +361,11 @@ body {
 .sidebar-footer-area {
   margin-top: auto;
 }
+.sidebar-settings-separator {
+  height: 1px;
+  background: var(--border-default);
+  margin: 8px 0;
+}
 .sidebar-update-notice {
   padding: 10px 14px;
   margin: 0 8px;

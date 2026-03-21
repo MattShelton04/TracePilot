@@ -5,6 +5,7 @@
   "license": "GPL-3.0-or-later",
   "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",
   "scripts": {
+    "start": "pnpm install && pnpm tauri dev --no-watch",
     "dev": "pnpm --filter @tracepilot/desktop dev",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",

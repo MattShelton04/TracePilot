@@ -49,6 +49,8 @@ fn main() {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tracepilot_tauri_bindings::init())
         .setup(|_app| {
             log::info!("TracePilot v{} starting", env!("CARGO_PKG_VERSION"));
