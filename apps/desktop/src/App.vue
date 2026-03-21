@@ -74,12 +74,17 @@ async function checkVersionChange() {
 function onSetupSaved(sessionCount: number) {
   expectedSessionCount.value = sessionCount;
   phase.value = 'indexing';
+  // Config.toml now exists — re-hydrate preferences so the auto-save watcher
+  // is armed and any preference changes made in this session will persist.
+  prefsStore.hydrate();
   // Indexing is triggered by the loading screen component itself
   // after it registers its event listeners (prevents race condition).
 }
 
 function onSetupComplete() {
   phase.value = 'app';
+  // Config.toml now exists — arm the auto-save watcher
+  prefsStore.hydrate();
   sessionsStore.fetchSessions();
 }
 

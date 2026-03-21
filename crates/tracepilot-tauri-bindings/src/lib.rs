@@ -6,7 +6,35 @@ pub mod config;
 
 use config::{SharedConfig, TracePilotConfig};
 use serde::Serialize;
+use std::num::NonZeroUsize;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
+
+// ── LRU Turn Cache ──────────────────────────────────────────────────
+
+/// Cached turns for a single session, keyed by session ID in the LRU.
+struct CachedTurns {
+    turns: Vec<tracepilot_core::ConversationTurn>,
+    events_file_size: u64,
+}
+
+type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
+
+/// Response wrapper for `get_session_turns` — includes file size for
+/// frontend freshness tracking.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnsResponse {
+    pub turns: Vec<tracepilot_core::ConversationTurn>,
+    pub events_file_size: u64,
+}
+
+/// Lightweight freshness probe — just the file size, no parsing.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FreshnessResponse {
+    pub events_file_size: u64,
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -112,9 +140,9 @@ pub struct IndexingProgressPayload {
 
 mod commands {
     use super::{
-        config, EventItem, EventsResponse, GitInfo, IndexingProgressPayload, SessionIncidentItem,
-        SessionListItem, SharedConfig, TodosResponse, TracePilotConfig, UpdateCheckResult,
-        ValidateSessionDirResult,
+        config, CachedTurns, EventItem, EventsResponse, FreshnessResponse, GitInfo,
+        IndexingProgressPayload, SessionIncidentItem, SessionListItem, SharedConfig, TodosResponse,
+        TracePilotConfig, TurnCache, TurnsResponse, UpdateCheckResult, ValidateSessionDirResult,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -379,8 +407,76 @@ mod commands {
     #[tauri::command]
     pub async fn get_session_turns(
         state: tauri::State<'_, SharedConfig>,
+        cache: tauri::State<'_, TurnCache>,
         session_id: String,
-    ) -> Result<Vec<tracepilot_core::ConversationTurn>, String> {
+    ) -> Result<TurnsResponse, String> {
+        let session_state_dir = read_config(&state).session_state_dir();
+        let cache = cache.inner().clone();
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let events_path = path.join("events.jsonl");
+
+            let file_size = std::fs::metadata(&events_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
+            // Check LRU cache — return if file size unchanged (append-only)
+            {
+                let mut lru = cache.lock().unwrap();
+                if let Some(cached) = lru.get(&session_id) {
+                    if cached.events_file_size == file_size {
+                        let mut turns = cached.turns.clone();
+                        tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
+                        return Ok(TurnsResponse {
+                            turns,
+                            events_file_size: file_size,
+                        });
+                    }
+                }
+            }
+
+            // Cache miss or stale — parse from disk
+            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                .map_err(|e| e.to_string())?
+                .events;
+            let turns = tracepilot_core::turns::reconstruct_turns(&events);
+
+            // Store full (untrimmed) turns in LRU
+            {
+                let mut lru = cache.lock().unwrap();
+                lru.put(
+                    session_id,
+                    CachedTurns {
+                        turns: turns.clone(),
+                        events_file_size: file_size,
+                    },
+                );
+            }
+
+            let mut ipc_turns = turns;
+            tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
+            Ok(TurnsResponse {
+                turns: ipc_turns,
+                events_file_size: file_size,
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Lightweight freshness probe — returns just the events.jsonl file size.
+    /// The frontend compares this against the `eventsFileSize` from the last
+    /// `get_session_turns` response to decide whether a full re-fetch is needed.
+    #[tauri::command]
+    pub async fn check_session_freshness(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+    ) -> Result<FreshnessResponse, String> {
         let session_state_dir = read_config(&state).session_state_dir();
 
         tokio::task::spawn_blocking(move || {
@@ -390,10 +486,10 @@ mod commands {
             )
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
-            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                .map_err(|e| e.to_string())?
-                .events;
-            Ok(tracepilot_core::turns::reconstruct_turns(&events))
+            let file_size = std::fs::metadata(&events_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+            Ok(FreshnessResponse { events_file_size: file_size })
         })
         .await
         .map_err(|e| e.to_string())?
@@ -1906,6 +2002,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
             app.manage(std::sync::Arc::new(tokio::sync::Semaphore::new(1)));
+            let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
+                NonZeroUsize::new(10).unwrap(),
+            )));
+            app.manage(turn_cache);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1913,6 +2013,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_session_detail,
             commands::get_session_incidents,
             commands::get_session_turns,
+            commands::check_session_freshness,
             commands::get_session_events,
             commands::get_session_todos,
             commands::get_session_checkpoints,

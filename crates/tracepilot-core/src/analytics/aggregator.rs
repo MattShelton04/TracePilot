@@ -802,6 +802,7 @@ mod tests {
             model: None,
             intention_summary: None,
             result_content: None,
+            args_summary: None,
         }
     }
 

@@ -6,6 +6,7 @@ import type {
   EventsResponse,
   ExportConfig,
   ExportResult,
+  FreshnessResponse,
   GitInfo,
   HealthScoringData,
   SessionDetail,
@@ -16,6 +17,7 @@ import type {
   TodosResponse,
   ToolAnalysisData,
   TracePilotConfig,
+  TurnsResponse,
   UpdateCheckResult,
   ValidateSessionDirResult,
 } from '@tracepilot/types';
@@ -75,7 +77,8 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
         detailJson: { preCompactionTokens: 45000, postCompactionTokens: 12000 },
       },
     ],
-    get_session_turns: MOCK_TURNS,
+    get_session_turns: { turns: MOCK_TURNS, eventsFileSize: 1024 } as TurnsResponse,
+    check_session_freshness: { eventsFileSize: 1024 } as FreshnessResponse,
     get_session_events: MOCK_EVENTS,
     get_session_todos: MOCK_TODOS,
     get_session_checkpoints: MOCK_CHECKPOINTS,
@@ -173,8 +176,12 @@ export async function getSessionIncidents(sessionId: string): Promise<SessionInc
   return invoke<SessionIncident[]>('get_session_incidents', { sessionId });
 }
 
-export async function getSessionTurns(sessionId: string): Promise<ConversationTurn[]> {
-  return invoke<ConversationTurn[]>('get_session_turns', { sessionId });
+export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {
+  return invoke<TurnsResponse>('get_session_turns', { sessionId });
+}
+
+export async function checkSessionFreshness(sessionId: string): Promise<FreshnessResponse> {
+  return invoke<FreshnessResponse>('check_session_freshness', { sessionId });
 }
 
 export async function getSessionEvents(

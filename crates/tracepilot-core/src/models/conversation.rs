@@ -106,4 +106,7 @@ pub struct TurnToolCall {
     pub intention_summary: Option<String>,
     /// Truncated preview of the tool result (≤1KB). Use `get_tool_result` for full content.
     pub result_content: Option<String>,
+    /// Short summary of arguments, computed server-side for IPC efficiency.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args_summary: Option<String>,
 }
