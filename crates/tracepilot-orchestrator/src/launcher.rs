@@ -6,90 +6,11 @@ use crate::worktrees;
 use std::path::Path;
 use std::process::Command;
 
+// Re-export process utilities for backward compatibility.
 #[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-/// Encode a PowerShell command string as Base64 UTF-16LE for use with -EncodedCommand.
-/// This bypasses all command-line escaping issues on Windows.
+pub use crate::process::encode_powershell_command;
 #[cfg(windows)]
-pub fn encode_powershell_command(cmd: &str) -> String {
-    use std::io::Write;
-    let utf16: Vec<u8> = cmd.encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    let mut buf = Vec::new();
-    {
-        let mut encoder = Base64Encoder::new(&mut buf);
-        encoder.write_all(&utf16).unwrap();
-        encoder.finish().unwrap();
-    }
-    String::from_utf8(buf).unwrap()
-}
-
-/// Minimal base64 encoder (no external dependency needed).
-#[cfg(windows)]
-struct Base64Encoder<W: std::io::Write> {
-    writer: W,
-    buf: [u8; 3],
-    len: usize,
-}
-
-#[cfg(windows)]
-impl<W: std::io::Write> Base64Encoder<W> {
-    fn new(writer: W) -> Self { Self { writer, buf: [0; 3], len: 0 } }
-
-    fn finish(mut self) -> std::io::Result<()> {
-        if self.len > 0 {
-            self.encode_block()?;
-        }
-        Ok(())
-    }
-
-    fn encode_block(&mut self) -> std::io::Result<()> {
-        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        let b = &self.buf;
-        let out = match self.len {
-            3 => [
-                CHARS[(b[0] >> 2) as usize],
-                CHARS[((b[0] & 0x03) << 4 | b[1] >> 4) as usize],
-                CHARS[((b[1] & 0x0f) << 2 | b[2] >> 6) as usize],
-                CHARS[(b[2] & 0x3f) as usize],
-            ],
-            2 => [
-                CHARS[(b[0] >> 2) as usize],
-                CHARS[((b[0] & 0x03) << 4 | b[1] >> 4) as usize],
-                CHARS[((b[1] & 0x0f) << 2) as usize],
-                b'=',
-            ],
-            1 => [
-                CHARS[(b[0] >> 2) as usize],
-                CHARS[((b[0] & 0x03) << 4) as usize],
-                b'=',
-                b'=',
-            ],
-            _ => return Ok(()),
-        };
-        self.writer.write_all(&out)?;
-        self.len = 0;
-        self.buf = [0; 3];
-        Ok(())
-    }
-}
-
-#[cfg(windows)]
-impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
-    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
-        let mut written = 0;
-        for &byte in data {
-            self.buf[self.len] = byte;
-            self.len += 1;
-            if self.len == 3 {
-                self.encode_block()?;
-            }
-            written += 1;
-        }
-        Ok(written)
-    }
-    fn flush(&mut self) -> std::io::Result<()> { self.writer.flush() }
-}
+pub use crate::process::spawn_outside_job;
 
 /// Resolve the copilot home directory.
 pub fn copilot_home() -> Result<std::path::PathBuf> {
@@ -126,110 +47,6 @@ fn validate_model(model: &str) -> Result<()> {
             "Unknown model: {model}"
         )))
     }
-}
-
-/// Shell-quote a path for safe interpolation into a shell command string.
-/// On Windows wraps in double-quotes; on Unix uses single-quote escaping.
-#[allow(dead_code)] // Used in macOS/Linux cfg blocks
-fn shell_quote(s: &str) -> String {
-    #[cfg(windows)]
-    {
-        // Double-quote the path, escaping any inner double-quotes
-        format!("\"{}\"", s.replace('"', "\"\""))
-    }
-    #[cfg(not(windows))]
-    {
-        // Replace each ' with '\'' (end quote, escaped quote, start quote)
-        format!("'{}'", s.replace('\'', "'\\''"))
-    }
-}
-
-/// Spawn a process in a new console window that survives parent-app shutdown.
-///
-/// On Windows, Tauri/WebView2 places child processes in a Job Object with
-/// `KILL_ON_JOB_CLOSE`. We use a three-tier strategy to escape it:
-///
-/// 1. **`CREATE_BREAKAWAY_FROM_JOB`** — fastest, works if the Job allows breakaway.
-/// 2. **WMI `Win32_Process.Create`** — delegates creation to the WMI service process,
-///    which is outside the Job Object entirely.
-/// 3. **Plain `CREATE_NEW_CONSOLE`** — graceful degradation; terminal may die with app.
-#[cfg(windows)]
-pub fn spawn_outside_job(
-    program: &str,
-    args: &[&str],
-    work_dir: &Path,
-) -> std::result::Result<u32, OrchestratorError> {
-    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-    // Strategy 1: direct spawn with breakaway flag
-    match Command::new(program)
-        .args(args)
-        .current_dir(work_dir)
-        .creation_flags(CREATE_NEW_CONSOLE | CREATE_BREAKAWAY_FROM_JOB)
-        .spawn()
-    {
-        Ok(child) => return Ok(child.id()),
-        Err(e) if e.raw_os_error() == Some(5) => {
-            tracing::debug!("CREATE_BREAKAWAY_FROM_JOB denied, falling back to WMI");
-        }
-        Err(e) => return Err(OrchestratorError::Launch(format!("Failed to spawn terminal: {e}"))),
-    }
-
-    // Strategy 2: WMI Win32_Process.Create (runs via wmiprvse.exe, outside job)
-    let cmd_line = if args.is_empty() {
-        format!("\"{}\"", program)
-    } else {
-        let quoted_args: Vec<String> = args
-            .iter()
-            .map(|a| {
-                if a.contains(' ') {
-                    format!("\"{}\"", a)
-                } else {
-                    a.to_string()
-                }
-            })
-            .collect();
-        format!("\"{}\" {}", program, quoted_args.join(" "))
-    };
-
-    let escaped_cmd = cmd_line.replace('\'', "''");
-    let escaped_dir = work_dir.display().to_string().replace('\'', "''");
-    let wmi_script = format!(
-        "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create \
-         -Arguments @{{CommandLine='{escaped_cmd}'; CurrentDirectory='{escaped_dir}'}}; \
-         if ($r.ReturnValue -ne 0) {{ throw \"WMI Create failed (code $($r.ReturnValue))\" }}; \
-         $r.ProcessId"
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &wmi_script])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| OrchestratorError::Launch(format!("WMI fallback failed: {e}")))?;
-
-    if output.status.success() {
-        let pid = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .parse::<u32>()
-            .unwrap_or(0);
-        tracing::info!("Terminal spawned via WMI (pid {pid})");
-        return Ok(pid);
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    tracing::warn!("WMI fallback failed: {stderr}");
-
-    // Strategy 3: plain CREATE_NEW_CONSOLE (terminal may die with parent)
-    tracing::warn!("All detach strategies failed; terminal may not survive app exit");
-    let child = Command::new(program)
-        .args(args)
-        .current_dir(work_dir)
-        .creation_flags(CREATE_NEW_CONSOLE)
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn terminal: {e}")))?;
-    Ok(child.id())
 }
 
 /// Launch a new Copilot CLI session in a **new terminal window**.
@@ -415,45 +232,27 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         );
 
         // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
-        let encoded = encode_powershell_command(&ps_cmd);
-        spawn_outside_job(
+        let encoded = crate::process::encode_powershell_command(&ps_cmd);
+        crate::process::spawn_detached_terminal(
             "powershell",
             &["-NoExit", "-EncodedCommand", &encoded],
             &work_dir,
+            None,
         )?
     };
 
     #[cfg(target_os = "macos")]
     let pid = {
-        let escaped_cwd = shell_quote(&work_dir.display().to_string());
         let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
-        let script = format!(
-            "tell app \"Terminal\" to do script \"cd {} && {}{}\"",
-            escaped_cwd, checkout_prefix, copilot_cmd
-        );
-        Command::new("osascript")
-            .args(["-e", &script])
-            .spawn()
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?
-            .id()
+        let full_cmd = format!("{}{}", checkout_prefix, copilot_cmd);
+        let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
+        crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
     };
 
     #[cfg(target_os = "linux")]
     let pid = {
-        let terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
-        let mut result = None;
-        for term in &terminals {
-            if let Ok(c) = Command::new(term)
-                .args(["-e", &copilot_cmd])
-                .current_dir(&work_dir)
-                .envs(&envs)
-                .spawn()
-            {
-                result = Some(c);
-                break;
-            }
-        }
-        result.ok_or_else(|| OrchestratorError::Launch("No terminal emulator found".into()))?.id()
+        let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
+        crate::process::spawn_detached_terminal(&copilot_cmd, &[], &work_dir, envs_ref)?
     };
 
     Ok(LaunchedSession {
@@ -503,36 +302,8 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
         return Err(OrchestratorError::Launch(format!("Path does not exist: {path}")));
     }
 
-    #[cfg(windows)]
-    {
-        spawn_outside_job("powershell", &[], p)?;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let escaped = shell_quote(path);
-        let script = format!("tell app \"Terminal\" to do script \"cd {}\"", escaped);
-        Command::new("osascript")
-            .args(["-e", &script])
-            .spawn()
-            .map_err(|e| OrchestratorError::Launch(format!("Failed to open terminal: {e}")))?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
-        let mut launched = false;
-        for term in &terminals {
-            if Command::new(term).current_dir(p).spawn().is_ok() {
-                launched = true;
-                break;
-            }
-        }
-        if !launched {
-            return Err(OrchestratorError::Launch("No terminal emulator found".into()));
-        }
-    }
-
+    // Empty program = just open a terminal at the directory
+    crate::process::spawn_detached_terminal("", &[], p, None)?;
     Ok(())
 }
 
@@ -579,7 +350,7 @@ fn home_dir() -> Option<std::path::PathBuf> {
 }
 
 fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
-    match Command::new(name).args(args).output() {
+    match crate::process::run_hidden(name, args, None) {
         Ok(output) if output.status.success() => {
             let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let version = extract_version(&raw).unwrap_or(raw);
@@ -669,67 +440,5 @@ mod tests {
         assert!(validate_model("unknown-model").is_err());
         assert!(validate_model("'; rm -rf /").is_err());
         assert!(validate_model("& calc &").is_err());
-    }
-
-    #[test]
-    fn test_shell_quote_plain_path() {
-        let quoted = shell_quote("C:\\git\\MyProject");
-        // On Windows, should be double-quoted
-        #[cfg(windows)]
-        assert_eq!(quoted, "\"C:\\git\\MyProject\"");
-        // On Unix, should be single-quoted
-        #[cfg(not(windows))]
-        assert_eq!(quoted, "'C:\\git\\MyProject'");
-    }
-
-    #[test]
-    fn test_shell_quote_path_with_spaces() {
-        let quoted = shell_quote("C:\\My Projects\\repo");
-        #[cfg(windows)]
-        assert_eq!(quoted, "\"C:\\My Projects\\repo\"");
-        #[cfg(not(windows))]
-        assert_eq!(quoted, "'C:\\My Projects\\repo'");
-    }
-
-    #[test]
-    fn test_shell_quote_path_with_ampersand() {
-        let quoted = shell_quote("C:\\A&B Corp\\repo");
-        #[cfg(windows)]
-        assert_eq!(quoted, "\"C:\\A&B Corp\\repo\"");
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn test_encode_powershell_command() {
-        // "Write-Host 'hi'" encoded as UTF-16LE then Base64
-        let cmd = "Write-Host 'hi'";
-        let encoded = encode_powershell_command(cmd);
-        // Verify it's valid base64 and decodes back to correct UTF-16LE
-        let bytes = (0..encoded.len())
-            .step_by(4)
-            .flat_map(|i| {
-                let chunk = &encoded[i..std::cmp::min(i + 4, encoded.len())];
-                let vals: Vec<u8> = chunk.bytes().map(|b| match b {
-                    b'A'..=b'Z' => b - b'A',
-                    b'a'..=b'z' => b - b'a' + 26,
-                    b'0'..=b'9' => b - b'0' + 52,
-                    b'+' => 62,
-                    b'/' => 63,
-                    b'=' => 0,
-                    _ => panic!("invalid base64"),
-                }).collect();
-                let pad = chunk.bytes().filter(|&b| b == b'=').count();
-                let mut out = Vec::new();
-                out.push((vals[0] << 2) | (vals[1] >> 4));
-                if pad < 2 { out.push((vals[1] << 4) | (vals[2] >> 2)); }
-                if pad < 1 { out.push((vals[2] << 6) | vals[3]); }
-                out
-            })
-            .collect::<Vec<u8>>();
-        let decoded: String = bytes.chunks(2)
-            .filter_map(|c| if c.len() == 2 { Some(u16::from_le_bytes([c[0], c[1]])) } else { None })
-            .filter_map(|c| char::from_u32(c as u32))
-            .collect();
-        assert_eq!(decoded, cmd);
     }
 }
