@@ -1,4 +1,4 @@
-import { getConfig, saveConfig } from '@tracepilot/client';
+import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import type {
   ModelPriceEntry,
   RichRenderableToolName,
@@ -243,6 +243,15 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   async function hydrate() {
     try {
+      // If no config file exists (e.g. after factory reset), don't hydrate.
+      // This prevents the watcher from recreating config.toml before the
+      // setup wizard has a chance to run.
+      const configExists = await checkConfigExists();
+      if (!configExists) {
+        hydrateResolve();
+        return;
+      }
+
       let config = await getConfig();
       const hadLegacyPrefs = !!localStorage.getItem("tracepilot-prefs");
       // One-time migration from localStorage
@@ -425,5 +434,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     resetToolRendering,
     isFeatureEnabled,
     toggleFeature,
+    /** Re-run hydration after the setup wizard creates config.toml.
+     *  This arms the auto-save watcher so subsequent preference changes persist. */
+    hydrate,
   };
 });

@@ -12,6 +12,7 @@ import type {
 import {
   getSessionDetail,
   getSessionTurns,
+  checkSessionFreshness,
   getSessionEvents,
   getSessionTodos,
   getSessionCheckpoints,
@@ -33,6 +34,41 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
 
+  // Track file size for freshness detection (avoids redundant turn re-fetches)
+  let lastEventsFileSize = 0;
+
+  // ── Frontend session cache (last 5 sessions) ────────────────────────
+  // Caches all loaded section data so switching between recently viewed
+  // sessions restores the UI instantly without any IPC roundtrip.
+  interface CachedSession {
+    detail: SessionDetail;
+    turns: ConversationTurn[];
+    eventsFileSize: number;
+    checkpoints: CheckpointEntry[];
+    shutdownMetrics: ShutdownMetrics | null;
+    incidents: SessionIncident[];
+    loadedSections: Set<string>;
+  }
+  const SESSION_CACHE_SIZE = 10;
+  const sessionCache = new Map<string, CachedSession>();
+
+  function saveToCache(id: string) {
+    if (!detail.value) return;
+    sessionCache.set(id, {
+      detail: detail.value,
+      turns: turns.value,
+      eventsFileSize: lastEventsFileSize,
+      checkpoints: checkpoints.value,
+      shutdownMetrics: shutdownMetrics.value,
+      incidents: incidents.value,
+      loadedSections: new Set(loaded.value),
+    });
+    if (sessionCache.size > SESSION_CACHE_SIZE) {
+      const oldest = sessionCache.keys().next().value;
+      if (oldest) sessionCache.delete(oldest);
+    }
+  }
+
   // Guard against stale async responses when user switches sessions quickly
   let requestToken = 0;
 
@@ -41,18 +77,58 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       return;
     }
 
+    // Save current session before switching
+    if (sessionId.value && loaded.value.has("detail")) {
+      saveToCache(sessionId.value);
+    }
+
     const token = ++requestToken;
     sessionId.value = id;
-    loading.value = true;
     error.value = null;
+
+    // Check frontend cache for instant restore
+    const cached = sessionCache.get(id);
+    if (cached) {
+      // Restore ALL sections immediately — zero IPC, zero spinner
+      detail.value = cached.detail;
+      turns.value = cached.turns;
+      lastEventsFileSize = cached.eventsFileSize;
+      checkpoints.value = cached.checkpoints;
+      shutdownMetrics.value = cached.shutdownMetrics;
+      incidents.value = cached.incidents;
+      loaded.value = new Set(cached.loadedSections);
+      loading.value = false;
+      // Events & todos intentionally NOT cached (paginated / rarely viewed)
+      events.value = null;
+      todos.value = null;
+
+      // Background refresh: silently update stale data
+      getSessionDetail(id).then((result) => {
+        if (requestToken !== token) return;
+        detail.value = result;
+      }).catch(() => {});
+      checkSessionFreshness(id).then(async (freshness) => {
+        if (requestToken !== token) return;
+        if (freshness.eventsFileSize === lastEventsFileSize) return;
+        const result = await getSessionTurns(id);
+        if (requestToken !== token) return;
+        turns.value = result.turns;
+        lastEventsFileSize = result.eventsFileSize;
+      }).catch(() => {});
+      return;
+    }
+
+    // Cache miss — full load with loading spinner
+    loading.value = true;
     detail.value = null;
-    loaded.value.clear();
     turns.value = [];
     events.value = null;
     todos.value = null;
     checkpoints.value = [];
     shutdownMetrics.value = null;
     incidents.value = [];
+    loaded.value.clear();
+    lastEventsFileSize = 0;
 
     try {
       const result = await getSessionDetail(id);
@@ -76,7 +152,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     try {
       const result = await getSessionTurns(id);
       if (requestToken !== token) return;
-      turns.value = result;
+      turns.value = result.turns;
+      lastEventsFileSize = result.eventsFileSize;
       loaded.value.add("turns");
     } catch (e) {
       if (requestToken !== token) return;
@@ -176,6 +253,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loaded.value.clear();
     loading.value = false;
     error.value = null;
+    lastEventsFileSize = 0;
+    sessionCache.clear();
   }
 
   /**
@@ -204,10 +283,21 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     if (sections.has("turns")) {
       promises.push(
-        getSessionTurns(id).then((result) => {
+        (async () => {
+          // Freshness check: skip full turn fetch if events.jsonl hasn't changed
+          try {
+            const freshness = await checkSessionFreshness(id);
+            if (requestToken !== token) return;
+            if (freshness.eventsFileSize === lastEventsFileSize) return;
+          } catch {
+            // Freshness check failed — fall through to full fetch
+          }
+
+          const result = await getSessionTurns(id);
           if (requestToken !== token) return;
-          turns.value = result;
-        }).catch((e) => {
+          turns.value = result.turns;
+          lastEventsFileSize = result.eventsFileSize;
+        })().catch((e) => {
           if (requestToken !== token) return;
           console.error("Failed to refresh turns:", e);
         })

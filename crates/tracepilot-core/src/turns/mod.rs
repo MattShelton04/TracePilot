@@ -85,6 +85,97 @@ pub fn turn_stats(turns: &[ConversationTurn]) -> TurnStats {
     }
 }
 
+// ── IPC preparation ───────────────────────────────────────────────────
+
+/// Compute a short human-readable summary of tool call arguments.
+///
+/// Mirrors the frontend `formatArgsSummary()` from `packages/ui/src/utils/toolCall.ts`.
+pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String {
+    let obj = match args.as_object() {
+        Some(o) => o,
+        None => return String::new(),
+    };
+
+    let get_str = |key: &str| obj.get(key).and_then(|v| v.as_str()).map(String::from);
+
+    match tool_name {
+        "view" | "edit" | "create" => {
+            if let Some(p) = get_str("path") {
+                return p;
+            }
+        }
+        "grep" => {
+            if let Some(pattern) = get_str("pattern") {
+                let path_suffix = get_str("path")
+                    .map(|p| format!(" in {}", p))
+                    .unwrap_or_default();
+                return format!("/{}/{}", pattern, path_suffix);
+            }
+        }
+        "glob" => {
+            if let Some(p) = get_str("pattern") {
+                return p;
+            }
+        }
+        "powershell" => {
+            if let Some(cmd) = get_str("command") {
+                if cmd.len() > 150 {
+                    let truncated: String = cmd.chars().take(150).collect();
+                    return format!("{}…", truncated);
+                }
+                return cmd;
+            }
+        }
+        "task" | "sql" => {
+            if let Some(d) = get_str("description") {
+                return d;
+            }
+        }
+        "report_intent" => {
+            if let Some(i) = get_str("intent") {
+                return i;
+            }
+        }
+        "web_search" => {
+            if let Some(q) = get_str("query") {
+                return q;
+            }
+        }
+        "web_fetch" => {
+            if let Some(u) = get_str("url") {
+                return u;
+            }
+        }
+        name if name.starts_with("github-mcp-server") => {
+            if let Some(m) = get_str("method") {
+                return m;
+            }
+        }
+        _ => {}
+    }
+
+    String::new()
+}
+
+/// Prepare turns for IPC transfer: compute args summaries and strip
+/// `transformed_user_message` (never displayed, saves ~10-20% payload).
+pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
+    for turn in turns.iter_mut() {
+        turn.transformed_user_message = None;
+
+        for tc in turn.tool_calls.iter_mut() {
+            if tc.args_summary.is_none() {
+                if let Some(ref args) = tc.arguments {
+                    let summary = compute_args_summary(&tc.tool_name, args);
+                    if !summary.is_empty() {
+                        tc.args_summary = Some(summary);
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── TurnReconstructor ─────────────────────────────────────────────────
 
 /// Encapsulated state machine for reconstructing conversation turns from events.
@@ -242,6 +333,7 @@ impl TurnReconstructor {
                     model: model_from_args,
                     intention_summary: intention,
                     result_content: None,
+                    args_summary: None,
                 });
 
                 // Index the new tool call
@@ -352,6 +444,7 @@ impl TurnReconstructor {
                         model: None,
                         intention_summary: None,
                         result_content: None,
+                        args_summary: None,
                     });
                     if let Some(id) = &data.tool_call_id {
                         self.tool_call_index

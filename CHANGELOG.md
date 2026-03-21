@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console)
 - Per-target log filtering to suppress noisy third-party crate output (tao, wry, reqwest, etc.)
 - Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
+- **Session data optimization**: LRU turn cache (instant repeat visits), freshness-based auto-refresh (skip redundant fetches), server-computed argument summaries, stripped `transformedUserMessage` from IPC
+
+### Fixed
+- Factory reset no longer leaves a ghost `config.toml` that skips the setup wizard on relaunch
 
 ### Changed
 - Removed "Settings are stored locally" stub banner from Settings page

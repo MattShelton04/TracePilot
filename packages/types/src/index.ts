@@ -151,6 +151,19 @@ export interface TurnToolCall {
   intentionSummary?: string;
   /** Truncated preview of the tool result (≤1 KB). Use getToolResult() for full content. */
   resultContent?: string;
+  /** Short summary of arguments, computed server-side for IPC efficiency. */
+  argsSummary?: string;
+}
+
+/** Response from get_session_turns — includes file size for freshness tracking. */
+export interface TurnsResponse {
+  turns: ConversationTurn[];
+  eventsFileSize: number;
+}
+
+/** Lightweight freshness probe response. */
+export interface FreshnessResponse {
+  eventsFileSize: number;
 }
 
 /** Session health assessment */
