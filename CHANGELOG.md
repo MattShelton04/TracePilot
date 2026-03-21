@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files
+- **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level
+- Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console)
+- Per-target log filtering to suppress noisy third-party crate output (tao, wry, reqwest, etc.)
+- Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
+
+### Changed
+- Removed "Settings are stored locally" stub banner from Settings page
+
+## [0.3.0] - 2026-03-21
+
+### Added
 - Orchestration feature (preview): launch Copilot CLI sessions, manage git worktrees, and inject config — all from the desktop app (#48)
 - Config injection: set default models for Copilot CLI subagents (explore, task, code-review, general-purpose) to increase their effectiveness (#48)
 - Git worktree management with repo registry persistence, disk usage tracking, branch listing, and lock/unlock support (#54)
