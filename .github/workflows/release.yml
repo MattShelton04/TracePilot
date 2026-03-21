@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v0.3.0)'
+        required: true
+        type: string
+      draft:
+        description: 'Create as draft release (recommended for testing)'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -14,23 +25,25 @@ jobs:
     outputs:
       release_id: ${{ steps.create.outputs.id }}
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Resolve version from trigger
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Extract changelog section
         id: changelog
         run: |
-          # Extract the section for this version from CHANGELOG.md
           VERSION="${{ steps.version.outputs.version }}"
           SECTION=$(awk "/^## \[$VERSION\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
           if [ -z "$SECTION" ]; then
             SECTION="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
           fi
-          # Use delimiter to handle multiline
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo "$SECTION" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -39,9 +52,10 @@ jobs:
         id: create
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           name: "TracePilot v${{ steps.version.outputs.version }}"
           body: ${{ steps.changelog.outputs.body }}
-          draft: false
+          draft: ${{ github.event.inputs.draft == 'true' }}
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,12 +86,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          projectPath: apps/desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}
 
       - name: Upload standalone exe
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           files: target/release/tracepilot-desktop.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
