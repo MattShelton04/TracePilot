@@ -145,6 +145,8 @@ export interface SessionTemplate {
   tags: string[];
   createdAt: string;
   usageCount: number;
+  /** Optional emoji/icon for display. Falls back to extracting from name if absent. */
+  icon?: string;
 }
 
 // ─── Active Session Discovery Types ───────────────────────────────

@@ -200,6 +200,9 @@ pub struct SessionTemplate {
     pub created_at: String,
     #[serde(default)]
     pub usage_count: u32,
+    /// Optional emoji/icon for display. Falls back to extracting from name if absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 // ─── Active Session Discovery Types ───────────────────────────────

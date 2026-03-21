@@ -119,7 +119,7 @@ onUnmounted(() => {
       <!-- Loading State -->
       <div v-if="store.loading" class="loading-state">
         <div class="loading-spinner" />
-        <p>Loading command center…</p>
+        <p>Loading command centre…</p>
       </div>
 
       <!-- Error State -->
@@ -137,7 +137,7 @@ onUnmounted(() => {
             <svg class="title-icon" width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
               <path d="M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Z" />
             </svg>
-            Command Center
+            Command Centre
           </h1>
           <div class="live-indicator">
             <span class="live-dot" />
@@ -162,10 +162,10 @@ onUnmounted(() => {
             <svg class="hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" />
             </svg>
-            <div class="hero-value">{{ store.worktreeCount || '—' }}</div>
-            <div class="hero-label">Worktrees</div>
-            <div class="hero-sub" v-if="store.worktreeCount > 0">{{ store.registeredRepos.length }} repos · {{ store.staleWorktreeCount }} stale · {{ formatBytes(store.totalDiskUsage) }}</div>
-            <div class="hero-sub" v-else-if="store.registeredRepos.length > 0">{{ store.registeredRepos.length }} registered repos</div>
+            <div class="hero-value">{{ store.registeredRepos.length || '—' }}</div>
+            <div class="hero-label">Repositories</div>
+            <div class="hero-sub" v-if="store.worktreeCount > 0">{{ store.worktreeCount }} worktrees · {{ store.staleWorktreeCount }} stale · {{ formatBytes(store.totalDiskUsage) }}</div>
+            <div class="hero-sub" v-else-if="store.registeredRepos.length > 0">No worktrees yet</div>
             <div class="hero-sub" v-else>No repos registered yet</div>
           </div>
 
@@ -276,12 +276,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- §5 Keyboard Shortcuts Bar -->
-        <div class="shortcuts-bar fade-section" style="--stagger: 4">
-          <span class="shortcuts-label">⌨️ Shortcuts:</span>
-          <span class="shortcut"><kbd>Ctrl+N</kbd> New Session</span>
-          <span class="shortcut"><kbd>Ctrl+K</kbd> Quick Search</span>
-        </div>
       </template>
     </div>
   </div>
@@ -722,35 +716,4 @@ onUnmounted(() => {
 }
 
 /* ── §5 Keyboard Shortcuts Bar ───────────────────────────────── */
-.shortcuts-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-lg);
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-
-.shortcuts-label {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.shortcut {
-  white-space: nowrap;
-}
-
-.shortcut kbd {
-  display: inline-block;
-  padding: 1px 5px;
-  font-family: inherit;
-  font-size: 0.6875rem;
-  background: var(--canvas-inset);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  margin-right: 4px;
-}
 </style>

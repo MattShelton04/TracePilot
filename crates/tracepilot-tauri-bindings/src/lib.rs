@@ -1745,6 +1745,26 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    #[tauri::command]
+    pub async fn restore_default_templates() -> Result<(), String> {
+        tokio::task::spawn_blocking(|| {
+            tracepilot_orchestrator::templates::restore_all_default_templates()
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn increment_template_usage(id: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::templates::increment_usage(&id)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     // ── Logging commands ─────────────────────────────────────────
 
     #[tauri::command]
@@ -1954,6 +1974,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::list_session_templates,
             commands::save_session_template,
             commands::delete_session_template,
+            commands::restore_default_templates,
+            commands::increment_template_usage,
             // Logging commands
             commands::get_log_path,
             commands::export_logs,

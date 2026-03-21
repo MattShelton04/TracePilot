@@ -210,6 +210,14 @@ export async function deleteSessionTemplate(id: string): Promise<void> {
   return invoke<void>('delete_session_template', { id });
 }
 
+export async function restoreDefaultTemplates(): Promise<void> {
+  return invoke<void>('restore_default_templates');
+}
+
+export async function incrementTemplateUsage(id: string): Promise<void> {
+  return invoke<void>('increment_template_usage', { id });
+}
+
 // ─── Mock Data ────────────────────────────────────────────────────
 
 function getMockData<T>(cmd: string): T {
@@ -437,147 +445,10 @@ function getMockData<T>(cmd: string): T {
 
     list_session_templates: [
       {
-        id: 'default-bugfix',
-        name: '🐛 Bug Fix',
-        description: 'Quick bug fix session with auto-approve',
-        category: 'Development',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: true,
-          autoApprove: true,
-          model: 'claude-sonnet-4.6',
-          branch: 'fix/',
-        },
-        tags: ['bugfix', 'quick'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 12,
-      },
-      {
-        id: 'default-feature',
-        name: '🚀 Feature Build',
-        description: 'Full feature development with premium model',
-        category: 'Development',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: true,
-          autoApprove: false,
-          model: 'claude-opus-4.6',
-          branch: 'feature/',
-        },
-        tags: ['feature', 'premium'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 8,
-      },
-      {
-        id: 'default-review',
-        name: '🔍 Code Review',
-        description: 'Thorough code review and analysis',
-        category: 'Quality',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: false,
-          autoApprove: false,
-          model: 'claude-sonnet-4.6',
-        },
-        tags: ['review', 'quality'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 15,
-      },
-      {
-        id: 'default-refactor',
-        name: '♻️ Refactor',
-        description: 'Code refactoring and cleanup',
-        category: 'Development',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: true,
-          autoApprove: false,
-          model: 'claude-sonnet-4.6',
-        },
-        tags: ['refactor', 'cleanup'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 6,
-      },
-      {
-        id: 'default-test',
-        name: '🧪 Test Writing',
-        description: 'Generate comprehensive test coverage',
-        category: 'Quality',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: true,
-          autoApprove: true,
-          model: 'claude-sonnet-4.6',
-        },
-        tags: ['testing', 'coverage'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 10,
-      },
-      {
-        id: 'default-docs',
-        name: '📝 Documentation',
-        description: 'Documentation generation and updates',
-        category: 'Documentation',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: false,
-          autoApprove: true,
-          model: 'claude-haiku-4.5',
-        },
-        tags: ['docs', 'fast'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 4,
-      },
-      {
-        id: 'default-quickfix',
-        name: '⚡ Quick Fix',
-        description: 'Rapid one-shot fix with fast model',
-        category: 'Development',
-        config: {
-          repoPath: '',
-          headless: true,
-          envVars: {},
-          createWorktree: false,
-          autoApprove: true,
-          model: 'claude-haiku-4.5',
-        },
-        tags: ['quick', 'fast'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 20,
-      },
-      {
-        id: 'default-deps',
-        name: '📦 Dependency Update',
-        description: 'Update and audit project dependencies',
-        category: 'Maintenance',
-        config: {
-          repoPath: '',
-          headless: false,
-          envVars: {},
-          createWorktree: true,
-          autoApprove: false,
-          model: 'claude-sonnet-4.6',
-        },
-        tags: ['deps', 'maintenance'],
-        createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 3,
-      },
-      {
-        id: 'default-comprehensive-review',
-        name: '🧠 Comprehensive Review (Multi-Agent)',
-        description: 'Review session with multi-agent insight.',
+        id: 'default-multi-agent-review',
+        name: 'Multi Agent Code Review',
+        description: 'Comprehensive code review using multiple AI models',
+        icon: '🔍',
         category: 'Quality',
         config: {
           repoPath: '',
@@ -586,15 +457,42 @@ function getMockData<T>(cmd: string): T {
           createWorktree: false,
           autoApprove: false,
           model: 'claude-opus-4.6',
-          prompt: 'Please spin up Opus 4.6, GPT 5.4, Codex 5.3, and Gemini Subagents to review the changes in this branch (git diff). Consolidate and validate their findings, and provide a summary.',
+          reasoningEffort: 'high',
+          prompt:
+            'Spin up opus 4.6, GPT 5.4, Codex 5.3, and Gemini subagents to do a comprehensive code review of the changes on this branch (git diff). Consolidate and validate their feedback, and provide a summary.',
         },
         tags: ['review', 'multi-agent', 'premium'],
         createdAt: '2025-01-01T00:00:00Z',
-        usageCount: 5,
+        usageCount: 0,
+      },
+      {
+        id: 'default-write-tests',
+        name: 'Write Tests',
+        description: 'Generate comprehensive test coverage for recent changes',
+        icon: '🧪',
+        category: 'Quality',
+        config: {
+          repoPath: '',
+          headless: false,
+          envVars: {},
+          createWorktree: false,
+          autoApprove: false,
+          model: 'claude-sonnet-4.6',
+          reasoningEffort: 'high',
+          prompt:
+            'Analyze the recent changes and generate comprehensive tests. Cover edge cases, error paths, and integration scenarios.',
+        },
+        tags: ['testing', 'coverage'],
+        createdAt: '2025-01-01T00:00:00Z',
+        usageCount: 0,
       },
     ] satisfies SessionTemplate[],
 
     // Write operations return void
+    save_session_template: undefined,
+    delete_session_template: undefined,
+    restore_default_templates: undefined,
+    increment_template_usage: undefined,
     remove_worktree: undefined,
     is_git_repo: true,
     lock_worktree: undefined,
@@ -645,8 +543,6 @@ function getMockData<T>(cmd: string): T {
     delete_config_backup: undefined,
     diff_config_files: { fileName: 'test.yaml', diffText: '', hasChanges: false } satisfies ConfigDiff,
     migrate_agent_definition: undefined,
-    save_session_template: undefined,
-    delete_session_template: undefined,
   };
 
   return (mocks[cmd] ?? null) as T;

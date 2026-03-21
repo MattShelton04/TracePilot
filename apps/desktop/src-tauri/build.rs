@@ -69,6 +69,8 @@ fn main() {
                     "list_session_templates",
                     "save_session_template",
                     "delete_session_template",
+                    "restore_default_templates",
+                    "increment_template_usage",
                     // Logging commands
                     "get_log_path",
                     "export_logs",
