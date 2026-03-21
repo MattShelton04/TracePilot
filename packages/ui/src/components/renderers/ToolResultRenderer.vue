@@ -25,6 +25,8 @@ const props = defineProps<{
   isTruncated?: boolean;
   /** Whether a full-content load is in progress. */
   loading?: boolean;
+  /** Full (un-truncated) arguments loaded from backend, if available. */
+  fullArgs?: unknown;
 }>();
 
 const emit = defineEmits<{
@@ -39,8 +41,9 @@ const activeComponent = computed<Component | null>(() => {
 });
 
 const parsedArgs = computed(() => {
-  if (!props.tc.arguments || typeof props.tc.arguments !== "object") return {};
-  return props.tc.arguments as Record<string, unknown>;
+  const args = props.fullArgs ?? props.tc.arguments;
+  if (!args || typeof args !== "object") return {};
+  return args as Record<string, unknown>;
 });
 </script>
 

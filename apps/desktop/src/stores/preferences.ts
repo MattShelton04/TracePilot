@@ -237,6 +237,16 @@ export const usePreferencesStore = defineStore("preferences", () => {
     }, 300);
   }
 
+  /** Cancel any pending debounced save and prevent future auto-saves.
+   *  Used by factory reset to avoid re-creating config.toml after deletion. */
+  function cancelPendingSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    hydrated = false;
+  }
+
   // ── Hydrate from backend on store creation ─────────────────
   let hydrateResolve: () => void;
   const hydratePromise = new Promise<void>((resolve) => { hydrateResolve = resolve; });
@@ -425,5 +435,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     resetToolRendering,
     isFeatureEnabled,
     toggleFeature,
+    cancelPendingSave,
   };
 });

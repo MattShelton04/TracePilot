@@ -106,4 +106,11 @@ pub struct TurnToolCall {
     pub intention_summary: Option<String>,
     /// Truncated preview of the tool result (≤1KB). Use `get_tool_result` for full content.
     pub result_content: Option<String>,
+    /// Short summary of tool arguments for display (e.g. file path, command preview).
+    /// Use `get_tool_arguments` for full content.
+    pub args_summary: Option<String>,
+    /// True when some argument string values were truncated for IPC transfer.
+    /// Call `get_tool_arguments` for un-truncated content.
+    #[serde(default)]
+    pub has_truncated_args: bool,
 }

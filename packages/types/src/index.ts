@@ -151,6 +151,11 @@ export interface TurnToolCall {
   intentionSummary?: string;
   /** Truncated preview of the tool result (≤1 KB). Use getToolResult() for full content. */
   resultContent?: string;
+  /** Short summary of tool arguments for display (e.g. file path, command preview). */
+  argsSummary?: string;
+  /** True when argument string values were truncated for IPC transfer.
+   *  Call getToolArguments() for un-truncated content. */
+  hasTruncatedArgs?: boolean;
 }
 
 /** Session health assessment */
@@ -178,6 +183,12 @@ export interface TurnsResponse {
   /** Current events.jsonl file size in bytes — compare across refreshes to
    *  detect changes and skip redundant re-renders. */
   eventsFileSize: number;
+}
+
+/** Lightweight freshness check response for skip-if-unchanged optimization. */
+export interface FreshnessResponse {
+  eventsFileSize: number;
+  turnCount?: number;
 }
 
 /** Raw event from events.jsonl */

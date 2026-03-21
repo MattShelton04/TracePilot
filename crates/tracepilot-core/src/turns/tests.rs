@@ -4468,3 +4468,221 @@
         assert_eq!(se.severity, SessionEventSeverity::Warning);
         assert_eq!(se.summary, "Compaction failed: OOM");
     }
+
+    // ── Tests for compute_args_summary ──
+
+    #[test]
+    fn compute_args_summary_view_tool() {
+        let args = json!({"path": "/src/main.rs", "view_range": [1, 10]});
+        let summary = compute_args_summary("view", Some(&args));
+        assert_eq!(summary, Some("/src/main.rs".to_string()));
+    }
+
+    #[test]
+    fn compute_args_summary_grep_with_path() {
+        let args = json!({"pattern": "TODO", "path": "src/"});
+        let summary = compute_args_summary("grep", Some(&args));
+        assert_eq!(summary, Some("/TODO/ in src/".to_string()));
+    }
+
+    #[test]
+    fn compute_args_summary_grep_no_path() {
+        let args = json!({"pattern": "TODO"});
+        let summary = compute_args_summary("grep", Some(&args));
+        assert_eq!(summary, Some("/TODO/".to_string()));
+    }
+
+    #[test]
+    fn compute_args_summary_powershell_truncates() {
+        let long_cmd = "a".repeat(200);
+        let args = json!({"command": long_cmd});
+        let summary = compute_args_summary("powershell", Some(&args)).unwrap();
+        assert!(summary.len() <= 200); // truncated to ~150 + suffix
+        assert!(summary.contains("…[truncated]"));
+    }
+
+    #[test]
+    fn compute_args_summary_unknown_tool() {
+        let args = json!({"foo": "bar"});
+        assert_eq!(compute_args_summary("some_random_tool", Some(&args)), None);
+    }
+
+    #[test]
+    fn compute_args_summary_null_args() {
+        assert_eq!(compute_args_summary("view", None), None);
+    }
+
+    #[test]
+    fn compute_args_summary_github_mcp() {
+        let args = json!({"method": "list_issues", "owner": "test"});
+        let summary = compute_args_summary("github-mcp-server-issues", Some(&args));
+        assert_eq!(summary, Some("list_issues".to_string()));
+    }
+
+    // ── Tests for truncate_json_strings ──
+
+    #[test]
+    fn truncate_json_strings_short_values_unchanged() {
+        let mut val = json!({"path": "/short", "mode": "read"});
+        let truncated = truncate_json_strings(&mut val, 500);
+        assert!(!truncated);
+        assert_eq!(val["path"], "/short");
+    }
+
+    #[test]
+    fn truncate_json_strings_long_string_truncated() {
+        let long = "x".repeat(600);
+        let mut val = json!({"content": long});
+        let truncated = truncate_json_strings(&mut val, 500);
+        assert!(truncated);
+        let result = val["content"].as_str().unwrap();
+        assert!(result.len() < 600);
+        assert!(result.ends_with("…[truncated]"));
+    }
+
+    #[test]
+    fn truncate_json_strings_nested_objects() {
+        let long = "y".repeat(1000);
+        let mut val = json!({"outer": {"inner": long, "short": "ok"}});
+        let truncated = truncate_json_strings(&mut val, 500);
+        assert!(truncated);
+        assert!(val["outer"]["inner"].as_str().unwrap().ends_with("…[truncated]"));
+        assert_eq!(val["outer"]["short"], "ok");
+    }
+
+    #[test]
+    fn truncate_json_strings_arrays() {
+        let long = "z".repeat(800);
+        let mut val = json!(["short", long]);
+        let truncated = truncate_json_strings(&mut val, 500);
+        assert!(truncated);
+        assert_eq!(val[0], "short");
+        assert!(val[1].as_str().unwrap().ends_with("…[truncated]"));
+    }
+
+    #[test]
+    fn truncate_json_strings_utf8_boundary() {
+        // Multi-byte chars: each emoji is 4 bytes
+        let emoji_str = "🎉".repeat(200); // 800 bytes
+        let mut val = json!({"text": emoji_str});
+        let truncated = truncate_json_strings(&mut val, 500);
+        assert!(truncated);
+        let result = val["text"].as_str().unwrap();
+        // Should be valid UTF-8 (no panic) and under the limit + suffix
+        assert!(result.is_ascii() || result.len() > 0);
+        assert!(result.ends_with("…[truncated]"));
+    }
+
+    // ── Tests for prepare_turns_for_ipc ──
+
+    #[test]
+    fn prepare_turns_for_ipc_truncates_large_args() {
+        let long_content = "a".repeat(1000);
+        let mut turns = vec![ConversationTurn {
+            turn_index: 0,
+            turn_id: None,
+            interaction_id: None,
+            user_message: Some("test".to_string()),
+            assistant_messages: vec![],
+            model: None,
+            timestamp: None,
+            end_timestamp: None,
+            tool_calls: vec![TurnToolCall {
+                tool_call_id: Some("tc1".to_string()),
+                parent_tool_call_id: None,
+                tool_name: "create".to_string(),
+                arguments: Some(json!({"path": "/test.rs", "file_text": long_content})),
+                success: None,
+                error: None,
+                started_at: None,
+                completed_at: None,
+                duration_ms: None,
+                mcp_server_name: None,
+                mcp_tool_name: None,
+                is_complete: false,
+                is_subagent: false,
+                agent_display_name: None,
+                agent_description: None,
+                model: None,
+                intention_summary: None,
+                result_content: None,
+                args_summary: None,
+                has_truncated_args: false,
+            }],
+            duration_ms: None,
+            is_complete: false,
+            reasoning_texts: Vec::new(),
+            output_tokens: None,
+            transformed_user_message: Some("long transformed msg".to_string()),
+            attachments: None,
+            session_events: Vec::new(),
+        }];
+
+        prepare_turns_for_ipc(&mut turns);
+
+        let tc = &turns[0].tool_calls[0];
+        assert!(tc.has_truncated_args);
+        assert!(tc.args_summary.is_some()); // "/test.rs" from create tool
+        assert_eq!(tc.args_summary.as_deref(), Some("/test.rs"));
+
+        // file_text should be truncated
+        let file_text = tc.arguments.as_ref().unwrap()["file_text"].as_str().unwrap();
+        assert!(file_text.len() < 1000);
+        assert!(file_text.ends_with("…[truncated]"));
+
+        // path should be preserved (short)
+        assert_eq!(tc.arguments.as_ref().unwrap()["path"], "/test.rs");
+
+        // transformed_user_message should be stripped
+        assert!(turns[0].transformed_user_message.is_none());
+    }
+
+    #[test]
+    fn prepare_turns_for_ipc_preserves_small_args() {
+        let mut turns = vec![ConversationTurn {
+            turn_index: 0,
+            turn_id: None,
+            interaction_id: None,
+            user_message: Some("test".to_string()),
+            assistant_messages: vec![],
+            model: None,
+            timestamp: None,
+            end_timestamp: None,
+            tool_calls: vec![TurnToolCall {
+                tool_call_id: Some("tc2".to_string()),
+                parent_tool_call_id: None,
+                tool_name: "view".to_string(),
+                arguments: Some(json!({"path": "/src/main.rs"})),
+                success: None,
+                error: None,
+                started_at: None,
+                completed_at: None,
+                duration_ms: None,
+                mcp_server_name: None,
+                mcp_tool_name: None,
+                is_complete: false,
+                is_subagent: false,
+                agent_display_name: None,
+                agent_description: None,
+                model: None,
+                intention_summary: None,
+                result_content: None,
+                args_summary: None,
+                has_truncated_args: false,
+            }],
+            duration_ms: None,
+            is_complete: false,
+            reasoning_texts: Vec::new(),
+            output_tokens: None,
+            transformed_user_message: None,
+            attachments: None,
+            session_events: Vec::new(),
+        }];
+
+        prepare_turns_for_ipc(&mut turns);
+
+        let tc = &turns[0].tool_calls[0];
+        assert!(!tc.has_truncated_args); // nothing truncated
+        assert_eq!(tc.arguments.as_ref().unwrap()["path"], "/src/main.rs");
+        assert_eq!(tc.args_summary.as_deref(), Some("/src/main.rs"));
+    }

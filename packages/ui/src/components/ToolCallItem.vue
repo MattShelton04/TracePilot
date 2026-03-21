@@ -18,6 +18,12 @@ const props = defineProps<{
   loadingFullResult?: boolean;
   /** Whether the full result load has failed. */
   failedFullResult?: boolean;
+  /** Full (un-truncated) arguments loaded from backend, if available. */
+  fullArgs?: unknown;
+  /** Whether full arguments are currently being loaded. */
+  loadingFullArgs?: boolean;
+  /** Whether the full arguments load has failed. */
+  failedFullArgs?: boolean;
   /** Whether rich rendering is enabled for this tool (default: true). */
   richEnabled?: boolean;
 }>();
@@ -26,9 +32,11 @@ const emit = defineEmits<{
   toggle: [];
   'load-full-result': [toolCallId: string];
   'retry-full-result': [toolCallId: string];
+  'load-full-args': [toolCallId: string];
+  'retry-full-args': [toolCallId: string];
 }>();
 
-const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
+const summary = computed(() => props.argsSummary ?? props.tc.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
 </script>
 
 <template>
@@ -98,9 +106,14 @@ const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.a
       :full-result="fullResult"
       :loading-full-result="loadingFullResult"
       :failed-full-result="failedFullResult"
+      :full-args="fullArgs"
+      :loading-full-args="loadingFullArgs"
+      :failed-full-args="failedFullArgs"
       :rich-enabled="richEnabled"
       @load-full-result="emit('load-full-result', $event)"
       @retry-full-result="emit('retry-full-result', $event)"
+      @load-full-args="emit('load-full-args', $event)"
+      @retry-full-args="emit('retry-full-args', $event)"
     />
   </div>
 </template>

@@ -53,13 +53,13 @@ export function useConversationSections(
     return map;
   });
 
-  // Cache formatArgsSummary per tool call
+  // Cache formatArgsSummary per tool call — prefer Rust-computed argsSummary
   const argsSummaryCache = computed(() => {
     const cache = new Map<string, string>();
     for (const turn of getTurns()) {
       for (let i = 0; i < turn.toolCalls.length; i++) {
         const tc = turn.toolCalls[i];
-        cache.set(`${turn.turnIndex}-${i}`, formatArgsSummary(tc.arguments, tc.toolName));
+        cache.set(`${turn.turnIndex}-${i}`, tc.argsSummary ?? formatArgsSummary(tc.arguments, tc.toolName));
       }
     }
     return cache;

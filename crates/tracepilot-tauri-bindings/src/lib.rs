@@ -60,6 +60,14 @@ pub struct TurnsResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FreshnessResponse {
+    pub events_file_size: u64,
+    /// Turn count from the in-memory cache, if available.
+    pub turn_count: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EventItem {
     pub event_type: String,
     pub timestamp: Option<String>,
@@ -587,8 +595,10 @@ mod commands {
             let mut cache = turn_cache.lock().unwrap();
             if let Some(cached) = cache.get(&session_id) {
                 if cached.file_size == current_file_size {
+                    let mut ipc_turns = cached.turns.clone();
+                    tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
                     return Ok(super::TurnsResponse {
-                        turns: cached.turns.clone(),
+                        turns: ipc_turns,
                         events_file_size: current_file_size,
                     });
                 }
@@ -609,7 +619,7 @@ mod commands {
         .await
         .map_err(|e| e.to_string())??;
 
-        // Store in LRU cache with file size for future freshness checks
+        // Store FULL (untrimmed) turns in LRU cache for future lookups
         {
             let mut cache = cache_handle.lock().unwrap();
             cache.put(
@@ -621,8 +631,12 @@ mod commands {
             );
         }
 
+        // Trim for IPC: truncate large args, strip transformed_user_message
+        let mut ipc_turns = turns;
+        tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
+
         Ok(super::TurnsResponse {
-            turns,
+            turns: ipc_turns,
             events_file_size: current_file_size,
         })
     }
@@ -1296,7 +1310,7 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
 
-            // Fast path: look up byte offset from tool_result_offsets, then seek
+            // Fast path: look up byte offset from tool_call_offsets, then seek
             if let Some(db) = open_index_db(&index_path) {
                 if db.has_tool_offsets(&session_id) {
                     if are_offsets_fresh(&db, &session_id, &events_path) {
@@ -1359,6 +1373,150 @@ mod commands {
         })
         .await
         .map_err(|e| e.to_string())?
+    }
+
+    /// Fetch the full (un-truncated) arguments for a specific tool call.
+    ///
+    /// The `get_session_turns` response truncates large argument strings
+    /// for IPC efficiency. This command returns the original arguments
+    /// via byte-offset seek (O(1)) or from the in-memory LRU turn cache.
+    #[tauri::command]
+    pub async fn get_tool_arguments(
+        state: tauri::State<'_, SharedConfig>,
+        turn_cache: tauri::State<'_, TurnCache>,
+        session_id: String,
+        tool_call_id: String,
+    ) -> Result<Option<serde_json::Value>, String> {
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
+
+        // Fast path: check in-memory LRU cache first (has full untrimmed args)
+        {
+            let mut cache = turn_cache.lock().unwrap();
+            if let Some(cached) = cache.get(&session_id) {
+                for turn in &cached.turns {
+                    for tc in &turn.tool_calls {
+                        if tc.tool_call_id.as_deref() == Some(&tool_call_id) {
+                            return Ok(tc.arguments.clone());
+                        }
+                    }
+                }
+                // Tool call not found in cached turns — fall through
+            }
+        }
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let events_path = path.join("events.jsonl");
+
+            // Try byte-offset seek from index DB
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_tool_offsets(&session_id) {
+                    if are_offsets_fresh(&db, &session_id, &events_path) {
+                        match db.get_tool_start_offset(&session_id, &tool_call_id) {
+                            Ok(Some((byte_offset, line_length))) => {
+                                match read_event_at_offset(&events_path, byte_offset, line_length)
+                                {
+                                    Ok(data) => {
+                                        // Validate toolCallId matches
+                                        let fetched_id =
+                                            data.get("toolCallId").and_then(|v| v.as_str());
+                                        if fetched_id == Some(tool_call_id.as_str()) {
+                                            return Ok(data.get("arguments").cloned());
+                                        }
+                                        tracing::warn!(
+                                            session_id = %session_id,
+                                            expected = %tool_call_id,
+                                            got = ?fetched_id,
+                                            "Start offset pointed at wrong toolCallId, falling back"
+                                        );
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            session_id = %session_id,
+                                            error = %e,
+                                            "Start byte-offset seek failed, falling back"
+                                        );
+                                    }
+                                }
+                            }
+                            Ok(None) => { /* cache miss — fall through */ }
+                            Err(e) => {
+                                tracing::warn!(
+                                    session_id = %session_id,
+                                    error = %e,
+                                    "Start offset read failed, falling back"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback: full parse
+            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                .map_err(|e| e.to_string())?
+                .events;
+
+            for event in &events {
+                if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionStart(
+                    ref data,
+                ) = event.typed_data
+                {
+                    if data.tool_call_id.as_deref() == Some(&tool_call_id) {
+                        return Ok(data.arguments.clone());
+                    }
+                }
+            }
+            Ok(None)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Lightweight freshness check for a session's event data.
+    ///
+    /// Returns the current events.jsonl file size and turn count. The frontend
+    /// can compare these against its last-known values and skip a full
+    /// `get_session_turns` call if nothing has changed.
+    #[tauri::command]
+    pub async fn check_session_freshness(
+        state: tauri::State<'_, SharedConfig>,
+        turn_cache: tauri::State<'_, TurnCache>,
+        session_id: String,
+    ) -> Result<super::FreshnessResponse, String> {
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+
+        let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
+            &session_id,
+            &session_state_dir,
+        )
+        .map_err(|e| e.to_string())?;
+        let events_path = session_path.join("events.jsonl");
+
+        let events_file_size = tokio::fs::metadata(&events_path)
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // Check LRU cache for turn count (avoids parsing)
+        let turn_count = {
+            let mut cache = turn_cache.lock().unwrap();
+            cache
+                .get(&session_id)
+                .map(|cached| cached.turns.len() as u32)
+        };
+
+        Ok(super::FreshnessResponse {
+            events_file_size,
+            turn_count,
+        })
     }
 
     /// Open a new terminal window and run the configured CLI resume command.
@@ -2298,6 +2456,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::is_session_running,
             commands::factory_reset,
             commands::get_tool_result,
+            commands::get_tool_arguments,
+            commands::check_session_freshness,
             commands::resume_session_in_terminal,
             commands::check_for_updates,
             commands::get_install_type,

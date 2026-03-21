@@ -176,6 +176,27 @@ ALTER TABLE sessions ADD COLUMN shutdown_data_json TEXT;
 ALTER TABLE sessions ADD COLUMN tool_offsets_cached INTEGER DEFAULT 0;
 "#;
 
+pub(super) const MIGRATION_7: &str = r#"
+-- Upgrade tool_result_offsets → tool_call_offsets with start + complete columns.
+-- Stores offsets for both tool.execution_start (arguments) and
+-- tool.execution_complete (results) events, keyed by tool_call_id.
+DROP TABLE IF EXISTS tool_result_offsets;
+
+CREATE TABLE IF NOT EXISTS tool_call_offsets (
+    session_id TEXT NOT NULL,
+    tool_call_id TEXT NOT NULL,
+    start_offset INTEGER,
+    start_length INTEGER,
+    complete_offset INTEGER,
+    complete_length INTEGER,
+    PRIMARY KEY (session_id, tool_call_id),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+-- Reset cache flags so offsets are repopulated with the new schema.
+UPDATE sessions SET tool_offsets_cached = 0;
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -198,6 +219,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 4: tool duration tracking", MIGRATION_4),
         ("Migration 5: incident tracking", MIGRATION_5),
         ("Migration 6: tool result offsets + shutdown cache", MIGRATION_6),
+        ("Migration 7: tool_call_offsets with start + complete columns", MIGRATION_7),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

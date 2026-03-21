@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { useToolArgsLoader } from "@/composables/useToolArgsLoader";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
@@ -23,6 +24,9 @@ const collapsedSubagents = useToggleSet<string>();
 const activeView = ref("chat");
 
 const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
+  () => store.sessionId
+);
+const { fullArgs, loadingArgs, failedArgs, loadFullArgs: handleLoadFullArgs, retryFullArgs: handleRetryArgs } = useToolArgsLoader(
   () => store.sessionId
 );
 
@@ -72,6 +76,9 @@ function tcProps(turn: ConversationTurn, tc: TurnToolCall, prefix = "", variant:
     fullResult: tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined,
     loadingFullResult: tc.toolCallId ? loadingResults.has(tc.toolCallId) : false,
     failedFullResult: tc.toolCallId ? failedResults.has(tc.toolCallId) : false,
+    fullArgs: tc.toolCallId ? fullArgs.get(tc.toolCallId) : undefined,
+    loadingFullArgs: tc.toolCallId ? loadingArgs.has(tc.toolCallId) : false,
+    failedFullArgs: tc.toolCallId ? failedArgs.has(tc.toolCallId) : false,
     richEnabled: preferences.isRichRenderingEnabled(tc.toolName),
     _key: key,
   };
@@ -203,11 +210,11 @@ function eventTypeLabel(eventType: string): string {
                     @toggle="toggleToolDetail(turn, tc)"
                     @load-full-result="handleLoadFullResult"
                     @retry-full-result="handleRetryResult"
+                    @load-full-args="handleLoadFullArgs"
+                    @retry-full-args="handleRetryArgs"
                   />
                 </div>
               </div>
-            </div>
-          </template>
 
           <!-- ── Subagent Section ── -->
           <div
@@ -265,6 +272,8 @@ function eventTypeLabel(eventType: string): string {
                   @toggle="toggleToolDetail(turn, tc)"
                   @load-full-result="handleLoadFullResult"
                   @retry-full-result="handleRetryResult"
+                  @load-full-args="handleLoadFullArgs"
+                  @retry-full-args="handleRetryArgs"
                 />
               </div>
 
@@ -374,8 +383,13 @@ function eventTypeLabel(eventType: string): string {
                 :show-metadata="false"
                 :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
                 :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+                :full-args="tc.toolCallId ? (fullArgs.get(tc.toolCallId) as unknown) : undefined"
+                :loading-full-args="tc.toolCallId ? loadingArgs.has(tc.toolCallId) : false"
+                :failed-full-args="tc.toolCallId ? failedArgs.has(tc.toolCallId) : false"
                 :rich-enabled="preferences.isRichRenderingEnabled(tc.toolName)"
                 @load-full-result="handleLoadFullResult"
+                @load-full-args="handleLoadFullArgs"
+                @retry-full-args="handleRetryArgs"
               />
             </div>
           </template>
@@ -445,6 +459,8 @@ function eventTypeLabel(eventType: string): string {
                   @toggle="toggleToolDetail(turn, tc, 'tl-')"
                   @load-full-result="handleLoadFullResult"
                   @retry-full-result="handleRetryResult"
+                  @load-full-args="handleLoadFullArgs"
+                  @retry-full-args="handleRetryArgs"
                 />
               </div>
             </div>

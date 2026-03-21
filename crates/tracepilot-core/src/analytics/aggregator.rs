@@ -802,6 +802,8 @@ mod tests {
             model: None,
             intention_summary: None,
             result_content: None,
+            args_summary: None,
+            has_truncated_args: false,
         }
     }
 

@@ -13,13 +13,17 @@ use super::types::*;
 use super::IndexDb;
 
 /// Extract tool_call_id from a typed event (only for tool.execution_complete events).
+/// Extract the tool_call_id from a tool execution event (start or complete).
 fn extract_tool_call_id(event_type: &SessionEventType, data: &TypedEventData) -> Option<String> {
-    if matches!(event_type, SessionEventType::ToolExecutionComplete) {
-        if let TypedEventData::ToolExecutionComplete(d) = data {
-            return d.tool_call_id.clone();
+    match (event_type, data) {
+        (SessionEventType::ToolExecutionStart, TypedEventData::ToolExecutionStart(d)) => {
+            d.tool_call_id.clone()
         }
+        (SessionEventType::ToolExecutionComplete, TypedEventData::ToolExecutionComplete(d)) => {
+            d.tool_call_id.clone()
+        }
+        _ => None,
     }
-    None
 }
 
 impl IndexDb {
@@ -109,7 +113,7 @@ impl IndexDb {
                 [&session_id],
             )?;
             self.conn.execute(
-                "DELETE FROM tool_result_offsets WHERE session_id = ?1",
+                "DELETE FROM tool_call_offsets WHERE session_id = ?1",
                 [&session_id],
             )?;
             // Reset cache marker immediately so stale flag doesn't persist
@@ -385,9 +389,10 @@ impl IndexDb {
         }
     }
 
-    /// Store tool result byte offsets for O(1) lookups from conversation view.
+    /// Store tool call byte offsets for O(1) argument and result lookups.
     ///
-    /// Only caches `tool.execution_complete` events that have a `tool_call_id`.
+    /// Caches both `tool.execution_start` (for arguments) and
+    /// `tool.execution_complete` (for results) offsets, keyed by tool_call_id.
     /// Replaces all existing offsets for the session and sets `tool_offsets_cached = 1`.
     pub fn cache_tool_offsets(
         &self,
@@ -396,26 +401,77 @@ impl IndexDb {
     ) -> Result<()> {
         // Clear existing offsets
         self.conn.execute(
-            "DELETE FROM tool_result_offsets WHERE session_id = ?1",
+            "DELETE FROM tool_call_offsets WHERE session_id = ?1",
             [session_id],
         )?;
 
+        // First pass: collect start offsets
+        let mut start_offsets: std::collections::HashMap<String, (i64, i64)> =
+            std::collections::HashMap::new();
+        for ewo in events {
+            if matches!(
+                ewo.event.event_type,
+                SessionEventType::ToolExecutionStart
+            ) {
+                if let Some(ref tool_call_id) =
+                    extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data)
+                {
+                    start_offsets
+                        .insert(tool_call_id.clone(), (ewo.byte_offset as i64, ewo.line_length as i64));
+                }
+            }
+        }
+
+        // Second pass: insert rows for complete events, merging start offsets
         let mut stmt = self.conn.prepare(
-            "INSERT OR REPLACE INTO tool_result_offsets (session_id, tool_call_id, byte_offset, line_length)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT OR REPLACE INTO tool_call_offsets
+             (session_id, tool_call_id, start_offset, start_length, complete_offset, complete_length)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )?;
 
         for ewo in events {
-            if let Some(ref tool_call_id) =
-                extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data)
-            {
-                stmt.execute(params![
-                    session_id,
-                    tool_call_id,
-                    ewo.byte_offset as i64,
-                    ewo.line_length as i64,
-                ])?;
+            if matches!(
+                ewo.event.event_type,
+                SessionEventType::ToolExecutionComplete
+            ) {
+                if let Some(ref tool_call_id) =
+                    extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data)
+                {
+                    let (start_off, start_len) = start_offsets
+                        .get(tool_call_id)
+                        .copied()
+                        .unwrap_or((-1, -1)); // -1 = no start event found
+                    let (start_off_param, start_len_param): (Option<i64>, Option<i64>) =
+                        if start_off >= 0 {
+                            (Some(start_off), Some(start_len))
+                        } else {
+                            (None, None)
+                        };
+
+                    stmt.execute(params![
+                        session_id,
+                        tool_call_id,
+                        start_off_param,
+                        start_len_param,
+                        ewo.byte_offset as i64,
+                        ewo.line_length as i64,
+                    ])?;
+                    // Mark this start offset as consumed
+                    start_offsets.remove(tool_call_id);
+                }
             }
+        }
+
+        // Third pass: insert orphaned start offsets (in-progress / crashed tool calls)
+        for (tool_call_id, (start_off, start_len)) in &start_offsets {
+            stmt.execute(params![
+                session_id,
+                tool_call_id,
+                Some(*start_off),
+                Some(*start_len),
+                Option::<i64>::None,
+                Option::<i64>::None,
+            ])?;
         }
 
         // Set cache flag

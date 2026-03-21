@@ -12,6 +12,7 @@ import type { IndexingProgressPayload } from '@tracepilot/types';
 import { ActionButton, FormInput, FormSwitch, SectionPanel } from '@tracepilot/ui';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { usePreferencesStore } from '@/stores/preferences';
 import { safeListen } from '@/utils/tauriEvents';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
@@ -139,6 +140,10 @@ async function doFactoryReset() {
   resetting.value = true;
   try {
     await factoryResetApi();
+    // Cancel pending preference saves AFTER successful reset to prevent
+    // re-creation of config.toml. If reset fails, preferences stay functional.
+    const prefsStore = usePreferencesStore();
+    prefsStore.cancelPendingSave();
     // Clear all TracePilot localStorage keys
     localStorage.removeItem('tracepilot-prefs');
     localStorage.removeItem('tracepilot-theme');

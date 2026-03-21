@@ -17,6 +17,7 @@ import {
   getSessionCheckpoints,
   getShutdownMetrics,
   getSessionIncidents,
+  checkSessionFreshness,
 } from "@tracepilot/client";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
@@ -211,13 +212,22 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     if (sections.has("turns")) {
       promises.push(
-        getSessionTurns(id).then((response) => {
+        (async () => {
+          // Lightweight freshness check — avoids full turn serialization + IPC
+          // when events.jsonl hasn't changed since last fetch.
+          try {
+            const freshness = await checkSessionFreshness(id);
+            if (requestToken !== token) return;
+            if (freshness.eventsFileSize === lastEventsFileSize) return;
+          } catch {
+            // Freshness check failed — fall through to full fetch
+          }
+
+          const response = await getSessionTurns(id);
           if (requestToken !== token) return;
-          // Skip re-render if file size unchanged (nothing new in events.jsonl)
-          if (response.eventsFileSize === lastEventsFileSize) return;
           turns.value = response.turns;
           lastEventsFileSize = response.eventsFileSize;
-        }).catch((e) => {
+        })().catch((e) => {
           if (requestToken !== token) return;
           console.error("Failed to refresh turns:", e);
         })

@@ -28,6 +28,8 @@ fn main() {
                     "is_session_running",
                     "factory_reset",
                     "get_tool_result",
+                    "get_tool_arguments",
+                    "check_session_freshness",
                     "resume_session_in_terminal",
                     "check_for_updates",
                     "get_install_type",

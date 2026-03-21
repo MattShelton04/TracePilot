@@ -131,8 +131,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 6);
-        assert_eq!(count1, 6);
+        assert_eq!(v1, 7);
+        assert_eq!(count1, 7);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -140,7 +140,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 6);
+        assert_eq!(count2, 7);
     }
 
     #[test]
@@ -797,11 +797,11 @@ updated_at: "2026-03-10T07:15:00Z"
         eprintln!("  Elapsed: {:.2}s", elapsed.as_secs_f64());
         eprintln!("  DB size: {:.1} MB", db_size as f64 / 1024.0 / 1024.0);
 
-        // Verify tool_result_offsets populated
+        // Verify tool_call_offsets populated
         let db = IndexDb::open_or_create(&db_path).unwrap();
         let offset_rows: i64 = db
             .conn
-            .query_row("SELECT COUNT(*) FROM tool_result_offsets", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM tool_call_offsets", [], |r| r.get(0))
             .unwrap();
         let session_rows: i64 = db
             .conn

@@ -189,8 +189,37 @@ impl IndexDb {
         let result = self
             .conn
             .query_row(
-                "SELECT byte_offset, line_length FROM tool_result_offsets
-                 WHERE session_id = ?1 AND tool_call_id = ?2",
+                "SELECT complete_offset, complete_length FROM tool_call_offsets
+                 WHERE session_id = ?1 AND tool_call_id = ?2
+                 AND complete_offset IS NOT NULL",
+                rusqlite::params![session_id, tool_call_id],
+                |row| {
+                    Ok((row.get::<_, i64>(0)? as u64, row.get::<_, i64>(1)? as u64))
+                },
+            );
+
+        match result {
+            Ok(offset) => Ok(Some(offset)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Find the byte offset of a tool.execution_start event by tool_call_id.
+    ///
+    /// Returns `(byte_offset, line_length)` for seeking to the start event
+    /// to load full tool arguments on demand. Returns `None` if no start offset cached.
+    pub fn get_tool_start_offset(
+        &self,
+        session_id: &str,
+        tool_call_id: &str,
+    ) -> Result<Option<(u64, u64)>> {
+        let result = self
+            .conn
+            .query_row(
+                "SELECT start_offset, start_length FROM tool_call_offsets
+                 WHERE session_id = ?1 AND tool_call_id = ?2
+                 AND start_offset IS NOT NULL",
                 rusqlite::params![session_id, tool_call_id],
                 |row| {
                     Ok((row.get::<_, i64>(0)? as u64, row.get::<_, i64>(1)? as u64))

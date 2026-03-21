@@ -242,6 +242,11 @@ impl TurnReconstructor {
                     model: model_from_args,
                     intention_summary: intention,
                     result_content: None,
+                    args_summary: compute_args_summary(
+                        data.tool_name.as_deref().unwrap_or("unknown"),
+                        data.arguments.as_ref(),
+                    ),
+                    has_truncated_args: false,
                 });
 
                 // Index the new tool call
@@ -352,6 +357,8 @@ impl TurnReconstructor {
                         model: None,
                         intention_summary: None,
                         result_content: None,
+                        args_summary: None,
+                        has_truncated_args: false,
                     });
                     if let Some(id) = &data.tool_call_id {
                         self.tool_call_index
@@ -946,6 +953,106 @@ fn extract_result_preview(result: &serde_json::Value) -> Option<String> {
             text.map(|s| truncate_str(s, RESULT_PREVIEW_MAX_BYTES))
         }
         _ => None,
+    }
+}
+
+/// Compute a short one-line summary of tool call arguments for display.
+///
+/// Mirrors the frontend `formatArgsSummary()` logic in `packages/ui/src/utils/toolCall.ts`.
+pub fn compute_args_summary(tool_name: &str, arguments: Option<&serde_json::Value>) -> Option<String> {
+    let args = match arguments {
+        Some(serde_json::Value::Object(obj)) => obj,
+        _ => return None,
+    };
+
+    let get_str = |key: &str| -> Option<&str> { args.get(key)?.as_str() };
+
+    let summary = match tool_name {
+        "view" | "edit" | "create" => get_str("path").map(|s| s.to_string()),
+        "grep" => get_str("pattern").map(|p| {
+            if let Some(path) = get_str("path") {
+                format!("/{p}/ in {path}")
+            } else {
+                format!("/{p}/")
+            }
+        }),
+        "glob" => get_str("pattern").map(|s| s.to_string()),
+        "powershell" => get_str("command").map(|cmd| truncate_str(cmd, 150)),
+        "task" => get_str("description").map(|s| s.to_string()),
+        "report_intent" => get_str("intent").map(|s| s.to_string()),
+        "sql" => get_str("description").map(|s| s.to_string()),
+        "web_search" => get_str("query").map(|s| s.to_string()),
+        "web_fetch" => get_str("url").map(|s| s.to_string()),
+        name if name.starts_with("github-mcp-server") => get_str("method").map(|s| s.to_string()),
+        _ => None,
+    };
+    summary.filter(|s| !s.is_empty())
+}
+
+/// Maximum byte length for individual string argument values when sent over IPC.
+/// Values exceeding this are truncated to avoid bloating the turn payload.
+const ARG_STRING_TRUNCATE_BYTES: usize = 500;
+
+/// Prepare turns for IPC transfer by truncating large argument values and stripping
+/// unnecessary fields. This reduces payload size by ~40% for large sessions.
+///
+/// Modifies turns in-place:
+/// - Truncates string argument values exceeding `ARG_STRING_TRUNCATE_BYTES`
+/// - Sets `has_truncated_args = true` when any value was truncated
+/// - Clears `transformed_user_message` (frontend never displays it)
+pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
+    for turn in turns.iter_mut() {
+        // Strip transformed_user_message — it's a 2-10× copy of userMessage
+        turn.transformed_user_message = None;
+
+        for tc in turn.tool_calls.iter_mut() {
+            // Ensure args_summary is computed even if missed during reconstruction
+            if tc.args_summary.is_none() {
+                tc.args_summary = compute_args_summary(&tc.tool_name, tc.arguments.as_ref());
+            }
+
+            // Truncate large string values in arguments
+            if let Some(ref mut args) = tc.arguments {
+                let truncated = truncate_json_strings(args, ARG_STRING_TRUNCATE_BYTES);
+                if truncated {
+                    tc.has_truncated_args = true;
+                }
+            }
+        }
+    }
+}
+
+/// Recursively truncate string values in a JSON value that exceed `max_bytes`.
+/// Returns `true` if any value was truncated.
+fn truncate_json_strings(value: &mut serde_json::Value, max_bytes: usize) -> bool {
+    match value {
+        serde_json::Value::String(s) => {
+            if s.len() > max_bytes {
+                *s = truncate_str(s, max_bytes);
+                true
+            } else {
+                false
+            }
+        }
+        serde_json::Value::Object(obj) => {
+            let mut any_truncated = false;
+            for v in obj.values_mut() {
+                if truncate_json_strings(v, max_bytes) {
+                    any_truncated = true;
+                }
+            }
+            any_truncated
+        }
+        serde_json::Value::Array(arr) => {
+            let mut any_truncated = false;
+            for v in arr.iter_mut() {
+                if truncate_json_strings(v, max_bytes) {
+                    any_truncated = true;
+                }
+            }
+            any_truncated
+        }
+        _ => false,
     }
 }
 

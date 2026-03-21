@@ -6,6 +6,7 @@ import type {
   EventsResponse,
   ExportConfig,
   ExportResult,
+  FreshnessResponse,
   GitInfo,
   HealthScoringData,
   SessionDetail,
@@ -128,6 +129,15 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
       }
       return null;
     })(),
+    get_tool_arguments: (() => {
+      const toolCallId = typeof args?.toolCallId === 'string' ? args.toolCallId : '';
+      for (const turn of MOCK_TURNS) {
+        const tc = turn.toolCalls?.find((t) => t.toolCallId === toolCallId);
+        if (tc?.arguments != null) return tc.arguments;
+      }
+      return null;
+    })(),
+    check_session_freshness: { eventsFileSize: 0, turnCount: MOCK_TURNS.length },
     resume_session_in_terminal: undefined,
     check_for_updates: {
       currentVersion: '0.1.0',
@@ -333,6 +343,21 @@ export async function getToolResult(
   toolCallId: string,
 ): Promise<unknown | null> {
   return invoke<unknown | null>('get_tool_result', { sessionId, toolCallId });
+}
+
+/** Lazy-load the full (un-truncated) arguments of a specific tool call. */
+export async function getToolArguments(
+  sessionId: string,
+  toolCallId: string,
+): Promise<unknown | null> {
+  return invoke<unknown | null>('get_tool_arguments', { sessionId, toolCallId });
+}
+
+/** Lightweight freshness check — compare against last-known values to skip redundant fetches. */
+export async function checkSessionFreshness(
+  sessionId: string,
+): Promise<FreshnessResponse> {
+  return invoke<FreshnessResponse>('check_session_freshness', { sessionId });
 }
 
 /** Open a new terminal window running the configured CLI resume command. */

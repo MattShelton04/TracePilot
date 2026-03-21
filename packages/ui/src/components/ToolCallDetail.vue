@@ -14,6 +14,12 @@ const props = defineProps<{
   loadingFullResult?: boolean;
   /** Whether the full result load has failed. */
   failedFullResult?: boolean;
+  /** Full (un-truncated) arguments loaded from backend, if available. */
+  fullArgs?: unknown;
+  /** Whether full arguments are currently being loaded. */
+  loadingFullArgs?: boolean;
+  /** Whether the full arguments load has failed. */
+  failedFullArgs?: boolean;
   /** Whether rich rendering is enabled for this tool (default: true). */
   richEnabled?: boolean;
 }>();
@@ -21,6 +27,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'load-full-result': [toolCallId: string];
   'retry-full-result': [toolCallId: string];
+  'load-full-args': [toolCallId: string];
+  'retry-full-args': [toolCallId: string];
 }>();
 
 const displayResult = computed(() => {
@@ -67,7 +75,15 @@ const isRichEnabled = computed(() => props.richEnabled !== false);
     </div>
 
     <!-- Arguments -->
-    <ToolArgsRenderer :tc="tc" :rich-enabled="isRichEnabled" />
+    <ToolArgsRenderer
+      :tc="tc"
+      :rich-enabled="isRichEnabled"
+      :full-args="fullArgs"
+      :loading-full-args="loadingFullArgs"
+      :failed-full-args="failedFullArgs"
+      @load-full-args="emit('load-full-args', $event)"
+      @retry-full-args="emit('retry-full-args', $event)"
+    />
 
     <!-- Result -->
     <div v-if="displayResult" class="tool-result-section">
@@ -77,6 +93,7 @@ const isRichEnabled = computed(() => props.richEnabled !== false);
         :rich-enabled="isRichEnabled"
         :is-truncated="isTruncated"
         :loading="loadingFullResult"
+        :full-args="fullArgs"
         @load-full="emit('load-full-result', $event)"
       />
       <div v-if="isTruncated" class="tool-result-actions">

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **IPC payload optimization**: `get_session_turns` now truncates large argument strings (>500 bytes) for transfer, reducing payload by ~40% for large sessions
+- **Lazy-load tool arguments**: New `get_tool_arguments` command fetches full (un-truncated) arguments on demand via LRU cache → byte-offset seek → full parse fallback
+- **Args summary**: `compute_args_summary()` in Rust mirrors frontend `formatArgsSummary()` — eliminates redundant JS computation
+- **Freshness check**: `check_session_freshness` returns file size + turn count (~50 bytes) to skip redundant full turn fetches on auto-refresh
+- **Tool call offsets**: Unified `tool_call_offsets` table stores both start (arguments) and complete (results) byte offsets, including in-progress tool calls
 - **Tool-result-only offset cache**: Stores byte offsets for `tool.execution_complete` events only (~97K rows vs 285K), enabling O(1) tool result lookups via direct file seek
 - **On-demand event data**: `get_event_data` command fetches a single event's payload via byte-offset seek instead of full-file parsing
 - **In-memory LRU turn cache**: 10-session LRU cache for reconstructed conversation turns eliminates SQLite turn blob storage
@@ -20,12 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
 
 ### Changed
+- Arguments in turn data are truncated for IPC; full content lazy-loaded via `getToolArguments()` on expand
+- `transformed_user_message` stripped from IPC responses (frontend never displays it)
 - Events tab returns `{}` for data payloads (metadata only); full data loaded on demand via `get_event_data`
 - Turns no longer stored in SQLite — served from in-memory LRU cache backed by disk parsing
 - Index DB reduced from **14 MB → ~30 MB** (tool offsets + metadata vs full event blobs at 1+ GB)
 - Eliminated double-parse of `events.jsonl` during reindex via `load_session_summary_with_preparsed()`
 - Bumped `CURRENT_ANALYTICS_VERSION` to 5 (triggers full reindex on first launch)
 - Removed "Settings are stored locally" stub banner from Settings page
+
+### Fixed
+- **Setup wizard bypass after factory reset**: Fixed race condition where preferences store debounced save re-created `config.toml` after factory reset deleted it. `cancelPendingSave()` now called after successful reset only.
+- **Failed args retry**: Tool argument lazy-load failures now show retry button instead of silently failing
 
 ## [0.3.0] - 2026-03-21
 
