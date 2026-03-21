@@ -62,14 +62,14 @@ async function doExportLogs() {
   <div class="settings-section">
     <div class="settings-section-title">Logs &amp; Diagnostics</div>
     <SectionPanel>
-      <div class="setting-row">
-        <div class="setting-info">
+      <div class="setting-row setting-row-stacked">
+        <div class="setting-info setting-label-spaced">
           <div class="setting-label">Log directory</div>
           <div class="setting-description">
             Application logs are written to this directory
           </div>
         </div>
-        <code class="setting-value-display log-path">{{ logPath }}</code>
+        <code class="log-path">{{ logPath }}</code>
       </div>
 
       <div class="setting-row">
@@ -84,19 +84,19 @@ async function doExportLogs() {
         </ActionButton>
       </div>
 
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Export logs</div>
-          <div class="setting-description">
-            Combine all log files into a single file for sharing when reporting issues
+      <div class="setting-row setting-row-stacked">
+        <div class="setting-row-inline">
+          <div class="setting-info">
+            <div class="setting-label">Export logs</div>
+            <div class="setting-description">
+              Combine all log files into a single file for sharing when reporting issues
+            </div>
           </div>
-        </div>
-        <div class="setting-actions">
           <ActionButton size="sm" :disabled="exporting" @click="doExportLogs">
             {{ exporting ? 'Exporting…' : 'Export Logs…' }}
           </ActionButton>
-          <span v-if="exportResult" class="setting-result">{{ exportResult }}</span>
         </div>
+        <div v-if="exportResult" class="export-result">{{ exportResult }}</div>
       </div>
 
       <div class="setting-row">
@@ -125,8 +125,22 @@ async function doExportLogs() {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   word-break: break-all;
-  max-width: 300px;
-  text-align: right;
+  line-height: 1.5;
+}
+
+.setting-row-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.export-result {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  word-break: break-all;
+  line-height: 1.4;
 }
 
 .restart-hint {
@@ -135,17 +149,24 @@ async function doExportLogs() {
 }
 
 .log-level-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg-secondary);
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-default);
   color: var(--text-primary);
   font-size: 0.8125rem;
   cursor: pointer;
+  outline: none;
+  transition: all var(--transition-fast);
 }
 
 .log-level-select:focus {
-  outline: 2px solid var(--accent-fg);
-  outline-offset: -1px;
+  border-color: var(--accent-emphasis);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.log-level-select option {
+  background: var(--canvas-overlay);
+  color: var(--text-primary);
 }
 </style>

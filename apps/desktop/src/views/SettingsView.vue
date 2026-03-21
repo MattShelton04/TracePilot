@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import StubBanner from '@/components/StubBanner.vue';
 import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
 import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
 import SettingsLogging from '@/components/settings/SettingsLogging.vue';
@@ -26,7 +25,6 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 <template>
   <div class="page-content">
     <div class="page-content-inner settings-root">
-      <StubBanner message="Settings are stored locally. Backend sync is not yet available." />
       <h1 class="page-title page-title-spaced">Settings</h1>
 
       <SettingsGeneral />
