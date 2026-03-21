@@ -68,6 +68,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     healthScoring: false,
     sessionReplay: false,
   });
+  const logLevel = ref('info');
 
   // Ephemeral state — stays in localStorage only
   const lastViewedSession = ref<string | null>(
@@ -175,6 +176,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       healthScoring: config.features.healthScoring,
       sessionReplay: config.features.sessionReplay,
     };
+    logLevel.value = config.logging?.level ?? 'info';
   }
 
   // ── Build config from reactive state ───────────────────────
@@ -187,6 +189,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       pricing: { costPerPremiumRequest: 0.04, models: [] },
       toolRendering: { enabled: true, toolOverrides: {} },
       features: { exportView: false, healthScoring: false, sessionReplay: false },
+      logging: { level: 'info' },
     };
     return {
       ...base,
@@ -209,6 +212,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         toolOverrides: { ...toolRendering.value.toolOverrides },
       },
       features: { ...featureFlags.value } as TracePilotConfig['features'],
+      logging: { level: logLevel.value },
     };
   }
 
@@ -288,6 +292,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       featureFlags,
       favouriteModels,
       recentRepoPaths,
+      logLevel,
     ],
     scheduleSave,
     { deep: true },
@@ -404,6 +409,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     featureFlags,
     favouriteModels,
     recentRepoPaths,
+    logLevel,
     applyTheme: () => applyTheme(theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
     whenReady: hydratePromise,

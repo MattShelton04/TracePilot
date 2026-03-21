@@ -585,6 +585,9 @@ export interface TracePilotConfig {
     healthScoring: boolean;
     sessionReplay: boolean;
   };
+  logging: {
+    level: string;
+  };
 }
 
 /** Result from validating a session directory */

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import StubBanner from '@/components/StubBanner.vue';
 import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
 import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
+import SettingsLogging from '@/components/settings/SettingsLogging.vue';
 import SettingsPricing from '@/components/settings/SettingsPricing.vue';
 import SettingsToolVisualization from '@/components/settings/SettingsToolVisualization.vue';
 import SettingsHealthScoring from '@/components/settings/SettingsHealthScoring.vue';
@@ -30,6 +31,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 
       <SettingsGeneral />
       <SettingsDataStorage ref="dataStorageRef" />
+      <SettingsLogging />
       <SettingsPricing />
       <SettingsToolVisualization />
       <SettingsHealthScoring />

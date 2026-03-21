@@ -4,11 +4,49 @@
 
 fn main() {
     let shared_config = tracepilot_tauri_bindings::config::create_shared_config();
+
+    // Read configured log level, defaulting to Info.
+    let log_level = shared_config
+        .read()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|c| c.logging.level.clone()))
+        .map(|s| match s.as_str() {
+            "trace" => log::LevelFilter::Trace,
+            "debug" => log::LevelFilter::Debug,
+            "warn" => log::LevelFilter::Warn,
+            "error" => log::LevelFilter::Error,
+            _ => log::LevelFilter::Info,
+        })
+        .unwrap_or(log::LevelFilter::Info);
+
     tauri::Builder::default()
         .manage(shared_config)
+        // Log plugin registered FIRST so all subsequent plugin init is captured.
+        // Uses the `log` crate (via fern). Our `tracing::*!` macros are captured
+        // because tracing bridges to `log` when no subscriber is set.
+        // Do NOT register a tracing-subscriber — it would break this bridge.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("TracePilot".into()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                ])
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .max_file_size(10_000_000) // 10MB per file before rotation
+                .level(log_level)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tracepilot_tauri_bindings::init())
+        .setup(|_app| {
+            log::info!("TracePilot v{} starting", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running TracePilot");
 }
