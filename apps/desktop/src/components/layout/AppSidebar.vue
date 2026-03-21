@@ -68,7 +68,7 @@ const visibleAdvancedNav = computed(() =>
 );
 
 const orchestrationNav: NavItem[] = [
-  { id: 'orchestration', label: 'Command Center', to: '/orchestration', icon: 'orchestration' },
+  { id: 'orchestration', label: 'Command Centre', to: '/orchestration', icon: 'orchestration' },
   { id: 'worktrees', label: 'Worktrees', to: '/orchestration/worktrees', icon: 'worktrees' },
   { id: 'launcher', label: 'Launcher', to: '/orchestration/launcher', icon: 'launcher' },
   { id: 'config-injector', label: 'Config Injector', to: '/orchestration/config', icon: 'config' },

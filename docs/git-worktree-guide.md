@@ -118,9 +118,9 @@ In the Worktree Manager, click **Launch Session Here** in any worktree's detail 
 
 ---
 
-## Command Center Integration
+## Command Centre Integration
 
-The **Orchestration Home** (Command Center) shows aggregate worktree statistics:
+The **Orchestration Home** (Command Centre) shows aggregate worktree statistics:
 
 - Total worktrees across all registered repositories
 - Count of stale worktrees

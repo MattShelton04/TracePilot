@@ -28,8 +28,10 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
   const totalDiskUsage = ref(0);
   const registeredRepos = ref<RegisteredRepo[]>([]);
   const loading = ref(false);
+  const refreshing = ref(false);
   const error = ref<string | null>(null);
   const activityFeed = ref<ActivityEvent[]>([]);
+  const lastInitialized = ref(0);
 
   const isHealthy = computed(() => {
     if (!systemDeps.value) return false;
@@ -38,9 +40,37 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
   const copilotVersionStr = computed(() => activeVersion.value?.version ?? systemDeps.value?.copilotVersion ?? 'unknown');
 
+  // Show cached data immediately if initialized within the last 5 minutes
+  const hasCachedData = computed(() => lastInitialized.value > 0);
+  const CACHE_TTL_MS = 5 * 60 * 1000;
+
   async function initialize() {
+    const now = Date.now();
+    const isFresh = lastInitialized.value > 0 && (now - lastInitialized.value) < CACHE_TTL_MS;
+
+    if (isFresh) {
+      // Data is fresh — refresh silently in the background
+      refreshing.value = true;
+      await doFetch();
+      refreshing.value = false;
+      return;
+    }
+
+    if (hasCachedData.value) {
+      // Stale cache — show it immediately but refresh in background
+      refreshing.value = true;
+      doFetch().finally(() => { refreshing.value = false; });
+      return;
+    }
+
+    // First load — show loading spinner
     loading.value = true;
     error.value = null;
+    await doFetch();
+    loading.value = false;
+  }
+
+  async function doFetch() {
     try {
       // Fast path: system deps and version info load first (< 100ms)
       const [depsResult, activeResult] = await Promise.allSettled([
@@ -53,8 +83,8 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       systemDeps.value = deps;
       activeVersion.value = active;
 
-      // Mark as loaded so the UI renders immediately with core info
-      loading.value = false;
+      // If this was the initial load, mark as loaded so the UI renders
+      if (loading.value) loading.value = false;
 
       // Background path: sessions + versions (can be slower)
       const [sessionsResult, versionsResult] = await Promise.allSettled([
@@ -71,6 +101,8 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
         .map((r) => String(r.reason));
       if (bgFailures.length) {
         error.value = bgFailures.join('; ');
+      } else {
+        error.value = null;
       }
 
       totalSessions.value = sessions.length;
@@ -89,6 +121,8 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
       // Load worktree stats from all registered repos
       await loadWorktreeStatsFromRegistry();
+
+      lastInitialized.value = Date.now();
     } catch (e) {
       error.value = String(e);
       loading.value = false;
@@ -148,6 +182,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     totalDiskUsage,
     registeredRepos,
     loading,
+    refreshing,
     error,
     activityFeed,
     isHealthy,
