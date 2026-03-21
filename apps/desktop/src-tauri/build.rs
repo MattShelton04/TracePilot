@@ -60,6 +60,7 @@ fn main() {
                     "create_config_backup",
                     "list_config_backups",
                     "restore_config_backup",
+                    "delete_config_backup",
                     "diff_config_files",
                     "discover_copilot_versions",
                     "get_active_copilot_version",

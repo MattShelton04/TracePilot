@@ -163,6 +163,10 @@ export async function restoreConfigBackup(backupPath: string, restoreTo: string)
   return invoke<void>('restore_config_backup', { backupPath, restoreTo });
 }
 
+export async function deleteConfigBackup(backupPath: string): Promise<void> {
+  return invoke<void>('delete_config_backup', { backupPath });
+}
+
 export async function diffConfigFiles(oldPath: string, newPath: string): Promise<ConfigDiff> {
   return invoke<ConfigDiff>('diff_config_files', { oldPath, newPath });
 }
@@ -638,6 +642,7 @@ function getMockData<T>(cmd: string): T {
       sizeBytes: 256,
     } satisfies BackupEntry,
     restore_config_backup: undefined,
+    delete_config_backup: undefined,
     diff_config_files: { fileName: 'test.yaml', diffText: '', hasChanges: false } satisfies ConfigDiff,
     migrate_agent_definition: undefined,
     save_session_template: undefined,

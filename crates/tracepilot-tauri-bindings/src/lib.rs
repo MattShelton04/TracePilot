@@ -1239,6 +1239,19 @@ mod commands {
         tracepilot_orchestrator::launcher::copilot_home().map_err(|e| e.to_string())
     }
 
+    fn validate_path_within(path: &str, dir: &std::path::Path) -> Result<(), String> {
+        let p = std::path::Path::new(path);
+        if !p.exists() {
+            return Err(format!("Path does not exist: {}", path));
+        }
+        let canonical = p.canonicalize().map_err(|e| e.to_string())?;
+        let canonical_dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+        if !canonical.starts_with(&canonical_dir) {
+            return Err("Path is outside the allowed directory".to_string());
+        }
+        Ok(())
+    }
+
     // -- System dependencies --
 
     #[tauri::command]
@@ -1611,9 +1624,37 @@ mod commands {
         restore_to: String,
     ) -> Result<(), String> {
         tokio::task::spawn_blocking(move || {
+            // Validate backup_path is within backup directory
+            let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()
+                .map_err(|e| e.to_string())?;
+            validate_path_within(&backup_path, &backup_dir)?;
+            // Validate restore_to is within copilot home
+            let copilot_home = copilot_home().map_err(|e| e.to_string())?;
+            let restore_path = std::path::Path::new(&restore_to);
+            if let Some(parent) = restore_path.parent() {
+                if parent.exists() {
+                    let canonical = parent.canonicalize().map_err(|e| e.to_string())?;
+                    let canonical_home = copilot_home.canonicalize().unwrap_or(copilot_home);
+                    if !canonical.starts_with(&canonical_home) {
+                        return Err("Restore path is outside the Copilot directory".to_string());
+                    }
+                }
+            }
             tracepilot_orchestrator::config_injector::restore_backup(
                 std::path::Path::new(&backup_path),
-                std::path::Path::new(&restore_to),
+                restore_path,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
+    pub async fn delete_config_backup(backup_path: String) -> Result<(), String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::config_injector::delete_backup(
+                std::path::Path::new(&backup_path),
             )
             .map_err(|e| e.to_string())
         })
@@ -1935,6 +1976,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::create_config_backup,
             commands::list_config_backups,
             commands::restore_config_backup,
+            commands::delete_config_backup,
             commands::diff_config_files,
             commands::discover_copilot_versions,
             commands::get_active_copilot_version,

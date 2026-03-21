@@ -57,7 +57,6 @@ const advancedNav: NavItem[] = [
   { id: 'compare', label: 'Compare', to: '/compare', icon: 'compare' },
   { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay', featureFlag: 'sessionReplay' },
   { id: 'export', label: 'Export', to: '/export', icon: 'export', featureFlag: 'exportView' },
-  { id: 'settings', label: 'Settings', to: '/settings', icon: 'settings' },
 ];
 
 const visiblePrimaryNav = computed(() =>
@@ -72,7 +71,7 @@ const orchestrationNav: NavItem[] = [
   { id: 'orchestration', label: 'Command Center', to: '/orchestration', icon: 'orchestration' },
   { id: 'worktrees', label: 'Worktrees', to: '/orchestration/worktrees', icon: 'worktrees' },
   { id: 'launcher', label: 'Launcher', to: '/orchestration/launcher', icon: 'launcher' },
-  { id: 'config-injector', label: 'Config', to: '/orchestration/config', icon: 'config' },
+  { id: 'config-injector', label: 'Config Injector', to: '/orchestration/config', icon: 'config' },
 ];
 </script>
 
@@ -135,8 +134,6 @@ const orchestrationNav: NavItem[] = [
           <svg v-else-if="item.icon === 'replay'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5,3 13,8 5,13" fill="currentColor" stroke="none"/></svg>
           <!-- export -->
           <svg v-else-if="item.icon === 'export'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4 6l4-4 4 4M2 12h12v2H2z"/></svg>
-          <!-- settings -->
-          <svg v-else-if="item.icon === 'settings'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M13 3l-1.5 1.5M4.5 11.5L3 13"/></svg>
         </span>
         <span>{{ item.label }}</span>
       </router-link>
@@ -163,6 +160,23 @@ const orchestrationNav: NavItem[] = [
           <svg v-else-if="item.icon === 'config'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h12"/><circle cx="5" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="8" r="1.5" fill="currentColor"/><circle cx="7" cy="12" r="1.5" fill="currentColor"/></svg>
         </span>
         <span>{{ item.label }}</span>
+      </router-link>
+
+      <!-- Settings (inside nav, separated visually) -->
+      <div class="sidebar-settings-separator"></div>
+      <router-link
+        to="/settings"
+        data-nav-id="settings"
+        class="sidebar-nav-item"
+        :class="{ active: activeSidebarId === 'settings' }"
+      >
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M6.7 1h2.6l.4 2.1a5.5 5.5 0 0 1 1.3.8l2-.8 1.3 2.2-1.6 1.4a5.6 5.6 0 0 1 0 1.6l1.6 1.4-1.3 2.2-2-.8a5.5 5.5 0 0 1-1.3.8L9.3 15H6.7l-.4-2.1a5.5 5.5 0 0 1-1.3-.8l-2 .8-1.3-2.2 1.6-1.4a5.6 5.6 0 0 1 0-1.6L1.7 6.3 3 4.1l2 .8a5.5 5.5 0 0 1 1.3-.8L6.7 1Z" />
+            <circle cx="8" cy="8" r="2" />
+          </svg>
+        </span>
+        <span>Settings</span>
       </router-link>
     </nav>
 

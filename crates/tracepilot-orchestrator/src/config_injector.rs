@@ -109,16 +109,29 @@ pub fn create_backup(
 
     std::fs::create_dir_all(backup_dir)?;
 
-    let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-    let file_name = file_path
-        .file_name()
+    let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S%.3f");
+    let file_stem = file_path
+        .file_stem()
         .unwrap_or_default()
         .to_string_lossy();
-    let backup_name = format!("{}-{}-{}", file_name, label, timestamp);
+    let backup_name = if label.is_empty() {
+        format!("{}-{}", file_stem, timestamp)
+    } else {
+        format!("{}-{}-{}", file_stem, label, timestamp)
+    };
     let backup_path = backup_dir.join(&backup_name);
 
     std::fs::copy(file_path, &backup_path)?;
     let meta = std::fs::metadata(&backup_path)?;
+
+    // Write sidecar metadata so list_backups can recover source_path
+    let sidecar_path = backup_dir.join(format!("{}.meta.json", backup_name));
+    let sidecar = serde_json::json!({
+        "source_path": file_path.to_string_lossy(),
+        "label": label,
+        "original_filename": file_path.file_name().unwrap_or_default().to_string_lossy(),
+    });
+    std::fs::write(&sidecar_path, serde_json::to_string_pretty(&sidecar).unwrap_or_default())?;
 
     Ok(BackupEntry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -140,12 +153,31 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
     for entry in std::fs::read_dir(backup_dir)? {
         let entry = entry?;
         let path = entry.path();
+        // Skip sidecar metadata files
+        if path.extension().and_then(|e| e.to_str()) == Some("json") {
+            continue;
+        }
         if path.is_file() {
             let meta = std::fs::metadata(&path)?;
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+            // Try to read sidecar metadata
+            let sidecar_path = backup_dir.join(format!("{}.meta.json", file_name));
+            let (source_path, label) = if sidecar_path.exists() {
+                let sidecar_content = std::fs::read_to_string(&sidecar_path).unwrap_or_default();
+                let sidecar: serde_json::Value = serde_json::from_str(&sidecar_content).unwrap_or_default();
+                (
+                    sidecar.get("source_path").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    sidecar.get("label").and_then(|v| v.as_str()).unwrap_or(&file_name).to_string(),
+                )
+            } else {
+                (String::new(), file_name.clone())
+            };
+
             entries.push(BackupEntry {
                 id: uuid::Uuid::new_v4().to_string(),
-                label: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
-                source_path: String::new(), // Unknown from backup alone
+                label,
+                source_path,
                 backup_path: path.to_string_lossy().to_string(),
                 created_at: meta
                     .modified()
@@ -163,6 +195,41 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupEntry>> {
     Ok(entries)
 }
 
+/// Delete a backup file and its sidecar metadata.
+/// The backup_path must reside within the expected backup directory.
+pub fn delete_backup(backup_path: &Path) -> Result<()> {
+    if !backup_path.exists() {
+        return Err(OrchestratorError::NotFound(format!(
+            "Backup file not found: {}",
+            backup_path.display()
+        )));
+    }
+
+    // Validate path is within the backup directory
+    let expected_dir = backup_dir()?;
+    let canonical_backup = backup_path.canonicalize().map_err(|e| {
+        OrchestratorError::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+    })?;
+    let canonical_dir = expected_dir.canonicalize().unwrap_or(expected_dir);
+    if !canonical_backup.starts_with(&canonical_dir) {
+        return Err(OrchestratorError::NotFound(
+            "Path is outside the backup directory".to_string(),
+        ));
+    }
+
+    // Remove the backup file
+    std::fs::remove_file(backup_path)?;
+
+    // Remove sidecar metadata if it exists
+    let file_name = backup_path.file_name().unwrap_or_default().to_string_lossy();
+    if let Some(parent) = backup_path.parent() {
+        let sidecar_path = parent.join(format!("{}.meta.json", file_name));
+        let _ = std::fs::remove_file(sidecar_path);
+    }
+
+    Ok(())
+}
+
 /// Restore a backup file to its original location.
 pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
     if !backup_path.exists() {
@@ -172,8 +239,15 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
         )));
     }
 
+    if restore_to.as_os_str().is_empty() {
+        return Err(OrchestratorError::NotFound(
+            "Restore destination path is empty".to_string(),
+        ));
+    }
+
     // Atomic write
     if let Some(parent) = restore_to.parent() {
+        std::fs::create_dir_all(parent)?;
         let temp_path = parent.join(format!(
             ".restore-tmp-{}",
             restore_to.file_name().unwrap_or_default().to_string_lossy()
