@@ -1,0 +1,76 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    name: Run Criterion Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run benchmarks
+        run: cargo bench -p tracepilot-bench
+
+      - name: Extract benchmark results
+        run: |
+          python3 -c "
+          import json, glob, os
+
+          results = []
+          base = os.path.join('target', 'criterion')
+          for path in sorted(glob.glob(os.path.join(base, '**', 'new', 'estimates.json'), recursive=True)):
+              rel = os.path.relpath(path, base)
+              name = os.path.dirname(os.path.dirname(rel)).replace(os.sep, '/')
+              with open(path) as f:
+                  data = json.load(f)
+              results.append({
+                  'name': name,
+                  'unit': 'ns/iter',
+                  'value': data['mean']['point_estimate']
+              })
+
+          with open('benchmark-output.json', 'w') as f:
+              json.dump(results, f, indent=2)
+
+          print(f'Extracted {len(results)} benchmark results')
+          for r in results:
+              print(f'  {r[\"name\"]}: {r[\"value\"]:.2f} ns/iter')
+          "
+
+      - name: Upload Criterion HTML reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: criterion-reports-${{ github.run_number }}${{ inputs.name && format('-{0}', inputs.name) || '' }}
+          path: target/criterion
+          retention-days: 90
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'customSmallerIsBetter'
+          output-file-path: benchmark-output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          benchmark-data-dir-path: dev/bench
+          alert-threshold: '200%'
+          comment-on-alert: true
+          fail-on-alert: false
+          summary-always: true
+

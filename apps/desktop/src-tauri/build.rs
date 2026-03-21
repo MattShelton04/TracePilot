@@ -29,6 +29,7 @@ fn main() {
                     "get_tool_result",
                     "resume_session_in_terminal",
                     "check_for_updates",
+                    "get_install_type",
                     "get_git_info",
                     // Orchestration commands
                     "check_system_deps",
