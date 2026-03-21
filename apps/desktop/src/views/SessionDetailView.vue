@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch } from "vue";
-import { useRoute } from "vue-router";
+import { computed, ref, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
@@ -9,6 +9,7 @@ import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
 import { resumeSessionInTerminal, isSessionRunning } from "@tracepilot/client";
 
 const route = useRoute();
+const router = useRouter();
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
 
@@ -112,9 +113,10 @@ watch(isSessionActive, (active) => {
   }
 });
 
-onUnmounted(() => {
-  store.reset();
-});
+// Note: we intentionally do NOT call store.reset() on unmount.
+// The store handles re-initialization when switching sessions via loadDetail(newId).
+// Calling reset() on unmount causes race conditions when navigating between
+// views that share the session detail store (e.g., Detail ↔ Replay).
 </script>
 
 <template>
@@ -184,6 +186,15 @@ onUnmounted(() => {
               :title="`Resume session ${sessionId} in a new terminal`"
             >
               ▶ Resume in Terminal
+            </button>
+
+            <button
+              v-if="prefs.isFeatureEnabled('sessionReplay')"
+              class="resume-btn"
+              @click="router.push({ name: 'replay', params: { id: sessionId } })"
+              title="Open session in step-by-step replay view"
+            >
+              🎬 Replay
             </button>
           </div>
 

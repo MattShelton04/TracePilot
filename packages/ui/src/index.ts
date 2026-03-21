@@ -36,6 +36,7 @@ export { default as DefList } from "./components/DefList.vue";
 export { default as ModalDialog } from "./components/ModalDialog.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
+export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 
 // Utilities
 export * from "./utils/formatters";
