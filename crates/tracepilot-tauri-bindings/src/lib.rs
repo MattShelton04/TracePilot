@@ -118,6 +118,7 @@ mod commands {
     };
     use std::path::Path;
     use std::sync::Arc;
+    use tauri::Manager;
     use tauri::Emitter;
     use tokio::sync::Semaphore;
 
@@ -1714,6 +1715,141 @@ mod commands {
         .await
         .map_err(|e| e.to_string())?
     }
+
+    // ── Logging commands ─────────────────────────────────────────
+
+    #[tauri::command]
+    pub async fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
+        let log_dir = app
+            .path()
+            .app_log_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
+        Ok(log_dir.to_string_lossy().to_string())
+    }
+
+    #[tauri::command]
+    pub async fn export_logs(
+        app: tauri::AppHandle,
+        destination: String,
+    ) -> Result<String, String> {
+        let log_dir = app
+            .path()
+            .app_log_dir()
+            .map_err(|e: tauri::Error| e.to_string())?;
+
+        tokio::task::spawn_blocking(move || {
+            use std::io::Read;
+
+            let dest = std::path::PathBuf::from(&destination);
+
+            // Basic destination validation — must be absolute
+            if !dest.is_absolute() {
+                return Err("Destination path must be absolute".into());
+            }
+
+            if !log_dir.exists() {
+                return Err("Log directory does not exist".into());
+            }
+
+            // Collect log files — include both .log extension and rotated files
+            // (tauri-plugin-log names them TracePilot.log, TracePilot.log.1, etc.)
+            let mut log_files: Vec<_> = std::fs::read_dir(&log_dir)
+                .map_err(|e| format!("Failed to read log directory: {e}"))?
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    let path = entry.path();
+                    let name = path.file_name()?.to_string_lossy().to_string();
+                    if name.starts_with("TracePilot") && name.contains(".log") {
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Sort by modification time for correct chronological order
+            log_files.sort_by_key(|f| {
+                f.metadata()
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+            });
+
+            if log_files.is_empty() {
+                return Err("No log files found".into());
+            }
+
+            // Size guard — refuse if total exceeds 50MB
+            let total_size: u64 = log_files
+                .iter()
+                .filter_map(|f| f.metadata().ok())
+                .map(|m| m.len())
+                .sum();
+            if total_size > 50_000_000 {
+                return Err(format!(
+                    "Log files total {:.1}MB — too large to export. Clear old logs first.",
+                    total_size as f64 / 1_000_000.0
+                ));
+            }
+
+            // Concatenate with Windows-safe file reading
+            let mut combined = String::new();
+            let mut exported_count = 0usize;
+            for file in &log_files {
+                let mut opts = std::fs::OpenOptions::new();
+                opts.read(true);
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::OpenOptionsExt;
+                    // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
+                    // Includes DELETE so log rotation can rename files during export
+                    opts.share_mode(7);
+                }
+                match opts.open(file) {
+                    Ok(mut f) => {
+                        let mut content = String::new();
+                        if f.read_to_string(&mut content).is_ok() {
+                            combined.push_str(&format!(
+                                "=== {} ===\n",
+                                file.file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                            ));
+                            combined.push_str(&content);
+                            combined.push('\n');
+                            exported_count += 1;
+                        }
+                    }
+                    Err(_) => continue,
+                }
+            }
+
+            if exported_count == 0 {
+                return Err("Could not read any log files (all locked or unreadable)".into());
+            }
+
+            std::fs::write(&dest, &combined)
+                .map_err(|e| format!("Failed to write export: {e}"))?;
+
+            let msg = if exported_count < log_files.len() {
+                format!(
+                    "Exported {} of {} log file(s) to {} ({} skipped)",
+                    exported_count,
+                    log_files.len(),
+                    dest.display(),
+                    log_files.len() - exported_count
+                )
+            } else {
+                format!(
+                    "Exported {} log file(s) to {}",
+                    exported_count,
+                    dest.display()
+                )
+            };
+            Ok(msg)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
 }
 
 /// Get the plugin to register all commands.
@@ -1787,6 +1923,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::list_session_templates,
             commands::save_session_template,
             commands::delete_session_template,
+            // Logging commands
+            commands::get_log_path,
+            commands::export_logs,
         ])
         .build()
 }

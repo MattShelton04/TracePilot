@@ -248,6 +248,32 @@ The app will detect the version change on next launch and show a "What's New" mo
 
 ## Development
 
+### Logging & Diagnostics
+
+TracePilot uses [`tauri-plugin-log`](https://v2.tauri.app/plugin/logging/) for structured logging across both the Rust backend and Vue frontend.
+
+**Log file locations:**
+| Platform | Path |
+|----------|------|
+| Windows | `%LOCALAPPDATA%\dev.tracepilot.app\logs\TracePilot.log` |
+| macOS | `~/Library/Logs/dev.tracepilot.app/TracePilot.log` |
+| Linux | `~/.local/share/dev.tracepilot.app/logs/TracePilot.log` |
+
+**For developers:**
+- During `cargo tauri dev`, logs are printed to **stdout** and written to the log file simultaneously
+- Existing `tracing::*!` macros across all Rust crates are captured via tracing's built-in `log` bridge
+- Frontend code can send logs to the same file using `import { info, warn, error } from '@/utils/logger'`
+- Log level is configurable in **Settings → Logs & Diagnostics** (takes effect after restart)
+
+**For users reporting issues:**
+1. Open **Settings → Logs & Diagnostics**
+2. Click **Export Logs…** to save all log files as a single text file
+3. Attach the exported file to your GitHub issue
+
+**Technical notes:**
+- `tauri-plugin-log` registers a `log`-crate logger (via fern). Do **not** add a `tracing-subscriber` — it would break the `tracing → log` bridge that captures our `tracing::*!` calls.
+- Log files rotate at 10 MB. The 5 most recent rotated files are kept.
+
 ### Testing
 
 ```bash

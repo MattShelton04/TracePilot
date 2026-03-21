@@ -1,460 +1,332 @@
 <script setup lang="ts">
-// STUB: useReplayComposable — manages replay playback state.
-// STUB: Currently uses mock turn data for replay simulation.
-// STUB: In production, wire to real session turns with accurate timing data.
-
-import { ref, computed, watch, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { MiniTimeline, formatDuration } from '@tracepilot/ui';
-import StubBanner from '@/components/StubBanner.vue';
-import type { ReplayStep } from '@tracepilot/types';
+/**
+ * SessionReplayView — step-by-step replay of a Copilot session.
+ *
+ * Uses real session data from useSessionDetailStore, transforms ConversationTurns
+ * into ReplaySteps, and renders them with rich content (markdown, tool call
+ * renderers, agent grouping, reasoning blocks).
+ */
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Badge, EmptyState, SkeletonLoader, ErrorAlert, SessionCard } from '@tracepilot/ui';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
+import { useSessionsStore } from '@/stores/sessions';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useToolResultLoader } from '@/composables/useToolResultLoader';
+import { useReplayController } from '@/composables/useReplayController';
+import { turnsToReplaySteps } from '@/utils/replayTransform';
+import ReplayTransportBar from '@/components/replay/ReplayTransportBar.vue';
+import ReplayStepContent from '@/components/replay/ReplayStepContent.vue';
+import ReplaySidebar from '@/components/replay/ReplaySidebar.vue';
+import ModelSwitchBanner from '@/components/replay/ModelSwitchBanner.vue';
+import ReplayEventTicker from '@/components/replay/ReplayEventTicker.vue';
 
 const route = useRoute();
-const sessionId = computed(() => (route.params.id as string) || 'mock-session');
+const router = useRouter();
+const store = useSessionDetailStore();
+const sessionsStore = useSessionsStore();
+const preferences = usePreferencesStore();
 
-// ── Mock replay data ─────────────────────────────────────────
-const MOCK_STEPS: ReplayStep[] = [
-  {
-    index: 0,
-    title: 'User request: Implement auth module',
-    type: 'user',
-    timestamp: '2025-01-15T10:30:00Z',
-    durationMs: 0,
-    tokens: 24,
-  },
-  {
-    index: 1,
-    title: 'Planning authentication architecture',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:02Z',
-    durationMs: 4200,
-    tokens: 680,
-    toolCalls: [
-      { name: 'view', success: true, durationMs: 85, command: 'view src/', output: 'Listed 12 files' },
-    ],
-  },
-  {
-    index: 2,
-    title: 'Creating auth service file',
-    type: 'tool',
-    timestamp: '2025-01-15T10:30:06Z',
-    durationMs: 320,
-    tokens: 0,
-    toolCalls: [
-      { name: 'create', success: true, durationMs: 320, command: 'create src/auth/service.ts' },
-    ],
-    filesModified: ['src/auth/service.ts'],
-  },
-  {
-    index: 3,
-    title: 'Implementing JWT token generation',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:08Z',
-    durationMs: 6100,
-    tokens: 1240,
-    toolCalls: [
-      { name: 'edit', success: true, durationMs: 150, command: 'edit src/auth/service.ts' },
-      { name: 'edit', success: true, durationMs: 110, command: 'edit src/auth/types.ts' },
-    ],
-    filesModified: ['src/auth/service.ts', 'src/auth/types.ts'],
-  },
-  {
-    index: 4,
-    title: 'User request: Add password hashing',
-    type: 'user',
-    timestamp: '2025-01-15T10:30:15Z',
-    durationMs: 0,
-    tokens: 18,
-  },
-  {
-    index: 5,
-    title: 'Adding bcrypt password hashing',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:17Z',
-    durationMs: 3800,
-    tokens: 920,
-    toolCalls: [
-      { name: 'edit', success: true, durationMs: 200, command: 'edit src/auth/service.ts' },
-    ],
-    filesModified: ['src/auth/service.ts'],
-    todosChanged: [
-      { id: 'hash-passwords', title: 'Add password hashing', status: 'done' },
-    ],
-  },
-  {
-    index: 6,
-    title: 'Installing bcrypt dependency',
-    type: 'tool',
-    timestamp: '2025-01-15T10:30:21Z',
-    durationMs: 8400,
-    tokens: 0,
-    toolCalls: [
-      { name: 'powershell', success: true, durationMs: 8400, command: 'npm install bcrypt', output: 'added 1 package' },
-    ],
-    filesModified: ['package.json', 'package-lock.json'],
-  },
-  {
-    index: 7,
-    title: 'Running unit tests',
-    type: 'tool',
-    timestamp: '2025-01-15T10:30:30Z',
-    durationMs: 5200,
-    tokens: 0,
-    toolCalls: [
-      { name: 'powershell', success: true, durationMs: 5200, command: 'npm test', output: '12 tests passed' },
-    ],
-  },
-  {
-    index: 8,
-    title: 'Reviewing test results and summarizing',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:36Z',
-    durationMs: 2800,
-    tokens: 560,
-    todosChanged: [
-      { id: 'write-tests', title: 'Write unit tests', status: 'done' },
-    ],
-  },
-  {
-    index: 9,
-    title: 'User request: Add refresh token endpoint',
-    type: 'user',
-    timestamp: '2025-01-15T10:30:40Z',
-    durationMs: 0,
-    tokens: 22,
-  },
-  {
-    index: 10,
-    title: 'Implementing refresh token logic',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:42Z',
-    durationMs: 5600,
-    tokens: 1100,
-    toolCalls: [
-      { name: 'edit', success: true, durationMs: 180, command: 'edit src/auth/routes.ts' },
-      { name: 'create', success: true, durationMs: 90, command: 'create src/auth/refresh.ts' },
-    ],
-    filesModified: ['src/auth/routes.ts', 'src/auth/refresh.ts'],
-    todosChanged: [
-      { id: 'refresh-token', title: 'Add refresh token endpoint', status: 'done' },
-    ],
-  },
-  {
-    index: 11,
-    title: 'Final verification and summary',
-    type: 'assistant',
-    timestamp: '2025-01-15T10:30:48Z',
-    durationMs: 3200,
-    tokens: 780,
-    toolCalls: [
-      { name: 'powershell', success: false, durationMs: 6100, command: 'npm run build', output: 'Build completed with 1 warning' },
-    ],
-  },
-];
+// Session ID from route
+const sessionId = computed(() => route.params.id as string | undefined);
 
-// ── useReplayComposable (inline) ─────────────────────────────
-const currentStep = ref(0);
-const isPlaying = ref(false);
-const speed = ref(1);
-let playTimer: ReturnType<typeof setInterval> | null = null;
+// Recent sessions for empty-state picker (sorted by update, capped at 12)
+const recentSessions = computed(() => {
+  const all = [...sessionsStore.sessions]
+    .filter((s) => (s.turnCount ?? 0) > 0)
+    .sort((a, b) => {
+      const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return tb - ta;
+    });
+  return all.slice(0, 12);
+});
 
-const steps = computed(() => MOCK_STEPS);
-const totalSteps = computed(() => steps.value.length);
-const currentStepData = computed(() => steps.value[currentStep.value]);
-
-const totalDurationMs = computed(() =>
-  steps.value.reduce((sum, s) => sum + s.durationMs, 0),
-);
-const elapsedMs = computed(() =>
-  steps.value.slice(0, currentStep.value + 1).reduce((sum, s) => sum + s.durationMs, 0),
-);
-
-function fmtTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function openReplay(id: string) {
+  router.push({ name: 'replay', params: { id } });
 }
 
+// Tool result lazy loader
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
+  useToolResultLoader(() => store.sessionId);
 
-function clearTimer() {
-  if (playTimer !== null) {
-    clearInterval(playTimer);
-    playTimer = null;
-  }
-}
+// Transform turns into replay steps
+const replaySteps = computed(() => turnsToReplaySteps(store.turns));
 
-function play() {
-  if (currentStep.value >= totalSteps.value - 1) {
-    currentStep.value = 0;
-  }
-  isPlaying.value = true;
-  clearTimer();
-  playTimer = setInterval(() => {
-    if (currentStep.value < totalSteps.value - 1) {
-      currentStep.value++;
-    } else {
-      pause();
-    }
-  }, 1500 / speed.value);
-}
+// O(1) turn lookup by turnIndex (avoids O(N²) .find() in template loop)
+const turnsByIndex = computed(() => new Map(store.turns.map((t) => [t.turnIndex, t])));
 
-function pause() {
-  isPlaying.value = false;
-  clearTimer();
-}
+// Playback controller
+const controller = useReplayController(replaySteps, {
+  proportionalTiming: false,
+  fixedIntervalMs: 1500,
+  maxStepDelayMs: 3000,
+});
 
-function nextStep() {
-  if (currentStep.value < totalSteps.value - 1) {
-    currentStep.value++;
-  }
-}
+// Current source turn for the active step (sidebar display)
 
-function prevStep() {
-  if (currentStep.value > 0) {
-    currentStep.value--;
-  }
-}
-
-function goToStep(n: number) {
-  currentStep.value = Math.max(0, Math.min(n, totalSteps.value - 1));
-}
-
-function setSpeed(s: number) {
-  speed.value = s;
-  if (isPlaying.value) {
-    clearTimer();
-    playTimer = setInterval(() => {
-      if (currentStep.value < totalSteps.value - 1) {
-        currentStep.value++;
-      } else {
-        pause();
+// Collect all events up to current step for the ticker
+const tickerEvents = computed(() => {
+  const events: Array<{ type: string; label: string; timestamp?: string }> = [];
+  for (let i = 0; i <= controller.currentStep.value && i < replaySteps.value.length; i++) {
+    const step = replaySteps.value[i];
+    if (step.sessionEvents) {
+      for (const se of step.sessionEvents) {
+        events.push({
+          type: se.severity ?? 'info',
+          label: `${se.eventType.replace('session.', '')}: ${se.summary}`,
+          timestamp: se.timestamp,
+        });
       }
-    }, 1500 / speed.value);
+    }
   }
-}
+  return events;
+});
 
-const scrubberPercent = computed(() =>
-  totalSteps.value > 1 ? (currentStep.value / (totalSteps.value - 1)) * 100 : 0,
+// Auto-scroll conversation to current step
+const conversationRef = ref<HTMLElement | null>(null);
+watch(
+  () => controller.currentStep.value,
+  async () => {
+    await nextTick();
+    if (!conversationRef.value) return;
+    const stepEl = conversationRef.value.querySelector(`[data-step="${controller.currentStep.value}"]`);
+    if (stepEl) {
+      stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  },
 );
 
-function onScrubberClick(e: MouseEvent) {
-  const target = e.currentTarget as HTMLElement;
-  const rect = target.getBoundingClientRect();
-  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  goToStep(Math.round(pct * (totalSteps.value - 1)));
+// Keyboard shortcut handler (delegated to controller)
+function handleKeydown(e: KeyboardEvent) {
+  // Don't capture when user is in an input/textarea
+  if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return;
+  controller.handleKeydown(e);
 }
 
-function onScrubberKeydown(e: KeyboardEvent) {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); nextStep(); }
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); prevStep(); }
-  if (e.key === 'Home') { e.preventDefault(); goToStep(0); }
-  if (e.key === 'End') { e.preventDefault(); goToStep(totalSteps.value - 1); }
-}
-
-// Role display helpers
-function roleIcon(type: string): string {
-  switch (type) {
-    case 'user': return '👤';
-    case 'assistant': return '🤖';
-    case 'tool': return '🔧';
-    default: return '•';
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+  // Load sessions list for empty-state picker (if not already loaded)
+  if (sessionsStore.sessions.length === 0) {
+    sessionsStore.fetchSessions();
   }
-}
-
-function roleLabel(type: string): string {
-  switch (type) {
-    case 'user': return 'User';
-    case 'assistant': return 'Assistant';
-    case 'tool': return 'Tool';
-    default: return type;
-  }
-}
-
-// Model stub — in production this comes from the session
-const currentModel = computed(() => {
-  const step = currentStepData.value;
-  if (step.type === 'assistant') return 'claude-sonnet-4';
-  if (step.type === 'tool') return '—';
-  return '—';
 });
-
 onUnmounted(() => {
-  clearTimer();
+  window.removeEventListener('keydown', handleKeydown);
 });
+
+// Data loading with stale-request guard
+const initialLoading = ref(false);
+let loadToken = 0;
+
+async function loadSession(id: string) {
+  const token = ++loadToken;
+  initialLoading.value = true;
+  try {
+    await store.loadDetail(id);
+    if (token !== loadToken) return;
+    await Promise.all([store.loadTurns(), store.loadTodos(), store.loadShutdownMetrics()]);
+  } finally {
+    if (token === loadToken) {
+      initialLoading.value = false;
+    }
+  }
+}
+
+// Watch for route changes
+watch(
+  sessionId,
+  (id) => {
+    if (id) loadSession(id);
+  },
+  { immediate: true },
+);
+
+// Cap visible future skeletons
+const MAX_FUTURE_SKELETONS = 5;
+const visibleSteps = computed(() => {
+  const current = controller.currentStep.value;
+  return replaySteps.value.filter(
+    (s) => s.index <= current + MAX_FUTURE_SKELETONS,
+  );
+});
+
+// Summary stats
+const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (st.richToolCalls?.length ?? 0), 0));
 </script>
 
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
-      <!-- Header -->
-      <header class="replay-header">
-        <h1>Session Replay</h1>
-        <span class="text-secondary">{{ sessionId }}</span>
-      </header>
 
-      <!-- Transport Controls -->
-      <div class="transport-bar">
-        <div class="transport-buttons">
-          <button class="transport-btn" :disabled="currentStep === 0" @click="prevStep" aria-label="Previous step">
-            ⏮
-          </button>
-          <button class="transport-btn transport-play" @click="isPlaying ? pause() : play()" :aria-label="isPlaying ? 'Pause' : 'Play'">
-            {{ isPlaying ? '⏸' : '▶' }}
-          </button>
-          <button class="transport-btn" :disabled="currentStep >= totalSteps - 1" @click="nextStep" aria-label="Next step">
-            ⏭
-          </button>
+      <!-- ═════════════ NO SESSION ID → RECENT SESSIONS PICKER ═════════════ -->
+      <template v-if="!sessionId">
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+            <span class="header-subtitle">Step through any Copilot session operation by operation</span>
+          </div>
+        </header>
+
+        <div class="picker-hint">
+          <span class="hint-icon">💡</span>
+          <span>You can also open replay from any session's detail page using the <strong>Replay</strong> button.</span>
         </div>
 
-        <div class="transport-speed">
-          <button
-            v-for="s in [0.5, 1, 2, 4]"
-            :key="s"
-            class="speed-btn"
-            :class="{ active: speed === s }"
-            @click="setSpeed(s)"
-          >
-            {{ s }}×
-          </button>
+        <!-- Recent sessions grid -->
+        <div v-if="sessionsStore.loading" class="loading-state">
+          <SkeletonLoader :lines="4" />
         </div>
+        <template v-else-if="recentSessions.length > 0">
+          <h2 class="picker-section-title">Recent Sessions</h2>
+          <div class="picker-grid">
+            <SessionCard
+              v-for="s in recentSessions"
+              :key="s.id"
+              :session="s"
+              @select="openReplay"
+            />
+          </div>
+        </template>
+        <EmptyState
+          v-else
+          icon="📭"
+          title="No sessions found"
+          description="No indexed sessions with conversation data. Run a Copilot session first, then come back here."
+        />
+      </template>
 
-        <span class="step-counter">
-          Step {{ currentStep + 1 }} of {{ totalSteps }}
-        </span>
-      </div>
-
-      <!-- Scrubber -->
-      <div class="scrubber" @click="onScrubberClick" role="slider" tabindex="0" @keydown="onScrubberKeydown" :aria-valuenow="currentStep" :aria-valuemin="0" :aria-valuemax="totalSteps - 1" aria-label="Replay scrubber">
-        <div class="scrubber-track">
-          <div class="scrubber-fill" :style="{ width: scrubberPercent + '%' }" />
-          <div class="scrubber-thumb" :style="{ left: scrubberPercent + '%' }" />
+      <!-- ═════════════ LOADING ═════════════ -->
+      <template v-else-if="initialLoading">
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+          </div>
+        </header>
+        <div class="loading-state">
+          <SkeletonLoader :lines="8" />
         </div>
-        <div class="scrubber-times">
-          <span>{{ fmtTime(elapsedMs) }}</span>
-          <span>{{ fmtTime(totalDurationMs) }}</span>
-        </div>
-      </div>
+      </template>
 
-      <!-- Main Split Layout -->
-      <div class="replay-layout">
-        <!-- Left: Conversation Area -->
-        <div class="replay-conversation">
-          <div
-            v-for="step in steps"
-            :key="step.index"
-            class="replay-turn"
-            :class="{
-              'turn-revealed': step.index < currentStep,
-              'turn-current': step.index === currentStep,
-              'turn-future': step.index > currentStep,
-            }"
-          >
-            <div class="turn-header">
-              <span class="role-badge" :class="'role-' + step.type">
-                {{ roleIcon(step.type) }} {{ roleLabel(step.type) }}
-              </span>
-              <span class="turn-timestamp">{{ step.timestamp.split('T')[1]?.replace('Z', '') }}</span>
-            </div>
-            <div class="turn-content">
-              {{ step.title }}
-            </div>
-            <div v-if="step.toolCalls?.length" class="turn-tools">
-              <div v-for="(tc, i) in step.toolCalls" :key="i" class="tool-call-item">
-                <span class="tool-name">{{ tc.name }}</span>
-                <span v-if="tc.command" class="tool-cmd">{{ tc.command }}</span>
-                <span class="tool-status" :class="tc.success ? 'success' : 'fail'">
-                  {{ tc.success ? '✓' : '✗' }}
-                </span>
-              </div>
+      <!-- ═════════════ ERROR ═════════════ -->
+      <template v-else-if="store.error">
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+          </div>
+        </header>
+        <ErrorAlert :message="store.error" />
+      </template>
+
+      <!-- ═════════════ NO TURNS ═════════════ -->
+      <template v-else-if="replaySteps.length === 0">
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+            <span class="header-subtitle">{{ store.detail?.id }}</span>
+          </div>
+        </header>
+        <EmptyState
+          icon="📭"
+          title="No conversation data"
+          description="This session has no conversation turns to replay."
+        />
+      </template>
+
+      <!-- ═════════════ MAIN REPLAY ═════════════ -->
+      <template v-else>
+        <!-- Header -->
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+            <div class="header-badges">
+              <Badge v-if="store.detail?.repository" variant="accent">{{ store.detail.repository }}</Badge>
+              <Badge v-if="store.detail?.branch" variant="success">{{ store.detail.branch }}</Badge>
+              <Badge variant="neutral">{{ replaySteps.length }} turns</Badge>
+              <Badge v-if="totalToolCalls" variant="warning">{{ totalToolCalls }} tool calls</Badge>
             </div>
           </div>
+          <button class="back-btn" @click="router.push({ name: 'session-overview', params: { id: sessionId } })" title="Back to session detail">
+            ← Detail
+          </button>
+        </header>
+
+        <!-- Transport Bar -->
+        <ReplayTransportBar
+          :current-step="controller.currentStep.value"
+          :total-steps="controller.totalSteps.value"
+          :is-playing="controller.isPlaying.value"
+          :speed="controller.speed.value"
+          :elapsed-formatted="controller.formattedElapsed.value"
+          :total-formatted="controller.formattedTotal.value"
+          :scrubber-percent="controller.scrubberPercent.value"
+          @play="controller.play()"
+          @pause="controller.pause()"
+          @next="controller.nextStep()"
+          @prev="controller.prevStep()"
+          @set-speed="controller.setSpeed($event)"
+          @scrub-click="controller.onScrubberClick($event)"
+        />
+
+        <!-- Main Split Layout -->
+        <div class="replay-layout">
+          <!-- Left: Conversation Pane -->
+          <div ref="conversationRef" class="replay-conversation">
+            <template v-for="(step, idx) in visibleSteps" :key="step.index">
+              <!-- Model switch banner -->
+              <ModelSwitchBanner
+                v-if="step.modelSwitchFrom && step.model"
+                :previous-model="step.modelSwitchFrom"
+                :new-model="step.model"
+              />
+
+              <!-- Step content -->
+              <div :data-step="step.index">
+                <ReplayStepContent
+                  v-if="turnsByIndex.get(step.turnIndex)"
+                  :step="step"
+                  :turn="turnsByIndex.get(step.turnIndex)!"
+                  :all-turns="store.turns"
+                  :is-current="step.index === controller.currentStep.value"
+                  :is-past="step.index < controller.currentStep.value"
+                  :is-future="step.index > controller.currentStep.value"
+                  :full-results="fullResults"
+                  :loading-results="loadingResults"
+                  :failed-results="failedResults"
+                  :is-rich-enabled="preferences.isRichRenderingEnabled"
+                  @load-full-result="loadFullResult($event)"
+                  @retry-full-result="retryFullResult($event)"
+                />
+
+                <!-- Skeleton placeholder for far-future steps -->
+                <div
+                  v-if="step.index > controller.currentStep.value"
+                  class="future-skeleton"
+                  :style="{ opacity: Math.max(0.08, 0.3 - (step.index - controller.currentStep.value) * 0.05) }"
+                />
+              </div>
+            </template>
+          </div>
+
+          <!-- Right: Sidebar -->
+          <ReplaySidebar
+            :step="controller.currentStepData.value"
+            :steps="replaySteps"
+            :current-step-index="controller.currentStep.value"
+            :total-steps="controller.totalSteps.value"
+            :detail="store.detail"
+            :shutdown-metrics="store.shutdownMetrics"
+            @go-to-step="controller.goToStep($event)"
+          />
         </div>
 
-        <!-- Right: Side Panel -->
-        <div class="replay-sidebar">
-          <!-- Current Step Details -->
-          <section class="panel-section">
-            <h3 class="panel-title">Current Step</h3>
-            <div class="panel-kv">
-              <div class="kv-row">
-                <span class="kv-key">Type</span>
-                <span class="kv-value">
-                  <span class="role-badge role-badge-sm" :class="'role-' + currentStepData.type">
-                    {{ roleLabel(currentStepData.type) }}
-                  </span>
-                </span>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">Tokens</span>
-                <span class="kv-value">{{ currentStepData.tokens.toLocaleString() }}</span>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">Duration</span>
-                <span class="kv-value">{{ formatDuration(currentStepData.durationMs) }}</span>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">Model</span>
-                <span class="kv-value">{{ currentModel }}</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Step Metrics -->
-          <section class="panel-section">
-            <h3 class="panel-title">Step Metrics</h3>
-            <div class="metric-cards">
-              <div class="metric-card">
-                <span class="metric-value">{{ currentStepData.tokens }}</span>
-                <span class="metric-label">Tokens</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-value">{{ formatDuration(currentStepData.durationMs) }}</span>
-                <span class="metric-label">Duration</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-value">{{ currentStepData.toolCalls?.length ?? 0 }}</span>
-                <span class="metric-label">Tool Calls</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-value">{{ currentStepData.filesModified?.length ?? 0 }}</span>
-                <span class="metric-label">Files</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Files Modified -->
-          <section v-if="currentStepData.filesModified?.length" class="panel-section">
-            <h3 class="panel-title">Files Modified</h3>
-            <ul class="file-list">
-              <li v-for="f in currentStepData.filesModified" :key="f" class="file-item">
-                <span class="file-icon">~</span>
-                {{ f }}
-              </li>
-            </ul>
-          </section>
-
-          <!-- Todos Changed -->
-          <section v-if="currentStepData.todosChanged?.length" class="panel-section">
-            <h3 class="panel-title">Todos Changed</h3>
-            <ul class="file-list">
-              <li v-for="t in currentStepData.todosChanged" :key="t.id" class="file-item">
-                <span class="todo-status" :class="'todo-' + t.status">
-                  {{ t.status === 'done' ? '✓' : t.status === 'in_progress' ? '◐' : '○' }}
-                </span>
-                {{ t.title }}
-              </li>
-            </ul>
-          </section>
-
-          <!-- Mini Timeline -->
-          <section class="panel-section">
-            <h3 class="panel-title">Timeline</h3>
-            <MiniTimeline :total="totalSteps" :current="currentStep" />
-          </section>
-        </div>
-      </div>
+        <!-- Event Ticker -->
+        <ReplayEventTicker
+          v-if="tickerEvents.length > 0"
+          :steps="replaySteps"
+          :current-step="controller.currentStep.value"
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -462,350 +334,131 @@ onUnmounted(() => {
 <style scoped>
 /* ── Header ────────────────────────────────────────────────── */
 .replay-header {
-  margin-bottom: 16px;
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
   gap: 12px;
 }
+.header-left { display: flex; flex-direction: column; gap: 6px; }
 .replay-header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.4rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.02em;
 }
-.text-secondary {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+.header-subtitle {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
 }
+.header-badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* ── Transport Bar ─────────────────────────────────────────── */
-.transport-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  margin-bottom: 12px;
-}
-.transport-buttons {
-  display: flex;
-  gap: 4px;
-}
-.transport-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border-default);
+.back-btn {
+  padding: 6px 14px;
   border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
   background: var(--canvas-overlay);
-  color: var(--text-primary);
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-.transport-btn:hover:not(:disabled) {
-  background: var(--canvas-raised);
-  border-color: var(--accent-fg);
-}
-.transport-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.transport-play {
-  background: var(--accent-emphasis);
-  border-color: var(--accent-emphasis);
-  color: white;
-}
-.transport-play:hover {
-  background: var(--accent-fg) !important;
-  border-color: var(--accent-fg) !important;
-}
-.transport-speed {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-.speed-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
-  background: transparent;
   color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 120ms;
+  white-space: nowrap;
 }
-.speed-btn.active {
-  background: var(--accent-emphasis);
-  border-color: var(--accent-emphasis);
-  color: white;
-}
-.speed-btn:hover:not(.active) {
+.back-btn:hover {
   border-color: var(--accent-fg);
   color: var(--text-primary);
 }
-.step-counter {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
 
-/* ── Scrubber ──────────────────────────────────────────────── */
-.scrubber {
-  margin-bottom: 16px;
+/* ── Loading / Empty ───────────────────────────────────────── */
+.loading-state { padding: 40px 0; }
+
+/* ── Session Picker (empty state) ─────────────────────────── */
+.picker-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.hint-icon { font-size: 1rem; flex-shrink: 0; }
+.picker-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin: 0 0 12px;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.picker-grid :deep(.card) {
   cursor: pointer;
 }
-.scrubber-track {
-  position: relative;
-  height: 6px;
-  background: var(--border-default);
-  border-radius: 3px;
+.picker-grid :deep(.flex.flex-wrap) {
+  gap: 4px;
+  margin-bottom: 8px;
 }
-.scrubber-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg));
-  transition: width var(--transition-fast);
-}
-.scrubber-thumb {
-  position: absolute;
-  top: 50%;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent-fg);
-  border: 2px solid var(--canvas-default);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px var(--accent-emphasis);
-  transition: left var(--transition-fast);
-}
-.scrubber-times {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+.picker-grid :deep(.flex.items-center.gap-3) {
   margin-top: 4px;
 }
 
 /* ── Layout ────────────────────────────────────────────────── */
 .replay-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 340px;
   gap: 20px;
   min-height: 0;
+  margin-top: 12px;
 }
 
-/* ── Conversation ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .replay-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Conversation Pane ─────────────────────────────────────── */
 .replay-conversation {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: calc(100vh - 320px);
+  gap: 10px;
+  max-height: calc(100vh - 300px);
   overflow-y: auto;
   padding-right: 8px;
+  scroll-behavior: smooth;
 }
-.replay-turn {
-  padding: 12px 16px;
+.replay-conversation::-webkit-scrollbar { width: 6px; }
+.replay-conversation::-webkit-scrollbar-track { background: transparent; }
+.replay-conversation::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+
+/* ── Future skeleton placeholder ───────────────────────────── */
+.future-skeleton {
+  height: 60px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background: var(--canvas-subtle);
-  transition: all var(--transition-normal);
-}
-.turn-revealed {
-  opacity: 0.75;
-}
-.turn-current {
-  opacity: 1;
-  border-color: var(--accent-fg);
-  border-left: 3px solid var(--accent-fg);
-  background: var(--canvas-overlay);
-  box-shadow: 0 0 12px var(--accent-subtle);
-}
-.turn-future {
-  opacity: 0.25;
-  filter: blur(1px);
-}
-.turn-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-.role-badge-sm {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-}
-.role-user {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
-}
-.role-assistant {
-  background: var(--success-subtle);
-  color: var(--success-fg);
-}
-.role-tool {
-  background: var(--warning-subtle);
-  color: var(--warning-fg);
-}
-.turn-timestamp {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  font-family: 'JetBrains Mono', monospace;
-}
-.turn-content {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-.turn-tools {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.tool-call-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  padding: 4px 8px;
-  background: var(--canvas-inset);
-  border-radius: 4px;
-}
-.tool-name {
-  font-weight: 600;
-  color: var(--accent-fg);
-  font-family: 'JetBrains Mono', monospace;
-}
-.tool-cmd {
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tool-status.success {
-  color: var(--success-fg);
-}
-.tool-status.fail {
-  color: var(--danger-fg);
-}
-
-/* ── Side Panel ────────────────────────────────────────────── */
-.replay-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-height: calc(100vh - 320px);
-  overflow-y: auto;
-}
-.panel-section {
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-}
-.panel-title {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin: 0 0 10px;
-}
-
-/* KV rows */
-.panel-kv {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.kv-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.kv-key {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-}
-.kv-value {
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-/* Metric cards */
-.metric-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.metric-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 8px;
-  background: var(--canvas-inset);
-  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--canvas-subtle) 25%,
+    var(--canvas-inset) 50%,
+    var(--canvas-subtle) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
   border: 1px solid var(--border-muted);
 }
-.metric-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-primary);
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
-.metric-label {
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-/* File list */
-.file-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.file-item {
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'JetBrains Mono', monospace;
-}
-.file-icon {
-  color: var(--warning-fg);
-  font-weight: 700;
-}
-.todo-status {
-  font-size: 0.85rem;
-}
-.todo-done {
-  color: var(--success-fg);
-}
-.todo-in_progress {
-  color: var(--warning-fg);
+@media (prefers-reduced-motion: reduce) {
+  .future-skeleton { animation: none; }
 }
 </style>

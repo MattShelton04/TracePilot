@@ -17,6 +17,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-log": "^2.8.0",
     "@tauri-apps/plugin-opener": "^2.0.0",
     "@tracepilot/client": "workspace:*",
     "@tracepilot/types": "workspace:*",

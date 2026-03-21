@@ -477,21 +477,52 @@ export interface ReplayState {
   totalDurationMs: number;
 }
 
-/** Individual replay step */
+/** Individual replay step — one step per ConversationTurn. */
 export interface ReplayStep {
-  /** Step index */
+  /** Step index (0-based). */
   index: number;
-  /** Step title/description */
+  /** The source turn index from ConversationTurn. */
+  turnIndex: number;
+  /** Human-readable title for this step. */
   title: string;
-  /** Step type */
+  /** Primary step type (determined by content). */
   type: 'user' | 'assistant' | 'tool';
-  /** Timestamp */
+  /** ISO timestamp for this step. */
   timestamp: string;
-  /** Duration of this step in ms */
+  /** Duration of this step in ms. */
   durationMs: number;
-  /** Token count for this step */
+  /** Total output tokens consumed during this step. */
   tokens: number;
-  /** Associated tool calls */
+  /** The model used during this step. */
+  model?: string;
+
+  // ── Rich content (from ConversationTurn) ──
+
+  /** Raw user message text. */
+  userMessage?: string;
+  /** Assistant message texts (content only, for display). */
+  assistantMessages?: AttributedMessage[];
+  /** Reasoning/thinking texts. */
+  reasoningTexts?: AttributedMessage[];
+  /** Full tool call objects from the turn. */
+  richToolCalls?: TurnToolCall[];
+  /** Session-level events during this step. */
+  sessionEvents?: TurnSessionEvent[];
+
+  // ── Enrichments ──
+
+  /** Files modified during this step (extracted from tool args). */
+  filesModified?: string[];
+  /** Todos changed during this step. */
+  todosChanged?: Array<{ id: string; title: string; status: string }>;
+  /** Whether the step contains subagent invocations. */
+  hasSubagents?: boolean;
+  /** Whether a model switch occurred before this step (from previous step's model). */
+  modelSwitchFrom?: string;
+
+  // ── Legacy compat (simplified tool calls for backward compatibility) ──
+
+  /** Simplified tool call summaries (legacy shape). */
   toolCalls?: Array<{
     name: string;
     success: boolean;
@@ -499,10 +530,6 @@ export interface ReplayStep {
     command?: string;
     output?: string;
   }>;
-  /** Files modified in this step */
-  filesModified?: string[];
-  /** Todos changed in this step */
-  todosChanged?: Array<{ id: string; title: string; status: string }>;
 }
 
 // ===== Tool Rendering Types =====
@@ -584,6 +611,9 @@ export interface TracePilotConfig {
     exportView: boolean;
     healthScoring: boolean;
     sessionReplay: boolean;
+  };
+  logging: {
+    level: string;
   };
 }
 

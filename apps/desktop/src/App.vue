@@ -2,6 +2,7 @@
 import { checkConfigExists } from '@tracepilot/client';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import ErrorBoundary from '@/components/ErrorBoundary.vue';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
@@ -139,7 +140,9 @@ const breadcrumbs = computed(() => {
       <div class="page-header-bar">
         <BreadcrumbNav :items="breadcrumbs" />
       </div>
-      <router-view />
+      <ErrorBoundary>
+        <router-view />
+      </ErrorBoundary>
     </div>
   </div>
 

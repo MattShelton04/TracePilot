@@ -39,6 +39,8 @@ pub struct TracePilotConfig {
     pub tool_rendering: ToolRenderingConfig,
     #[serde(default)]
     pub features: FeaturesConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,6 +168,25 @@ impl Default for FeaturesConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoggingConfig {
+    #[serde(default = "default_log_level")]
+    pub level: String,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: default_log_level(),
+        }
+    }
+}
+
 // ── Serde default helpers ────────────────────────────────────────
 
 fn default_true() -> bool {
@@ -240,6 +261,7 @@ impl Default for TracePilotConfig {
             pricing: PricingConfig::default(),
             tool_rendering: ToolRenderingConfig::default(),
             features: FeaturesConfig::default(),
+            logging: LoggingConfig::default(),
         }
     }
 }
@@ -250,7 +272,10 @@ impl TracePilotConfig {
         let path = config_file_path()?;
         let content = std::fs::read_to_string(&path).ok()?;
         match toml::from_str(&content) {
-            Ok(config) => Some(config),
+            Ok(config) => {
+                tracing::info!(path = %path.display(), "Loaded config.toml");
+                Some(config)
+            }
             Err(e) => {
                 tracing::warn!(
                     path = %path.display(),

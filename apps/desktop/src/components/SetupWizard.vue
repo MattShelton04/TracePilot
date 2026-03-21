@@ -153,6 +153,9 @@ async function finishSetup() {
         healthScoring: false,
         sessionReplay: false,
       },
+      logging: {
+        level: 'info',
+      },
     };
     await saveConfig(config);
     emit('setup-saved', validationResult.value?.sessionCount ?? 0);
