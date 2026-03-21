@@ -172,6 +172,14 @@ export interface EventsResponse {
   hasMore: boolean;
 }
 
+/** Response from get_session_turns — includes change-detection metadata */
+export interface TurnsResponse {
+  turns: ConversationTurn[];
+  /** Current events.jsonl file size in bytes — compare across refreshes to
+   *  detect changes and skip redundant re-renders. */
+  eventsFileSize: number;
+}
+
 /** Raw event from events.jsonl */
 export interface SessionEvent {
   eventType: string;

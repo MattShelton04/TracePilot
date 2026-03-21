@@ -109,13 +109,13 @@ impl IndexDb {
                 [&session_id],
             )?;
             self.conn.execute(
-                "DELETE FROM session_events WHERE session_id = ?1",
+                "DELETE FROM tool_result_offsets WHERE session_id = ?1",
                 [&session_id],
             )?;
-            // Reset cache markers immediately so stale flags don't persist
+            // Reset cache marker immediately so stale flag doesn't persist
             // if the parse below fails or is skipped.
             self.conn.execute(
-                "UPDATE sessions SET events_cached = 0, events_byte_offset = 0, events_line_count = 0 WHERE id = ?1",
+                "UPDATE sessions SET tool_offsets_cached = 0 WHERE id = ?1",
                 [&session_id],
             )?;
 
@@ -289,13 +289,9 @@ impl IndexDb {
                 }
             }
 
-            // ── Cache event metadata + shutdown data ─────────────────
+            // ── Cache tool result offsets + shutdown data ─────────────
             if let Some(ref parsed) = offset_parse {
-                self.cache_session_events(
-                    &session_id,
-                    &parsed.events,
-                    parsed.final_byte_offset,
-                )?;
+                self.cache_tool_offsets(&session_id, &parsed.events)?;
             }
 
             // Cache shutdown data
@@ -322,6 +318,8 @@ impl IndexDb {
             }
         }
     }
+
+    // ── Tool result offset cache ────────────────────────────────────────
 
     /// Determine whether the session should be re-indexed.
     ///
@@ -375,181 +373,55 @@ impl IndexDb {
 
     // ── Event cache methods ──────────────────────────────────────────────
 
-    /// Determine how to reindex a session: Skip, FullReindex, or IncrementalAppend.
+    /// Determine how to reindex a session: Skip or FullReindex.
     ///
-    /// Returns `IncrementalAppend` when only new events have been appended
-    /// (events_mtime changed but size grew, and workspace_mtime is unchanged).
-    /// Returns `FullReindex` when the file shrank, workspace changed, or analytics
-    /// version is outdated. Returns `Skip` when nothing changed.
+    /// Returns `FullReindex` when workspace/events changed or analytics version
+    /// is outdated. Returns `Skip` when nothing changed.
     pub fn reindex_decision(&self, session_id: &str, session_path: &Path) -> ReindexDecision {
-        let current_ws_mtime = get_workspace_mtime(session_path);
-        let current_events = get_events_mtime_and_size(session_path);
-
-        let stored: Option<(
-            Option<String>,
-            Option<String>,
-            Option<i64>,
-            Option<i64>,
-            Option<i64>,
-        )> = self
-            .conn
-            .query_row(
-                "SELECT workspace_mtime, events_mtime, events_size, analytics_version, events_byte_offset
-                 FROM sessions WHERE id = ?1",
-                [session_id],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, Option<i64>>(2)?,
-                        row.get::<_, Option<i64>>(3)?,
-                        row.get::<_, Option<i64>>(4)?,
-                    ))
-                },
-            )
-            .ok();
-
-        let Some((stored_ws_mtime, stored_ev_mtime, stored_ev_size, stored_av, stored_offset)) =
-            stored
-        else {
-            return ReindexDecision::FullReindex; // Not indexed yet
-        };
-
-        // Analytics version mismatch → full reindex
-        if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
-            return ReindexDecision::FullReindex;
-        }
-
-        // Workspace.yaml changed → full reindex (metadata may have changed)
-        if stored_ws_mtime.as_deref() != current_ws_mtime.as_deref() {
-            return ReindexDecision::FullReindex;
-        }
-
-        match (&current_events, &stored_ev_mtime) {
-            (Some((cur_mtime, cur_size)), Some(st_mtime)) => {
-                let cur_size_i64 = *cur_size as i64;
-                let prev_size = stored_ev_size.unwrap_or(0);
-
-                if cur_mtime == st_mtime && cur_size_i64 == prev_size {
-                    return ReindexDecision::Skip; // Nothing changed
-                }
-
-                // File shrank → truncated/compacted → full reindex
-                if cur_size_i64 < prev_size {
-                    return ReindexDecision::FullReindex;
-                }
-
-                // File grew (append-only) and workspace unchanged → incremental
-                let offset = stored_offset.unwrap_or(0);
-                if offset > 0 && cur_size_i64 > prev_size {
-                    let cached_count = self
-                        .conn
-                        .query_row(
-                            "SELECT COUNT(*) FROM session_events WHERE session_id = ?1",
-                            [session_id],
-                            |row| row.get::<_, i64>(0),
-                        )
-                        .unwrap_or(0);
-
-                    return ReindexDecision::IncrementalAppend {
-                        byte_offset: offset as u64,
-                        cached_event_count: cached_count,
-                    };
-                }
-
-                // Default: mtime changed but size unchanged → full reindex (possible in-place edit)
-                ReindexDecision::FullReindex
-            }
-            (Some(_), None) => ReindexDecision::FullReindex,
-            (None, Some(_)) => ReindexDecision::FullReindex,
-            (None, None) => ReindexDecision::Skip,
+        if self.needs_reindex(session_id, session_path) {
+            ReindexDecision::FullReindex
+        } else {
+            ReindexDecision::Skip
         }
     }
 
-    /// Store parsed events in the session_events cache table.
+    /// Store tool result byte offsets for O(1) lookups from conversation view.
     ///
-    /// Deletes any existing cached events first (use for full reindex).
-    /// Stores each event's envelope fields + raw data JSON for reconstruction.
-    /// Cache lean event metadata (no payload data) with per-event byte offsets.
-    ///
-    /// Replaces all cached events for the session. Sets `events_cached = 1`.
-    pub fn cache_session_events(
+    /// Only caches `tool.execution_complete` events that have a `tool_call_id`.
+    /// Replaces all existing offsets for the session and sets `tool_offsets_cached = 1`.
+    pub fn cache_tool_offsets(
         &self,
         session_id: &str,
         events: &[tracepilot_core::parsing::events::TypedEventWithOffset],
-        byte_offset: u64,
     ) -> Result<()> {
-        // Clear existing cached events
+        // Clear existing offsets
         self.conn.execute(
-            "DELETE FROM session_events WHERE session_id = ?1",
+            "DELETE FROM tool_result_offsets WHERE session_id = ?1",
             [session_id],
         )?;
 
         let mut stmt = self.conn.prepare(
-            "INSERT INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, byte_offset, line_length, tool_call_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT OR REPLACE INTO tool_result_offsets (session_id, tool_call_id, byte_offset, line_length)
+             VALUES (?1, ?2, ?3, ?4)",
         )?;
 
-        for (idx, ewo) in events.iter().enumerate() {
-            let tool_call_id = extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data);
-            stmt.execute(params![
-                session_id,
-                idx as i64,
-                ewo.event.event_type.to_string(),
-                ewo.event.raw.id,
-                ewo.event.raw.timestamp.map(|t| t.to_rfc3339()),
-                ewo.event.raw.parent_id,
-                ewo.byte_offset as i64,
-                ewo.line_length as i64,
-                tool_call_id,
-            ])?;
+        for ewo in events {
+            if let Some(ref tool_call_id) =
+                extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data)
+            {
+                stmt.execute(params![
+                    session_id,
+                    tool_call_id,
+                    ewo.byte_offset as i64,
+                    ewo.line_length as i64,
+                ])?;
+            }
         }
 
-        // Update byte offset, line count, and cache flag on the session row
+        // Set cache flag
         self.conn.execute(
-            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2, events_cached = 1 WHERE id = ?3",
-            params![byte_offset as i64, events.len() as i64, session_id],
-        )?;
-
-        Ok(())
-    }
-
-    /// Append newly parsed events to the lean session_events cache (incremental mode).
-    ///
-    /// Does NOT delete existing rows. Inserts new events starting at `start_index`.
-    pub fn append_cached_events(
-        &self,
-        session_id: &str,
-        new_events: &[tracepilot_core::parsing::events::TypedEventWithOffset],
-        start_index: usize,
-        new_byte_offset: u64,
-    ) -> Result<()> {
-        let mut stmt = self.conn.prepare(
-            "INSERT OR REPLACE INTO session_events (session_id, event_index, event_type, event_id, timestamp, parent_id, byte_offset, line_length, tool_call_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        )?;
-
-        for (i, ewo) in new_events.iter().enumerate() {
-            let event_index = start_index + i;
-            let tool_call_id = extract_tool_call_id(&ewo.event.event_type, &ewo.event.typed_data);
-            stmt.execute(params![
-                session_id,
-                event_index as i64,
-                ewo.event.event_type.to_string(),
-                ewo.event.raw.id,
-                ewo.event.raw.timestamp.map(|t| t.to_rfc3339()),
-                ewo.event.raw.parent_id,
-                ewo.byte_offset as i64,
-                ewo.line_length as i64,
-                tool_call_id,
-            ])?;
-        }
-
-        // Update byte offset and total line count
-        let total_count = (start_index + new_events.len()) as i64;
-        self.conn.execute(
-            "UPDATE sessions SET events_byte_offset = ?1, events_line_count = ?2, events_cached = 1 WHERE id = ?3",
-            params![new_byte_offset as i64, total_count, session_id],
+            "UPDATE sessions SET tool_offsets_cached = 1 WHERE id = ?1",
+            [session_id],
         )?;
 
         Ok(())

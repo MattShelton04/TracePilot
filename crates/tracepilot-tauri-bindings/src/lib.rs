@@ -51,6 +51,15 @@ pub struct EventsResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TurnsResponse {
+    pub turns: Vec<tracepilot_core::ConversationTurn>,
+    /// Current events.jsonl file size in bytes. Used by the frontend for
+    /// change detection: if this matches the last response, no re-render needed.
+    pub events_file_size: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EventItem {
     pub event_type: String,
     pub timestamp: Option<String>,
@@ -275,7 +284,9 @@ mod commands {
     /// Check whether cached byte offsets are trustworthy for a session.
     ///
     /// Compares current file mtime/size against what was recorded during indexing.
-    /// If they diverge (e.g. compaction rewrote the file), offsets are stale.
+    /// If they diverge (e.g. compaction rewrote the file, or new appends), offsets
+    /// may be stale. For append-only growth, existing offsets remain valid since
+    /// tool_call_id offsets point to previously-written lines.
     fn are_offsets_fresh(
         db: &tracepilot_indexer::index_db::IndexDb,
         session_id: &str,
@@ -294,42 +305,16 @@ mod commands {
             .flatten();
 
         match stored {
-            Some((stored_mtime, Some(stored_size))) => {
+            Some((_stored_mtime, Some(stored_size))) => {
                 // Size shrink = compaction = stale offsets
                 if current_size < stored_size {
                     return false;
                 }
 
-                // Mtime check: if mtime changed, the file was modified.
-                // For append-only changes this is fine (offsets of existing events
-                // are unchanged), but for compaction+regrowth (Opus review scenario:
-                // file shrinks to 500 then appends grow to 1100, past the old 1000)
-                // the size check alone would pass. Mtime catches this: if size grew
-                // AND mtime changed, compare stored mtime to detect non-append edits.
-                if let Ok(modified) = meta.modified() {
-                    let dt: chrono::DateTime<chrono::Utc> = modified.into();
-                    let current_mtime = dt.to_rfc3339();
-                    let mtime_changed = stored_mtime.as_deref() != Some(&current_mtime);
-
-                    if mtime_changed && current_size == stored_size {
-                        // Same size but mtime changed → possible rewrite
-                        return false;
-                    }
-
-                    if mtime_changed && current_size > stored_size {
-                        // Size grew and mtime changed. Likely just appends (safe),
-                        // but could be compaction+regrowth. Validate by checking
-                        // that the max cached byte_offset + line_length doesn't
-                        // exceed the current file size (all indexed offsets should
-                        // fall within the file bounds).
-                        if let Ok(Some(max)) = db.query_max_cached_offset(session_id) {
-                            if max > current_size {
-                                return false;
-                            }
-                        }
-                    }
-                }
-
+                // Size grew or stayed same: existing byte offsets remain valid
+                // (append-only writes don't move prior lines). If compaction+regrowth
+                // occurs (shrink then grow past original size), the next reindex will
+                // detect the mtime change and rebuild offsets.
                 true
             }
             _ => false,
@@ -582,7 +567,7 @@ mod commands {
         state: tauri::State<'_, SharedConfig>,
         turn_cache: tauri::State<'_, TurnCache>,
         session_id: String,
-    ) -> Result<Vec<tracepilot_core::ConversationTurn>, String> {
+    ) -> Result<super::TurnsResponse, String> {
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
 
@@ -602,7 +587,10 @@ mod commands {
             let mut cache = turn_cache.lock().unwrap();
             if let Some(cached) = cache.get(&session_id) {
                 if cached.file_size == current_file_size {
-                    return Ok(cached.turns.clone());
+                    return Ok(super::TurnsResponse {
+                        turns: cached.turns.clone(),
+                        events_file_size: current_file_size,
+                    });
                 }
                 // File changed — evict stale entry
             }
@@ -633,7 +621,10 @@ mod commands {
             );
         }
 
-        Ok(turns)
+        Ok(super::TurnsResponse {
+            turns,
+            events_file_size: current_file_size,
+        })
     }
 
     #[tauri::command]
@@ -645,41 +636,13 @@ mod commands {
     ) -> Result<EventsResponse, String> {
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
-        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
             let start_index = offset.unwrap_or(0) as usize;
             let page_limit = limit.unwrap_or(u32::MAX) as usize;
 
-            // Fast path: read from event cache
-            if let Some(db) = open_index_db(&index_path) {
-                if db.has_cached_events(&session_id) {
-                    match db.get_cached_events(&session_id, start_index, page_limit) {
-                        Ok((cached, total_count, has_more)) => {
-                            let event_items: Vec<EventItem> = cached
-                                .into_iter()
-                                .map(|ce| EventItem {
-                                    event_type: ce.event_type,
-                                    timestamp: ce.timestamp,
-                                    id: ce.event_id,
-                                    parent_id: ce.parent_id,
-                                    data: serde_json::Value::Object(Default::default()),
-                                })
-                                .collect();
-                            return Ok(EventsResponse {
-                                events: event_items,
-                                total_count,
-                                has_more,
-                            });
-                        }
-                        Err(e) => {
-                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
-                        }
-                    }
-                }
-            }
-
-            // Fallback: parse from disk
+            // Always parse from disk — Events tab is rarely used and doesn't
+            // justify caching 285K event rows. Return metadata only (data: {}).
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
                 &session_id,
                 &session_state_dir,
@@ -701,7 +664,7 @@ mod commands {
                     timestamp: event.raw.timestamp.as_ref().map(|ts| ts.to_rfc3339()),
                     id: event.raw.id.clone(),
                     parent_id: event.raw.parent_id.clone(),
-                    data: event.raw.data.clone(),
+                    data: serde_json::Value::Object(Default::default()),
                 })
                 .collect();
 
@@ -715,10 +678,10 @@ mod commands {
         .map_err(|e| e.to_string())?
     }
 
-    /// Fetch a single event's full data payload by seeking to its byte offset.
+    /// Fetch a single event's full data payload by index.
     ///
-    /// Used for on-demand event expansion in the Events tab. The lean event cache
-    /// stores metadata only; this command reads the original JSON line from disk.
+    /// Parses events.jsonl and returns the data for the requested event.
+    /// Used for on-demand event expansion in the Events tab.
     #[tauri::command]
     pub async fn get_event_data(
         state: tauri::State<'_, SharedConfig>,
@@ -727,7 +690,6 @@ mod commands {
     ) -> Result<serde_json::Value, String> {
         let cfg = read_config(&state);
         let session_state_dir = cfg.session_state_dir();
-        let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
             let path = tracepilot_core::session::discovery::resolve_session_path_in(
@@ -737,28 +699,6 @@ mod commands {
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
 
-            // Fast path: use cached byte offset for O(1) seek (with freshness check)
-            if let Some(db) = open_index_db(&index_path) {
-                if are_offsets_fresh(&db, &session_id, &events_path) {
-                    if let Ok(Some((byte_offset, line_length))) =
-                        db.get_event_data_offset(&session_id, event_index as usize)
-                    {
-                        match read_event_at_offset(&events_path, byte_offset, line_length) {
-                            Ok(data) => return Ok(data),
-                            Err(e) => {
-                                tracing::warn!(
-                                    session_id = %session_id,
-                                    event_index = event_index,
-                                    error = %e,
-                                    "Byte-offset seek failed, falling back to full parse"
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Fallback: parse full file and index into it
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
                 .map_err(|e| e.to_string())?
                 .events;
@@ -840,16 +780,14 @@ mod commands {
         tokio::task::spawn_blocking(move || {
             // Fast path: read from cached shutdown_data_json
             if let Some(db) = open_index_db(&index_path) {
-                if db.has_cached_events(&session_id) {
-                    match db.get_cached_shutdown_data(&session_id) {
-                        Ok(Some((data, _count))) => return Ok(Some(data)),
-                        Ok(None) => {
-                            // Cache has no shutdown data — session may have shut down
-                            // after last reindex. Fall through to disk.
-                        }
-                        Err(e) => {
-                            tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
-                        }
+                match db.get_cached_shutdown_data(&session_id) {
+                    Ok(Some((data, _count))) => return Ok(Some(data)),
+                    Ok(None) => {
+                        // Cache has no shutdown data — session may have shut down
+                        // after last reindex. Fall through to disk.
+                    }
+                    Err(e) => {
+                        tracing::warn!(session_id = %session_id, error = %e, "Cache read failed, falling back to disk");
                     }
                 }
             }
@@ -1351,23 +1289,35 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            // Fast path: look up byte offset from event cache, then seek to it
-            if let Some(db) = open_index_db(&index_path) {
-                if db.has_cached_events(&session_id) {
-                    // Resolve path early for freshness check
-                    let path = tracepilot_core::session::discovery::resolve_session_path_in(
-                        &session_id,
-                        &session_state_dir,
-                    )
-                    .map_err(|e| e.to_string())?;
-                    let events_path = path.join("events.jsonl");
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let events_path = path.join("events.jsonl");
 
+            // Fast path: look up byte offset from tool_result_offsets, then seek
+            if let Some(db) = open_index_db(&index_path) {
+                if db.has_tool_offsets(&session_id) {
                     if are_offsets_fresh(&db, &session_id, &events_path) {
-                        match db.get_cached_tool_result(&session_id, &tool_call_id) {
+                        match db.get_tool_result_offset(&session_id, &tool_call_id) {
                             Ok(Some((byte_offset, line_length))) => {
                                 match read_event_at_offset(&events_path, byte_offset, line_length) {
                                     Ok(data) => {
-                                        return Ok(data.get("result").cloned());
+                                        // Validate the seeked event matches the requested tool_call_id.
+                                        // Guards against compaction+regrowth shifting offsets.
+                                        let fetched_id = data
+                                            .get("toolCallId")
+                                            .and_then(|v| v.as_str());
+                                        if fetched_id == Some(tool_call_id.as_str()) {
+                                            return Ok(data.get("result").cloned());
+                                        }
+                                        tracing::warn!(
+                                            session_id = %session_id,
+                                            expected = %tool_call_id,
+                                            got = ?fetched_id,
+                                            "Offset pointed at wrong tool_call_id, falling back"
+                                        );
                                     }
                                     Err(e) => {
                                         tracing::warn!(
@@ -1386,34 +1336,10 @@ mod commands {
                             }
                         }
                     }
-
-                    // Fallback using already-resolved path
-                    let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                        .map_err(|e| e.to_string())?
-                        .events;
-
-                    let mut last_result: Option<serde_json::Value> = None;
-                    for event in &events {
-                        if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(
-                            ref data,
-                        ) = event.typed_data
-                        {
-                            if data.tool_call_id.as_deref() == Some(&tool_call_id) {
-                                last_result = data.result.clone();
-                            }
-                        }
-                    }
-                    return Ok(last_result);
                 }
             }
 
             // Fallback: parse from disk
-            let path = tracepilot_core::session::discovery::resolve_session_path_in(
-                &session_id,
-                &session_state_dir,
-            )
-            .map_err(|e| e.to_string())?;
-            let events_path = path.join("events.jsonl");
             let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
                 .map_err(|e| e.to_string())?
                 .events;

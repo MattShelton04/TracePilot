@@ -5,7 +5,7 @@ pub(super) const FTS_CONTENT_MAX_BYTES: usize = 100_000;
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-/// v5: Lean event cache v2 — metadata + byte offsets, no data blobs.
+/// v5: Tool-result-only cache — byte offsets for tool.execution_complete events.
 pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 5;
 
 /// Maximum incidents stored per session to prevent DB bloat.
@@ -188,26 +188,6 @@ pub(super) fn get_events_mtime_and_size(session_path: &std::path::Path) -> Optio
     Some((dt.to_rfc3339(), meta.len()))
 }
 
-// ── Event cache types ─────────────────────────────────────────────────
-
-/// A lean cached event row from the `session_events` table.
-///
-/// Contains metadata + byte offset for surgical disk reads — no payload data.
-#[derive(Debug, Clone)]
-pub struct CachedEvent {
-    pub event_index: usize,
-    pub event_type: String,
-    pub event_id: Option<String>,
-    pub timestamp: Option<String>,
-    pub parent_id: Option<String>,
-    /// Absolute byte offset of this event's line in events.jsonl.
-    pub byte_offset: u64,
-    /// Byte length of the complete line (including trailing `\n`).
-    pub line_length: u64,
-    /// Tool call ID (only populated for tool.execution_complete events).
-    pub tool_call_id: Option<String>,
-}
-
 /// Decision for how to reindex a session.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReindexDecision {
@@ -215,13 +195,6 @@ pub enum ReindexDecision {
     Skip,
     /// Full reindex: clear all cached data and reparse from scratch.
     FullReindex,
-    /// Only new events were appended: parse from byte offset, append to cache.
-    IncrementalAppend {
-        /// Byte offset in events.jsonl to resume parsing from.
-        byte_offset: u64,
-        /// Number of events already cached (next event_index starts here).
-        cached_event_count: i64,
-    },
 }
 
 /// Key session fields from the index, used to construct a SessionSummary

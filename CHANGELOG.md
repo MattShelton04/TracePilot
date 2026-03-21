@@ -8,14 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Lean event metadata cache (v2)**: Replaced heavyweight blob cache with metadata-only `session_events` table storing byte offsets for surgical disk reads — DB size reduced from **1.07 GB to ~50 MB** (98% reduction)
-- **On-demand event data**: New `get_event_data` command fetches a single event's payload via O(1) byte-offset seek instead of full-file parsing
-- **In-memory LRU turn cache**: 10-session LRU cache for reconstructed conversation turns eliminates SQLite turn blob storage (saved 176 MB)
-- **Per-event byte offsets**: `parse_typed_events_with_offsets()` tracks byte position and line length for every event during JSONL parsing
-- **Tool call ID indexing**: Partial index on `tool_call_id` enables O(1) tool result lookups via byte-offset seek
-- **Migration 7**: Drops v1 heavy tables (`session_turns`, old `session_events`), recreates lean schema with `byte_offset`, `line_length`, `tool_call_id` columns, adds `events_cached` flag, auto-VACUUMs to reclaim disk space
-- **Incremental JSONL parser**: `parse_events_jsonl_from_offset()` enables byte-offset checkpointing for append-only event files
-- **ReindexDecision enum**: Sessions are classified as Skip/FullReindex/IncrementalAppend for smarter reindex scheduling
+- **Tool-result-only offset cache**: Stores byte offsets for `tool.execution_complete` events only (~97K rows vs 285K), enabling O(1) tool result lookups via direct file seek
+- **On-demand event data**: `get_event_data` command fetches a single event's payload via byte-offset seek instead of full-file parsing
+- **In-memory LRU turn cache**: 10-session LRU cache for reconstructed conversation turns eliminates SQLite turn blob storage
+- **Frontend change detection**: `get_session_turns` returns `TurnsResponse { turns, eventsFileSize }` — auto-refresh skips re-rendering when nothing changed
+- **Reindex benchmark test**: `bench_real_reindex` (ignored test) for measuring indexing performance against real session data
 - Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files
 - **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level
 - Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console)
@@ -23,11 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
 
 ### Changed
-- Events tab now returns `{}` for event data payloads (metadata only); full data loaded on demand via `get_event_data`
-- Turns are no longer stored in SQLite — served from in-memory LRU cache backed by disk parsing
-- Session detail views remain **10-100x faster** for cached sessions (lean SQL query vs re-parsing MB of JSON)
-- Bumped `CURRENT_ANALYTICS_VERSION` to 5 (triggers full reindex to populate lean event cache on first launch)
-- Eliminated double-parse of `events.jsonl` during reindex via `load_session_summary_with_preparsed()` — offset parse feeds both cache population and summary computation in a single pass
+- Events tab returns `{}` for data payloads (metadata only); full data loaded on demand via `get_event_data`
+- Turns no longer stored in SQLite — served from in-memory LRU cache backed by disk parsing
+- Index DB reduced from **14 MB → ~30 MB** (tool offsets + metadata vs full event blobs at 1+ GB)
+- Eliminated double-parse of `events.jsonl` during reindex via `load_session_summary_with_preparsed()`
+- Bumped `CURRENT_ANALYTICS_VERSION` to 5 (triggers full reindex on first launch)
 - Removed "Settings are stored locally" stub banner from Settings page
 
 ## [0.3.0] - 2026-03-21

@@ -33,6 +33,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
 
+  /** Last-known events.jsonl size for this session — used for change detection
+   *  so auto-refresh can skip re-rendering turns when nothing changed. */
+  let lastEventsFileSize = 0;
+
   // Guard against stale async responses when user switches sessions quickly
   let requestToken = 0;
 
@@ -53,6 +57,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     checkpoints.value = [];
     shutdownMetrics.value = null;
     incidents.value = [];
+    lastEventsFileSize = 0;
 
     try {
       const result = await getSessionDetail(id);
@@ -74,9 +79,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     const token = requestToken;
 
     try {
-      const result = await getSessionTurns(id);
+      const response = await getSessionTurns(id);
       if (requestToken !== token) return;
-      turns.value = result;
+      turns.value = response.turns;
+      lastEventsFileSize = response.eventsFileSize;
       loaded.value.add("turns");
     } catch (e) {
       if (requestToken !== token) return;
@@ -176,6 +182,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loaded.value.clear();
     loading.value = false;
     error.value = null;
+    lastEventsFileSize = 0;
   }
 
   /**
@@ -204,9 +211,12 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     if (sections.has("turns")) {
       promises.push(
-        getSessionTurns(id).then((result) => {
+        getSessionTurns(id).then((response) => {
           if (requestToken !== token) return;
-          turns.value = result;
+          // Skip re-render if file size unchanged (nothing new in events.jsonl)
+          if (response.eventsFileSize === lastEventsFileSize) return;
+          turns.value = response.turns;
+          lastEventsFileSize = response.eventsFileSize;
         }).catch((e) => {
           if (requestToken !== token) return;
           console.error("Failed to refresh turns:", e);

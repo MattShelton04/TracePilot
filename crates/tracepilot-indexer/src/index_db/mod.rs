@@ -21,7 +21,7 @@ use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
 pub use types::{
-    CachedEvent, IndexedIncident, IndexedSession, ReindexDecision, SessionIndexInfo,
+    IndexedIncident, IndexedSession, ReindexDecision, SessionIndexInfo,
     SessionIndexedData,
 };
 
@@ -131,8 +131,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 7);
-        assert_eq!(count1, 7);
+        assert_eq!(v1, 6);
+        assert_eq!(count1, 6);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -140,7 +140,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 7);
+        assert_eq!(count2, 6);
     }
 
     #[test]
@@ -704,7 +704,7 @@ updated_at: "2026-03-10T07:15:00Z"
     }
 
     #[test]
-    fn test_event_cache_round_trip() {
+    fn test_tool_offsets_round_trip() {
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
         let session_dir = write_session(
@@ -719,135 +719,20 @@ updated_at: "2026-03-10T07:15:00Z"
 
         db.upsert_session(&session_dir).unwrap();
 
-        // Verify events were cached
-        assert!(db.has_cached_events("cache-test-01"));
+        // The basic write_session helper only creates user.message + assistant.message
+        // events which have no tool_call_id. Verify tool_offsets_cached is set.
+        assert!(db.has_tool_offsets("cache-test-01"));
 
-        // Read cached events
-        let (events, total, has_more) = db.get_cached_events("cache-test-01", 0, 100).unwrap();
-        assert_eq!(total, 2);
-        assert_eq!(events.len(), 2);
-        assert!(!has_more);
-        assert_eq!(events[0].event_type, "user.message");
-        assert_eq!(events[1].event_type, "assistant.message");
-        assert_eq!(events[0].event_index, 0);
-        assert_eq!(events[1].event_index, 1);
-    }
-
-    #[test]
-    fn test_event_cache_pagination() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        let session_dir = write_session(
-            tmp.path(),
-            "page-test-01",
-            "Page test",
-            "test-repo",
-            "main",
-            "Hello",
-            "World",
-        );
-
-        db.upsert_session(&session_dir).unwrap();
-
-        // Page 1: first event only
-        let (events, total, has_more) = db.get_cached_events("page-test-01", 0, 1).unwrap();
-        assert_eq!(total, 2);
-        assert_eq!(events.len(), 1);
-        assert!(has_more);
-        assert_eq!(events[0].event_type, "user.message");
-
-        // Page 2: second event using keyset pagination
-        let (events, _, has_more) = db.get_cached_events("page-test-01", 1, 1).unwrap();
-        assert_eq!(events.len(), 1);
-        assert!(!has_more);
-        assert_eq!(events[0].event_type, "assistant.message");
-    }
-
-    #[test]
-    fn test_event_cache_has_byte_offsets() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        let session_dir = write_session(
-            tmp.path(),
-            "offset-test-01",
-            "Offset test",
-            "test-repo",
-            "main",
-            "Hello there",
-            "Hi! How can I help?",
-        );
-
-        db.upsert_session(&session_dir).unwrap();
-
-        let (events, _, _) = db.get_cached_events("offset-test-01", 0, 100).unwrap();
-        assert_eq!(events.len(), 2);
-        // First event should start at byte 0
-        assert_eq!(events[0].byte_offset, 0);
-        assert!(events[0].line_length > 0);
-        // Second event should start after the first event's line
-        assert_eq!(events[1].byte_offset, events[0].line_length);
-        assert!(events[1].line_length > 0);
-    }
-
-    #[test]
-    fn test_get_event_data_offset() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        let session_dir = write_session(
-            tmp.path(),
-            "evdata-test-01",
-            "EvData test",
-            "test-repo",
-            "main",
-            "Hello",
-            "World",
-        );
-
-        db.upsert_session(&session_dir).unwrap();
-
-        // Valid event index
-        let offset = db.get_event_data_offset("evdata-test-01", 0).unwrap();
-        assert!(offset.is_some());
-
-        // Invalid event index
-        let offset = db.get_event_data_offset("evdata-test-01", 999).unwrap();
+        // No tool result offsets expected for basic events
+        let offset = db.get_tool_result_offset("cache-test-01", "nonexistent-tool-id").unwrap();
         assert!(offset.is_none());
     }
 
     #[test]
-    fn test_session_indexed_data_reader() {
+    fn test_tool_offsets_false_before_upsert() {
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        let session_dir = write_session(
-            tmp.path(),
-            "indexed-data-01",
-            "Indexed data test",
-            "my-repo",
-            "develop",
-            "Test msg",
-            "Reply msg",
-        );
-
-        db.upsert_session(&session_dir).unwrap();
-
-        let data = db.get_session_indexed_data("indexed-data-01").unwrap();
-        assert!(data.is_some());
-        let data = data.unwrap();
-        assert_eq!(data.id, "indexed-data-01");
-        assert_eq!(data.repository.as_deref(), Some("my-repo"));
-        assert_eq!(data.branch.as_deref(), Some("develop"));
-        assert_eq!(data.event_count, Some(2));
-
-        // Non-existent session returns None
-        let missing = db.get_session_indexed_data("nonexistent-id").unwrap();
-        assert!(missing.is_none());
-    }
-
-    #[test]
-    fn test_has_cached_events_false_before_upsert() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
-        assert!(!db.has_cached_events("nonexistent-session"));
+        assert!(!db.has_tool_offsets("nonexistent-session"));
     }
 
     #[test]
@@ -880,5 +765,50 @@ updated_at: "2026-03-10T07:15:00Z"
 
         let decision = db.reindex_decision("brand-new-session", &session_dir);
         assert_eq!(decision, types::ReindexDecision::FullReindex);
+    }
+
+    /// Manual benchmark: runs full reindex against real session data.
+    /// Invoke with: cargo test -p tracepilot-indexer bench_real_reindex -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn bench_real_reindex() {
+        let session_dir = std::path::PathBuf::from(
+            std::env::var("USERPROFILE")
+                .or_else(|_| std::env::var("HOME"))
+                .expect("No home dir env var"),
+        )
+        .join(".copilot")
+        .join("session-state");
+        if !session_dir.exists() {
+            eprintln!("No session-state dir found, skipping");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("bench.db");
+
+        let start = std::time::Instant::now();
+        let count =
+            crate::reindex_all(&session_dir, &db_path).expect("reindex_all failed");
+        let elapsed = start.elapsed();
+        let db_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+
+        eprintln!("=== Real-data reindex benchmark ===");
+        eprintln!("  Sessions indexed: {count}");
+        eprintln!("  Elapsed: {:.2}s", elapsed.as_secs_f64());
+        eprintln!("  DB size: {:.1} MB", db_size as f64 / 1024.0 / 1024.0);
+
+        // Verify tool_result_offsets populated
+        let db = IndexDb::open_or_create(&db_path).unwrap();
+        let offset_rows: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM tool_result_offsets", [], |r| r.get(0))
+            .unwrap();
+        let session_rows: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+            .unwrap();
+        eprintln!("  Sessions in DB: {session_rows}");
+        eprintln!("  Tool result offset rows: {offset_rows}");
+        eprintln!("================================");
     }
 }

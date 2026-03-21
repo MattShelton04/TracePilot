@@ -80,7 +80,7 @@ async function runComparison() {
   error.value = null;
   compared.value = false;
   try {
-    const [detailA, metricsA, turnsA, detailB, metricsB, turnsB] = await Promise.all([
+    const [detailA, metricsA, turnsResponseA, detailB, metricsB, turnsResponseB] = await Promise.all([
       getSessionDetail(selectedA.value),
       getShutdownMetrics(selectedA.value),
       getSessionTurns(selectedA.value),
@@ -90,10 +90,10 @@ async function runComparison() {
     ]);
     dataA.detail = detailA;
     dataA.metrics = metricsA;
-    dataA.turns = turnsA;
+    dataA.turns = turnsResponseA.turns;
     dataB.detail = detailB;
     dataB.metrics = metricsB;
-    dataB.turns = turnsB;
+    dataB.turns = turnsResponseB.turns;
     compared.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);

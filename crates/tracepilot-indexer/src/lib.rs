@@ -192,34 +192,6 @@ pub fn reindex_incremental_with_rich_progress(
                     }
                 }
             }
-            index_db::ReindexDecision::IncrementalAppend { .. } => {
-                // For now, IncrementalAppend degrades to a full reindex.
-                // The upsert_session path already handles cache population efficiently.
-                // True incremental append (without re-reading the full file) requires
-                // incremental analytics computation, which is a future optimization.
-                if !in_transaction {
-                    db.begin_transaction()?;
-                    in_transaction = true;
-                    batch_count = 0;
-                }
-
-                match db.upsert_session(&session.path) {
-                    Ok(info) => {
-                        indexed += 1;
-                        batch_count += 1;
-                        running_tokens += info.total_tokens;
-                        running_events += info.event_count as u64;
-                        if let Some(ref repo) = info.repository {
-                            seen_repos.insert(repo.clone());
-                        }
-                        Some(info)
-                    }
-                    Err(e) => {
-                        tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
-                        None
-                    }
-                }
-            }
         };
 
         if batch_count >= BATCH_SIZE && in_transaction {
