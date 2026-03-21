@@ -103,23 +103,14 @@ Pre-populated prices cover Claude (Opus, Sonnet, Haiku), GPT (5.4, 5.1, 4.1, Cod
 ### Install & Run
 
 ```bash
-# Clone the repository
 git clone https://github.com/MattShelton04/TracePilot.git
 cd TracePilot
-
-# Install frontend dependencies
-pnpm install
-
-# Build Rust crates
-cargo build
-
-# Run the desktop app in development mode (Rust backend + Vue frontend, hot reload)
-pnpm tauri dev
+pnpm start
 ```
 
-On first launch, the setup wizard will guide you through configuration and index your sessions.
+That's it. `pnpm start` installs dependencies and launches the app automatically. On first launch, the setup wizard will guide you through configuration and index your sessions.
 
-> **Note:** `pnpm tauri dev` opens a Tauri desktop window — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
+> **Note:** A Tauri desktop window will open — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
 
 #### Frontend-Only Mode
 
@@ -240,8 +231,7 @@ Since TracePilot is distributed via git clone:
 ```bash
 cd TracePilot
 git pull origin main
-pnpm install          # in case dependencies changed
-pnpm tauri dev        # restart the app
+pnpm start
 ```
 
 The app will detect the version change on next launch and show a "What's New" modal with release notes.
@@ -314,6 +304,12 @@ cargo bench -p tracepilot-bench
 | **Parsing** | `parse_typed_events`, `reconstruct_turns` | JSONL parsing throughput (100–10K events), turn reconstruction (100–2K events) |
 | **Analytics** | `compute_analytics`, `compute_tool_analysis`, `compute_code_impact` | Dashboard aggregation across 10–100 sessions |
 | **Indexer** | `upsert_session`, `search`, `query_analytics` | SQLite write speed, FTS5 search latency, analytics query performance (10–100 sessions) |
+
+#### CI Benchmarks
+
+Benchmarks run in GitHub Actions via manual trigger (**Actions → Benchmarks → Run workflow**). Results are tracked over time on [GitHub Pages](https://MattShelton04.github.io/TracePilot/dev/bench/) with trend charts powered by [`github-action-benchmark`](https://github.com/benchmark-action/github-action-benchmark).
+
+Each run also uploads Criterion's HTML reports as a downloadable artifact for detailed analysis.
 
 ### Linting & Formatting
 
