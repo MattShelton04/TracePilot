@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getConfig, saveConfig, validateSessionDir } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
+import { createDefaultConfig } from '@tracepilot/types';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import WizardStepDatabase from '@/components/wizard/WizardStepDatabase.vue';
 import WizardStepFeatures from '@/components/wizard/WizardStepFeatures.vue';
@@ -121,42 +122,15 @@ async function finishSetup() {
   saving.value = true;
   setupError.value = '';
   try {
-    const config: TracePilotConfig = {
-      version: 2,
+    const config: TracePilotConfig = createDefaultConfig({
       paths: {
         sessionStateDir: sessionDir.value.trim(),
         indexDbPath: dbPath.value.trim(),
       },
       general: {
         autoIndexOnLaunch: autoIndex.value,
-        cliCommand: 'copilot',
       },
-      ui: {
-        theme: 'dark',
-        hideEmptySessions: true,
-        autoRefreshEnabled: false,
-        autoRefreshIntervalSeconds: 5,
-        checkForUpdates: false,
-        favouriteModels: ['claude-opus-4.6', 'gpt-5.4', 'gpt-5.3-codex'],
-        recentRepoPaths: [],
-      },
-      pricing: {
-        costPerPremiumRequest: 0.04,
-        models: [],
-      },
-      toolRendering: {
-        enabled: true,
-        toolOverrides: {},
-      },
-      features: {
-        exportView: false,
-        healthScoring: false,
-        sessionReplay: false,
-      },
-      logging: {
-        level: 'info',
-      },
-    };
+    });
     await saveConfig(config);
     emit('setup-saved', validationResult.value?.sessionCount ?? 0);
   } catch (e) {

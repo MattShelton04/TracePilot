@@ -5,7 +5,9 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { truncateText } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
+import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
@@ -103,7 +105,7 @@ const worktreePreviewPath = computed(() => {
 });
 
 const estimatedCost = computed(() => {
-  const modelId = selectedModel.value || 'claude-sonnet-4.6';
+  const modelId = selectedModel.value || DEFAULT_MODEL_ID;
   const pr = prefsStore.getPremiumRequests(modelId);
   const cost = pr * prefsStore.costPerPremiumRequest;
   if (pr === 0) return 'Free';
@@ -122,11 +124,11 @@ const hasDismissedDefaults = computed(() =>
 );
 
 function tierLabel(tier: string): string {
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
+  return getTierLabel(tier as 'premium' | 'standard' | 'fast');
 }
 
 function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max) + '…' : s;
+  return truncateText(s, max);
 }
 
 function extractEmoji(name: string): string {

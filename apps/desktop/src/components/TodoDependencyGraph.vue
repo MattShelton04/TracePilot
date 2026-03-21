@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import type { TodoItem, TodoDep } from "@tracepilot/types";
+import { truncateText } from "@tracepilot/ui";
 
 const props = defineProps<{
   todos: TodoItem[];
@@ -387,7 +388,7 @@ function edgeOpacity(edge: { from: string; to: string }): number {
 }
 
 function truncate(s: string, len: number): string {
-  return s.length > len ? s.slice(0, len) + "…" : s;
+  return truncateText(s, len);
 }
 
 // ── Click / hover handlers ──

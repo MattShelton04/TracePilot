@@ -24,6 +24,9 @@ import {
 
 export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
 
+/** Duration (ms) before auto-dismissing success toasts. */
+const SUCCESS_TOAST_MS = 3000;
+
 export const useConfigInjectorStore = defineStore('configInjector', () => {
   const activeTab = ref<ConfigTab>('agents');
   const agents = ref<AgentDefinition[]>([]);
@@ -38,6 +41,12 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   const saving = ref(false);
   const error = ref<string | null>(null);
   const successMessage = ref<string | null>(null);
+
+  /** Show a success toast that auto-dismisses after SUCCESS_TOAST_MS. */
+  function showSuccess(msg: string) {
+    successMessage.value = msg;
+    setTimeout(() => { successMessage.value = null; }, SUCCESS_TOAST_MS);
+  }
 
   const hasCustomizations = computed(() => versions.value.some((v) => v.hasCustomizations));
   const activeVersionStr = computed(() => activeVersion.value?.version ?? 'unknown');
@@ -76,10 +85,9 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     error.value = null;
     try {
       await saveAgentApi(selectedAgent.value.filePath, editingYaml.value);
-      successMessage.value = `Saved ${selectedAgent.value.name} agent`;
+      showSuccess(`Saved ${selectedAgent.value.name} agent`);
       // Reload agents to reflect changes
       agents.value = await getAgentDefinitions();
-      setTimeout(() => { successMessage.value = null; }, 3000);
       return true;
     } catch (e) {
       error.value = String(e);
@@ -95,8 +103,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await saveCopilotApi(config);
       copilotConfig.value = await getCopilotConfig();
-      successMessage.value = 'Global config saved';
-      setTimeout(() => { successMessage.value = null; }, 3000);
+      showSuccess('Global config saved');
       return true;
     } catch (e) {
       error.value = String(e);
@@ -111,8 +118,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await createBackupApi(filePath, label);
       backups.value = await listConfigBackups();
       if (!silent) {
-        successMessage.value = 'Backup created';
-        setTimeout(() => { successMessage.value = null; }, 3000);
+        showSuccess('Backup created');
       }
       return true;
     } catch (e) {
@@ -124,9 +130,8 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
     try {
       await restoreBackupApi(backupPath, restoreTo);
-      successMessage.value = 'Backup restored';
+      showSuccess('Backup restored');
       await initialize(); // Reload everything
-      setTimeout(() => { successMessage.value = null; }, 3000);
       return true;
     } catch (e) {
       error.value = String(e);
@@ -138,8 +143,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await deleteBackupApi(backupPath);
       backups.value = await listConfigBackups();
-      successMessage.value = 'Backup deleted';
-      setTimeout(() => { successMessage.value = null; }, 3000);
+      showSuccess('Backup deleted');
       return true;
     } catch (e) {
       error.value = String(e);
@@ -158,8 +162,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function migrateAgent(fileName: string, from: string, to: string): Promise<boolean> {
     try {
       await migrateAgentApi(fileName, from, to);
-      successMessage.value = `Migrated ${fileName}`;
-      setTimeout(() => { successMessage.value = null; }, 3000);
+      showSuccess(`Migrated ${fileName}`);
       return true;
     } catch (e) {
       error.value = String(e);

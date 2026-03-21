@@ -2,12 +2,14 @@
 /**
  * EditArgsRenderer — shows edit tool arguments in a structured layout.
  */
+import { truncateText } from '../../utils/formatters';
+
 defineProps<{
   args: Record<string, unknown>;
 }>();
 
 function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max) + "…" : s;
+  return truncateText(s, max);
 }
 </script>
 
