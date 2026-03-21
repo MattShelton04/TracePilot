@@ -30,34 +30,39 @@ function handleOpenRelease() {
 
         <div class="modal-body">
           <p class="update-intro">
-            A new version of TracePilot is available. Follow these steps to update:
+            A new version of TracePilot is available. Choose how to update:
           </p>
 
-          <div class="update-steps">
-            <ol>
-              <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
-              <li>Navigate to your TracePilot directory</li>
-              <li>
-                Check for local changes:
-                <code>git status</code>
-              </li>
-              <li>
-                If you have local changes:
-                <code>git stash</code>
-              </li>
-              <li>
-                Pull the latest code:
-                <code>git pull</code>
-              </li>
-              <li>
-                Install any new dependencies:
-                <code>pnpm install</code>
-              </li>
-              <li>
-                Relaunch TracePilot:
-                <code>pnpm tauri dev</code>
-              </li>
-            </ol>
+          <div class="update-method">
+            <h3 class="method-title">Option A: Source update (recommended)</h3>
+            <div class="update-steps">
+              <ol>
+                <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
+                <li>Navigate to your TracePilot directory</li>
+                <li>
+                  Pull the latest code:
+                  <code>git pull</code>
+                </li>
+                <li>
+                  Relaunch TracePilot:
+                  <code>pnpm start</code>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="update-method">
+            <h3 class="method-title">Option B: Download installer</h3>
+            <p class="method-description">
+              Download the latest installer or standalone <code>.exe</code> from the
+              <a
+                v-if="releaseUrl"
+                href="#"
+                @click.prevent="handleOpenRelease"
+              >GitHub Releases page</a><template v-else>GitHub Releases page</template>.
+              Note: TracePilot is not code-signed, so Windows may show a SmartScreen warning — click
+              "More info" → "Run anyway" to proceed.
+            </p>
           </div>
 
           <div class="update-note">
@@ -134,6 +139,41 @@ function handleOpenRelease() {
 
 .modal-body {
   padding: 4px 24px 20px;
+}
+
+.update-method {
+  margin-bottom: 16px;
+}
+
+.method-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg-default, #e2e8f0);
+  margin: 0 0 8px;
+}
+
+.method-description {
+  font-size: 13px;
+  color: var(--color-fg-muted, #94a3b8);
+  line-height: 1.5;
+}
+
+.method-description a {
+  color: var(--color-accent-fg, #818cf8);
+  text-decoration: none;
+}
+
+.method-description a:hover {
+  text-decoration: underline;
+}
+
+.method-description code {
+  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.04));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  color: var(--color-accent-fg, #818cf8);
 }
 
 .update-intro {

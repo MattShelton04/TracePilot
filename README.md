@@ -94,13 +94,13 @@ Pre-populated prices cover Claude (Opus, Sonnet, Haiku), GPT (5.4, 5.1, 4.1, Cod
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.85+)
-- [Node.js](https://nodejs.org/) (20+)
-- [pnpm](https://pnpm.io/) (9+)
-- Platform-specific Tauri dependencies — see the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/)
 - GitHub Copilot CLI with session history in `~/.copilot/session-state/`
 
 ### Install & Run
+
+#### Option A: From Source (recommended)
+
+Requires [Rust](https://rustup.rs/) (1.85+), [Node.js](https://nodejs.org/) (20+), [pnpm](https://pnpm.io/) (9+), and [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
 git clone https://github.com/MattShelton04/TracePilot.git
@@ -111,6 +111,12 @@ pnpm start
 That's it. `pnpm start` installs dependencies and launches the app automatically. On first launch, the setup wizard will guide you through configuration and index your sessions.
 
 > **Note:** A Tauri desktop window will open — this is the full app with the Rust backend. The terminal will also print a localhost URL, but opening that in a browser only shows the frontend with mock data (no backend communication). Always use the desktop window for the real experience.
+
+#### Option B: Download Installer / Exe
+
+Pre-built Windows installers and a standalone `.exe` are available on the [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases) page. Download the latest version and run — no build tools required.
+
+> **⚠️ Code Signing:** TracePilot is not code-signed (code signing certificates are cost-prohibitive for open-source projects). Windows SmartScreen will show a warning when you first run the installer or exe. Click **"More info"** → **"Run anyway"** to proceed. The source code is fully auditable in this repository.
 
 #### Frontend-Only Mode
 
@@ -226,13 +232,15 @@ TracePilot can check GitHub for newer releases:
 
 ### Keeping Up-to-Date
 
-Since TracePilot is distributed via git clone:
+**From source:**
 
 ```bash
 cd TracePilot
 git pull origin main
 pnpm start
 ```
+
+**Installer / Exe:** Download the latest release from the [Releases page](https://github.com/MattShelton04/TracePilot/releases) and run it.
 
 The app will detect the version change on next launch and show a "What's New" modal with release notes.
 
