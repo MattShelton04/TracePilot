@@ -44,23 +44,42 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
   viewModeSource: () => activeView.value,
 });
 
-// Scroll to a specific turn when navigated from search (via ?turn=N)
+// Scroll to a specific turn when navigated from search (via ?turn=N).
+// Uses IntersectionObserver so the highlight animation only starts once
+// the element is actually visible (loading can take a while).
 function scrollToTurn(turnIndex: number) {
   const el = document.getElementById(`turn-${turnIndex}`);
   if (!el) return;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  el.classList.add('turn-highlight');
-  setTimeout(() => el.classList.remove('turn-highlight'), 2000);
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        observer.disconnect();
+        el.classList.add('turn-highlight');
+        setTimeout(() => el.classList.remove('turn-highlight'), 4000);
+      }
+    },
+    { threshold: 0.3 },
+  );
+  observer.observe(el);
+  // Safety: disconnect after 10s even if never intersected
+  setTimeout(() => observer.disconnect(), 10000);
 }
 
 // Watch for turns to load, then scroll to the target turn
+let hasScrolled = false;
 watch(
   () => store.turns.length,
   (len) => {
+    if (hasScrolled) return;
     const turnParam = route.query.turn;
     if (!turnParam || len === 0) return;
     const turnIndex = Number(turnParam);
     if (Number.isNaN(turnIndex)) return;
+    // Only scroll once the target turn is actually rendered
+    if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
+    hasScrolled = true;
     nextTick(() => scrollToTurn(turnIndex));
   },
   { immediate: true },
@@ -527,11 +546,11 @@ function eventTypeLabel(eventType: string): string {
 <style scoped>
 /* Highlight animation for scroll-to-turn from search deep-links */
 .turn-highlight {
-  animation: turn-flash 2s ease-out;
+  animation: turn-flash 4s ease-out;
 }
 @keyframes turn-flash {
-  0% { box-shadow: 0 0 0 3px var(--accent-emphasis); }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0%, 30% { box-shadow: 0 0 0 3px var(--accent-emphasis); background: color-mix(in srgb, var(--accent-emphasis) 8%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
 }
 
 .subagent-block {
