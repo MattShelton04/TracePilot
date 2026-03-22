@@ -13,6 +13,7 @@ import type {
   SessionHealth,
   SessionIncident,
   SessionListItem,
+  SessionPlan,
   ShutdownMetrics,
   TodosResponse,
   ToolAnalysisData,
