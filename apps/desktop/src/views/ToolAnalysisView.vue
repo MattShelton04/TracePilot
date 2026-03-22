@@ -66,7 +66,9 @@ function onSuccessFailureClick(event: MouseEvent) {
   }
   tooltip.pinned = false;
   onSuccessFailureMouseMove(event);
-  tooltip.pinned = true;
+  if (tooltip.visible) {
+    tooltip.pinned = true;
+  }
 }
 
 const sortedTools = computed<ToolUsageEntry[]>(() => {
