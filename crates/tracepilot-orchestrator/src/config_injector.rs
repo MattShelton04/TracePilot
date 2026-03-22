@@ -124,13 +124,7 @@ pub fn create_backup(
     std::fs::copy(file_path, &backup_path)?;
     let meta = std::fs::metadata(&backup_path)?;
 
-    // Use source file's last modification time, not current wall-clock time
-    let source_meta = std::fs::metadata(file_path)?;
-    let created_at = source_meta
-        .modified()
-        .ok()
-        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    let created_at = chrono::Utc::now().to_rfc3339();
 
     // Write sidecar metadata so list_backups can recover source_path
     let sidecar_path = backup_dir.join(format!("{}.meta.json", backup_name));

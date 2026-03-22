@@ -105,15 +105,8 @@ fn has_recent_activity(session_dir: &Path) -> bool {
     let now = SystemTime::now();
 
     // Check events.jsonl first (best activity indicator)
-    let events_path = session_dir.join("events.jsonl");
-    if let Ok(meta) = std::fs::metadata(&events_path) {
-        if let Ok(modified) = meta.modified() {
-            if let Ok(age) = now.duration_since(modified) {
-                if age < STALE_LOCK_THRESHOLD {
-                    return true; // Recent activity confirmed
-                }
-            }
-        }
+    if is_file_recent(&session_dir.join("events.jsonl"), now) {
+        return true;
     }
 
     // Check lock file mtime as fallback
@@ -122,14 +115,8 @@ fn has_recent_activity(session_dir: &Path) -> bool {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             if name_str.starts_with("inuse.") && name_str.ends_with(".lock") {
-                if let Ok(meta) = entry.metadata() {
-                    if let Ok(modified) = meta.modified() {
-                        if let Ok(age) = now.duration_since(modified) {
-                            if age < STALE_LOCK_THRESHOLD {
-                                return true; // Lock file itself is recent
-                            }
-                        }
-                    }
+                if is_file_recent(&entry.path(), now) {
+                    return true;
                 }
             }
         }
@@ -137,6 +124,24 @@ fn has_recent_activity(session_dir: &Path) -> bool {
 
     // Both are stale or unreadable — treat as inactive
     false
+}
+
+/// Check if a file has been modified within the staleness threshold.
+/// Fails open: returns true if mtime cannot be determined or is in the future
+/// (e.g., clock skew), to avoid hiding genuinely active sessions.
+fn is_file_recent(path: &Path, now: SystemTime) -> bool {
+    let meta = match std::fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return false, // File doesn't exist — not evidence of activity
+    };
+    let modified = match meta.modified() {
+        Ok(t) => t,
+        Err(_) => return true, // Can't read mtime — fail open
+    };
+    match now.duration_since(modified) {
+        Ok(age) => age < STALE_LOCK_THRESHOLD,
+        Err(_) => true, // mtime is in the future (clock skew) — fail open
+    }
 }
 
 /// Resolve a session ID (full or partial prefix) to its directory path.

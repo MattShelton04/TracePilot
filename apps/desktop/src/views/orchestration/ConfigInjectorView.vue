@@ -1573,9 +1573,12 @@ onMounted(() => {
 }
 
 .diff-panel {
+  display: block;
+  grid-template-columns: none;
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--canvas-default);
 }
 
 .diff-panel-header {

@@ -205,7 +205,7 @@ const successFailureChart = computed(() => {
           <!-- Stat Cards -->
           <div class="grid-4 mb-4">
             <div class="stat-card">
-              <div class="stat-card-value accent">{{ data.totalCalls }}</div>
+              <div class="stat-card-value accent">{{ formatNumberFull(data.totalCalls) }}</div>
               <div class="stat-card-label">Total Tool Calls</div>
             </div>
             <div class="stat-card">
@@ -238,7 +238,7 @@ const successFailureChart = computed(() => {
                 <tbody>
                   <tr v-for="tool in sortedTools" :key="tool.name">
                     <td style="font-weight: 600;">{{ tool.name }}</td>
-                    <td style="font-variant-numeric: tabular-nums;">{{ tool.callCount }}</td>
+                    <td style="font-variant-numeric: tabular-nums;">{{ formatNumberFull(tool.callCount) }}</td>
                     <td>
                       <div style="font-variant-numeric: tabular-nums;">{{ formatRate(tool.successRate) }}</div>
                       <div class="progress-bar" style="margin-top: 4px; width: 120px;">
@@ -347,7 +347,7 @@ const successFailureChart = computed(() => {
                     <div class="freq-bar-track">
                       <div class="freq-bar" :style="{ width: (tool.callCount / maxInvocations * 100) + '%' }" />
                     </div>
-                    <span class="freq-count">{{ tool.callCount }}</span>
+                    <span class="freq-count">{{ formatNumberFull(tool.callCount) }}</span>
                   </div>
                 </div>
                 <div

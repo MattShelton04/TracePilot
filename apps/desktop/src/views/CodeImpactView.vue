@@ -455,8 +455,6 @@ const timelineChart = computed(() => {
 /* Chart */
 .chart-container {
   position: relative;
-  width: 100%;
-  overflow-x: auto;
 }
 .chart-container svg {
   display: block;
