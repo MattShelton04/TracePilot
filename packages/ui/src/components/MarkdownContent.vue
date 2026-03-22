@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 
 const md = new MarkdownIt({
   html: false, // Disable HTML tags in source for security
-  linkify: true,
+  linkify: false,
   typographer: true,
   breaks: false, // Don't convert single newlines to <br>
 });
