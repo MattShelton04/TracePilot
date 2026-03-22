@@ -980,7 +980,7 @@ mod commands {
             let total_count = db.search_content_count(&query_for_closure, &filters).map_err(|e| e.to_string())?;
             let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
-            let page_limit = filters.limit.unwrap_or(50) as i64;
+            let page_limit = filters.limit.unwrap_or(50).min(200) as i64;
             let page_offset = filters.offset.unwrap_or(0) as i64;
             let has_more = (page_offset + page_limit) < total_count;
 

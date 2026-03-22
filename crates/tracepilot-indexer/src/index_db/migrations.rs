@@ -274,13 +274,11 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     }
 
     // Idempotent ALTER TABLE additions for Migration 6 columns.
-    // These are outside the migration block to handle partial failure:
-    // if migration 6 fails after the SQL batch but before version bump,
-    // re-running won't crash on "duplicate column".
-    if current_version < 6 {
-        add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
-        add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
-    }
+    // Always run (not gated on current_version) so that partial failures
+    // where version 6 committed but columns weren't added are recovered.
+    // add_column_if_missing is safe to call repeatedly — it checks PRAGMA table_info.
+    add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
+    add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
 
     Ok(())
 }

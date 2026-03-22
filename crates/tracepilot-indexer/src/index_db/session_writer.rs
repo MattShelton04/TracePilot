@@ -69,12 +69,10 @@ impl IndexDb {
                 "DELETE FROM session_incidents WHERE session_id = ?1",
                 [&session_id],
             )?;
-            // search_content rows are also cleaned (CASCADE from sessions FK),
-            // but we explicitly delete here for clarity during upsert
-            self.conn.execute(
-                "DELETE FROM search_content WHERE session_id = ?1",
-                [&session_id],
-            )?;
+            // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
+            // Phase 2 may not run immediately (semaphore busy), so deleting here would
+            // leave a gap where the session has no search content until the next Phase 2 cycle.
+            // The CASCADE FK on sessions.id handles cleanup when sessions are truly removed.
 
             // UPSERT the session row
             self.conn.execute(

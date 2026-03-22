@@ -119,6 +119,15 @@ const friendlyError = computed(() => {
 
 // ÔöÇÔöÇ Result facets (computed from current results) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const resultContentTypeFacets = computed(() => {
+  // Prefer backend facets (query-scoped, covers ALL results not just current page)
+  if (store.facets?.byContentType?.length) {
+    const entries = store.facets.byContentType;
+    const max = Math.max(1, ...entries.map(([, c]) => c));
+    return entries
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({ type: type as SearchContentType, count, pct: (count / max) * 100 }));
+  }
+  // Fallback: compute from current page results
   const counts = new Map<string, number>();
   for (const r of store.results) {
     counts.set(r.contentType, (counts.get(r.contentType) ?? 0) + 1);

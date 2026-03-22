@@ -165,8 +165,10 @@ impl IndexDb {
     /// Clear all search content and reset search_indexed_at for all sessions.
     pub fn clear_search_content(&self) -> Result<()> {
         self.conn.execute_batch(
-            "DELETE FROM search_content;
-             UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;",
+            "BEGIN;
+             DELETE FROM search_content;
+             UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;
+             COMMIT;",
         )?;
         Ok(())
     }
@@ -353,7 +355,7 @@ pub fn extract_search_content(
                             content: truncated.to_string(),
                             metadata_json: d
                                 .checkpoint_number
-                                .map(|n| format!(r#"{{"checkpoint":{}}}"#, n)),
+                                .map(|n| serde_json::json!({"checkpoint": n}).to_string()),
                         });
                     }
                 }
@@ -371,7 +373,9 @@ pub fn extract_search_content(
                             timestamp_unix: ts_unix,
                             tool_name: None,
                             content: truncated.to_string(),
-                            metadata_json: d.role.as_ref().map(|r| format!(r#"{{"role":"{}"}}"#, r)),
+                            metadata_json: d.role.as_ref().map(|r| {
+                                serde_json::json!({"role": r}).to_string()
+                            }),
                         });
                     }
                 }

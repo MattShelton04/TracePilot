@@ -158,6 +158,9 @@ export const useSearchStore = defineStore('search', () => {
       totalCount.value = response.totalCount;
       hasMore.value = response.hasMore;
       latencyMs.value = response.latencyMs;
+
+      // Refresh facets with the current query for query-scoped counts
+      fetchFacets(query.value);
     } catch (e) {
       if (gen !== searchGeneration) return;
       error.value = String(e);
@@ -199,9 +202,25 @@ export const useSearchStore = defineStore('search', () => {
   });
 
   // ── Facets & stats ───────────────────────────────────────────
-  async function fetchFacets() {
+  async function fetchFacets(forQuery?: string) {
     try {
-      facets.value = await getSearchFacets();
+      // When a query is active, pass it + filters to get query-scoped facets
+      if (forQuery && forQuery.trim()) {
+        let dateFromUnix: number | undefined;
+        let dateToUnix: number | undefined;
+        if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
+        if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+        facets.value = await getSearchFacets(forQuery, {
+          contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+          repositories: repository.value ? [repository.value] : undefined,
+          toolNames: toolName.value ? [toolName.value] : undefined,
+          sessionId: sessionId.value ?? undefined,
+          dateFromUnix,
+          dateToUnix,
+        });
+      } else {
+        facets.value = await getSearchFacets();
+      }
     } catch (e) {
       console.warn('Failed to fetch search facets:', e);
     }
