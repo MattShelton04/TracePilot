@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 pub mod index_db;
 
 pub use index_db::SessionIndexInfo;
+pub use index_db::{SearchFacets, SearchFilters, SearchResult, SearchStats};
+pub use index_db::search_reader::sanitize_fts_query;
 
 /// Accumulated progress info emitted per session during indexing.
 #[derive(Debug, Clone)]
@@ -216,4 +218,106 @@ pub fn reindex_incremental_with_rich_progress(
     }
 
     Ok((indexed, skipped))
+}
+
+/// Progress info for search content indexing (Phase 2).
+#[derive(Debug, Clone)]
+pub struct SearchIndexingProgress {
+    pub current: usize,
+    pub total: usize,
+}
+
+/// Index search content for sessions that need it (Phase 2 — background).
+///
+/// This should be called AFTER Phase 1 (main reindex) completes.
+/// Parses events OUTSIDE transactions, writes INSIDE (brief lock per session).
+/// Returns (indexed_count, skipped_count).
+pub fn reindex_search_content(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    mut on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<(usize, usize)> {
+    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let db = index_db::IndexDb::open_or_create(index_db_path)?;
+
+    let total = sessions.len();
+    let mut indexed = 0;
+    let mut skipped = 0;
+
+    for (i, session) in sessions.iter().enumerate() {
+        // Check cancellation at session boundaries
+        if is_cancelled() {
+            tracing::info!(indexed, skipped, "Search indexing cancelled");
+            return Ok((indexed, skipped));
+        }
+
+        if !db.needs_search_reindex(&session.id, &session.path) {
+            skipped += 1;
+        } else {
+            // Parse OUTSIDE transaction (CPU-bound, no DB lock)
+            let events_path = session.path.join("events.jsonl");
+            let content_rows = if events_path.exists() {
+                match tracepilot_core::parsing::events::parse_typed_events(&events_path) {
+                    Ok(parsed) => {
+                        index_db::search_writer::extract_search_content(
+                            &session.id,
+                            &parsed.events,
+                        )
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            session_id = %session.id,
+                            error = %e,
+                            "Failed to parse events for search indexing"
+                        );
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            };
+
+            // Write INSIDE transaction (brief lock)
+            match db.upsert_search_content(&session.id, &content_rows) {
+                Ok(_) => {
+                    indexed += 1;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        session_id = %session.id,
+                        error = %e,
+                        "Failed to write search content"
+                    );
+                }
+            }
+        }
+
+        // Throttle progress events (every 5 sessions)
+        if (i + 1) % 5 == 0 || i + 1 == total {
+            on_progress(&SearchIndexingProgress {
+                current: i + 1,
+                total,
+            });
+        }
+    }
+
+    // Optimize after bulk writes
+    let _ = db.conn.execute_batch("PRAGMA optimize");
+
+    Ok((indexed, skipped))
+}
+
+/// Full rebuild of search content: clears everything and re-indexes all sessions.
+pub fn rebuild_search_content(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<(usize, usize)> {
+    let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    db.clear_search_content()?;
+    drop(db);
+
+    reindex_search_content(session_state_dir, index_db_path, on_progress, is_cancelled)
 }

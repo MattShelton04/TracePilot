@@ -104,21 +104,14 @@ impl IndexDb {
         Ok(path.map(PathBuf::from))
     }
 
-    /// Full-text search across session metadata and conversation content.
+    /// Full-text search across session metadata (toolbar quick search).
+    /// Uses sessions_fts for lightweight session-level matching.
     pub fn search(&self, query: &str) -> Result<Vec<String>> {
         let mut results = HashSet::new();
 
         let mut stmt = self
             .conn
             .prepare("SELECT id FROM sessions_fts WHERE sessions_fts MATCH ?1")?;
-        let ids = stmt.query_map([query], |row| row.get::<_, String>(0))?;
-        for id in ids.flatten() {
-            results.insert(id);
-        }
-
-        let mut stmt = self
-            .conn
-            .prepare("SELECT session_id FROM conversation_fts WHERE conversation_fts MATCH ?1")?;
         let ids = stmt.query_map([query], |row| row.get::<_, String>(0))?;
         for id in ids.flatten() {
             results.insert(id);

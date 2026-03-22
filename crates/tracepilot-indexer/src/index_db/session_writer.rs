@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use tracepilot_core::parsing::events::TypedEventData;
-use tracepilot_core::utils::truncate_utf8;
 
 use super::types::*;
 use super::IndexDb;
@@ -67,11 +66,13 @@ impl IndexDb {
                 [&session_id],
             )?;
             self.conn.execute(
-                "DELETE FROM conversation_fts WHERE session_id = ?1",
+                "DELETE FROM session_incidents WHERE session_id = ?1",
                 [&session_id],
             )?;
+            // search_content rows are also cleaned (CASCADE from sessions FK),
+            // but we explicitly delete here for clarity during upsert
             self.conn.execute(
-                "DELETE FROM session_incidents WHERE session_id = ?1",
+                "DELETE FROM search_content WHERE session_id = ?1",
                 [&session_id],
             )?;
 
@@ -216,15 +217,6 @@ impl IndexDb {
                 )?;
             }
 
-            // INSERT conversation FTS content
-            if !analytics.fts_content.is_empty() {
-                let truncated = truncate_utf8(&analytics.fts_content, FTS_CONTENT_MAX_BYTES);
-                self.conn.execute(
-                    "INSERT INTO conversation_fts (session_id, content) VALUES (?1, ?2)",
-                    params![session_id, truncated],
-                )?;
-            }
-
             // INSERT child rows: incidents
             {
                 let mut stmt = self.conn.prepare(
@@ -343,8 +335,9 @@ impl IndexDb {
             self.conn.execute_batch(
                 "DELETE FROM sessions WHERE id NOT IN (SELECT id FROM _live_ids)",
             )?;
+            // search_content rows cascade-deleted via FK, but clean up explicitly
             self.conn.execute_batch(
-                "DELETE FROM conversation_fts WHERE session_id NOT IN (SELECT id FROM _live_ids)",
+                "DELETE FROM search_content WHERE session_id NOT IN (SELECT id FROM _live_ids)",
             )?;
             self.conn
                 .execute_batch("DROP TABLE IF EXISTS _live_ids")?;
@@ -458,10 +451,6 @@ pub(super) fn extract_session_analytics(
     let mut tool_call_rows: Vec<ToolCallRow> = Vec::new();
     let mut activity_rows: Vec<ActivityRow> = Vec::new();
     let mut modified_file_rows: Vec<ModifiedFileRow> = Vec::new();
-    let mut fts_content = String::with_capacity(
-        typed_events.as_ref().map_or(0, |e| e.len().min(2000) * 50),
-    );
-    let fts_limit: usize = FTS_CONTENT_MAX_BYTES;
     let mut actual_tool_call_count: i64 = 0;
 
     let mut error_count: i64 = 0;
@@ -483,25 +472,11 @@ pub(super) fn extract_session_analytics(
 
         for event in events {
             match &event.typed_data {
-                TypedEventData::UserMessage(d) => {
-                    if fts_content.len() < fts_limit {
-                        if let Some(content) = &d.content {
-                            if !fts_content.is_empty() {
-                                fts_content.push('\n');
-                            }
-                            fts_content.push_str(content);
-                        }
-                    }
+                TypedEventData::UserMessage(_) => {
+                    // FTS content extraction moved to search_writer (Phase 2)
                 }
-                TypedEventData::AssistantMessage(d) => {
-                    if fts_content.len() < fts_limit {
-                        if let Some(content) = &d.content {
-                            if !fts_content.is_empty() {
-                                fts_content.push('\n');
-                            }
-                            fts_content.push_str(content);
-                        }
-                    }
+                TypedEventData::AssistantMessage(_) => {
+                    // FTS content extraction moved to search_writer (Phase 2)
                 }
                 TypedEventData::ToolExecutionStart(d) => {
                     if let Some(ref tool_call_id) = d.tool_call_id {
@@ -727,7 +702,6 @@ pub(super) fn extract_session_analytics(
         tool_call_rows,
         activity_rows,
         modified_file_rows,
-        fts_content,
         error_count,
         rate_limit_count,
         warning_count,
