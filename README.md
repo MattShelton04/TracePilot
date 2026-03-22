@@ -321,20 +321,17 @@ pnpm format
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Health Scoring** | Backend ready, UI wired to mock data | Per-session health scores with anomaly detection (missing shutdowns, high error rates, malformed data). Rust health module is complete with 6 heuristic checks. Frontend view exists with mock data — needs a Tauri IPC command to bridge them. |
-| **Session Replay** | UI built, needs real data | Step-through conversation replay with playback controls and timeline scrubber. |
-| **Export** | Planned | Export sessions as Markdown, JSON, or CSV. A JSON summary renderer exists; Markdown, CSV, and the end-to-end export pipeline are not yet implemented. |
-| **CLI Tool** | Experimental | Terminal-based session browser with `list`, `show`, `search`, `resume`, and `index` commands. Functional but not yet recommended for general use. |
-| **Version Analysis** | ✅ Complete | CLI-based schema diffing and coverage tracking across installed Copilot CLI versions. Detects new event types, removed fields, and computes TracePilot's handling coverage. See [Version Analysis](#version-analysis). |
-| **Settings** | Partially live | Theme, session directory, reindex, and factory reset work. Health thresholds and keyboard shortcuts are placeholder. |
+| **Health Scoring** | Partially Completed | Per-session health scores with a configurable calculation. |
+| **Export** | Planned | Export and import sessions as Markdown, JSON, or CSV. |
+| **CLI Tool** | Experimental | Terminal-based session browser with `list`, `show`, `search`, `resume`, and `index` commands. Functional but not yet recommended for general use. Will theoretically allow the CLI to self inspect and query data from older sessions. |
 
 ### Ideas & Future Exploration
 
-- Keyboard-driven command palette
 - Weekly usage reports
 - Error forensics deep-dive
-- Cache efficiency optimizer
-- File impact treemap
+- Copilot memory explorer
+- Further visualizations
+- Copilot SDK usage for real time orchestration in-app
 
 ## Version Analysis
 
