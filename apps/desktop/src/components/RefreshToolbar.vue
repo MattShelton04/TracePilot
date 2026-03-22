@@ -63,9 +63,9 @@ onUnmounted(() => {
       title="Refresh data"
       @click="emit('refresh')"
     >
-      <svg class="refresh-icon" viewBox="-1 -1 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M14 8A6 6 0 1 1 8 2" stroke-linecap="round" />
-        <path d="M14 2v4h-4" stroke-linecap="round" stroke-linejoin="round" />
+      <svg class="refresh-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 8a6 6 0 1 1-6-6c1.7 0 3.3.7 4.5 1.8L14 5.5" />
+        <path d="M14 1.5v4h-4" />
       </svg>
     </button>
 

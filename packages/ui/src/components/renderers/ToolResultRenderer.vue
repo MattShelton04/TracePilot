@@ -13,6 +13,7 @@ import { computed, type Component } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
 import { getRendererEntry } from "./registry";
 import PlainTextRenderer from "./PlainTextRenderer.vue";
+import MarkdownContent from "../MarkdownContent.vue";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -55,13 +56,19 @@ const parsedArgs = computed(() => {
     :is-truncated="isTruncated"
     @load-full="emit('load-full', tc.toolCallId ?? '')"
   />
-  <!-- Fallback: plain text in a shell -->
+  <!-- Fallback: plain text or markdown in a shell -->
   <RendererShell
     v-else-if="content"
     :copy-content="content"
     :is-truncated="isTruncated"
     @load-full="emit('load-full', tc.toolCallId ?? '')"
   >
-    <PlainTextRenderer :content="content" />
+    <MarkdownContent
+      v-if="richEnabled && ['read_agent', 'task'].includes(tc.toolName)"
+      :content="content"
+      :render="true"
+      style="padding: 10px 12px; background: var(--canvas-default);"
+    />
+    <PlainTextRenderer v-else :content="content" />
   </RendererShell>
 </template>

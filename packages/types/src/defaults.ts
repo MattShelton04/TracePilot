@@ -21,6 +21,12 @@ export const DEFAULT_CLI_COMMAND = 'copilot';
 /** Default auto-refresh interval in seconds. */
 export const DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS = 5;
 
+/** Default content max-width in px. 0 means full width (no cap). */
+export const DEFAULT_CONTENT_MAX_WIDTH = 1200;
+
+/** Default UI scale factor. */
+export const DEFAULT_UI_SCALE = 1.0;
+
 /**
  * Build a default TracePilotConfig, optionally overriding specific fields.
  *
@@ -65,6 +71,8 @@ export function createDefaultConfig(
       checkForUpdates: false,
       favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
       recentRepoPaths: [],
+      contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,
+      uiScale: DEFAULT_UI_SCALE,
       ...overrides?.ui,
     },
     pricing: {
@@ -81,6 +89,7 @@ export function createDefaultConfig(
       exportView: false,
       healthScoring: false,
       sessionReplay: false,
+      renderMarkdown: true,
       ...overrides?.features,
     },
     logging: {

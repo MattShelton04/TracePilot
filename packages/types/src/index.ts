@@ -206,6 +206,11 @@ export interface TodoItem {
   updatedAt?: string;
 }
 
+/** Session plan content from plan.md */
+export interface SessionPlan {
+  content: string;
+}
+
 /** Todo dependency */
 export interface TodoDep {
   todoId: string;
@@ -613,6 +618,10 @@ export interface TracePilotConfig {
     checkForUpdates: boolean;
     favouriteModels: string[];
     recentRepoPaths: string[];
+    /** Max width for page content area in px. 0 = full width (no cap). Default: 1200. */
+    contentMaxWidth: number;
+    /** Global UI scale factor (0.8 – 1.3). Default: 1.0. */
+    uiScale: number;
   };
   pricing: {
     costPerPremiumRequest: number;
@@ -626,6 +635,7 @@ export interface TracePilotConfig {
     exportView: boolean;
     healthScoring: boolean;
     sessionReplay: boolean;
+    renderMarkdown: boolean;
   };
   logging: {
     level: string;

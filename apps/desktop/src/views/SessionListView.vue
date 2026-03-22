@@ -166,6 +166,12 @@ onUnmounted(() => {
             <div class="session-card-stats">
               <span class="session-card-stat">{{ session.eventCount ?? 0 }} events</span>
               <span class="session-card-stat">{{ session.turnCount ?? 0 }} turns</span>
+              <span v-if="session.errorCount" class="session-card-stat stat-error" :title="`${session.errorCount} error${session.errorCount !== 1 ? 's' : ''} encountered` ">
+                {{ session.errorCount }} error{{ session.errorCount !== 1 ? 's' : '' }}
+              </span>
+              <span v-if="session.compactionCount" class="session-card-stat stat-warning" :title="`${session.compactionCount} context compaction${session.compactionCount !== 1 ? 's' : ''} performed` ">
+                {{ session.compactionCount }} compaction{{ session.compactionCount !== 1 ? 's' : '' }}
+              </span>
             </div>
             <span>{{ formatRelativeTime(session.updatedAt) }}</span>
           </div>
@@ -266,6 +272,18 @@ onUnmounted(() => {
 .session-card-stats {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+.session-card-stat {
+  white-space: nowrap;
+}
+.stat-error {
+  color: var(--danger-fg);
+  opacity: 0.8;
+}
+.stat-warning {
+  color: var(--warning-fg);
+  opacity: 0.8;
 }
 .loading-state {
   display: flex;

@@ -20,9 +20,13 @@
   },
   "dependencies": {
     "@tracepilot/types": "workspace:*",
+    "dompurify": "^3.3.3",
+    "markdown-it": "^14.1.1",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
+    "@types/markdown-it": "^14.1.2",
     "@vitejs/plugin-vue": "^5.2.4",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^28.1.0",
