@@ -8,6 +8,7 @@ import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
   StatCard, Badge, BtnGroup, EmptyState,
   ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge, ReasoningBlock,
+  MarkdownContent,
   formatDuration, formatTime, formatNumber, truncateText,
   toolIcon, toolCategory, categoryColor,
   useSessionTabLoader, useToggleSet, useConversationSections,
@@ -141,7 +142,9 @@ function eventTypeLabel(eventType: string): string {
               <span class="turn-meta">Turn {{ turn.turnIndex }}</span>
               <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
             </div>
-            <div class="turn-bubble user">{{ truncateText(turn.userMessage) }}</div>
+            <div class="turn-bubble user">
+              <MarkdownContent :content="turn.userMessage" :render="preferences.isFeatureEnabled('renderMarkdown')" />
+            </div>
           </div>
         </div>
 
@@ -168,7 +171,9 @@ function eventTypeLabel(eventType: string): string {
                   <span v-if="turn.endTimestamp || turn.timestamp" class="turn-meta">{{ formatTime(turn.endTimestamp ?? turn.timestamp) }}</span>
                   <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
                 </div>
-                <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
+                <div class="turn-bubble assistant">
+                  <MarkdownContent :content="msg" :render="preferences.isFeatureEnabled('renderMarkdown')" />
+                </div>
               </div>
             </div>
 
@@ -252,7 +257,9 @@ function eventTypeLabel(eventType: string): string {
                     <span class="turn-author" :style="{ color: AGENT_COLORS[section.agentType] }">{{ section.agentDisplayName }}</span>
                     <Badge v-if="section.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ section.model }}</Badge>
                   </div>
-                  <div class="turn-bubble assistant">{{ truncateText(msg) }}</div>
+                  <div class="turn-bubble assistant">
+                  <MarkdownContent :content="msg" :render="preferences.isFeatureEnabled('renderMarkdown')" />
+                </div>
                 </div>
               </div>
 
