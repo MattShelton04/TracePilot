@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SectionPanel, BtnGroup } from '@tracepilot/ui';
+import { SectionPanel, BtnGroup, FormSwitch } from '@tracepilot/ui';
 import { computed } from 'vue';
 import { usePreferencesStore } from '@/stores/preferences';
 import {
@@ -170,6 +170,20 @@ function resetScale() {
             ↺
           </button>
         </div>
+      </div>
+
+      <!-- Markdown Rendering -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Markdown rendering</div>
+          <div class="setting-description">
+            Render rich text and code blocks in conversation and session files.
+          </div>
+        </div>
+        <FormSwitch
+          :model-value="preferences.isFeatureEnabled('renderMarkdown')"
+          @update:model-value="preferences.toggleFeature('renderMarkdown')"
+        />
       </div>
     </SectionPanel>
   </div>

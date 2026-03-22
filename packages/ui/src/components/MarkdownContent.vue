@@ -35,6 +35,52 @@ const rendered = computed(() => {
   return DOMPurify.sanitize(rawHtml);
 });
 
+function handleLinkClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  const link = target.closest('a');
+  if (link) {
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      // Internal section link - prevent default to avoid 404 in SPA
+      event.preventDefault();
+      
+      const id = href.slice(1).toLowerCase();
+      const container = (event.currentTarget as HTMLElement);
+      
+      // 1. Try to find by ID (standard)
+      let element = container.querySelector(`[id="${id}"], a[name="${id}"]`);
+      
+      // 2. If not found, try to find a header that matches the slug
+      if (!element) {
+        const headers = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const h of Array.from(headers)) {
+          const text = h.textContent || '';
+          // Standard slugging: don't collapse multiple dashes if they come from multiple spaces/chars
+          const slug = text.toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s/g, '-')
+            .replace(/_/g, '-')
+            .replace(/^-+|-+$/g, '');
+          
+          if (slug === id || slug.replace(/-+/g, '-') === id.replace(/-+/g, '-')) {
+            element = h;
+            break;
+          }
+        }
+      }
+      
+      if (element) {
+        // Use scroll-margin-top on the target element if possible, 
+        // otherwise just use scrollIntoView which is more reliable than manual relative math
+        // in complex layouts.
+        (element as HTMLElement).style.scrollMarginTop = '80px';
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -49,6 +95,7 @@ function escapeHtml(str: string): string {
     class="markdown-content"
     :class="{ 'is-rendered': render, 'is-raw': !render }"
     :style="maxHeight ? { maxHeight, overflowY: 'auto' } : undefined"
+    @click="handleLinkClick"
     v-html="rendered" />
 </template>
 

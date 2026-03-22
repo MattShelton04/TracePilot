@@ -601,6 +601,33 @@ mod commands {
     }
 
     #[tauri::command]
+    pub async fn get_session_plan(
+        state: tauri::State<'_, SharedConfig>,
+        session_id: String,
+    ) -> Result<Option<serde_json::Value>, String> {
+        let session_state_dir = read_config(&state).session_state_dir();
+
+        tokio::task::spawn_blocking(move || {
+            let path = tracepilot_core::session::discovery::resolve_session_path_in(
+                &session_id,
+                &session_state_dir,
+            )
+            .map_err(|e| e.to_string())?;
+            let plan_path = path.join("plan.md");
+            if !plan_path.exists() {
+                return Ok(None);
+            }
+
+            let mut content = std::fs::read_to_string(&plan_path).map_err(|e| e.to_string())?;
+            truncate_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
+
+            Ok(Some(serde_json::json!({ "content": content })))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
     pub async fn get_shutdown_metrics(
         state: tauri::State<'_, SharedConfig>,
         session_id: String,
@@ -2017,6 +2044,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_session_events,
             commands::get_session_todos,
             commands::get_session_checkpoints,
+            commands::get_session_plan,
             commands::get_shutdown_metrics,
             commands::search_sessions,
             commands::reindex_sessions,

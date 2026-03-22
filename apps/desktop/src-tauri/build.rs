@@ -12,6 +12,7 @@ fn main() {
                     "get_session_events",
                     "get_session_todos",
                     "get_session_checkpoints",
+                    "get_session_plan",
                     "get_shutdown_metrics",
                     "search_sessions",
                     "reindex_sessions",
