@@ -603,7 +603,7 @@ onUnmounted(() => {
                     class="result-jump"
                     @click.stop
                   >
-                    View in session ÔåÆ
+                    View in session →
                   </router-link>
                 </div>
 
@@ -640,7 +640,7 @@ onUnmounted(() => {
                     class="expanded-view-btn"
                     @click.stop
                   >
-                    Open in Session Viewer ÔåÆ
+                    Open in Session Viewer →
                   </router-link>
                 </div>
               </div>
