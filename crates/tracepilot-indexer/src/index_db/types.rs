@@ -1,8 +1,5 @@
 //! Types and constants for the index database.
 
-/// Maximum byte length for full-text search content per session.
-pub(super) const FTS_CONTENT_MAX_BYTES: usize = 100_000;
-
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 3;
@@ -131,7 +128,6 @@ pub(super) struct SessionAnalytics {
     pub tool_call_rows: Vec<ToolCallRow>,
     pub activity_rows: Vec<ActivityRow>,
     pub modified_file_rows: Vec<ModifiedFileRow>,
-    pub fts_content: String,
 
     // Incident counters
     pub error_count: i64,

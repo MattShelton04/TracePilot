@@ -696,3 +696,81 @@ export interface IndexingProgressPayload {
   totalEvents: number;
   totalRepos: number;
 }
+
+// ===== Deep Search (FTS) Types =====
+
+/** Content types that can be indexed for full-text search. */
+export type SearchContentType =
+  | 'user_message'
+  | 'assistant_message'
+  | 'reasoning'
+  | 'tool_call'
+  | 'tool_error'
+  | 'error'
+  | 'compaction_summary'
+  | 'system_message'
+  | 'subagent'
+  | 'checkpoint';
+
+/** A single search result from the FTS index. */
+export interface SearchResult {
+  id: number;
+  sessionId: string;
+  contentType: SearchContentType;
+  turnNumber: number | null;
+  eventIndex: number | null;
+  timestampUnix: number | null;
+  toolName: string | null;
+  /** Highlighted snippet with <mark> tags */
+  snippet: string;
+  metadataJson: string | null;
+  sessionSummary: string | null;
+  sessionRepository: string | null;
+  sessionBranch: string | null;
+  sessionUpdatedAt: string | null;
+}
+
+/** Paginated search results response from the backend. */
+export interface SearchResultsResponse {
+  results: SearchResult[];
+  totalCount: number;
+  hasMore: boolean;
+  query: string;
+  latencyMs: number;
+}
+
+/** Filters for deep content search. */
+export interface SearchFilters {
+  contentTypes?: string[];
+  repositories?: string[];
+  toolNames?: string[];
+  sessionId?: string;
+  dateFromUnix?: number;
+  dateToUnix?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'relevance' | 'newest' | 'oldest';
+}
+
+/** Facet counts returned from search. Tuples are [name, count]. */
+export interface SearchFacetsResponse {
+  byContentType: [string, number][];
+  byRepository: [string, number][];
+  byToolName: [string, number][];
+  totalMatches: number;
+  sessionCount: number;
+}
+
+/** Statistics about the search index. */
+export interface SearchStatsResponse {
+  totalRows: number;
+  indexedSessions: number;
+  totalSessions: number;
+  contentTypeCounts: [string, number][];
+}
+
+/** Progress payload for search indexing events. */
+export interface SearchIndexingProgress {
+  current: number;
+  total: number;
+}

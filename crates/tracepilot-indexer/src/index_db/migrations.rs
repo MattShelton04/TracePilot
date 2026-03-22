@@ -156,6 +156,88 @@ CREATE INDEX IF NOT EXISTS idx_session_incidents_session ON session_incidents(se
 CREATE INDEX IF NOT EXISTS idx_session_incidents_type ON session_incidents(event_type);
 "#;
 
+pub(super) const MIGRATION_6: &str = r#"
+-- ═══ Drop old FTS tables and triggers ═══
+DROP TRIGGER IF EXISTS sessions_ai;
+DROP TRIGGER IF EXISTS sessions_au;
+DROP TRIGGER IF EXISTS sessions_ad;
+DROP TABLE IF EXISTS sessions_fts;
+DROP TABLE IF EXISTS conversation_fts;
+
+-- ═══ Deep search content table: one row per searchable chunk ═══
+CREATE TABLE IF NOT EXISTS search_content (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    content_type TEXT NOT NULL CHECK(content_type IN (
+        'user_message', 'assistant_message', 'reasoning',
+        'tool_call', 'tool_error', 'error',
+        'compaction_summary', 'system_message', 'subagent', 'checkpoint'
+    )),
+    turn_number INTEGER,
+    event_index INTEGER,
+    timestamp_unix INTEGER,
+    tool_name TEXT,
+    content TEXT NOT NULL,
+    metadata_json TEXT,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_content_session ON search_content(session_id);
+CREATE INDEX IF NOT EXISTS idx_search_content_timestamp ON search_content(timestamp_unix);
+
+-- ═══ FTS5 virtual table (content-sync with search_content) ═══
+CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
+    content,
+    content='search_content',
+    content_rowid='id',
+    tokenize='unicode61'
+);
+
+-- Sync triggers: keep search_fts in lockstep with search_content
+CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
+    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_content_au AFTER UPDATE ON search_content BEGIN
+    INSERT INTO search_fts(search_fts, rowid, content) VALUES ('delete', old.id, old.content);
+    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS search_content_ad AFTER DELETE ON search_content BEGIN
+    INSERT INTO search_fts(search_fts, rowid, content) VALUES ('delete', old.id, old.content);
+END;
+
+-- ═══ Lightweight session-level FTS (for toolbar quick search) ═══
+CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
+    id, summary, repository, branch,
+    content='sessions',
+    content_rowid='rowid',
+    tokenize='unicode61'
+);
+
+-- Back-populate sessions_fts from existing sessions
+INSERT INTO sessions_fts(rowid, id, summary, repository, branch)
+    SELECT rowid, id, summary, repository, branch FROM sessions;
+
+-- Sync triggers for sessions_fts
+CREATE TRIGGER IF NOT EXISTS sessions_ai AFTER INSERT ON sessions BEGIN
+    INSERT INTO sessions_fts(rowid, id, summary, repository, branch)
+    VALUES (new.rowid, new.id, new.summary, new.repository, new.branch);
+END;
+
+CREATE TRIGGER IF NOT EXISTS sessions_au AFTER UPDATE ON sessions BEGIN
+    INSERT INTO sessions_fts(sessions_fts, rowid, id, summary, repository, branch)
+    VALUES ('delete', old.rowid, old.id, old.summary, old.repository, old.branch);
+    INSERT INTO sessions_fts(rowid, id, summary, repository, branch)
+    VALUES (new.rowid, new.id, new.summary, new.repository, new.branch);
+END;
+
+CREATE TRIGGER IF NOT EXISTS sessions_ad AFTER DELETE ON sessions BEGIN
+    INSERT INTO sessions_fts(sessions_fts, rowid, id, summary, repository, branch)
+    VALUES ('delete', old.rowid, old.id, old.summary, old.repository, old.branch);
+END;
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -177,6 +259,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 3: analytics schema", MIGRATION_3),
         ("Migration 4: tool duration tracking", MIGRATION_4),
         ("Migration 5: incident tracking", MIGRATION_5),
+        ("Migration 6: deep FTS search", MIGRATION_6),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
@@ -190,5 +273,32 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         }
     }
 
+    // Idempotent ALTER TABLE additions for Migration 6 columns.
+    // Always run (not gated on current_version) so that partial failures
+    // where version 6 committed but columns weren't added are recovered.
+    // add_column_if_missing is safe to call repeatedly — it checks PRAGMA table_info.
+    add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
+    add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
+
+    Ok(())
+}
+
+/// Add a column to a table only if it doesn't already exist.
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    col_type: &str,
+) -> Result<()> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
+    let has_column = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .any(|r| r.as_deref() == Ok(column));
+    if !has_column {
+        conn.execute_batch(&format!(
+            "ALTER TABLE {} ADD COLUMN {} {}",
+            table, column, col_type
+        ))?;
+    }
     Ok(())
 }

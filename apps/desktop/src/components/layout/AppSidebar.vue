@@ -23,6 +23,7 @@ const prefsStore = usePreferencesStore();
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || 'sessions');
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
 const currentTheme = computed(() => prefsStore.theme);
+const isMac = navigator.platform.toUpperCase().includes('MAC');
 
 function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
@@ -46,6 +47,7 @@ interface NavItem {
 
 const primaryNav: NavItem[] = [
   { id: 'sessions', label: 'Sessions', to: '/', icon: 'sessions' },
+  { id: 'search', label: 'Search', to: '/search', icon: 'search' },
   { id: 'analytics', label: 'Analytics', to: '/analytics', icon: 'analytics' },
   { id: 'health', label: 'Health', to: '/health', icon: 'health', featureFlag: 'healthScoring' },
   { id: 'tools', label: 'Tools', to: '/tools', icon: 'tools' },
@@ -99,6 +101,8 @@ const orchestrationNav: NavItem[] = [
         <span class="nav-icon">
           <!-- sessions -->
           <svg v-if="item.icon === 'sessions'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+          <!-- search -->
+          <svg v-else-if="item.icon === 'search'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l4 4"/></svg>
           <!-- analytics -->
           <svg v-else-if="item.icon === 'analytics'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="8" width="3" height="6" rx="0.5"/><rect x="6" y="4" width="3" height="10" rx="0.5"/><rect x="11" y="1" width="3" height="13" rx="0.5"/></svg>
           <!-- health -->
@@ -112,6 +116,9 @@ const orchestrationNav: NavItem[] = [
         <span v-if="item.id === 'sessions' && sessionCount > 0" class="sidebar-nav-badge">
           {{ sessionCount }}
         </span>
+        <kbd v-else-if="item.id === 'search'" class="sidebar-nav-badge sidebar-kbd">
+          {{ isMac ? '⌘' : 'Ctrl+' }}K
+        </kbd>
       </router-link>
 
       <!-- Advanced section -->

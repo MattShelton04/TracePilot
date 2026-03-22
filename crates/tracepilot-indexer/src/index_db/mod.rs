@@ -11,6 +11,8 @@
 mod analytics_queries;
 mod helpers;
 mod migrations;
+pub mod search_reader;
+pub mod search_writer;
 mod session_reader;
 mod session_writer;
 mod types;
@@ -21,6 +23,8 @@ use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
 pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
+pub use search_reader::{SearchFacets, SearchFilters, SearchResult, SearchStats};
+pub use search_writer::CURRENT_EXTRACTOR_VERSION;
 
 use migrations::run_migrations;
 
@@ -128,8 +132,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 5);
-        assert_eq!(count1, 5);
+        assert_eq!(v1, 6);
+        assert_eq!(count1, 6);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -137,11 +141,11 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 5);
+        assert_eq!(count2, 6);
     }
 
     #[test]
-    fn test_upsert_and_search_metadata_and_conversation() {
+    fn test_upsert_and_search_metadata() {
         let tmp = tempfile::tempdir().unwrap();
         let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
         let session_dir = write_session(
@@ -156,11 +160,16 @@ updated_at: "2026-03-10T07:15:00Z"
 
         db.upsert_session(&session_dir).unwrap();
 
+        // sessions_fts searches metadata (summary, repo, branch)
         let metadata_hits = db.search("login").unwrap();
         assert!(metadata_hits.contains(&"11111111-1111-1111-1111-111111111111".to_string()));
 
-        let conversation_hits = db.search("tracing").unwrap();
-        assert!(conversation_hits.contains(&"11111111-1111-1111-1111-111111111111".to_string()));
+        // Conversation content is now in search_content (Phase 2), not sessions_fts
+        let no_hit = db.search("tracing").unwrap();
+        assert!(
+            !no_hit.contains(&"11111111-1111-1111-1111-111111111111".to_string()),
+            "sessions_fts should not contain conversation content"
+        );
     }
 
     #[test]

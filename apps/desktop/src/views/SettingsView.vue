@@ -20,7 +20,7 @@ const sessionCount = computed(() => {
   return indexed || sessionsStore.sessions.length;
 });
 
-const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇö');
+const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—');
 </script>
 
 <template>
