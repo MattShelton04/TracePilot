@@ -56,6 +56,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Initialize theme from write-through cache to match main.ts (prevents flash)
   const cachedTheme = localStorage.getItem("tracepilot-theme");
   const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
+  const sessionStateDir = ref("");
   const hideEmptySessions = ref(true);
   const cliCommand = ref(DEFAULT_CLI_COMMAND);
   const autoRefreshEnabled = ref(false);
@@ -165,6 +166,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // ── Apply config → reactive refs ───────────────────────────
   function applyConfig(config: TracePilotConfig) {
     theme.value = (config.ui.theme === "light" ? "light" : "dark") as ThemeOption;
+    sessionStateDir.value = config.paths.sessionStateDir;
     hideEmptySessions.value = config.ui.hideEmptySessions;
     autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
     autoRefreshIntervalSeconds.value = config.ui.autoRefreshIntervalSeconds;
@@ -195,6 +197,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       exportView: config.features.exportView,
       healthScoring: config.features.healthScoring,
       sessionReplay: config.features.sessionReplay,
+      renderMarkdown: config.features.renderMarkdown ?? true,
     };
     logLevel.value = config.logging?.level ?? 'info';
   }
@@ -204,6 +207,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     const base = backendConfig ?? createDefaultConfig();
     return {
       ...base,
+      paths: { ...base.paths, sessionStateDir: sessionStateDir.value },
       general: { ...base.general, cliCommand: cliCommand.value },
       ui: {
         theme: theme.value,
@@ -426,6 +430,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   return {
     theme,
+    sessionStateDir,
     lastViewedSession,
     costPerPremiumRequest,
     modelWholesalePrices,

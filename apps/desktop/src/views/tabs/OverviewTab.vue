@@ -5,6 +5,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList,
   formatDate, formatDuration, useSessionTabLoader,
+  MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -12,7 +13,12 @@ const route = useRoute();
 
 useSessionTabLoader(
   () => store.sessionId,
-  () => { store.loadCheckpoints(); store.loadShutdownMetrics(); store.loadIncidents(); }
+  () => {
+    store.loadCheckpoints();
+    store.loadPlan();
+    store.loadShutdownMetrics();
+    store.loadIncidents();
+  }
 );
 
 const detail= computed(() => store.detail);
@@ -86,6 +92,18 @@ function toggleDetail(idx: number) {
     expandedDetails.value.add(idx);
   }
 }
+
+const expandedCheckpoints = ref<Set<number>>(new Set());
+
+function toggleCheckpoint(num: number) {
+  if (expandedCheckpoints.value.has(num)) {
+    expandedCheckpoints.value.delete(num);
+  } else {
+    expandedCheckpoints.value.add(num);
+  }
+}
+
+const isPlanExpanded = ref(true);
 
 function hasDetail(incident: { detailJson?: unknown }): boolean {
   return incident.detailJson != null && incident.detailJson !== '';
@@ -199,6 +217,22 @@ function formatDetail(detail: unknown): string {
       </p>
     </div>
 
+    <!-- Session Plan -->
+    <SectionPanel
+      v-if="store.plan"
+      title="Session Plan"
+      class="mb-6"
+    >
+      <template #actions>
+        <button class="detail-toggle-btn" @click="isPlanExpanded = !isPlanExpanded">
+          {{ isPlanExpanded ? 'Hide' : 'Show' }}
+        </button>
+      </template>
+      <div v-if="isPlanExpanded" class="plan-content">
+        <MarkdownContent :content="store.plan.content" />
+      </div>
+    </SectionPanel>
+
     <!-- Checkpoints -->
     <SectionPanel
       v-if="store.checkpoints.length > 0"
@@ -208,25 +242,28 @@ function formatDetail(detail: unknown): string {
       <div
         v-for="cp in store.checkpoints"
         :key="cp.number"
-        class="checkpoint-item"
+        class="checkpoint-row"
       >
-        <div class="checkpoint-number">{{ cp.number }}</div>
-        <div class="checkpoint-body">
-          <div class="checkpoint-title">{{ cp.title }}</div>
-          <div class="checkpoint-file font-mono">{{ cp.filename }}</div>
+        <div class="checkpoint-item" @click="toggleCheckpoint(cp.number)">
+          <div class="checkpoint-number">{{ cp.number }}</div>
+          <div class="checkpoint-body">
+            <div class="checkpoint-title">{{ cp.title }}</div>
+            <div class="checkpoint-file font-mono">{{ cp.filename }}</div>
+          </div>
+          <div class="checkpoint-actions">
+            <button v-if="cp.content" class="detail-toggle-btn">
+              {{ expandedCheckpoints.has(cp.number) ? 'Hide Content' : 'View Content' }}
+            </button>
+          </div>
+        </div>
+        <div v-if="expandedCheckpoints.has(cp.number) && cp.content" class="checkpoint-content">
+          <MarkdownContent :content="cp.content" />
         </div>
       </div>
     </SectionPanel>
-
-    <!-- Link to Timeline -->
-    <router-link
-      :to="{ name: 'session-timeline', params: { id: route.params.id } }"
-      class="timeline-link"
-    >
-      View Session Timeline →
-    </router-link>
   </div>
 </template>
+
 
 <style scoped>
 .incidents-list {
@@ -322,5 +359,71 @@ function formatDetail(detail: unknown): string {
 
 .expand-btn:hover {
   opacity: 0.8;
+}
+
+.plan-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.checkpoint-row {
+  border-bottom: 1px solid var(--border);
+}
+.checkpoint-row:last-child {
+  border-bottom: none;
+}
+
+.checkpoint-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.checkpoint-item:hover {
+  background: var(--surface-secondary);
+}
+
+.checkpoint-number {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-tertiary);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.checkpoint-body {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.checkpoint-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.checkpoint-file {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.checkpoint-actions {
+  flex-shrink: 0;
+}
+
+.checkpoint-content {
+  padding: 0 1rem 1rem 3rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 </style>

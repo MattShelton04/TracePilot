@@ -206,6 +206,11 @@ export interface TodoItem {
   updatedAt?: string;
 }
 
+/** Session plan content from plan.md */
+export interface SessionPlan {
+  content: string;
+}
+
 /** Todo dependency */
 export interface TodoDep {
   todoId: string;

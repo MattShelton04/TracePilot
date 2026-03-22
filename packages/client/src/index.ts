@@ -80,6 +80,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_session_events: MOCK_EVENTS,
     get_session_todos: MOCK_TODOS,
     get_session_checkpoints: MOCK_CHECKPOINTS,
+    get_session_plan: { content: '# Mock Plan\n\n1. Task one\n2. Task two' },
     get_shutdown_metrics: MOCK_SHUTDOWN_METRICS,
     search_sessions: searchQuery
       ? MOCK_SESSIONS.filter((s) =>
@@ -181,6 +182,10 @@ export async function getSessionTodos(sessionId: string): Promise<TodosResponse>
 
 export async function getSessionCheckpoints(sessionId: string): Promise<CheckpointEntry[]> {
   return invoke<CheckpointEntry[]>('get_session_checkpoints', { sessionId });
+}
+
+export async function getSessionPlan(sessionId: string): Promise<SessionPlan | null> {
+  return invoke<SessionPlan | null>('get_session_plan', { sessionId });
 }
 
 export async function getShutdownMetrics(sessionId: string): Promise<ShutdownMetrics | null> {

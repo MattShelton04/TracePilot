@@ -6,7 +6,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
-import { resumeSessionInTerminal, isSessionRunning } from "@tracepilot/client";
+import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@tracepilot/client";
 
 const route = useRoute();
 const router = useRouter();
@@ -23,6 +23,15 @@ const isSessionActive = ref(false);
 // Resume confirmation state for active sessions
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
+
+async function openSessionFolder() {
+  const path = `${prefs.sessionStateDir}/${resolvedSessionId.value}`;
+  try {
+    await openInExplorer(path);
+  } catch (e) {
+    console.error('Failed to open folder:', e);
+  }
+}
 
 async function checkRunning() {
   if (!sessionId.value) {
@@ -193,6 +202,14 @@ watch(isSessionActive, (active) => {
               title="Open session in step-by-step replay view"
             >
               🎬 Replay
+            </button>
+
+            <button
+              class="resume-btn"
+              @click="openSessionFolder"
+              title="Open session state folder in file explorer"
+            >
+              📂 Open Folder
             </button>
           </div>
 

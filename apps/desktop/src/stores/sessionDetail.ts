@@ -8,6 +8,7 @@ import type {
   CheckpointEntry,
   ShutdownMetrics,
   SessionIncident,
+  SessionPlan,
 } from "@tracepilot/types";
 import {
   getSessionDetail,
@@ -16,6 +17,7 @@ import {
   getSessionEvents,
   getSessionTodos,
   getSessionCheckpoints,
+  getSessionPlan,
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
@@ -27,6 +29,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const events = ref<EventsResponse | null>(null);
   const todos = ref<TodosResponse | null>(null);
   const checkpoints = ref<CheckpointEntry[]>([]);
+  const plan = ref<SessionPlan | null>(null);
   const shutdownMetrics = ref<ShutdownMetrics | null>(null);
   const incidents = ref<SessionIncident[]>([]);
 
@@ -45,6 +48,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     turns: ConversationTurn[];
     eventsFileSize: number;
     checkpoints: CheckpointEntry[];
+    plan: SessionPlan | null;
     shutdownMetrics: ShutdownMetrics | null;
     incidents: SessionIncident[];
     loadedSections: Set<string>;
@@ -59,6 +63,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       turns: turns.value,
       eventsFileSize: lastEventsFileSize,
       checkpoints: checkpoints.value,
+      plan: plan.value,
       shutdownMetrics: shutdownMetrics.value,
       incidents: incidents.value,
       loadedSections: new Set(loaded.value),
@@ -94,6 +99,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       turns.value = cached.turns;
       lastEventsFileSize = cached.eventsFileSize;
       checkpoints.value = cached.checkpoints;
+      plan.value = cached.plan;
       shutdownMetrics.value = cached.shutdownMetrics;
       incidents.value = cached.incidents;
       loaded.value = new Set(cached.loadedSections);
@@ -115,6 +121,12 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         turns.value = result.turns;
         lastEventsFileSize = result.eventsFileSize;
       }).catch(() => {});
+      if (loaded.value.has("plan")) {
+        getSessionPlan(id).then((result) => {
+          if (requestToken !== token) return;
+          plan.value = result;
+        }).catch(() => {});
+      }
       return;
     }
 
@@ -125,6 +137,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     events.value = null;
     todos.value = null;
     checkpoints.value = [];
+    plan.value = null;
     shutdownMetrics.value = null;
     incidents.value = [];
     loaded.value.clear();
@@ -209,6 +222,22 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
+  async function loadPlan() {
+    const id = sessionId.value;
+    if (!id || loaded.value.has("plan")) return;
+    const token = requestToken;
+
+    try {
+      const result = await getSessionPlan(id);
+      if (requestToken !== token) return;
+      plan.value = result;
+      loaded.value.add("plan");
+    } catch (e) {
+      if (requestToken !== token) return;
+      console.error("Failed to load plan:", e);
+    }
+  }
+
   async function loadShutdownMetrics() {
     const id = sessionId.value;
     if (!id || loaded.value.has("metrics")) return;
@@ -248,6 +277,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     events.value = null;
     todos.value = null;
     checkpoints.value = [];
+    plan.value = null;
     shutdownMetrics.value = null;
     incidents.value = [];
     loaded.value.clear();
@@ -332,6 +362,18 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       );
     }
 
+    if (sections.has("plan")) {
+      promises.push(
+        getSessionPlan(id).then((result) => {
+          if (requestToken !== token) return;
+          plan.value = result;
+        }).catch((e) => {
+          if (requestToken !== token) return;
+          console.error("Failed to refresh plan:", e);
+        })
+      );
+    }
+
     if (sections.has("metrics")) {
       promises.push(
         getShutdownMetrics(id).then((result) => {
@@ -366,6 +408,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     events,
     todos,
     checkpoints,
+    plan,
     shutdownMetrics,
     incidents,
     loading,
@@ -376,6 +419,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadEvents,
     loadTodos,
     loadCheckpoints,
+    loadPlan,
     loadShutdownMetrics,
     loadIncidents,
     reset,
