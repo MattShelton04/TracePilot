@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
@@ -15,6 +16,7 @@ import {
   AGENT_COLORS,
 } from "@tracepilot/ui";
 
+const route = useRoute();
 const store = useSessionDetailStore();
 const preferences = usePreferencesStore();
 const expandedTools = useToggleSet<number>();
@@ -41,6 +43,28 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
   watchSource: () => store.turns,
   viewModeSource: () => activeView.value,
 });
+
+// Scroll to a specific turn when navigated from search (via ?turn=N)
+function scrollToTurn(turnIndex: number) {
+  const el = document.getElementById(`turn-${turnIndex}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('turn-highlight');
+  setTimeout(() => el.classList.remove('turn-highlight'), 2000);
+}
+
+// Watch for turns to load, then scroll to the target turn
+watch(
+  () => store.turns.length,
+  (len) => {
+    const turnParam = route.query.turn;
+    if (!turnParam || len === 0) return;
+    const turnIndex = Number(turnParam);
+    if (Number.isNaN(turnIndex)) return;
+    nextTick(() => scrollToTurn(turnIndex));
+  },
+  { immediate: true },
+);
 
 const viewModes = [
   { value: "chat", label: "Chat" },
@@ -132,7 +156,7 @@ function eventTypeLabel(eventType: string): string {
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'chat'" class="turn-group">
-      <div v-for="turn in store.turns" :key="turn.turnIndex" class="conversation-turn">
+      <div v-for="turn in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="conversation-turn">
         <!-- User message -->
         <div v-if="turn.userMessage" class="turn-item">
           <div class="turn-avatar user">👤</div>
@@ -300,7 +324,7 @@ function eventTypeLabel(eventType: string): string {
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
       <template v-for="turn in store.turns" :key="turn.turnIndex">
-        <div v-if="turn.userMessage" class="compact-turn-user">
+        <div v-if="turn.userMessage" :id="`turn-${turn.turnIndex}`" class="compact-turn-user">
           <span class="compact-turn-label-prefix user">👤 User</span>
           <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
         </div>
@@ -396,7 +420,7 @@ function eventTypeLabel(eventType: string): string {
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
     <div v-else-if="activeView === 'timeline'" class="timeline-view">
-      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" class="timeline-turn">
+      <div v-for="(turn, turnIdx) in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="timeline-turn">
         <div v-if="turnIdx < store.turns.length - 1" class="timeline-connector" />
         <div class="timeline-marker">{{ turn.turnIndex }}</div>
 
@@ -501,6 +525,15 @@ function eventTypeLabel(eventType: string): string {
 </template>
 
 <style scoped>
+/* Highlight animation for scroll-to-turn from search deep-links */
+.turn-highlight {
+  animation: turn-flash 2s ease-out;
+}
+@keyframes turn-flash {
+  0% { box-shadow: 0 0 0 3px var(--accent-emphasis); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
 .subagent-block {
   margin: 8px 0 8px 24px;
   border-left: 3px solid var(--agent-border-color, var(--accent-emphasis));
