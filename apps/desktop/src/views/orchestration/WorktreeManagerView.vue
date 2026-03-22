@@ -30,6 +30,7 @@ const refreshing = ref(false);
 const newBranch = ref('');
 const newBaseBranch = ref('');
 const newTargetDir = ref('');
+const createModalRepoPath = ref('');
 
 
 
@@ -95,7 +96,7 @@ const filteredWorktrees = computed(() => {
 
 const computedWorktreePath = computed(() => {
   if (!newBranch.value.trim()) return '';
-  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  const repoPath = createModalRepoPath.value;
   if (!repoPath) return '';
   const normalized = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
   const parts = normalized.split('/');
@@ -208,13 +209,18 @@ async function openCreateModal() {
   newBranch.value = '';
   newBaseBranch.value = '';
   newTargetDir.value = '';
+
+  // In per-repo mode use the selected repo; in "All Worktrees" mode default to first registered repo
+  createModalRepoPath.value = selectedRepoPath.value ?? store.registeredRepos[0]?.path ?? '';
+
   if (selectedRepoPath.value) {
     store.currentRepoPath = selectedRepoPath.value;
   }
   showCreateModal.value = true;
   // Load default branch and set it as base branch default
-  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  const repoPath = createModalRepoPath.value;
   if (repoPath) {
+    store.loadBranches(repoPath);
     try {
       defaultBranch.value = await getDefaultBranch(repoPath);
       newBaseBranch.value = defaultBranch.value;
@@ -226,7 +232,7 @@ async function openCreateModal() {
 
 async function handleCreate() {
   if (!newBranch.value.trim()) return;
-  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  const repoPath = createModalRepoPath.value;
   if (!repoPath) return;
 
   const request: CreateWorktreeRequest = {
@@ -245,6 +251,19 @@ async function handleCreate() {
   } else if (store.error) {
     // Error is displayed in the modal via store.error
     // No need to close modal - user can fix and retry
+  }
+}
+
+async function onCreateRepoChange() {
+  const repoPath = createModalRepoPath.value;
+  if (!repoPath) return;
+  store.loadBranches(repoPath);
+  try {
+    defaultBranch.value = await getDefaultBranch(repoPath);
+    newBaseBranch.value = defaultBranch.value;
+  } catch {
+    defaultBranch.value = '';
+    newBaseBranch.value = '';
   }
 }
 
@@ -332,7 +351,7 @@ async function handleUnlock(wt: WorktreeInfo) {
 }
 
 async function handleFetchRemote() {
-  const repoPath = selectedRepoPath.value || store.currentRepoPath;
+  const repoPath = showCreateModal.value ? createModalRepoPath.value : (selectedRepoPath.value || store.currentRepoPath);
   if (!repoPath) return;
   fetchingRemote.value = true;
   try {
@@ -891,12 +910,25 @@ watch(() => store.worktrees, () => {
               <div class="form-group">
                 <label class="form-label" for="cw-repo">Repository</label>
                 <input
+                  v-if="selectedRepoPath"
                   id="cw-repo"
                   type="text"
                   class="form-input"
-                  :value="selectedRepoPath || store.currentRepoPath"
+                  :value="selectedRepoPath"
                   readonly
                 />
+                <select
+                  v-else
+                  id="cw-repo"
+                  v-model="createModalRepoPath"
+                  class="form-input"
+                  @change="onCreateRepoChange"
+                >
+                  <option value="" disabled>Select a repository…</option>
+                  <option v-for="repo in store.registeredRepos" :key="repo.path" :value="repo.path">
+                    {{ repo.name }} — {{ repo.path }}
+                  </option>
+                </select>
               </div>
 
               <div class="form-group">
@@ -962,7 +994,7 @@ watch(() => store.worktrees, () => {
 
             <div class="modal-footer">
               <button class="btn btn-sm" @click="showCreateModal = false">Cancel</button>
-              <button class="btn btn-primary btn-sm" :disabled="!newBranch.trim()" @click="handleCreate">
+              <button class="btn btn-primary btn-sm" :disabled="!newBranch.trim() || !createModalRepoPath" @click="handleCreate">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                 Create Worktree
               </button>
