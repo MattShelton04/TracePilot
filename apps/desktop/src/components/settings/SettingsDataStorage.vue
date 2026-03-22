@@ -5,6 +5,7 @@ import {
   getConfig,
   getDbSize,
   getSessionCount as getSessionCountApi,
+  rebuildSearchIndex as rebuildSearchIndexApi,
   reindexSessionsFull as reindexSessionsFullApi,
   saveConfig,
 } from '@tracepilot/client';
@@ -28,6 +29,8 @@ const indexedSessionCount = ref(0);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
 const clearing = ref(false);
+const searchRebuilding = ref(false);
+const searchRebuildResult = ref<string | null>(null);
 
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
@@ -119,6 +122,25 @@ async function clearCache() {
   }
 }
 
+async function rebuildSearchIndex() {
+  searchRebuilding.value = true;
+  searchRebuildResult.value = null;
+  try {
+    const [indexed, total] = await rebuildSearchIndexApi();
+    searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
+    toast.success('Search index rebuilt successfully');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'ALREADY_INDEXING') {
+      searchRebuildResult.value = 'Search indexing already in progress…';
+    } else {
+      searchRebuildResult.value = `Error: ${msg}`;
+    }
+  } finally {
+    searchRebuilding.value = false;
+  }
+}
+
 async function handleFactoryReset() {
   const { confirmed } = await confirm({
     title: 'Factory Reset',
@@ -203,6 +225,21 @@ defineExpose({ databaseSize, indexedSessionCount });
             {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
           </ActionButton>
           <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Rebuild search index</div>
+          <div class="setting-description">
+            Rebuild the full-text search index for deep content search across all sessions.
+          </div>
+        </div>
+        <div class="setting-actions">
+          <ActionButton size="sm" class="btn-danger" :disabled="searchRebuilding || isIndexing" @click="rebuildSearchIndex">
+            {{ searchRebuilding ? 'Rebuilding…' : 'Rebuild' }}
+          </ActionButton>
+          <span v-if="searchRebuildResult" class="setting-result">{{ searchRebuildResult }}</span>
         </div>
       </div>
 

@@ -181,6 +181,70 @@ impl IndexDb {
         Ok(results)
     }
 
+    /// Count total matches for a search query (for pagination).
+    pub fn search_content_count(
+        &self,
+        query: &str,
+        filters: &SearchFilters,
+    ) -> Result<i64> {
+        let sanitized = sanitize_fts_query(query);
+        if sanitized.is_empty() {
+            return Ok(0);
+        }
+
+        let mut sql = String::from(
+            "SELECT COUNT(*) FROM search_fts
+             JOIN search_content sc ON sc.id = search_fts.rowid
+             JOIN sessions s ON s.id = sc.session_id
+             WHERE search_fts MATCH ?",
+        );
+
+        let mut query_params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized)];
+
+        if !filters.content_types.is_empty() {
+            let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            sql.push_str(&format!(" AND sc.content_type IN ({})", placeholders));
+            for ct in &filters.content_types {
+                query_params.push(Box::new(ct.clone()));
+            }
+        }
+
+        if !filters.repositories.is_empty() {
+            let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            sql.push_str(&format!(" AND s.repository IN ({})", placeholders));
+            for repo in &filters.repositories {
+                query_params.push(Box::new(repo.clone()));
+            }
+        }
+
+        if !filters.tool_names.is_empty() {
+            let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            sql.push_str(&format!(" AND sc.tool_name IN ({})", placeholders));
+            for tn in &filters.tool_names {
+                query_params.push(Box::new(tn.clone()));
+            }
+        }
+
+        if let Some(ref sid) = filters.session_id {
+            sql.push_str(" AND sc.session_id = ?");
+            query_params.push(Box::new(sid.clone()));
+        }
+
+        if let Some(from) = filters.date_from_unix {
+            sql.push_str(" AND sc.timestamp_unix >= ?");
+            query_params.push(Box::new(from));
+        }
+
+        if let Some(to) = filters.date_to_unix {
+            sql.push_str(" AND sc.timestamp_unix <= ?");
+            query_params.push(Box::new(to));
+        }
+
+        let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+        let count: i64 = self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?;
+        Ok(count)
+    }
+
     /// Get facet counts for a search query (for the filter sidebar).
     pub fn search_facets(&self, query: &str, filters: &SearchFilters) -> Result<SearchFacets> {
         let sanitized = sanitize_fts_query(query);
@@ -333,6 +397,57 @@ impl IndexDb {
             .filter_map(|r| r.ok())
             .collect();
         Ok(names)
+    }
+
+    /// Get all available facets (no query needed — for initial page load).
+    pub fn search_facets_all(&self) -> Result<SearchFacets> {
+        let by_content_type = {
+            let mut stmt = self.conn.prepare(
+                "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC"
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let by_repository = {
+            let mut stmt = self.conn.prepare(
+                "SELECT s.repository, COUNT(*) FROM search_content sc
+                 JOIN sessions s ON s.id = sc.session_id
+                 WHERE s.repository IS NOT NULL
+                 GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT 20"
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let by_tool_name = {
+            let mut stmt = self.conn.prepare(
+                "SELECT tool_name, COUNT(*) FROM search_content
+                 WHERE tool_name IS NOT NULL
+                 GROUP BY tool_name ORDER BY COUNT(*) DESC LIMIT 20"
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let total_matches: i64 = self.conn
+            .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))
+            .unwrap_or(0);
+
+        let session_count: i64 = self.conn
+            .query_row("SELECT COUNT(DISTINCT session_id) FROM search_content", [], |row| row.get(0))
+            .unwrap_or(0);
+
+        Ok(SearchFacets {
+            by_content_type,
+            by_repository,
+            by_tool_name,
+            total_matches,
+            session_count,
+        })
     }
 
     /// Helper for facet count queries.

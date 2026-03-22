@@ -55,6 +55,17 @@ pub struct SearchResultItem {
     pub session_updated_at: Option<String>,
 }
 
+/// Paginated search results wrapper (includes total count for pagination).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResultsResponse {
+    pub results: Vec<SearchResultItem>,
+    pub total_count: i64,
+    pub has_more: bool,
+    pub query: String,
+    pub latency_ms: f64,
+}
+
 /// Facet counts response for the filter sidebar.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -184,9 +195,10 @@ pub struct IndexingProgressPayload {
 mod commands {
     use super::{
         config, CachedTurns, EventItem, EventsResponse, FreshnessResponse, GitInfo,
-        IndexingProgressPayload, SearchFacetsResponse, SearchResultItem, SearchSemaphore,
-        SearchStatsResponse, SessionIncidentItem, SessionListItem, SharedConfig, TodosResponse,
-        TracePilotConfig, TurnCache, TurnsResponse, UpdateCheckResult, ValidateSessionDirResult,
+        IndexingProgressPayload, SearchFacetsResponse, SearchResultItem, SearchResultsResponse,
+        SearchSemaphore, SearchStatsResponse, SessionIncidentItem, SessionListItem, SharedConfig,
+        TodosResponse, TracePilotConfig, TurnCache, TurnsResponse, UpdateCheckResult,
+        ValidateSessionDirResult,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -891,11 +903,13 @@ mod commands {
         date_to_unix: Option<i64>,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<SearchResultItem>, String> {
+    ) -> Result<SearchResultsResponse, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
+        let query_for_closure = query.clone();
 
         tokio::task::spawn_blocking(move || {
+            let start = std::time::Instant::now();
             let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
                 .map_err(|e| e.to_string())?;
 
@@ -910,36 +924,48 @@ mod commands {
                 offset,
             };
 
-            let results = db.search_content(&query, &filters).map_err(|e| e.to_string())?;
+            let results = db.search_content(&query_for_closure, &filters).map_err(|e| e.to_string())?;
+            let total_count = db.search_content_count(&query_for_closure, &filters).map_err(|e| e.to_string())?;
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
-            Ok(results
-                .into_iter()
-                .map(|r| SearchResultItem {
-                    id: r.id,
-                    session_id: r.session_id,
-                    content_type: r.content_type,
-                    turn_number: r.turn_number,
-                    event_index: r.event_index,
-                    timestamp_unix: r.timestamp_unix,
-                    tool_name: r.tool_name,
-                    snippet: r.snippet,
-                    metadata_json: r.metadata_json,
-                    session_summary: r.session_summary,
-                    session_repository: r.session_repository,
-                    session_branch: r.session_branch,
-                    session_updated_at: r.session_updated_at,
-                })
-                .collect())
+            let page_limit = filters.limit.unwrap_or(50) as i64;
+            let page_offset = filters.offset.unwrap_or(0) as i64;
+            let has_more = (page_offset + page_limit) < total_count;
+
+            Ok::<SearchResultsResponse, String>(SearchResultsResponse {
+                results: results
+                    .into_iter()
+                    .map(|r| SearchResultItem {
+                        id: r.id,
+                        session_id: r.session_id,
+                        content_type: r.content_type,
+                        turn_number: r.turn_number,
+                        event_index: r.event_index,
+                        timestamp_unix: r.timestamp_unix,
+                        tool_name: r.tool_name,
+                        snippet: r.snippet,
+                        metadata_json: r.metadata_json,
+                        session_summary: r.session_summary,
+                        session_repository: r.session_repository,
+                        session_branch: r.session_branch,
+                        session_updated_at: r.session_updated_at,
+                    })
+                    .collect(),
+                total_count,
+                has_more,
+                query: query_for_closure,
+                latency_ms,
+            })
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e: tokio::task::JoinError| e.to_string())?
     }
 
-    /// Get facet counts for a search query.
+    /// Get facet counts — with a query for result-scoped facets, or without for global facets.
     #[tauri::command]
     pub async fn get_search_facets(
         state: tauri::State<'_, SharedConfig>,
-        query: String,
+        query: Option<String>,
         content_types: Option<Vec<String>>,
         session_id: Option<String>,
         date_from_unix: Option<i64>,
@@ -952,15 +978,21 @@ mod commands {
             let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
                 .map_err(|e| e.to_string())?;
 
-            let filters = tracepilot_indexer::SearchFilters {
-                content_types: content_types.unwrap_or_default(),
-                session_id,
-                date_from_unix,
-                date_to_unix,
-                ..Default::default()
+            let facets = match query.as_deref() {
+                Some(q) if !q.trim().is_empty() => {
+                    let filters = tracepilot_indexer::SearchFilters {
+                        content_types: content_types.unwrap_or_default(),
+                        session_id,
+                        date_from_unix,
+                        date_to_unix,
+                        ..Default::default()
+                    };
+                    db.search_facets(q, &filters).map_err(|e| e.to_string())?
+                }
+                _ => {
+                    db.search_facets_all().map_err(|e| e.to_string())?
+                }
             };
-
-            let facets = db.search_facets(&query, &filters).map_err(|e| e.to_string())?;
 
             Ok(SearchFacetsResponse {
                 by_content_type: facets.by_content_type,

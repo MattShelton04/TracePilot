@@ -87,6 +87,15 @@ const routes: RouteRecordRaw[] = [
   },
   // === New top-level routes (all stubs initially) ===
   {
+    path: "/search",
+    name: "search",
+    component: () => import("@/views/SessionSearchView.vue"),
+    meta: {
+      title: "Session Search",
+      sidebarId: "search",
+    },
+  },
+  {
     path: "/analytics",
     name: "analytics",
     component: () => import("@/views/AnalyticsDashboardView.vue"),

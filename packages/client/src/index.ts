@@ -9,6 +9,11 @@ import type {
   FreshnessResponse,
   GitInfo,
   HealthScoringData,
+  SearchFacetsResponse,
+  SearchFilters,
+  SearchResult,
+  SearchResultsResponse,
+  SearchStatsResponse,
   SessionDetail,
   SessionHealth,
   SessionIncident,
@@ -127,6 +132,30 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     is_session_running: false,
     get_log_path: '~/.local/share/dev.tracepilot.app/logs',
     export_logs: 'Exported 1 log file(s) to /tmp/tracepilot-logs.txt',
+    // Search commands
+    search_content: {
+      results: [],
+      totalCount: 0,
+      hasMore: false,
+      query: '',
+      latencyMs: 0,
+    } as SearchResultsResponse,
+    get_search_facets: {
+      byContentType: [],
+      byRepository: [],
+      byToolName: [],
+      totalMatches: 0,
+      sessionCount: 0,
+    } as SearchFacetsResponse,
+    get_search_stats: {
+      totalRows: 0,
+      indexedSessions: 0,
+      totalSessions: 0,
+      contentTypeCounts: [],
+    } as SearchStatsResponse,
+    get_search_repositories: [] as string[],
+    get_search_tool_names: [] as string[],
+    rebuild_search_index: [0, 0] as [number, number],
   };
   if (!(cmd in mocks)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
@@ -205,6 +234,60 @@ export async function reindexSessions(): Promise<[number, number]> {
 /** Delete the index DB and rebuild all analytics from scratch. Returns [rebuilt, total]. */
 export async function reindexSessionsFull(): Promise<[number, number]> {
   return invoke<[number, number]>('reindex_sessions_full');
+}
+
+// ── Deep Search (FTS) ────────────────────────────────────────
+
+/** Full-text search across all session content. */
+export async function searchContent(
+  query: string,
+  filters?: SearchFilters,
+): Promise<SearchResultsResponse> {
+  return invoke<SearchResultsResponse>('search_content', {
+    query,
+    contentTypes: filters?.contentTypes,
+    repositories: filters?.repositories,
+    toolNames: filters?.toolNames,
+    sessionId: filters?.sessionId,
+    dateFromUnix: filters?.dateFromUnix,
+    dateToUnix: filters?.dateToUnix,
+    limit: filters?.limit,
+    offset: filters?.offset,
+  });
+}
+
+/** Get facet counts — pass query for result-scoped facets, omit for global. */
+export async function getSearchFacets(
+  query?: string,
+  filters?: Pick<SearchFilters, 'contentTypes' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
+): Promise<SearchFacetsResponse> {
+  return invoke<SearchFacetsResponse>('get_search_facets', {
+    query,
+    contentTypes: filters?.contentTypes,
+    sessionId: filters?.sessionId,
+    dateFromUnix: filters?.dateFromUnix,
+    dateToUnix: filters?.dateToUnix,
+  });
+}
+
+/** Get search index statistics. */
+export async function getSearchStats(): Promise<SearchStatsResponse> {
+  return invoke<SearchStatsResponse>('get_search_stats');
+}
+
+/** Get distinct repositories for the search filter dropdown. */
+export async function getSearchRepositories(): Promise<string[]> {
+  return invoke<string[]>('get_search_repositories');
+}
+
+/** Get distinct tool names for the search filter dropdown. */
+export async function getSearchToolNames(): Promise<string[]> {
+  return invoke<string[]>('get_search_tool_names');
+}
+
+/** Rebuild the search index from scratch. Returns [indexed, total]. */
+export async function rebuildSearchIndex(): Promise<[number, number]> {
+  return invoke<[number, number]>('rebuild_search_index');
 }
 
 /** Get aggregated analytics data across all sessions. */

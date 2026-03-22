@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router';
 import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
 import ErrorBoundary from '@/components/ErrorBoundary.vue';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
+import SearchPalette from '@/components/SearchPalette.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
 import SetupWizard from '@/components/SetupWizard.vue';
@@ -170,6 +171,7 @@ const breadcrumbs = computed(() => {
   <!-- Global UI hosts — mounted once, consumed by composables everywhere -->
   <ToastContainer />
   <ConfirmDialog />
+  <SearchPalette />
 </template>
 
 <style scoped>
