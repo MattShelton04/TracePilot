@@ -327,18 +327,6 @@ onUnmounted(() => {
             <option value="newest">Sort: Newest</option>
             <option value="oldest">Sort: Oldest</option>
           </select>
-          <button
-            class="filter-toggle-btn"
-            :class="{ active: store.rebuilding }"
-            :disabled="store.rebuilding"
-            @click="store.rebuild()"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" :class="{ 'spin-icon': store.rebuilding }">
-              <path d="M2 8a6 6 0 0 1 10.2-4.3M14 8a6 6 0 0 1-10.2 4.3" />
-              <path d="M12.2 1v3h-3M3.8 15v-3h3" />
-            </svg>
-            {{ store.rebuilding ? 'Rebuilding…' : 'Rebuild Index' }}
-          </button>
         </div>
       </div>
 
