@@ -76,10 +76,11 @@ const effectiveCli = computed(() => prefsStore.cliCommand || 'copilot');
 
 const cliCommand = computed(() => {
   const parts = [effectiveCli.value];
-  if (launchConfig.value.model) parts.push(`--model=${launchConfig.value.model}`);
+  if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
   if (launchConfig.value.autoApprove) parts.push('--allow-all');
+  if (launchConfig.value.reasoningEffort) parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
   if (launchConfig.value.prompt) {
-    parts.push(`\\\n  # Prompt will be copied to clipboard`);
+    parts.push(`--interactive '${launchConfig.value.prompt.replace(/'/g, "''")}'`);
   }
   return parts.join(' ');
 });
@@ -90,8 +91,11 @@ const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
     parts.push({ flag: '--model', value: launchConfig.value.model });
   }
   if (launchConfig.value.autoApprove) parts.push({ flag: '--allow-all' });
+  if (launchConfig.value.reasoningEffort) {
+    parts.push({ flag: '--reasoning-effort', value: launchConfig.value.reasoningEffort });
+  }
   if (launchConfig.value.prompt) {
-    parts.push({ flag: '# prompt', value: '→ clipboard' });
+    parts.push({ flag: '--interactive', value: launchConfig.value.prompt });
   }
   return parts;
 });
@@ -537,7 +541,7 @@ onUnmounted(() => {
               placeholder="Describe the task…"
               @input="clearTemplateSelection"
             />
-            <span class="form-hint">Prompt will be copied to your clipboard when the session launches — paste it with Ctrl+V</span>
+            <span class="form-hint">Prompt will be passed to the CLI via <code>--interactive</code> and executed automatically on session start</span>
           </div>
         </section>
 
@@ -749,7 +753,7 @@ onUnmounted(() => {
               </div>
               <div class="config-row" v-if="prompt">
                 <span class="config-key">Prompt</span>
-                <span class="config-val">{{ truncate(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(📋 clipboard)</span></span>
+                <span class="config-val">{{ truncate(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(--interactive)</span></span>
               </div>
             </div>
 

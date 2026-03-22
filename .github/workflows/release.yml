@@ -55,7 +55,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: "TracePilot v${{ steps.version.outputs.version }}"
           body: ${{ steps.changelog.outputs.body }}
-          draft: ${{ github.event.inputs.draft == 'true' }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft != 'false' }}
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,5 +97,6 @@ jobs:
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
           files: target/release/tracepilot-desktop.exe
+          draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft != 'false' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
