@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatNumber,
   formatNumberFull,
+  formatPercent,
 } from '@tracepilot/ui';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -444,7 +445,7 @@ function onIncidentChartClick(event: MouseEvent) {
               <div class="stat-card-label">Wholesale Cost</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value warning">{{ data.averageHealthScore.toFixed(2) }}</div>
+              <div class="stat-card-value warning">{{ formatPercent(data.averageHealthScore) }}</div>
               <div class="stat-card-label">Avg Health Score</div>
             </div>
           </div>
@@ -768,8 +769,8 @@ function onIncidentChartClick(event: MouseEvent) {
                   >
                     <span class="donut-legend-dot" :style="{ background: DONUT_COLORS[si % DONUT_COLORS.length] }" />
                     <span>{{ m.model }}</span>
-                    <span class="donut-legend-pct">{{ m.percentage.toFixed(0) }}%</span>
-                    <span class="donut-legend-requests" :title="`${m.requestCount.toLocaleString()} API requests`">{{ m.requestCount.toLocaleString() }} req</span>
+                    <span class="donut-legend-pct">{{ formatPercent(m.percentage) }}</span>
+                    <span class="donut-legend-requests" :title="`${formatNumberFull(m.requestCount)} API requests`">{{ formatNumberFull(m.requestCount) }} req</span>
                   </div>
                 </div>
               </div>

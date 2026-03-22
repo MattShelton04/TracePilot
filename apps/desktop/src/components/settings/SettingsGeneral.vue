@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { BtnGroup, FormInput, FormSwitch, SectionPanel } from '@tracepilot/ui';
-import { ref } from 'vue';
 import { type ThemeOption, usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 
@@ -11,15 +10,6 @@ const themeOptions = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ];
-
-const defaultViewOptions = [
-  { value: 'sessions', label: 'Sessions' },
-  { value: 'analytics', label: 'Analytics' },
-  { value: 'health', label: 'Health' },
-];
-
-const defaultView = ref('sessions');
-const itemsPerPage = ref(20);
 </script>
 
 <template>
@@ -37,33 +27,6 @@ const itemsPerPage = ref(20);
           :options="themeOptions"
           :model-value="preferences.theme"
           @update:model-value="preferences.theme = $event as ThemeOption"
-        />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Default view</div>
-          <div class="setting-description">
-            Landing page when the app opens
-          </div>
-        </div>
-        <BtnGroup
-          :options="defaultViewOptions"
-          v-model="defaultView"
-        />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Items per page</div>
-          <div class="setting-description">
-            Number of sessions shown per page
-          </div>
-        </div>
-        <FormInput
-          type="number"
-          v-model="itemsPerPage"
-          class="input-narrow-center"
         />
       </div>
 

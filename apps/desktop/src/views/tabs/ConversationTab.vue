@@ -279,11 +279,6 @@ function eventTypeLabel(eventType: string): string {
           </div>
         </template>
 
-        <!-- Token badge (once per turn) -->
-        <div v-if="turn.outputTokens" class="turn-reasoning">
-          <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
-        </div>
-
         <!-- Session events (errors, compactions, etc.) -->
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
@@ -311,7 +306,7 @@ function eventTypeLabel(eventType: string): string {
         </div>
 
         <div class="compact-turn-body">
-          <div v-if="turn.userMessage" class="compact-turn-label">
+          <div v-if="turn.userMessage" class="compact-turn-user">
             <span class="compact-turn-label-prefix user">User:</span>
             {{ truncateText(turn.userMessage, 300) }}
           </div>
@@ -655,5 +650,16 @@ function eventTypeLabel(eventType: string): string {
 .session-event-summary {
   flex: 1;
   color: var(--fg-secondary, #a0a0a0);
+}
+
+/* ── Compact view: distinct user message container ─ */
+.compact-turn-user {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  background: var(--accent-subtle);
+  border-left: 3px solid var(--accent-fg);
+  padding: 6px 10px;
+  border-radius: 6px;
 }
 </style>

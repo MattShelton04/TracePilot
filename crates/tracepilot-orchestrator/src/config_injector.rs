@@ -1,7 +1,7 @@
 //! Copilot CLI config injection and management.
 
 use crate::error::{OrchestratorError, Result};
-use crate::types::{AgentDefinition, BackupEntry, CopilotConfig, ConfigDiff};
+use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, CopilotConfig, ConfigDiff};
 use std::path::{Path, PathBuf};
 
 /// Read all agent definitions for a given Copilot version.
@@ -124,6 +124,14 @@ pub fn create_backup(
     std::fs::copy(file_path, &backup_path)?;
     let meta = std::fs::metadata(&backup_path)?;
 
+    // Use source file's last modification time, not current wall-clock time
+    let source_meta = std::fs::metadata(file_path)?;
+    let created_at = source_meta
+        .modified()
+        .ok()
+        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+
     // Write sidecar metadata so list_backups can recover source_path
     let sidecar_path = backup_dir.join(format!("{}.meta.json", backup_name));
     let sidecar = serde_json::json!({
@@ -138,7 +146,7 @@ pub fn create_backup(
         label: label.to_string(),
         source_path: file_path.to_string_lossy().to_string(),
         backup_path: backup_path.to_string_lossy().to_string(),
-        created_at: chrono::Utc::now().to_rfc3339(),
+        created_at,
         size_bytes: meta.len(),
     })
 }
@@ -259,6 +267,22 @@ pub fn restore_backup(backup_path: &Path, restore_to: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Preview what would change if a backup were restored.
+/// Returns both the backup file content and the current file content.
+pub fn preview_backup_restore(backup_path: &Path, source_path: &Path) -> Result<BackupDiffPreview> {
+    let backup_content = std::fs::read_to_string(backup_path).map_err(|e| {
+        OrchestratorError::Io(std::io::Error::new(
+            e.kind(),
+            format!("Cannot read backup file: {}", e),
+        ))
+    })?;
+    let current_content = std::fs::read_to_string(source_path).unwrap_or_default();
+    Ok(BackupDiffPreview {
+        backup_content,
+        current_content,
+    })
 }
 
 /// Generate a diff between two files (for migration view).

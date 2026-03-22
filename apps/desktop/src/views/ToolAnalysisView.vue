@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
-import { ErrorState, formatDuration, formatRate, LoadingOverlay } from '@tracepilot/ui';
-import { computed, onMounted, watch } from 'vue';
+import { ErrorState, formatDuration, formatNumberFull, formatRate, LoadingOverlay } from '@tracepilot/ui';
+import { computed, onMounted, reactive, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { CHART_COLORS } from '@/utils/chartColors';
@@ -31,6 +31,83 @@ const pageSubtitle = computed(() => {
 
 // ── Computed values ──────────────────────────────────────────
 const uniqueToolCount = computed(() => data.value?.tools.length ?? 0);
+
+// ── Tooltip state ────────────────────────────────────────────
+const tooltip = reactive({
+  visible: false,
+  pinned: false,
+  x: 0,
+  y: 0,
+  content: '',
+  chartId: '',
+  highlightIndex: -1,
+});
+
+function positionTooltip(event: MouseEvent, container: HTMLElement) {
+  const rect = container.getBoundingClientRect();
+  const style = getComputedStyle(container);
+  const padLeft = parseFloat(style.paddingLeft) || 0;
+  const padTop = parseFloat(style.paddingTop) || 0;
+  const rawX = event.clientX - rect.left - padLeft;
+  const rawY = event.clientY - rect.top - padTop;
+  tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
+  tooltip.y = Math.max(20, rawY);
+}
+
+function onBarMouseEnter(event: MouseEvent, content: string, chartId: string) {
+  if (tooltip.pinned) return;
+  const container = (event.target as HTMLElement)?.closest('.chart-container') as HTMLElement;
+  if (!container) return;
+  tooltip.visible = true;
+  tooltip.content = content;
+  tooltip.chartId = chartId;
+  tooltip.highlightIndex = -1;
+  positionTooltip(event, container);
+}
+
+function onSuccessFailureMouseMove(event: MouseEvent) {
+  if (tooltip.pinned) return;
+  const chart = successFailureChart.value;
+  if (!chart) return;
+  const svg = (event.target as SVGElement)?.closest('svg');
+  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
+  if (!svg || !container) return;
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX;
+  pt.y = event.clientY;
+  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+  let bestIdx = 0;
+  let bestDist = Math.abs(svgPt.y - (chart.rows[0].y + BAR_HEIGHT / 2));
+  for (let i = 1; i < chart.rows.length; i++) {
+    const d = Math.abs(svgPt.y - (chart.rows[i].y + BAR_HEIGHT / 2));
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  }
+  const row = chart.rows[bestIdx];
+  const total = row.successCount + row.failureCount;
+  const rate = total > 0 ? ((row.successCount / total) * 100).toFixed(1) : '0.0';
+  tooltip.visible = true;
+  tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate}%)`;
+  tooltip.chartId = 'success-failure';
+  tooltip.highlightIndex = bestIdx;
+  positionTooltip(event, container);
+}
+
+function onSuccessFailureClick(event: MouseEvent) {
+  if (tooltip.pinned && tooltip.chartId === 'success-failure') {
+    tooltip.pinned = false;
+    return;
+  }
+  tooltip.pinned = false;
+  onSuccessFailureMouseMove(event);
+  tooltip.pinned = true;
+}
+
+function dismissTooltip() {
+  tooltip.visible = false;
+  tooltip.pinned = false;
+  tooltip.chartId = '';
+  tooltip.highlightIndex = -1;
+}
 
 const sortedTools = computed<ToolUsageEntry[]>(() => {
   if (!data.value) return [];
@@ -180,7 +257,7 @@ const successFailureChart = computed(() => {
             <!-- Success/Failure Chart -->
             <div class="section-panel">
               <div class="section-panel-header">Success / Failure Breakdown</div>
-              <div class="section-panel-body scrollable-section">
+              <div class="section-panel-body scrollable-section chart-container" @mouseleave="dismissTooltip">
                 <div class="legend">
                   <span><span class="legend-dot" :style="{ background: CHART_COLORS.success }" />&nbsp;Success</span>
                   <span><span class="legend-dot" :style="{ background: CHART_COLORS.danger }" />&nbsp;Failure</span>
@@ -191,6 +268,8 @@ const successFailureChart = computed(() => {
                   :viewBox="`0 0 600 ${successFailureChart.svgHeight}`"
                   role="img"
                   aria-label="Stacked horizontal bar chart showing success and failure counts per tool"
+                  @mousemove="onSuccessFailureMouseMove($event)"
+                  @click="onSuccessFailureClick($event)"
                 >
                   <template v-for="(row, ri) in successFailureChart.rows" :key="`sf-${ri}`">
                     <text
@@ -209,6 +288,8 @@ const successFailureChart = computed(() => {
                       :height="BAR_HEIGHT"
                       rx="3"
                       :fill="CHART_COLORS.success"
+                      class="chart-bar"
+                      :class="{ 'chart-bar--active': tooltip.chartId === 'success-failure' && tooltip.highlightIndex === ri }"
                     />
                     <!-- Failure bar -->
                     <rect
@@ -219,6 +300,8 @@ const successFailureChart = computed(() => {
                       :height="BAR_HEIGHT"
                       rx="3"
                       :fill="CHART_COLORS.danger"
+                      class="chart-bar"
+                      :class="{ 'chart-bar--active': tooltip.chartId === 'success-failure' && tooltip.highlightIndex === ri }"
                     />
                     <!-- Label -->
                     <text
@@ -229,16 +312,37 @@ const successFailureChart = computed(() => {
                       fill="#a1a1aa"
                     >{{ row.successCount }} / {{ row.failureCount }}</text>
                   </template>
+                  <!-- Invisible overlay for mouse capture -->
+                  <rect
+                    :x="0"
+                    :y="0"
+                    width="600"
+                    :height="successFailureChart.svgHeight"
+                    fill="transparent"
+                    class="chart-overlay"
+                  />
                 </svg>
+                <!-- Tooltip -->
+                <div
+                  v-if="tooltip.visible && tooltip.chartId === 'success-failure'"
+                  class="chart-tooltip"
+                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
+                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
+                >{{ tooltip.content }}</div>
               </div>
             </div>
 
             <!-- Tool Frequency -->
             <div class="section-panel">
               <div class="section-panel-header">Tool Frequency</div>
-              <div class="section-panel-body scrollable-section">
+              <div class="section-panel-body scrollable-section chart-container" @mouseleave="dismissTooltip">
                 <div class="frequency-chart">
-                  <div class="freq-row" v-for="tool in sortedTools" :key="tool.name">
+                  <div
+                    class="freq-row"
+                    v-for="tool in sortedTools"
+                    :key="tool.name"
+                    @mouseenter="onBarMouseEnter($event, `${tool.name} — ${formatNumberFull(tool.callCount)} invocation${tool.callCount !== 1 ? 's' : ''}`, 'frequency')"
+                  >
                     <span class="freq-label">{{ tool.name }}</span>
                     <div class="freq-bar-track">
                       <div class="freq-bar" :style="{ width: (tool.callCount / maxInvocations * 100) + '%' }" />
@@ -246,6 +350,12 @@ const successFailureChart = computed(() => {
                     <span class="freq-count">{{ tool.callCount }}</span>
                   </div>
                 </div>
+                <div
+                  v-if="tooltip.visible && tooltip.chartId === 'frequency'"
+                  class="chart-tooltip"
+                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
+                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
+                >{{ tooltip.content }}</div>
               </div>
             </div>
           </div>
@@ -253,7 +363,7 @@ const successFailureChart = computed(() => {
           <!-- Activity Heatmap -->
           <div class="section-panel mb-4">
             <div class="section-panel-header">Activity Heatmap</div>
-            <div class="section-panel-body">
+            <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
               <div class="heatmap">
                 <!-- Hour labels row -->
                 <div class="heatmap-row heatmap-hour-labels">
@@ -272,7 +382,7 @@ const successFailureChart = computed(() => {
                     v-for="(val, hourIdx) in row"
                     :key="hourIdx"
                     :style="{ backgroundColor: getHeatmapColor(val) }"
-                    :title="`${dayLabels[dayIdx]} ${String(hourIdx).padStart(2, '0')}:00 — ${val} tool call${val !== 1 ? 's' : ''}`"
+                    @mouseenter="onBarMouseEnter($event, `${dayLabels[dayIdx]} ${String(hourIdx).padStart(2, '0')}:00 — ${val} tool call${val !== 1 ? 's' : ''}`, 'heatmap')"
                   >
                     <span v-if="val > 0" class="heatmap-count">{{ val }}</span>
                   </div>
@@ -288,6 +398,12 @@ const successFailureChart = computed(() => {
                   <span>More</span>
                 </div>
               </div>
+              <div
+                v-if="tooltip.visible && tooltip.chartId === 'heatmap'"
+                class="chart-tooltip"
+                :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
+                :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
+              >{{ tooltip.content }}</div>
             </div>
           </div>
         </template>
@@ -319,6 +435,50 @@ const successFailureChart = computed(() => {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* ── Chart container ──────────────────────────────────────── */
+.chart-container {
+  position: relative;
+}
+
+/* ── Chart bar & overlay styles ───────────────────────────── */
+.chart-overlay {
+  cursor: pointer;
+}
+
+.chart-bar {
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.chart-bar--active {
+  opacity: 0.7;
+}
+
+/* ── Tooltip ──────────────────────────────────────────────── */
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--canvas-overlay, rgba(0, 0, 0, 0.85));
+  color: var(--text-on-emphasis, #fff);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chart-tooltip--pinned {
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
+}
+
+/* ── Table row hover ──────────────────────────────────────── */
+.data-table tbody tr:hover {
+  background: var(--neutral-muted, rgba(99, 102, 241, 0.06));
 }
 
 /* ── Heatmap ───────────────────────────────────────────────── */

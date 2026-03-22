@@ -18,3 +18,4 @@ export { useClipboard } from "./useClipboard";
 export type { UseClipboardOptions, UseClipboardReturn } from "./useClipboard";
 export { useToast } from "./useToast";
 export type { Toast, ToastOptions } from "./useToast";
+export { useDismissable } from "./useDismissable";

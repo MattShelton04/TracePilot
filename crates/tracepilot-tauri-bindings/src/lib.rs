@@ -1728,6 +1728,25 @@ mod commands {
     }
 
     #[tauri::command]
+    pub async fn preview_backup_restore(
+        backup_path: String,
+        source_path: String,
+    ) -> Result<tracepilot_orchestrator::BackupDiffPreview, String> {
+        tokio::task::spawn_blocking(move || {
+            let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()
+                .map_err(|e| e.to_string())?;
+            validate_path_within(&backup_path, &backup_dir)?;
+            tracepilot_orchestrator::config_injector::preview_backup_restore(
+                std::path::Path::new(&backup_path),
+                std::path::Path::new(&source_path),
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
     pub async fn diff_config_files(
         old_path: String,
         new_path: String,
@@ -2067,6 +2086,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::list_config_backups,
             commands::restore_config_backup,
             commands::delete_config_backup,
+            commands::preview_backup_restore,
             commands::diff_config_files,
             commands::discover_copilot_versions,
             commands::get_active_copilot_version,

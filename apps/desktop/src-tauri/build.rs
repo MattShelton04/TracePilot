@@ -62,6 +62,7 @@ fn main() {
                     "list_config_backups",
                     "restore_config_backup",
                     "delete_config_backup",
+                    "preview_backup_restore",
                     "diff_config_files",
                     "discover_copilot_versions",
                     "get_active_copilot_version",

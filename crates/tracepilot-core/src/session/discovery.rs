@@ -1,8 +1,12 @@
 //! Discover sessions stored under `~/.copilot/session-state/{UUID}/`.
 
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
 use crate::error::{Result, TracePilotError};
+
+/// Maximum age of session activity before a lock file is considered stale.
+const STALE_LOCK_THRESHOLD: Duration = Duration::from_secs(24 * 60 * 60); // 24 hours
 
 /// Default location for Copilot CLI session state.
 pub fn default_session_state_dir() -> PathBuf {
@@ -70,9 +74,13 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
 }
 
 /// Check whether a session directory contains an active lock file (`inuse.*.lock`).
+///
 /// The Copilot CLI creates this file while a session is open and removes it on exit.
+/// If the CLI crashes, the lock file may persist. As a secondary check, we verify
+/// that the session has recent activity (events.jsonl or lock file modified within
+/// the last 24 hours). If both are stale, we treat the session as inactive.
 pub fn has_lock_file(session_dir: &Path) -> bool {
-    std::fs::read_dir(session_dir)
+    let has_lock = std::fs::read_dir(session_dir)
         .map(|entries| {
             entries.filter_map(|e| e.ok()).any(|e| {
                 let name = e.file_name();
@@ -80,7 +88,55 @@ pub fn has_lock_file(session_dir: &Path) -> bool {
                 name.starts_with("inuse.") && name.ends_with(".lock")
             })
         })
-        .unwrap_or(false)
+        .unwrap_or(false);
+
+    if !has_lock {
+        return false;
+    }
+
+    // Lock file exists — check for recent activity to filter stale locks
+    has_recent_activity(session_dir)
+}
+
+/// Check if a session has recent file activity within the staleness threshold.
+/// Returns true if any key session file has been modified recently, or if we
+/// can't determine mtime (fail-open to avoid false negatives).
+fn has_recent_activity(session_dir: &Path) -> bool {
+    let now = SystemTime::now();
+
+    // Check events.jsonl first (best activity indicator)
+    let events_path = session_dir.join("events.jsonl");
+    if let Ok(meta) = std::fs::metadata(&events_path) {
+        if let Ok(modified) = meta.modified() {
+            if let Ok(age) = now.duration_since(modified) {
+                if age < STALE_LOCK_THRESHOLD {
+                    return true; // Recent activity confirmed
+                }
+            }
+        }
+    }
+
+    // Check lock file mtime as fallback
+    if let Ok(entries) = std::fs::read_dir(session_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with("inuse.") && name_str.ends_with(".lock") {
+                if let Ok(meta) = entry.metadata() {
+                    if let Ok(modified) = meta.modified() {
+                        if let Ok(age) = now.duration_since(modified) {
+                            if age < STALE_LOCK_THRESHOLD {
+                                return true; // Lock file itself is recent
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Both are stale or unreadable — treat as inactive
+    false
 }
 
 /// Resolve a session ID (full or partial prefix) to its directory path.
@@ -186,5 +242,51 @@ mod tests {
         assert!(result.is_err());
         let err_msg = format!("{}", result.unwrap_err());
         assert!(err_msg.contains("Ambiguous"));
+    }
+
+    #[test]
+    fn test_has_lock_file_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("inuse.12345.lock"), "").unwrap();
+        // Lock file present + recently created = active
+        assert!(has_lock_file(tmp.path()));
+    }
+
+    #[test]
+    fn test_has_lock_file_absent() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!has_lock_file(tmp.path()));
+    }
+
+    #[test]
+    fn test_has_lock_file_stale() {
+        use filetime::FileTime;
+        let tmp = tempfile::tempdir().unwrap();
+        let lock_path = tmp.path().join("inuse.12345.lock");
+        fs::write(&lock_path, "").unwrap();
+        // Set mtime to 48 hours ago
+        let old_time = FileTime::from_system_time(
+            std::time::SystemTime::now() - std::time::Duration::from_secs(48 * 60 * 60),
+        );
+        filetime::set_file_mtime(&lock_path, old_time).unwrap();
+        // No events.jsonl, stale lock → should be inactive
+        assert!(!has_lock_file(tmp.path()));
+    }
+
+    #[test]
+    fn test_has_lock_file_stale_but_recent_events() {
+        use filetime::FileTime;
+        let tmp = tempfile::tempdir().unwrap();
+        let lock_path = tmp.path().join("inuse.12345.lock");
+        fs::write(&lock_path, "").unwrap();
+        // Set lock mtime to 48 hours ago
+        let old_time = FileTime::from_system_time(
+            std::time::SystemTime::now() - std::time::Duration::from_secs(48 * 60 * 60),
+        );
+        filetime::set_file_mtime(&lock_path, old_time).unwrap();
+        // Create recent events.jsonl
+        fs::write(tmp.path().join("events.jsonl"), "{}").unwrap();
+        // Recent events → should be active despite stale lock
+        assert!(has_lock_file(tmp.path()));
     }
 }

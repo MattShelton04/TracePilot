@@ -3,6 +3,7 @@
 
 import type {
   AgentDefinition,
+  BackupDiffPreview,
   BackupEntry,
   ConfigDiff,
   CopilotConfig,
@@ -162,6 +163,10 @@ export async function restoreConfigBackup(backupPath: string, restoreTo: string)
 
 export async function deleteConfigBackup(backupPath: string): Promise<void> {
   return invoke<void>('delete_config_backup', { backupPath });
+}
+
+export async function previewBackupRestore(backupPath: string, sourcePath: string): Promise<BackupDiffPreview> {
+  return invoke<BackupDiffPreview>('preview_backup_restore', { backupPath, sourcePath });
 }
 
 export async function diffConfigFiles(oldPath: string, newPath: string): Promise<ConfigDiff> {
@@ -539,6 +544,7 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
     restore_config_backup: undefined,
     delete_config_backup: undefined,
     diff_config_files: { fileName: 'test.yaml', diffText: '', hasChanges: false } satisfies ConfigDiff,
+    preview_backup_restore: { backupContent: '', currentContent: '' } satisfies BackupDiffPreview,
     migrate_agent_definition: undefined,
   };
 
