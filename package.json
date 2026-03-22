@@ -1,6 +1,6 @@
 {
   "name": "tracepilot",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "license": "GPL-3.0-or-later",
   "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",

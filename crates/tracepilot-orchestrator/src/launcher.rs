@@ -108,22 +108,21 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     if let Some(model) = &config.model {
         validate_model(model)?;
-        args.push(format!("--model={}", model));
+        args.push("--model".to_string());
+        args.push(model.clone());
     }
 
     if config.auto_approve {
         args.push("--allow-all".to_string());
     }
 
-    // Set environment variables
-    let mut envs = config.env_vars.clone();
-
     if let Some(effort) = &config.reasoning_effort {
-        envs.insert(
-            "COPILOT_REASONING_EFFORT".to_string(),
-            effort.clone(),
-        );
+        args.push("--reasoning-effort".to_string());
+        args.push(effort.clone());
     }
+
+    // Set environment variables
+    let envs = config.env_vars.clone();
 
     // Build the CLI command string using the user-configured CLI command
     let copilot_cmd = if args.is_empty() {
@@ -131,6 +130,9 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     } else {
         format!("{} {}", cli, args.join(" "))
     };
+
+    // --interactive prompt is appended per-platform with proper shell quoting
+    // to handle special characters (quotes, newlines, etc.) safely
 
     // If a branch was specified but we're NOT creating a worktree, checkout the branch first
     let checkout_cmd = if !config.create_worktree {
@@ -146,17 +148,6 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     #[cfg(windows)]
     let pid = {
         let escaped_dir = work_dir.display().to_string().replace('\'', "''");
-
-        // If a prompt was provided, copy it to the clipboard so the user can paste it.
-        let clipboard_cmd = if let Some(prompt) = &config.prompt {
-            let escaped_prompt = prompt.replace('\'', "''");
-            format!(
-                "Set-Clipboard '{}'; Write-Host '  Prompt copied to clipboard - press Ctrl+V to paste' -ForegroundColor Green; Write-Host '';",
-                escaped_prompt
-            )
-        } else {
-            String::new()
-        };
 
         // Optional branch checkout step: check dirty state, try checkout, auto-create from default branch
         let checkout_step = if let Some(ref _cmd) = checkout_cmd {
@@ -183,15 +174,16 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
                     "}}; ",
                     // 2. Detect default branch if needed
                     "{}",
-                    // 3. Try checkout existing branch
+                    // 3. Try checkout existing branch (suppress stderr red noise from git)
                     "Write-Host 'Checking out branch...' -ForegroundColor Yellow; ",
-                    "git checkout '{}' 2>&1; ",
+                    "$output = $(git checkout '{}' 2>&1); ",
                     "if ($LASTEXITCODE -ne 0) {{ ",
                     // 4. Branch doesn't exist, create from default branch
                     "  Write-Host \"Branch not found, creating from {}...\" -ForegroundColor Yellow; ",
-                    "  git checkout -b '{}' {} 2>&1; ",
+                    "  $output = $(git checkout -b '{}' {} 2>&1); ",
                     "  if ($LASTEXITCODE -ne 0) {{ ",
-                    "    Write-Host \"Failed to create branch (exit code $LASTEXITCODE). Continuing on current branch.\" -ForegroundColor Red ",
+                    "    Write-Host \"Failed to create branch (exit code $LASTEXITCODE). Continuing on current branch.\" -ForegroundColor Red; ",
+                    "    Write-Host $output -ForegroundColor Red ",
                     "  }} else {{ ",
                     "    Write-Host 'New branch created and checked out.' -ForegroundColor Green ",
                     "  }} ",
@@ -225,13 +217,20 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             .collect();
 
         // Build the full PowerShell script with startup banner
+        // Append --interactive with PowerShell single-quote escaping for safe prompt handling
+        let interactive_suffix = if let Some(prompt) = &config.prompt {
+            let escaped_prompt = prompt.replace('\'', "''");
+            format!(" --interactive '{}'", escaped_prompt)
+        } else {
+            String::new()
+        };
         let ps_cmd = format!(
             "{env_setup}$host.UI.RawUI.WindowTitle = 'Copilot Session'; Set-Location -LiteralPath '{}'; Write-Host 'Starting Copilot session in:' -ForegroundColor Cyan; Write-Host '  {}' -ForegroundColor White; Write-Host ''; {}{}{}",
             escaped_dir,
             escaped_dir,
             checkout_step,
-            clipboard_cmd,
-            copilot_cmd
+            copilot_cmd,
+            interactive_suffix
         );
 
         // Use -EncodedCommand (Base64 UTF-16LE) to avoid all escaping issues
@@ -247,15 +246,29 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
     #[cfg(target_os = "macos")]
     let pid = {
         let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
-        let full_cmd = format!("{}{}", checkout_prefix, copilot_cmd);
+        // Shell-escape prompt with single quotes for bash/zsh
+        let interactive_suffix = if let Some(prompt) = &config.prompt {
+            let escaped_prompt = prompt.replace('\'', "'\\''");
+            format!(" --interactive '{}'", escaped_prompt)
+        } else {
+            String::new()
+        };
+        let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
         crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
     };
 
     #[cfg(target_os = "linux")]
     let pid = {
+        let interactive_suffix = if let Some(prompt) = &config.prompt {
+            let escaped_prompt = prompt.replace('\'', "'\\''");
+            format!(" --interactive '{}'", escaped_prompt)
+        } else {
+            String::new()
+        };
+        let full_cmd = format!("{}{}", copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
-        crate::process::spawn_detached_terminal(&copilot_cmd, &[], &work_dir, envs_ref)?
+        crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
     };
 
     Ok(LaunchedSession {

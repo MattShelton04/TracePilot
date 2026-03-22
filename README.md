@@ -117,7 +117,7 @@ Construct and launch Copilot CLI sessions in a new terminal window with full con
 
 - **Repository** — browse via native dialog or select from registered repos
 - **Model** — dropdown with 19 models organized by tier (Premium / Standard / Fast)
-- **Prompt** — pre-loaded text copied to clipboard with a paste reminder in the terminal (Windows; macOS/Linux support planned)
+- **Prompt** — passed directly to the CLI, automatically executing the prompt on session start
 - **Advanced options** — branch selection, auto-approve (`--allow-all`), reasoning effort (Low/Medium/High), custom environment variables
 
 **Integrated worktree creation** — toggle "Create worktree" to spin up a new git worktree before launching, so you can work on isolated branches without affecting your main checkout.
