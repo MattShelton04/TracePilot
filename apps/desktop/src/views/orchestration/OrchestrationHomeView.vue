@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
+import { ErrorState, LoadingOverlay } from '@tracepilot/ui';
 import { useOrchestrationHomeStore } from '@/stores/orchestrationHome';
 
 const store = useOrchestrationHomeStore();
@@ -98,21 +99,11 @@ onUnmounted(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <!-- Loading State -->
-      <div v-if="store.loading" class="loading-state">
-        <div class="loading-spinner" />
-        <p>Loading command centre…</p>
-      </div>
+      <LoadingOverlay :loading="store.loading" message="Loading dashboard…">
+        <ErrorState v-if="store.error" heading="Failed to load worktrees" :message="store.error" @retry="store.initialize()" />
 
-      <!-- Error State -->
-      <div v-else-if="store.error" class="error-state">
-        <div class="error-icon">⚠</div>
-        <p class="error-msg">Failed to load: {{ store.error }}</p>
-        <button class="btn btn-primary" @click="store.initialize()">Retry</button>
-      </div>
-
-      <!-- Main Content -->
-      <template v-else>
+        <!-- Main Content -->
+        <template v-else>
         <!-- §1 Page Title Area -->
         <div class="page-title-bar fade-section" style="--stagger: 0">
           <h1 class="page-title">
@@ -259,16 +250,13 @@ onUnmounted(() => {
         </div>
 
       </template>
+      </LoadingOverlay>
     </div>
   </div>
 </template>
 
 <style scoped>
 /* ── Animations ──────────────────────────────────────────────── */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -288,45 +276,6 @@ onUnmounted(() => {
 .fade-section {
   animation: fadeInUp 0.4s ease-out both;
   animation-delay: calc(var(--stagger, 0) * 0.08s);
-}
-
-/* ── Loading & Error States ─────────────────────────────────── */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 80px 24px;
-  color: var(--text-secondary);
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--accent-fg);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.error-state {
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--text-secondary);
-}
-
-.error-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.error-msg {
-  margin-bottom: 12px;
-}
-
-.error-state .btn {
-  margin-top: 12px;
 }
 
 /* ── §1 Page Title Area ──────────────────────────────────────── */

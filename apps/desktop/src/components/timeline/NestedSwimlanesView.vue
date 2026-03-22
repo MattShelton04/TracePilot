@@ -5,6 +5,7 @@ import {
   Badge,
   ExpandChevron,
   EmptyState,
+  LoadingSpinner,
   ToolDetailPanel,
   TerminologyLegend,
   formatDuration,
@@ -340,7 +341,7 @@ const swimlaneTerms = [
 
     <!-- Loading state -->
     <div v-else-if="store.loading && !store.turns.length" class="ns-loading">
-      <span class="ns-loading-icon">⏳</span>
+      <LoadingSpinner size="lg" />
       <span>Loading timeline…</span>
     </div>
 
@@ -650,10 +651,6 @@ const swimlaneTerms = [
   padding: 24px 16px;
   color: var(--text-secondary);
   font-size: 0.875rem;
-}
-
-.ns-loading-icon {
-  font-size: 1.25rem;
 }
 
 /* ── Phase ──────────────────────────────────────────────── */

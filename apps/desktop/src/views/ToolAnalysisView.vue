@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
-import { formatDuration, formatRate } from '@tracepilot/ui';
+import { ErrorState, formatDuration, formatRate, LoadingOverlay } from '@tracepilot/ui';
 import { computed, onMounted, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { CHART_COLORS } from '@/utils/chartColors';
 
@@ -123,10 +122,7 @@ const successFailureChart = computed(() => {
     <div class="page-content-inner">
       <AnalyticsPageHeader title="Tool Analysis" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading tool analysis…">
-        <div v-if="store.toolAnalysisError" class="error-state">
-          <p>Failed to load tool analysis: {{ store.toolAnalysisError }}</p>
-          <button class="btn btn-primary" @click="store.fetchToolAnalysis({ force: true })">Retry</button>
-        </div>
+        <ErrorState v-if="store.toolAnalysisError" heading="Failed to load tool analysis" :message="store.toolAnalysisError" @retry="store.fetchToolAnalysis({ force: true })" />
         <template v-else-if="data">
 
           <!-- Stat Cards -->

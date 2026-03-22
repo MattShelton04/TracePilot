@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { BtnGroup } from '@tracepilot/ui';
+import { BtnGroup, LoadingOverlay } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
 import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
 import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
@@ -29,20 +29,16 @@ const viewModes = [
 
 <template>
   <div>
-    <!-- Loading state -->
-    <div v-if="store.loading" class="empty-state">
-      <div class="empty-state-icon">⏳</div>
-      <h2 class="empty-state-title">Loading session…</h2>
-    </div>
+    <LoadingOverlay :loading="store.loading" message="Loading session…">
 
     <!-- Empty state -->
-    <div v-else-if="!store.turns.length" class="empty-state">
+    <div v-if="!store.loading && !store.turns.length" class="empty-state">
       <div class="empty-state-icon">📊</div>
       <h2 class="empty-state-title">No Timeline Data</h2>
       <p class="empty-state-desc">This session has no conversation turns to visualize.</p>
     </div>
 
-    <template v-else>
+    <template v-if="store.turns.length">
       <!-- Header: title + view toggle -->
       <div class="timeline-header">
         <div>
@@ -78,6 +74,7 @@ const viewModes = [
       <TurnWaterfallView v-else-if="activeView === 'waterfall'" />
       <AgentTreeView v-else-if="activeView === 'agent-tree'" />
     </template>
+    </LoadingOverlay>
   </div>
 </template>
 

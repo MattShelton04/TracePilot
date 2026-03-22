@@ -6,14 +6,17 @@
 import { ref, onMounted, computed } from 'vue';
 import type { HealthScoringData } from '@tracepilot/types';
 import { getHealthScores } from '@tracepilot/client';
-import { HealthRing } from '@tracepilot/ui';
+import { ErrorAlert, HealthRing, LoadingOverlay } from '@tracepilot/ui';
 import StubBanner from '@/components/StubBanner.vue';
 
 const data = ref<HealthScoringData | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-onMounted(async () => {
+async function reload() {
+  loading.value = true;
+  error.value = null;
+  data.value = null;
   try {
     data.value = await getHealthScores();
   } catch (e) {
@@ -21,7 +24,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(reload);
 
 const avgScoreDisplay = computed(() => data.value?.overallScore.toFixed(2) ?? '—');
 
@@ -38,20 +43,11 @@ function severityLabel(severity: 'warning' | 'danger'): string {
   <div class="page-content">
     <div class="page-content-inner">
       <StubBanner />
-      <!-- Loading state -->
-      <div v-if="loading" class="empty-state">
-        <div class="empty-state-icon">⏳</div>
-        <h2 class="empty-state-title">Loading health data…</h2>
-      </div>
-
       <!-- Error state -->
-      <div v-else-if="error" class="empty-state">
-        <div class="empty-state-icon">⚠️</div>
-        <h2 class="empty-state-title">Error</h2>
-        <p class="empty-state-desc">{{ error }}</p>
-      </div>
+      <ErrorAlert v-if="error" :message="error" retryable @retry="reload" />
 
-      <template v-else-if="data">
+      <LoadingOverlay :loading="loading" message="Loading health data…">
+      <template v-if="data">
         <!-- Hero Section: Large Health Ring + Stat Cards -->
         <section class="health-hero" aria-label="Overall health summary">
           <HealthRing :score="data.overallScore" size="lg" />
@@ -134,6 +130,7 @@ function severityLabel(severity: 'warning' | 'danger'): string {
           </table>
         </section>
       </template>
+      </LoadingOverlay>
     </div>
   </div>
 </template>

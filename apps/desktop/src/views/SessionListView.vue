@@ -6,7 +6,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
-import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar } from "@tracepilot/ui";
+import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar, LoadingSpinner } from "@tracepilot/ui";
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import type { IndexingProgressPayload } from '@tracepilot/types';
 import { safeListen } from '@/utils/tauriEvents';
@@ -105,7 +105,7 @@ onUnmounted(() => {
       <!-- Indexing state -->
       <div v-if="store.indexing" class="loading-state">
         <div class="loading-state-inner">
-          <div class="loading-spinner" />
+          <LoadingSpinner size="lg" />
           <div class="loading-text">
             <div class="text-sm font-medium text-[var(--text-primary)]">Indexing sessions…</div>
             <div class="text-xs text-[var(--text-tertiary)] mt-1">Building search index for faster loading. This only happens once.</div>
@@ -125,7 +125,7 @@ onUnmounted(() => {
       <!-- Loading state -->
       <div v-else-if="store.loading" class="loading-state">
         <div class="loading-state-inner">
-          <div class="loading-spinner" />
+          <LoadingSpinner size="lg" />
           <div class="loading-text">
             <div class="text-sm font-medium text-[var(--text-primary)]">Loading sessions…</div>
             <div class="text-xs text-[var(--text-tertiary)] mt-1">Fetching your recent Copilot sessions.</div>
@@ -281,16 +281,5 @@ onUnmounted(() => {
 }
 .loading-text {
   text-align: left;
-}
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--accent-fg);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 </style>
