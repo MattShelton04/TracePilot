@@ -4,8 +4,7 @@ import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList,
-  formatDate, formatDuration, useSessionTabLoader,
-  MarkdownContent,
+  formatDate, formatDuration, formatNumberFull, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -127,7 +126,7 @@ function formatDetail(detail: unknown): string {
       <StatCard :value="detail?.turnCount ?? 0" label="Turns" :gradient="true" />
       <StatCard :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
       <StatCard
-        :value="metrics?.totalPremiumRequests?.toFixed(1) ?? '—'"
+        :value="metrics?.totalPremiumRequests != null ? formatNumberFull(metrics.totalPremiumRequests) : '—'"
         label="Premium Requests"
         color="done"
       />

@@ -5,7 +5,7 @@
 
 import { ref, computed, onMounted, watch } from 'vue';
 import { useSessionsStore } from '@/stores/sessions';
-import { FormSwitch, BtnGroup, useToast } from '@tracepilot/ui';
+import { FormSwitch, BtnGroup, formatBytes, useToast } from '@tracepilot/ui';
 import type { ExportConfig } from '@tracepilot/types';
 import StubBanner from '@/components/StubBanner.vue';
 
@@ -265,8 +265,7 @@ const previewLanguage = computed(() => {
 
 const estimatedSize = computed(() => {
   const bytes = new Blob([previewContent.value]).size;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
+  return formatBytes(bytes);
 });
 
 // ── Export action ────────────────────────────────────────────

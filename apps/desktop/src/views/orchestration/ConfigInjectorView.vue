@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
+import { useToast, useDismissable, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
 import type { AgentDefinition } from '@tracepilot/types';
+import { previewBackupRestore } from '@tracepilot/client';
 import {
   MODEL_REGISTRY,
   getModelsByTier,
@@ -16,7 +17,7 @@ const store = useConfigInjectorStore();
 const toast = useToast();
 
 // ── Dismissible Warning ─────────────────────────────────────────────────────
-const warningDismissed = ref(false);
+const { isDismissed: warningDismissed, dismiss: dismissWarning } = useDismissable('config-injector-warning');
 
 // ── Agent Metadata ──────────────────────────────────────────────────────────
 const AGENT_META: Record<string, { emoji: string; colorVar: string; motto: string }> = {
@@ -327,6 +328,43 @@ async function toggleDeleteBackup(backup: { id: string; backupPath: string }) {
   }
 }
 
+// ── Backup Diff Preview ─────────────────────────────────────────────────────
+const previewingBackupId = ref<string | null>(null);
+const backupDiffLoading = ref(false);
+const backupDiffData = ref<{ left: { text: string; changed: boolean }[]; right: { text: string; changed: boolean }[] } | null>(null);
+
+async function toggleBackupPreview(backup: { id: string; backupPath: string; sourcePath: string }) {
+  if (previewingBackupId.value === backup.id) {
+    previewingBackupId.value = null;
+    backupDiffData.value = null;
+    return;
+  }
+  previewingBackupId.value = backup.id;
+  backupDiffLoading.value = true;
+  backupDiffData.value = null;
+  try {
+    const result = await previewBackupRestore(backup.backupPath, backup.sourcePath);
+    const curLines = result.currentContent.split('\n');
+    const bkpLines = result.backupContent.split('\n');
+    const maxLen = Math.max(curLines.length, bkpLines.length);
+    const left: { text: string; changed: boolean }[] = [];
+    const right: { text: string; changed: boolean }[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      const cl = curLines[i] ?? '';
+      const bl = bkpLines[i] ?? '';
+      const changed = cl !== bl;
+      left.push({ text: cl, changed });
+      right.push({ text: bl, changed });
+    }
+    backupDiffData.value = { left, right };
+  } catch (e) {
+    toast.error(`Failed to load preview: ${e}`);
+    previewingBackupId.value = null;
+  } finally {
+    backupDiffLoading.value = false;
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 import { formatBytes, formatDate } from '@tracepilot/ui';
 
@@ -368,7 +406,7 @@ onMounted(() => {
             <code>COPILOT_AUTO_UPDATE=false</code> to prevent.
             We don't recommend disabling auto-update and suggest reinjecting after every update.
           </span>
-          <button class="warning-banner-close" title="Dismiss" @click="warningDismissed = true">✕</button>
+          <button class="warning-banner-close" title="Dismiss" @click="dismissWarning()">✕</button>
         </div>
       </Transition>
 
@@ -771,32 +809,56 @@ onMounted(() => {
         <!-- Backup List -->
         <div v-if="store.backups.length" class="backup-list">
           <h3 class="section-heading">Existing Backups</h3>
-          <div v-for="backup in store.backups" :key="backup.id" class="backup-item">
-            <span class="backup-emoji">{{ backupEmoji(backup.sourcePath) }}</span>
-            <div class="backup-info">
-              <span class="backup-name">{{ formatBackupLabel(backup) }}</span>
-              <span class="backup-meta">
-                {{ formatDate(backup.createdAt) }} · {{ formatBytes(backup.sizeBytes) }}
-                <template v-if="backup.sourcePath"> · {{ shortenPath(backup.sourcePath) }}</template>
-              </span>
+          <div v-for="backup in store.backups" :key="backup.id" class="backup-item-wrapper">
+            <div class="backup-item">
+              <span class="backup-emoji">{{ backupEmoji(backup.sourcePath) }}</span>
+              <div class="backup-info">
+                <span class="backup-name">{{ formatBackupLabel(backup) }}</span>
+                <span class="backup-meta">
+                  {{ formatDate(backup.createdAt) }} · {{ formatBytes(backup.sizeBytes) }}
+                  <template v-if="backup.sourcePath"> · {{ shortenPath(backup.sourcePath) }}</template>
+                </span>
+              </div>
+              <div class="backup-actions">
+                <button
+                  class="btn btn-sm"
+                  :disabled="!backup.sourcePath || backupDiffLoading"
+                  :title="backup.sourcePath ? 'Preview changes before restoring' : 'Source path unknown'"
+                  @click="toggleBackupPreview(backup)"
+                >
+                  {{ previewingBackupId === backup.id ? '✕ Close' : '📝 Preview' }}
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :disabled="!backup.sourcePath"
+                  :title="backup.sourcePath ? 'Restore to ' + backup.sourcePath : 'Source path unknown — cannot restore'"
+                  @click="store.restoreBackup(backup.backupPath, backup.sourcePath)"
+                >
+                  ↩ Restore
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :class="confirmingDeleteBackupId === backup.id ? 'btn-danger' : 'btn-danger-subtle'"
+                  :title="confirmingDeleteBackupId === backup.id ? 'Click again to confirm deletion' : 'Delete this backup'"
+                  @click="toggleDeleteBackup(backup)"
+                >
+                  {{ confirmingDeleteBackupId === backup.id ? 'Confirm?' : '🗑' }}
+                </button>
+              </div>
             </div>
-            <div class="backup-actions">
-              <button
-                class="btn btn-sm"
-                :disabled="!backup.sourcePath"
-                :title="backup.sourcePath ? 'Restore to ' + backup.sourcePath : 'Source path unknown — cannot restore'"
-                @click="store.restoreBackup(backup.backupPath, backup.sourcePath)"
-              >
-                ↩ Restore
-              </button>
-              <button
-                class="btn btn-sm"
-                :class="confirmingDeleteBackupId === backup.id ? 'btn-danger' : 'btn-danger-subtle'"
-                :title="confirmingDeleteBackupId === backup.id ? 'Click again to confirm deletion' : 'Delete this backup'"
-                @click="toggleDeleteBackup(backup)"
-              >
-                {{ confirmingDeleteBackupId === backup.id ? 'Confirm?' : '🗑' }}
-              </button>
+            <!-- Backup Diff Preview -->
+            <div v-if="previewingBackupId === backup.id && backupDiffLoading" class="backup-diff-loading">
+              Loading preview…
+            </div>
+            <div v-if="previewingBackupId === backup.id && backupDiffData" class="diff-side-by-side backup-diff-panel">
+              <div class="diff-panel diff-panel--left">
+                <div class="diff-panel-header diff-panel-header--left">← Current</div>
+                <pre class="diff-panel-body"><template v-for="(line, i) in backupDiffData.left" :key="i"><span :class="{ 'diff-line--removed': line.changed }">{{ line.text }}{{ '\n' }}</span></template></pre>
+              </div>
+              <div class="diff-panel diff-panel--right">
+                <div class="diff-panel-header diff-panel-header--right">→ Backup (restore)</div>
+                <pre class="diff-panel-body"><template v-for="(line, i) in backupDiffData.right" :key="i"><span :class="{ 'diff-line--added': line.changed }">{{ line.text }}{{ '\n' }}</span></template></pre>
+              </div>
             </div>
           </div>
         </div>
@@ -1455,6 +1517,11 @@ onMounted(() => {
   border-radius: var(--radius-md);
   overflow: hidden;
 }
+.global-layout .diff-preview-details {
+  max-width: none;
+  width: calc(100% + 60px);
+  margin-left: -30px;
+}
 .diff-preview-summary {
   display: flex;
   align-items: center;
@@ -1506,9 +1573,12 @@ onMounted(() => {
 }
 
 .diff-panel {
+  display: block;
+  grid-template-columns: none;
   border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--canvas-default);
 }
 
 .diff-panel-header {
@@ -1517,18 +1587,19 @@ onMounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  display: inline-block;
+  border-radius: 4px;
+  margin: 6px 8px 0;
 }
 
 .diff-panel-header--left {
   color: var(--danger-fg);
   background: var(--danger-subtle);
-  border-bottom: 1px solid var(--danger-muted);
 }
 
 .diff-panel-header--right {
   color: var(--success-fg);
   background: var(--success-subtle);
-  border-bottom: 1px solid var(--success-muted);
 }
 
 .diff-panel-body {
@@ -1541,7 +1612,7 @@ onMounted(() => {
   overflow-x: auto;
   overflow-y: auto;
   white-space: pre;
-  max-height: 120px;
+  max-height: 400px;
 }
 
 .diff-line--removed {
@@ -1805,6 +1876,35 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.backup-item-wrapper {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.backup-item-wrapper .backup-item {
+  border: none;
+  border-radius: 0;
+}
+
+.backup-diff-loading {
+  padding: 12px 16px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  border-top: 1px solid var(--border-muted);
+}
+
+.backup-diff-panel {
+  border-top: 1px solid var(--border-muted);
+  gap: 0;
+}
+
+.backup-diff-panel .diff-panel {
+  border: none;
+  border-radius: 0;
 }
 .btn-danger-subtle {
   color: var(--danger-fg);

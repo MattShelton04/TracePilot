@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { formatNumber } from '@tracepilot/ui'
 
 /**
  * Animated counter interpolation for smooth numeric display.
@@ -17,12 +18,6 @@ export function useAnimatedCounters() {
   const currentTokens = ref(0)
   const currentEvents = ref(0)
   const currentRepos = ref(0)
-
-  function formatTokens(n: number): string {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-    return String(Math.round(n))
-  }
 
   /** Lerp all counters toward their targets. Call once per animation frame. */
   function lerpCounters() {
@@ -44,8 +39,8 @@ export function useAnimatedCounters() {
   }
 
   const displaySessions = computed(() => String(Math.round(currentSessions.value)))
-  const displayTokens = computed(() => formatTokens(currentTokens.value))
-  const displayEvents = computed(() => formatTokens(currentEvents.value))
+  const displayTokens = computed(() => formatNumber(Math.round(currentTokens.value)))
+  const displayEvents = computed(() => formatNumber(Math.round(currentEvents.value)))
   const displayRepos = computed(() => String(Math.round(currentRepos.value)))
 
   return {

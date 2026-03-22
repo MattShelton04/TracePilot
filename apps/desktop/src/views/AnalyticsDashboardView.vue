@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatNumber,
   formatNumberFull,
+  formatPercent,
 } from '@tracepilot/ui';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -428,7 +429,7 @@ function onIncidentChartClick(event: MouseEvent) {
           <!-- Stats Row -->
           <div class="grid-5 mb-4">
             <div class="stat-card">
-              <div class="stat-card-value accent">{{ data.totalSessions }}</div>
+              <div class="stat-card-value accent">{{ formatNumberFull(data.totalSessions) }}</div>
               <div class="stat-card-label">Total Sessions</div>
             </div>
             <div class="stat-card">
@@ -444,7 +445,7 @@ function onIncidentChartClick(event: MouseEvent) {
               <div class="stat-card-label">Wholesale Cost</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-value warning">{{ data.averageHealthScore.toFixed(2) }}</div>
+              <div class="stat-card-value warning">{{ formatPercent(data.averageHealthScore * 100) }}</div>
               <div class="stat-card-label">Avg Health Score</div>
             </div>
           </div>
@@ -452,19 +453,19 @@ function onIncidentChartClick(event: MouseEvent) {
           <!-- Incident Stats -->
           <div class="grid-4 mb-4">
             <div class="stat-card stat-card--incident-error">
-              <div class="stat-card-value">{{ data.sessionsWithErrors }}</div>
+              <div class="stat-card-value">{{ formatNumberFull(data.sessionsWithErrors) }}</div>
               <div class="stat-card-label">Sessions with Errors</div>
             </div>
             <div class="stat-card stat-card--incident-ratelimit">
-              <div class="stat-card-value">{{ data.totalRateLimits }}</div>
+              <div class="stat-card-value">{{ formatNumberFull(data.totalRateLimits) }}</div>
               <div class="stat-card-label">Total Rate Limits</div>
             </div>
             <div class="stat-card stat-card--incident-compaction">
-              <div class="stat-card-value">{{ data.totalCompactions }}</div>
+              <div class="stat-card-value">{{ formatNumberFull(data.totalCompactions) }}</div>
               <div class="stat-card-label">Total Compactions</div>
             </div>
             <div class="stat-card stat-card--incident-truncation">
-              <div class="stat-card-value">{{ data.totalTruncations }}</div>
+              <div class="stat-card-value">{{ formatNumberFull(data.totalTruncations) }}</div>
               <div class="stat-card-label">Total Truncations</div>
             </div>
           </div>
@@ -496,7 +497,7 @@ function onIncidentChartClick(event: MouseEvent) {
                     <span class="metric-label">Max</span>
                   </div>
                   <div class="metric-item">
-                    <span class="metric-value">{{ data.apiDurationStats.totalSessionsWithDuration }}</span>
+                    <span class="metric-value">{{ formatNumberFull(data.apiDurationStats.totalSessionsWithDuration) }}</span>
                     <span class="metric-label">Sessions w/ Data</span>
                   </div>
                 </div>
@@ -769,7 +770,7 @@ function onIncidentChartClick(event: MouseEvent) {
                     <span class="donut-legend-dot" :style="{ background: DONUT_COLORS[si % DONUT_COLORS.length] }" />
                     <span>{{ m.model }}</span>
                     <span class="donut-legend-pct">{{ m.percentage.toFixed(0) }}%</span>
-                    <span class="donut-legend-requests" :title="`${m.requestCount.toLocaleString()} API requests`">{{ m.requestCount.toLocaleString() }} req</span>
+                    <span class="donut-legend-requests" :title="`${formatNumberFull(m.requestCount)} API requests`">{{ formatNumberFull(m.requestCount) }} req</span>
                   </div>
                 </div>
               </div>

@@ -5,7 +5,7 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText, useToast, useConfirmDialog, useClipboard, ErrorAlert } from '@tracepilot/ui';
+import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
@@ -110,7 +110,7 @@ const estimatedCost = computed(() => {
   const pr = prefsStore.getPremiumRequests(modelId);
   const cost = pr * prefsStore.costPerPremiumRequest;
   if (pr === 0) return 'Free';
-  return `~$${cost.toFixed(2)} (${pr}x premium requests)`;
+  return `~${formatCost(cost)} (${pr}x premium requests)`;
 });
 
 const canLaunch= computed(() => {

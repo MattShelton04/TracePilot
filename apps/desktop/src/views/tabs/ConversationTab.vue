@@ -286,11 +286,6 @@ function eventTypeLabel(eventType: string): string {
           </div>
         </template>
 
-        <!-- Token badge (once per turn) -->
-        <div v-if="turn.outputTokens" class="turn-reasoning">
-          <span class="token-badge">🪙 {{ formatNumber(turn.outputTokens) }} tokens</span>
-        </div>
-
         <!-- Session events (errors, compactions, etc.) -->
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
@@ -304,7 +299,12 @@ function eventTypeLabel(eventType: string): string {
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
-      <div v-for="turn in store.turns" :key="turn.turnIndex" class="compact-turn">
+      <template v-for="turn in store.turns" :key="turn.turnIndex">
+        <div v-if="turn.userMessage" class="compact-turn-user">
+          <span class="compact-turn-label-prefix user">👤 User</span>
+          <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
+        </div>
+        <div class="compact-turn">
         <div class="compact-turn-header">
           <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
@@ -318,11 +318,6 @@ function eventTypeLabel(eventType: string): string {
         </div>
 
         <div class="compact-turn-body">
-          <div v-if="turn.userMessage" class="compact-turn-label">
-            <span class="compact-turn-label-prefix user">User:</span>
-            {{ truncateText(turn.userMessage, 300) }}
-          </div>
-
           <!-- Agent-grouped messages in compact view -->
           <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`compact-s-${sIdx}`">
             <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`compact-msg-${sIdx}-${idx}`" class="compact-turn-label">
@@ -395,7 +390,8 @@ function eventTypeLabel(eventType: string): string {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </template>
     </div>
 
     <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
@@ -662,5 +658,26 @@ function eventTypeLabel(eventType: string): string {
 .session-event-summary {
   flex: 1;
   color: var(--fg-secondary, #a0a0a0);
+}
+
+/* ── Compact view: distinct user message container ─ */
+.compact-turn-user {
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-muted);
+  border-left: 3px solid var(--accent-fg);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.compact-turn-user .compact-turn-label-prefix {
+  display: block;
+  font-size: 0.6875rem;
+  margin-bottom: 4px;
+  color: var(--accent-fg);
+}
+.compact-turn-user-text {
+  white-space: pre-wrap;
 }
 </style>

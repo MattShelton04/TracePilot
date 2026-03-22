@@ -9,8 +9,8 @@ import {
   saveConfig,
 } from '@tracepilot/client';
 import type { IndexingProgressPayload } from '@tracepilot/types';
-import { ActionButton, FormInput, FormSwitch, SectionPanel, useToast, useConfirmDialog } from '@tracepilot/ui';
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { ActionButton, FormInput, SectionPanel, formatBytes, useToast, useConfirmDialog } from '@tracepilot/ui';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { safeListen } from '@/utils/tauriEvents';
 import { useAnalyticsStore } from '@/stores/analytics';
@@ -25,7 +25,6 @@ const sessionsDirectory = ref('~/.copilot/sessions/');
 const databasePath = ref('');
 const databaseSize = ref('—');
 const indexedSessionCount = ref(0);
-const autoIndexOnLaunch = ref(true);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
 const clearing = ref(false);
@@ -61,18 +60,13 @@ onMounted(async () => {
     const config = await getConfig();
     sessionsDirectory.value = config.paths.sessionStateDir;
     databasePath.value = config.paths.indexDbPath;
-    autoIndexOnLaunch.value = config.general.autoIndexOnLaunch;
   } catch {
     /* defaults are fine */
   }
 
   try {
     const bytes = await getDbSize();
-    if (bytes < 1024 * 1024) {
-      databaseSize.value = `${(bytes / 1024).toFixed(1)} KB`;
-    } else {
-      databaseSize.value = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
+    databaseSize.value = formatBytes(bytes);
   } catch {
     /* keep placeholder */
   }
@@ -104,17 +98,6 @@ async function persistSessionDir() {
     /* non-fatal — local UI still updates */
   }
 }
-
-// Persist autoIndexOnLaunch when toggled
-watch(autoIndexOnLaunch, async (value) => {
-  try {
-    const config = await getConfig();
-    config.general.autoIndexOnLaunch = value;
-    await saveConfig(config);
-  } catch {
-    /* non-fatal */
-  }
-});
 
 async function clearCache() {
   clearing.value = true;
@@ -194,16 +177,6 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <span class="setting-value-display">{{ databaseSize }}</span>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Auto-index on launch</div>
-          <div class="setting-description">
-            Scan for new sessions when the app starts
-          </div>
-        </div>
-        <FormSwitch v-model="autoIndexOnLaunch" />
       </div>
 
       <div v-if="indexingProgress" class="setting-row indexing-progress-row">

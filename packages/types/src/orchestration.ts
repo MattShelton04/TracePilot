@@ -113,6 +113,11 @@ export interface ConfigDiff {
   hasChanges: boolean;
 }
 
+export interface BackupDiffPreview {
+  backupContent: string;
+  currentContent: string;
+}
+
 // ─── Version Management Types ─────────────────────────────────────
 
 export interface CopilotVersion {

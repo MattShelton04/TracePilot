@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { BtnGroup, LoadingOverlay } from '@tracepilot/ui';
+import { BtnGroup, LoadingOverlay, formatNumberFull } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
 import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
 import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
@@ -65,7 +65,7 @@ const viewModes = [
         </span>
         <span class="session-info-pill">
           <span class="pill-label">Events</span>
-          {{ store.detail?.eventCount?.toLocaleString() ?? '—' }}
+          {{ store.detail?.eventCount != null ? formatNumberFull(store.detail.eventCount) : '—' }}
         </span>
       </div>
 

@@ -56,10 +56,10 @@ export function formatNumber(n?: number | null): string {
   return n.toString();
 }
 
-/** Format a cost value as USD. */
+/** Format a cost value as USD with comma separators. */
 export function formatCost(cost?: number | null): string {
   if (cost == null) return '$0.00';
-  return `$${cost.toFixed(2)}`;
+  return `$${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Truncate a string to a max length, appending ellipsis. */

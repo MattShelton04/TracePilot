@@ -160,6 +160,13 @@ pub struct ConfigDiff {
     pub has_changes: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupDiffPreview {
+    pub backup_content: String,
+    pub current_content: String,
+}
+
 // ─── Version Management Types ─────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
