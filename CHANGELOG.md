@@ -7,19 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files
-- **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level
-- Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console)
-- Per-target log filtering to suppress noisy third-party crate output (tao, wry, reqwest, etc.)
-- Developer log viewing via stdout during `cargo tauri dev` and webview devtools console
-- **Session data optimization**: LRU turn cache (instant repeat visits), freshness-based auto-refresh (skip redundant fetches), server-computed argument summaries, stripped `transformedUserMessage` from IPC
+## [0.4.0] - 2026-03-23
 
-### Fixed
-- Factory reset no longer leaves a ghost `config.toml` that skips the setup wizard on relaunch
+### Added
+- **Full-text search** with global search palette (`Ctrl+K` / `⌘K`), dedicated search view with content-type filters, facets, BM25 relevance ranking, and deep-link to matching conversation turn (#78)
+- Auto-indexing of search content after session indexing; manual "Rebuild Search Index" button in **Settings → Data & Storage** (#78)
+- **Session replay overhaul**: transport bar with play/pause/step controls and playback speed, event ticker, step navigator sidebar, and rich per-step content rendering. Currently an experimental feature (#58)
+- **In-app auto-updater** with progress bar and one-click relaunch for installed builds; install-type-aware update instructions detect source, installed, or portable and show appropriate steps. Will go-live when repo becomes public (#62)
+- **Launcher template system overhaul**: new default templates (Multi Agent Code Review, Write Tests), emoji icons, dismissable defaults, and usage tracking (#66)
+- **Content width presets** (Standard, Wide, Full Width, Custom) and **UI scale slider** in **Settings → Appearance** (#71)
+- **Markdown rendering** in conversation messages, replay content, and tool results — opt-in via Settings (#72)
+- **Session Plan card** on Overview tab with collapsible Markdown rendering; expandable checkpoint content with inline Markdown preview (#73)
+- **One-click CLI interactive session** launch with prompt from the desktop app (#77)
+- Structured logging system with `tauri-plugin-log` — captures all Rust (`tracing::*!`) and frontend logs to rotating log files (#59)
+- **Settings → Logs & Diagnostics** section: view log directory, open in explorer, export all logs to a single file, and configure log level (#59)
+- Frontend error logging: `ErrorBoundary` and global error handler now write to log file (not just devtools console) (#59)
+- Per-target log filtering to suppress noisy third-party crate output (tao, wry, reqwest, etc.) (#59)
+- **Session data optimization**: LRU turn cache (instant repeat visits), freshness-based auto-refresh (skip redundant fetches), server-computed argument summaries, stripped `transformedUserMessage` from IPC (#67)
+- Command Centre: repository count in hero card, 5-minute data cache with background refresh (#66)
+- `pnpm start` convenience command for quick clone-and-run setup (#62)
 
 ### Changed
+- App-wide **toast notification system** replaces inline messages and `alert()` calls; styled confirm dialogs replace browser `confirm()`; consistent loading spinners and error states with retry across all views (#70)
+- **Session list cards redesigned** with icon-based stats and restructured toolbar layout (#76)
+- Config Injector improvements: batch backup, backupable-files picker, backup diff preview for restores (#61, #75)
+- User messages visually separated in Compact conversation mode (#75)
 - Removed "Settings are stored locally" stub banner from Settings page
+
+### Fixed
+- Chart layout fixes in Code Impact view; comma formatting for large numbers and costs across all analytics views (#75)
+- Config Injector "Reset All Defaults" now correctly re-syncs model dropdowns (#61)
+- Worktree create modal now shows repo dropdown and auto-loads branches in All Worktrees mode (#77)
+- Factory reset no longer leaves a ghost `config.toml` that skips the setup wizard on relaunch
+- **Security hardening**: path traversal prevention for template IDs, parameterized SQL limits, 1 MB file size cap on template reads, env var name validation in shell commands (#69)
 
 ## [0.3.0] - 2026-03-21
 

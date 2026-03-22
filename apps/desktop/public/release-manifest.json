@@ -1,6 +1,36 @@
 {
   "versions": [
     {
+      "version": "0.4.0",
+      "date": "2026-03-23",
+      "notes": {
+        "added": [
+          "Full-text search with global Ctrl+K palette, dedicated search view with filters, facets, and deep-link to matching turn",
+          "Session replay overhaul with transport controls, event ticker, step navigator, and model-switch banner (enable in settings)",
+          "In-app auto-updater with progress bar and one-click relaunch for installed builds (will go live when repo becomes public)",
+          "Launcher template system: new defaults (Code Review, Write Tests), emoji icons, dismissable defaults, and usage tracking",
+          "Content width presets and UI scale slider in Settings → Appearance",
+          "Markdown rendering in conversation, replay, and tool results (opt-in via Settings)",
+          "Session Plan card on Overview tab with expandable checkpoint content",
+          "Structured logging with Settings → Logs & Diagnostics for viewing, exporting, and configuring log level",
+          "Session data optimization: LRU cache, freshness-based refresh, and trimmed IPC payloads",
+          "One-click CLI interactive session launch with prompt from the app"
+        ],
+        "changed": [
+          "App-wide toast notifications and styled confirm dialogs replace browser alerts",
+          "Session list cards redesigned with icon stats and restructured toolbar",
+          "Config Injector: batch backup, diff preview for restores, and improved reset defaults"
+        ],
+        "fixed": [
+          "Chart layout and number/cost formatting across analytics views",
+          "Worktree create modal repo picker and auto-branch loading in All Worktrees mode",
+          "Factory reset ghost config.toml that skipped the setup wizard",
+          "Security hardening: path traversal, SQL injection, file size limits, env var validation"
+        ]
+      },
+      "requiresReindex": true
+    },
+    {
       "version": "0.3.0",
       "date": "2026-03-21",
       "notes": {
