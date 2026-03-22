@@ -1448,6 +1448,7 @@ body {
   align-items: center;
   font-size: 0.6875rem;
   color: var(--text-placeholder);
+  margin-top: auto;
 }
 .session-card-stat { display: flex; align-items: center; gap: 3px; }
 
@@ -1608,12 +1609,14 @@ body {
 .mt-2 { margin-top: 6px; }
 .mt-4 { margin-top: 14px; }
 .mt-6 { margin-top: 20px; }
+.mt-auto { margin-top: auto; }
 .mb-2 { margin-bottom: 6px; }
 .mb-4 { margin-bottom: 14px; }
 .mb-6 { margin-bottom: 20px; }
 .p-4 { padding: 14px; }
 .p-6 { padding: 20px; }
 .w-full { width: 100%; }
+.h-full { height: 100%; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hidden { display: none; }
 .opacity-50 { opacity: 0.5; }

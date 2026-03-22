@@ -33,10 +33,6 @@ const sortOptions = [
   { label: "Most turns", value: "turns" },
 ];
 
-function onSelect(sessionId: string) {
-  router.push({ name: "session-overview", params: { id: sessionId } });
-}
-
 onMounted(async () => {
   unlisteners.push(
     await safeListen<IndexingProgressPayload>('indexing-progress', (event) => {
@@ -74,33 +70,39 @@ onUnmounted(() => {
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="toolbar session-toolbar">
-        <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
-        <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
-        <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
-        <select
-          :value="store.sortBy"
-          class="filter-select"
-          aria-label="Sort sessions"
-          @change="store.sortBy = ($event.target as HTMLSelectElement).value as SortOption"
-        >
-          <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
-        <span class="session-count-label">
-          {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
-        </span>
-        <RefreshToolbar
-          :refreshing="refreshing"
-          :auto-refresh-enabled="prefs.autoRefreshEnabled"
-          :interval-seconds="prefs.autoRefreshIntervalSeconds"
-          @refresh="refresh"
-          @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
-          @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
-        />
+      <div class="enhanced-toolbar">
+        <div class="toolbar-search">
+          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
+        </div>
+        <div class="toolbar-filters">
+          <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
+          <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
+          <select
+            :value="store.sortBy"
+            class="filter-select"
+            aria-label="Sort sessions"
+            @change="store.sortBy = ($event.target as HTMLSelectElement).value as SortOption"
+          >
+            <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <div class="toolbar-actions">
+          <span class="session-count-label">
+            {{ store.filteredSessions.length }} session{{ store.filteredSessions.length !== 1 ? 's' : '' }}
+          </span>
+          <RefreshToolbar
+            :refreshing="refreshing"
+            :auto-refresh-enabled="prefs.autoRefreshEnabled"
+            :interval-seconds="prefs.autoRefreshIntervalSeconds"
+            @refresh="refresh"
+            @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
+            @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
+          />
+        </div>
       </div>
 
       <!-- Error state -->
-      <ErrorAlert v-if="store.error" :message="store.error" />
+      <ErrorAlert v-if="store.error" :message="store.error" class="mb-6" />
 
       <!-- Indexing state -->
       <div v-if="store.indexing" class="loading-state">
@@ -139,7 +141,7 @@ onUnmounted(() => {
           v-for="session in store.filteredSessions"
           :key="session.id"
           :to="{ name: 'session-overview', params: { id: session.id } }"
-          class="card card-interactive session-card"
+          class="card card-interactive session-card-new"
           :class="{ 'card--active': session.isRunning }"
           style="text-decoration: none; color: inherit;"
         >
@@ -148,32 +150,43 @@ onUnmounted(() => {
               <Badge variant="success" class="active-badge">Active</Badge>
             </span>
           </Transition>
-          <div class="session-card-title">
+          
+          <div class="card-header-new">
             <Transition name="active-pop">
               <span v-if="session.isRunning" class="active-pop-wrapper">
                 <span class="active-dot" title="Session is currently active" />
               </span>
             </Transition>
-            {{ session.summary || 'Untitled Session' }}
+            <h3 class="card-title-new">{{ session.summary || 'Untitled Session' }}</h3>
           </div>
-          <div class="session-card-badges">
+
+          <div class="card-badges-new">
             <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
             <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
             <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
             <Badge variant="neutral">{{ session.hostType || 'cli' }}</Badge>
           </div>
-          <div class="session-card-footer">
-            <div class="session-card-stats">
-              <span class="session-card-stat">{{ session.eventCount ?? 0 }} events</span>
-              <span class="session-card-stat">{{ session.turnCount ?? 0 }} turns</span>
-              <span v-if="session.errorCount" class="session-card-stat stat-error" :title="`${session.errorCount} error${session.errorCount !== 1 ? 's' : ''} encountered` ">
-                {{ session.errorCount }} error{{ session.errorCount !== 1 ? 's' : '' }}
+
+          <div class="card-footer-new">
+            <div class="card-stats-new">
+              <span class="stat-item-inline" title="Total Events">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                {{ session.eventCount ?? 0 }}
               </span>
-              <span v-if="session.compactionCount" class="session-card-stat stat-warning" :title="`${session.compactionCount} context compaction${session.compactionCount !== 1 ? 's' : ''} performed` ">
-                {{ session.compactionCount }} compaction{{ session.compactionCount !== 1 ? 's' : '' }}
+              <span class="stat-item-inline" title="Conversation Turns">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                {{ session.turnCount ?? 0 }}
+              </span>
+              <span v-if="session.errorCount" class="stat-item-inline error" :title="`${session.errorCount} error${session.errorCount !== 1 ? 's' : ''} encountered`">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                {{ session.errorCount }}
+              </span>
+              <span v-if="session.compactionCount" class="stat-item-inline warning" :title="`${session.compactionCount} context compaction${session.compactionCount !== 1 ? 's' : ''} performed`">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                {{ session.compactionCount }}
               </span>
             </div>
-            <span>{{ formatRelativeTime(session.updatedAt) }}</span>
+            <span class="card-time-new" :title="session.updatedAt">{{ formatRelativeTime(session.updatedAt) }}</span>
           </div>
         </router-link>
       </div>
@@ -191,38 +204,160 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.session-toolbar {
+/* --- Enhanced Toolbar --- */
+.enhanced-toolbar {
   display: flex;
-  gap: 12px;
   align-items: center;
-  margin-bottom: 20px;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
   position: sticky;
   top: 0;
-  z-index: 10;
-  background: var(--canvas-default);
-  padding: 8px 12px;
-  border-radius: var(--radius-md, 8px);
+  z-index: 20;
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  margin-top: 4px;
+}
+
+:root[data-theme="light"] .enhanced-toolbar {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-search {
+  flex: 1;
+  max-width: 320px;
+}
+
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .session-count-label {
   font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-tertiary);
-  margin-left: auto;
   white-space: nowrap;
 }
-.session-card {
+
+@media (max-width: 900px) {
+  .enhanced-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 12px;
+  }
+  .toolbar-search, .toolbar-filters, .toolbar-actions {
+    max-width: none;
+    width: 100%;
+  }
+  .toolbar-filters {
+    flex-wrap: wrap;
+  }
+  .toolbar-actions {
+    justify-content: space-between;
+  }
+}
+
+/* --- New Session Card Design --- */
+.session-card-new {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
   position: relative;
 }
-.active-badge-topright {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+
+.card-header-new {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-right: 48px; /* space for active badge */
 }
-.session-card-title {
+
+.card-title-new {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.card-badges-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.card-footer-new {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.card-stats-new {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 14px;
 }
+
+.stat-item-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stat-item-inline svg {
+  color: var(--text-tertiary);
+}
+
+.stat-item-inline.error {
+  color: var(--danger-fg);
+}
+.stat-item-inline.error svg {
+  color: var(--danger-fg);
+}
+
+.stat-item-inline.warning {
+  color: var(--warning-fg);
+}
+.stat-item-inline.warning svg {
+  color: var(--warning-fg);
+}
+
+.card-time-new {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* --- Active State Animations --- */
 .card--active {
   border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
@@ -238,53 +373,48 @@ onUnmounted(() => {
     box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
   }
 }
-/* Animate active indicator in/out */
+
+.active-badge-topright {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
 .active-pop-wrapper {
   display: inline-flex;
   align-items: center;
+  margin-top: 4px; /* align dot with first line of title */
 }
+
 .active-pop-enter-active,
 .active-pop-leave-active {
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 .active-pop-enter-from { opacity: 0; transform: scale(0); }
 .active-pop-leave-to { opacity: 0; transform: scale(0); }
+
 .active-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--success-fg);
   flex-shrink: 0;
-  margin-left: 2px;
   overflow: visible;
   position: relative;
-  /* Sync with card border: same duration, timing, and phase */
   animation: dot-sync-pulse 2s ease-in-out infinite;
 }
+
 @keyframes dot-sync-pulse {
   0%, 100% { transform: scale(1); opacity: 0.7; }
   50% { transform: scale(1.15); opacity: 1; }
 }
+
 .active-badge {
   flex-shrink: 0;
   font-size: 0.625rem;
 }
-.session-card-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.session-card-stat {
-  white-space: nowrap;
-}
-.stat-error {
-  color: var(--danger-fg);
-  opacity: 0.8;
-}
-.stat-warning {
-  color: var(--warning-fg);
-  opacity: 0.8;
-}
+
+/* --- Loading States --- */
 .loading-state {
   display: flex;
   flex-direction: column;

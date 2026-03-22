@@ -32,7 +32,7 @@ function isActive(session: SessionListItem): boolean {
 
 <template>
   <div
-    class="card card-interactive cursor-pointer"
+    class="card card-interactive cursor-pointer flex flex-col h-full"
     :class="{ 'card--active': isActive(session) }"
     role="button"
     tabindex="0"
@@ -55,7 +55,7 @@ function isActive(session: SessionListItem): boolean {
       <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
     </div>
 
-    <div class="flex items-center gap-3 text-xs" style="color: var(--text-secondary);">
+    <div class="flex items-center gap-3 text-xs mt-auto" style="color: var(--text-secondary);">
       <span v-if="session.eventCount != null" class="flex items-center gap-1">
         <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         {{ session.eventCount }}
