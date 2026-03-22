@@ -16,26 +16,14 @@ This approach was used to rapidly explore and compare multiple design directions
 ```
 docs/design/prototypes/
 ├── shared/                     # Shared design system files
-│   ├── design-system-a.css     # Variant A tokens ("Primer Evolved")
-│   ├── design-system-b.css     # Variant B tokens ("Linear Minimal")
 │   ├── design-system-c.css     # Variant C tokens ("Hybrid") ← PRODUCTION
 │   └── shared.js               # Theme toggle, tab switching, mock data
-├── variant-a/                  # Full page prototypes — Variant A
-├── variant-b/                  # Full page prototypes — Variant B
-├── variant-c/                  # Full page prototypes — Variant C (chosen)
-├── components/                 # Component-level prototypes
-├── features/                   # Exploratory feature prototypes
-│   └── index.html              # Feature gallery/index page
-├── orchestration/              # Orchestration page prototypes
-│   ├── orchestration-shared.js # Shared nav/icons for orchestration
-│   └── index.html              # Orchestration gallery/index page
-├── loading-screens/            # Loading screen prototypes
-│   ├── shared.css              # Loading screen design tokens
-│   └── mock-data.js            # Simulation engine + mock session data
-├── setup-window/               # Setup wizard prototypes
+├── setup-window/               # Setup wizard design report
 │   └── design-report.md        # Design decisions for setup window
-└── screenshots/                # Captured screenshots from prototypes
+└── (prototypes removed)        # See git history for historical prototypes
 ```
+
+> **Note:** Historical prototype HTML files (variant-a/, variant-b/, variant-c/, features/, components/, orchestration/, loading-screens/) were removed during docs cleanup. The design decisions from those prototypes are captured in the markdown documentation. See git history for the original files.
 
 ---
 
@@ -53,7 +41,7 @@ Three design variants were developed and compared. **Variant C** was chosen for 
 | **Border style** | Visible solid borders (`#30363d`) |
 | **Spacing** | Generous (16px gaps, 20px padding) |
 | **Inspiration** | GitHub Primer design system |
-| **CSS file** | `shared/design-system-a.css` |
+| **CSS file** | `shared/design-system-a.css` *(removed)* |
 
 ### Variant B — "Linear Minimal"
 
@@ -65,7 +53,7 @@ Three design variants were developed and compared. **Variant C** was chosen for 
 | **Border style** | Subtle rgba borders (`rgba(255,255,255,0.08)`) |
 | **Spacing** | Tight (12px gaps, gradient overlays) |
 | **Inspiration** | Linear, Raycast, Vercel |
-| **CSS file** | `shared/design-system-b.css` |
+| **CSS file** | `shared/design-system-b.css` *(removed)* |
 
 ### Variant C — "Hybrid" (Production) ✅
 
@@ -110,9 +98,9 @@ Provides to all prototype HTML pages:
 - **Mock session data** — 3+ realistic session objects with IDs, repos, metrics
 - **DOM initialization** — Auto-runs on `DOMContentLoaded`
 
-### `shared/design-system-{a,b,c}.css` — Design Tokens
+### `shared/design-system-c.css` — Design Tokens (Production)
 
-Each file provides ~650+ lines of CSS including:
+Provides ~650+ lines of CSS including:
 - Color tokens (canvas, border, text, semantic colors)
 - Typography scale (11px–32px, mono + sans font stacks)
 - Spacing scale (4px–64px)
@@ -122,14 +110,16 @@ Each file provides ~650+ lines of CSS including:
 - Card, badge, button, table component styles
 - Light theme overrides via `[data-theme="light"]`
 
-### Loading Screen Resources
+> **Note:** Variant A and B design system CSS files were removed during cleanup. Their token values are documented in the tables above for reference.
 
-- **`loading-screens/shared.css`** — Design tokens specific to loading screens (Variant C palette, animation keyframes, progress bars, demo controls)
-- **`loading-screens/mock-data.js`** — `LoadingSimulator` engine, `AnimatedCounter` utility, mock sessions, tool names, code snippets, conversation fragments, feature descriptions
+### `shared/shared.js` — Common Interactivity
 
-### Orchestration Resources
-
-- **`orchestration/orchestration-shared.js`** — SVG icon library (20+ icons), sidebar generator, mock data for orchestration features
+Provides to all prototype HTML pages:
+- **Theme toggle** — Dark/light switching with `localStorage` persistence
+- **Tab switching** — Click handlers for `.tab-nav-item` → `.tab-panel` visibility
+- **Collapsible sections** — Chevron animation for `[data-collapse]` triggers
+- **Mock session data** — 3+ realistic session objects with IDs, repos, metrics
+- **DOM initialization** — Auto-runs on `DOMContentLoaded`
 
 ---
 
@@ -200,9 +190,7 @@ Include `shared/shared.js` for theme toggle, tabs, and collapsible sections.
 
 ### 4. Include Mock Data
 
-For loading screens, use `loading-screens/mock-data.js`.
-For orchestration pages, use `orchestration/orchestration-shared.js`.
-For general pages, define mock data inline or in `shared.js`.
+For general pages, define mock data inline or import from `shared.js`.
 
 ### 5. Serve and Review
 

@@ -134,7 +134,7 @@ Depth 4:          └ grep  └ view              └ powershell
 
 **Data requirements:** `ConversationTurn[]` with `toolCalls[]` and `parentToolCallId` chain. Also needs `SessionEvent[]` for subagent start/complete events (to get agent names).
 
-**Prototype:** `prototypes/components/timeline-flame-chart.html`
+**Prototype:** *(removed during docs cleanup)*
 
 ---
 
@@ -172,7 +172,7 @@ Depth 4:          └ grep  └ view              └ powershell
 
 **Data requirements:** `ConversationTurn[]` with `toolCalls[]`, `parentToolCallId`, plus subagent event data for agent names/types.
 
-**Prototype:** `prototypes/components/timeline-nested-swimlanes.html`
+**Prototype:** *(removed during docs cleanup)*
 
 ---
 
@@ -196,7 +196,7 @@ Depth 4:          └ grep  └ view              └ powershell
 
 **Data requirements:** `ConversationTurn[]` with full `toolCalls[]` timing data.
 
-**Prototype:** `prototypes/components/timeline-turn-waterfall.html`
+**Prototype:** *(removed during docs cleanup)*
 
 ---
 
@@ -220,7 +220,7 @@ Depth 4:          └ grep  └ view              └ powershell
 
 **Data requirements:** `ConversationTurn[]`, `SessionEvent[]` (for timing/density), shutdown metrics for model info.
 
-**Prototype:** `prototypes/components/timeline-session-overview.html`
+**Prototype:** *(removed during docs cleanup)*
 
 ---
 
@@ -244,7 +244,7 @@ Depth 4:          └ grep  └ view              └ powershell
 
 **Data requirements:** `ConversationTurn.toolCalls[]` with `parentToolCallId`, plus `SessionEvent[]` for `subagent.started/completed` events.
 
-**Prototype:** `prototypes/components/timeline-agent-tree.html`
+**Prototype:** *(removed during docs cleanup)*
 
 ---
 
