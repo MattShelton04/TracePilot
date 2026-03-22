@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
+import SettingsAppearance from '@/components/settings/SettingsAppearance.vue';
 import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
 import SettingsLogging from '@/components/settings/SettingsLogging.vue';
 import SettingsPricing from '@/components/settings/SettingsPricing.vue';
@@ -28,6 +29,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
       <h1 class="page-title page-title-spaced">Settings</h1>
 
       <SettingsGeneral />
+      <SettingsAppearance />
       <SettingsDataStorage ref="dataStorageRef" />
       <SettingsLogging />
       <SettingsPricing />
@@ -43,6 +45,12 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 <style scoped>
 .settings-root {
   max-width: 720px;
+}
+
+@media (min-width: 1600px) {
+  .settings-root {
+    max-width: 860px;
+  }
 }
 
 .page-title-spaced {

@@ -13,6 +13,8 @@ import {
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_CLI_COMMAND,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_CONTENT_MAX_WIDTH,
+  DEFAULT_UI_SCALE,
 } from '@tracepilot/types';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
@@ -33,6 +35,18 @@ function applyTheme(theme: ThemeOption) {
   localStorage.setItem("tracepilot-theme", theme);
 }
 
+function applyContentMaxWidth(value: number) {
+  const cssVal = value === 0 ? "none" : `${value}px`;
+  document.documentElement.style.setProperty("--content-max-width", cssVal);
+}
+
+function applyUiScale(scale: number) {
+  // Clamp to safe range to avoid breaking layouts
+  const clamped = Math.max(0.8, Math.min(1.3, scale));
+  // Base font-size is 16px; scaling it adjusts all rem-based sizes uniformly
+  document.documentElement.style.fontSize = `${16 * clamped}px`;
+}
+
 export const usePreferencesStore = defineStore("preferences", () => {
   // ── Reactive state ──────────────────────────────────────────
 
@@ -46,6 +60,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const checkForUpdates = ref(false);
   const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
+  const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
+  const uiScale = ref(DEFAULT_UI_SCALE);
   const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
   const toolRendering = ref<ToolRenderingPreferences>({
@@ -151,6 +167,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     checkForUpdates.value = config.ui.checkForUpdates;
     favouriteModels.value = [...config.ui.favouriteModels];
     recentRepoPaths.value = [...config.ui.recentRepoPaths];
+    contentMaxWidth.value = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
+    uiScale.value = config.ui.uiScale ?? DEFAULT_UI_SCALE;
     cliCommand.value = config.general.cliCommand;
     costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     modelWholesalePrices.value = config.pricing.models.length > 0
@@ -182,6 +200,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         checkForUpdates: checkForUpdates.value,
         favouriteModels: [...favouriteModels.value],
         recentRepoPaths: [...recentRepoPaths.value],
+        contentMaxWidth: contentMaxWidth.value,
+        uiScale: uiScale.value,
       },
       pricing: {
         costPerPremiumRequest: costPerPremiumRequest.value,
@@ -266,6 +286,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Watch theme changes: update DOM + write-through cache
   watch(theme, (newTheme) => { applyTheme(newTheme); }, { immediate: true });
 
+  // Watch content max-width: update CSS variable
+  watch(contentMaxWidth, (v) => { applyContentMaxWidth(v); }, { immediate: true });
+
+  // Watch UI scale: update root font-size
+  watch(uiScale, (v) => { applyUiScale(v); }, { immediate: true });
+
   // Watch all config-backed refs → debounced save to backend
   watch(
     [
@@ -281,6 +307,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       featureFlags,
       favouriteModels,
       recentRepoPaths,
+      contentMaxWidth,
+      uiScale,
       logLevel,
     ],
     scheduleSave,
@@ -398,6 +426,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     featureFlags,
     favouriteModels,
     recentRepoPaths,
+    contentMaxWidth,
+    uiScale,
     logLevel,
     applyTheme: () => applyTheme(theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */

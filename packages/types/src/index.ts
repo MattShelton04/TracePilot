@@ -613,6 +613,10 @@ export interface TracePilotConfig {
     checkForUpdates: boolean;
     favouriteModels: string[];
     recentRepoPaths: string[];
+    /** Max width for page content area in px. 0 = full width (no cap). Default: 1200. */
+    contentMaxWidth: number;
+    /** Global UI scale factor (0.8 – 1.3). Default: 1.0. */
+    uiScale: number;
   };
   pricing: {
     costPerPremiumRequest: number;
