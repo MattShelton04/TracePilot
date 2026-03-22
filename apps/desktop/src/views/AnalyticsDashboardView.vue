@@ -9,8 +9,9 @@ import {
   formatNumber,
   formatNumberFull,
   formatPercent,
+  useChartTooltip,
 } from '@tracepilot/ui';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
@@ -19,6 +20,7 @@ import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
+const { tooltip, positionTooltip, dismissTooltip, onChartMouseMove, onChartClick, findNearestIndex } = useChartTooltip();
 
 onMounted(() => {
   store.fetchAvailableRepos();
@@ -56,88 +58,6 @@ const totalWholesaleCost = computed(() => {
     0,
   );
 });
-
-// ── Tooltip state────────────────────────────────────────────
-const tooltip = reactive({
-  visible: false,
-  pinned: false,
-  x: 0,
-  y: 0,
-  content: '',
-  chartId: '',
-  highlightIndex: -1,
-});
-
-function positionTooltip(event: MouseEvent, container: HTMLElement) {
-  const rect = container.getBoundingClientRect();
-  const style = getComputedStyle(container);
-  const padLeft = parseFloat(style.paddingLeft) || 0;
-  const padTop = parseFloat(style.paddingTop) || 0;
-  const rawX = event.clientX - rect.left - padLeft;
-  const rawY = event.clientY - rect.top - padTop;
-  tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
-  tooltip.y = Math.max(20, rawY);
-}
-
-/** Find nearest data point by X coordinate in SVG space, show tooltip */
-function onChartMouseMove(
-  event: MouseEvent,
-  coords: { x: number; date: string }[],
-  formatContent: (idx: number) => string,
-  chartId: string,
-) {
-  if (tooltip.pinned) return;
-  const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
-  if (!svg || !container || coords.length === 0) return;
-
-  // Convert mouse position to SVG coordinate space
-  const pt = svg.createSVGPoint();
-  pt.x = event.clientX;
-  pt.y = event.clientY;
-  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
-
-  // Find nearest point by X distance
-  let bestIdx = 0;
-  let bestDist = Math.abs(svgPt.x - coords[0].x);
-  for (let i = 1; i < coords.length; i++) {
-    const d = Math.abs(svgPt.x - coords[i].x);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
-    }
-  }
-
-  tooltip.visible = true;
-  tooltip.content = formatContent(bestIdx);
-  tooltip.chartId = chartId;
-  tooltip.highlightIndex = bestIdx;
-  positionTooltip(event, container);
-}
-
-function onChartClick(
-  event: MouseEvent,
-  coords: { x: number; date: string }[],
-  formatContent: (idx: number) => string,
-  chartId: string,
-) {
-  if (tooltip.pinned && tooltip.chartId === chartId) {
-    // Clicking same chart again unpins
-    tooltip.pinned = false;
-    return;
-  }
-  // Unpin first so onChartMouseMove can proceed
-  tooltip.pinned = false;
-  onChartMouseMove(event, coords, formatContent, chartId);
-  tooltip.pinned = true;
-}
-
-function dismissTooltip() {
-  tooltip.visible = false;
-  tooltip.pinned = false;
-  tooltip.chartId = '';
-  tooltip.highlightIndex = -1;
-}
 
 // ── Chart constants ──────────────────────────────────────────
 const CHART_LEFT = 55;
@@ -387,18 +307,16 @@ function onIncidentChartMouseMove(event: MouseEvent) {
   const svg = (event.target as SVGElement)?.closest('svg');
   const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
   if (!svg || !container) return;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return;
 
   const pt = svg.createSVGPoint();
   pt.x = event.clientX;
   pt.y = event.clientY;
-  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+  const svgPt = pt.matrixTransform(ctm.inverse());
 
-  let bestIdx = 0;
-  let bestDist = Math.abs(svgPt.x - chart.bars[0].x);
-  for (let i = 1; i < chart.bars.length; i++) {
-    const d = Math.abs(svgPt.x - chart.bars[i].x);
-    if (d < bestDist) { bestDist = d; bestIdx = i; }
-  }
+  const bestIdx = findNearestIndex(chart.bars.map(b => b.x), svgPt.x);
+  if (bestIdx < 0) return;
 
   tooltip.visible = true;
   tooltip.content = formatIncidentTooltip(chart.bars[bestIdx]);
@@ -544,8 +462,8 @@ function onIncidentChartClick(event: MouseEvent) {
                   width="100%"
                   role="img"
                   :aria-label="`Line chart showing token usage over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
-                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens')"
+                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
+                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
                 >
                   <defs>
                     <linearGradient id="tokenAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -649,8 +567,8 @@ function onIncidentChartClick(event: MouseEvent) {
                   width="100%"
                   role="img"
                   :aria-label="`Bar chart showing sessions per day over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
-                  @click="onChartClick($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions')"
+                  @mousemove="onChartMouseMove($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions', '.chart-container')"
+                  @click="onChartClick($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions', '.chart-container')"
                 >
                   <defs>
                     <linearGradient id="sessionBarGrad" x1="0" y1="0" x2="0" y2="1">
@@ -786,8 +704,8 @@ function onIncidentChartClick(event: MouseEvent) {
                   width="100%"
                   role="img"
                   :aria-label="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost')"
-                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost')"
+                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
+                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
                 >
                   <defs>
                     <linearGradient id="costAreaGrad" x1="0" y1="0" x2="0" y2="1">
