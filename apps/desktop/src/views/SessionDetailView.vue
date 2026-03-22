@@ -300,14 +300,23 @@ watch(isSessionActive, (active) => {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 24px;
   position: sticky;
   top: 0;
-  z-index: 10;
-  background: var(--canvas-default);
-  padding: 8px 12px;
-  border-radius: var(--radius-md, 8px);
+  z-index: 20;
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="light"] .detail-actions {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
 }
 .detail-actions-left {
   display: flex;
