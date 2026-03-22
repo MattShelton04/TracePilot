@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  ErrorState,
+  LoadingOverlay,
   formatCost,
   formatDateMedium,
   formatDateShort,
@@ -10,7 +12,6 @@ import {
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { usePreferencesStore } from '@/stores/preferences';
 import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
@@ -421,10 +422,7 @@ function onIncidentChartClick(event: MouseEvent) {
     <div class="page-content-inner">
       <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading analytics…">
-        <div v-if="store.analyticsError" class="error-state">
-          <p>Failed to load analytics: {{ store.analyticsError }}</p>
-          <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
-        </div>
+        <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
         <template v-else-if="data">
 
           <!-- Stats Row -->
@@ -1083,16 +1081,6 @@ function onIncidentChartClick(event: MouseEvent) {
 </template>
 
 <style scoped>
-.error-state {
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--text-secondary);
-}
-
-.error-state .btn {
-  margin-top: 12px;
-}
-
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

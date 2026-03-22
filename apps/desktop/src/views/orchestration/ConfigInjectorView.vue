@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
+import { useToast, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
 import type { AgentDefinition } from '@tracepilot/types';
 import {
   MODEL_REGISTRY,
@@ -12,6 +13,7 @@ import {
 } from '@tracepilot/types';
 
 const store = useConfigInjectorStore();
+const toast = useToast();
 
 // ── Dismissible Warning ─────────────────────────────────────────────────────
 const warningDismissed = ref(false);
@@ -274,11 +276,10 @@ async function handleBackupAllAgents() {
         failed++;
       }
     }
-    // Show single summary instead of per-agent toasts
-    store.successMessage = failed
+    const message = failed
       ? `Backed up ${succeeded} agents, ${failed} failed`
       : `Backed up all ${succeeded} agents`;
-    setTimeout(() => { store.successMessage = null; }, 3000);
+    toast.success(message);
   } finally {
     batchBackingUp.value = false;
   }
@@ -338,17 +339,14 @@ onMounted(() => {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <!-- ── Success / Error Banners ── -->
-      <Transition name="banner">
-        <div v-if="store.successMessage" class="banner banner-success">
-          ✓ {{ store.successMessage }}
-        </div>
-      </Transition>
-      <Transition name="banner">
-        <div v-if="store.error" class="banner banner-error">
-          ✕ {{ store.error }}
-        </div>
-      </Transition>
+      <!-- ── Error Banner ── -->
+      <ErrorAlert
+        v-if="store.error"
+        :message="store.error"
+        variant="banner"
+        dismissible
+        @dismiss="store.error = null"
+      />
 
       <!-- ── Breadcrumb ── -->
       <nav class="breadcrumb">
@@ -392,7 +390,7 @@ onMounted(() => {
 
       <!-- ── Loading State ── -->
       <div v-if="store.loading" class="loading-state">
-        <div class="loading-spinner" />
+        <LoadingSpinner size="lg" />
         <span>Loading configuration…</span>
       </div>
 
@@ -830,38 +828,6 @@ onMounted(() => {
   padding: 24px 28px 48px;
 }
 
-/* ── Banners ─────────────────────────────────────────────────────────────── */
-.banner {
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
-  margin-bottom: 16px;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.banner-success {
-  background: var(--success-subtle);
-  color: var(--success-fg);
-  border: 1px solid var(--success-muted);
-}
-
-.banner-error {
-  background: var(--danger-subtle);
-  color: var(--danger-fg);
-  border: 1px solid var(--danger-muted);
-}
-
-.banner-enter-active,
-.banner-leave-active {
-  transition: opacity var(--transition-normal), transform var(--transition-normal);
-}
-
-.banner-enter-from,
-.banner-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
 /* ── Breadcrumb ──────────────────────────────────────────────────────────── */
 .breadcrumb {
   display: flex;
@@ -928,6 +894,16 @@ onMounted(() => {
 .warning-banner-close:hover {
   opacity: 1;
 }
+
+.warning-banner code {
+  font-family: var(--font-mono);
+  background: var(--neutral-subtle);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+/* ── Banner Transition (used by warning banner & auto-saved hint) ────────── */
 .banner-enter-active, .banner-leave-active {
   transition: opacity 0.2s ease, max-height 0.2s ease;
   overflow: hidden;
@@ -938,14 +914,6 @@ onMounted(() => {
   margin-bottom: 0;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-.warning-banner code {
-  font-family: var(--font-mono);
-  background: var(--neutral-subtle);
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-size: 0.8rem;
 }
 
 /* ── Tab Bar ─────────────────────────────────────────────────────────────── */
@@ -1003,19 +971,6 @@ onMounted(() => {
   padding: 60px;
   color: var(--text-tertiary);
   font-size: 0.875rem;
-}
-
-.loading-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-default);
-  border-top-color: var(--accent-fg);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ── Tab Panel ───────────────────────────────────────────────────────────── */

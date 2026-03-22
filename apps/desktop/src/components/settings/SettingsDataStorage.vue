@@ -9,7 +9,7 @@ import {
   saveConfig,
 } from '@tracepilot/client';
 import type { IndexingProgressPayload } from '@tracepilot/types';
-import { ActionButton, FormInput, FormSwitch, SectionPanel } from '@tracepilot/ui';
+import { ActionButton, FormInput, FormSwitch, SectionPanel, useToast, useConfirmDialog } from '@tracepilot/ui';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { safeListen } from '@/utils/tauriEvents';
@@ -18,6 +18,8 @@ import { useSessionsStore } from '@/stores/sessions';
 
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
+const toast = useToast();
+const { confirm } = useConfirmDialog();
 
 const sessionsDirectory = ref('~/.copilot/sessions/');
 const databasePath = ref('');
@@ -26,7 +28,6 @@ const indexedSessionCount = ref(0);
 const autoIndexOnLaunch = ref(true);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
-const resetConfirm = ref(false);
 const clearing = ref(false);
 
 // ── Indexing progress ────────────────────────────────────────
@@ -135,7 +136,15 @@ async function clearCache() {
   }
 }
 
-async function doFactoryReset() {
+async function handleFactoryReset() {
+  const { confirmed } = await confirm({
+    title: 'Factory Reset',
+    message: 'This will permanently erase all data and restore default settings. This action cannot be undone.',
+    variant: 'danger',
+    confirmLabel: 'Yes, Reset Everything',
+  });
+  if (!confirmed) return;
+
   resetting.value = true;
   try {
     await factoryResetApi();
@@ -149,8 +158,7 @@ async function doFactoryReset() {
     window.location.reload();
   } catch (e) {
     resetting.value = false;
-    resetConfirm.value = false;
-    alert(`Factory reset failed: ${e instanceof Error ? e.message : String(e)}`);
+    toast.error(`Factory reset failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -235,25 +243,13 @@ defineExpose({ databaseSize, indexedSessionCount });
         </div>
         <div class="setting-actions">
           <ActionButton
-            v-if="!resetConfirm"
             size="sm"
             class="btn-danger"
-            @click="resetConfirm = true"
+            :disabled="resetting"
+            @click="handleFactoryReset"
           >
-            Reset Everything…
+            {{ resetting ? 'Resetting…' : 'Reset Everything…' }}
           </ActionButton>
-          <template v-else>
-            <span class="setting-result setting-result-danger">Are you sure?</span>
-            <ActionButton
-              size="sm"
-              class="btn-danger"
-              :disabled="resetting"
-              @click="doFactoryReset"
-            >
-              {{ resetting ? 'Resetting…' : 'Yes, Reset' }}
-            </ActionButton>
-            <ActionButton size="sm" @click="resetConfirm = false">Cancel</ActionButton>
-          </template>
         </div>
       </div>
     </SectionPanel>

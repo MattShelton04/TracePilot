@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { formatCost, formatNumber, formatPercent } from '@tracepilot/ui';
+import { ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
 import { computed, onMounted, ref, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { usePreferencesStore } from '@/stores/preferences';
 import { MODEL_PALETTE } from '@/utils/chartColors';
@@ -437,10 +436,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     <div class="page-content-inner">
       <AnalyticsPageHeader title="Model Comparison" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading model comparison…">
-        <div v-if="store.analyticsError" class="error-state">
-          <p>Failed to load analytics: {{ store.analyticsError }}</p>
-          <button class="btn btn-primary" @click="store.fetchAnalytics({ force: true })">Retry</button>
-        </div>
+        <ErrorState v-if="store.analyticsError" heading="Failed to load model comparison" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
 
         <template v-else-if="data">
 

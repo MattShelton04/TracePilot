@@ -5,7 +5,7 @@
 
 import { ref, computed, onMounted, watch } from 'vue';
 import { useSessionsStore } from '@/stores/sessions';
-import { FormSwitch, BtnGroup } from '@tracepilot/ui';
+import { FormSwitch, BtnGroup, useToast } from '@tracepilot/ui';
 import type { ExportConfig } from '@tracepilot/types';
 import StubBanner from '@/components/StubBanner.vue';
 
@@ -40,7 +40,7 @@ const includeTokenCounts = ref(true);
 const anonymizePaths = ref(false);
 
 const exporting = ref(false);
-const exportDone = ref(false);
+const { success } = useToast();
 
 // ── Selected session info ────────────────────────────────────
 const selectedSession = computed(() =>
@@ -273,7 +273,6 @@ const estimatedSize = computed(() => {
 async function handleExport() {
   // STUB: File download uses Blob URL — switch to Tauri save_file dialog in production.
   exporting.value = true;
-  exportDone.value = false;
 
   // Simulate brief export delay
   await new Promise((r) => setTimeout(r, 600));
@@ -289,8 +288,7 @@ async function handleExport() {
   URL.revokeObjectURL(url);
 
   exporting.value = false;
-  exportDone.value = true;
-  setTimeout(() => { exportDone.value = false; }, 3000);
+  success('Session exported successfully');
 }
 </script>
 
@@ -363,9 +361,6 @@ async function handleExport() {
           >
             <template v-if="exporting">
               <span class="spinner" /> Exporting…
-            </template>
-            <template v-else-if="exportDone">
-              ✓ Exported!
             </template>
             <template v-else>
               Export Session

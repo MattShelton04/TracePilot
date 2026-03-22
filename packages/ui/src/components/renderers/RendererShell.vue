@@ -6,7 +6,7 @@
  * notice, error boundary, and a loading skeleton. Individual renderers
  * only supply the body content via the default slot.
  */
-import { ref } from "vue";
+import { useClipboard } from '../../composables/useClipboard';
 
 const props = defineProps<{
   label?: string;
@@ -19,16 +19,11 @@ const emit = defineEmits<{
   'load-full': [];
 }>();
 
-const copied = ref(false);
+const { copy, copied } = useClipboard();
 
 async function copyToClipboard() {
-  if (!props.copyContent) return;
-  try {
-    await navigator.clipboard.writeText(props.copyContent);
-    copied.value = true;
-    setTimeout(() => (copied.value = false), 2000);
-  } catch {
-    /* clipboard access denied — silent fail */
+  if (props.copyContent) {
+    await copy(props.copyContent);
   }
 }
 </script>

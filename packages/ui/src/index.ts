@@ -15,6 +15,9 @@ export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
 // Base components
 export { default as SectionPanel } from "./components/SectionPanel.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";
+export { default as ErrorState } from "./components/ErrorState.vue";
+export { default as LoadingSpinner } from "./components/LoadingSpinner.vue";
+export { default as LoadingOverlay } from "./components/LoadingOverlay.vue";
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as ProgressBar } from "./components/ProgressBar.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
@@ -37,6 +40,8 @@ export { default as ModalDialog } from "./components/ModalDialog.vue";
 export { default as MiniTimeline } from "./components/MiniTimeline.vue";
 export { default as TerminologyLegend } from "./components/TerminologyLegend.vue";
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
+export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
+export { default as ToastContainer } from "./components/ToastContainer.vue";
 
 // Utilities
 export * from "./utils/formatters";

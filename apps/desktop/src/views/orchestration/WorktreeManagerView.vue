@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
 import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
-import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
+import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog } from '@tracepilot/ui';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -11,6 +11,8 @@ import { browseForDirectory } from '@/composables/useBrowseDirectory';
 const router = useRouter();
 const store = useWorktreesStore();
 const prefsStore = usePreferencesStore();
+const { success: toastSuccess, error: toastError } = useToast();
+const { confirm } = useConfirmDialog();
 
 /* ─── Local State ─────────────────────────────────────────────── */
 const loaded = ref(false);
@@ -18,13 +20,8 @@ const searchQuery = ref('');
 const selectedWorktree = ref<WorktreeInfo | null>(null);
 const selectedRepoPath = ref<string | null>(null);
 const showCreateModal = ref(false);
-const showDeleteModal = ref(false);
-const deleteTarget = ref<WorktreeInfo | null>(null);
-const forceDelete = ref(false);
-const deleting = ref(false);
 const pruneMessage = ref<string | null>(null);
 const cleaningStale = ref(false);
-const actionToast = ref<string | null>(null);
 const worktreeDetails = ref<WorktreeDetails | null>(null);
 const detailsLoading = ref(false);
 const refreshing = ref(false);
@@ -122,11 +119,6 @@ function diskBarColor(wt: WorktreeInfo): string {
   return 'var(--warning-fg)';
 }
 
-function showToast(message: string, duration = 3000) {
-  actionToast.value = message;
-  setTimeout(() => { actionToast.value = null; }, duration);
-}
-
 function sortIcon(field: 'branch' | 'status' | 'createdAt' | 'diskUsageBytes'): string {
   if (store.sortBy !== field) return '';
   return store.sortDirection === 'asc' ? '↑' : '↓';
@@ -138,11 +130,11 @@ async function handleAddRepo() {
   if (selected) {
     const result = await store.addRepo(selected);
     if (result) {
-      showToast(`Added ${result.name}`);
+      toastSuccess(`Added ${result.name}`);
       loaded.value = true;
       await store.loadAllWorktrees();
     } else if (store.error) {
-      showToast(store.error);
+      toastError(store.error);
     }
   }
 }
@@ -153,7 +145,7 @@ async function handleRemoveRepo(path: string) {
     if (selectedRepoPath.value === path) {
       selectedRepoPath.value = null;
     }
-    showToast('Repository removed');
+    toastSuccess('Repository removed');
   }
 }
 
@@ -161,10 +153,10 @@ async function handleDiscoverRepos() {
   const found = await store.discoverRepos();
   if (found.length > 0) {
     loaded.value = true;
-    showToast(`Discovered ${found.length} repo${found.length > 1 ? 's' : ''}`);
+    toastSuccess(`Discovered ${found.length} repo${found.length > 1 ? 's' : ''}`);
     await store.loadAllWorktrees();
   } else {
-    showToast('No new repositories discovered');
+    toastSuccess('No new repositories discovered');
   }
 }
 
@@ -247,7 +239,7 @@ async function handleCreate() {
   if (result) {
     showCreateModal.value = false;
     prefsStore.addRecentRepoPath(repoPath);
-    showToast(`Created worktree: ${result.branch}`);
+    toastSuccess(`Created worktree: ${result.branch}`);
     // Hydrate disk usage for the new worktree
     store.hydrateDiskUsage(result.path);
   } else if (store.error) {
@@ -256,37 +248,26 @@ async function handleCreate() {
   }
 }
 
-function confirmDelete(wt: WorktreeInfo) {
+async function confirmDelete(wt: WorktreeInfo) {
   store.error = null;
-  deleteTarget.value = wt;
-  forceDelete.value = false;
-  showDeleteModal.value = true;
-}
-
-async function handleDelete() {
-  if (!deleteTarget.value) return;
-  deleting.value = true;
-  try {
-    const ok = await store.deleteWorktree(
-      deleteTarget.value.path,
-      forceDelete.value,
-      deleteTarget.value.repoRoot,
-    );
-    if (ok) {
-      if (selectedWorktree.value?.path === deleteTarget.value.path) {
-        selectedWorktree.value = null;
-        worktreeDetails.value = null;
-      }
-      showToast('Worktree removed');
-    } else {
-      // Re-sync worktree list — git may have partially removed it
-      await store.loadAllWorktrees();
-      showToast(store.error || 'Failed to remove worktree');
+  const { confirmed, checked } = await confirm({
+    title: 'Remove Worktree',
+    message: `This will permanently remove the worktree and its working directory for "${wt.branch}". This action cannot be undone.`,
+    variant: 'danger',
+    confirmLabel: 'Remove',
+    checkbox: 'Force delete (even if there are uncommitted changes)',
+  });
+  if (!confirmed) return;
+  const ok = await store.deleteWorktree(wt.path, checked, wt.repoRoot);
+  if (ok) {
+    if (selectedWorktree.value?.path === wt.path) {
+      selectedWorktree.value = null;
+      worktreeDetails.value = null;
     }
-  } finally {
-    deleting.value = false;
-    showDeleteModal.value = false;
-    deleteTarget.value = null;
+    toastSuccess('Worktree removed');
+  } else {
+    await store.loadAllWorktrees();
+    toastError(store.error || 'Failed to remove worktree');
   }
 }
 
@@ -336,7 +317,7 @@ async function handleLockInline(wt: WorktreeInfo) {
     if (selectedWorktree.value?.path === wt.path) {
       selectedWorktree.value = { ...selectedWorktree.value, isLocked: true };
     }
-    showToast('Worktree locked');
+    toastSuccess('Worktree locked');
   }
 }
 
@@ -346,7 +327,7 @@ async function handleUnlock(wt: WorktreeInfo) {
     if (selectedWorktree.value?.path === wt.path) {
       selectedWorktree.value = { ...selectedWorktree.value, isLocked: false, lockedReason: undefined };
     }
-    showToast('Worktree unlocked');
+    toastSuccess('Worktree unlocked');
   }
 }
 
@@ -358,9 +339,9 @@ async function handleFetchRemote() {
     await fetchRemote(repoPath);
     // Reload branches after fetching
     await store.loadBranches(repoPath);
-    showToast('Fetched latest from remote');
+    toastSuccess('Fetched latest from remote');
   } catch (e) {
-    showToast(`Fetch failed: ${e}`);
+    toastError(`Fetch failed: ${e}`);
   } finally {
     fetchingRemote.value = false;
   }
@@ -400,7 +381,7 @@ async function handleOpenExplorer(path: string) {
   try {
     await openInExplorer(path);
   } catch (e) {
-    showToast(`Failed to open folder: ${e}`);
+    toastError(`Failed to open folder: ${e}`);
   }
 }
 
@@ -408,7 +389,7 @@ async function handleOpenTerminal(path: string) {
   try {
     await openInTerminal(path);
   } catch (e) {
-    showToast(`Failed to open terminal: ${e}`);
+    toastError(`Failed to open terminal: ${e}`);
   }
 }
 
@@ -491,7 +472,7 @@ watch(() => store.worktrees, () => {
         </div>
 
         <div v-if="store.reposLoading" class="tree-empty">
-          <span class="spinner spinner--sm" />
+          <LoadingSpinner size="sm" />
           <span>Loading repos…</span>
         </div>
       </div>
@@ -529,7 +510,7 @@ watch(() => store.worktrees, () => {
     <main class="right-panel">
       <!-- Loading state (only on initial load, not refresh) -->
       <div v-if="store.loading && !loaded" class="empty-state">
-        <span class="spinner" />
+        <LoadingSpinner size="md" />
         <span class="empty-state-text">Loading worktrees…</span>
       </div>
 
@@ -569,7 +550,7 @@ watch(() => store.worktrees, () => {
             :disabled="store.staleCount === 0 || cleaningStale"
             @click="handleCleanStale"
           >
-            <span v-if="cleaningStale" class="spinner spinner--sm" />
+            <LoadingSpinner v-if="cleaningStale" size="sm" />
             <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
             {{ cleaningStale ? 'Cleaning…' : 'Clean Stale' }}
           </button>
@@ -827,7 +808,7 @@ watch(() => store.worktrees, () => {
               <template v-if="detailsLoading">
                 <div class="detail-item">
                   <span class="detail-item-label">Details</span>
-                  <span class="detail-item-value"><span class="spinner spinner--sm" /> Loading…</span>
+                  <span class="detail-item-value"><LoadingSpinner size="sm" /> Loading…</span>
                 </div>
               </template>
               <template v-else-if="worktreeDetails">
@@ -945,7 +926,7 @@ watch(() => store.worktrees, () => {
                   :disabled="fetchingRemote"
                   @click="handleFetchRemote"
                 >
-                  <span v-if="fetchingRemote" class="spinner spinner--sm" />
+                  <LoadingSpinner v-if="fetchingRemote" size="sm" />
                   <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
                   {{ fetchingRemote ? 'Fetching…' : 'Fetch Latest from Remote' }}
                 </button>
@@ -991,60 +972,6 @@ watch(() => store.worktrees, () => {
       </Transition>
     </Teleport>
 
-    <!-- ─── Delete Confirmation Modal ──────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
-          <div class="modal-dialog modal-dialog--sm" role="alertdialog" aria-labelledby="delete-wt-title">
-            <div class="modal-header">
-              <h2 id="delete-wt-title" class="modal-title modal-title--danger">Remove Worktree</h2>
-              <button class="icon-btn" aria-label="Close" @click="showDeleteModal = false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-
-            <div class="modal-body">
-              <p class="delete-warning-text">This will permanently remove the worktree and its working directory. This action cannot be undone.</p>
-              <div v-if="deleteTarget" class="delete-target-box">
-                <div class="delete-target-branch">{{ deleteTarget.branch }}</div>
-                <div class="delete-target-path">{{ deleteTarget.path }}</div>
-              </div>
-
-              <label class="force-delete-label">
-                <input v-model="forceDelete" type="checkbox" class="force-delete-checkbox" />
-                <span>Force delete (even if there are uncommitted changes)</span>
-              </label>
-
-              <div v-if="store.error" class="modal-error">
-                {{ store.error }}
-                <div v-if="store.error.includes('Permission denied')" class="modal-error-hint">
-                  <strong>Tip:</strong> Close any editors, terminals, or file explorers that may have files open in this worktree, then try again with "Force delete" checked.
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              <button class="btn btn-sm" @click="showDeleteModal = false" :disabled="deleting">Cancel</button>
-              <button class="btn btn-sm btn-danger" @click="handleDelete" :disabled="deleting">
-                <span v-if="deleting" class="spinner spinner--sm" />
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                {{ deleting ? 'Removing…' : (forceDelete ? 'Force Remove' : 'Remove') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- ─── Toast Notification (teleported to body so it's above modals) ── -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="actionToast" class="toast-notification">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-          {{ actionToast }}
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -1262,26 +1189,6 @@ watch(() => store.worktrees, () => {
 
 .empty-icon {
   opacity: 0.5;
-}
-
-.spinner {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border: 2.5px solid var(--border-default);
-  border-top-color: var(--accent-fg);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.spinner--sm {
-  width: 14px;
-  height: 14px;
-  border-width: 2px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ─── Toolbar ─────────────────────────────────────────────────── */
@@ -1851,21 +1758,6 @@ watch(() => store.worktrees, () => {
   font-size: 0.75rem;
 }
 
-/* ─── Force Delete Checkbox ───────────────────────────────────── */
-.force-delete-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.force-delete-checkbox {
-  accent-color: var(--danger-fg);
-}
-
 /* ─── Modal ───────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
@@ -1886,10 +1778,6 @@ watch(() => store.worktrees, () => {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-}
-
-.modal-dialog--sm {
-  max-width: 420px;
 }
 
 .modal-header {
@@ -1963,35 +1851,6 @@ watch(() => store.worktrees, () => {
   color: var(--danger-fg);
 }
 
-/* Delete modal */
-.delete-warning-text {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0 0 14px;
-}
-
-.delete-target-box {
-  padding: 10px 14px;
-  background: var(--danger-subtle);
-  border: 1px solid var(--danger-muted);
-  border-radius: var(--radius-sm);
-}
-
-.delete-target-branch {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.delete-target-path {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  margin-top: 4px;
-  word-break: break-all;
-}
-
 /* ─── Modal Transition ────────────────────────────────────────── */
 .modal-enter-active,
 .modal-leave-active {
@@ -2016,25 +1875,6 @@ watch(() => store.worktrees, () => {
   transform: scale(0.96) translateY(8px);
 }
 
-/* ─── Toast Notification ──────────────────────────────────────── */
-.toast-notification {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
-}
-
 /* ─── Refresh Animation ──────────────────────────────────────── */
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -2047,17 +1887,6 @@ watch(() => store.worktrees, () => {
 
 .btn-refreshing {
   opacity: 0.7;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
 }
 
 .wt-row-icon--main {

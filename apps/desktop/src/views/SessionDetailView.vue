@@ -5,7 +5,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { TabNav, Badge, ErrorAlert, SkeletonLoader } from "@tracepilot/ui";
+import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
 import { resumeSessionInTerminal, isSessionRunning } from "@tracepilot/client";
 
 const route = useRoute();
@@ -15,7 +15,7 @@ const prefs = usePreferencesStore();
 
 const sessionId = computed(() => route.params.id as string);
 const resolvedSessionId = computed(() => store.detail?.id ?? sessionId.value);
-const copied = ref(false);
+const { copy, copied } = useClipboard();
 
 // Track live "running" state via lock file check
 const isSessionActive = ref(false);
@@ -51,9 +51,7 @@ async function copyResumeCommand() {
   }
   confirmingCopy.value = false;
   const text = `${prefs.cliCommand} --resume ${resolvedSessionId.value}`;
-  await navigator.clipboard.writeText(text);
-  copied.value = true;
-  setTimeout(() => { copied.value = false; }, 2000);
+  await copy(text);
 }
 
 function cancelCopy() {

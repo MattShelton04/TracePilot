@@ -33,6 +33,11 @@ defineProps<{
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .spinner-svg {
+    animation: none;
+  }
+}
 .loading-message {
   color: var(--text-secondary);
   font-size: 0.875rem;

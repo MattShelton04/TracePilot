@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { formatDateShort, formatNumberFull } from '@tracepilot/ui';
+import { ErrorState, formatDateShort, formatNumberFull, LoadingOverlay } from '@tracepilot/ui';
 import { computed, onMounted, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { CHART_COLORS } from '@/utils/chartColors';
 
@@ -105,10 +104,7 @@ const timelineChart = computed(() => {
     <div class="page-content-inner">
       <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
       <LoadingOverlay :loading="loading" message="Loading code impact data…">
-        <div v-if="store.codeImpactError" class="error-state">
-          <p>Failed to load code impact data: {{ store.codeImpactError }}</p>
-          <button class="btn btn-primary" @click="store.fetchCodeImpact({ force: true })">Retry</button>
-        </div>
+        <ErrorState v-if="store.codeImpactError" heading="Failed to load code impact data" :message="store.codeImpactError" @retry="store.fetchCodeImpact({ force: true })" />
         <template v-else-if="data">
 
           <!-- Stats Row -->

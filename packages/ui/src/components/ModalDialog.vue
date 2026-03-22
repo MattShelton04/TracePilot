@@ -4,6 +4,8 @@ import { ref, onMounted, onUnmounted } from 'vue';
 const props = defineProps<{
   visible: boolean;
   title?: string;
+  /** ARIA role for the dialog element. Defaults to 'dialog'. Use 'alertdialog' for confirmations. */
+  role?: 'dialog' | 'alertdialog';
 }>();
 
 const emit = defineEmits<{
@@ -33,7 +35,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
 <template>
   <Teleport to="body">
     <div v-if="visible" ref="overlayRef" class="modal-overlay" @click.self="close">
-      <div class="modal" role="dialog" aria-modal="true" :aria-label="title">
+      <div class="modal" :role="role ?? 'dialog'" aria-modal="true" :aria-label="title">
         <div v-if="title || $slots.header" class="modal-header">
           <slot name="header">
             <h3>{{ title }}</h3>

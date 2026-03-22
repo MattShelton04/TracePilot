@@ -2,6 +2,7 @@
 import { checkConfigExists } from '@tracepilot/client';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
 import ErrorBoundary from '@/components/ErrorBoundary.vue';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
@@ -165,6 +166,10 @@ const breadcrumbs = computed(() => {
     :entries="whatsNewEntries"
     @close="closeWhatsNew"
   />
+
+  <!-- Global UI hosts — mounted once, consumed by composables everywhere -->
+  <ToastContainer />
+  <ConfirmDialog />
 </template>
 
 <style scoped>
