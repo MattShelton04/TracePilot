@@ -257,7 +257,7 @@ onMounted(async () => {
   store.fetchFilterOptions();
   window.addEventListener('keydown', handleKeydown);
 
-  // Main indexing events (local ÔÇö only for showing main index progress)
+  // Main indexing events (local — only for showing main index progress)
   unlisteners.push(
     await safeListen<{ current: number; total: number }>('indexing-progress', (event) => {
       indexingProgress.value = event.payload;
@@ -295,7 +295,7 @@ onUnmounted(() => {
             v-model="store.query"
             type="text"
             class="search-hero-input"
-            placeholder="Search across all sessionsÔÇª"
+            placeholder="Search across all sessions…"
             aria-label="Search sessions"
           />
           <kbd class="search-hero-kbd">Ctrl+K</kbd>
@@ -337,7 +337,7 @@ onUnmounted(() => {
               <path d="M2 8a6 6 0 0 1 10.2-4.3M14 8a6 6 0 0 1-10.2 4.3" />
               <path d="M12.2 1v3h-3M3.8 15v-3h3" />
             </svg>
-            {{ store.rebuilding ? 'RebuildingÔÇª' : 'Rebuild Index' }}
+            {{ store.rebuilding ? 'Rebuilding…' : 'Rebuild Index' }}
           </button>
         </div>
       </div>
@@ -350,15 +350,15 @@ onUnmounted(() => {
             <path d="M12.2 1v3h-3M3.8 15v-3h3" />
           </svg>
           <span class="indexing-banner-text">
-            <template v-if="store.rebuilding">Rebuilding search indexÔÇª</template>
+            <template v-if="store.rebuilding">Rebuilding search index…</template>
             <template v-else-if="store.searchIndexing && store.searchIndexingProgress">
-              Building search indexÔÇª {{ store.searchIndexingProgress.current }} / {{ store.searchIndexingProgress.total }}
+              Building search index… {{ store.searchIndexingProgress.current }} / {{ store.searchIndexingProgress.total }}
             </template>
-            <template v-else-if="store.searchIndexing">Building search indexÔÇª</template>
+            <template v-else-if="store.searchIndexing">Building search index…</template>
             <template v-else-if="indexingProgress">
-              Indexing sessionsÔÇª {{ indexingProgress.current }} / {{ indexingProgress.total }}
+              Indexing sessions… {{ indexingProgress.current }} / {{ indexingProgress.total }}
             </template>
-            <template v-else>Indexing sessionsÔÇª</template>
+            <template v-else>Indexing sessions…</template>
           </span>
           <div v-if="store.searchIndexingProgress && store.searchIndexingProgress.total > 0" class="indexing-banner-bar-container">
             <div
@@ -452,7 +452,7 @@ onUnmounted(() => {
           <!-- Clear Filters -->
           <div>
             <button class="filter-clear-btn" @click="handleClearFilters">
-              Ô£ò Clear all filters
+              ✕ Clear all filters
             </button>
           </div>
         </aside>
@@ -472,7 +472,7 @@ onUnmounted(() => {
           <!-- ÔòÉÔòÉÔòÉ Loading State ÔòÉÔòÉÔòÉ -->
           <div v-if="store.loading" class="search-main-scroll">
             <div class="results-summary">
-              <span class="results-summary-text">SearchingÔÇª</span>
+              <span class="results-summary-text">Searching…</span>
             </div>
             <div class="results-list">
               <div v-for="n in 5" :key="n" class="result-card skeleton-card">
@@ -500,13 +500,13 @@ onUnmounted(() => {
               </svg>
               <div class="empty-title">Search your sessions</div>
               <div class="empty-subtitle">
-                Search across all Copilot session content ÔÇö messages, reasoning, tool calls, and more.
+                Search across all Copilot session content — messages, reasoning, tool calls, and more.
               </div>
               <div v-if="store.stats" class="empty-stats">
                 <span class="empty-stat">
                   <strong>{{ store.stats.totalSessions.toLocaleString() }}</strong> sessions indexed
                 </span>
-                <span class="empty-stat-sep">┬À</span>
+                <span class="empty-stat-sep">·</span>
                 <span class="empty-stat">
                   <strong>{{ store.stats.totalRows.toLocaleString() }}</strong> content rows
                 </span>
@@ -524,7 +524,7 @@ onUnmounted(() => {
                 result{{ store.totalCount !== 1 ? 's' : '' }}
                 <span class="summary-speed">({{ store.latencyMs.toFixed(2) }}ms)</span>
                 <template v-if="store.totalPages > 1">
-                  ÔÇö page {{ store.page }} of {{ store.totalPages }}
+                  — page {{ store.page }} of {{ store.totalPages }}
                 </template>
               </span>
               <span v-else class="results-summary-text">
@@ -592,10 +592,10 @@ onUnmounted(() => {
 
                 <div class="result-meta">
                   <span v-if="result.turnNumber != null">Turn {{ result.turnNumber }}</span>
-                  <span v-if="result.turnNumber != null" class="result-meta-sep">┬À</span>
+                  <span v-if="result.turnNumber != null" class="result-meta-sep">·</span>
                   <span>{{ result.contentType.replace(/_/g, ' ') }}</span>
                   <template v-if="result.toolName">
-                    <span class="result-meta-sep">┬À</span>
+                    <span class="result-meta-sep">·</span>
                     <span class="tool-name-badge">{{ result.toolName }}</span>
                   </template>
                   <router-link
@@ -653,10 +653,10 @@ onUnmounted(() => {
                 :disabled="store.page <= 1"
                 @click="store.prevPage()"
               >
-                ÔÇ╣ Prev
+                ‹ Prev
               </button>
               <template v-for="(p, idx) in visiblePages" :key="idx">
-                <span v-if="p === null" class="pagination-ellipsis">ÔÇª</span>
+                <span v-if="p === null" class="pagination-ellipsis">…</span>
                 <button
                   v-else
                   class="pagination-btn"
@@ -671,10 +671,10 @@ onUnmounted(() => {
                 :disabled="!store.hasMore"
                 @click="store.nextPage()"
               >
-                Next ÔÇ║
+                Next ›
               </button>
               <span class="pagination-info">
-                {{ pageStart }}ÔÇô{{ pageEnd }} of {{ store.totalCount.toLocaleString() }}
+                {{ pageStart }}–{{ pageEnd }} of {{ store.totalCount.toLocaleString() }}
               </span>
             </div>
 
