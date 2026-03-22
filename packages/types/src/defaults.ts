@@ -89,6 +89,7 @@ export function createDefaultConfig(
       exportView: false,
       healthScoring: false,
       sessionReplay: false,
+      renderMarkdown: true,
       ...overrides?.features,
     },
     logging: {

@@ -10,6 +10,7 @@
  * - Long messages truncated at MAX_MESSAGE_CHARS with "Show more" toggle
  */
 import { computed, ref } from 'vue';
+import { usePreferencesStore } from '@/stores/preferences';
 import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import type { ReplayStep } from '@tracepilot/types';
 import {
@@ -53,6 +54,8 @@ const props = defineProps<{
   /** Function to check if rich rendering is enabled for a tool. */
   isRichEnabled: (toolName: string) => boolean;
 }>();
+
+const preferences = usePreferencesStore();
 
 const emit = defineEmits<{
   'load-full-result': [toolCallId: string];
@@ -166,7 +169,7 @@ const hasAssistantContent = computed(() =>
         <span class="msg-meta">Turn {{ step.turnIndex }}</span>
       </div>
       <div class="message-bubble user-bubble">
-        <MarkdownContent :content="displayMessage(step.userMessage!, `user-${step.index}`)" />
+        <MarkdownContent :content="displayMessage(step.userMessage!, `user-${step.index}`)" :render="preferences.isFeatureEnabled('renderMarkdown')" />
         <button
           v-if="shouldTruncateMessage(step.userMessage!, `user-${step.index}`)"
           class="show-more-btn"
@@ -210,7 +213,7 @@ const hasAssistantContent = computed(() =>
             <span v-if="step.timestamp" class="msg-time">{{ formatTime(step.timestamp) }}</span>
           </div>
           <div class="message-bubble assistant-bubble">
-            <MarkdownContent :content="displayMessage(msg, `asst-${step.index}-${msgIdx}`)" />
+            <MarkdownContent :content="displayMessage(msg, `asst-${step.index}-${msgIdx}`)" :render="preferences.isFeatureEnabled('renderMarkdown')" />
             <button
               v-if="shouldTruncateMessage(msg, `asst-${step.index}-${msgIdx}`)"
               class="show-more-btn"
@@ -300,7 +303,7 @@ const hasAssistantContent = computed(() =>
 
           <div v-for="(msg, idx) in section.messages.filter((m) => m.trim())" :key="`sub-msg-${idx}`" class="step-message subagent-msg">
             <div class="message-bubble assistant-bubble subagent-bubble">
-              <MarkdownContent :content="displayMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)" max-height="300px" />
+              <MarkdownContent :content="displayMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)" :render="preferences.isFeatureEnabled('renderMarkdown')" max-height="300px" />
               <button
                 v-if="shouldTruncateMessage(msg, `sub-${step.index}-${section.agentId}-${idx}`)"
                 class="show-more-btn"

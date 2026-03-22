@@ -1,18 +1,39 @@
 <script setup lang="ts">
 /**
- * MarkdownContent — placeholder for markdown rendering.
- *
- * Currently renders content as safe plaintext with pre-wrap formatting.
- * TODO: Replace with a proper markdown library (e.g., markdown-it, marked).
+ * MarkdownContent — renders markdown with markdown-it and sanitizes with DOMPurify.
  */
 import { computed } from 'vue';
+import MarkdownIt from 'markdown-it';
+import DOMPurify from 'dompurify';
 
-const props = defineProps<{
+const md = new MarkdownIt({
+  html: false, // Disable HTML tags in source for security
+  linkify: true,
+  typographer: true,
+  breaks: false, // Don't convert single newlines to <br>
+});
+
+const props = withDefaults(defineProps<{
   /** Markdown text to render. */
   content: string;
   /** Maximum height before showing a scrollbar (CSS value). */
   maxHeight?: string;
-}>();
+  /** Whether to render markdown (true) or show as raw text (false). */
+  render?: boolean;
+}>(), {
+  render: true
+});
+
+const rendered = computed(() => {
+  if (!props.render) {
+    return escapeHtml(props.content);
+  }
+  
+  // Clean up content: trim extra newlines before rendering
+  const cleanedContent = props.content.trim();
+  const rawHtml = md.render(cleanedContent);
+  return DOMPurify.sanitize(rawHtml);
+});
 
 function escapeHtml(str: string): string {
   return str
@@ -21,25 +42,131 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-const rendered = computed(() => escapeHtml(props.content));
 </script>
 
 <template>
   <div
     class="markdown-content"
+    :class="{ 'is-rendered': render, 'is-raw': !render }"
     :style="maxHeight ? { maxHeight, overflowY: 'auto' } : undefined"
-    v-html="rendered"
-  />
+    v-html="rendered" />
 </template>
 
 <style scoped>
 .markdown-content {
   font-size: 0.8125rem;
-  line-height: 1.65;
+  line-height: 1.6; /* Match global bubble line-height */
   color: var(--text-primary);
   word-break: break-word;
-  white-space: pre-wrap;
   font-family: inherit;
+  margin: 0;
+}
+
+.markdown-content.is-rendered {
+  /* Override parent bubbles that might have pre-wrap */
+  white-space: normal !important;
+}
+
+.markdown-content.is-raw {
+  white-space: pre-wrap !important;
+}
+
+/* Markdown Element Styles - Aggressive Resets */
+:deep(p) {
+  margin: 0 0 0.25rem 0 !important;
+  padding: 0 !important;
+}
+
+:deep(p:last-child) {
+  margin-bottom: 0 !important;
+}
+
+:deep(h1), :deep(h2), :deep(h3), :deep(h4) {
+  margin: 1.25rem 0 0.5rem 0 !important;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+:deep(h1) { font-size: 1.25rem; }
+:deep(h2) { font-size: 1.1rem; }
+:deep(h3) { font-size: 1rem; }
+:deep(h4) { font-size: 0.875rem; }
+
+:deep(ul), :deep(ol) {
+  margin: 0 0 0.75rem 0 !important;
+  padding-left: 1.25rem !important;
+}
+
+:deep(li) {
+  margin-bottom: 0.125rem !important;
+}
+
+:deep(li p) {
+  margin: 0 !important;
+}
+
+:deep(code) {
+  font-family: var(--font-mono, monospace);
+  background: var(--canvas-subtle);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+:deep(pre) {
+  background: var(--canvas-inset);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--border-subtle);
+}
+
+:deep(pre code) {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.75rem;
+  color: inherit;
+}
+
+:deep(blockquote) {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid var(--border-accent);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+}
+
+:deep(a) {
+  color: var(--accent-fg);
+  text-decoration: none;
+}
+
+:deep(a:hover) {
+  text-decoration: underline;
+}
+
+:deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 1.5rem 0;
+}
+
+:deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+:deep(th), :deep(td) {
+  padding: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+:deep(th) {
+  background: var(--canvas-subtle);
+  font-weight: 600;
 }
 </style>

@@ -18,6 +18,7 @@ import {
   useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
+  MarkdownContent,
   inferAgentTypeFromToolCall,
   AGENT_COLORS,
   extractPrompt,
@@ -779,7 +780,7 @@ watch(
             </div>
             <div v-if="agentPrompt(selectedNode)" class="detail-section">
               <h4 class="detail-section-title">Prompt</h4>
-              <pre class="detail-prompt">{{ agentPrompt(selectedNode) }}</pre>
+              <MarkdownContent :content="agentPrompt(selectedNode)!" :render="prefs.isFeatureEnabled('renderMarkdown')" max-height="200px" />
             </div>
             <div class="detail-info-grid">
               <div class="detail-info-item">
@@ -818,13 +819,13 @@ watch(
           <div v-if="selectedNode.messages.filter(m => m.trim()).length > 0" class="detail-section">
             <h4 class="detail-section-title">Output</h4>
             <div class="detail-output">
-              <div
+              <MarkdownContent
                 v-for="(msg, idx) in selectedNode.messages.filter(m => m.trim())"
                 :key="`output-msg-${idx}`"
                 class="detail-output-message"
-              >
-                {{ msg }}
-              </div>
+                :content="msg"
+                :render="prefs.isFeatureEnabled('renderMarkdown')"
+              />
             </div>
           </div>
 
@@ -838,7 +839,7 @@ watch(
               <ToolResultRenderer
                 :tc="selectedNode.toolCallRef!"
                 :content="fullResults.get(selectedNode.toolCallRef!.toolCallId ?? '') ?? selectedNode.toolCallRef!.resultContent ?? ''"
-                :rich-enabled="false"
+                :rich-enabled="prefs.isFeatureEnabled('renderMarkdown') && ['read_agent', 'task'].includes(selectedNode.toolCallRef!.toolName) ? true : prefs.isRichRenderingEnabled(selectedNode.toolCallRef!.toolName)"
                 :is-truncated="!!(selectedNode.toolCallRef!.toolCallId && selectedNode.toolCallRef!.resultContent?.includes('…[truncated]') && !fullResults.has(selectedNode.toolCallRef!.toolCallId ?? ''))"
                 :loading="!!(selectedNode.toolCallRef!.toolCallId && loadingResults.has(selectedNode.toolCallRef!.toolCallId))"
                 @load-full="loadFullResult(selectedNode.toolCallRef!.toolCallId!)"
@@ -859,7 +860,7 @@ watch(
             <div v-if="expandedReasoning.has(selectedNode.id)" class="reasoning-content" tabindex="0">
               <template v-for="(text, rIdx) in selectedNode.reasoning" :key="`reasoning-${rIdx}`">
                 <hr v-if="rIdx > 0" class="reasoning-divider" />
-                {{ text }}
+                <MarkdownContent :content="text" :render="prefs.isFeatureEnabled('renderMarkdown')" />
               </template>
             </div>
           </div>

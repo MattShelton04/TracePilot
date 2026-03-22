@@ -75,6 +75,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     exportView: false,
     healthScoring: false,
     sessionReplay: false,
+    renderMarkdown: true,
   });
   const logLevel = ref('info');
 

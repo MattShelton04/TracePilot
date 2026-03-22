@@ -630,6 +630,7 @@ export interface TracePilotConfig {
     exportView: boolean;
     healthScoring: boolean;
     sessionReplay: boolean;
+    renderMarkdown: boolean;
   };
   logging: {
     level: string;

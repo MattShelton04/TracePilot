@@ -20,6 +20,11 @@ const flags = [
     label: 'Export',
     description: 'Enable the Export view to download sessions in various formats.',
   },
+  {
+    key: 'renderMarkdown',
+    label: 'Markdown Rendering',
+    description: 'Render markdown content in chat and replay views (uses markdown-it).',
+  },
 ] as const;
 </script>
 
