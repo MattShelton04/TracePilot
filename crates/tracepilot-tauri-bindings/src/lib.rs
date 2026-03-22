@@ -843,6 +843,7 @@ mod commands {
     pub async fn reindex_sessions_full(
         state: tauri::State<'_, SharedConfig>,
         semaphore: tauri::State<'_, Arc<Semaphore>>,
+        search_semaphore: tauri::State<'_, SearchSemaphore>,
         app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
         // Non-blocking: reject duplicate rebuilds instead of queuing them
@@ -885,6 +886,36 @@ mod commands {
         .map_err(|e| e.to_string());
 
         let _ = app.emit("indexing-finished", ());
+
+        // Phase 2: Kick off search content indexing in background (non-blocking).
+        // After a full rebuild, search content must be rebuilt from scratch too.
+        let search_permit = search_semaphore.0.clone().try_acquire_owned();
+        if let Ok(search_permit) = search_permit {
+            let cfg2 = read_config(&state);
+            let session_state_dir2 = cfg2.session_state_dir();
+            let index_path2 = cfg2.index_db_path();
+            let app2 = app.clone();
+            tokio::task::spawn_blocking(move || {
+                let _permit = search_permit;
+                let _ = app2.emit("search-indexing-started", ());
+                let _ = tracepilot_indexer::rebuild_search_content(
+                    &session_state_dir2,
+                    &index_path2,
+                    |progress| {
+                        let _ = app2.emit(
+                            "search-indexing-progress",
+                            serde_json::json!({
+                                "current": progress.current,
+                                "total": progress.total
+                            }),
+                        );
+                    },
+                    || false,
+                );
+                let _ = app2.emit("search-indexing-finished", ());
+            });
+        }
+
         result?
     }
 
