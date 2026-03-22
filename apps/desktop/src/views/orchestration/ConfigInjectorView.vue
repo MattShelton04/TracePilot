@@ -2,6 +2,14 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
 import type { AgentDefinition } from '@tracepilot/types';
+import {
+  MODEL_REGISTRY,
+  getModelsByTier,
+  getAllModelIds,
+  getModelTier,
+  getTierLabel,
+  DEFAULT_PREMIUM_MODEL_ID,
+} from '@tracepilot/types';
 
 const store = useConfigInjectorStore();
 
@@ -21,27 +29,18 @@ function agentMeta(name: string) {
   return AGENT_META[name] ?? { emoji: '🤖', colorVar: '--neutral-emphasis', motto: '' };
 }
 
-// ── Available Models ────────────────────────────────────────────────────────
-const PREMIUM_MODELS = ['claude-opus-4.6', 'claude-opus-4.6-fast', 'claude-opus-4.5'];
-const STANDARD_MODELS = [
-  'claude-sonnet-4.6', 'claude-sonnet-4.5', 'claude-sonnet-4',
-  'gemini-3-pro-preview',
-  'gpt-5.4', 'gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.2',
-  'gpt-5.1-codex-max', 'gpt-5.1-codex', 'gpt-5.1',
-];
-const FAST_MODELS = ['claude-haiku-4.5', 'gpt-5.4-mini', 'gpt-5.1-codex-mini', 'gpt-5-mini', 'gpt-4.1'];
-const ALL_MODELS = [...PREMIUM_MODELS, ...STANDARD_MODELS, ...FAST_MODELS];
+// ── Available Models (derived from shared registry) ─────────────────────────
+const ALL_MODELS = getAllModelIds();
+const PREMIUM_MODELS = getModelsByTier('premium').map(m => m.id);
+const STANDARD_MODELS = getModelsByTier('standard').map(m => m.id);
+const FAST_MODELS = getModelsByTier('fast').map(m => m.id);
 
 function modelTier(model: string): 'premium' | 'standard' | 'fast' {
-  if (PREMIUM_MODELS.includes(model)) return 'premium';
-  if (FAST_MODELS.includes(model)) return 'fast';
-  return 'standard';
+  return getModelTier(model);
 }
 
 function tierLabel(tier: string): string {
-  if (tier === 'premium') return 'Premium';
-  if (tier === 'fast') return 'Fast / Cheap';
-  return 'Standard';
+  return getTierLabel(tier as 'premium' | 'standard' | 'fast');
 }
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
@@ -123,8 +122,8 @@ function onAgentModelSelect(agent: AgentDefinition) {
 }
 
 async function upgradeAgent(agent: AgentDefinition) {
-  agentModels.value[agent.filePath] = 'claude-opus-4.6';
-  await handleModelChange(agent, 'claude-opus-4.6');
+  agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
+  await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
 }
 
 const batchUpgrading = ref(false);
@@ -132,10 +131,10 @@ const batchUpgrading = ref(false);
 async function upgradeAllToOpus() {
   batchUpgrading.value = true;
   try {
-    const toUpgrade = store.agents.filter(a => a.model !== 'claude-opus-4.6');
+    const toUpgrade = store.agents.filter(a => a.model !== DEFAULT_PREMIUM_MODEL_ID);
     for (const agent of toUpgrade) {
-      agentModels.value[agent.filePath] = 'claude-opus-4.6';
-      await handleModelChange(agent, 'claude-opus-4.6');
+      agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
+      await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
     }
   } finally {
     batchUpgrading.value = false;
@@ -328,17 +327,7 @@ async function toggleDeleteBackup(backup: { id: string; backupPath: string }) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function formatBytes(bytes: number | undefined): string {
-  if (!bytes) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString();
-}
+import { formatBytes, formatDate } from '@tracepilot/ui';
 
 // ── Init ────────────────────────────────────────────────────────────────────
 onMounted(() => {

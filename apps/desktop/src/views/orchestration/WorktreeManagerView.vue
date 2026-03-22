@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
 import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
+import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -108,29 +109,6 @@ const computedWorktreePath = computed(() => {
 });
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
-function formatBytes(bytes?: number): string {
-  if (bytes == null || bytes === 0) return '—';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function formatRelativeTime(iso?: string): string {
-  if (!iso) return '—';
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diffSec = Math.floor((now - then) / 1000);
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
-  const diffMon = Math.floor(diffDay / 30);
-  return `${diffMon}mo ago`;
-}
 
 function diskBarPercent(wt: WorktreeInfo): number {
   if (!wt.diskUsageBytes) return 0;

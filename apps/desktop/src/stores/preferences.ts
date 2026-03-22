@@ -5,7 +5,15 @@ import type {
   ToolRenderingPreferences,
   TracePilotConfig,
 } from '@tracepilot/types';
-import { DEFAULT_TOOL_RENDERING_PREFS } from '@tracepilot/types';
+import {
+  DEFAULT_TOOL_RENDERING_PREFS,
+  getDefaultWholesalePrices,
+  DEFAULT_FAVOURITE_MODELS,
+  createDefaultConfig,
+  DEFAULT_COST_PER_PREMIUM_REQUEST,
+  DEFAULT_CLI_COMMAND,
+  DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+} from '@tracepilot/types';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 
@@ -15,28 +23,9 @@ export type ThemeOption = 'dark' | 'light';
 // now use the shared ModelPriceEntry type from @tracepilot/types.
 export type ModelWholesalePrice = ModelPriceEntry;
 
-/** Default wholesale prices for common models ($ per 1M tokens) */
-export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = [
-  { model: "claude-sonnet-4.6", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
-  { model: "claude-sonnet-4.5", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
-  { model: "claude-haiku-4.5", inputPerM: 1.0, cachedInputPerM: 0.1, outputPerM: 5.0, premiumRequests: 0.33 },
-  { model: "claude-opus-4.6", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 3 },
-  { model: "claude-opus-4.6-fast", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 30 },
-  { model: "claude-opus-4.5", inputPerM: 5.0, cachedInputPerM: 0.5, outputPerM: 25.0, premiumRequests: 3 },
-  { model: "claude-sonnet-4", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 15.0, premiumRequests: 1 },
-  { model: "gemini-3-pro-preview", inputPerM: 3.0, cachedInputPerM: 0.3, outputPerM: 16.0, premiumRequests: 1 },
-  { model: "gpt-5.4", inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0, premiumRequests: 1 },
-  { model: "gpt-5.3-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
-  { model: "gpt-5.2-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
-  { model: "gpt-5.2", inputPerM: 2.5, cachedInputPerM: 0.25, outputPerM: 15.0, premiumRequests: 1 },
-  { model: "gpt-5.1-codex-max", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
-  { model: "gpt-5.1-codex", inputPerM: 1.75, cachedInputPerM: 0.175, outputPerM: 14.0, premiumRequests: 1 },
-  { model: "gpt-5.1", inputPerM: 10.0, cachedInputPerM: 1.0, outputPerM: 40.0, premiumRequests: 1 },
-  { model: "gpt-5.4-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0.33 },
-  { model: "gpt-5.1-codex-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0.33 },
-  { model: "gpt-5-mini", inputPerM: 0.4, cachedInputPerM: 0.04, outputPerM: 1.6, premiumRequests: 0 },
-  { model: "gpt-4.1", inputPerM: 8.0, cachedInputPerM: 0.8, outputPerM: 24.0, premiumRequests: 0 },
-];
+/** Default wholesale prices for common models ($ per 1M tokens).
+ *  Derived from the shared MODEL_REGISTRY in @tracepilot/types. */
+export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePrices();
 
 function applyTheme(theme: ThemeOption) {
   document.documentElement.setAttribute("data-theme", theme);
@@ -51,13 +40,13 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const cachedTheme = localStorage.getItem("tracepilot-theme");
   const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
   const hideEmptySessions = ref(true);
-  const cliCommand = ref("copilot");
+  const cliCommand = ref(DEFAULT_CLI_COMMAND);
   const autoRefreshEnabled = ref(false);
-  const autoRefreshIntervalSeconds = ref(5);
+  const autoRefreshIntervalSeconds = ref(DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS);
   const checkForUpdates = ref(false);
-  const favouriteModels = ref<string[]>(["claude-opus-4.6", "gpt-5.4", "gpt-5.3-codex"]);
+  const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
-  const costPerPremiumRequest = ref(0.04);
+  const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
   const toolRendering = ref<ToolRenderingPreferences>({
     enabled: DEFAULT_TOOL_RENDERING_PREFS.enabled,
@@ -181,16 +170,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Build config from reactive state ───────────────────────
   function buildConfig(): TracePilotConfig {
-    const base = backendConfig ?? {
-      version: 2,
-      paths: { sessionStateDir: "", indexDbPath: "" },
-      general: { autoIndexOnLaunch: true, cliCommand: "copilot" },
-      ui: { theme: "dark", hideEmptySessions: true, autoRefreshEnabled: false, autoRefreshIntervalSeconds: 5, checkForUpdates: false, favouriteModels: [], recentRepoPaths: [] },
-      pricing: { costPerPremiumRequest: 0.04, models: [] },
-      toolRendering: { enabled: true, toolOverrides: {} },
-      features: { exportView: false, healthScoring: false, sessionReplay: false },
-      logging: { level: 'info' },
-    };
+    const base = backendConfig ?? createDefaultConfig();
     return {
       ...base,
       general: { ...base.general, cliCommand: cliCommand.value },

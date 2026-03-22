@@ -20,17 +20,14 @@ import type {
   WorktreeInfo,
 } from '@tracepilot/types';
 
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
+import { isTauri, invokePlugin } from './invoke.js';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
-    return tauriInvoke<T>(`plugin:tracepilot|${cmd}`, args);
+    return invokePlugin<T>(cmd, args);
   }
   console.warn(`[TracePilot] Not in Tauri — returning mock data for "${cmd}"`);
-  return getMockData<T>(cmd);
+  return getMockData<T>(cmd, args);
 }
 
 // ─── System ───────────────────────────────────────────────────────
@@ -220,7 +217,7 @@ export async function incrementTemplateUsage(id: string): Promise<void> {
 
 // ─── Mock Data ────────────────────────────────────────────────────
 
-function getMockData<T>(cmd: string): T {
+function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
   const mocks: Record<string, unknown> = {
     check_system_deps: {
       gitAvailable: true,
@@ -336,7 +333,7 @@ function getMockData<T>(cmd: string): T {
       { id: 'claude-sonnet-4.6', name: 'Claude Sonnet 4.6', tier: 'standard' },
       { id: 'claude-opus-4.6', name: 'Claude Opus 4.6', tier: 'premium' },
       { id: 'gpt-5.4', name: 'GPT-5.4', tier: 'standard' },
-      { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', tier: 'fast/cheap' },
+      { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', tier: 'fast' },
     ] satisfies ModelInfo[],
 
     open_in_explorer: undefined,

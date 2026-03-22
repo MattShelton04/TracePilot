@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
 import { useOrchestrationHomeStore } from '@/stores/orchestrationHome';
 
 const store = useOrchestrationHomeStore();
@@ -19,25 +20,6 @@ const liveTime = computed(() => {
 });
 
 // ── Helpers ─────────────────────────────────────────────────
-function formatBytes(n: number): string {
-  if (n === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(n) / Math.log(1024));
-  const val = n / Math.pow(1024, i);
-  return `${val.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
-}
-
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 // ── Computed values ─────────────────────────────────────────
 const idleSessions = computed(() => Math.max(0, store.totalSessions - store.activeSessions));

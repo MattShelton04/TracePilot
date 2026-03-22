@@ -308,11 +308,14 @@ pub fn open_in_terminal(path: &str) -> Result<()> {
 }
 
 /// List available models.
+///
+/// Keep in sync with the TypeScript model registry at
+/// `packages/types/src/models.ts → MODEL_REGISTRY`.
 pub fn available_models() -> Vec<ModelInfo> {
     vec![
         ModelInfo { id: "claude-sonnet-4.6".into(), name: "Claude Sonnet 4.6".into(), tier: "standard".into() },
         ModelInfo { id: "claude-sonnet-4.5".into(), name: "Claude Sonnet 4.5".into(), tier: "standard".into() },
-        ModelInfo { id: "claude-haiku-4.5".into(), name: "Claude Haiku 4.5".into(), tier: "fast/cheap".into() },
+        ModelInfo { id: "claude-haiku-4.5".into(), name: "Claude Haiku 4.5".into(), tier: "fast".into() },
         ModelInfo { id: "claude-opus-4.6".into(), name: "Claude Opus 4.6".into(), tier: "premium".into() },
         ModelInfo { id: "claude-opus-4.6-fast".into(), name: "Claude Opus 4.6 Fast".into(), tier: "premium".into() },
         ModelInfo { id: "claude-opus-4.5".into(), name: "Claude Opus 4.5".into(), tier: "premium".into() },
@@ -325,10 +328,10 @@ pub fn available_models() -> Vec<ModelInfo> {
         ModelInfo { id: "gpt-5.1-codex-max".into(), name: "GPT-5.1 Codex Max".into(), tier: "standard".into() },
         ModelInfo { id: "gpt-5.1-codex".into(), name: "GPT-5.1 Codex".into(), tier: "standard".into() },
         ModelInfo { id: "gpt-5.1".into(), name: "GPT-5.1".into(), tier: "standard".into() },
-        ModelInfo { id: "gpt-5.4-mini".into(), name: "GPT-5.4 Mini".into(), tier: "fast/cheap".into() },
-        ModelInfo { id: "gpt-5.1-codex-mini".into(), name: "GPT-5.1 Codex Mini".into(), tier: "fast/cheap".into() },
-        ModelInfo { id: "gpt-5-mini".into(), name: "GPT-5 Mini".into(), tier: "fast/cheap".into() },
-        ModelInfo { id: "gpt-4.1".into(), name: "GPT-4.1".into(), tier: "fast/cheap".into() },
+        ModelInfo { id: "gpt-5.4-mini".into(), name: "GPT-5.4 Mini".into(), tier: "fast".into() },
+        ModelInfo { id: "gpt-5.1-codex-mini".into(), name: "GPT-5.1 Codex Mini".into(), tier: "fast".into() },
+        ModelInfo { id: "gpt-5-mini".into(), name: "GPT-5 Mini".into(), tier: "fast".into() },
+        ModelInfo { id: "gpt-4.1".into(), name: "GPT-4.1".into(), tier: "fast".into() },
     ]
 }
 

@@ -21,6 +21,9 @@ import type {
   UpdateCheckResult,
   ValidateSessionDirResult,
 } from '@tracepilot/types';
+import { createDefaultConfig } from '@tracepilot/types';
+
+import { isTauri, invokePlugin } from './invoke.js';
 
 import {
   getMockSessionDetail,
@@ -37,14 +40,9 @@ import {
   MOCK_TURNS,
 } from './mock/index.js';
 
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
-    return tauriInvoke<T>(`plugin:tracepilot|${cmd}`, args);
+    return invokePlugin<T>(cmd, args);
   }
   console.warn(`[TracePilot] Not in Tauri — returning mock data for "${cmd}"`);
   return getMockData<T>(cmd, args);
@@ -96,27 +94,12 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_tool_analysis: MOCK_TOOL_ANALYSIS,
     get_code_impact: MOCK_CODE_IMPACT,
     check_config_exists: true,
-    get_config: {
-      version: 2,
+    get_config: createDefaultConfig({
       paths: {
         sessionStateDir: '~/.copilot/session-state',
         indexDbPath: '~/.copilot/tracepilot/index.db',
       },
-      general: { autoIndexOnLaunch: true, cliCommand: 'copilot' },
-      ui: {
-        theme: 'dark',
-        hideEmptySessions: true,
-        autoRefreshEnabled: false,
-        autoRefreshIntervalSeconds: 5,
-        checkForUpdates: false,
-        favouriteModels: ['claude-opus-4.6', 'gpt-5.4', 'gpt-5.3-codex'],
-        recentRepoPaths: [],
-      },
-      pricing: { costPerPremiumRequest: 0.04, models: [] },
-      toolRendering: { enabled: true, toolOverrides: {} },
-      features: { exportView: false, healthScoring: false, sessionReplay: false },
-      logging: { level: 'info' },
-    },
+    }),
     save_config: undefined,
     validate_session_dir: { valid: true, sessionCount: 47 },
     get_db_size: 44564480,

@@ -1,4 +1,6 @@
 export * from './orchestration.js';
+export * from './models.js';
+export * from './defaults.js';
 
 /** Session list item (enriched from workspace.yaml + events) */
 export interface SessionListItem {
