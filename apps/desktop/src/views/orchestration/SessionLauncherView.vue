@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText } from '@tracepilot/ui';
+import { truncateText, useToast, useConfirmDialog, useClipboard, ErrorAlert } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
@@ -14,7 +14,9 @@ const prefsStore = usePreferencesStore();
 const worktreeStore = useWorktreesStore();
 const route = useRoute();
 const launching = ref(false);
-let successTimer: ReturnType<typeof setTimeout> | null = null;
+const { success: toastSuccess, error: toastError } = useToast();
+const { confirm } = useConfirmDialog();
+const { copy: copyToClipboard } = useClipboard();
 
 // ── Form state ──────────────────────────────────────────────────────
 const repoPath = ref('');
@@ -32,7 +34,6 @@ const selectedTemplateId = ref<string | null>(null);
 const showAdvanced = ref(false);
 const showTemplateForm = ref(false);
 const templateForm = reactive({ name: '', description: '', category: '', icon: '' });
-const launchSuccess = ref<{ pid: number; command: string; worktreePath?: string } | null>(null);
 const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
 const confirmingDeleteId = ref<string | null>(null);
 
@@ -234,8 +235,6 @@ async function handleLaunch(asHeadless = false) {
   store.error = null;
   const cfg = { ...launchConfig.value };
   if (asHeadless) cfg.headless = true;
-  if (successTimer) clearTimeout(successTimer);
-  launchSuccess.value = null;
   try {
     if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
     const session = await store.launch(cfg);
@@ -244,16 +243,10 @@ async function handleLaunch(asHeadless = false) {
       if (selectedTemplateId.value) {
         store.incrementUsage(selectedTemplateId.value);
       }
-      launchSuccess.value = {
-        pid: session.pid,
-        command: session.command,
-        worktreePath: session.worktreePath,
-      };
-      successTimer = setTimeout(() => (launchSuccess.value = null), 8000);
-    } else if (store.error) {
-      // Scroll the error banner into view
-      nextTick(() => {
-        document.querySelector('.error-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      toastSuccess(`PID ${session.pid}`, {
+        title: 'Session launched',
+        description: session.command + (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ''),
+        duration: 8000,
       });
     }
   } finally {
@@ -266,8 +259,14 @@ async function handleSaveTemplate() {
   const existing = store.templates.find(
     (t) => t.name.toLowerCase() === templateForm.name.trim().toLowerCase(),
   );
-  if (existing && !confirm(`Template '${existing.name}' already exists. Overwrite?`)) {
-    return;
+  if (existing) {
+    const { confirmed } = await confirm({
+      title: 'Overwrite Template',
+      message: `Template '${existing.name}' already exists. Do you want to overwrite it?`,
+      variant: 'warning',
+      confirmLabel: 'Overwrite',
+    });
+    if (!confirmed) return;
   }
   await store.saveTemplate({
     id: existing?.id ?? crypto.randomUUID(),
@@ -306,9 +305,8 @@ function closeContextMenu() {
 }
 
 async function copyCommand() {
-  try {
-    await navigator.clipboard.writeText(cliCommand.value);
-  } catch { /* clipboard not available in some envs */ }
+  const ok = await copyToClipboard(cliCommand.value);
+  if (ok) toastSuccess('Command copied to clipboard');
 }
 
 onMounted(async () => {
@@ -338,28 +336,11 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeContextMenu);
-  if (successTimer) clearTimeout(successTimer);
 });
 </script>
 
 <template>
   <div class="launcher-shell" @click="closeContextMenu">
-    <!-- Success toast -->
-    <Transition name="toast">
-      <div v-if="launchSuccess" class="toast-success">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="toast-icon">
-          <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16Zm3.78-9.72a.75.75 0 0 0-1.06-1.06L6.75 9.19 5.28 7.72a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l4.5-4.5Z"/>
-        </svg>
-        <div>
-          <strong>Session launched</strong> — PID {{ launchSuccess.pid }}
-          <div class="toast-cmd">{{ launchSuccess.command }}</div>
-          <div v-if="launchSuccess.worktreePath" class="toast-cmd" style="margin-top: 4px; color: var(--success-fg);">
-            📂 Worktree: {{ launchSuccess.worktreePath }}
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- Context menu for template deletion -->
     <Teleport to="body">
       <div
@@ -402,11 +383,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Error -->
-        <div v-if="store.error" class="error-banner">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.343 13.657A8 8 0 1 1 13.66 2.343 8 8 0 0 1 2.343 13.657ZM6.03 4.97a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042L6.94 8 4.97 9.97a.749.749 0 0 0 .326 1.275.749.749 0 0 0 .734-.215L8 9.06l1.97 1.97a.749.749 0 0 0 1.275-.326.749.749 0 0 0-.215-.734L9.06 8l1.97-1.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L8 6.94Z"/></svg>
-          <span class="error-text">{{ store.error }}</span>
-          <button class="error-dismiss" @click="store.error = null" title="Dismiss">✕</button>
-        </div>
+        <ErrorAlert v-if="store.error" :message="store.error" variant="banner" dismissible @dismiss="store.error = null" />
 
         <!-- ── Templates ─────────────────────────────────────── -->
         <section v-if="store.loading || store.templates.length || hasDismissedDefaults" class="section-block">
@@ -910,32 +887,6 @@ onUnmounted(() => {
 .readiness-icon {
   flex-shrink: 0;
   margin-top: 1px;
-}
-
-/* ── Error Banner ────────────────────────────────────────────────── */
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  margin-bottom: 20px;
-  background: color-mix(in srgb, var(--danger-fg) 8%, transparent);
-  border: 1px solid var(--danger-muted);
-  border-radius: var(--radius-lg);
-  color: var(--danger-fg);
-  font-size: 0.8125rem;
-}
-.error-text { flex: 1; word-break: break-word; }
-.error-dismiss {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--danger-fg);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  opacity: 0.7;
-  &:hover { opacity: 1; }
 }
 
 /* ── Section blocks ──────────────────────────────────────────────── */
@@ -1799,55 +1750,6 @@ onUnmounted(() => {
 
 .ctx-danger:hover {
   background: color-mix(in srgb, var(--danger-fg) 10%, transparent);
-}
-
-/* ── Toast ────────────────────────────────────────────────────────── */
-.toast-success {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3000;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 20px;
-  background: var(--canvas-default);
-  border: 1px solid var(--success-fg);
-  border-radius: var(--radius-lg);
-  color: var(--success-fg);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
-  max-width: 480px;
-}
-
-.toast-icon {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.toast-cmd {
-  font-size: 0.6875rem;
-  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
-  color: var(--text-tertiary);
-  margin-top: 4px;
-  word-break: break-all;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-16px);
-}
-
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-8px);
 }
 
 /* ── Slide Transition ────────────────────────────────────────────── */

@@ -21,13 +21,13 @@ import {
   getMigrationDiffs,
   migrateAgentDefinition as migrateAgentApi,
 } from '@tracepilot/client';
+import { useToastStore } from '@/stores/toast';
 
 export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
 
-/** Duration (ms) before auto-dismissing success toasts. */
-const SUCCESS_TOAST_MS = 3000;
-
 export const useConfigInjectorStore = defineStore('configInjector', () => {
+  const toastStore = useToastStore();
+
   const activeTab = ref<ConfigTab>('agents');
   const agents = ref<AgentDefinition[]>([]);
   const copilotConfig = ref<CopilotConfig | null>(null);
@@ -40,13 +40,6 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   const loading = ref(false);
   const saving = ref(false);
   const error = ref<string | null>(null);
-  const successMessage = ref<string | null>(null);
-
-  /** Show a success toast that auto-dismisses after SUCCESS_TOAST_MS. */
-  function showSuccess(msg: string) {
-    successMessage.value = msg;
-    setTimeout(() => { successMessage.value = null; }, SUCCESS_TOAST_MS);
-  }
 
   const hasCustomizations = computed(() => versions.value.some((v) => v.hasCustomizations));
   const activeVersionStr = computed(() => activeVersion.value?.version ?? 'unknown');
@@ -85,7 +78,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     error.value = null;
     try {
       await saveAgentApi(selectedAgent.value.filePath, editingYaml.value);
-      showSuccess(`Saved ${selectedAgent.value.name} agent`);
+      toastStore.success(`Saved ${selectedAgent.value.name} agent`);
       // Reload agents to reflect changes
       agents.value = await getAgentDefinitions();
       return true;
@@ -103,7 +96,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await saveCopilotApi(config);
       copilotConfig.value = await getCopilotConfig();
-      showSuccess('Global config saved');
+      toastStore.success('Global config saved');
       return true;
     } catch (e) {
       error.value = String(e);
@@ -118,7 +111,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await createBackupApi(filePath, label);
       backups.value = await listConfigBackups();
       if (!silent) {
-        showSuccess('Backup created');
+        toastStore.success('Backup created');
       }
       return true;
     } catch (e) {
@@ -130,7 +123,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
     try {
       await restoreBackupApi(backupPath, restoreTo);
-      showSuccess('Backup restored');
+      toastStore.success('Backup restored');
       await initialize(); // Reload everything
       return true;
     } catch (e) {
@@ -143,7 +136,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await deleteBackupApi(backupPath);
       backups.value = await listConfigBackups();
-      showSuccess('Backup deleted');
+      toastStore.success('Backup deleted');
       return true;
     } catch (e) {
       error.value = String(e);
@@ -162,7 +155,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function migrateAgent(fileName: string, from: string, to: string): Promise<boolean> {
     try {
       await migrateAgentApi(fileName, from, to);
-      showSuccess(`Migrated ${fileName}`);
+      toastStore.success(`Migrated ${fileName}`);
       return true;
     } catch (e) {
       error.value = String(e);
@@ -183,7 +176,6 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     loading,
     saving,
     error,
-    successMessage,
     hasCustomizations,
     activeVersionStr,
     initialize,
