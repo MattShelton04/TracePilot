@@ -29,6 +29,8 @@ export type ModelWholesalePrice = ModelPriceEntry;
  *  Derived from the shared MODEL_REGISTRY in @tracepilot/types. */
 export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePrices();
 
+export const BASE_FONT_SIZE_PX = 16;
+
 function applyTheme(theme: ThemeOption) {
   document.documentElement.setAttribute("data-theme", theme);
   // Write-through cache for instant theme on next launch (no flash)
@@ -36,15 +38,16 @@ function applyTheme(theme: ThemeOption) {
 }
 
 function applyContentMaxWidth(value: number) {
-  const cssVal = value === 0 ? "none" : `${value}px`;
+  // 0 means no limit (full width)
+  const cssVal = value <= 0 ? "none" : `${value}px`;
   document.documentElement.style.setProperty("--content-max-width", cssVal);
 }
 
 function applyUiScale(scale: number) {
-  // Clamp to safe range to avoid breaking layouts
+  // Clamp to safe range to avoid breaking layouts (0.8x to 1.3x)
   const clamped = Math.max(0.8, Math.min(1.3, scale));
-  // Base font-size is 16px; scaling it adjusts all rem-based sizes uniformly
-  document.documentElement.style.fontSize = `${16 * clamped}px`;
+  // Scaling root font-size adjusts all rem-based sizes uniformly
+  document.documentElement.style.fontSize = `${BASE_FONT_SIZE_PX * clamped}px`;
 }
 
 export const usePreferencesStore = defineStore("preferences", () => {
@@ -167,8 +170,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
     checkForUpdates.value = config.ui.checkForUpdates;
     favouriteModels.value = [...config.ui.favouriteModels];
     recentRepoPaths.value = [...config.ui.recentRepoPaths];
-    contentMaxWidth.value = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
-    uiScale.value = config.ui.uiScale ?? DEFAULT_UI_SCALE;
+
+    // Defensive nullish coalescing (??) is used for backwards compatibility
+    // with existing configs that may not have these newer fields yet.
+    const rawWidth = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
+    // Clamp to 400px min, or allow 0 for "No limit"
+    contentMaxWidth.value = rawWidth === 0 ? 0 : Math.max(400, rawWidth);
+
+    const rawScale = config.ui.uiScale ?? DEFAULT_UI_SCALE;
+    // Normalize to 0.8x to 1.3x range to ensure UI usability
+    uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
+
     cliCommand.value = config.general.cliCommand;
     costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     modelWholesalePrices.value = config.pricing.models.length > 0

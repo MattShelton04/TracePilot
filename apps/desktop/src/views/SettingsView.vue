@@ -44,13 +44,8 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 
 <style scoped>
 .settings-root {
-  max-width: 720px;
-}
-
-@media (min-width: 1600px) {
-  .settings-root {
-    max-width: 860px;
-  }
+  /* Settings root now respects --content-max-width from .page-content-inner, 
+     allowing the user to preview content width changes live. */
 }
 
 .page-title-spaced {
@@ -90,6 +85,10 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 .settings-root .setting-info {
   flex: 1;
   min-width: 0;
+}
+
+.settings-root .setting-info-stacked {
+  margin-bottom: 8px;
 }
 
 .settings-root .setting-label {
