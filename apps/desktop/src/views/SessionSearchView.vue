@@ -943,19 +943,19 @@ onUnmounted(() => {
 
 .sort-select {
   appearance: none;
-  background: var(--neutral-subtle);
-  border: 1px solid var(--border-primary);
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 0.6875rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
   font-family: inherit;
-  padding: 4px 24px 4px 8px;
+  padding: 6px 24px 6px 10px;
   cursor: pointer;
   outline: none;
   transition: border-color var(--transition-fast);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23888' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 6px center;
+  background-position: right 8px center;
 }
 
 .sort-select:hover {
@@ -964,7 +964,7 @@ onUnmounted(() => {
 
 .sort-select:focus {
   border-color: var(--accent-emphasis);
-  box-shadow: 0 0 0 1px var(--accent-emphasis);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 /* ÔöÇÔöÇ Page Layout ÔöÇÔöÇ */
