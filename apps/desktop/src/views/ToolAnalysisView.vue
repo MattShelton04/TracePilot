@@ -56,7 +56,7 @@ function positionTooltip(event: MouseEvent, container: HTMLElement) {
 
 function onBarMouseEnter(event: MouseEvent, content: string, chartId: string) {
   if (tooltip.pinned) return;
-  const container = (event.target as HTMLElement)?.closest('.chart-container') as HTMLElement;
+  const container = (event.target as HTMLElement)?.closest('.tooltip-area') as HTMLElement;
   if (!container) return;
   tooltip.visible = true;
   tooltip.content = content;
@@ -70,7 +70,7 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   const chart = successFailureChart.value;
   if (!chart) return;
   const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
+  const container = (event.target as SVGElement)?.closest('.tooltip-area') as HTMLElement;
   if (!svg || !container) return;
   const pt = svg.createSVGPoint();
   pt.x = event.clientX;
@@ -257,7 +257,7 @@ const successFailureChart = computed(() => {
             <!-- Success/Failure Chart -->
             <div class="section-panel">
               <div class="section-panel-header">Success / Failure Breakdown</div>
-              <div class="section-panel-body scrollable-section chart-container" @mouseleave="dismissTooltip">
+              <div class="section-panel-body scrollable-section tooltip-area" @mouseleave="dismissTooltip">
                 <div class="legend">
                   <span><span class="legend-dot" :style="{ background: CHART_COLORS.success }" />&nbsp;Success</span>
                   <span><span class="legend-dot" :style="{ background: CHART_COLORS.danger }" />&nbsp;Failure</span>
@@ -335,7 +335,7 @@ const successFailureChart = computed(() => {
             <!-- Tool Frequency -->
             <div class="section-panel">
               <div class="section-panel-header">Tool Frequency</div>
-              <div class="section-panel-body scrollable-section chart-container" @mouseleave="dismissTooltip">
+              <div class="section-panel-body scrollable-section tooltip-area" @mouseleave="dismissTooltip">
                 <div class="frequency-chart">
                   <div
                     class="freq-row"
@@ -363,7 +363,7 @@ const successFailureChart = computed(() => {
           <!-- Activity Heatmap -->
           <div class="section-panel mb-4">
             <div class="section-panel-header">Activity Heatmap</div>
-            <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
+            <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
               <div class="heatmap">
                 <!-- Hour labels row -->
                 <div class="heatmap-row heatmap-hour-labels">
@@ -438,7 +438,7 @@ const successFailureChart = computed(() => {
 }
 
 /* ── Chart container ──────────────────────────────────────── */
-.chart-container {
+.tooltip-area {
   position: relative;
 }
 

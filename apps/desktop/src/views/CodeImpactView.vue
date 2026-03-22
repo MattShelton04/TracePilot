@@ -80,7 +80,7 @@ function onChartMouseMove(
 ) {
   if (tooltip.pinned) return;
   const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
+  const container = (event.target as SVGElement)?.closest('.tooltip-area') as HTMLElement;
   if (!svg || !container || coords.length === 0) return;
   const pt = svg.createSVGPoint();
   pt.x = event.clientX;
@@ -116,7 +116,7 @@ function onChartClick(
 
 function onBarMouseEnter(event: MouseEvent, content: string, chartId: string) {
   if (tooltip.pinned) return;
-  const container = (event.target as HTMLElement)?.closest('.chart-container') as HTMLElement;
+  const container = (event.target as HTMLElement)?.closest('.tooltip-area') as HTMLElement;
   if (!container) return;
   tooltip.visible = true;
   tooltip.content = content;
@@ -221,7 +221,7 @@ const timelineChart = computed(() => {
             <!-- File Type Breakdown (bar chart) -->
             <div class="section-panel">
               <div class="section-panel-header">File Type Breakdown</div>
-              <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
+              <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
                 <div
                   v-for="ft in data.fileTypeBreakdown"
                   :key="ft.extension"
@@ -249,7 +249,7 @@ const timelineChart = computed(() => {
             <!-- Most Modified Files -->
             <div class="section-panel">
               <div class="section-panel-header">Most Modified Files</div>
-              <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
+              <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
                 <div
                   v-for="file in data.mostModifiedFiles"
                   :key="file.path"
@@ -283,7 +283,7 @@ const timelineChart = computed(() => {
                 <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.success }" />Additions</span>
                 <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.danger }" />Deletions</span>
               </div>
-              <div class="chart-container" @mouseleave="dismissTooltip">
+              <div class="chart-container tooltip-area" @mouseleave="dismissTooltip">
                 <svg
                   v-if="timelineChart"
                   viewBox="0 0 700 220"
@@ -453,10 +453,10 @@ const timelineChart = computed(() => {
 }
 
 /* Chart */
-.chart-container {
+.tooltip-area {
   position: relative;
 }
-.chart-container svg {
+.tooltip-area svg {
   display: block;
   width: 100%;
   height: auto;
