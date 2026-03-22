@@ -13,6 +13,8 @@ import {
   DEFAULT_COST_PER_PREMIUM_REQUEST,
   DEFAULT_CLI_COMMAND,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_CONTENT_MAX_WIDTH,
+  DEFAULT_UI_SCALE,
 } from '@tracepilot/types';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
@@ -27,10 +29,25 @@ export type ModelWholesalePrice = ModelPriceEntry;
  *  Derived from the shared MODEL_REGISTRY in @tracepilot/types. */
 export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePrices();
 
+export const BASE_FONT_SIZE_PX = 16;
+
 function applyTheme(theme: ThemeOption) {
   document.documentElement.setAttribute("data-theme", theme);
   // Write-through cache for instant theme on next launch (no flash)
   localStorage.setItem("tracepilot-theme", theme);
+}
+
+function applyContentMaxWidth(value: number) {
+  // 0 means no limit (full width)
+  const cssVal = value <= 0 ? "none" : `${value}px`;
+  document.documentElement.style.setProperty("--content-max-width", cssVal);
+}
+
+function applyUiScale(scale: number) {
+  // Clamp to safe range to avoid breaking layouts (0.8x to 1.3x)
+  const clamped = Math.max(0.8, Math.min(1.3, scale));
+  // Scaling root font-size adjusts all rem-based sizes uniformly
+  document.documentElement.style.fontSize = `${BASE_FONT_SIZE_PX * clamped}px`;
 }
 
 export const usePreferencesStore = defineStore("preferences", () => {
@@ -46,6 +63,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const checkForUpdates = ref(false);
   const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
+  const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);
+  const uiScale = ref(DEFAULT_UI_SCALE);
   const costPerPremiumRequest = ref(DEFAULT_COST_PER_PREMIUM_REQUEST);
   const modelWholesalePrices = ref<ModelPriceEntry[]>([...DEFAULT_WHOLESALE_PRICES]);
   const toolRendering = ref<ToolRenderingPreferences>({
@@ -151,6 +170,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
     checkForUpdates.value = config.ui.checkForUpdates;
     favouriteModels.value = [...config.ui.favouriteModels];
     recentRepoPaths.value = [...config.ui.recentRepoPaths];
+
+    // Defensive nullish coalescing (??) is used for backwards compatibility
+    // with existing configs that may not have these newer fields yet.
+    const rawWidth = config.ui.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
+    // Clamp to 400px min, or allow 0 for "No limit"
+    contentMaxWidth.value = rawWidth === 0 ? 0 : Math.max(400, rawWidth);
+
+    const rawScale = config.ui.uiScale ?? DEFAULT_UI_SCALE;
+    // Normalize to 0.8x to 1.3x range to ensure UI usability
+    uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
+
     cliCommand.value = config.general.cliCommand;
     costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
     modelWholesalePrices.value = config.pricing.models.length > 0
@@ -182,6 +212,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
         checkForUpdates: checkForUpdates.value,
         favouriteModels: [...favouriteModels.value],
         recentRepoPaths: [...recentRepoPaths.value],
+        contentMaxWidth: contentMaxWidth.value,
+        uiScale: uiScale.value,
       },
       pricing: {
         costPerPremiumRequest: costPerPremiumRequest.value,
@@ -266,6 +298,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Watch theme changes: update DOM + write-through cache
   watch(theme, (newTheme) => { applyTheme(newTheme); }, { immediate: true });
 
+  // Watch content max-width: update CSS variable
+  watch(contentMaxWidth, (v) => { applyContentMaxWidth(v); }, { immediate: true });
+
+  // Watch UI scale: update root font-size
+  watch(uiScale, (v) => { applyUiScale(v); }, { immediate: true });
+
   // Watch all config-backed refs → debounced save to backend
   watch(
     [
@@ -281,6 +319,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       featureFlags,
       favouriteModels,
       recentRepoPaths,
+      contentMaxWidth,
+      uiScale,
       logLevel,
     ],
     scheduleSave,
@@ -398,6 +438,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     featureFlags,
     favouriteModels,
     recentRepoPaths,
+    contentMaxWidth,
+    uiScale,
     logLevel,
     applyTheme: () => applyTheme(theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */

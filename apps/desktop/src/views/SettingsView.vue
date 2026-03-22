@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
+import SettingsAppearance from '@/components/settings/SettingsAppearance.vue';
 import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
 import SettingsLogging from '@/components/settings/SettingsLogging.vue';
 import SettingsPricing from '@/components/settings/SettingsPricing.vue';
@@ -28,6 +29,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
       <h1 class="page-title page-title-spaced">Settings</h1>
 
       <SettingsGeneral />
+      <SettingsAppearance />
       <SettingsDataStorage ref="dataStorageRef" />
       <SettingsLogging />
       <SettingsPricing />
@@ -42,7 +44,8 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 
 <style scoped>
 .settings-root {
-  max-width: 720px;
+  /* Settings root now respects --content-max-width from .page-content-inner, 
+     allowing the user to preview content width changes live. */
 }
 
 .page-title-spaced {
@@ -82,6 +85,10 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? 'ÔÇ�
 .settings-root .setting-info {
   flex: 1;
   min-width: 0;
+}
+
+.settings-root .setting-info-stacked {
+  margin-bottom: 8px;
 }
 
 .settings-root .setting-label {

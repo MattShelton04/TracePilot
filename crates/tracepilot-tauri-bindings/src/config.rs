@@ -85,6 +85,10 @@ pub struct UiConfig {
     pub favourite_models: Vec<String>,
     #[serde(default)]
     pub recent_repo_paths: Vec<String>,
+    #[serde(default = "default_content_max_width")]
+    pub content_max_width: u32,
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: f64,
 }
 
 impl Default for UiConfig {
@@ -97,6 +101,8 @@ impl Default for UiConfig {
             check_for_updates: false,
             favourite_models: default_favourite_models(),
             recent_repo_paths: Vec::new(),
+            content_max_width: 1200,
+            ui_scale: 1.0,
         }
     }
 }
@@ -200,6 +206,12 @@ fn default_cli_command() -> String {
 }
 fn default_auto_refresh_interval() -> u32 {
     5
+}
+fn default_content_max_width() -> u32 {
+    1200
+}
+fn default_ui_scale() -> f64 {
+    1.0
 }
 fn default_cost_per_premium_request() -> f64 {
     0.04
