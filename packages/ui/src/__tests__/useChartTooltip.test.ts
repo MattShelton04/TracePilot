@@ -248,6 +248,204 @@ describe('useChartTooltip', () => {
     });
   });
 
+  describe('onChartMouseMove', () => {
+    function createSvgMocks(svgX: number) {
+      const container = document.createElement('div');
+      container.classList.add('tooltip-area');
+      Object.defineProperty(container, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 500, height: 300 }),
+      });
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+        paddingLeft: '0',
+        paddingTop: '0',
+      } as unknown as CSSStyleDeclaration);
+
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const mockPt = { x: 0, y: 0, matrixTransform: () => ({ x: svgX, y: 50 }) };
+      Object.defineProperty(svgEl, 'createSVGPoint', {
+        value: () => mockPt,
+        configurable: true,
+      });
+      Object.defineProperty(svgEl, 'getScreenCTM', {
+        value: () => ({ inverse: () => ({}) }),
+        configurable: true,
+      });
+
+      container.appendChild(svgEl);
+
+      const target = document.createElement('rect');
+      svgEl.appendChild(target);
+      vi.spyOn(target, 'closest').mockImplementation((sel: string) => {
+        if (sel === 'svg') return svgEl;
+        if (sel === '.tooltip-area') return container;
+        return null;
+      });
+
+      return { target, container, svgEl };
+    }
+
+    it('shows tooltip at nearest coordinate', () => {
+      const w = createWrapper();
+      const { target } = createSvgMocks(28);
+
+      const coords = [{ x: 10 }, { x: 20 }, { x: 30 }];
+      const format = (i: number) => `Point ${i}`;
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(event, coords, format, 'test-chart');
+
+      expect(w.vm.tooltip.visible).toBe(true);
+      expect(w.vm.tooltip.content).toBe('Point 2');
+      expect(w.vm.tooltip.chartId).toBe('test-chart');
+      expect(w.vm.tooltip.highlightIndex).toBe(2);
+    });
+
+    it('does nothing when pinned', () => {
+      const w = createWrapper();
+      w.vm.tooltip.pinned = true;
+
+      const { target } = createSvgMocks(25);
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(event, [{ x: 10 }], () => 'content', 'test');
+
+      expect(w.vm.tooltip.visible).toBe(false);
+    });
+
+    it('does nothing with empty coords', () => {
+      const w = createWrapper();
+      const { target } = createSvgMocks(25);
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(event, [], () => 'content', 'test');
+
+      expect(w.vm.tooltip.visible).toBe(false);
+    });
+
+    it('does nothing when getScreenCTM returns null', () => {
+      const w = createWrapper();
+
+      const container = document.createElement('div');
+      container.classList.add('tooltip-area');
+
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      Object.defineProperty(svgEl, 'getScreenCTM', {
+        value: () => null,
+        configurable: true,
+      });
+      container.appendChild(svgEl);
+
+      const target = document.createElement('rect');
+      svgEl.appendChild(target);
+      vi.spyOn(target, 'closest').mockImplementation((sel: string) => {
+        if (sel === 'svg') return svgEl;
+        if (sel === '.tooltip-area') return container;
+        return null;
+      });
+
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartMouseMove(event, [{ x: 10 }], () => 'content', 'test');
+
+      expect(w.vm.tooltip.visible).toBe(false);
+    });
+  });
+
+  describe('onChartClick', () => {
+    function createSvgMocks(svgX: number) {
+      const container = document.createElement('div');
+      container.classList.add('tooltip-area');
+      Object.defineProperty(container, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 500, height: 300 }),
+      });
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+        paddingLeft: '0',
+        paddingTop: '0',
+      } as unknown as CSSStyleDeclaration);
+
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const mockPt = { x: 0, y: 0, matrixTransform: () => ({ x: svgX, y: 50 }) };
+      Object.defineProperty(svgEl, 'createSVGPoint', {
+        value: () => mockPt,
+        configurable: true,
+      });
+      Object.defineProperty(svgEl, 'getScreenCTM', {
+        value: () => ({ inverse: () => ({}) }),
+        configurable: true,
+      });
+
+      container.appendChild(svgEl);
+
+      const target = document.createElement('rect');
+      svgEl.appendChild(target);
+      vi.spyOn(target, 'closest').mockImplementation((sel: string) => {
+        if (sel === 'svg') return svgEl;
+        if (sel === '.tooltip-area') return container;
+        return null;
+      });
+
+      return { target, container, svgEl };
+    }
+
+    it('pins tooltip on click', () => {
+      const w = createWrapper();
+      const { target } = createSvgMocks(15);
+
+      const coords = [{ x: 10 }, { x: 20 }];
+      const format = (i: number) => `Point ${i}`;
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartClick(event, coords, format, 'test-chart');
+
+      expect(w.vm.tooltip.visible).toBe(true);
+      expect(w.vm.tooltip.pinned).toBe(true);
+      expect(w.vm.tooltip.content).toBe('Point 0');
+    });
+
+    it('unpins when clicking same chart while pinned', () => {
+      const w = createWrapper();
+      w.vm.tooltip.pinned = true;
+      w.vm.tooltip.chartId = 'test-chart';
+
+      const { target } = createSvgMocks(15);
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartClick(event, [{ x: 10 }], () => 'content', 'test-chart');
+
+      expect(w.vm.tooltip.pinned).toBe(false);
+    });
+
+    it('does not pin when onChartMouseMove fails to show tooltip', () => {
+      const w = createWrapper();
+
+      const container = document.createElement('div');
+      container.classList.add('tooltip-area');
+
+      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      Object.defineProperty(svgEl, 'getScreenCTM', {
+        value: () => null,
+        configurable: true,
+      });
+      container.appendChild(svgEl);
+
+      const target = document.createElement('rect');
+      svgEl.appendChild(target);
+      vi.spyOn(target, 'closest').mockImplementation((sel: string) => {
+        if (sel === 'svg') return svgEl;
+        if (sel === '.tooltip-area') return container;
+        return null;
+      });
+
+      const event = { target, clientX: 100, clientY: 50 } as unknown as MouseEvent;
+
+      w.vm.onChartClick(event, [{ x: 10 }], () => 'content', 'test');
+
+      // Bug fix: should NOT be pinned since tooltip wasn't shown
+      expect(w.vm.tooltip.pinned).toBe(false);
+      expect(w.vm.tooltip.visible).toBe(false);
+    });
+  });
+
   describe('instance isolation', () => {
     it('two instances have independent tooltip state', () => {
       const w1 = createWrapper();

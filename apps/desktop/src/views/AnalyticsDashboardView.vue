@@ -20,7 +20,7 @@ import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
-const { tooltip, positionTooltip, dismissTooltip, onChartMouseMove, onChartClick, findNearestIndex } = useChartTooltip();
+const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
 
 onMounted(() => {
   store.fetchAvailableRepos();
@@ -298,41 +298,6 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
   if (bar.rawCompactions > 0) parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
   if (bar.rawTruncations > 0) parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
   return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
-}
-
-function onIncidentChartMouseMove(event: MouseEvent) {
-  if (tooltip.pinned) return;
-  const chart = incidentChart.value;
-  if (!chart) return;
-  const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.chart-container') as HTMLElement;
-  if (!svg || !container) return;
-  const ctm = svg.getScreenCTM();
-  if (!ctm) return;
-
-  const pt = svg.createSVGPoint();
-  pt.x = event.clientX;
-  pt.y = event.clientY;
-  const svgPt = pt.matrixTransform(ctm.inverse());
-
-  const bestIdx = findNearestIndex(chart.bars.map(b => b.x), svgPt.x);
-  if (bestIdx < 0) return;
-
-  tooltip.visible = true;
-  tooltip.content = formatIncidentTooltip(chart.bars[bestIdx]);
-  tooltip.chartId = 'incidents';
-  tooltip.highlightIndex = bestIdx;
-  positionTooltip(event, container);
-}
-
-function onIncidentChartClick(event: MouseEvent) {
-  if (tooltip.pinned && tooltip.chartId === 'incidents') {
-    tooltip.pinned = false;
-    return;
-  }
-  tooltip.pinned = false;
-  onIncidentChartMouseMove(event);
-  tooltip.pinned = true;
 }
 </script>
 
@@ -878,8 +843,8 @@ function onIncidentChartClick(event: MouseEvent) {
                 width="100%"
                 role="img"
                 :aria-label="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
-                @mousemove="onIncidentChartMouseMove($event)"
-                @click="onIncidentChartClick($event)"
+                @mousemove="onChartMouseMove($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
+                @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
               >
                 <!-- Grid lines -->
                 <line

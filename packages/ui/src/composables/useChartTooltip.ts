@@ -157,7 +157,10 @@ export function useChartTooltip(): UseChartTooltipReturn {
     }
     tooltip.pinned = false;
     onChartMouseMove(event, coords, formatContent, chartId, containerSelector);
-    tooltip.pinned = true;
+    // Only pin if onChartMouseMove actually showed the tooltip
+    if (tooltip.visible) {
+      tooltip.pinned = true;
+    }
   }
 
   function onBarMouseEnter(
