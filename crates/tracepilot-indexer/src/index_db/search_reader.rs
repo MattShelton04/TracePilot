@@ -717,6 +717,8 @@ fn sanitize_snippet(raw: &str) -> String {
 mod tests {
     use super::*;
 
+    // ── sanitize_fts_query tests ────────────────────────────────────
+
     #[test]
     fn test_sanitize_simple_query() {
         assert_eq!(sanitize_fts_query("hello world"), "hello world");
@@ -731,30 +733,70 @@ mod tests {
     }
 
     #[test]
+    fn test_sanitize_mixed_phrase_and_terms() {
+        // This was the critical bug: previously destroyed embedded phrases
+        assert_eq!(
+            sanitize_fts_query("error \"file not found\""),
+            "error \"file not found\""
+        );
+        assert_eq!(
+            sanitize_fts_query("\"hello world\" foo bar"),
+            "\"hello world\" foo bar"
+        );
+        assert_eq!(
+            sanitize_fts_query("before \"middle phrase\" after"),
+            "before \"middle phrase\" after"
+        );
+    }
+
+    #[test]
     fn test_sanitize_boolean_operators() {
         assert_eq!(sanitize_fts_query("rust AND async"), "rust AND async");
         assert_eq!(sanitize_fts_query("error OR warning"), "error OR warning");
+        assert_eq!(sanitize_fts_query("auth NOT jwt"), "auth NOT jwt");
+    }
+
+    #[test]
+    fn test_sanitize_adjacent_operators() {
+        // Adjacent operators should collapse to just the term
+        assert_eq!(sanitize_fts_query("foo AND OR bar"), "foo AND bar");
+        assert_eq!(sanitize_fts_query("foo OR AND bar"), "foo OR bar");
+        assert_eq!(sanitize_fts_query("AND AND foo"), "foo");
     }
 
     #[test]
     fn test_sanitize_leading_not() {
+        // Leading NOT is invalid in FTS5 — strip it
         assert_eq!(sanitize_fts_query("NOT error"), "error");
+    }
+
+    #[test]
+    fn test_sanitize_leading_operators() {
+        assert_eq!(sanitize_fts_query("AND foo"), "foo");
+        assert_eq!(sanitize_fts_query("OR foo"), "foo");
+        assert_eq!(sanitize_fts_query("NOT AND foo"), "foo");
     }
 
     #[test]
     fn test_sanitize_trailing_operator() {
         assert_eq!(sanitize_fts_query("hello AND"), "hello");
+        assert_eq!(sanitize_fts_query("hello OR"), "hello");
+        assert_eq!(sanitize_fts_query("hello NOT"), "hello");
     }
 
     #[test]
     fn test_sanitize_strips_problematic_chars() {
         assert_eq!(sanitize_fts_query("error(code)"), "error code");
         assert_eq!(sanitize_fts_query("field:value"), "field value");
+        assert_eq!(sanitize_fts_query("a{b}c"), "a b c");
+        // $ is not problematic for FTS5, so it's preserved
+        assert_eq!(sanitize_fts_query("^test$"), "test$");
     }
 
     #[test]
     fn test_sanitize_prefix_preserved() {
         assert_eq!(sanitize_fts_query("auth*"), "auth*");
+        assert_eq!(sanitize_fts_query("config*"), "config*");
     }
 
     #[test]
@@ -766,7 +808,54 @@ mod tests {
     #[test]
     fn test_sanitize_near_stripped() {
         assert_eq!(sanitize_fts_query("NEAR(a b)"), "a b");
+        assert_eq!(sanitize_fts_query("NEAR/5 foo"), "foo");
     }
+
+    #[test]
+    fn test_sanitize_unclosed_quote() {
+        // Unclosed quote should be treated as plain words
+        let result = sanitize_fts_query("\"unclosed phrase");
+        assert_eq!(result, "unclosed phrase");
+    }
+
+    #[test]
+    fn test_sanitize_empty_phrase() {
+        // Empty quoted phrase should be dropped
+        let result = sanitize_fts_query("\"\" hello");
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_sanitize_case_insensitive_operators() {
+        assert_eq!(sanitize_fts_query("foo and bar"), "foo AND bar");
+        assert_eq!(sanitize_fts_query("foo or bar"), "foo OR bar");
+        assert_eq!(sanitize_fts_query("foo not bar"), "foo NOT bar");
+    }
+
+    #[test]
+    fn test_sanitize_only_operators() {
+        assert_eq!(sanitize_fts_query("AND OR NOT"), "");
+    }
+
+    #[test]
+    fn test_sanitize_multiple_phrases() {
+        assert_eq!(
+            sanitize_fts_query("\"hello world\" AND \"foo bar\""),
+            "\"hello world\" AND \"foo bar\""
+        );
+    }
+
+    #[test]
+    fn test_sanitize_phrase_with_special_chars() {
+        // Problematic chars like : are stripped even inside quotes (first pass is global)
+        // This is safe — FTS5 matches on the tokenized content anyway
+        assert_eq!(
+            sanitize_fts_query("\"error: file not found\""),
+            "\"error  file not found\""
+        );
+    }
+
+    // ── sanitize_snippet tests ──────────────────────────────────────
 
     #[test]
     fn test_snippet_sanitization() {
@@ -781,5 +870,17 @@ mod tests {
     #[test]
     fn test_snippet_no_markers() {
         assert_eq!(sanitize_snippet("plain text"), "plain text");
+    }
+
+    #[test]
+    fn test_snippet_html_entities() {
+        let raw = "a < b & c > d";
+        assert_eq!(sanitize_snippet(raw), "a &lt; b &amp; c &gt; d");
+    }
+
+    #[test]
+    fn test_snippet_multiple_marks() {
+        let raw = "\x01MARK_OPEN\x01a\x01MARK_CLOSE\x01 b \x01MARK_OPEN\x01c\x01MARK_CLOSE\x01";
+        assert_eq!(sanitize_snippet(raw), "<mark>a</mark> b <mark>c</mark>");
     }
 }
