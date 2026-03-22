@@ -212,6 +212,9 @@ onUnmounted(() => {
 }
 .session-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 .active-badge-topright {
   position: absolute;

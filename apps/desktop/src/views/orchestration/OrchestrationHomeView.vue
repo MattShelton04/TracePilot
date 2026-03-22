@@ -142,7 +142,8 @@ onUnmounted(() => {
             <div class="hero-sub" v-else>No repos registered yet</div>
           </div>
 
-          <!-- Budget Used -->
+          <!-- Budget Used (Commented out until wired up) -->
+          <!--
           <div class="hero-card warning">
             <svg class="hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -156,6 +157,17 @@ onUnmounted(() => {
                 :style="{ width: budgetPercent + '%' }"
               />
             </div>
+          </div>
+          -->
+
+          <!-- Placeholder N/A Budget Tile -->
+          <div class="hero-card warning opacity-50">
+            <svg class="hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            <div class="hero-value">N/A</div>
+            <div class="hero-label">Budget Used</div>
+            <div class="hero-sub">Not currently available</div>
           </div>
 
           <!-- Total Sessions -->
