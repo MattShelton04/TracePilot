@@ -32,7 +32,6 @@ const contentTypeConfig: Record<string, { label: string; color: string }> = {
   tool_call:          { label: 'Tool Call',          color: '#f59e0b' },
   tool_error:         { label: 'Tool Error',         color: '#ef4444' },
   error:              { label: 'Error',              color: '#ef4444' },
-  warning:            { label: 'Warning',            color: '#eab308' },
   compaction_summary: { label: 'Compaction',         color: '#818cf8' },
   system_message:     { label: 'System Message',     color: '#94a3b8' },
   subagent:           { label: 'Subagent',           color: '#c084fc' },

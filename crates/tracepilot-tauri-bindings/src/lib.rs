@@ -806,32 +806,41 @@ mod commands {
         let _ = app.emit("indexing-finished", ());
 
         // Phase 2: Kick off search content indexing in background (non-blocking).
-        // Uses try_acquire — if another search index is running, skip.
-        let search_permit = search_semaphore.0.clone().try_acquire_owned();
-        if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
-            let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
-                let _permit = search_permit;
-                let _ = app2.emit("search-indexing-started", ());
-                let _ = tracepilot_indexer::reindex_search_content(
-                    &session_state_dir2,
-                    &index_path2,
-                    |progress| {
-                        let _ = app2.emit(
-                            "search-indexing-progress",
-                            serde_json::json!({
-                                "current": progress.current,
-                                "total": progress.total
-                            }),
-                        );
-                    },
-                    || false,
-                );
-                let _ = app2.emit("search-indexing-finished", ());
-            });
+        // Only triggers if Phase 1 succeeded. Uses try_acquire — if search is already running, skip.
+        if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
+            let search_permit = search_semaphore.0.clone().try_acquire_owned();
+            if let Ok(search_permit) = search_permit {
+                let cfg2 = read_config(&state);
+                let session_state_dir2 = cfg2.session_state_dir();
+                let index_path2 = cfg2.index_db_path();
+                let app2 = app.clone();
+                tokio::task::spawn_blocking(move || {
+                    let _permit = search_permit;
+                    let _ = app2.emit("search-indexing-started", ());
+                    match tracepilot_indexer::reindex_search_content(
+                        &session_state_dir2,
+                        &index_path2,
+                        |progress| {
+                            let _ = app2.emit(
+                                "search-indexing-progress",
+                                serde_json::json!({
+                                    "current": progress.current,
+                                    "total": progress.total
+                                }),
+                            );
+                        },
+                        || false,
+                    ) {
+                        Ok(_) => {
+                            let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Phase 2 search indexing failed");
+                            let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": false, "error": e.to_string()}));
+                        }
+                    }
+                });
+            }
         }
 
         result?
@@ -889,31 +898,41 @@ mod commands {
 
         // Phase 2: Kick off search content indexing in background (non-blocking).
         // After a full rebuild, search content must be rebuilt from scratch too.
-        let search_permit = search_semaphore.0.clone().try_acquire_owned();
-        if let Ok(search_permit) = search_permit {
-            let cfg2 = read_config(&state);
-            let session_state_dir2 = cfg2.session_state_dir();
-            let index_path2 = cfg2.index_db_path();
-            let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
-                let _permit = search_permit;
-                let _ = app2.emit("search-indexing-started", ());
-                let _ = tracepilot_indexer::rebuild_search_content(
-                    &session_state_dir2,
-                    &index_path2,
-                    |progress| {
-                        let _ = app2.emit(
-                            "search-indexing-progress",
-                            serde_json::json!({
-                                "current": progress.current,
-                                "total": progress.total
-                            }),
-                        );
-                    },
-                    || false,
-                );
-                let _ = app2.emit("search-indexing-finished", ());
-            });
+        // Only triggers if Phase 1 succeeded.
+        if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
+            let search_permit = search_semaphore.0.clone().try_acquire_owned();
+            if let Ok(search_permit) = search_permit {
+                let cfg2 = read_config(&state);
+                let session_state_dir2 = cfg2.session_state_dir();
+                let index_path2 = cfg2.index_db_path();
+                let app2 = app.clone();
+                tokio::task::spawn_blocking(move || {
+                    let _permit = search_permit;
+                    let _ = app2.emit("search-indexing-started", ());
+                    match tracepilot_indexer::rebuild_search_content(
+                        &session_state_dir2,
+                        &index_path2,
+                        |progress| {
+                            let _ = app2.emit(
+                                "search-indexing-progress",
+                                serde_json::json!({
+                                    "current": progress.current,
+                                    "total": progress.total
+                                }),
+                            );
+                        },
+                        || false,
+                    ) {
+                        Ok(_) => {
+                            let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Phase 2 search rebuild failed");
+                            let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": false, "error": e.to_string()}));
+                        }
+                    }
+                });
+            }
         }
 
         result?
@@ -934,6 +953,7 @@ mod commands {
         date_to_unix: Option<i64>,
         limit: Option<usize>,
         offset: Option<usize>,
+        sort_by: Option<String>,
     ) -> Result<SearchResultsResponse, String> {
         let cfg = read_config(&state);
         let index_path = cfg.index_db_path();
@@ -953,6 +973,7 @@ mod commands {
                 date_to_unix,
                 limit,
                 offset,
+                sort_by,
             };
 
             let results = db.search_content(&query_for_closure, &filters).map_err(|e| e.to_string())?;
@@ -998,6 +1019,8 @@ mod commands {
         state: tauri::State<'_, SharedConfig>,
         query: Option<String>,
         content_types: Option<Vec<String>>,
+        repositories: Option<Vec<String>>,
+        tool_names: Option<Vec<String>>,
         session_id: Option<String>,
         date_from_unix: Option<i64>,
         date_to_unix: Option<i64>,
@@ -1013,6 +1036,8 @@ mod commands {
                 Some(q) if !q.trim().is_empty() => {
                     let filters = tracepilot_indexer::SearchFilters {
                         content_types: content_types.unwrap_or_default(),
+                        repositories: repositories.unwrap_or_default(),
+                        tool_names: tool_names.unwrap_or_default(),
                         session_id,
                         date_from_unix,
                         date_to_unix,
@@ -1100,9 +1125,14 @@ mod commands {
     #[tauri::command]
     pub async fn rebuild_search_index(
         state: tauri::State<'_, SharedConfig>,
+        semaphore: tauri::State<'_, Arc<Semaphore>>,
         search_semaphore: tauri::State<'_, SearchSemaphore>,
         app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
+        // Reject if main indexing is currently running
+        if semaphore.inner().available_permits() == 0 {
+            return Err("ALREADY_INDEXING".to_string());
+        }
         let permit = match search_semaphore.0.clone().try_acquire_owned() {
             Ok(permit) => permit,
             Err(_) => return Err("ALREADY_INDEXING".to_string()),
@@ -1136,7 +1166,8 @@ mod commands {
         .await
         .map_err(|e| e.to_string());
 
-        let _ = app.emit("search-indexing-finished", ());
+        let success = result.as_ref().map(|r| r.is_ok()).unwrap_or(false);
+        let _ = app.emit("search-indexing-finished", serde_json::json!({"success": success}));
         result?
     }
 

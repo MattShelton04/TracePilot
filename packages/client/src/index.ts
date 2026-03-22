@@ -253,17 +253,20 @@ export async function searchContent(
     dateToUnix: filters?.dateToUnix,
     limit: filters?.limit,
     offset: filters?.offset,
+    sortBy: filters?.sortBy,
   });
 }
 
 /** Get facet counts — pass query for result-scoped facets, omit for global. */
 export async function getSearchFacets(
   query?: string,
-  filters?: Pick<SearchFilters, 'contentTypes' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
+  filters?: Pick<SearchFilters, 'contentTypes' | 'repositories' | 'toolNames' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
 ): Promise<SearchFacetsResponse> {
   return invoke<SearchFacetsResponse>('get_search_facets', {
     query,
     contentTypes: filters?.contentTypes,
+    repositories: filters?.repositories,
+    toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,

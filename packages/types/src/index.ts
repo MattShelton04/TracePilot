@@ -749,6 +749,7 @@ export interface SearchFilters {
   dateToUnix?: number;
   limit?: number;
   offset?: number;
+  sortBy?: 'relevance' | 'newest' | 'oldest';
 }
 
 /** Facet counts returned from search. Tuples are [name, count]. */

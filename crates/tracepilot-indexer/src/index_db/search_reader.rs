@@ -39,6 +39,8 @@ pub struct SearchFilters {
     pub date_to_unix: Option<i64>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
+    /// Sort order: "relevance" (default), "newest", "oldest"
+    pub sort_by: Option<String>,
 }
 
 /// Facet counts for the search results sidebar.
@@ -144,7 +146,12 @@ impl IndexDb {
             query_params.push(Box::new(to));
         }
 
-        sql.push_str(" ORDER BY rank");
+        // Sort order
+        match filters.sort_by.as_deref() {
+            Some("newest") => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
+            Some("oldest") => sql.push_str(" ORDER BY sc.timestamp_unix ASC NULLS LAST"),
+            _ => sql.push_str(" ORDER BY rank"),
+        }
 
         let limit = filters.limit.unwrap_or(50).min(200) as i64;
         let offset = filters.offset.unwrap_or(0) as i64;
@@ -314,7 +321,10 @@ impl IndexDb {
                  WHERE search_fts MATCH ?1 {}",
                 base_where
             );
-            self.conn.query_row(&sql, [&sanitized], |row| row.get(0))?
+            let mut params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized.clone())];
+            append_filter_params(filters, &mut params);
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?
         };
 
         // Distinct sessions
@@ -326,7 +336,10 @@ impl IndexDb {
                  WHERE search_fts MATCH ?1 {}",
                 base_where
             );
-            self.conn.query_row(&sql, [&sanitized], |row| row.get(0))?
+            let mut params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized.clone())];
+            append_filter_params(filters, &mut params);
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?
         };
 
         Ok(SearchFacets {
@@ -450,16 +463,20 @@ impl IndexDb {
         })
     }
 
-    /// Helper for facet count queries.
+    /// Helper for facet count queries with parameterized filters.
     fn facet_query(
         &self,
         sql: &str,
         sanitized_query: &str,
-        _filters: &SearchFilters,
+        filters: &SearchFilters,
     ) -> Result<Vec<(String, i64)>> {
+        let mut params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized_query.to_string())];
+        append_filter_params(filters, &mut params);
+
         let mut stmt = self.conn.prepare(sql)?;
+        let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         let results: Vec<(String, i64)> = stmt
-            .query_map([sanitized_query], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(results)
@@ -467,47 +484,102 @@ impl IndexDb {
 }
 
 /// Build additional WHERE clauses from filters (for facet queries).
+/// Uses numbered params starting after ?1 (which is the FTS MATCH query).
 fn build_filter_where(filters: &SearchFilters) -> String {
     let mut parts = Vec::new();
+    let mut param_idx = 2; // ?1 is the FTS query
 
-    if let Some(ref sid) = filters.session_id {
-        parts.push(format!("AND sc.session_id = '{}'", sid.replace('\'', "''")));
+    if let Some(ref _sid) = filters.session_id {
+        parts.push(format!("AND sc.session_id = ?{}", param_idx));
+        param_idx += 1;
     }
-    if let Some(from) = filters.date_from_unix {
-        parts.push(format!("AND sc.timestamp_unix >= {}", from));
+    if filters.date_from_unix.is_some() {
+        parts.push(format!("AND sc.timestamp_unix >= ?{}", param_idx));
+        param_idx += 1;
     }
-    if let Some(to) = filters.date_to_unix {
-        parts.push(format!("AND sc.timestamp_unix <= {}", to));
+    if filters.date_to_unix.is_some() {
+        parts.push(format!("AND sc.timestamp_unix <= ?{}", param_idx));
+        param_idx += 1;
+    }
+    if !filters.content_types.is_empty() {
+        let placeholders: Vec<String> = filters
+            .content_types
+            .iter()
+            .map(|_| {
+                let p = format!("?{}", param_idx);
+                param_idx += 1;
+                p
+            })
+            .collect();
+        parts.push(format!("AND sc.content_type IN ({})", placeholders.join(", ")));
+    }
+    if !filters.repositories.is_empty() {
+        let placeholders: Vec<String> = filters
+            .repositories
+            .iter()
+            .map(|_| {
+                let p = format!("?{}", param_idx);
+                param_idx += 1;
+                p
+            })
+            .collect();
+        parts.push(format!("AND s.repository IN ({})", placeholders.join(", ")));
+    }
+    if !filters.tool_names.is_empty() {
+        let placeholders: Vec<String> = filters
+            .tool_names
+            .iter()
+            .map(|_| {
+                let p = format!("?{}", param_idx);
+                param_idx += 1;
+                p
+            })
+            .collect();
+        parts.push(format!("AND sc.tool_name IN ({})", placeholders.join(", ")));
     }
 
     parts.join(" ")
+}
+
+/// Append filter values as params (matching the order in build_filter_where).
+fn append_filter_params(filters: &SearchFilters, params: &mut Vec<Box<dyn ToSql>>) {
+    if let Some(ref sid) = filters.session_id {
+        params.push(Box::new(sid.clone()));
+    }
+    if let Some(from) = filters.date_from_unix {
+        params.push(Box::new(from));
+    }
+    if let Some(to) = filters.date_to_unix {
+        params.push(Box::new(to));
+    }
+    for ct in &filters.content_types {
+        params.push(Box::new(ct.clone()));
+    }
+    for repo in &filters.repositories {
+        params.push(Box::new(repo.clone()));
+    }
+    for tn in &filters.tool_names {
+        params.push(Box::new(tn.clone()));
+    }
 }
 
 /// Sanitize a user query for safe FTS5 MATCH usage.
 ///
 /// FTS5 has a specific query syntax. Raw user input can cause parse errors.
 /// This function handles:
-/// - Balanced quotes (phrase search)
+/// - Balanced quotes (phrase search), including mixed phrases + terms
 /// - Prefix queries (word*)
 /// - Boolean operators (AND, OR, NOT)
 /// - Stripping problematic characters (parentheses, colons, carets)
 /// - Leading NOT protection
+/// - Adjacent operator prevention
 pub fn sanitize_fts_query(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return String::new();
     }
 
-    // If the query looks like a phrase search (starts and ends with quotes), pass through
-    if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() > 2 {
-        // Validate the inner content has no unbalanced quotes
-        let inner = &trimmed[1..trimmed.len() - 1];
-        if !inner.contains('"') {
-            return trimmed.to_string();
-        }
-    }
-
-    // Strip characters that are problematic for FTS5
+    // Strip characters that are problematic for FTS5 (but preserve quotes and *)
     let cleaned: String = trimmed
         .chars()
         .map(|c| match c {
@@ -516,41 +588,96 @@ pub fn sanitize_fts_query(query: &str) -> String {
         })
         .collect();
 
-    // Split into tokens and process
-    let tokens: Vec<&str> = cleaned.split_whitespace().collect();
+    // Parse into tokens, preserving quoted phrases
+    let mut tokens: Vec<String> = Vec::new();
+    let mut chars = cleaned.chars().peekable();
+    let mut current = String::new();
+
+    while let Some(c) = chars.next() {
+        if c == '"' {
+            // Start of a quoted phrase — collect until closing quote or end
+            if !current.is_empty() {
+                tokens.push(current.clone());
+                current.clear();
+            }
+            let mut phrase = String::from('"');
+            let mut closed = false;
+            for inner in chars.by_ref() {
+                if inner == '"' {
+                    phrase.push('"');
+                    closed = true;
+                    break;
+                }
+                phrase.push(inner);
+            }
+            if !closed {
+                // Unclosed quote — treat as plain tokens (strip the leading quote)
+                let plain = phrase[1..].to_string();
+                for word in plain.split_whitespace() {
+                    if !word.is_empty() {
+                        tokens.push(word.to_string());
+                    }
+                }
+            } else {
+                // Valid quoted phrase
+                let inner = &phrase[1..phrase.len() - 1];
+                if !inner.trim().is_empty() {
+                    tokens.push(phrase);
+                }
+            }
+        } else if c.is_whitespace() {
+            if !current.is_empty() {
+                tokens.push(current.clone());
+                current.clear();
+            }
+        } else {
+            current.push(c);
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+
     if tokens.is_empty() {
         return String::new();
     }
 
-    let mut result_tokens = Vec::with_capacity(tokens.len());
+    // Process tokens: handle operators, strip NEAR, validate
     let operators = ["AND", "OR", "NOT"];
+    let mut result_tokens: Vec<String> = Vec::new();
+    let mut last_was_operator = true; // treat start as "operator" to prevent leading NOT
 
-    for (i, token) in tokens.iter().enumerate() {
+    for token in &tokens {
+        // Quoted phrases pass through directly
+        if token.starts_with('"') && token.ends_with('"') {
+            result_tokens.push(token.clone());
+            last_was_operator = false;
+            continue;
+        }
+
         let upper = token.to_uppercase();
 
-        // Don't allow leading NOT (would match everything)
-        if upper == "NOT" && i == 0 {
-            continue;
-        }
-
-        // Preserve boolean operators
+        // Handle boolean operators
         if operators.contains(&upper.as_str()) {
-            // Don't allow trailing operator
-            if i + 1 < tokens.len() {
-                result_tokens.push(upper);
+            // Skip if: leading position, adjacent to another operator, or would be trailing
+            if last_was_operator {
+                continue;
             }
+            result_tokens.push(upper);
+            last_was_operator = true;
             continue;
         }
 
-        // Handle NEAR() — strip it, too complex for user input
+        // Strip NEAR() — too complex for user input
         if upper.starts_with("NEAR") {
             continue;
         }
 
-        // Strip quotes from individual tokens (not phrase searches)
+        // Regular term — strip any remaining quotes
         let clean = token.replace('"', "");
         if !clean.is_empty() {
             result_tokens.push(clean);
+            last_was_operator = false;
         }
     }
 

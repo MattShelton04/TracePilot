@@ -148,6 +148,7 @@ export const useSearchStore = defineStore('search', () => {
         dateToUnix,
         limit: pageSize.value,
         offset: (page.value - 1) * pageSize.value,
+        sortBy: sortBy.value !== 'relevance' ? sortBy.value : undefined,
       });
 
       // Discard stale results from superseded requests

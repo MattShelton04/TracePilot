@@ -260,35 +260,37 @@ pub fn reindex_search_content(
             let content_rows = if events_path.exists() {
                 match tracepilot_core::parsing::events::parse_typed_events(&events_path) {
                     Ok(parsed) => {
-                        index_db::search_writer::extract_search_content(
+                        Some(index_db::search_writer::extract_search_content(
                             &session.id,
                             &parsed.events,
-                        )
+                        ))
                     }
                     Err(e) => {
                         tracing::warn!(
                             session_id = %session.id,
                             error = %e,
-                            "Failed to parse events for search indexing"
+                            "Failed to parse events for search indexing — skipping (preserving existing index)"
                         );
-                        Vec::new()
+                        None
                     }
                 }
             } else {
-                Vec::new()
+                Some(Vec::new())
             };
 
-            // Write INSIDE transaction (brief lock)
-            match db.upsert_search_content(&session.id, &content_rows) {
-                Ok(_) => {
-                    indexed += 1;
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        session_id = %session.id,
-                        error = %e,
-                        "Failed to write search content"
-                    );
+            // Only write if parsing succeeded — don't wipe existing index on transient errors
+            if let Some(rows) = content_rows {
+                match db.upsert_search_content(&session.id, &rows) {
+                    Ok(_) => {
+                        indexed += 1;
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            session_id = %session.id,
+                            error = %e,
+                            "Failed to write search content"
+                        );
+                    }
                 }
             }
         }
