@@ -175,9 +175,9 @@ function resetScale() {
       <!-- Markdown Rendering -->
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Markdown rendering</div>
+          <div class="setting-label">Markdown rendering (Recommended)</div>
           <div class="setting-description">
-            Render rich text and code blocks in conversation and session files.
+            Render markdown content as opposed to plaintext in relevant views.
           </div>
         </div>
         <FormSwitch
