@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Unified Loading States Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <style>
+    /* ── Loading States: Scoped Styles ── */
+
+    body {
+      background: var(--canvas-default);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    .prototype-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .proto-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .proto-header h1 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .proto-header h1 .icon {
+      width: 28px; height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--gradient-accent);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 13px;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+
+    .proto-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.6;
+      max-width: 720px;
+    }
+
+    /* ── Section ── */
+    .showcase-section {
+      margin-bottom: 32px;
+    }
+    .showcase-section-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .showcase-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .showcase-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    .showcase-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .showcase-item-label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Loading Spinner (new component) ── */
+    .loading-spinner-svg {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Button with spinner ── */
+    .btn-loading {
+      position: relative;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+    .btn-loading .btn-text {
+      visibility: hidden;
+    }
+    .btn-loading .btn-spinner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Loading Overlay ── */
+    .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      gap: 16px;
+    }
+    .loading-overlay-message {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    /* ── Skeleton extras ── */
+    .skeleton-text-line {
+      height: 14px;
+      border-radius: var(--radius-sm);
+    }
+    .skeleton-heading {
+      height: 22px;
+      width: 200px;
+      border-radius: var(--radius-sm);
+    }
+    .skeleton-badge {
+      height: 20px;
+      width: 64px;
+      border-radius: var(--radius-full);
+    }
+    .skeleton-card {
+      height: 96px;
+      border-radius: var(--radius-lg);
+    }
+    .skeleton-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Progress variants ── */
+    .progress-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    /* ── Composition demo ── */
+    .composition-frame {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      min-height: 220px;
+    }
+    .composition-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .composition-body {
+      padding: 20px;
+      position: relative;
+      min-height: 180px;
+    }
+
+    /* ── Alert (reused from error-alert prototype) ── */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      line-height: 1.55;
+      border: 1px solid transparent;
+    }
+    .alert-icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; }
+    .alert-content { flex: 1; min-width: 0; }
+    .alert-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+    .alert-error {
+      background: var(--danger-muted);
+      border-color: rgba(251,113,133,0.2);
+      color: var(--danger-fg);
+    }
+    .alert-retry {
+      background: none;
+      border: 1px solid currentColor;
+      border-radius: var(--radius-sm);
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: inherit;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity var(--transition-fast);
+      white-space: nowrap;
+    }
+    .alert-retry:hover { opacity: 1; }
+
+    /* ── Demo Panel ── */
+    .demo-panel {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+    .demo-panel-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .demo-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .demo-output {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      min-height: 64px;
+      position: relative;
+    }
+
+    /* ── Content card for loaded state ── */
+    .mock-session-card {
+      padding: 14px 16px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--canvas-subtle);
+    }
+    .mock-session-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .mock-session-meta {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 12px;
+    }
+
+    /* ── Size reference markers ── */
+    .size-marker {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* ── Shimmer overlay (enhanced skeleton) ── */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(
+        90deg,
+        var(--neutral-muted) 25%,
+        rgba(255,255,255,0.08) 50%,
+        var(--neutral-muted) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.8s ease-in-out infinite;
+      border-radius: var(--radius-md);
+    }
+    :root[data-theme="light"] .skeleton-shimmer {
+      background: linear-gradient(
+        90deg,
+        var(--neutral-muted) 25%,
+        rgba(0,0,0,0.03) 50%,
+        var(--neutral-muted) 75%
+      );
+      background-size: 200% 100%;
+    }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .loading-spinner-svg { animation: none; }
+      .skeleton, .skeleton-shimmer { animation: none; opacity: 0.5; }
+      @keyframes shimmer { 0%, 100% { background-position: 0 0; } }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+
+    <!-- ── Header ── -->
+    <header class="proto-header">
+      <h1>
+        <span class="icon">⏳</span>
+        Unified Loading States
+      </h1>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <p class="proto-desc">
+      All loading patterns in one page: inline spinners, button spinners, full overlays, skeleton
+      shimmer placeholders, and progress bars. Includes composition examples showing how states
+      transition from skeleton → content → error fallback.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 1: LoadingSpinner — 3 Sizes                   -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">1 — LoadingSpinner (Inline SVG)</h2>
+      <div class="showcase-row">
+        <div class="showcase-item">
+          <div class="showcase-item-label">Small (16 px)</div>
+          <div role="status" aria-live="polite" aria-label="Loading">
+            <svg class="loading-spinner-svg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <span class="sr-only">Loading</span>
+          </div>
+          <div class="size-marker">sm</div>
+        </div>
+        <div class="showcase-item">
+          <div class="showcase-item-label">Medium (24 px)</div>
+          <div role="status" aria-live="polite" aria-label="Loading">
+            <svg class="loading-spinner-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-marker">md</div>
+        </div>
+        <div class="showcase-item">
+          <div class="showcase-item-label">Large (32 px)</div>
+          <div role="status" aria-live="polite" aria-label="Loading">
+            <svg class="loading-spinner-svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-marker">lg</div>
+        </div>
+
+        <div class="showcase-item" style="margin-left: 24px;">
+          <div class="showcase-item-label">Semantic Colors</div>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <svg class="loading-spinner-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <svg class="loading-spinner-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--success-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <svg class="loading-spinner-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--warning-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <svg class="loading-spinner-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--danger-fg)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-marker">accent · success · warning · danger</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 2: Spinner in Button                          -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">2 — LoadingSpinner in Button</h2>
+      <div class="showcase-row">
+        <div class="showcase-item">
+          <div class="showcase-item-label">Normal</div>
+          <button class="btn btn-primary" id="btnDemo" onclick="toggleBtnLoading(this)">
+            <span class="btn-text">Save Changes</span>
+          </button>
+        </div>
+        <div class="showcase-item">
+          <div class="showcase-item-label">Loading State</div>
+          <button class="btn btn-primary btn-loading" disabled aria-busy="true">
+            <span class="btn-text">Save Changes</span>
+            <span class="btn-spinner" role="status" aria-label="Saving">
+              <svg class="loading-spinner-svg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+                <path d="M16 2a14 14 0 0 1 14 14" stroke="white" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+        <div class="showcase-item">
+          <div class="showcase-item-label">Ghost Button Loading</div>
+          <button class="btn btn-ghost btn-loading" disabled aria-busy="true">
+            <span class="btn-text">Refresh</span>
+            <span class="btn-spinner" role="status" aria-label="Refreshing">
+              <svg class="loading-spinner-svg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+                <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 3: Loading Overlay                            -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">3 — LoadingOverlay (Content-area replacement)</h2>
+      <div class="composition-frame">
+        <div class="composition-header">
+          <span>Session Detail</span>
+          <span class="badge badge-accent">Existing Pattern</span>
+        </div>
+        <div class="loading-overlay" role="status" aria-live="polite">
+          <svg class="loading-spinner-svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+            <path d="M16 2a14 14 0 0 1 14 14" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <p class="loading-overlay-message">Loading session data…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 4: Skeleton Text                              -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">4 — SkeletonLoader: Text</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div class="showcase-item-label" style="margin-bottom:8px;">Pulse (Current)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="skeleton skeleton-heading"></div>
+            <div class="skeleton skeleton-text-line" style="width:100%"></div>
+            <div class="skeleton skeleton-text-line" style="width:80%"></div>
+            <div class="skeleton skeleton-text-line" style="width:60%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="showcase-item-label" style="margin-bottom:8px;">Shimmer (Enhanced)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="skeleton-shimmer skeleton-heading"></div>
+            <div class="skeleton-shimmer skeleton-text-line" style="width:100%"></div>
+            <div class="skeleton-shimmer skeleton-text-line" style="width:80%"></div>
+            <div class="skeleton-shimmer skeleton-text-line" style="width:60%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 5: Skeleton Badge                             -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">5 — SkeletonLoader: Badges</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div class="showcase-item-label" style="margin-bottom:8px;">Skeleton</div>
+          <div style="display:flex;gap:8px;">
+            <div class="skeleton skeleton-badge"></div>
+            <div class="skeleton skeleton-badge" style="width:48px;"></div>
+            <div class="skeleton skeleton-badge" style="width:80px;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="showcase-item-label" style="margin-bottom:8px;">Loaded</div>
+          <div style="display:flex;gap:8px;">
+            <span class="badge badge-accent">cli</span>
+            <span class="badge badge-success">done</span>
+            <span class="badge badge-warning">claude-opus-4.6</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 6: Skeleton Card                              -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">6 — SkeletonLoader: Cards</h2>
+      <div class="grid-3">
+        <div class="skeleton-shimmer skeleton-card"></div>
+        <div class="skeleton-shimmer skeleton-card"></div>
+        <div class="skeleton-shimmer skeleton-card"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION 7: Progress Indicator                         -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">7 — Progress Indicator (Known-length operations)</h2>
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:480px;">
+        <div>
+          <div class="progress-label">
+            <span>Indexing sessions…</span>
+            <span>34%</span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuenow="34" aria-valuemin="0" aria-valuemax="100" aria-label="Indexing sessions">
+            <div class="progress-bar-fill" style="width:34%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="progress-label">
+            <span>Exporting trace data…</span>
+            <span>78%</span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuenow="78" aria-valuemin="0" aria-valuemax="100" aria-label="Exporting trace data">
+            <div class="progress-bar-fill" style="width:78%; background: var(--success-fg);"></div>
+          </div>
+        </div>
+        <div>
+          <div class="progress-label">
+            <span>Uploading report…</span>
+            <span>100%</span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Uploading report">
+            <div class="progress-bar-fill" style="width:100%; background: var(--success-fg);"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- SECTION: Composition — skeleton → content → error     -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">Composition: State Transition Demo</h2>
+      <div class="composition-frame">
+        <div class="composition-header">
+          <span>Session List (Interactive)</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm" id="compSkeleton" onclick="setCompState('skeleton')">Skeleton</button>
+            <button class="btn btn-sm" id="compLoading" onclick="setCompState('loading')">Spinner</button>
+            <button class="btn btn-sm" id="compContent" onclick="setCompState('content')">Content</button>
+            <button class="btn btn-sm" id="compError" onclick="setCompState('error')">Error</button>
+          </div>
+        </div>
+        <div class="composition-body" id="compBody">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- INTERACTIVE DEMO PANEL                                -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <section class="showcase-section">
+      <h2 class="showcase-section-title">Interactive Demo</h2>
+      <div class="demo-panel">
+        <div class="demo-panel-title">⚡ Toggle Loading States</div>
+        <div class="demo-controls">
+          <button class="btn btn-sm" onclick="showInDemo('spinner-sm')">Spinner sm</button>
+          <button class="btn btn-sm" onclick="showInDemo('spinner-md')">Spinner md</button>
+          <button class="btn btn-sm" onclick="showInDemo('spinner-lg')">Spinner lg</button>
+          <button class="btn btn-sm" onclick="showInDemo('btn-loading')">Button Loading</button>
+          <button class="btn btn-sm" onclick="showInDemo('overlay')">Overlay</button>
+          <button class="btn btn-sm" onclick="showInDemo('skeleton-text')">Skeleton Text</button>
+          <button class="btn btn-sm" onclick="showInDemo('skeleton-cards')">Skeleton Cards</button>
+          <button class="btn btn-sm" onclick="showInDemo('progress')">Progress</button>
+          <button class="btn btn-sm" onclick="clearDemoOutput()">Clear</button>
+        </div>
+        <div class="demo-output" id="demoOutput" aria-live="polite">
+          <div style="color:var(--text-placeholder);font-size:0.8125rem;text-align:center;padding:12px;">
+            Click a button above to preview a loading state
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- Scripts                                               -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ── Spinner HTML builder ──
+    function spinnerSVG(size, color) {
+      color = color || 'var(--accent-fg)';
+      return `<svg class="loading-spinner-svg" width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" stroke="var(--border-default)" stroke-width="3"/>
+        <path d="M16 2a14 14 0 0 1 14 14" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // ── Toggle button loading state demo ──
+    function toggleBtnLoading(btn) {
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      const text = btn.querySelector('.btn-text');
+      const spinner = document.createElement('span');
+      spinner.className = 'btn-spinner';
+      spinner.setAttribute('role', 'status');
+      spinner.setAttribute('aria-label', 'Saving');
+      spinner.innerHTML = `<svg class="loading-spinner-svg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+        <path d="M16 2a14 14 0 0 1 14 14" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      </svg>`;
+      btn.appendChild(spinner);
+      setTimeout(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        spinner.remove();
+      }, 2000);
+    }
+
+    // ── Composition state machine ──
+    const COMP_STATES = {
+      skeleton: `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="skeleton-shimmer skeleton-avatar"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="skeleton-shimmer skeleton-heading" style="width:60%"></div>
+              <div class="skeleton-shimmer skeleton-text-line" style="width:40%"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="skeleton-shimmer skeleton-avatar"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="skeleton-shimmer skeleton-heading" style="width:50%"></div>
+              <div class="skeleton-shimmer skeleton-text-line" style="width:35%"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="skeleton-shimmer skeleton-avatar"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="skeleton-shimmer skeleton-heading" style="width:70%"></div>
+              <div class="skeleton-shimmer skeleton-text-line" style="width:45%"></div>
+            </div>
+          </div>
+        </div>`,
+      loading: `
+        <div class="loading-overlay" role="status" aria-live="polite">
+          ${spinnerSVG(32)}
+          <p class="loading-overlay-message">Loading sessions…</p>
+        </div>`,
+      content: `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="mock-session-card">
+            <div class="mock-session-title">Implemented OAuth login with GitHub</div>
+            <div class="mock-session-meta">
+              <span>acme/web-platform</span>
+              <span>12 turns</span>
+              <span class="badge badge-accent" style="font-size:0.625rem;">claude-opus-4.6</span>
+            </div>
+          </div>
+          <div class="mock-session-card">
+            <div class="mock-session-title">Refactored database connection pooling</div>
+            <div class="mock-session-meta">
+              <span>acme/api-server</span>
+              <span>8 turns</span>
+              <span class="badge badge-success" style="font-size:0.625rem;">gpt-5.4</span>
+            </div>
+          </div>
+          <div class="mock-session-card">
+            <div class="mock-session-title">Added unit tests for payment module</div>
+            <div class="mock-session-meta">
+              <span>acme/web-platform</span>
+              <span>18 turns</span>
+              <span class="badge badge-accent" style="font-size:0.625rem;">claude-sonnet-4.6</span>
+            </div>
+          </div>
+        </div>`,
+      error: `
+        <div class="alert alert-error" role="alert" style="margin:0;">
+          <svg class="alert-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.25a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0v-3zM8 11.5a.75.75 0 100-1.5.75.75 0 000 1.5z"/></svg>
+          <span class="alert-content"><span class="alert-message">Failed to load sessions. Check your network connection.</span></span>
+          <div class="alert-actions">
+            <button class="alert-retry" onclick="setCompState('loading');setTimeout(()=>setCompState('content'),1500)">Retry</button>
+          </div>
+        </div>`,
+    };
+
+    function setCompState(state) {
+      const body = document.getElementById('compBody');
+      body.innerHTML = COMP_STATES[state];
+      // Highlight active button
+      ['compSkeleton','compLoading','compContent','compError'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.classList.toggle('btn-primary', id === 'comp' + state.charAt(0).toUpperCase() + state.slice(1));
+      });
+    }
+
+    // ── Interactive demo ──
+    const DEMO_TEMPLATES = {
+      'spinner-sm': `<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:16px;" role="status" aria-live="polite">
+        ${spinnerSVG(16)} <span style="font-size:0.8125rem;color:var(--text-secondary);">Loading…</span>
+      </div>`,
+      'spinner-md': `<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:16px;" role="status" aria-live="polite">
+        ${spinnerSVG(24)} <span style="font-size:0.8125rem;color:var(--text-secondary);">Loading…</span>
+      </div>`,
+      'spinner-lg': `<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:16px;" role="status" aria-live="polite">
+        ${spinnerSVG(32)} <span style="font-size:0.8125rem;color:var(--text-secondary);">Loading…</span>
+      </div>`,
+      'btn-loading': `<div style="display:flex;justify-content:center;padding:16px;">
+        <button class="btn btn-primary btn-loading" disabled aria-busy="true">
+          <span class="btn-text">Deploy</span>
+          <span class="btn-spinner" role="status" aria-label="Deploying">
+            <svg class="loading-spinner-svg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+              <path d="M16 2a14 14 0 0 1 14 14" stroke="white" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </button>
+      </div>`,
+      'overlay': `<div class="loading-overlay" role="status" aria-live="polite" style="padding:32px;">
+        ${spinnerSVG(32)}
+        <p class="loading-overlay-message">Loading session data…</p>
+      </div>`,
+      'skeleton-text': `<div style="padding:8px;display:flex;flex-direction:column;gap:8px;">
+        <div class="skeleton-shimmer skeleton-heading"></div>
+        <div class="skeleton-shimmer skeleton-text-line" style="width:100%"></div>
+        <div class="skeleton-shimmer skeleton-text-line" style="width:85%"></div>
+        <div class="skeleton-shimmer skeleton-text-line" style="width:65%"></div>
+      </div>`,
+      'skeleton-cards': `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:8px;">
+        <div class="skeleton-shimmer skeleton-card"></div>
+        <div class="skeleton-shimmer skeleton-card"></div>
+        <div class="skeleton-shimmer skeleton-card"></div>
+      </div>`,
+      'progress': `<div style="max-width:400px;margin:0 auto;padding:16px;" role="status" aria-live="polite">
+        <div class="progress-label"><span>Processing…</span><span id="demoPct">0%</span></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Processing" id="demoProgressBar">
+          <div class="progress-bar-fill" id="demoProgressFill" style="width:0%;"></div>
+        </div>
+      </div>`,
+    };
+
+    function showInDemo(key) {
+      const output = document.getElementById('demoOutput');
+      output.innerHTML = DEMO_TEMPLATES[key];
+      // Animate progress if needed
+      if (key === 'progress') animateProgress();
+    }
+
+    function clearDemoOutput() {
+      document.getElementById('demoOutput').innerHTML = `<div style="color:var(--text-placeholder);font-size:0.8125rem;text-align:center;padding:12px;">Click a button above to preview a loading state</div>`;
+    }
+
+    function animateProgress() {
+      let pct = 0;
+      const fill = document.getElementById('demoProgressFill');
+      const label = document.getElementById('demoPct');
+      const bar = document.getElementById('demoProgressBar');
+      if (!fill) return;
+      const interval = setInterval(() => {
+        pct += Math.floor(Math.random() * 8) + 2;
+        if (pct >= 100) {
+          pct = 100;
+          clearInterval(interval);
+        }
+        fill.style.width = pct + '%';
+        label.textContent = pct + '%';
+        bar.setAttribute('aria-valuenow', pct);
+        if (pct === 100) fill.style.background = 'var(--success-fg)';
+      }, 200);
+    }
+
+    // ── Boot ──
+    setCompState('skeleton');
+  </script>
+</body>
+</html>
