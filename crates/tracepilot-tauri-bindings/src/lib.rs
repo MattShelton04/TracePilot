@@ -36,6 +36,49 @@ pub struct FreshnessResponse {
     pub events_file_size: u64,
 }
 
+/// A search result item with highlighted snippet and session context.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResultItem {
+    pub id: i64,
+    pub session_id: String,
+    pub content_type: String,
+    pub turn_number: Option<i64>,
+    pub event_index: Option<i64>,
+    pub timestamp_unix: Option<i64>,
+    pub tool_name: Option<String>,
+    pub snippet: String,
+    pub metadata_json: Option<String>,
+    pub session_summary: Option<String>,
+    pub session_repository: Option<String>,
+    pub session_branch: Option<String>,
+    pub session_updated_at: Option<String>,
+}
+
+/// Facet counts response for the filter sidebar.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchFacetsResponse {
+    pub by_content_type: Vec<(String, i64)>,
+    pub by_repository: Vec<(String, i64)>,
+    pub by_tool_name: Vec<(String, i64)>,
+    pub total_matches: i64,
+    pub session_count: i64,
+}
+
+/// Search index statistics response.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchStatsResponse {
+    pub total_rows: i64,
+    pub indexed_sessions: i64,
+    pub total_sessions: i64,
+    pub content_type_counts: Vec<(String, i64)>,
+}
+
+/// Newtype for the search indexing semaphore (separate from main indexing).
+pub struct SearchSemaphore(pub Arc<tokio::sync::Semaphore>);
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
@@ -141,7 +184,8 @@ pub struct IndexingProgressPayload {
 mod commands {
     use super::{
         config, CachedTurns, EventItem, EventsResponse, FreshnessResponse, GitInfo,
-        IndexingProgressPayload, SessionIncidentItem, SessionListItem, SharedConfig, TodosResponse,
+        IndexingProgressPayload, SearchFacetsResponse, SearchResultItem, SearchSemaphore,
+        SearchStatsResponse, SessionIncidentItem, SessionListItem, SharedConfig, TodosResponse,
         TracePilotConfig, TurnCache, TurnsResponse, UpdateCheckResult, ValidateSessionDirResult,
     };
     use std::path::Path;
@@ -707,6 +751,7 @@ mod commands {
     pub async fn reindex_sessions(
         state: tauri::State<'_, SharedConfig>,
         semaphore: tauri::State<'_, Arc<Semaphore>>,
+        search_semaphore: tauri::State<'_, SearchSemaphore>,
         app: tauri::AppHandle,
     ) -> Result<(usize, usize), String> {
         let permit = match semaphore.inner().clone().try_acquire_owned() {
@@ -747,6 +792,36 @@ mod commands {
         .map_err(|e| e.to_string());
 
         let _ = app.emit("indexing-finished", ());
+
+        // Phase 2: Kick off search content indexing in background (non-blocking).
+        // Uses try_acquire — if another search index is running, skip.
+        let search_permit = search_semaphore.0.clone().try_acquire_owned();
+        if let Ok(search_permit) = search_permit {
+            let cfg2 = read_config(&state);
+            let session_state_dir2 = cfg2.session_state_dir();
+            let index_path2 = cfg2.index_db_path();
+            let app2 = app.clone();
+            tokio::task::spawn_blocking(move || {
+                let _permit = search_permit;
+                let _ = app2.emit("search-indexing-started", ());
+                let _ = tracepilot_indexer::reindex_search_content(
+                    &session_state_dir2,
+                    &index_path2,
+                    |progress| {
+                        let _ = app2.emit(
+                            "search-indexing-progress",
+                            serde_json::json!({
+                                "current": progress.current,
+                                "total": progress.total
+                            }),
+                        );
+                    },
+                    || false,
+                );
+                let _ = app2.emit("search-indexing-finished", ());
+            });
+        }
+
         result?
     }
 
@@ -798,6 +873,207 @@ mod commands {
         .map_err(|e| e.to_string());
 
         let _ = app.emit("indexing-finished", ());
+        result?
+    }
+
+    // ── Deep Search Commands ──────────────────────────────────────────
+
+    /// Search session content with full-text search.
+    #[tauri::command]
+    pub async fn search_content(
+        state: tauri::State<'_, SharedConfig>,
+        query: String,
+        content_types: Option<Vec<String>>,
+        repositories: Option<Vec<String>>,
+        tool_names: Option<Vec<String>>,
+        session_id: Option<String>,
+        date_from_unix: Option<i64>,
+        date_to_unix: Option<i64>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<SearchResultItem>, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+
+            let filters = tracepilot_indexer::SearchFilters {
+                content_types: content_types.unwrap_or_default(),
+                repositories: repositories.unwrap_or_default(),
+                tool_names: tool_names.unwrap_or_default(),
+                session_id,
+                date_from_unix,
+                date_to_unix,
+                limit,
+                offset,
+            };
+
+            let results = db.search_content(&query, &filters).map_err(|e| e.to_string())?;
+
+            Ok(results
+                .into_iter()
+                .map(|r| SearchResultItem {
+                    id: r.id,
+                    session_id: r.session_id,
+                    content_type: r.content_type,
+                    turn_number: r.turn_number,
+                    event_index: r.event_index,
+                    timestamp_unix: r.timestamp_unix,
+                    tool_name: r.tool_name,
+                    snippet: r.snippet,
+                    metadata_json: r.metadata_json,
+                    session_summary: r.session_summary,
+                    session_repository: r.session_repository,
+                    session_branch: r.session_branch,
+                    session_updated_at: r.session_updated_at,
+                })
+                .collect())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Get facet counts for a search query.
+    #[tauri::command]
+    pub async fn get_search_facets(
+        state: tauri::State<'_, SharedConfig>,
+        query: String,
+        content_types: Option<Vec<String>>,
+        session_id: Option<String>,
+        date_from_unix: Option<i64>,
+        date_to_unix: Option<i64>,
+    ) -> Result<SearchFacetsResponse, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+
+            let filters = tracepilot_indexer::SearchFilters {
+                content_types: content_types.unwrap_or_default(),
+                session_id,
+                date_from_unix,
+                date_to_unix,
+                ..Default::default()
+            };
+
+            let facets = db.search_facets(&query, &filters).map_err(|e| e.to_string())?;
+
+            Ok(SearchFacetsResponse {
+                by_content_type: facets.by_content_type,
+                by_repository: facets.by_repository,
+                by_tool_name: facets.by_tool_name,
+                total_matches: facets.total_matches,
+                session_count: facets.session_count,
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Get search index statistics.
+    #[tauri::command]
+    pub async fn get_search_stats(
+        state: tauri::State<'_, SharedConfig>,
+    ) -> Result<SearchStatsResponse, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+
+            let stats = db.search_stats().map_err(|e| e.to_string())?;
+
+            Ok(SearchStatsResponse {
+                total_rows: stats.total_rows,
+                indexed_sessions: stats.indexed_sessions,
+                total_sessions: stats.total_sessions,
+                content_type_counts: stats.content_type_counts,
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Get distinct repositories for search filter dropdown.
+    #[tauri::command]
+    pub async fn get_search_repositories(
+        state: tauri::State<'_, SharedConfig>,
+    ) -> Result<Vec<String>, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+            db.search_repositories().map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Get distinct tool names for search filter dropdown.
+    #[tauri::command]
+    pub async fn get_search_tool_names(
+        state: tauri::State<'_, SharedConfig>,
+    ) -> Result<Vec<String>, String> {
+        let cfg = read_config(&state);
+        let index_path = cfg.index_db_path();
+
+        tokio::task::spawn_blocking(move || {
+            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                .map_err(|e| e.to_string())?;
+            db.search_tool_names().map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    /// Rebuild the search index from scratch.
+    #[tauri::command]
+    pub async fn rebuild_search_index(
+        state: tauri::State<'_, SharedConfig>,
+        search_semaphore: tauri::State<'_, SearchSemaphore>,
+        app: tauri::AppHandle,
+    ) -> Result<(usize, usize), String> {
+        let permit = match search_semaphore.0.clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        };
+
+        let cfg = read_config(&state);
+        let session_state_dir = cfg.session_state_dir();
+        let index_path = cfg.index_db_path();
+        let app_handle = app.clone();
+
+        let _ = app.emit("search-indexing-started", ());
+
+        let result = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            tracepilot_indexer::rebuild_search_content(
+                &session_state_dir,
+                &index_path,
+                |progress| {
+                    let _ = app_handle.emit(
+                        "search-indexing-progress",
+                        serde_json::json!({
+                            "current": progress.current,
+                            "total": progress.total
+                        }),
+                    );
+                },
+                || false, // Not cancellable from UI during manual rebuild
+            )
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string());
+
+        let _ = app.emit("search-indexing-finished", ());
         result?
     }
 
@@ -2064,6 +2340,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
             app.manage(std::sync::Arc::new(tokio::sync::Semaphore::new(1)));
+            app.manage(SearchSemaphore(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            )));
             let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
                 NonZeroUsize::new(10).unwrap(),
             )));
@@ -2082,6 +2361,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::get_session_plan,
             commands::get_shutdown_metrics,
             commands::search_sessions,
+            commands::search_content,
+            commands::get_search_facets,
+            commands::get_search_stats,
+            commands::get_search_repositories,
+            commands::get_search_tool_names,
+            commands::rebuild_search_index,
             commands::reindex_sessions,
             commands::reindex_sessions_full,
             commands::get_analytics,
