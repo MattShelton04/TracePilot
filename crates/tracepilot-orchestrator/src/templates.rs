@@ -4,6 +4,9 @@ use crate::error::{OrchestratorError, Result};
 use crate::types::SessionTemplate;
 use std::path::PathBuf;
 
+/// Maximum size for a single template JSON file (1 MB).
+const MAX_TEMPLATE_SIZE: u64 = 1_048_576;
+
 /// Default templates storage path.
 pub fn templates_dir() -> Result<PathBuf> {
     let home = crate::launcher::copilot_home()?;
@@ -92,10 +95,9 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
             if path.file_stem().and_then(|s| s.to_str()) == Some("dismissed_defaults") {
                 continue;
             }
-            // Reject unreasonably large template files (1 MB limit) to prevent DoS
-            const MAX_TEMPLATE_SIZE: u64 = 1_048_576;
-            if let Ok(meta) = std::fs::metadata(&path) {
-                if meta.len() > MAX_TEMPLATE_SIZE {
+            // Reject unreasonably large template files to prevent DoS
+            match std::fs::metadata(&path) {
+                Ok(meta) if meta.len() > MAX_TEMPLATE_SIZE => {
                     tracing::warn!(
                         "Skipping oversized template file ({} bytes): {}",
                         meta.len(),
@@ -103,6 +105,15 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
                     );
                     continue;
                 }
+                Err(e) => {
+                    tracing::warn!(
+                        "Cannot read metadata for template file {}: {}",
+                        path.display(),
+                        e
+                    );
+                    continue;
+                }
+                _ => {}
             }
             let content = std::fs::read_to_string(&path)?;
             match serde_json::from_str::<SessionTemplate>(&content) {
