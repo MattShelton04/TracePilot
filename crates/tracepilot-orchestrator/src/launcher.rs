@@ -209,7 +209,10 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
             String::new()
         };
 
-        // Inject env vars into the PowerShell script so they survive WMI spawning
+        // Validate env var names and inject into the PowerShell script so they survive WMI spawning
+        for k in envs.keys() {
+            crate::process::validate_env_var_name(k)?;
+        }
         let env_setup: String = envs
             .iter()
             .map(|(k, v)| {

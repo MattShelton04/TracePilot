@@ -37,7 +37,8 @@ impl IndexDb {
 
         sql.push_str(" ORDER BY updated_at DESC");
         if let Some(limit) = limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
+            sql.push_str(" LIMIT ?");
+            query_params.push(Box::new(limit as i64));
         }
 
         let mut stmt = self.conn.prepare(&sql)?;

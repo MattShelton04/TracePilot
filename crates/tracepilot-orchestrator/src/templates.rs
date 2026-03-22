@@ -92,6 +92,18 @@ pub fn list_templates() -> Result<Vec<SessionTemplate>> {
             if path.file_stem().and_then(|s| s.to_str()) == Some("dismissed_defaults") {
                 continue;
             }
+            // Reject unreasonably large template files (1 MB limit) to prevent DoS
+            const MAX_TEMPLATE_SIZE: u64 = 1_048_576;
+            if let Ok(meta) = std::fs::metadata(&path) {
+                if meta.len() > MAX_TEMPLATE_SIZE {
+                    tracing::warn!(
+                        "Skipping oversized template file ({} bytes): {}",
+                        meta.len(),
+                        path.display()
+                    );
+                    continue;
+                }
+            }
             let content = std::fs::read_to_string(&path)?;
             match serde_json::from_str::<SessionTemplate>(&content) {
                 Ok(template) => templates.push(template),

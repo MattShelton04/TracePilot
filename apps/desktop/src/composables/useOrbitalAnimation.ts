@@ -191,7 +191,7 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
   function createAmbientParticles(count: number) {
     const container = ambientContainerRef.value
     if (!container) return
-    container.innerHTML = ''
+    container.replaceChildren()
 
     if (prefersReducedMotion.value) return
 

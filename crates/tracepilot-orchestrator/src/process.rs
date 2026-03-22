@@ -292,10 +292,15 @@ pub fn encode_powershell_command(cmd: &str) -> String {
     let mut buf = Vec::new();
     {
         let mut encoder = Base64Encoder::new(&mut buf);
-        encoder.write_all(&utf16).unwrap();
-        encoder.finish().unwrap();
+        encoder
+            .write_all(&utf16)
+            .expect("base64 write to Vec<u8> is infallible");
+        encoder
+            .finish()
+            .expect("base64 finish to Vec<u8> is infallible");
     }
-    String::from_utf8(buf).unwrap()
+    // Safety: base64 output is always valid ASCII (subset of UTF-8)
+    String::from_utf8(buf).expect("base64 output is always valid ASCII")
 }
 
 /// Minimal base64 encoder (no external dependency needed).
@@ -378,8 +383,7 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 
 /// Validate that an environment variable name contains only safe characters.
 /// Prevents shell injection via env var names in constructed commands.
-#[allow(dead_code)] // Used in macOS/Linux cfg blocks
-fn validate_env_var_name(name: &str) -> Result<()> {
+pub(crate) fn validate_env_var_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(OrchestratorError::Launch(
             "Environment variable name cannot be empty".into(),
