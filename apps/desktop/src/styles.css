@@ -342,6 +342,14 @@ body {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+.sidebar-kbd {
+  font-family: inherit;
+  border: 1px solid var(--border-secondary, rgba(255,255,255,0.08));
+  border-radius: 3px;
+  padding: 0 4px;
+  opacity: 0.5;
+}
+.sidebar-nav-item:hover .sidebar-kbd { opacity: 0.8; }
 .sidebar-nav-item.active .sidebar-nav-badge { color: var(--text-secondary); }
 .sidebar-section-title {
   font-size: 0.6875rem;

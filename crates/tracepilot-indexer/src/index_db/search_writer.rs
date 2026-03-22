@@ -182,7 +182,9 @@ pub fn extract_search_content(
     events: &[TypedEvent],
 ) -> Vec<SearchContentRow> {
     let mut rows = Vec::with_capacity(events.len() / 2);
+    // Track turn number to match frontend's turnIndex (0-based, increments on UserMessage)
     let mut current_turn: i64 = 0;
+    let mut has_seen_user_message = false;
     // Map tool_call_id → tool_name for carrying names to completion events
     let mut tool_names: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -192,11 +194,16 @@ pub fn extract_search_content(
         let idx = event_index as i64;
 
         match &event.typed_data {
-            TypedEventData::TurnStart(_) => {
-                current_turn += 1;
-            }
+            // TurnStart (AssistantTurnStart) does NOT increment — frontend
+            // assigns turnIndex on UserMessage, not TurnStart.
+            TypedEventData::TurnStart(_) => {}
 
             TypedEventData::UserMessage(d) => {
+                // Mirror frontend: first UserMessage = turn 0, subsequent ones increment
+                if has_seen_user_message {
+                    current_turn += 1;
+                }
+                has_seen_user_message = true;
                 if let Some(ref content) = d.content {
                     if !content.is_empty() {
                         rows.push(SearchContentRow {

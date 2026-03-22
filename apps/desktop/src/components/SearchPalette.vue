@@ -18,6 +18,7 @@ const selectedIndex = ref(0);
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const resultsRef = ref<HTMLElement | null>(null);
+const modalRef = ref<HTMLElement | null>(null);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -261,9 +262,12 @@ onUnmounted(() => {
         @mousedown.self="close"
       >
         <div
+          ref="modalRef"
           class="palette-modal"
           role="dialog"
           aria-label="Session search"
+          tabindex="-1"
+          @keydown="handlePaletteKeydown"
         >
           <!-- ═══ Search Input ═══ -->
           <div class="palette-search">
@@ -281,7 +285,6 @@ onUnmounted(() => {
               placeholder="Search sessions, messages, tools…"
               spellcheck="false"
               autocomplete="off"
-              @keydown="handlePaletteKeydown"
             />
             <button
               v-if="query.length > 0"
@@ -361,6 +364,7 @@ onUnmounted(() => {
                   :key="result.id"
                   class="palette-item"
                   :class="{ selected: resultIndex(result) === selectedIndex }"
+                  @mousedown.prevent
                   @click="navigateToResult(result)"
                   @mouseenter="selectedIndex = resultIndex(result)"
                 >

@@ -260,6 +260,7 @@ function eventTypeLabel(eventType: string): string {
           <!-- ── Subagent Section ── -->
           <div
             v-else
+            :id="`subagent-${turn.turnIndex}-${section.agentId}`"
             class="subagent-block"
             :style="{ '--agent-border-color': AGENT_COLORS[section.agentType] ?? AGENT_COLORS.main }"
           >

@@ -23,6 +23,7 @@ const prefsStore = usePreferencesStore();
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || 'sessions');
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
 const currentTheme = computed(() => prefsStore.theme);
+const isMac = navigator.platform.toUpperCase().includes('MAC');
 
 function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
@@ -115,6 +116,9 @@ const orchestrationNav: NavItem[] = [
         <span v-if="item.id === 'sessions' && sessionCount > 0" class="sidebar-nav-badge">
           {{ sessionCount }}
         </span>
+        <kbd v-else-if="item.id === 'search'" class="sidebar-nav-badge sidebar-kbd">
+          {{ isMac ? '⌘' : 'Ctrl+' }}K
+        </kbd>
       </router-link>
 
       <!-- Advanced section -->
