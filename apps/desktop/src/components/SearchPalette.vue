@@ -301,9 +301,9 @@ onUnmounted(() => {
 
           <!-- ═══ Status ═══ -->
           <div v-if="hasQuery && !loading && hasResults" class="palette-status">
-            {{ totalCount }} result{{ totalCount !== 1 ? 's' : '' }}
-            across {{ uniqueSessionCount() }} session{{ uniqueSessionCount() !== 1 ? 's' : '' }}
-            · {{ latencyMs < 1000 ? `${latencyMs}ms` : `${(latencyMs / 1000).toFixed(2)}s` }}
+            {{ totalCount.toLocaleString() }} result{{ totalCount !== 1 ? 's' : '' }}
+            across {{ uniqueSessionCount().toLocaleString() }} session{{ uniqueSessionCount() !== 1 ? 's' : '' }}
+            · {{ latencyMs < 1000 ? `${latencyMs.toFixed(2)}ms` : `${(latencyMs / 1000).toFixed(2)}s` }}
           </div>
 
           <!-- ═══ Results ═══ -->
