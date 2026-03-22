@@ -68,7 +68,9 @@ const groupedResults = computed<ResultGroup[]>(() => {
   return out;
 });
 
-const flatResults = computed<SearchResult[]>(() => results.value);
+const flatResults = computed<SearchResult[]>(() =>
+  groupedResults.value.flatMap((g) => g.results),
+);
 
 const hasResults = computed(() => results.value.length > 0);
 const hasQuery = computed(() => query.value.trim().length > 0);
