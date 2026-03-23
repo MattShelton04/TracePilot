@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ErrorState, formatDateShort, formatNumberFull, LoadingOverlay } from '@tracepilot/ui';
-import { computed, onMounted, reactive, watch } from 'vue';
+import { ErrorState, formatDateShort, formatNumberFull, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
+import { computed, onMounted, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { CHART_COLORS } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
+const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } = useChartTooltip();
 
 onMounted(() => {
   store.fetchAvailableRepos();
@@ -48,88 +49,6 @@ function churnBarWidth(adds: number, dels: number): number {
 function addPct(adds: number, dels: number): number {
   const total = adds + dels;
   return total > 0 ? Math.round((adds / total) * 100) : 0;
-}
-
-// ── Tooltip state ────────────────────────────────────────────
-const tooltip = reactive({
-  visible: false,
-  pinned: false,
-  x: 0,
-  y: 0,
-  content: '',
-  chartId: '',
-  highlightIndex: -1,
-});
-
-function positionTooltip(event: MouseEvent, container: HTMLElement) {
-  const rect = container.getBoundingClientRect();
-  const style = getComputedStyle(container);
-  const padLeft = parseFloat(style.paddingLeft) || 0;
-  const padTop = parseFloat(style.paddingTop) || 0;
-  const rawX = event.clientX - rect.left - padLeft;
-  const rawY = event.clientY - rect.top - padTop;
-  tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
-  tooltip.y = Math.max(20, rawY);
-}
-
-function onChartMouseMove(
-  event: MouseEvent,
-  coords: { x: number; date: string }[],
-  formatContent: (idx: number) => string,
-  chartId: string,
-) {
-  if (tooltip.pinned) return;
-  const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.tooltip-area') as HTMLElement;
-  if (!svg || !container || coords.length === 0) return;
-  const pt = svg.createSVGPoint();
-  pt.x = event.clientX;
-  pt.y = event.clientY;
-  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
-  let bestIdx = 0;
-  let bestDist = Math.abs(svgPt.x - coords[0].x);
-  for (let i = 1; i < coords.length; i++) {
-    const d = Math.abs(svgPt.x - coords[i].x);
-    if (d < bestDist) { bestDist = d; bestIdx = i; }
-  }
-  tooltip.visible = true;
-  tooltip.content = formatContent(bestIdx);
-  tooltip.chartId = chartId;
-  tooltip.highlightIndex = bestIdx;
-  positionTooltip(event, container);
-}
-
-function onChartClick(
-  event: MouseEvent,
-  coords: { x: number; date: string }[],
-  formatContent: (idx: number) => string,
-  chartId: string,
-) {
-  if (tooltip.pinned && tooltip.chartId === chartId) {
-    tooltip.pinned = false;
-    return;
-  }
-  tooltip.pinned = false;
-  onChartMouseMove(event, coords, formatContent, chartId);
-  tooltip.pinned = true;
-}
-
-function onBarMouseEnter(event: MouseEvent, content: string, chartId: string) {
-  if (tooltip.pinned) return;
-  const container = (event.target as HTMLElement)?.closest('.tooltip-area') as HTMLElement;
-  if (!container) return;
-  tooltip.visible = true;
-  tooltip.content = content;
-  tooltip.chartId = chartId;
-  tooltip.highlightIndex = -1;
-  positionTooltip(event, container);
-}
-
-function dismissTooltip() {
-  tooltip.visible = false;
-  tooltip.pinned = false;
-  tooltip.chartId = '';
-  tooltip.highlightIndex = -1;
 }
 
 // ── Changes Over Time Area Chart ─────────────────────────────
