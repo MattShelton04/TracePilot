@@ -27,11 +27,14 @@ const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const unlisteners: UnlistenFn[] = [];
 
 function prefetchTopSessions() {
-  const top3 = store.sessions
+  const PREFETCH_LIMIT = 5;
+  const MAX_TURN_COUNT = 500;
+  const top = store.sessions
     .slice()
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
-    .slice(0, 3);
-  for (const session of top3) {
+    .filter((s) => !s.turnCount || s.turnCount <= MAX_TURN_COUNT)
+    .slice(0, PREFETCH_LIMIT);
+  for (const session of top) {
     detailStore.prefetchSession(session.id);
   }
 }
