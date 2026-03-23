@@ -635,4 +635,315 @@ describe("AgentTreeView", () => {
     // No reasoning toggle
     expect(detailPanel.find(".reasoning-toggle").exists()).toBe(false);
   });
+
+  // ── Cross-Turn Hierarchy Tests ──────────────────────────────────────
+
+  it("resolves cross-turn parent subagent hierarchy", async () => {
+    // Turn 0: Main agent spawns subagent "parent-sub"
+    const parentSubagent = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "parent-sub",
+      agentDisplayName: "GPT 5.3 Codex",
+      model: "gpt-5.3-codex",
+      startedAt: "2025-01-01T00:00:00.000Z",
+      completedAt: "2025-01-01T00:01:00.000Z",
+      durationMs: 60000,
+    });
+
+    // Turn 1: The parent subagent spawns child subagents
+    const childSub1 = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "child-sub-1",
+      parentToolCallId: "parent-sub",
+      agentDisplayName: "GPT 5.3 Codex #2",
+      model: "gpt-5.3-codex",
+      startedAt: "2025-01-01T00:00:10.000Z",
+    });
+    const childSub2 = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "child-sub-2",
+      parentToolCallId: "parent-sub",
+      agentDisplayName: "GPT 5.4",
+      model: "gpt-5.4",
+      startedAt: "2025-01-01T00:00:15.000Z",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        model: "claude-sonnet-4",
+        toolCalls: [parentSubagent],
+      }),
+      makeTurn({
+        turnIndex: 1,
+        model: "gpt-5.3-codex",
+        toolCalls: [childSub1, childSub2],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Navigate to the second agent turn (turn 1) which has the child subagents
+    const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
+    await nextBtn.trigger("click");
+    await nextTick();
+
+    // Should show "GPT 5.3 Codex" as a cross-turn parent node
+    // with children nested under it
+    expect(wrapper.text()).toContain("GPT 5.3 Codex");
+    // The cross-turn badge should appear
+    expect(wrapper.find(".cross-turn-badge").exists()).toBe(true);
+  });
+
+  it("cross-turn parent nodes show correct child tool counts", async () => {
+    const parentSubagent = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "parent-sub",
+      agentDisplayName: "Parent Agent",
+      model: "gpt-5.3-codex",
+      startedAt: "2025-01-01T00:00:00.000Z",
+    });
+    // A child tool that belongs to the parent subagent (from a different turn)
+    const parentChildTool = makeTurnToolCall({
+      toolName: "grep",
+      isSubagent: false,
+      toolCallId: "parent-child-grep",
+      parentToolCallId: "parent-sub",
+    });
+    const childSub = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "child-sub",
+      parentToolCallId: "parent-sub",
+      agentDisplayName: "Child Agent",
+      startedAt: "2025-01-01T00:00:10.000Z",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [parentSubagent, parentChildTool],
+      }),
+      makeTurn({
+        turnIndex: 1,
+        toolCalls: [childSub],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    // Navigate to second agent turn
+    const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
+    await nextBtn.trigger("click");
+    await nextTick();
+
+    // Parent agent node should exist as a cross-turn parent
+    expect(wrapper.text()).toContain("Parent Agent");
+  });
+
+  it("nests same-turn subagent tool calls correctly (attribution fix)", async () => {
+    // Parent subagent spawned by Main Agent
+    const parentSub = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "parent-same-turn",
+      agentDisplayName: "Parent Same Turn",
+    });
+    // Child subagent spawned by the parent subagent
+    const childSub = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "child-same-turn",
+      parentToolCallId: "parent-same-turn",
+      agentDisplayName: "Child Same Turn",
+    });
+    // A regular tool spawned by the child subagent
+    const childTool = makeTurnToolCall({
+      toolName: "grep",
+      isSubagent: false,
+      toolCallId: "child-tool-grep",
+      parentToolCallId: "child-same-turn",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [parentSub, childSub, childTool],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    await nextTick();
+
+    // 1. Check Main Agent's tool list (should only include parentSub)
+    const nodes = wrapper.findAll(".agent-node");
+    const mainNode = nodes.find(n => n.text().includes("Main Agent"));
+    await mainNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    const toolItems = detailPanel.findAll(".detail-tool-row");
+    // Main agent should only have ONE tool call (the parent subagent spawn)
+    // It should NOT include childSub or childTool
+    expect(toolItems.length).toBe(1);
+    expect(toolItems[0].text()).toContain("Parent Same Turn");
+
+    // 2. Check Parent Subagent's tool list (should include childSub)
+    const parentNode = nodes.find(n => n.text().includes("Parent Same Turn"));
+    await parentNode!.trigger("click");
+    await nextTick();
+
+    const parentTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
+    // Parent should have the child subagent spawn in its tool list
+    expect(parentTools.length).toBe(1);
+    expect(parentTools[0].text()).toContain("Child Same Turn");
+
+    // 3. Check Child Subagent's tool list (should include childTool)
+    const childNode = nodes.find(n => n.text().includes("Child Same Turn"));
+    await childNode!.trigger("click");
+    await nextTick();
+
+    const childTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
+    expect(childTools.length).toBe(1);
+    expect(childTools[0].text()).toContain("grep");
+  });
+
+  // ── Failure Reason Tests ────────────────────────────────────────────
+
+  it("shows failure reason when a failed subagent is selected", async () => {
+    const failedAgent = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-fail",
+      agentDisplayName: "Failing Agent",
+      success: false,
+      isComplete: true,
+      error: "Agent exceeded maximum retries. Last error: connection timeout",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [failedAgent],
+        assistantMessages: [
+          { content: "Starting task...", parentToolCallId: "agent-fail" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const failedNode = nodes.find(n => n.text().includes("Failing Agent"));
+    expect(failedNode).toBeDefined();
+    await failedNode!.trigger("click");
+    await nextTick();
+
+    const detailPanel = wrapper.find(".detail-panel");
+    expect(detailPanel.exists()).toBe(true);
+    // Should show status as failed
+    expect(detailPanel.text()).toContain("failed");
+    // Should show failure reason section
+    expect(detailPanel.find(".detail-failure").exists()).toBe(true);
+    expect(detailPanel.find(".detail-failure-body").text()).toContain("connection timeout");
+  });
+
+  it("does not show failure reason for completed subagents", async () => {
+    const successAgent = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-ok",
+      agentDisplayName: "Success Agent",
+      success: true,
+      isComplete: true,
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [successAgent],
+        assistantMessages: [
+          { content: "Done!", parentToolCallId: "agent-ok" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const okNode = nodes.find(n => n.text().includes("Success Agent"));
+    await okNode!.trigger("click");
+    await nextTick();
+
+    expect(wrapper.find(".detail-failure").exists()).toBe(false);
+  });
+
+  // ── Output Expand/Collapse Tests ────────────────────────────────────
+
+  it("shows 'Show more' toggle for long output", async () => {
+    const longContent = "A".repeat(600);
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-long",
+      agentDisplayName: "Verbose Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [
+          { content: longContent, parentToolCallId: "agent-long" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const verboseNode = nodes.find(n => n.text().includes("Verbose Agent"));
+    await verboseNode!.trigger("click");
+    await nextTick();
+
+    // Output should be collapsed by default
+    expect(wrapper.find(".detail-output--collapsed").exists()).toBe(true);
+    // Toggle button should exist
+    const toggle = wrapper.find(".output-toggle");
+    expect(toggle.exists()).toBe(true);
+    expect(toggle.text()).toContain("Show more");
+
+    // Click to expand
+    await toggle.trigger("click");
+    await nextTick();
+    expect(wrapper.find(".detail-output--expanded").exists()).toBe(true);
+    expect(wrapper.find(".output-toggle").text()).toContain("Show less");
+  });
+
+  it("does not show toggle for short output", async () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "agent-short",
+      agentDisplayName: "Brief Agent",
+    });
+
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [agentTc],
+        assistantMessages: [
+          { content: "Short answer", parentToolCallId: "agent-short" },
+        ],
+      }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    const nodes = wrapper.findAll(".agent-node");
+    const briefNode = nodes.find(n => n.text().includes("Brief Agent"));
+    await briefNode!.trigger("click");
+    await nextTick();
+
+    // No toggle for short content
+    expect(wrapper.find(".output-toggle").exists()).toBe(false);
+  });
 });
