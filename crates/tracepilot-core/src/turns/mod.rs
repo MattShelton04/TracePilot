@@ -398,18 +398,28 @@ impl TurnReconstructor {
                     );
                 }
 
-                // Set turn-level model from non-subagent completions
+                // Set turn-level model from non-subagent completions.
+                // Also skip tool calls that are children of a subagent (they carry
+                // the subagent's model, not the main agent's). This is a best-effort
+                // inline guard; correct_turn_models() handles event-ordering edge
+                // cases in post-processing.
                 if let Some(ref model) = data.model {
-                    let is_subagent = self
+                    let tc_info = self
                         .find_tool_call_ref(data.tool_call_id.as_deref())
-                        .map(|tc| tc.is_subagent)
-                        .unwrap_or(false);
-                    if !is_subagent {
-                        if let Some(turn) =
-                            self.find_owning_turn_mut(data.tool_call_id.as_deref())
-                        {
-                            if turn.model.is_none() {
-                                turn.model = Some(model.clone());
+                        .map(|tc| (tc.is_subagent, tc.parent_tool_call_id.clone()));
+                    if let Some((is_subagent, parent_id)) = tc_info {
+                        let parent_is_subagent = parent_id
+                            .as_deref()
+                            .and_then(|pid| self.find_tool_call_ref(Some(pid)))
+                            .map(|p| p.is_subagent)
+                            .unwrap_or(false);
+                        if !is_subagent && !parent_is_subagent {
+                            if let Some(turn) =
+                                self.find_owning_turn_mut(data.tool_call_id.as_deref())
+                            {
+                                if turn.model.is_none() {
+                                    turn.model = Some(model.clone());
+                                }
                             }
                         }
                     }
@@ -637,6 +647,39 @@ impl TurnReconstructor {
                 );
             }
 
+            // Session start/resume: seed session_model from selected_model
+            (SessionEventType::SessionStart, TypedEventData::SessionStart(data)) => {
+                if self.session_model.is_none() {
+                    if let Some(ref model) = data.selected_model {
+                        self.session_model = Some(model.clone());
+                    }
+                }
+                self.push_session_event(
+                    "session.start",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Info,
+                    data.selected_model
+                        .as_deref()
+                        .map(|m| format!("Session started (model: {m})"))
+                        .unwrap_or_else(|| "Session started".to_string()),
+                );
+            }
+
+            (SessionEventType::SessionResume, TypedEventData::SessionResume(data)) => {
+                if let Some(ref model) = data.selected_model {
+                    self.session_model = Some(model.clone());
+                }
+                self.push_session_event(
+                    "session.resume",
+                    event.raw.timestamp,
+                    SessionEventSeverity::Info,
+                    data.selected_model
+                        .as_deref()
+                        .map(|m| format!("Session resumed (model: {m})"))
+                        .unwrap_or_else(|| "Session resumed".to_string()),
+                );
+            }
+
             _ => {}
         }
     }
@@ -661,6 +704,7 @@ impl TurnReconstructor {
 
         infer_subagent_models(&mut self.turns);
         finalize_subagent_completion(&mut self.turns);
+        correct_turn_models(&mut self.turns);
         resolve_agent_display_names(&mut self.turns);
         self.turns
     }
@@ -691,6 +735,8 @@ impl TurnReconstructor {
     fn ensure_current_turn(&mut self, timestamp: Option<DateTime<Utc>>) -> &mut ConversationTurn {
         if self.current_turn.is_none() {
             let mut turn = new_turn(self.turns.len(), timestamp, None, None, None, None);
+            // Inherit session model, same as UserMessage does
+            turn.model = self.session_model.clone();
             // Flush any session events that occurred while no turn was active
             turn.session_events.append(&mut self.pending_session_events);
             self.current_turn = Some(turn);
@@ -947,6 +993,101 @@ fn finalize_subagent_completion(turns: &mut [ConversationTurn]) {
                     tc.success = Some(tc.error.is_none());
                 }
             }
+        }
+    }
+}
+
+/// Post-processing: correct `turn.model` when it was set from subagent child tool calls.
+///
+/// Some tool calls that run under a subagent carry the subagent's model but have
+/// `is_subagent = false` (they are regular tools dispatched by the subagent). If such
+/// a tool's `ToolExecutionComplete` arrives before the parent subagent is marked
+/// `is_subagent = true`, the inline guard in `process()` cannot catch it, and
+/// `turn.model` may be incorrectly set to the subagent's model.
+///
+/// This function runs after all events are processed (when subagent flags are final)
+/// and corrects any polluted turn models. It also forward-fills `None` models from
+/// the nearest preceding turn with a known model.
+fn correct_turn_models(turns: &mut [ConversationTurn]) {
+    use std::collections::HashSet;
+
+    // Build session-wide set of subagent tool call IDs.
+    let subagent_ids: HashSet<String> = turns
+        .iter()
+        .flat_map(|t| t.tool_calls.iter())
+        .filter(|tc| tc.is_subagent)
+        .filter_map(|tc| tc.tool_call_id.clone())
+        .collect();
+
+    if subagent_ids.is_empty() {
+        return;
+    }
+
+    // Build session-wide set of subagent models for cross-turn pollution detection.
+    let subagent_models: HashSet<String> = turns
+        .iter()
+        .flat_map(|t| t.tool_calls.iter())
+        .filter(|tc| tc.is_subagent)
+        .filter_map(|tc| tc.model.clone())
+        .collect();
+
+    // Pass 1: correct or clear polluted models.
+    for turn in turns.iter_mut() {
+        // Find the model from direct main-agent tool calls: tool calls that are
+        // neither subagents themselves, nor children of a subagent.
+        let main_agent_model = turn
+            .tool_calls
+            .iter()
+            .filter(|tc| !tc.is_subagent)
+            .filter(|tc| {
+                tc.parent_tool_call_id
+                    .as_ref()
+                    .map_or(true, |pid| !subagent_ids.contains(pid))
+            })
+            .find_map(|tc| tc.model.clone());
+
+        if let Some(ref correct_model) = main_agent_model {
+            // Turn has a real main-agent tool call with a known model — use it.
+            if turn.model.as_ref() != Some(correct_model) {
+                tracing::debug!(
+                    turn_index = turn.turn_index,
+                    old_model = ?turn.model,
+                    new_model = %correct_model,
+                    "Correcting turn model from main-agent tool call"
+                );
+                turn.model = Some(correct_model.clone());
+            }
+        } else if let Some(ref current_model) = turn.model {
+            // No direct main-agent tool calls with a model in this turn.
+            // Check session-wide: if turn.model matches ANY subagent model from
+            // the entire session, it was likely inherited from a polluted
+            // session_model or set by a cross-turn subagent child.
+            if subagent_models.contains(current_model) {
+                tracing::debug!(
+                    turn_index = turn.turn_index,
+                    polluted_model = %current_model,
+                    "Clearing turn model that matches a subagent model"
+                );
+                turn.model = None;
+            }
+        }
+    }
+
+    // Pass 2: forward-fill None models from the nearest preceding turn.
+    // If a turn has no model after correction, inherit from the previous turn.
+    // This handles cases where session_model was polluted and the turn had no
+    // direct main-agent tool calls to derive a model from.
+    let mut last_known_model: Option<String> = None;
+    for turn in turns.iter_mut() {
+        if let Some(ref model) = turn.model {
+            last_known_model = Some(model.clone());
+        } else if let Some(ref fallback) = last_known_model {
+            tracing::debug!(
+                turn_index = turn.turn_index,
+                inherited_model = %fallback,
+                "Forward-filling turn model from previous turn"
+            );
+            turn.model = Some(fallback.clone());
         }
     }
 }

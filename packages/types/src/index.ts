@@ -189,6 +189,7 @@ export interface EventsResponse {
   events: SessionEvent[];
   totalCount: number;
   hasMore: boolean;
+  allEventTypes: string[];
 }
 
 /** Raw event from events.jsonl */

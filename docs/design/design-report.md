@@ -10,40 +10,27 @@ This document presents **two complete design variants** for the TracePilot deskt
 
 ---
 
-## How to Review
-
-Serve the prototypes locally and open in browser:
-
-```bash
-cd docs/design/prototypes
-python -m http.server 3333
-# Then visit http://localhost:3333/variant-a/session-list.html
-# or http://localhost:3333/variant-b/session-list.html
-```
-
-All pages have working sidebar navigation, tab switching, theme toggle (dark/light), and collapsible sections.
-
----
-
 ## Page Inventory
 
-| # | Page | Variant A | Variant B | **Variant C (Hybrid)** | Phase |
-|---|------|-----------|-----------|----------------------|-------|
-| 1 | Session List (Home) | [A](./prototypes/variant-a/session-list.html) | [B](./prototypes/variant-b/session-list.html) | [**C**](./prototypes/variant-c/session-list.html) | 2 ✅ |
-| 2 | Detail: Overview | [A](./prototypes/variant-a/detail-overview.html) | [B](./prototypes/variant-b/detail-overview.html) | [**C**](./prototypes/variant-c/detail-overview.html) | 2 ✅ |
-| 3 | Detail: Conversation | [A](./prototypes/variant-a/detail-conversation.html) | [B](./prototypes/variant-b/detail-conversation.html) | [**C**](./prototypes/variant-c/detail-conversation.html) | 2 ✅ |
-| 4 | Detail: Events | [A](./prototypes/variant-a/detail-events.html) | [B](./prototypes/variant-b/detail-events.html) | [**C**](./prototypes/variant-c/detail-events.html) | 2 ✅ |
-| 5 | Detail: Todos | [A](./prototypes/variant-a/detail-todos.html) | [B](./prototypes/variant-b/detail-todos.html) | [**C**](./prototypes/variant-c/detail-todos.html) | 2 ✅ |
-| 6 | Detail: Metrics | [A](./prototypes/variant-a/detail-metrics.html) | [B](./prototypes/variant-b/detail-metrics.html) | [**C**](./prototypes/variant-c/detail-metrics.html) | 2 ✅ |
-| 7 | Analytics Dashboard | [A](./prototypes/variant-a/analytics-dashboard.html) | [B](./prototypes/variant-b/analytics-dashboard.html) | [**C**](./prototypes/variant-c/analytics-dashboard.html) | 3 |
-| 8 | Session Timeline | [A](./prototypes/variant-a/session-timeline.html) | [B](./prototypes/variant-b/session-timeline.html) | [**C**](./prototypes/variant-c/session-timeline.html) | 3 |
-| 9 | Tool Analysis | [A](./prototypes/variant-a/tool-analysis.html) | [B](./prototypes/variant-b/tool-analysis.html) | [**C**](./prototypes/variant-c/tool-analysis.html) | 3 |
-| 10 | Code Impact | [A](./prototypes/variant-a/code-impact.html) | [B](./prototypes/variant-b/code-impact.html) | [**C**](./prototypes/variant-c/code-impact.html) | 3 |
-| 11 | Health Scoring | [A](./prototypes/variant-a/health-scoring.html) | [B](./prototypes/variant-b/health-scoring.html) | [**C**](./prototypes/variant-c/health-scoring.html) | 4 |
-| 12 | Export Dialog | [A](./prototypes/variant-a/export-dialog.html) | [B](./prototypes/variant-b/export-dialog.html) | [**C**](./prototypes/variant-c/export-dialog.html) | 5 |
-| 13 | Session Comparison | [A](./prototypes/variant-a/session-comparison.html) | [B](./prototypes/variant-b/session-comparison.html) | [**C**](./prototypes/variant-c/session-comparison.html) | 6 |
-| 14 | Session Replay | [A](./prototypes/variant-a/session-replay.html) | [B](./prototypes/variant-b/session-replay.html) | [**C**](./prototypes/variant-c/session-replay.html) | 6 |
-| 15 | Settings | [A](./prototypes/variant-a/settings.html) | [B](./prototypes/variant-b/settings.html) | [**C**](./prototypes/variant-c/settings.html) | 6 |
+> **Note:** HTML prototypes for all three variants were removed during docs cleanup. The design decisions below remain authoritative. See `screenshots/final/` for production visual references.
+
+| # | Page | Phase |
+|---|------|-------|
+| 1 | Session List (Home) | 2 ✅ |
+| 2 | Detail: Overview | 2 ✅ |
+| 3 | Detail: Conversation | 2 ✅ |
+| 4 | Detail: Events | 2 ✅ |
+| 5 | Detail: Todos | 2 ✅ |
+| 6 | Detail: Metrics | 2 ✅ |
+| 7 | Analytics Dashboard | 3 |
+| 8 | Session Timeline | 3 |
+| 9 | Tool Analysis | 3 |
+| 10 | Code Impact | 3 |
+| 11 | Health Scoring | 4 |
+| 12 | Export Dialog | 5 |
+| 13 | Session Comparison | 6 |
+| 14 | Session Replay | 6 |
+| 15 | Settings | 6 |
 
 ---
 
@@ -134,39 +121,21 @@ All pages have working sidebar navigation, tab switching, theme toggle (dark/lig
 | **Settings** | B's narrow layout + **Browse…** button for sessions directory + A's About section (session count, DB size, links) + shortcut config note |
 | **Export** | B's two-column layout (strongly preferred by user) with live JSON preview |
 
-### Variant C Screenshots
+### Production Screenshots (Variant C)
+
+See `docs/design/screenshots/final/` for the full set of production design screenshots.
 
 | Session List | Detail Overview |
 |---|---|
-| ![C](./prototypes/screenshots/variant-c/session-list.png) | ![C](./prototypes/screenshots/variant-c/detail-overview.png) |
+| ![Session List](./screenshots/final/v4-session-list.png) | ![Detail Overview](./screenshots/final/v4-overview-fixed.png) |
 
 | Conversation | Metrics |
 |---|---|
-| ![C](./prototypes/screenshots/variant-c/detail-conversation.png) | ![C](./prototypes/screenshots/variant-c/detail-metrics.png) |
+| ![Conversation](./screenshots/final/v4-conversation.png) | ![Metrics](./screenshots/final/v4-metrics.png) |
 
 | Todos | Events |
 |---|---|
-| ![C](./prototypes/screenshots/variant-c/detail-todos.png) | ![C](./prototypes/screenshots/variant-c/detail-events.png) |
-
-| Analytics Dashboard | Health Scoring |
-|---|---|
-| ![C](./prototypes/screenshots/variant-c/analytics-dashboard.png) | ![C](./prototypes/screenshots/variant-c/health-scoring.png) |
-
-| Session Replay | Settings |
-|---|---|
-| ![C](./prototypes/screenshots/variant-c/session-replay.png) | ![C](./prototypes/screenshots/variant-c/settings.png) |
-
-| Export | Session Comparison |
-|---|---|
-| ![C](./prototypes/screenshots/variant-c/export-dialog.png) | ![C](./prototypes/screenshots/variant-c/session-comparison.png) |
-
-| Tool Analysis | Code Impact |
-|---|---|
-| ![C](./prototypes/screenshots/variant-c/tool-analysis.png) | ![C](./prototypes/screenshots/variant-c/code-impact.png) |
-
-| Session Timeline |
-|---|
-| ![C](./prototypes/screenshots/variant-c/session-timeline.png) |
+| ![Todos](./screenshots/final/v4-todos.png) | ![Events](./screenshots/final/v4-events.png) |
 
 ---
 
@@ -221,44 +190,7 @@ Timeline scrubber with playback controls (play/pause, step, speed). Shows conver
 
 ## Screenshots
 
-All screenshots captured at 1440×900 viewport (full-page). Located in `prototypes/screenshots/`.
-
-### Session List
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/session-list.png) | ![B](./prototypes/screenshots/variant-b/session-list.png) |
-
-### Conversation View
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/detail-conversation.png) | ![B](./prototypes/screenshots/variant-b/detail-conversation.png) |
-
-### Analytics Dashboard
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/analytics-dashboard.png) | ![B](./prototypes/screenshots/variant-b/analytics-dashboard.png) |
-
-### Detail Overview
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/detail-overview.png) | ![B](./prototypes/screenshots/variant-b/detail-overview.png) |
-
-### Metrics
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/detail-metrics.png) | ![B](./prototypes/screenshots/variant-b/detail-metrics.png) |
-
-### Health Scoring
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/health-scoring.png) | ![B](./prototypes/screenshots/variant-b/health-scoring.png) |
-
-### Session Replay
-| Variant A | Variant B |
-|-----------|-----------|
-| ![A](./prototypes/screenshots/variant-a/session-replay.png) | ![B](./prototypes/screenshots/variant-b/session-replay.png) |
-
-(See `prototypes/screenshots/` for all 30 screenshots covering every page.)
+> **Note:** Variant A/B comparison screenshots were removed during docs cleanup. See `docs/design/screenshots/final/` for the production (Variant C) visual reference.
 
 ---
 
@@ -295,38 +227,19 @@ Both variants are designed for resizable desktop (800px–4K):
 
 ## File Structure
 
+> **Note:** Prototype HTML files and variant A/B CSS files were removed during docs cleanup. The remaining structure is:
+
 ```
 docs/design/
 ├── design-report.md              ← This document
-├── design-system.md              ← Existing (Phase 2)
+├── design-system.md              ← Production design system reference
+├── prototype-design-process.md   ← Guide for creating future prototypes
 └── prototypes/
     ├── shared/
-    │   ├── design-system-a.css   ← Primer Evolved tokens (640+ lines)
-    │   ├── design-system-b.css   ← Linear Minimal tokens (680+ lines)
-    │   ├── design-system-c.css   ← Hybrid tokens (B base + visibility/spacing tweaks)
+    │   ├── design-system-c.css   ← Production Hybrid tokens
     │   └── shared.js             ← Mock data, utilities, sidebar generator
-    ├── variant-a/                ← 15 HTML prototypes (Primer Evolved)
-    ├── variant-b/                ← 15 HTML prototypes (Linear Minimal)
-    ├── variant-c/                ← 15 HTML prototypes (Hybrid — recommended)
-    │   ├── session-list.html
-    │   ├── detail-overview.html
-    │   ├── detail-conversation.html
-    │   ├── detail-events.html
-    │   ├── detail-todos.html
-    │   ├── detail-metrics.html
-    │   ├── analytics-dashboard.html
-    │   ├── session-timeline.html
-    │   ├── tool-analysis.html
-    │   ├── code-impact.html
-    │   ├── health-scoring.html
-    │   ├── export-dialog.html
-    │   ├── session-comparison.html
-    │   ├── session-replay.html
-    │   └── settings.html
-    └── screenshots/
-        ├── variant-a/            ← 15 PNG screenshots
-        ├── variant-b/            ← 15 PNG screenshots
-        └── variant-c/            ← 15 PNG screenshots
+    └── setup-window/
+        └── design-report.md      ← Setup window design decisions
 ```
 
 ---

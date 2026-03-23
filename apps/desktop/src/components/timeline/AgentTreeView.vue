@@ -50,6 +50,10 @@ interface AgentNode {
   messages: string[];
   /** Reasoning/thinking texts attributed to this agent. */
   reasoning: string[];
+  /** Whether this node was resolved from a cross-turn parent subagent. */
+  isCrossTurnParent?: boolean;
+  /** The turn index where this subagent was originally launched (cross-turn parents). */
+  sourceTurnIndex?: number;
 }
 
 interface TreeData {
@@ -72,10 +76,12 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
   () => store.sessionId
 );
 const selectedNodeId = ref<string | null>(null);
+const viewMode = ref<"paginated" | "unified">("paginated");
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
+const expandedOutputs = useToggleSet<string>();
 const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
 // Live-ticking timer for in-progress agent durations (started when hasInProgress is true)
@@ -126,12 +132,21 @@ watch(agentTurnIndex, () => {
   selectedNodeId.value = null;
   expandedToolCalls.clear();
   expandedReasoning.clear();
+  expandedOutputs.clear();
 });
 
 function prevAgentTurn() { navPrev(); }
 function nextAgentTurn() { navNext(); }
 function jumpToEarliestAgent() { agentJumpTo(0); }
 function jumpToLatestAgent() { agentJumpTo(agentTurns.value.length - 1); }
+
+function toggleViewMode() {
+  viewMode.value = viewMode.value === "paginated" ? "unified" : "paginated";
+  selectedNodeId.value = null;
+  expandedToolCalls.clear();
+  expandedReasoning.clear();
+  expandedOutputs.clear();
+}
 
 // ---------------------------------------------------------------------------
 // Agent Type Detection
@@ -151,6 +166,28 @@ const AGENT_TYPE_ICONS: Record<string, string> = {
 
 const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 
+// Session-wide index: subagent toolCallId → the TurnToolCall object (across all turns).
+const allSubagentToolCalls = computed(() => {
+  const map = new Map<string, TurnToolCall>();
+  for (const turn of store.turns) {
+    for (const tc of turn.toolCalls) {
+      if (tc.isSubagent && tc.toolCallId) map.set(tc.toolCallId, tc);
+    }
+  }
+  return map;
+});
+
+// Session-wide index: subagent toolCallId → turn index where it was launched.
+const subagentSourceTurn = computed(() => {
+  const map = new Map<string, number>();
+  for (const turn of store.turns) {
+    for (const tc of turn.toolCalls) {
+      if (tc.isSubagent && tc.toolCallId) map.set(tc.toolCallId, turn.turnIndex);
+    }
+  }
+  return map;
+});
+
 // Session-wide index of subagent output content (messages + reasoning)
 const subagentContentIndex = computed(() => buildSubagentContentIndex(store.turns));
 
@@ -160,98 +197,207 @@ const subagentContentIndex = computed(() => buildSubagentContentIndex(store.turn
 // including content that will later be attributed to a subagent.
 const allSubagentIds = computed(() => {
   const ids = new Set<string>(subagentContentIndex.value.keys());
-  for (const turn of store.turns) {
-    for (const tc of turn.toolCalls) {
-      if (tc.isSubagent && tc.toolCallId) ids.add(tc.toolCallId);
-    }
+  for (const [id] of allSubagentToolCalls.value) {
+    ids.add(id);
   }
   return ids;
 });
 
-const treeData = computed<TreeData | null>(() => {
-  const turn = currentTurn.value;
-  if (!turn) return null;
-
-  const subagentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
-  const subagentIdSet = new Set(subagentCalls.map((tc) => tc.toolCallId).filter(Boolean));
-
-  // Build AgentNode map for all subagents
-  const nodeMap = new Map<string, AgentNode>();
-  for (let idx = 0; idx < subagentCalls.length; idx++) {
-    const tc = subagentCalls[idx];
-    const nodeId = tc.toolCallId ?? `subagent-${idx}`;
-    const childTools = tc.toolCallId
-      ? allToolCalls.value.filter(
-          (t) => t.parentToolCallId === tc.toolCallId && !t.isSubagent,
-        )
-      : [];
-    const agentType = inferAgentTypeFromToolCall(tc);
-    const content = subagentContentIndex.value.get(nodeId);
-    nodeMap.set(nodeId, {
-      id: nodeId,
-      type: agentType,
-      displayName: tc.agentDisplayName ?? `${agentType} #${idx + 1}`,
-      description: tc.agentDescription,
-      model: tc.model,
-      durationMs: tc.durationMs,
-      toolCount: childTools.length,
-      status: agentStatusFromToolCall(tc),
-      toolCalls: childTools,
-      toolCallRef: tc,
-      children: [],
-      messages: content?.messages ?? [],
-      reasoning: content?.reasoning ?? [],
-    });
-  }
-
-  // Build hierarchy: subagents whose parentToolCallId points to another subagent
-  const rootChildren: AgentNode[] = [];
-  for (const [, node] of nodeMap) {
-    const tc = node.toolCallRef;
-    const parentId = tc?.parentToolCallId;
-    if (parentId && subagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-      nodeMap.get(parentId)!.children!.push(node);
-    } else {
-      rootChildren.push(node);
-    }
-  }
-
-  const directTools = turn.toolCalls.filter(
-    (tc) => !tc.isSubagent && !tc.parentToolCallId,
-  );
-  // Include subagent-spawning tool calls so they appear in the main agent's tool list
-  const subagentSpawnTools = turn.toolCalls.filter((tc) => tc.isSubagent);
-  const mainToolCalls = [...subagentSpawnTools, ...directTools];
-  const totalToolCount = turn.toolCalls.length;
-
-  const mainStatus: "completed" | "failed" | "in-progress" = !turn.isComplete
-    ? "in-progress"
-    : "completed";
-
-  // Collect main-agent messages (exclude those attributed to any known subagent)
-  const knownSubagentIds = allSubagentIds.value;
-  const mainMessages = turn.assistantMessages
-    .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-    .map(m => m.content);
-  const mainReasoning = (turn.reasoningTexts ?? [])
-    .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-    .map(r => r.content);
-
-  const root: AgentNode = {
-    id: "main",
-    type: "main",
-    displayName: "Main Agent",
-    model: turn.model,
-    durationMs: turn.durationMs,
-    toolCount: totalToolCount,
-    status: mainStatus,
-    toolCalls: mainToolCalls,
+/**
+ * Build an AgentNode for a subagent tool call.
+ * Used for both current-turn and cross-turn parent subagents.
+ */
+function buildAgentNode(
+  tc: TurnToolCall,
+  fallbackIdx: number,
+  isCrossTurnParent = false,
+): AgentNode {
+  const nodeId = tc.toolCallId ?? `subagent-${fallbackIdx}`;
+  const childTools = tc.toolCallId
+    ? allToolCalls.value.filter(
+        (t) => t.parentToolCallId === tc.toolCallId,
+      )
+    : [];
+  const agentType = inferAgentTypeFromToolCall(tc);
+  const content = subagentContentIndex.value.get(nodeId);
+  return {
+    id: nodeId,
+    type: agentType,
+    displayName: tc.agentDisplayName ?? `${agentType} #${fallbackIdx + 1}`,
+    description: tc.agentDescription,
+    model: tc.model,
+    durationMs: tc.durationMs,
+    toolCount: childTools.length,
+    status: agentStatusFromToolCall(tc),
+    toolCalls: childTools,
+    toolCallRef: tc,
     children: [],
-    messages: mainMessages,
-    reasoning: mainReasoning,
+    messages: content?.messages ?? [],
+    reasoning: content?.reasoning ?? [],
+    isCrossTurnParent,
+    sourceTurnIndex: subagentSourceTurn.value.get(nodeId),
   };
+}
 
-  return { root, children: rootChildren };
+const treeData = computed<TreeData | null>(() => {
+  if (viewMode.value === "paginated") {
+    const turn = currentTurn.value;
+    if (!turn) return null;
+
+    const subagentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
+    const subagentIdSet = new Set(subagentCalls.map((tc) => tc.toolCallId).filter(Boolean));
+
+    // Build AgentNode map for all subagents in this turn
+    const nodeMap = new Map<string, AgentNode>();
+    for (let idx = 0; idx < subagentCalls.length; idx++) {
+      const tc = subagentCalls[idx];
+      const nodeId = tc.toolCallId ?? `subagent-${idx}`;
+      nodeMap.set(nodeId, buildAgentNode(tc, idx));
+    }
+
+    // Resolve cross-turn parent subagents
+    const crossTurnParents = new Map<string, AgentNode>();
+    for (const [, node] of nodeMap) {
+      const parentId = node.toolCallRef?.parentToolCallId;
+      if (!parentId || subagentIdSet.has(parentId) || nodeMap.has(parentId)) continue;
+
+      let currentParentId: string | undefined = parentId;
+      const visited = new Set<string>();
+      while (currentParentId && !nodeMap.has(currentParentId) && !crossTurnParents.has(currentParentId)) {
+        if (visited.has(currentParentId)) break;
+        visited.add(currentParentId);
+        const parentTc = allSubagentToolCalls.value.get(currentParentId);
+        if (!parentTc) break;
+        const parentNode = buildAgentNode(parentTc, crossTurnParents.size, true);
+        crossTurnParents.set(currentParentId, parentNode);
+        currentParentId = parentTc.parentToolCallId ?? undefined;
+      }
+    }
+
+    for (const [id, node] of crossTurnParents) {
+      nodeMap.set(id, node);
+    }
+
+    const expandedSubagentIdSet = new Set([...subagentIdSet, ...crossTurnParents.keys()]);
+    const rootChildren: AgentNode[] = [];
+    for (const [, node] of nodeMap) {
+      const tc = node.toolCallRef;
+      const parentId = tc?.parentToolCallId;
+      if (parentId && expandedSubagentIdSet.has(parentId) && nodeMap.has(parentId)) {
+        nodeMap.get(parentId)!.children!.push(node);
+      } else {
+        rootChildren.push(node);
+      }
+    }
+
+    const directTools = turn.toolCalls.filter(
+      (tc) => !tc.isSubagent && !tc.parentToolCallId,
+    );
+    const subagentSpawnTools = turn.toolCalls.filter(
+      (tc) => tc.isSubagent && !tc.parentToolCallId,
+    );
+    const mainToolCalls = [...subagentSpawnTools, ...directTools];
+    const totalToolCount = mainToolCalls.length;
+
+    const mainStatus: "completed" | "failed" | "in-progress" = !turn.isComplete
+      ? "in-progress"
+      : "completed";
+
+    const knownSubagentIds = allSubagentIds.value;
+    const mainMessages = turn.assistantMessages
+      .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+      .map(m => m.content);
+    const mainReasoning = (turn.reasoningTexts ?? [])
+      .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+      .map(r => r.content);
+
+    const root: AgentNode = {
+      id: "main",
+      type: "main",
+      displayName: "Main Agent",
+      model: turn.model,
+      durationMs: turn.durationMs,
+      toolCount: totalToolCount,
+      status: mainStatus,
+      toolCalls: mainToolCalls,
+      children: [],
+      messages: mainMessages,
+      reasoning: mainReasoning,
+    };
+
+    return { root, children: rootChildren };
+  } else {
+    // Unified mode: Build tree from all turns
+    const allTurns = store.turns;
+    if (allTurns.length === 0) return null;
+
+    const subagentCalls = allTurns.flatMap(t => t.toolCalls.filter(tc => tc.isSubagent));
+    const subagentIdSet = new Set(subagentCalls.map(tc => tc.toolCallId).filter(Boolean) as string[]);
+
+    const nodeMap = new Map<string, AgentNode>();
+    for (let idx = 0; idx < subagentCalls.length; idx++) {
+      const tc = subagentCalls[idx];
+      const nodeId = tc.toolCallId ?? `subagent-${idx}`;
+      nodeMap.set(nodeId, buildAgentNode(tc, idx));
+    }
+
+    const rootChildren: AgentNode[] = [];
+    for (const [, node] of nodeMap) {
+      const tc = node.toolCallRef;
+      const parentId = tc?.parentToolCallId;
+      if (parentId && subagentIdSet.has(parentId) && nodeMap.has(parentId)) {
+        nodeMap.get(parentId)!.children!.push(node);
+      } else {
+        rootChildren.push(node);
+      }
+    }
+
+    // Aggregate Main Agent data across all turns
+    const directTools = allTurns.flatMap(t =>
+      t.toolCalls.filter(tc => !tc.isSubagent && !tc.parentToolCallId)
+    );
+    const subagentSpawnTools = allTurns.flatMap(t =>
+      t.toolCalls.filter(tc => tc.isSubagent && !tc.parentToolCallId)
+    );
+    const mainToolCalls = [...subagentSpawnTools, ...directTools];
+
+    const knownSubagentIds = allSubagentIds.value;
+    const mainMessages = allTurns.flatMap(t =>
+      t.assistantMessages
+        .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+        .map(m => m.content)
+    );
+    const mainReasoning = allTurns.flatMap(t =>
+      (t.reasoningTexts ?? [])
+        .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+        .map(r => r.content)
+    );
+
+    const lastTurn = allTurns[allTurns.length - 1];
+    const mainStatus: "completed" | "failed" | "in-progress" = !lastTurn.isComplete
+      ? "in-progress"
+      : "completed";
+
+    const totalDuration = allTurns.reduce((acc, t) => acc + (t.durationMs ?? 0), 0);
+    // Use the model from the first turn as the primary main agent model
+    const mainModel = allTurns.find(t => t.model)?.model;
+
+    const root: AgentNode = {
+      id: "main",
+      type: "main",
+      displayName: "Main Agent",
+      model: mainModel,
+      durationMs: totalDuration,
+      toolCount: mainToolCalls.length,
+      status: mainStatus,
+      toolCalls: mainToolCalls,
+      children: [],
+      messages: mainMessages,
+      reasoning: mainReasoning,
+    };
+
+    return { root, children: rootChildren };
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -524,9 +670,20 @@ function bezierPath(line: SvgLine): string {
   return `M ${line.x1} ${line.y1} C ${line.x1} ${midY}, ${line.x2} ${midY}, ${line.x2} ${line.y2}`;
 }
 
+function lineClass(line: SvgLine) {
+  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  return {
+    'tree-connector--cross-turn': node?.isCrossTurnParent
+  };
+}
+
 /** Resolve the color for a connector line based on the child node's agent type. */
 function lineColor(line: SvgLine): string {
   if (!treeData.value) return AGENT_COLORS.main;
+
+  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  if (node?.isCrossTurnParent) return "var(--text-tertiary)";
+
   // Search treeData for the child node to find its type
   function findType(nodes: AgentNode[]): string | undefined {
     for (const n of nodes) {
@@ -629,41 +786,63 @@ watch(
     />
 
     <template v-else>
-      <!-- Turn navigation -->
-      <div class="turn-nav">
-        <button
-          class="turn-nav-btn"
-          :disabled="!canPrevAgent"
-          @click="jumpToEarliestAgent"
-          aria-label="Jump to earliest agent turn"
-        >
-          ⏮ Earliest
-        </button>
-        <button
-          class="turn-nav-btn"
-          :disabled="agentTurnIndex === 0"
-          @click="prevAgentTurn"
-          aria-label="Previous agent turn"
-        >
-          ◀ Prev
-        </button>
-        <span class="turn-nav-label">{{ turnNavLabel }}</span>
-        <button
-          class="turn-nav-btn"
-          :disabled="agentTurnIndex === agentTurns.length - 1"
-          @click="nextAgentTurn"
-          aria-label="Next agent turn"
-        >
-          Next ▶
-        </button>
-        <button
-          class="turn-nav-btn"
-          :disabled="!canNextAgent"
-          @click="jumpToLatestAgent"
-          aria-label="Jump to latest agent turn"
-        >
-          Latest ⏭
-        </button>
+      <div class="view-header">
+        <!-- Spacer to help center the turn-nav -->
+        <div class="view-header-spacer"></div>
+
+        <!-- Turn navigation -->
+        <div class="turn-nav">
+          <button
+            class="turn-nav-btn"
+            :disabled="!canPrevAgent || viewMode === 'unified'"
+            @click="jumpToEarliestAgent"
+            aria-label="Jump to earliest agent turn"
+          >
+            ⏮ Earliest
+          </button>
+          <button
+            class="turn-nav-btn"
+            :disabled="agentTurnIndex === 0 || viewMode === 'unified'"
+            @click="prevAgentTurn"
+            aria-label="Previous agent turn"
+          >
+            ◀ Prev
+          </button>
+          <span class="turn-nav-label">{{ viewMode === 'unified' ? 'Unified Session View' : turnNavLabel }}</span>
+          <button
+            class="turn-nav-btn"
+            :disabled="agentTurnIndex === agentTurns.length - 1 || viewMode === 'unified'"
+            @click="nextAgentTurn"
+            aria-label="Next agent turn"
+          >
+            Next ▶
+          </button>
+          <button
+            class="turn-nav-btn"
+            :disabled="!canNextAgent || viewMode === 'unified'"
+            @click="jumpToLatestAgent"
+            aria-label="Jump to latest agent turn"
+          >
+            Latest ⏭
+          </button>
+        </div>
+
+        <div class="view-mode-toggle">
+          <button
+            class="view-mode-btn"
+            :class="{ 'view-mode-btn--active': viewMode === 'paginated' }"
+            @click="viewMode = 'paginated'"
+          >
+            Paginated
+          </button>
+          <button
+            class="view-mode-btn"
+            :class="{ 'view-mode-btn--active': viewMode === 'unified' }"
+            @click="viewMode = 'unified'"
+          >
+            Unified
+          </button>
+        </div>
       </div>
 
       <!-- Tree visualization -->
@@ -687,6 +866,7 @@ watch(
               :key="`base-${i}`"
               :d="bezierPath(line)"
               class="tree-connector tree-connector--base"
+              :class="lineClass(line)"
               :style="{ stroke: lineColor(line) }"
             />
             <!-- Animated flowing dash overlay -->
@@ -695,6 +875,7 @@ watch(
               :key="`flow-${i}`"
               :d="bezierPath(line)"
               class="tree-connector tree-connector--flow"
+              :class="lineClass(line)"
               :style="{ stroke: lineColor(line) }"
             />
           </svg>
@@ -709,6 +890,7 @@ watch(
               'agent-node--main': ln.node.type === 'main',
               'agent-node--selected': selectedNodeId === ln.node.id,
               'agent-node--in-progress': ln.node.status === 'in-progress',
+              'agent-node--cross-turn': ln.node.isCrossTurnParent,
             }"
             :style="{
               left: `${ln.x}px`,
@@ -729,6 +911,15 @@ watch(
               class="parallel-badge"
             >
               {{ nodeParallelLabel.get(ln.node.id) }}
+            </div>
+
+            <!-- Cross-turn parent badge -->
+            <div
+              v-if="ln.node.isCrossTurnParent && ln.node.sourceTurnIndex != null"
+              class="cross-turn-badge"
+              :title="`This subagent was launched in turn ${ln.node.sourceTurnIndex}`"
+            >
+              ↗ Turn {{ ln.node.sourceTurnIndex }}
             </div>
 
             <div class="agent-node-header">
@@ -778,6 +969,10 @@ watch(
               <span class="detail-label">Description</span>
               <span class="detail-value">{{ selectedNode.description }}</span>
             </div>
+            <div v-if="selectedNode.isCrossTurnParent && selectedNode.sourceTurnIndex != null" class="detail-info-row">
+              <span class="detail-label">Source</span>
+              <span class="detail-value detail-value--italic">Launched in turn {{ selectedNode.sourceTurnIndex }}</span>
+            </div>
             <div v-if="agentPrompt(selectedNode)" class="detail-section">
               <h4 class="detail-section-title">Prompt</h4>
               <MarkdownContent :content="agentPrompt(selectedNode)!" :render="prefs.isFeatureEnabled('renderMarkdown')" max-height="200px" />
@@ -815,10 +1010,22 @@ watch(
             </div>
           </div>
 
-          <!-- Agent Output -->
+          <!-- Failure Reason (shown when subagent failed) -->
+          <div v-if="selectedNode.status === 'failed' && selectedNode.toolCallRef?.error" class="detail-section detail-failure">
+            <h4 class="detail-section-title detail-failure-title">❌ Failure Reason</h4>
+            <pre class="detail-failure-body">{{ selectedNode.toolCallRef.error }}</pre>
+          </div>
+
+          <!-- Agent Output (collapsible for long content) -->
           <div v-if="selectedNode.messages.filter(m => m.trim()).length > 0" class="detail-section">
             <h4 class="detail-section-title">Output</h4>
-            <div class="detail-output">
+            <div
+              class="detail-output"
+              :class="{
+                'detail-output--collapsed': selectedNode.messages.filter(m => m.trim()).join('').length > 500 && !expandedOutputs.has(selectedNode.id),
+                'detail-output--expanded': expandedOutputs.has(selectedNode.id),
+              }"
+            >
               <MarkdownContent
                 v-for="(msg, idx) in selectedNode.messages.filter(m => m.trim())"
                 :key="`output-msg-${idx}`"
@@ -827,6 +1034,13 @@ watch(
                 :render="prefs.isFeatureEnabled('renderMarkdown')"
               />
             </div>
+            <button
+              v-if="selectedNode.messages.filter(m => m.trim()).join('').length > 500"
+              class="output-toggle"
+              @click="expandedOutputs.toggle(selectedNode.id)"
+            >
+              {{ expandedOutputs.has(selectedNode.id) ? "▲ Show less" : "▼ Show more" }}
+            </button>
           </div>
 
           <!-- Subagent Result Content (tool result from the task/read_agent call) -->
@@ -995,6 +1209,53 @@ watch(
 }
 
 /* ------------------------------------------------------------------ */
+/* Header & View Mode Toggle                                           */
+/* ------------------------------------------------------------------ */
+.view-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.view-header-spacer {
+  /* Empty spacer to balance the grid */
+}
+
+.view-mode-toggle {
+  justify-self: end;
+  display: flex;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.view-mode-btn {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms);
+}
+
+.view-mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--canvas-default);
+}
+
+.view-mode-btn--active {
+  color: var(--accent-fg);
+  background: var(--canvas-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ------------------------------------------------------------------ */
 /* Turn Navigation                                                     */
 /* ------------------------------------------------------------------ */
 .turn-nav {
@@ -1044,12 +1305,16 @@ watch(
 /* ------------------------------------------------------------------ */
 .tree-container {
   overflow-x: auto;
-  padding: 8px 0;
+  padding: 12px 0;
+  width: 100%;
+  min-height: 200px;
 }
 
 .tree-canvas {
   position: relative;
   margin: 0 auto;
+  /* Ensure it can expand as wide as calculated */
+  min-width: min-content;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1076,6 +1341,11 @@ watch(
   stroke-dashoffset: 0;
   animation: connector-flow 1.2s linear infinite;
   opacity: 0.7;
+}
+
+.tree-connector--cross-turn {
+  stroke-dasharray: 4 4;
+  opacity: 0.4;
 }
 
 @keyframes connector-flow {
@@ -1127,6 +1397,17 @@ watch(
   animation: node-pulse 2s ease-in-out infinite;
 }
 
+.agent-node--cross-turn {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+  border-style: dashed;
+}
+
+.agent-node--cross-turn:hover {
+  opacity: 1;
+  filter: none;
+}
+
 @keyframes node-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
   50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
@@ -1148,6 +1429,22 @@ watch(
   letter-spacing: 0.02em;
   color: var(--text-primary);
   background: var(--accent-emphasis);
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* Cross-turn parent badge */
+.cross-turn-badge {
+  position: absolute;
+  top: -10px;
+  left: 8px;
+  padding: 1px 8px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
   border-radius: 10px;
   white-space: nowrap;
 }
@@ -1518,12 +1815,26 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
   padding: 10px 12px;
   background: var(--canvas-inset);
   border: 1px solid var(--border-muted);
   border-radius: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.detail-output--collapsed {
+  max-height: 200px;
+  overflow: hidden;
+  position: relative;
+  /* Fade-out gradient at bottom to indicate more content */
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.detail-output--expanded {
+  max-height: none;
+  overflow-y: auto;
 }
 
 .detail-output-message {
@@ -1532,6 +1843,49 @@ watch(
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.output-toggle {
+  display: block;
+  width: 100%;
+  padding: 4px 0;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: color var(--transition-fast, 150ms);
+}
+
+.output-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* Failure reason section */
+.detail-failure {
+  margin: 0 16px 12px;
+}
+
+.detail-failure-title {
+  color: var(--danger-fg, #f85149);
+}
+
+.detail-failure-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--danger-fg, #f85149);
+  background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
+  border: 1px solid var(--danger-muted, rgba(248, 81, 73, 0.3));
+  border-radius: 6px;
 }
 
 .reasoning-toggle {

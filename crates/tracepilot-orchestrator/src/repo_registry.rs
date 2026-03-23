@@ -150,6 +150,7 @@ pub fn add_repo(path: &str, source: RepoSource) -> Result<RegisteredRepo> {
         added_at: chrono::Utc::now().to_rfc3339(),
         last_used_at: None,
         source,
+        favourite: false,
     };
 
     registry.repos.push(repo.clone());
@@ -189,6 +190,27 @@ pub fn update_last_used(path: &str) -> Result<()> {
         write_registry(&registry)?;
     }
     Ok(())
+}
+
+/// Toggle the favourite status of a registered repo.
+pub fn toggle_repo_favourite(path: &str) -> Result<bool> {
+    let normalized = normalize_path(path);
+    let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut registry = read_registry()?;
+    if let Some(repo) = registry
+        .repos
+        .iter_mut()
+        .find(|r| normalize_path(&r.path) == normalized)
+    {
+        repo.favourite = !repo.favourite;
+        let new_state = repo.favourite;
+        write_registry(&registry)?;
+        Ok(new_state)
+    } else {
+        Err(OrchestratorError::NotFound(format!(
+            "Repo not found in registry: {path}"
+        )))
+    }
 }
 
 /// Discover repos from a list of session CWD paths.
@@ -289,6 +311,7 @@ mod tests {
                 added_at: "2025-01-01T00:00:00Z".into(),
                 last_used_at: None,
                 source: RepoSource::Manual,
+                favourite: false,
             }],
         };
         let json = serde_json::to_string_pretty(&registry).unwrap();

@@ -795,11 +795,4 @@ Three layout variants cover the common use cases:
 
 ### Design prototypes
 
-HTML prototypes that informed the visual design of these components are in `docs/design/prototypes/components/`:
-
-- `toast-system-a.html`, `toast-system-b.html` — Toast layout explorations
-- `confirm-dialog-a.html`, `confirm-dialog-b.html` — Dialog layout explorations
-- `error-alert-enhanced.html` — ErrorAlert severity and variant matrix
-- `loading-states.html` — Spinner, overlay, and skeleton designs
-
-These are static reference files and are not used at runtime.
+> **Note:** HTML prototypes that informed the visual design of these components were removed during docs cleanup. The final implementations in `@tracepilot/ui` are the authoritative reference.

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
-import { ErrorState, formatDuration, formatNumberFull, formatRate, LoadingOverlay } from '@tracepilot/ui';
-import { computed, onMounted, reactive, watch } from 'vue';
+import { ErrorState, formatDuration, formatNumberFull, formatRate, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
+import { computed, onMounted, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { CHART_COLORS } from '@/utils/chartColors';
 
 const store = useAnalyticsStore();
+const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } = useChartTooltip();
 
 onMounted(() => {
   store.fetchAvailableRepos();
@@ -32,39 +33,7 @@ const pageSubtitle = computed(() => {
 // ── Computed values ──────────────────────────────────────────
 const uniqueToolCount = computed(() => data.value?.tools.length ?? 0);
 
-// ── Tooltip state ────────────────────────────────────────────
-const tooltip = reactive({
-  visible: false,
-  pinned: false,
-  x: 0,
-  y: 0,
-  content: '',
-  chartId: '',
-  highlightIndex: -1,
-});
-
-function positionTooltip(event: MouseEvent, container: HTMLElement) {
-  const rect = container.getBoundingClientRect();
-  const style = getComputedStyle(container);
-  const padLeft = parseFloat(style.paddingLeft) || 0;
-  const padTop = parseFloat(style.paddingTop) || 0;
-  const rawX = event.clientX - rect.left - padLeft;
-  const rawY = event.clientY - rect.top - padTop;
-  tooltip.x = Math.max(40, Math.min(rawX, rect.width - padLeft * 2 - 40));
-  tooltip.y = Math.max(20, rawY);
-}
-
-function onBarMouseEnter(event: MouseEvent, content: string, chartId: string) {
-  if (tooltip.pinned) return;
-  const container = (event.target as HTMLElement)?.closest('.tooltip-area') as HTMLElement;
-  if (!container) return;
-  tooltip.visible = true;
-  tooltip.content = content;
-  tooltip.chartId = chartId;
-  tooltip.highlightIndex = -1;
-  positionTooltip(event, container);
-}
-
+// ── Custom chart handlers (Y-axis nearest-point) ─────────────
 function onSuccessFailureMouseMove(event: MouseEvent) {
   if (tooltip.pinned) return;
   const chart = successFailureChart.value;
@@ -72,16 +41,14 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   const svg = (event.target as SVGElement)?.closest('svg');
   const container = (event.target as SVGElement)?.closest('.tooltip-area') as HTMLElement;
   if (!svg || !container) return;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return;
   const pt = svg.createSVGPoint();
   pt.x = event.clientX;
   pt.y = event.clientY;
-  const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
-  let bestIdx = 0;
-  let bestDist = Math.abs(svgPt.y - (chart.rows[0].y + BAR_HEIGHT / 2));
-  for (let i = 1; i < chart.rows.length; i++) {
-    const d = Math.abs(svgPt.y - (chart.rows[i].y + BAR_HEIGHT / 2));
-    if (d < bestDist) { bestDist = d; bestIdx = i; }
-  }
+  const svgPt = pt.matrixTransform(ctm.inverse());
+  const bestIdx = findNearestIndex(chart.rows.map(r => r.y + BAR_HEIGHT / 2), svgPt.y);
+  if (bestIdx < 0) return;
   const row = chart.rows[bestIdx];
   const total = row.successCount + row.failureCount;
   const rate = total > 0 ? ((row.successCount / total) * 100).toFixed(1) : '0.0';
@@ -99,14 +66,9 @@ function onSuccessFailureClick(event: MouseEvent) {
   }
   tooltip.pinned = false;
   onSuccessFailureMouseMove(event);
-  tooltip.pinned = true;
-}
-
-function dismissTooltip() {
-  tooltip.visible = false;
-  tooltip.pinned = false;
-  tooltip.chartId = '';
-  tooltip.highlightIndex = -1;
+  if (tooltip.visible) {
+    tooltip.pinned = true;
+  }
 }
 
 const sortedTools = computed<ToolUsageEntry[]>(() => {
