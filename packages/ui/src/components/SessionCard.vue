@@ -92,8 +92,23 @@ function isActive(session: SessionListItem): boolean {
   margin-left: 2px;
   overflow: visible;
   position: relative;
-  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.2));
   transition: box-shadow var(--transition-fast, 150ms ease), transform var(--transition-fast, 150ms ease);
+}
+
+.active-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.22));
+  opacity: 0.25;
+  animation: active-glow 2.4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes active-glow {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
 }
 
 .active-badge {

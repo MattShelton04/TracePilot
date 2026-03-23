@@ -363,6 +363,21 @@ onUnmounted(() => {
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
+.session-card-new.card--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+  opacity: 0.4;
+  animation: card-glow 2.6s ease-in-out infinite;
+  pointer-events: none;
+  will-change: opacity;
+}
+@keyframes card-glow {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.75; }
+}
 
 .active-badge-topright {
   position: absolute;
@@ -391,8 +406,21 @@ onUnmounted(() => {
   flex-shrink: 0;
   overflow: visible;
   position: relative;
-  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.2));
   transition: box-shadow var(--transition-fast, 150ms ease), transform var(--transition-fast, 150ms ease);
+}
+.active-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.22));
+  opacity: 0.25;
+  animation: active-glow 2.4s ease-in-out infinite;
+  will-change: opacity;
+}
+@keyframes active-glow {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
 }
 
 .active-badge {
