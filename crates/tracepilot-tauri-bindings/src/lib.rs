@@ -1057,14 +1057,8 @@ mod commands {
                 ..Default::default()
             };
 
-            let facets = match query.as_deref() {
-                Some(q) if !q.trim().is_empty() => {
-                    db.facets(Some(q), &filters).map_err(|e| e.to_string())?
-                }
-                _ => {
-                    db.facets(None, &filters).map_err(|e| e.to_string())?
-                }
-            };
+            let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
+            let facets = db.facets(query_opt, &filters).map_err(|e| e.to_string())?;
 
             Ok(SearchFacetsResponse {
                 by_content_type: facets.by_content_type,
