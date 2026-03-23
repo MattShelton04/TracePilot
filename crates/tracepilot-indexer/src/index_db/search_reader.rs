@@ -427,12 +427,17 @@ pub fn sanitize_fts_query(query: &str) -> String {
         return String::new();
     }
 
-    // Strip characters that are problematic for FTS5 (but preserve quotes and *)
+    // Strip characters that are problematic for FTS5 — only keep alphanumeric,
+    // whitespace, quotes (for phrases), * (for prefix), and basic separators.
+    // The unicode61 tokenizer treats most punctuation as separators anyway.
     let cleaned: String = trimmed
         .chars()
-        .map(|c| match c {
-            '(' | ')' | '{' | '}' | '[' | ']' | ':' | '^' | '~' => ' ',
-            _ => c,
+        .map(|c| {
+            if c.is_alphanumeric() || c == '"' || c == '*' || c == '_' || c.is_whitespace() {
+                c
+            } else {
+                ' '
+            }
         })
         .collect();
 
@@ -637,8 +642,10 @@ mod tests {
         assert_eq!(sanitize_fts_query("error(code)"), "error code");
         assert_eq!(sanitize_fts_query("field:value"), "field value");
         assert_eq!(sanitize_fts_query("a{b}c"), "a b c");
-        // $ is not problematic for FTS5, so it's preserved
-        assert_eq!(sanitize_fts_query("^test$"), "test$");
+        assert_eq!(sanitize_fts_query("^test$"), "test");
+        // Slashes and other punctuation are stripped to prevent FTS5 errors
+        assert_eq!(sanitize_fts_query("path/to/file"), "path to file");
+        assert_eq!(sanitize_fts_query("a+b-c"), "a b c");
     }
 
     #[test]
@@ -656,7 +663,8 @@ mod tests {
     #[test]
     fn test_sanitize_near_stripped() {
         assert_eq!(sanitize_fts_query("NEAR(a b)"), "a b");
-        assert_eq!(sanitize_fts_query("NEAR/5 foo"), "foo");
+        // / becomes space, so "NEAR/5" → "NEAR 5"; NEAR is stripped, 5 is kept as a term
+        assert_eq!(sanitize_fts_query("NEAR/5 foo"), "5 foo");
     }
 
     #[test]
