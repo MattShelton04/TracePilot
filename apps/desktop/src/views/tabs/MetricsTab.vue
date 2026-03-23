@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
-  StatCard, Badge, SectionPanel, EmptyState,
+  StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
   formatNumber, formatCost, formatDuration, useSessionTabLoader,
 } from "@tracepilot/ui";

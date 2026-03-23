@@ -7,7 +7,7 @@ import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
-  StatCard, Badge, BtnGroup, EmptyState,
+  StatCard, Badge, BtnGroup, EmptyState, ErrorAlert,
   ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge, ReasoningBlock,
   MarkdownContent,
   formatDuration, formatTime, formatNumber, truncateText,
@@ -187,10 +187,25 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 function eventTypeLabel(eventType: string): string {
   return EVENT_TYPE_LABELS[eventType] ?? eventType.replace('session.', '');
 }
+
+function retryLoadTurns() {
+  store.loaded.delete("turns");
+  store.loadTurns();
+}
 </script>
 
 <template>
   <div>
+    <!-- Error alert for failed turn loading -->
+    <ErrorAlert
+      v-if="store.turnsError"
+      :message="store.turnsError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadTurns"
+    />
+
     <!-- Mini stat row -->
     <div class="grid-3 mb-4">
       <StatCard :value="store.turns.length" label="Turns" color="accent" mini />

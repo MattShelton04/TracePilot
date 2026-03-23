@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
-  StatCard, Badge, SectionPanel, DefList,
+  StatCard, Badge, SectionPanel, DefList, ErrorAlert,
   formatDate, formatDuration, formatNumberFull, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 

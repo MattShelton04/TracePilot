@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
-  StatCard, SectionPanel, EmptyState,
+  StatCard, SectionPanel, EmptyState, ErrorAlert,
   formatNumber, formatCost, useSessionTabLoader,
 } from "@tracepilot/ui";
 import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
