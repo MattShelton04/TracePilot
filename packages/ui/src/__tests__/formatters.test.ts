@@ -167,4 +167,15 @@ describe('formatRelativeTime', () => {
   it('returns empty for invalid ISO strings', () => {
     expect(formatRelativeTime('not-a-date')).toBe('');
   });
+
+  it('returns "just now" for future timestamps', () => {
+    expect(formatRelativeTime('2026-03-24T12:00:00Z')).toBe('just now');
+    const futureUnix = Math.floor(new Date('2026-03-24T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(futureUnix)).toBe('just now');
+  });
+
+  it('returns days for Unix timestamps within the week', () => {
+    const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
+  });
 });
