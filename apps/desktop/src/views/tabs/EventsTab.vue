@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { Badge, DataTable, ActionButton, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
 
@@ -8,6 +8,7 @@ const filterType = ref<string | null>(null);
 const pageSize = 50;
 const currentPage = ref(0);
 const pageLoading = ref(false);
+let loadSeq = 0;
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -20,20 +21,28 @@ useSessionTabLoader(
   }
 );
 
+// Derive event types from the full unfiltered set returned by the backend
 const eventTypes = computed(() => {
   if (!store.events) return [];
-  const types = new Set(store.events.events.map((event) => event.eventType));
-  return [...types].sort();
+  return store.events.allEventTypes ?? [];
 });
 
-const filteredEvents = computed(() => {
-  if (!store.events) return [];
-  if (!filterType.value) return store.events.events;
-  return store.events.events.filter((event) => event.eventType === filterType.value);
+// When filter changes, reset to page 0 and reload with filter
+watch(filterType, async () => {
+  const seq = ++loadSeq;
+  currentPage.value = 0;
+  pageLoading.value = true;
+  try {
+    await store.loadEvents(0, pageSize, filterType.value ?? undefined);
+    if (seq !== loadSeq) return;
+  } finally {
+    if (seq === loadSeq) pageLoading.value = false;
+  }
 });
 
 const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
+const displayEvents = computed(() => store.events?.events ?? []);
 
 function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' | 'danger' {
   if (type === 'session.error') return 'danger';
@@ -57,7 +66,7 @@ const eventColumns = [
 ];
 
 const tableRows = computed(() =>
-  filteredEvents.value.map((e, idx) => ({
+  displayEvents.value.map((e, idx) => ({
     ...e,
     rowNum: currentPage.value * pageSize + idx + 1,
   }))
@@ -65,12 +74,14 @@ const tableRows = computed(() =>
 
 async function loadPage(page: number) {
   if (pageLoading.value) return;
+  const seq = ++loadSeq;
   pageLoading.value = true;
   try {
     currentPage.value = page;
-    await store.loadEvents(page * pageSize, pageSize);
+    await store.loadEvents(page * pageSize, pageSize, filterType.value ?? undefined);
+    if (seq !== loadSeq) return;
   } finally {
-    pageLoading.value = false;
+    if (seq === loadSeq) pageLoading.value = false;
   }
 }
 </script>
@@ -86,10 +97,10 @@ async function loadPage(page: number) {
       />
       <span class="text-xs text-[var(--text-secondary)]">
         <template v-if="filterType">
-          {{ filteredEvents.length }} matching on this page · {{ totalCount }} total events
+          {{ totalCount }} matching event{{ totalCount !== 1 ? 's' : '' }}
         </template>
         <template v-else>
-          {{ filteredEvents.length }} of {{ totalCount }} events
+          {{ totalCount }} total event{{ totalCount !== 1 ? 's' : '' }}
         </template>
       </span>
     </div>

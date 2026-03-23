@@ -76,6 +76,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   // Guard against stale async responses when user switches sessions quickly
   let requestToken = 0;
+  // Separate token for events requests (filter/pagination within same session)
+  let eventsRequestToken = 0;
 
   async function loadDetail(id: string) {
     if (sessionId.value === id && loaded.value.has("detail")) {
@@ -174,18 +176,19 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  async function loadEvents(offset = 0, limit = 100) {
+  async function loadEvents(offset = 0, limit = 100, eventType?: string) {
     const id = sessionId.value;
     if (!id) return;
-    const token = requestToken;
+    const sessionToken = requestToken;
+    const eventsToken = ++eventsRequestToken;
 
     try {
-      const result = await getSessionEvents(id, offset, limit);
-      if (requestToken !== token) return;
+      const result = await getSessionEvents(id, offset, limit, eventType);
+      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
       events.value = result;
       loaded.value.add("events");
     } catch (e) {
-      if (requestToken !== token) return;
+      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
       console.error("Failed to load events:", e);
     }
   }
@@ -401,6 +404,44 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     await Promise.allSettled(promises);
   }
 
+  /**
+   * Prefetch a session into the cache without changing the current view.
+   * Used for predictive loading of likely-to-be-viewed sessions.
+   */
+  async function prefetchSession(id: string) {
+    // Skip if already cached or if it's the currently loaded session
+    if (sessionCache.has(id) || sessionId.value === id) return;
+
+    try {
+      const [detailResult, turnsResult] = await Promise.all([
+        getSessionDetail(id),
+        getSessionTurns(id),
+      ]);
+
+      // Don't overwrite if user navigated to this session while we were fetching
+      if (sessionCache.has(id) || sessionId.value === id) return;
+
+      sessionCache.set(id, {
+        detail: detailResult,
+        turns: turnsResult.turns,
+        eventsFileSize: turnsResult.eventsFileSize,
+        checkpoints: [],
+        plan: null,
+        shutdownMetrics: null,
+        incidents: [],
+        loadedSections: new Set(['detail', 'turns']),
+      });
+
+      // Evict oldest if over capacity
+      if (sessionCache.size > SESSION_CACHE_SIZE) {
+        const oldest = sessionCache.keys().next().value;
+        if (oldest) sessionCache.delete(oldest);
+      }
+    } catch {
+      // Silent — prefetch is best-effort optimization
+    }
+  }
+
   return {
     sessionId,
     detail,
@@ -424,5 +465,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadIncidents,
     reset,
     refreshAll,
+    prefetchSession,
   };
 });

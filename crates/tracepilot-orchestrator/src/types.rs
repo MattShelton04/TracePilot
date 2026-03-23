@@ -64,6 +64,8 @@ pub struct RegisteredRepo {
     pub added_at: String,
     pub last_used_at: Option<String>,
     pub source: RepoSource,
+    #[serde(default)]
+    pub favourite: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

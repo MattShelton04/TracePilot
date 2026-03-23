@@ -46,6 +46,7 @@ export interface RegisteredRepo {
   addedAt: string;
   lastUsedAt?: string;
   source: 'manual' | 'session-discovery';
+  favourite?: boolean;
 }
 
 // ─── Launcher Types ───────────────────────────────────────────────

@@ -202,8 +202,9 @@ export async function getSessionEvents(
   sessionId: string,
   offset?: number,
   limit?: number,
+  eventType?: string,
 ): Promise<EventsResponse> {
-  return invoke<EventsResponse>('get_session_events', { sessionId, offset, limit });
+  return invoke<EventsResponse>('get_session_events', { sessionId, offset, limit, eventType: eventType ?? null });
 }
 
 export async function getSessionTodos(sessionId: string): Promise<TodosResponse> {
