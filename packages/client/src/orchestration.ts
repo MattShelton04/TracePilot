@@ -109,6 +109,10 @@ export async function removeRegisteredRepo(path: string): Promise<void> {
   return invoke<void>('remove_registered_repo', { path });
 }
 
+export async function toggleRepoFavourite(path: string): Promise<boolean> {
+  return invoke<boolean>('toggle_repo_favourite', { path });
+}
+
 export async function discoverReposFromSessions(): Promise<RegisteredRepo[]> {
   return invoke<RegisteredRepo[]>('discover_repos_from_sessions');
 }
@@ -514,12 +518,14 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
         addedAt: '2025-01-10T10:00:00Z',
         lastUsedAt: '2025-01-18T14:00:00Z',
         source: 'manual',
+        favourite: true,
       },
       {
         path: 'C:\\git\\AnotherRepo',
         name: 'AnotherRepo',
         addedAt: '2025-01-12T08:00:00Z',
         source: 'session-discovery',
+        favourite: false,
       },
     ] satisfies RegisteredRepo[],
     add_registered_repo: {
@@ -527,8 +533,10 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
       name: 'NewRepo',
       addedAt: new Date().toISOString(),
       source: 'manual',
+      favourite: false,
     } satisfies RegisteredRepo,
     remove_registered_repo: undefined,
+    toggle_repo_favourite: true,
     discover_repos_from_sessions: [] satisfies RegisteredRepo[],
 
     save_agent_definition: undefined,

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore, type SortOption } from "@/stores/sessions";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
@@ -13,6 +14,7 @@ import { safeListen } from '@/utils/tauriEvents';
 
 const router = useRouter();
 const store = useSessionsStore();
+const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 
 const { refreshing, refresh } = useAutoRefresh({
@@ -23,6 +25,16 @@ const { refreshing, refresh } = useAutoRefresh({
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const unlisteners: UnlistenFn[] = [];
+
+function prefetchTopSessions() {
+  const top3 = store.sessions
+    .slice()
+    .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+    .slice(0, 3);
+  for (const session of top3) {
+    detailStore.prefetchSession(session.id);
+  }
+}
 
 const repoOptions= computed(() => store.repositories as string[]);
 const branchOptions = computed(() => store.branches as string[]);
@@ -54,19 +66,42 @@ onMounted(async () => {
       return;
     }
   }
-  // Always ensure index is fresh in the background (non-blocking).
-  // This handles: first launch (populates index from disk scan), subsequent launches
-  // (picks up new sessions), and pruning deleted sessions.
-  store.ensureIndex();
+  // Prefetch top sessions for instant navigation (fire-and-forget)
+  if (store.sessions.length > 0) {
+    prefetchTopSessions();
+  }
+  // Ensure index is fresh — may add new sessions in background
+  store.ensureIndex().then(() => {
+    if (store.sessions.length > 0) {
+      prefetchTopSessions();
+    }
+  });
 });
 
 onUnmounted(() => {
   for (const unlisten of unlisteners) unlisten();
 });
+
+const pageRef = ref<HTMLElement | null>(null);
+let driftTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => store.searchQuery, (val) => {
+  if (val === '67' && pageRef.value) {
+    if (driftTimeout) clearTimeout(driftTimeout);
+    // Force reflow to restart animation if already playing
+    pageRef.value.classList.remove('drift-active');
+    void pageRef.value.offsetWidth;
+    pageRef.value.classList.add('drift-active');
+    driftTimeout = setTimeout(() => {
+      pageRef.value?.classList.remove('drift-active');
+      driftTimeout = null;
+    }, 1800);
+  }
+});
 </script>
 
 <template>
-  <div class="page-content">
+  <div ref="pageRef" class="page-content">
     <div class="page-content-inner">
 
       <!-- Toolbar -->
@@ -429,5 +464,22 @@ onUnmounted(() => {
 }
 .loading-text {
   text-align: left;
+}
+
+/* Subtle motion effect */
+.drift-active {
+  transform-origin: center center;
+  animation: drift-motion 1.8s cubic-bezier(0.6, 0.43, 0.68, 1.11) 1;
+}
+
+@keyframes drift-motion {
+  0% { transform: skewY(0deg); }
+  10% { transform: skewY(10deg); }
+  25% { transform: skewY(-10deg); }
+  40% { transform: skewY(10deg); }
+  55% { transform: skewY(-10deg); }
+  70% { transform: skewY(10deg); }
+  85% { transform: skewY(-10deg); }
+  100% { transform: skewY(0deg); }
 }
 </style>

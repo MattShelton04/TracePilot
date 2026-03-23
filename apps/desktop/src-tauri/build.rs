@@ -56,6 +56,7 @@ fn main() {
                     "list_registered_repos",
                     "add_registered_repo",
                     "remove_registered_repo",
+                    "toggle_repo_favourite",
                     "discover_repos_from_sessions",
                     "launch_session",
                     "get_available_models",

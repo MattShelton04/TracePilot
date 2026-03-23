@@ -459,12 +459,23 @@ watch(() => store.worktrees, () => {
 
           <!-- Each registered repo -->
           <div
-            v-for="repo in store.registeredRepos"
+            v-for="repo in store.sortedRegisteredRepos"
             :key="repo.path"
             class="tree-item"
             :class="{ 'tree-item--active': selectedRepoPath === repo.path }"
             @click="handleSelectRepo(repo.path)"
           >
+            <button
+              class="tree-fav-btn"
+              :class="{ 'tree-fav-btn--active': repo.favourite }"
+              :title="repo.favourite ? 'Remove from favourites' : 'Add to favourites'"
+              :disabled="store.togglingFavourites.has(repo.path)"
+              @click.stop="store.toggleFavourite(repo.path)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" :fill="repo.favourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
             <svg class="tree-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="6" y1="3" x2="6" y2="15" />
               <circle cx="18" cy="6" r="3" />
@@ -1115,6 +1126,35 @@ watch(() => store.worktrees, () => {
   color: var(--text-secondary);
   border-radius: 9px;
   padding: 0 6px;
+}
+
+.tree-fav-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.tree-fav-btn--active {
+  display: flex;
+  color: var(--warning-fg);
+}
+
+.tree-item:hover .tree-fav-btn {
+  display: flex;
+}
+
+.tree-fav-btn:hover {
+  color: var(--warning-fg);
 }
 
 .tree-remove-btn {

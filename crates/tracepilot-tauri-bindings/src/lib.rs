@@ -129,6 +129,7 @@ pub struct EventsResponse {
     pub events: Vec<EventItem>,
     pub total_count: usize,
     pub has_more: bool,
+    pub all_event_types: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -557,6 +558,7 @@ mod commands {
         session_id: String,
         offset: Option<u32>,
         limit: Option<u32>,
+        event_type: Option<String>,
     ) -> Result<EventsResponse, String> {
         // NOTE: Currently parses the entire events.jsonl on every page request.
         // For Phase 3, consider caching parsed events in Tauri managed state
@@ -570,9 +572,28 @@ mod commands {
             )
             .map_err(|e| e.to_string())?;
             let events_path = path.join("events.jsonl");
-            let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+            let all_events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
                 .map_err(|e| e.to_string())?
                 .events;
+
+            // Collect all unique event types from the full unfiltered set
+            let all_event_types: Vec<String> = {
+                let mut types = std::collections::BTreeSet::new();
+                for event in &all_events {
+                    types.insert(event.event_type.to_string());
+                }
+                types.into_iter().collect()
+            };
+
+            // Apply event type filter if provided
+            let events: Vec<_> = if let Some(ref filter_type) = event_type {
+                all_events
+                    .iter()
+                    .filter(|e| &e.event_type.to_string() == filter_type)
+                    .collect()
+            } else {
+                all_events.iter().collect()
+            };
 
             let total_count = events.len();
             let offset = offset.unwrap_or(0) as usize;
@@ -595,6 +616,7 @@ mod commands {
                 events: event_items,
                 total_count,
                 has_more: end < total_count,
+                all_event_types,
             })
         })
         .await
@@ -1923,6 +1945,16 @@ mod commands {
     }
 
     #[tauri::command]
+    pub async fn toggle_repo_favourite(path: String) -> Result<bool, String> {
+        tokio::task::spawn_blocking(move || {
+            tracepilot_orchestrator::repo_registry::toggle_repo_favourite(&path)
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    #[tauri::command]
     pub async fn discover_repos_from_sessions(
         state: tauri::State<'_, SharedConfig>,
     ) -> Result<Vec<tracepilot_orchestrator::RegisteredRepo>, String> {
@@ -2496,6 +2528,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::list_registered_repos,
             commands::add_registered_repo,
             commands::remove_registered_repo,
+            commands::toggle_repo_favourite,
             commands::discover_repos_from_sessions,
             commands::launch_session,
             commands::get_available_models,

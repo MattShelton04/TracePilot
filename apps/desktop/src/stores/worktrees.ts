@@ -21,6 +21,7 @@ import {
   addRegisteredRepo as addRegisteredRepoApi,
   removeRegisteredRepo as removeRegisteredRepoApi,
   discoverReposFromSessions as discoverReposApi,
+  toggleRepoFavourite,
 } from '@tracepilot/client';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
@@ -308,6 +309,32 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     }
   }
 
+  const togglingFavourites = ref(new Set<string>());
+
+  async function toggleFavourite(path: string) {
+    if (togglingFavourites.value.has(path)) return;
+    togglingFavourites.value.add(path);
+    try {
+      const newState = await toggleRepoFavourite(path);
+      const repo = registeredRepos.value.find(r => r.path === path);
+      if (repo) {
+        repo.favourite = newState;
+      }
+    } catch (e) {
+      error.value = String(e);
+    } finally {
+      togglingFavourites.value.delete(path);
+    }
+  }
+
+  const sortedRegisteredRepos = computed(() => {
+    return [...registeredRepos.value].sort((a, b) => {
+      if (a.favourite && !b.favourite) return -1;
+      if (!a.favourite && b.favourite) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  });
+
   // ─── Sort ─────────────────────────────────────────────────────────
 
   function setSortBy(field: typeof sortBy.value) {
@@ -354,6 +381,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     addRepo,
     removeRepo,
     discoverRepos,
+    toggleFavourite,
+    togglingFavourites,
+    // Computed (registry)
+    sortedRegisteredRepos,
     // Sort
     setSortBy,
   };
