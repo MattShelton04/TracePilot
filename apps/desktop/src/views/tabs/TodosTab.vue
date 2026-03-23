@@ -1,18 +1,36 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, StatusIcon, EmptyState, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, StatusIcon, EmptyState, SectionPanel, LoadingSpinner, useSessionTabLoader } from "@tracepilot/ui";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 
 const store = useSessionDetailStore();
+const isTodosLoading = ref(false);
+let loadToken = 0;
 
 useSessionTabLoader(
   () => store.sessionId,
-  () => store.loadTodos()
+  async () => {
+    const token = ++loadToken;
+    if (!store.sessionId || store.loaded.has("todos")) return;
+    isTodosLoading.value = true;
+    try {
+      await store.loadTodos();
+    } finally {
+      if (loadToken === token) isTodosLoading.value = false;
+    }
+  },
+  {
+    onClear() {
+      loadToken++;
+      isTodosLoading.value = false;
+    },
+  }
 );
 
 const todos = computed(() => store.todos?.todos ?? []);
 const deps = computed(() => store.todos?.deps ?? []);
+const hasTodos = computed(() => todos.value.length > 0);
 
 const completedCount = computed(() => todos.value.filter(t => t.status === 'done').length);
 const inProgressCount = computed(() => todos.value.filter(t => t.status === 'in_progress').length);
@@ -43,7 +61,12 @@ function getTodoTitle(id: string): string {
 
 <template>
   <div>
-    <EmptyState v-if="todos.length === 0" message="No todos found in this session." />
+    <div v-if="isTodosLoading" class="todos-loading">
+      <LoadingSpinner size="sm" />
+      <span class="loading-text">Loading todos…</span>
+    </div>
+
+    <EmptyState v-else-if="!hasTodos" message="No todos found in this session." />
 
     <template v-else>
       <!-- Progress section -->
@@ -172,6 +195,22 @@ function getTodoTitle(id: string): string {
   padding: 3px;
   width: fit-content;
 }
+
+.todos-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--canvas-subtle);
+}
+
+.loading-text {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
 .toggle-btn {
   display: flex;
   align-items: center;
