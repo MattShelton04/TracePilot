@@ -357,21 +357,11 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
-/* --- Active State Animations --- */
+/* --- Active State Styling --- */
 .card--active {
   border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
-  animation: card-active-pulse 2s ease-in-out infinite;
-}
-@keyframes card-active-pulse {
-  0%, 100% {
-    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
-    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
-  }
-  50% {
-    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
-    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
-  }
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .active-badge-topright {
@@ -401,12 +391,8 @@ onUnmounted(() => {
   flex-shrink: 0;
   overflow: visible;
   position: relative;
-  animation: dot-sync-pulse 2s ease-in-out infinite;
-}
-
-@keyframes dot-sync-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.15); opacity: 1; }
+  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.2));
+  transition: box-shadow var(--transition-fast, 150ms ease), transform var(--transition-fast, 150ms ease);
 }
 
 .active-badge {
