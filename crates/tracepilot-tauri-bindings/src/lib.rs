@@ -294,7 +294,7 @@ mod commands {
         if !index_path.exists() {
             return None;
         }
-        let db = tracepilot_indexer::index_db::IndexDb::open_or_create(index_path).ok()?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(index_path).ok()?;
         if db.session_count().unwrap_or(0) == 0 {
             return None;
         }
@@ -318,7 +318,7 @@ mod commands {
         tokio::task::spawn_blocking(move || {
             // Fast path: query the index DB (single SQLite read, no per-session I/O)
             if index_path.exists() {
-                let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+                let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                     .map_err(|e| e.to_string())?;
 
                 // Check if index has any sessions; if empty, fall through to disk scan
@@ -437,7 +437,7 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
             let incidents = db
                 .get_session_incidents(&session_id)
@@ -723,7 +723,7 @@ mod commands {
                 return Ok(Vec::new());
             }
 
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
             let result_ids = db.search(&query).map_err(|e| e.to_string())?;
             let mut sessions = Vec::new();
@@ -969,7 +969,7 @@ mod commands {
 
         tokio::task::spawn_blocking(move || {
             let start = std::time::Instant::now();
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
 
             let filters = tracepilot_indexer::SearchFilters {
@@ -984,19 +984,14 @@ mod commands {
                 sort_by,
             };
 
-            let is_empty_query = query_for_closure.trim().is_empty();
-
-            let (results, total_count) = if is_empty_query {
-                // Browse mode: filter-only, no FTS MATCH
-                let results = db.browse_content(&filters).map_err(|e| e.to_string())?;
-                let total = db.browse_content_count(&filters).map_err(|e| e.to_string())?;
-                (results, total)
+            let query_opt = if query_for_closure.trim().is_empty() {
+                None
             } else {
-                // Standard FTS search
-                let results = db.search_content(&query_for_closure, &filters).map_err(|e| e.to_string())?;
-                let total = db.search_content_count(&query_for_closure, &filters).map_err(|e| e.to_string())?;
-                (results, total)
+                Some(query_for_closure.as_str())
             };
+
+            let results = db.query_content(query_opt, &filters).map_err(|e| e.to_string())?;
+            let total_count = db.query_count(query_opt, &filters).map_err(|e| e.to_string())?;
 
             let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
@@ -1049,7 +1044,7 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
 
             let filters = tracepilot_indexer::SearchFilters {
@@ -1064,11 +1059,10 @@ mod commands {
 
             let facets = match query.as_deref() {
                 Some(q) if !q.trim().is_empty() => {
-                    db.search_facets(q, &filters).map_err(|e| e.to_string())?
+                    db.facets(Some(q), &filters).map_err(|e| e.to_string())?
                 }
                 _ => {
-                    // Browse mode or no query — use browse_facets for filter-scoped counts
-                    db.browse_facets(&filters).map_err(|e| e.to_string())?
+                    db.facets(None, &filters).map_err(|e| e.to_string())?
                 }
             };
 
@@ -1093,7 +1087,7 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
 
             let stats = db.search_stats().map_err(|e| e.to_string())?;
@@ -1118,7 +1112,7 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
             db.search_repositories().map_err(|e| e.to_string())
         })
@@ -1135,7 +1129,7 @@ mod commands {
         let index_path = cfg.index_db_path();
 
         tokio::task::spawn_blocking(move || {
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
             db.search_tool_names().map_err(|e| e.to_string())
         })
@@ -1956,7 +1950,7 @@ mod commands {
             if !index_path.exists() {
                 return Ok(Vec::new());
             }
-            let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
                 .map_err(|e| e.to_string())?;
             db.distinct_session_cwds().map_err(|e| e.to_string())
         })
