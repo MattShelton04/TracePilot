@@ -81,6 +81,17 @@ function isActive(session: SessionListItem): boolean {
 .card--active {
   border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  animation: card-active-pulse 1.8s ease-in-out 2;
+}
+@keyframes card-active-pulse {
+  0%, 100% {
+    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  }
+  50% {
+    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
+    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+  }
 }
 
 .active-dot {
@@ -92,23 +103,21 @@ function isActive(session: SessionListItem): boolean {
   margin-left: 2px;
   overflow: visible;
   position: relative;
-  transition: box-shadow var(--transition-fast, 150ms ease), transform var(--transition-fast, 150ms ease);
+  animation: pulse-dot 1.8s ease-in-out 2;
 }
 
-.active-dot::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.22));
-  opacity: 0.25;
-  animation: active-glow 2.4s ease-in-out infinite;
-  will-change: opacity;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
 }
 
-@keyframes active-glow {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.9; }
+@media (prefers-reduced-motion: reduce) {
+  .card--active {
+    animation: none;
+  }
+  .active-dot {
+    animation: none;
+  }
 }
 
 .active-badge {

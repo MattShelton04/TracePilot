@@ -361,22 +361,17 @@ onUnmounted(() => {
 .card--active {
   border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
   box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  animation: card-active-pulse 1.8s ease-in-out 2;
 }
-.session-card-new.card--active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
-  opacity: 0.4;
-  animation: card-glow 2.6s ease-in-out infinite;
-  pointer-events: none;
-  will-change: opacity;
-}
-@keyframes card-glow {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.75; }
+@keyframes card-active-pulse {
+  0%, 100% {
+    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
+    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  }
+  50% {
+    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
+    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+  }
 }
 
 .active-badge-topright {
@@ -404,23 +399,20 @@ onUnmounted(() => {
   border-radius: 50%;
   background: var(--success-fg);
   flex-shrink: 0;
-  overflow: visible;
-  position: relative;
-  transition: box-shadow var(--transition-fast, 150ms ease), transform var(--transition-fast, 150ms ease);
+  animation: dot-sync-pulse 1.8s ease-in-out 2;
 }
-.active-dot::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 6px var(--success-muted, rgba(52, 211, 153, 0.22));
-  opacity: 0.25;
-  animation: active-glow 2.4s ease-in-out infinite;
-  will-change: opacity;
+@keyframes dot-sync-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
 }
-@keyframes active-glow {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card--active {
+    animation: none;
+  }
+  .active-dot {
+    animation: none;
+  }
 }
 
 .active-badge {
