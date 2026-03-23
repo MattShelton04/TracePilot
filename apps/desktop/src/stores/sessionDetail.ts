@@ -83,7 +83,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  /** Format a caught value into a user-friendly error string. */
+  /** Convert a caught value into an error message string. */
   function formatError(e: unknown): string {
     return e instanceof Error ? e.message : String(e);
   }
