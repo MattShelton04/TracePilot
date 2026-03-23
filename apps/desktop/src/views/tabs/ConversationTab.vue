@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -14,6 +14,7 @@ import {
   toolIcon, toolCategory, categoryColor,
   useSessionTabLoader, useToggleSet, useConversationSections,
   AGENT_COLORS,
+  ErrorState,
 } from "@tracepilot/ui";
 
 const route = useRoute();
@@ -122,6 +123,8 @@ const viewModes = [
   { value: "timeline", label: "Timeline" },
 ];
 
+const turnsError = computed(() => store.sectionErrors.turns);
+
 useSessionTabLoader(
   () => store.sessionId,
   () => store.loadTurns(),
@@ -191,6 +194,13 @@ function eventTypeLabel(eventType: string): string {
 
 <template>
   <div>
+    <ErrorState
+      v-if="turnsError"
+      heading="Failed to load conversation"
+      :message="turnsError"
+      @retry="store.loadTurns()"
+    />
+    <template v-else>
     <!-- Mini stat row -->
     <div class="grid-3 mb-4">
       <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
@@ -577,6 +587,7 @@ function eventTypeLabel(eventType: string): string {
         </button>
       </div>
     </Transition>
+    </template>
   </div>
 </template>
 

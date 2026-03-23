@@ -4,12 +4,13 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
   StatCard, Badge, SectionPanel, EmptyState,
-  DataTable, TokenBar, HealthRing,
+  DataTable, TokenBar, HealthRing, ErrorState,
   formatNumber, formatCost, formatDuration, useSessionTabLoader,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
+const metricsError = computed(() => store.sectionErrors.metrics);
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -81,6 +82,13 @@ const modelColumns = [
 
 <template>
   <div>
+    <ErrorState
+      v-if="metricsError"
+      heading="Failed to load metrics"
+      :message="metricsError"
+      @retry="store.loadShutdownMetrics()"
+    />
+    <template v-else>
     <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
 
     <template v-else>
@@ -185,6 +193,7 @@ const modelColumns = [
         <span class="text-xs text-[var(--text-tertiary)]">Current Model:</span>
         <Badge variant="done">{{ metrics.currentModel }}</Badge>
       </div>
+    </template>
     </template>
   </div>
 </template>

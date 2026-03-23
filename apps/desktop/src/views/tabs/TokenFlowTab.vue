@@ -4,7 +4,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
   StatCard, SectionPanel, EmptyState,
-  formatNumber, formatCost, useSessionTabLoader,
+  formatNumber, formatCost, ErrorState, useSessionTabLoader,
 } from "@tracepilot/ui";
 import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
 
@@ -21,6 +21,7 @@ useSessionTabLoader(
 const metrics = computed(() => store.shutdownMetrics);
 const turns = computed(() => store.turns);
 const hasTurns = computed(() => turns.value.length > 0);
+const tokenFlowError = computed(() => store.sectionErrors.metrics ?? store.sectionErrors.turns);
 
 // ── Per-model entries ──
 const modelEntries = computed(() => {
@@ -89,6 +90,10 @@ const estimatedToolCalls = computed(() => {
   const remainder = totalOutputTokens.value - estimatedAssistantText.value - estimatedReasoning.value;
   return Math.max(0, remainder);
 });
+
+async function retryTokenFlow() {
+  await Promise.all([store.loadShutdownMetrics(), store.loadTurns()]);
+}
 
 // ── Color palette ──
 const COLORS: Record<string, string> = {
@@ -428,6 +433,13 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
 
 <template>
   <div>
+    <ErrorState
+      v-if="tokenFlowError"
+      heading="Failed to load token flow"
+      :message="tokenFlowError"
+      @retry="retryTokenFlow"
+    />
+    <template v-else>
     <EmptyState v-if="!metrics" message="No token data available for this session." />
 
     <template v-else-if="sankeyData">
@@ -586,6 +598,7 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
     </template>
 
     <EmptyState v-else message="No model usage data available for this session." />
+    </template>
   </div>
 </template>
 

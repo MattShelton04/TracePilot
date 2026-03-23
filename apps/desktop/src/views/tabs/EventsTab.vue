@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, DataTable, ActionButton, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, DataTable, ActionButton, FilterSelect, ErrorState, formatTime, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 const filterType = ref<string | null>(null);
@@ -43,6 +43,7 @@ watch(filterType, async () => {
 const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
 const displayEvents = computed(() => store.events?.events ?? []);
+const eventsError = computed(() => store.sectionErrors.events);
 
 function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' | 'danger' {
   if (type === 'session.error') return 'danger';
@@ -88,6 +89,13 @@ async function loadPage(page: number) {
 
 <template>
   <div>
+    <ErrorState
+      v-if="eventsError"
+      heading="Failed to load events"
+      :message="eventsError"
+      @retry="store.loadEvents(currentPage * pageSize, pageSize, filterType ?? undefined)"
+    />
+    <template v-else>
     <!-- Header with count -->
     <div class="flex items-center gap-3 mb-4">
       <FilterSelect
@@ -137,5 +145,6 @@ async function loadPage(page: number) {
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
       </ActionButton>
     </div>
+    </template>
   </div>
 </template>

@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList,
-  formatDate, formatDuration, formatNumberFull, useSessionTabLoader, MarkdownContent,
+  formatDate, formatDuration, formatNumberFull, ErrorState, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -23,6 +23,13 @@ useSessionTabLoader(
 const detail= computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
+const overviewError = computed(
+  () =>
+    store.sectionErrors.checkpoints ??
+    store.sectionErrors.plan ??
+    store.sectionErrors.metrics ??
+    store.sectionErrors.incidents,
+);
 
 const sessionInfoItems = computed(() => {
   const d = detail.value;
@@ -116,10 +123,26 @@ function formatDetail(detail: unknown): string {
     return String(detail);
   }
 }
+
+async function retryOverviewLoads() {
+  await Promise.all([
+    store.loadCheckpoints(),
+    store.loadPlan(),
+    store.loadShutdownMetrics(),
+    store.loadIncidents(),
+  ]);
+}
 </script>
 
 <template>
   <div>
+    <ErrorState
+      v-if="overviewError"
+      heading="Failed to load session overview"
+      :message="overviewError"
+      @retry="retryOverviewLoads"
+    />
+    <template v-else>
     <!-- Stats row -->
     <div class="grid-4 mb-6">
       <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
@@ -260,6 +283,7 @@ function formatDetail(detail: unknown): string {
         </div>
       </div>
     </SectionPanel>
+    </template>
   </div>
 </template>
 

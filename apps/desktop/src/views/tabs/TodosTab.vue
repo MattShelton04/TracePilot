@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, StatusIcon, EmptyState, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, StatusIcon, EmptyState, ErrorState, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
 
 const store = useSessionDetailStore();
@@ -13,6 +13,7 @@ useSessionTabLoader(
 
 const todos = computed(() => store.todos?.todos ?? []);
 const deps = computed(() => store.todos?.deps ?? []);
+const todosError = computed(() => store.sectionErrors.todos);
 
 const completedCount = computed(() => todos.value.filter(t => t.status === 'done').length);
 const inProgressCount = computed(() => todos.value.filter(t => t.status === 'in_progress').length);
@@ -43,6 +44,13 @@ function getTodoTitle(id: string): string {
 
 <template>
   <div>
+    <ErrorState
+      v-if="todosError"
+      heading="Failed to load todos"
+      :message="todosError"
+      @retry="store.loadTodos()"
+    />
+    <template v-else>
     <EmptyState v-if="todos.length === 0" message="No todos found in this session." />
 
     <template v-else>
@@ -147,6 +155,7 @@ function getTodoTitle(id: string): string {
           </div>
         </template>
       </SectionPanel>
+    </template>
     </template>
   </div>
 </template>
