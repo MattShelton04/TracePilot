@@ -44,12 +44,11 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
   viewModeSource: () => activeView.value,
 });
 
-// Scroll to a specific turn when navigated from search (via ?turn=N).
+// Scroll to a specific element when navigated from search.
+// Tries event-level first (via ?event=N), falls back to turn-level (via ?turn=N).
 // Uses IntersectionObserver so the highlight animation only starts once
 // the element is actually visible (loading can take a while).
-function scrollToTurn(turnIndex: number) {
-  const el = document.getElementById(`turn-${turnIndex}`);
-  if (!el) return;
+function scrollAndHighlight(el: HTMLElement) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   const observer = new IntersectionObserver(
@@ -63,24 +62,42 @@ function scrollToTurn(turnIndex: number) {
     { threshold: 0.3 },
   );
   observer.observe(el);
-  // Safety: disconnect after 10s even if never intersected
   setTimeout(() => observer.disconnect(), 10000);
 }
 
-// Watch for turns to load, then scroll to the target turn.
-// Also re-scroll when ?turn= changes (e.g., clicking a different search result
+function scrollToTarget(turnIndex: number, eventIndex: number | null) {
+  if (eventIndex != null) {
+    const eventEl = document.getElementById(`event-${eventIndex}`);
+    if (eventEl) {
+      scrollAndHighlight(eventEl);
+      return;
+    }
+  }
+  const turnEl = document.getElementById(`turn-${turnIndex}`);
+  if (turnEl) scrollAndHighlight(turnEl);
+}
+
+// Watch for turns to load, then scroll to the target.
+// Also re-scroll when query params change (e.g., clicking a different search result
 // in the same session without the component remounting).
-let lastScrolledTurn: number | null = null;
+let lastScrolledKey: string | null = null;
 watch(
-  [() => store.turns.length, () => route.query.turn],
-  ([len, turnParam]) => {
+  [() => store.turns.length, () => route.query.turn, () => route.query.event],
+  ([len, turnParam, eventParam]) => {
     if (!turnParam || len === 0) return;
     const turnIndex = Number(turnParam);
     if (Number.isNaN(turnIndex)) return;
-    if (turnIndex === lastScrolledTurn) return;
+    const eventIndex = eventParam ? Number(eventParam) : null;
+    const key = `${turnIndex}-${eventIndex}`;
+    if (key === lastScrolledKey) return;
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
-    lastScrolledTurn = turnIndex;
-    nextTick(() => scrollToTurn(turnIndex));
+    lastScrolledKey = key;
+    // Auto-expand tool calls for this turn so event-level elements render
+    if (eventIndex != null && !expandedTools.has(turnIndex)) {
+      expandedTools.toggle(turnIndex);
+    }
+    // Wait two ticks: one for expansion render, one for scroll
+    nextTick(() => nextTick(() => scrollToTarget(turnIndex, eventIndex)));
   },
   { immediate: true },
 );
@@ -177,7 +194,7 @@ function eventTypeLabel(eventType: string): string {
     <div v-else-if="activeView === 'chat'" class="turn-group">
       <div v-for="turn in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="conversation-turn">
         <!-- User message -->
-        <div v-if="turn.userMessage" class="turn-item">
+        <div v-if="turn.userMessage" :id="turn.eventIndex != null ? `event-${turn.eventIndex}` : undefined" class="turn-item">
           <div class="turn-avatar user">👤</div>
           <div class="turn-body">
             <div class="turn-header">
@@ -246,6 +263,7 @@ function eventTypeLabel(eventType: string): string {
                 <div v-if="expandedTools.has(turn.turnIndex)">
                   <ToolCallItem
                     v-for="tc in section.toolCalls"
+                    :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
                     :key="tc.toolCallId ?? tc.toolName"
                     v-bind="tcProps(turn, tc)"
                     @toggle="toggleToolDetail(turn, tc)"
@@ -311,6 +329,7 @@ function eventTypeLabel(eventType: string): string {
               <div v-if="section.toolCalls.length > 0" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
+                  :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
                   :key="tc.toolCallId ?? tc.toolName"
                   v-bind="tcProps(turn, tc, '', 'compact')"
                   @toggle="toggleToolDetail(turn, tc)"
@@ -344,7 +363,7 @@ function eventTypeLabel(eventType: string): string {
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
       <template v-for="turn in store.turns" :key="turn.turnIndex">
-        <div v-if="turn.userMessage" :id="`turn-${turn.turnIndex}`" class="compact-turn-user">
+        <div v-if="turn.userMessage" :id="turn.eventIndex != null ? `event-${turn.eventIndex}` : `turn-${turn.turnIndex}`" class="compact-turn-user">
           <span class="compact-turn-label-prefix user">👤 User</span>
           <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
         </div>
@@ -390,6 +409,7 @@ function eventTypeLabel(eventType: string): string {
               />
               <button
                 v-for="tc in section.toolCalls"
+                :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
                 :key="tc.toolCallId ?? tc.toolName"
                 class="compact-tool-pill"
                 :class="{
@@ -487,6 +507,7 @@ function eventTypeLabel(eventType: string): string {
               <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${AGENT_COLORS[section.agentType]} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
+                  :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
                   :key="tc.toolCallId ?? tc.toolName"
                   v-bind="tcProps(turn, tc, 'tl-', 'compact')"
                   @toggle="toggleToolDetail(turn, tc, 'tl-')"

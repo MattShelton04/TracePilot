@@ -48,6 +48,9 @@ pub struct TurnSessionEvent {
 #[serde(rename_all = "camelCase")]
 pub struct ConversationTurn {
     pub turn_index: usize,
+    /// Index of the event that opened this turn (for deep-linking from search).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_index: Option<usize>,
     pub turn_id: Option<String>,
     pub interaction_id: Option<String>,
     pub user_message: Option<String>,
@@ -83,6 +86,9 @@ pub struct TurnToolCall {
     pub tool_call_id: Option<String>,
     pub parent_tool_call_id: Option<String>,
     pub tool_name: String,
+    /// Index of the ToolExecutionStart event in the session event stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_index: Option<usize>,
     pub arguments: Option<serde_json::Value>,
     pub success: Option<bool>,
     pub error: Option<String>,

@@ -201,9 +201,13 @@ function formatRelativeTime(unix: number | null): string {
 }
 
 // ÔöÇÔöÇ Session link path ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function sessionLink(sessionId: string, turnNumber: number | null): string {
+function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: number | null = null): string {
   const base = `/session/${sessionId}/conversation`;
-  return turnNumber != null ? `${base}?turn=${turnNumber}` : base;
+  const params = new URLSearchParams();
+  if (turnNumber != null) params.set('turn', String(turnNumber));
+  if (eventIndex != null) params.set('event', String(eventIndex));
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 // ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -596,7 +600,7 @@ onUnmounted(() => {
                     <span class="tool-name-badge">{{ result.toolName }}</span>
                   </template>
                   <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber)"
+                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
                     class="result-view-btn"
                     @click.stop
                   >
@@ -633,7 +637,7 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber)"
+                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
                     class="expanded-view-btn"
                     @click.stop
                   >

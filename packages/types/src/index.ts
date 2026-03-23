@@ -91,6 +91,8 @@ export interface AttributedMessage {
 /** A conversation turn */
 export interface ConversationTurn {
   turnIndex: number;
+  /** Index of the event that opened this turn (for deep-linking from search). */
+  eventIndex?: number;
   turnId?: string;
   interactionId?: string;
   userMessage?: string;
@@ -132,6 +134,8 @@ export interface TurnToolCall {
   toolCallId?: string;
   parentToolCallId?: string;
   toolName: string;
+  /** Index of the ToolExecutionStart event in the session event stream (for deep-linking). */
+  eventIndex?: number;
   arguments?: unknown;
   success?: boolean;
   error?: string;
