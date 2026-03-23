@@ -93,8 +93,17 @@ watch(
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
     // Auto-expand tool calls for this turn so event-level elements render
-    if (eventIndex != null && !expandedTools.has(turnIndex)) {
-      expandedTools.toggle(turnIndex);
+    if (eventIndex != null) {
+      if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
+      // If the target event is inside a subagent, expand that subagent section too
+      const turn = store.turns.find(t => t.turnIndex === turnIndex);
+      if (turn) {
+        const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
+        if (tc?.parentToolCallId) {
+          const subKey = `${turnIndex}-${tc.parentToolCallId}`;
+          if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
+        }
+      }
     }
     // Wait two ticks: one for expansion render, one for scroll
     nextTick(() => nextTick(() => scrollToTarget(turnIndex, eventIndex)));
