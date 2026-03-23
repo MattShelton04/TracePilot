@@ -536,6 +536,7 @@ export const MOCK_EVENTS: EventsResponse = {
   ],
   totalCount: 2450,
   hasMore: true,
+  allEventTypes: ["assistant.message", "assistant.turn_end", "assistant.turn_start", "session.plan_changed", "session.start", "tool.execution_complete", "tool.execution_start", "user.message"],
 };
 
 export const MOCK_TODOS: TodosResponse = {
