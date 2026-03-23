@@ -16,6 +16,11 @@ useSessionTabLoader(
   () => store.loadShutdownMetrics()
 );
 
+function retryLoadMetrics() {
+  store.loaded.delete("metrics");
+  store.loadShutdownMetrics();
+}
+
 const metrics = computed(() => store.shutdownMetrics);
 
 const modelEntries = computed(() => {
@@ -81,9 +86,18 @@ const modelColumns = [
 
 <template>
   <div>
-    <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
+    <ErrorAlert
+      v-if="store.metricsError"
+      :message="store.metricsError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadMetrics"
+    />
 
-    <template v-else>
+    <EmptyState v-if="!metrics && !store.metricsError" message="No shutdown metrics available for this session." />
+
+    <template v-if="metrics">
       <!-- Stats row — cost comparison -->
       <div class="grid-4 mb-6">
         <StatCard :value="totalRequests" label="Total Requests" color="accent" />

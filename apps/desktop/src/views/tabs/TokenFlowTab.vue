@@ -18,6 +18,18 @@ useSessionTabLoader(
   },
 );
 
+function retryLoadTokenFlow() {
+  if (store.metricsError) {
+    store.loaded.delete("metrics");
+    store.loadShutdownMetrics();
+  }
+  if (store.turnsError) {
+    store.loaded.delete("turns");
+    store.loadTurns();
+  }
+}
+
+const tokenFlowError = computed(() => store.metricsError || store.turnsError);
 const metrics = computed(() => store.shutdownMetrics);
 const turns = computed(() => store.turns);
 const hasTurns = computed(() => turns.value.length > 0);
@@ -428,7 +440,16 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
 
 <template>
   <div>
-    <EmptyState v-if="!metrics" message="No token data available for this session." />
+    <ErrorAlert
+      v-if="tokenFlowError"
+      :message="tokenFlowError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadTokenFlow"
+    />
+
+    <EmptyState v-if="!metrics && !tokenFlowError" message="No token data available for this session." />
 
     <template v-else-if="sankeyData">
       <!-- Stat cards -->

@@ -22,7 +22,7 @@ const analyticsStore = useAnalyticsStore();
 const toast = useToast();
 const { confirm } = useConfirmDialog();
 
-const sessionsDirectory = ref('~/.copilot/sessions/');
+const sessionsDirectory = ref('');
 const databasePath = ref('');
 const databaseSize = ref('—');
 const indexedSessionCount = ref(0);

@@ -116,10 +116,55 @@ function formatDetail(detail: unknown): string {
     return String(detail);
   }
 }
+
+function retryLoadSection(section: string) {
+  store.loaded.delete(section);
+  switch (section) {
+    case 'checkpoints': store.loadCheckpoints(); break;
+    case 'plan': store.loadPlan(); break;
+    case 'metrics': store.loadShutdownMetrics(); break;
+    case 'incidents': store.loadIncidents(); break;
+  }
+}
 </script>
 
 <template>
   <div>
+    <!-- Section load errors -->
+    <ErrorAlert
+      v-if="store.checkpointsError"
+      :message="`Checkpoints: ${store.checkpointsError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('checkpoints')"
+    />
+    <ErrorAlert
+      v-if="store.planError"
+      :message="`Plan: ${store.planError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('plan')"
+    />
+    <ErrorAlert
+      v-if="store.metricsError"
+      :message="`Metrics: ${store.metricsError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('metrics')"
+    />
+    <ErrorAlert
+      v-if="store.incidentsError"
+      :message="`Incidents: ${store.incidentsError}`"
+      severity="warning"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('incidents')"
+    />
+
     <!-- Stats row -->
     <div class="grid-4 mb-6">
       <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
