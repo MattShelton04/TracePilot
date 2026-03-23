@@ -810,6 +810,50 @@ describe("AgentTreeView", () => {
     expect(childTools[0].text()).toContain("grep");
   });
 
+  it("renders unified session view with agents from all turns", async () => {
+    // Turn 1: Subagent A
+    const subA = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "sub-a",
+      agentDisplayName: "Agent A",
+    });
+    // Turn 2: Subagent B
+    const subB = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      toolCallId: "sub-b",
+      agentDisplayName: "Agent B",
+    });
+
+    store.turns = [
+      makeTurn({ turnIndex: 1, toolCalls: [subA] }),
+      makeTurn({ turnIndex: 2, toolCalls: [subB] }),
+    ] as any;
+
+    const wrapper = mountComponent();
+    await nextTick();
+
+    // Default: Paginated view, only shows Agent A (from turn 1)
+    expect(wrapper.text()).toContain("Agent A");
+    expect(wrapper.text()).not.toContain("Agent B");
+
+    // Switch to Unified mode
+    const unifiedBtn = wrapper.findAll(".view-mode-btn").find(b => b.text().includes("Unified"));
+    await unifiedBtn!.trigger("click");
+    await nextTick();
+
+    // Now shows both agents
+    expect(wrapper.text()).toContain("Agent A");
+    expect(wrapper.text()).toContain("Agent B");
+
+    // Turn navigation should be disabled in unified mode
+    const navButtons = wrapper.findAll(".turn-nav-btn");
+    navButtons.forEach(btn => {
+      expect((btn.element as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
   // ── Failure Reason Tests ────────────────────────────────────────────
 
   it("shows failure reason when a failed subagent is selected", async () => {

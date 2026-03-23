@@ -76,6 +76,7 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
   () => store.sessionId
 );
 const selectedNodeId = ref<string | null>(null);
+const viewMode = ref<"paginated" | "unified">("paginated");
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const expandedToolCalls = useToggleSet<string>();
@@ -138,6 +139,14 @@ function prevAgentTurn() { navPrev(); }
 function nextAgentTurn() { navNext(); }
 function jumpToEarliestAgent() { agentJumpTo(0); }
 function jumpToLatestAgent() { agentJumpTo(agentTurns.value.length - 1); }
+
+function toggleViewMode() {
+  viewMode.value = viewMode.value === "paginated" ? "unified" : "paginated";
+  selectedNodeId.value = null;
+  expandedToolCalls.clear();
+  expandedReasoning.clear();
+  expandedOutputs.clear();
+}
 
 // ---------------------------------------------------------------------------
 // Agent Type Detection
@@ -231,101 +240,164 @@ function buildAgentNode(
 }
 
 const treeData = computed<TreeData | null>(() => {
-  const turn = currentTurn.value;
-  if (!turn) return null;
+  if (viewMode.value === "paginated") {
+    const turn = currentTurn.value;
+    if (!turn) return null;
 
-  const subagentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
-  const subagentIdSet = new Set(subagentCalls.map((tc) => tc.toolCallId).filter(Boolean));
+    const subagentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
+    const subagentIdSet = new Set(subagentCalls.map((tc) => tc.toolCallId).filter(Boolean));
 
-  // Build AgentNode map for all subagents in this turn
-  const nodeMap = new Map<string, AgentNode>();
-  for (let idx = 0; idx < subagentCalls.length; idx++) {
-    const tc = subagentCalls[idx];
-    const nodeId = tc.toolCallId ?? `subagent-${idx}`;
-    nodeMap.set(nodeId, buildAgentNode(tc, idx));
-  }
-
-  // Resolve cross-turn parent subagents: if a subagent in this turn has a
-  // parentToolCallId that points to a subagent from a DIFFERENT turn, create
-  // a cross-turn parent node and nest the child under it. Walk the chain
-  // upwards to handle multi-level nesting.
-  const crossTurnParents = new Map<string, AgentNode>();
-  for (const [, node] of nodeMap) {
-    const parentId = node.toolCallRef?.parentToolCallId;
-    if (!parentId || subagentIdSet.has(parentId) || nodeMap.has(parentId)) continue;
-
-    // Walk up the chain to find all ancestor subagents from other turns.
-    // Track visited IDs to detect cycles in parentToolCallId chains.
-    let currentParentId: string | undefined = parentId;
-    const visited = new Set<string>();
-    while (currentParentId && !nodeMap.has(currentParentId) && !crossTurnParents.has(currentParentId)) {
-      if (visited.has(currentParentId)) break; // cycle detected
-      visited.add(currentParentId);
-      const parentTc = allSubagentToolCalls.value.get(currentParentId);
-      if (!parentTc) break;
-      const parentNode = buildAgentNode(parentTc, crossTurnParents.size, true);
-      crossTurnParents.set(currentParentId, parentNode);
-      currentParentId = parentTc.parentToolCallId ?? undefined;
+    // Build AgentNode map for all subagents in this turn
+    const nodeMap = new Map<string, AgentNode>();
+    for (let idx = 0; idx < subagentCalls.length; idx++) {
+      const tc = subagentCalls[idx];
+      const nodeId = tc.toolCallId ?? `subagent-${idx}`;
+      nodeMap.set(nodeId, buildAgentNode(tc, idx));
     }
-  }
 
-  // Merge cross-turn parents into the node map
-  for (const [id, node] of crossTurnParents) {
-    nodeMap.set(id, node);
-  }
+    // Resolve cross-turn parent subagents
+    const crossTurnParents = new Map<string, AgentNode>();
+    for (const [, node] of nodeMap) {
+      const parentId = node.toolCallRef?.parentToolCallId;
+      if (!parentId || subagentIdSet.has(parentId) || nodeMap.has(parentId)) continue;
 
-  // Build expanded subagent ID set that includes cross-turn parents
-  const expandedSubagentIdSet = new Set([...subagentIdSet, ...crossTurnParents.keys()]);
-
-  // Build hierarchy: subagents whose parentToolCallId points to another subagent
-  const rootChildren: AgentNode[] = [];
-  for (const [, node] of nodeMap) {
-    const tc = node.toolCallRef;
-    const parentId = tc?.parentToolCallId;
-    if (parentId && expandedSubagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-      nodeMap.get(parentId)!.children!.push(node);
-    } else {
-      rootChildren.push(node);
+      let currentParentId: string | undefined = parentId;
+      const visited = new Set<string>();
+      while (currentParentId && !nodeMap.has(currentParentId) && !crossTurnParents.has(currentParentId)) {
+        if (visited.has(currentParentId)) break;
+        visited.add(currentParentId);
+        const parentTc = allSubagentToolCalls.value.get(currentParentId);
+        if (!parentTc) break;
+        const parentNode = buildAgentNode(parentTc, crossTurnParents.size, true);
+        crossTurnParents.set(currentParentId, parentNode);
+        currentParentId = parentTc.parentToolCallId ?? undefined;
+      }
     }
+
+    for (const [id, node] of crossTurnParents) {
+      nodeMap.set(id, node);
+    }
+
+    const expandedSubagentIdSet = new Set([...subagentIdSet, ...crossTurnParents.keys()]);
+    const rootChildren: AgentNode[] = [];
+    for (const [, node] of nodeMap) {
+      const tc = node.toolCallRef;
+      const parentId = tc?.parentToolCallId;
+      if (parentId && expandedSubagentIdSet.has(parentId) && nodeMap.has(parentId)) {
+        nodeMap.get(parentId)!.children!.push(node);
+      } else {
+        rootChildren.push(node);
+      }
+    }
+
+    const directTools = turn.toolCalls.filter(
+      (tc) => !tc.isSubagent && !tc.parentToolCallId,
+    );
+    const subagentSpawnTools = turn.toolCalls.filter(
+      (tc) => tc.isSubagent && !tc.parentToolCallId,
+    );
+    const mainToolCalls = [...subagentSpawnTools, ...directTools];
+    const totalToolCount = mainToolCalls.length;
+
+    const mainStatus: "completed" | "failed" | "in-progress" = !turn.isComplete
+      ? "in-progress"
+      : "completed";
+
+    const knownSubagentIds = allSubagentIds.value;
+    const mainMessages = turn.assistantMessages
+      .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+      .map(m => m.content);
+    const mainReasoning = (turn.reasoningTexts ?? [])
+      .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+      .map(r => r.content);
+
+    const root: AgentNode = {
+      id: "main",
+      type: "main",
+      displayName: "Main Agent",
+      model: turn.model,
+      durationMs: turn.durationMs,
+      toolCount: totalToolCount,
+      status: mainStatus,
+      toolCalls: mainToolCalls,
+      children: [],
+      messages: mainMessages,
+      reasoning: mainReasoning,
+    };
+
+    return { root, children: rootChildren };
+  } else {
+    // Unified mode: Build tree from all turns
+    const allTurns = store.turns;
+    if (allTurns.length === 0) return null;
+
+    const subagentCalls = allTurns.flatMap(t => t.toolCalls.filter(tc => tc.isSubagent));
+    const subagentIdSet = new Set(subagentCalls.map(tc => tc.toolCallId).filter(Boolean) as string[]);
+
+    const nodeMap = new Map<string, AgentNode>();
+    for (let idx = 0; idx < subagentCalls.length; idx++) {
+      const tc = subagentCalls[idx];
+      const nodeId = tc.toolCallId ?? `subagent-${idx}`;
+      nodeMap.set(nodeId, buildAgentNode(tc, idx));
+    }
+
+    const rootChildren: AgentNode[] = [];
+    for (const [, node] of nodeMap) {
+      const tc = node.toolCallRef;
+      const parentId = tc?.parentToolCallId;
+      if (parentId && subagentIdSet.has(parentId) && nodeMap.has(parentId)) {
+        nodeMap.get(parentId)!.children!.push(node);
+      } else {
+        rootChildren.push(node);
+      }
+    }
+
+    // Aggregate Main Agent data across all turns
+    const directTools = allTurns.flatMap(t =>
+      t.toolCalls.filter(tc => !tc.isSubagent && !tc.parentToolCallId)
+    );
+    const subagentSpawnTools = allTurns.flatMap(t =>
+      t.toolCalls.filter(tc => tc.isSubagent && !tc.parentToolCallId)
+    );
+    const mainToolCalls = [...subagentSpawnTools, ...directTools];
+
+    const knownSubagentIds = allSubagentIds.value;
+    const mainMessages = allTurns.flatMap(t =>
+      t.assistantMessages
+        .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+        .map(m => m.content)
+    );
+    const mainReasoning = allTurns.flatMap(t =>
+      (t.reasoningTexts ?? [])
+        .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+        .map(r => r.content)
+    );
+
+    const lastTurn = allTurns[allTurns.length - 1];
+    const mainStatus: "completed" | "failed" | "in-progress" = !lastTurn.isComplete
+      ? "in-progress"
+      : "completed";
+
+    const totalDuration = allTurns.reduce((acc, t) => acc + (t.durationMs ?? 0), 0);
+    // Use the model from the first turn as the primary main agent model
+    const mainModel = allTurns.find(t => t.model)?.model;
+
+    const root: AgentNode = {
+      id: "main",
+      type: "main",
+      displayName: "Main Agent",
+      model: mainModel,
+      durationMs: totalDuration,
+      toolCount: mainToolCalls.length,
+      status: mainStatus,
+      toolCalls: mainToolCalls,
+      children: [],
+      messages: mainMessages,
+      reasoning: mainReasoning,
+    };
+
+    return { root, children: rootChildren };
   }
-
-  const directTools = turn.toolCalls.filter(
-    (tc) => !tc.isSubagent && !tc.parentToolCallId,
-  );
-  const subagentSpawnTools = turn.toolCalls.filter(
-    (tc) => tc.isSubagent && !tc.parentToolCallId,
-  );
-  const mainToolCalls = [...subagentSpawnTools, ...directTools];
-  const totalToolCount = mainToolCalls.length;
-
-  const mainStatus: "completed" | "failed" | "in-progress" = !turn.isComplete
-    ? "in-progress"
-    : "completed";
-
-  // Collect main-agent messages (exclude those attributed to any known subagent)
-  const knownSubagentIds = allSubagentIds.value;
-  const mainMessages = turn.assistantMessages
-    .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-    .map(m => m.content);
-  const mainReasoning = (turn.reasoningTexts ?? [])
-    .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-    .map(r => r.content);
-
-  const root: AgentNode = {
-    id: "main",
-    type: "main",
-    displayName: "Main Agent",
-    model: turn.model,
-    durationMs: turn.durationMs,
-    toolCount: totalToolCount,
-    status: mainStatus,
-    toolCalls: mainToolCalls,
-    children: [],
-    messages: mainMessages,
-    reasoning: mainReasoning,
-  };
-
-  return { root, children: rootChildren };
 });
 
 // ---------------------------------------------------------------------------
@@ -598,9 +670,20 @@ function bezierPath(line: SvgLine): string {
   return `M ${line.x1} ${line.y1} C ${line.x1} ${midY}, ${line.x2} ${midY}, ${line.x2} ${line.y2}`;
 }
 
+function lineClass(line: SvgLine) {
+  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  return {
+    'tree-connector--cross-turn': node?.isCrossTurnParent
+  };
+}
+
 /** Resolve the color for a connector line based on the child node's agent type. */
 function lineColor(line: SvgLine): string {
   if (!treeData.value) return AGENT_COLORS.main;
+
+  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  if (node?.isCrossTurnParent) return "var(--text-tertiary)";
+
   // Search treeData for the child node to find its type
   function findType(nodes: AgentNode[]): string | undefined {
     for (const n of nodes) {
@@ -703,41 +786,60 @@ watch(
     />
 
     <template v-else>
-      <!-- Turn navigation -->
-      <div class="turn-nav">
-        <button
-          class="turn-nav-btn"
-          :disabled="!canPrevAgent"
-          @click="jumpToEarliestAgent"
-          aria-label="Jump to earliest agent turn"
-        >
-          ⏮ Earliest
-        </button>
-        <button
-          class="turn-nav-btn"
-          :disabled="agentTurnIndex === 0"
-          @click="prevAgentTurn"
-          aria-label="Previous agent turn"
-        >
-          ◀ Prev
-        </button>
-        <span class="turn-nav-label">{{ turnNavLabel }}</span>
-        <button
-          class="turn-nav-btn"
-          :disabled="agentTurnIndex === agentTurns.length - 1"
-          @click="nextAgentTurn"
-          aria-label="Next agent turn"
-        >
-          Next ▶
-        </button>
-        <button
-          class="turn-nav-btn"
-          :disabled="!canNextAgent"
-          @click="jumpToLatestAgent"
-          aria-label="Jump to latest agent turn"
-        >
-          Latest ⏭
-        </button>
+      <div class="view-header">
+        <!-- Turn navigation -->
+        <div class="turn-nav">
+          <button
+            class="turn-nav-btn"
+            :disabled="!canPrevAgent || viewMode === 'unified'"
+            @click="jumpToEarliestAgent"
+            aria-label="Jump to earliest agent turn"
+          >
+            ⏮ Earliest
+          </button>
+          <button
+            class="turn-nav-btn"
+            :disabled="agentTurnIndex === 0 || viewMode === 'unified'"
+            @click="prevAgentTurn"
+            aria-label="Previous agent turn"
+          >
+            ◀ Prev
+          </button>
+          <span class="turn-nav-label">{{ viewMode === 'unified' ? 'Unified Session View' : turnNavLabel }}</span>
+          <button
+            class="turn-nav-btn"
+            :disabled="agentTurnIndex === agentTurns.length - 1 || viewMode === 'unified'"
+            @click="nextAgentTurn"
+            aria-label="Next agent turn"
+          >
+            Next ▶
+          </button>
+          <button
+            class="turn-nav-btn"
+            :disabled="!canNextAgent || viewMode === 'unified'"
+            @click="jumpToLatestAgent"
+            aria-label="Jump to latest agent turn"
+          >
+            Latest ⏭
+          </button>
+        </div>
+
+        <div class="view-mode-toggle">
+          <button
+            class="view-mode-btn"
+            :class="{ 'view-mode-btn--active': viewMode === 'paginated' }"
+            @click="viewMode = 'paginated'"
+          >
+            Paginated
+          </button>
+          <button
+            class="view-mode-btn"
+            :class="{ 'view-mode-btn--active': viewMode === 'unified' }"
+            @click="viewMode = 'unified'"
+          >
+            Unified
+          </button>
+        </div>
       </div>
 
       <!-- Tree visualization -->
@@ -761,6 +863,7 @@ watch(
               :key="`base-${i}`"
               :d="bezierPath(line)"
               class="tree-connector tree-connector--base"
+              :class="lineClass(line)"
               :style="{ stroke: lineColor(line) }"
             />
             <!-- Animated flowing dash overlay -->
@@ -769,6 +872,7 @@ watch(
               :key="`flow-${i}`"
               :d="bezierPath(line)"
               class="tree-connector tree-connector--flow"
+              :class="lineClass(line)"
               :style="{ stroke: lineColor(line) }"
             />
           </svg>
@@ -783,6 +887,7 @@ watch(
               'agent-node--main': ln.node.type === 'main',
               'agent-node--selected': selectedNodeId === ln.node.id,
               'agent-node--in-progress': ln.node.status === 'in-progress',
+              'agent-node--cross-turn': ln.node.isCrossTurnParent,
             }"
             :style="{
               left: `${ln.x}px`,
@@ -1101,6 +1206,48 @@ watch(
 }
 
 /* ------------------------------------------------------------------ */
+/* Header & View Mode Toggle                                           */
+/* ------------------------------------------------------------------ */
+.view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.view-mode-toggle {
+  display: flex;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.view-mode-btn {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms);
+}
+
+.view-mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--canvas-default);
+}
+
+.view-mode-btn--active {
+  color: var(--accent-fg);
+  background: var(--canvas-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ------------------------------------------------------------------ */
 /* Turn Navigation                                                     */
 /* ------------------------------------------------------------------ */
 .turn-nav {
@@ -1184,6 +1331,11 @@ watch(
   opacity: 0.7;
 }
 
+.tree-connector--cross-turn {
+  stroke-dasharray: 4 4;
+  opacity: 0.4;
+}
+
 @keyframes connector-flow {
   to {
     stroke-dashoffset: -22;
@@ -1231,6 +1383,17 @@ watch(
 .agent-node--in-progress {
   border-color: var(--node-color, var(--accent-fg));
   animation: node-pulse 2s ease-in-out infinite;
+}
+
+.agent-node--cross-turn {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+  border-style: dashed;
+}
+
+.agent-node--cross-turn:hover {
+  opacity: 1;
+  filter: none;
 }
 
 @keyframes node-pulse {
