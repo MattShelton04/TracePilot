@@ -136,10 +136,6 @@ function tierLabel(tier: string): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
-function truncate(s: string, max: number): string {
-  return truncateText(s, max);
-}
-
 function extractEmoji(name: string): string {
   const match = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
   return match ? match[0] : '📄';
@@ -753,7 +749,7 @@ onUnmounted(() => {
               </div>
               <div class="config-row" v-if="prompt">
                 <span class="config-key">Prompt</span>
-                <span class="config-val">{{ truncate(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(--interactive)</span></span>
+                <span class="config-val">{{ truncateText(prompt, 40) }} <span style="opacity:0.6; font-size: 0.7rem">(--interactive)</span></span>
               </div>
             </div>
 
