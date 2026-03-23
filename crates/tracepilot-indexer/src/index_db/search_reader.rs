@@ -356,39 +356,22 @@ impl IndexDb {
 
 /// Append all filter WHERE clauses and their param values using anonymous `?` placeholders.
 fn append_filters(sql: &mut String, params: &mut Vec<Box<dyn ToSql>>, filters: &SearchFilters) {
-    if !filters.content_types.is_empty() {
-        let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        sql.push_str(&format!(" AND sc.content_type IN ({})", placeholders));
-        for ct in &filters.content_types {
-            params.push(Box::new(ct.clone()));
-        }
-    }
-    if !filters.repositories.is_empty() {
-        let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        sql.push_str(&format!(" AND s.repository IN ({})", placeholders));
-        for repo in &filters.repositories {
-            params.push(Box::new(repo.clone()));
-        }
-    }
-    if !filters.tool_names.is_empty() {
-        let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        sql.push_str(&format!(" AND sc.tool_name IN ({})", placeholders));
-        for tn in &filters.tool_names {
-            params.push(Box::new(tn.clone()));
-        }
-    }
+    use super::helpers::{build_in_filter, build_eq_filter, build_timestamp_range_filter};
+
+    sql.push_str(&build_in_filter("sc.content_type", &filters.content_types, params));
+    sql.push_str(&build_in_filter("s.repository", &filters.repositories, params));
+    sql.push_str(&build_in_filter("sc.tool_name", &filters.tool_names, params));
+
     if let Some(ref sid) = filters.session_id {
-        sql.push_str(" AND sc.session_id = ?");
-        params.push(Box::new(sid.clone()));
+        sql.push_str(&build_eq_filter("sc.session_id", sid.clone(), params));
     }
-    if let Some(from) = filters.date_from_unix {
-        sql.push_str(" AND sc.timestamp_unix >= ?");
-        params.push(Box::new(from));
-    }
-    if let Some(to) = filters.date_to_unix {
-        sql.push_str(" AND sc.timestamp_unix <= ?");
-        params.push(Box::new(to));
-    }
+
+    sql.push_str(&build_timestamp_range_filter(
+        "sc.timestamp_unix",
+        filters.date_from_unix,
+        filters.date_to_unix,
+        params,
+    ));
 }
 
 /// Map a rusqlite row to a `SearchResult`.
