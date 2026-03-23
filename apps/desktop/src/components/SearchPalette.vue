@@ -139,7 +139,9 @@ function close() {
 // ── Navigation ───────────────────────────────────────────────
 function navigateToResult(result: SearchResult) {
   const path = `/session/${result.sessionId}/conversation`;
-  const routeQuery = result.turnNumber != null ? { turn: String(result.turnNumber) } : {};
+  const routeQuery: Record<string, string> = {};
+  if (result.turnNumber != null) routeQuery.turn = String(result.turnNumber);
+  if (result.eventIndex != null) routeQuery.event = String(result.eventIndex);
   close();
   router.push({ path, query: routeQuery });
 }

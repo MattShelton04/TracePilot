@@ -92,16 +92,22 @@ watch(
     if (key === lastScrolledKey) return;
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
-    // Auto-expand tool calls for this turn so event-level elements render
+    // Auto-expand tool section, subagent section, and individual tool call detail
     if (eventIndex != null) {
       if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
-      // If the target event is inside a subagent, expand that subagent section too
       const turn = store.turns.find(t => t.turnIndex === turnIndex);
       if (turn) {
         const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
-        if (tc?.parentToolCallId) {
-          const subKey = `${turnIndex}-${tc.parentToolCallId}`;
-          if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
+        if (tc) {
+          // Expand subagent section if target is inside one
+          if (tc.parentToolCallId) {
+            const subKey = `${turnIndex}-${tc.parentToolCallId}`;
+            if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
+          }
+          // Expand the individual tool call detail
+          const idx = findToolCallIndex(turn, tc);
+          const detailKey = `${turnIndex}-${idx}`;
+          if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
         }
       }
     }
