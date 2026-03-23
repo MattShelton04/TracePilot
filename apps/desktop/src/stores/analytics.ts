@@ -4,21 +4,17 @@ import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { useSessionsStore } from './sessions';
 import { usePreferencesStore } from './preferences';
+import { useCachedFetch } from '@/composables/useCachedFetch';
+
+/** Parameters for analytics fetch operations */
+interface AnalyticsFetchParams {
+  fromDate?: string;
+  toDate?: string;
+  repo?: string;
+  hideEmpty?: boolean;
+}
 
 export const useAnalyticsStore = defineStore('analytics', () => {
-  // State
-  const analytics = ref<AnalyticsData | null>(null);
-  const toolAnalysis = ref<ToolAnalysisData | null>(null);
-  const codeImpact = ref<CodeImpactData | null>(null);
-
-  const analyticsLoading = ref(false);
-  const toolAnalysisLoading = ref(false);
-  const codeImpactLoading = ref(false);
-
-  const analyticsError = ref<string | null>(null);
-  const toolAnalysisError = ref<string | null>(null);
-  const codeImpactError = ref<string | null>(null);
-
   // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
   const selectedRepo = ref<string | null>(null);
   const availableRepos = computed(() => {
@@ -53,20 +49,21 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
-  // Track what's been loaded to avoid redundant fetches
-  const loaded = new Set<string>();
+  // Create cached fetch instances for each data type
+  const analyticsFetcher = useCachedFetch<AnalyticsData, AnalyticsFetchParams>({
+    fetcher: (params) => getAnalytics(params),
+    cacheKeyFn: (params) => `analytics:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+  });
 
-  // In-flight promise dedup: if a fetch is already running for a cache key, return the same promise
-  const inflight = new Map<string, Promise<void>>();
+  const toolAnalysisFetcher = useCachedFetch<ToolAnalysisData, AnalyticsFetchParams>({
+    fetcher: (params) => getToolAnalysis(params),
+    cacheKeyFn: (params) => `toolAnalysis:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+  });
 
-  // Request generation counters to prevent stale async writes
-  let analyticsGen = 0;
-  let toolAnalysisGen = 0;
-  let codeImpactGen = 0;
-
-  function cacheKeyFor(prefix: string, options?: { fromDate?: string; toDate?: string; repo?: string; hideEmpty?: boolean }) {
-    return `${prefix}:${options?.fromDate ?? ''}:${options?.toDate ?? ''}:${options?.repo ?? ''}:${options?.hideEmpty ?? ''}`;
-  }
+  const codeImpactFetcher = useCachedFetch<CodeImpactData, AnalyticsFetchParams>({
+    fetcher: (params) => getCodeImpact(params),
+    cacheKeyFn: (params) => `codeImpact:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+  });
 
   /** Ensure the sessions store is populated so availableRepos has data. */
   async function fetchAvailableRepos() {
@@ -80,36 +77,14 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   async function fetchAnalytics(options?: { fromDate?: string; toDate?: string; repo?: string; force?: boolean }) {
     const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
-    const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const hideEmpty = prefs.hideEmptySessions;
-    const cacheKey = cacheKeyFor('analytics', { ...merged, repo, hideEmpty });
-    if (!options?.force && loaded.has(cacheKey)) return;
-    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+    const params: AnalyticsFetchParams = {
+      fromDate: merged.fromDate,
+      toDate: merged.toDate,
+      repo: merged.repo ?? selectedRepo.value ?? undefined,
+      hideEmpty: prefs.hideEmptySessions,
+    };
 
-    const gen = ++analyticsGen;
-    analyticsLoading.value = true;
-    analyticsError.value = null;
-    const promise = (async () => {
-      try {
-        const result = await getAnalytics({
-          fromDate: merged.fromDate,
-          toDate: merged.toDate,
-          repo,
-          hideEmpty,
-        });
-        if (gen !== analyticsGen) return;
-        analytics.value = result;
-        loaded.add(cacheKey);
-      } catch (e) {
-        if (gen !== analyticsGen) return;
-        analyticsError.value = e instanceof Error ? e.message : String(e);
-      } finally {
-        inflight.delete(cacheKey);
-        if (gen === analyticsGen) analyticsLoading.value = false;
-      }
-    })();
-    inflight.set(cacheKey, promise);
-    return promise;
+    await analyticsFetcher.fetch(params, { force: options?.force });
   }
 
   async function fetchToolAnalysis(options?: {
@@ -120,36 +95,14 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }) {
     const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
-    const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const hideEmpty = prefs.hideEmptySessions;
-    const cacheKey = cacheKeyFor('toolAnalysis', { ...merged, repo, hideEmpty });
-    if (!options?.force && loaded.has(cacheKey)) return;
-    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+    const params: AnalyticsFetchParams = {
+      fromDate: merged.fromDate,
+      toDate: merged.toDate,
+      repo: merged.repo ?? selectedRepo.value ?? undefined,
+      hideEmpty: prefs.hideEmptySessions,
+    };
 
-    const gen = ++toolAnalysisGen;
-    toolAnalysisLoading.value = true;
-    toolAnalysisError.value = null;
-    const promise = (async () => {
-      try {
-        const result = await getToolAnalysis({
-          fromDate: merged.fromDate,
-          toDate: merged.toDate,
-          repo,
-          hideEmpty,
-        });
-        if (gen !== toolAnalysisGen) return;
-        toolAnalysis.value = result;
-        loaded.add(cacheKey);
-      } catch (e) {
-        if (gen !== toolAnalysisGen) return;
-        toolAnalysisError.value = e instanceof Error ? e.message : String(e);
-      } finally {
-        inflight.delete(cacheKey);
-        if (gen === toolAnalysisGen) toolAnalysisLoading.value = false;
-      }
-    })();
-    inflight.set(cacheKey, promise);
-    return promise;
+    await toolAnalysisFetcher.fetch(params, { force: options?.force });
   }
 
   async function fetchCodeImpact(options?: {
@@ -160,40 +113,17 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }) {
     const prefs = usePreferencesStore();
     const merged = { ...dateRange.value, ...options };
-    const repo = merged.repo ?? selectedRepo.value ?? undefined;
-    const hideEmpty = prefs.hideEmptySessions;
-    const cacheKey = cacheKeyFor('codeImpact', { ...merged, repo, hideEmpty });
-    if (!options?.force && loaded.has(cacheKey)) return;
-    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+    const params: AnalyticsFetchParams = {
+      fromDate: merged.fromDate,
+      toDate: merged.toDate,
+      repo: merged.repo ?? selectedRepo.value ?? undefined,
+      hideEmpty: prefs.hideEmptySessions,
+    };
 
-    const gen = ++codeImpactGen;
-    codeImpactLoading.value = true;
-    codeImpactError.value = null;
-    const promise = (async () => {
-      try {
-        const result = await getCodeImpact({
-          fromDate: merged.fromDate,
-          toDate: merged.toDate,
-          repo,
-          hideEmpty,
-        });
-        if (gen !== codeImpactGen) return;
-        codeImpact.value = result;
-        loaded.add(cacheKey);
-      } catch (e) {
-        if (gen !== codeImpactGen) return;
-        codeImpactError.value = e instanceof Error ? e.message : String(e);
-      } finally {
-        inflight.delete(cacheKey);
-        if (gen === codeImpactGen) codeImpactLoading.value = false;
-      }
-    })();
-    inflight.set(cacheKey, promise);
-    return promise;
+    await codeImpactFetcher.fetch(params, { force: options?.force });
   }
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {
-    loaded.clear();
     await Promise.all([
       fetchAnalytics({ ...options, force: true }),
       fetchToolAnalysis({ ...options, force: true }),
@@ -207,39 +137,34 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }
 
   function $reset() {
-    analytics.value = null;
-    toolAnalysis.value = null;
-    codeImpact.value = null;
-    analyticsLoading.value = false;
-    toolAnalysisLoading.value = false;
-    codeImpactLoading.value = false;
-    analyticsError.value = null;
-    toolAnalysisError.value = null;
-    codeImpactError.value = null;
+    analyticsFetcher.reset();
+    toolAnalysisFetcher.reset();
+    codeImpactFetcher.reset();
     selectedRepo.value = null;
     selectedTimeRange.value = 'all';
     customFromDate.value = undefined;
     customToDate.value = undefined;
-    loaded.clear();
   }
 
   // Invalidate analytics cache when hideEmptySessions preference changes
   const prefs = usePreferencesStore();
   watch(() => prefs.hideEmptySessions, () => {
-    loaded.clear();
+    analyticsFetcher.clearCache();
+    toolAnalysisFetcher.clearCache();
+    codeImpactFetcher.clearCache();
   });
 
   return {
-    // State
-    analytics,
-    toolAnalysis,
-    codeImpact,
-    analyticsLoading,
-    toolAnalysisLoading,
-    codeImpactLoading,
-    analyticsError,
-    toolAnalysisError,
-    codeImpactError,
+    // State - use fetcher refs directly
+    analytics: analyticsFetcher.data,
+    toolAnalysis: toolAnalysisFetcher.data,
+    codeImpact: codeImpactFetcher.data,
+    analyticsLoading: analyticsFetcher.loading,
+    toolAnalysisLoading: toolAnalysisFetcher.loading,
+    codeImpactLoading: codeImpactFetcher.loading,
+    analyticsError: analyticsFetcher.error,
+    toolAnalysisError: toolAnalysisFetcher.error,
+    codeImpactError: codeImpactFetcher.error,
     selectedRepo,
     availableRepos,
     selectedTimeRange,
