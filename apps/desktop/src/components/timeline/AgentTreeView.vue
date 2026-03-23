@@ -787,6 +787,9 @@ watch(
 
     <template v-else>
       <div class="view-header">
+        <!-- Spacer to help center the turn-nav -->
+        <div class="view-header-spacer"></div>
+
         <!-- Turn navigation -->
         <div class="turn-nav">
           <button
@@ -1209,14 +1212,19 @@ watch(
 /* Header & View Mode Toggle                                           */
 /* ------------------------------------------------------------------ */
 .view-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.view-header-spacer {
+  /* Empty spacer to balance the grid */
 }
 
 .view-mode-toggle {
+  justify-self: end;
   display: flex;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-muted);
@@ -1297,12 +1305,16 @@ watch(
 /* ------------------------------------------------------------------ */
 .tree-container {
   overflow-x: auto;
-  padding: 8px 0;
+  padding: 12px 0;
+  width: 100%;
+  min-height: 200px;
 }
 
 .tree-canvas {
   position: relative;
   margin: 0 auto;
+  /* Ensure it can expand as wide as calculated */
+  min-width: min-content;
 }
 
 /* ------------------------------------------------------------------ */
