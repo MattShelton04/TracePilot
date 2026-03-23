@@ -238,6 +238,12 @@ CREATE TRIGGER IF NOT EXISTS sessions_ad AFTER DELETE ON sessions BEGIN
 END;
 "#;
 
+pub(super) const MIGRATION_7: &str = r#"
+-- ═══ Browse mode indexes for filter-only queries ═══
+CREATE INDEX IF NOT EXISTS idx_search_content_tool ON search_content(tool_name);
+CREATE INDEX IF NOT EXISTS idx_search_content_type_ts ON search_content(content_type, timestamp_unix);
+"#;
+
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -260,6 +266,7 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 4: tool duration tracking", MIGRATION_4),
         ("Migration 5: incident tracking", MIGRATION_5),
         ("Migration 6: deep FTS search", MIGRATION_6),
+        ("Migration 7: browse indexes", MIGRATION_7),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

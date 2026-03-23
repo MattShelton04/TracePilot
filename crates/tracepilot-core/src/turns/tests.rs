@@ -4405,6 +4405,7 @@
     fn session_events_serialization_round_trip() {
         let turn = ConversationTurn {
             turn_index: 0,
+            event_index: None,
             turn_id: None,
             interaction_id: None,
             user_message: Some("Hi".to_string()),

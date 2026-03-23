@@ -93,6 +93,13 @@ function toggleAllContentTypes() {
   }
 }
 
+function getFacetCount(ct: string): number | null {
+  const facets = store.facets?.byContentType;
+  if (!facets) return null;
+  const entry = facets.find(([type]) => type === ct);
+  return entry ? entry[1] : null;
+}
+
 // ÔöÇÔöÇ Expandable result cards ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const expandedResults = ref<Set<number>>(new Set());
 
@@ -116,64 +123,6 @@ const friendlyError = computed(() => {
   }
   return err;
 });
-
-// ÔöÇÔöÇ Result facets (computed from current results) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const resultContentTypeFacets = computed(() => {
-  // Prefer backend facets (query-scoped, covers ALL results not just current page)
-  if (store.facets?.byContentType?.length) {
-    const entries = store.facets.byContentType;
-    const max = Math.max(1, ...entries.map(([, c]) => c));
-    return entries
-      .sort((a, b) => b[1] - a[1])
-      .map(([type, count]) => ({ type: type as SearchContentType, count, pct: (count / max) * 100 }));
-  }
-  // Fallback: compute from current page results
-  const counts = new Map<string, number>();
-  for (const r of store.results) {
-    counts.set(r.contentType, (counts.get(r.contentType) ?? 0) + 1);
-  }
-  const max = Math.max(1, ...counts.values());
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, count]) => ({ type: type as SearchContentType, count, pct: (count / max) * 100 }));
-});
-
-const resultSessionFacets = computed(() => {
-  const counts = new Map<string, { count: number; summary: string | null; repo: string | null }>();
-  for (const r of store.results) {
-    const existing = counts.get(r.sessionId);
-    if (existing) {
-      existing.count++;
-    } else {
-      counts.set(r.sessionId, { count: 1, summary: r.sessionSummary, repo: r.sessionRepository });
-    }
-  }
-  const max = Math.max(1, ...[...counts.values()].map(v => v.count));
-  return [...counts.entries()]
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 8)
-    .map(([sessionId, data]) => ({
-      sessionId,
-      label: data.summary?.slice(0, 40) ?? sessionId.slice(0, 12),
-      count: data.count,
-      pct: (data.count / max) * 100,
-    }));
-});
-
-const resultRepoFacets = computed(() => {
-  const counts = new Map<string, number>();
-  for (const r of store.results) {
-    const repo = r.sessionRepository;
-    if (repo) counts.set(repo, (counts.get(repo) ?? 0) + 1);
-  }
-  const max = Math.max(1, ...counts.values());
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([repo, count]) => ({ repo, count, pct: (count / max) * 100 }));
-});
-
-// ÔöÇÔöÇ Display results (passes through from store, backend handles filtering + sorting) ÔöÇÔöÇ
-const displayResults = computed(() => store.results);
 
 // ÔöÇÔöÇ Stats facets (always visible, from search stats) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const statsContentTypeFacets = computed(() => {
@@ -235,10 +184,30 @@ function formatTimestamp(unix: number | null): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatRelativeTime(unix: number | null): string {
+  if (unix == null) return '';
+  const now = Date.now();
+  const diffMs = now - unix * 1000;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  if (diffDay < 30) return `${Math.floor(diffDay / 7)}w ago`;
+  return formatTimestamp(unix);
+}
+
 // ÔöÇÔöÇ Session link path ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function sessionLink(sessionId: string, turnNumber: number | null): string {
+function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: number | null = null): string {
   const base = `/session/${sessionId}/conversation`;
-  return turnNumber != null ? `${base}?turn=${turnNumber}` : base;
+  const params = new URLSearchParams();
+  if (turnNumber != null) params.set('turn', String(turnNumber));
+  if (eventIndex != null) params.set('event', String(eventIndex));
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 // ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -252,9 +221,10 @@ function handleKeydown(e: KeyboardEvent) {
 
 // ÔöÇÔöÇ Lifecycle ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 onMounted(async () => {
-  store.fetchFacets();
   store.fetchStats();
   store.fetchFilterOptions();
+  // Fetch initial facets (browse mode gets filter-scoped counts)
+  store.fetchFacets();
   window.addEventListener('keydown', handleKeydown);
 
   // Main indexing events (local — only for showing main index progress)
@@ -305,6 +275,7 @@ onUnmounted(() => {
           <span class="search-hint"><code>prefix*</code> prefix search</span>
           <span class="search-hint"><code>AND</code> / <code>OR</code> boolean</span>
           <span class="search-hint"><code>NOT</code> exclude terms</span>
+          <span class="search-hint">Leave empty to browse by filters</span>
         </div>
 
         <!-- Controls Row -->
@@ -323,7 +294,7 @@ onUnmounted(() => {
           </button>
           <div style="flex: 1" />
           <select v-model="store.sortBy" class="sort-select" aria-label="Sort results">
-            <option value="relevance">Sort: Relevance</option>
+            <option value="relevance" :disabled="store.isBrowseMode">Sort: Relevance</option>
             <option value="newest">Sort: Newest</option>
             <option value="oldest">Sort: Oldest</option>
           </select>
@@ -392,6 +363,7 @@ onUnmounted(() => {
                   :style="{ background: contentTypeConfig[ct].color }"
                 />
                 <span class="filter-label">{{ contentTypeConfig[ct].label }}</span>
+                <span v-if="getFacetCount(ct)" class="filter-facet-count">{{ getFacetCount(ct) }}</span>
               </label>
             </div>
           </div>
@@ -411,6 +383,25 @@ onUnmounted(() => {
                 :value="repo"
               >
                 {{ repo }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Tool Name -->
+          <div v-if="store.availableToolNames.length > 0">
+            <div class="filter-group-title">Tool</div>
+            <select
+              class="filter-select-full"
+              :value="store.toolName ?? ''"
+              @change="store.toolName = ($event.target as HTMLSelectElement).value || null"
+            >
+              <option value="">All Tools</option>
+              <option
+                v-for="tool in store.availableToolNames"
+                :key="tool"
+                :value="tool"
+              >
+                {{ tool }}
               </option>
             </select>
           </div>
@@ -480,15 +471,35 @@ onUnmounted(() => {
           </div>
 
           <!-- ÔòÉÔòÉÔòÉ Empty State: No Query ÔòÉÔòÉÔòÉ -->
-          <div v-else-if="!store.hasQuery" class="search-main-scroll">
-            <div class="search-empty-state">
-              <svg class="search-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="20" cy="20" r="14" />
-                <line x1="30" y1="30" x2="44" y2="44" />
-              </svg>
-              <div class="empty-title">Search your sessions</div>
-              <div class="empty-subtitle">
-                Search across all Copilot session content — messages, reasoning, tool calls, and more.
+          <div v-else-if="!store.hasQuery && !store.hasResults && !store.hasActiveFilters" class="search-main-scroll">
+            <!-- Browse Mode: Quick Presets -->
+            <div class="browse-presets">
+              <div class="browse-title">Browse your sessions</div>
+              <div class="browse-subtitle">
+                Use filters or try a quick preset to explore your session content.
+              </div>
+              <div class="browse-preset-grid">
+                <button class="browse-preset-btn browse-preset-errors" @click="store.browseErrors()">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                    <circle cx="8" cy="8" r="6" /><line x1="8" y1="5" x2="8" y2="9" /><circle cx="8" cy="11" r="0.5" fill="currentColor" />
+                  </svg>
+                  <span class="preset-label">All Errors</span>
+                  <span class="preset-desc">Errors &amp; tool failures</span>
+                </button>
+                <button class="browse-preset-btn browse-preset-user" @click="store.browseUserMessages()">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                    <circle cx="8" cy="5" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                  </svg>
+                  <span class="preset-label">User Messages</span>
+                  <span class="preset-desc">Your prompts &amp; requests</span>
+                </button>
+                <button class="browse-preset-btn browse-preset-tools" @click="store.browseToolCalls()">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                    <path d="M4 2v12M12 2v12M2 6h12M2 10h12" />
+                  </svg>
+                  <span class="preset-label">Tool Calls</span>
+                  <span class="preset-desc">All tool invocations</span>
+                </button>
               </div>
               <div v-if="store.stats" class="empty-stats">
                 <span class="empty-stat">
@@ -508,7 +519,7 @@ onUnmounted(() => {
             <!-- Stats Bar -->
             <div class="results-summary">
               <span v-if="store.hasResults" class="results-summary-text">
-                Found <strong>{{ store.totalCount.toLocaleString() }}</strong>
+                {{ store.isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ store.totalCount.toLocaleString() }}</strong>
                 result{{ store.totalCount !== 1 ? 's' : '' }}
                 <span class="summary-speed">({{ store.latencyMs.toFixed(2) }}ms)</span>
                 <template v-if="store.totalPages > 1">
@@ -538,7 +549,7 @@ onUnmounted(() => {
             <!-- Results List -->
             <div v-else class="results-list">
               <div
-                v-for="(result, idx) in displayResults"
+                v-for="(result, idx) in store.results"
                 :key="result.id"
                 class="result-card"
                 :class="{ expanded: expandedResults.has(result.id) }"
@@ -560,8 +571,8 @@ onUnmounted(() => {
                   >
                     {{ result.sessionBranch }}
                   </span>
-                  <span v-if="result.timestampUnix != null" class="result-date">
-                    {{ formatTimestamp(result.timestampUnix) }}
+                  <span v-if="result.timestampUnix != null" class="result-date" :title="formatTimestamp(result.timestampUnix)">
+                    {{ formatRelativeTime(result.timestampUnix) }}
                   </span>
                   <span
                     class="ct-badge"
@@ -579,6 +590,8 @@ onUnmounted(() => {
                 <div class="result-snippet" v-html="result.snippet" />
 
                 <div class="result-meta">
+                  <span v-if="result.sessionSummary" class="result-session-summary" :title="result.sessionSummary">{{ result.sessionSummary.length > 50 ? result.sessionSummary.slice(0, 50) + '…' : result.sessionSummary }}</span>
+                  <span v-if="result.sessionSummary" class="result-meta-sep">·</span>
                   <span v-if="result.turnNumber != null">Turn {{ result.turnNumber }}</span>
                   <span v-if="result.turnNumber != null" class="result-meta-sep">·</span>
                   <span>{{ result.contentType.replace(/_/g, ' ') }}</span>
@@ -587,11 +600,11 @@ onUnmounted(() => {
                     <span class="tool-name-badge">{{ result.toolName }}</span>
                   </template>
                   <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber)"
-                    class="result-jump"
+                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
+                    class="result-view-btn"
                     @click.stop
                   >
-                    View in session →
+                    View in session
                   </router-link>
                 </div>
 
@@ -624,7 +637,7 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber)"
+                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
                     class="expanded-view-btn"
                     @click.stop
                   >
@@ -668,93 +681,6 @@ onUnmounted(() => {
 
           </div>
         </div>
-
-        <!-- Facets Sidebar (right) -->
-        <aside v-if="!store.loading" class="facets-sidebar">
-          <!-- By Content Type (always visible) -->
-          <div class="facet-section">
-            <div class="facet-title">By Content Type</div>
-            <div class="facet-list">
-              <!-- When results exist, show result-derived facets -->
-              <template v-if="resultContentTypeFacets.length > 0">
-                <div
-                  v-for="item in resultContentTypeFacets"
-                  :key="item.type"
-                  class="facet-row"
-                  :class="{ 'facet-row-active': store.contentTypes.includes(item.type) }"
-                  @click="toggleContentType(item.type)"
-                >
-                  <span
-                    class="facet-dot"
-                    :style="{ background: contentTypeConfig[item.type]?.color ?? '#666' }"
-                  />
-                  <span class="facet-label">{{ contentTypeConfig[item.type]?.label ?? item.type }}</span>
-                  <span class="facet-count">{{ item.count }}</span>
-                  <div class="facet-bar" :style="{ width: item.pct + '%', background: contentTypeConfig[item.type]?.color ?? '#666' }" />
-                </div>
-              </template>
-              <!-- When no results, show stats-derived overview -->
-              <template v-else-if="statsContentTypeFacets.length > 0">
-                <div
-                  v-for="item in statsContentTypeFacets"
-                  :key="item.type"
-                  class="facet-row"
-                  :class="{ 'facet-row-active': store.contentTypes.includes(item.type) }"
-                  @click="toggleContentType(item.type)"
-                >
-                  <span
-                    class="facet-dot"
-                    :style="{ background: contentTypeConfig[item.type]?.color ?? '#666' }"
-                  />
-                  <span class="facet-label">{{ contentTypeConfig[item.type]?.label ?? item.type }}</span>
-                  <span class="facet-count">{{ item.count.toLocaleString() }}</span>
-                  <div class="facet-bar" :style="{ width: item.pct + '%', background: contentTypeConfig[item.type]?.color ?? '#666' }" />
-                </div>
-              </template>
-              <div v-else class="facet-empty">No index data yet</div>
-            </div>
-          </div>
-
-          <!-- By Session (only when results) -->
-          <template v-if="resultSessionFacets.length > 0">
-            <div class="facet-section">
-              <div class="facet-title">By Session</div>
-              <div class="facet-list">
-                <div
-                  v-for="item in resultSessionFacets"
-                  :key="item.sessionId"
-                  class="facet-row"
-                  :class="{ 'facet-row-active': store.sessionId === item.sessionId }"
-                  @click="store.sessionId = store.sessionId === item.sessionId ? null : item.sessionId"
-                >
-                  <span class="facet-label facet-label-mono">{{ item.label }}</span>
-                  <span class="facet-count">{{ item.count }}</span>
-                  <div class="facet-bar" :style="{ width: item.pct + '%', background: 'var(--accent-emphasis)' }" />
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- By Repository (only when results) -->
-          <template v-if="resultRepoFacets.length > 1">
-            <div class="facet-section">
-              <div class="facet-title">By Repository</div>
-              <div class="facet-list">
-                <div
-                  v-for="item in resultRepoFacets"
-                  :key="item.repo"
-                  class="facet-row"
-                  :class="{ 'facet-row-active': store.repository === item.repo }"
-                  @click="store.repository = store.repository === item.repo ? null : item.repo"
-                >
-                  <span class="facet-label">{{ item.repo }}</span>
-                  <span class="facet-count">{{ item.count }}</span>
-                  <div class="facet-bar" :style="{ width: item.pct + '%', background: 'var(--success-emphasis, #2ea043)' }" />
-                </div>
-              </div>
-            </div>
-          </template>
-        </aside>
 
       </div>
     </div>
@@ -1384,20 +1310,27 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
-.result-jump {
+.result-view-btn {
   margin-left: auto;
-  color: var(--text-link);
+  color: var(--accent-fg);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.6875rem;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  transition: color var(--transition-fast);
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-emphasis);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.result-jump:hover {
-  color: var(--accent-fg);
+.result-view-btn:hover {
+  background: var(--accent-emphasis);
+  color: #fff;
 }
 
 /* ÔöÇÔöÇ Pagination ÔöÇÔöÇ */
@@ -1781,5 +1714,101 @@ onUnmounted(() => {
   .search-hero {
     padding: 16px 0 0;
   }
+}
+
+/* -- Browse Presets -- */
+.browse-presets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px 24px;
+  text-align: center;
+}
+
+.browse-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.browse-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  max-width: 460px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.browse-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 520px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.browse-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  text-align: center;
+}
+
+.browse-preset-btn:hover {
+  border-color: var(--border-accent);
+  background: var(--canvas-overlay);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.browse-preset-errors { color: #ef4444; }
+.browse-preset-errors:hover { border-color: #ef4444; }
+.browse-preset-user { color: #4ade80; }
+.browse-preset-user:hover { border-color: #4ade80; }
+.browse-preset-tools { color: #f59e0b; }
+.browse-preset-tools:hover { border-color: #f59e0b; }
+
+.preset-label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+.preset-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* -- Filter facet count badges -- */
+.filter-facet-count {
+  margin-left: auto;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--neutral-subtle);
+  padding: 0 5px;
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* -- Session summary in meta -- */
+.result-session-summary {
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 </style>

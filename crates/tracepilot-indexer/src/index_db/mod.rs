@@ -18,7 +18,7 @@ mod session_writer;
 mod types;
 
 use anyhow::{Context, Result};
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
@@ -53,6 +53,23 @@ impl IndexDb {
         .with_context(|| "Failed to set database pragmas")?;
 
         run_migrations(&conn)?;
+        Ok(Self { conn })
+    }
+
+    /// Open the index database in read-only mode (no WAL/SHM side-effects).
+    ///
+    /// Use for all read operations (search, facets, analytics, listing).
+    /// Skips migrations and won't create the DB if it doesn't exist.
+    pub fn open_readonly(path: &Path) -> Result<Self> {
+        let conn = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .with_context(|| format!("Failed to open index db readonly: {}", path.display()))?;
+
+        conn.execute_batch("PRAGMA busy_timeout=5000;")
+            .with_context(|| "Failed to set readonly pragmas")?;
+
         Ok(Self { conn })
     }
 
@@ -132,8 +149,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 6);
-        assert_eq!(count1, 6);
+        assert_eq!(v1, 7);
+        assert_eq!(count1, 7);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -141,7 +158,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 6);
+        assert_eq!(count2, 7);
     }
 
     #[test]

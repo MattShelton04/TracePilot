@@ -787,6 +787,7 @@ mod tests {
             tool_call_id: Some("tc1".to_string()),
             parent_tool_call_id: None,
             tool_name: name.to_string(),
+            event_index: None,
             arguments: None,
             success,
             error: None,
@@ -811,6 +812,7 @@ mod tests {
     ) -> ConversationTurn {
         ConversationTurn {
             turn_index: 0,
+            event_index: None,
             turn_id: None,
             interaction_id: None,
             user_message: Some("test".to_string()),

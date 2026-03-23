@@ -60,8 +60,8 @@ pub struct TurnStats {
 /// This is the public entry point — it delegates to [`TurnReconstructor`].
 pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
     let mut reconstructor = TurnReconstructor::new();
-    for event in events {
-        reconstructor.process(event);
+    for (idx, event) in events.iter().enumerate() {
+        reconstructor.process(event, idx);
     }
     reconstructor.finalize()
 }
@@ -217,7 +217,7 @@ impl TurnReconstructor {
     }
 
     /// Process a single event, advancing the state machine.
-    fn process(&mut self, event: &TypedEvent) {
+    fn process(&mut self, event: &TypedEvent, event_index: usize) {
         match (&event.event_type, &event.typed_data) {
             (SessionEventType::UserMessage, TypedEventData::UserMessage(data)) => {
                 self.finalize_current_turn(false, None);
@@ -229,6 +229,7 @@ impl TurnReconstructor {
                     data.transformed_content.clone(),
                     data.attachments.clone(),
                 );
+                turn.event_index = Some(event_index);
                 turn.model = self.session_model.clone();
                 // Flush any session events that occurred between turns
                 turn.session_events.append(&mut self.pending_session_events);
@@ -318,6 +319,7 @@ impl TurnReconstructor {
                         .tool_name
                         .clone()
                         .unwrap_or_else(|| "unknown".to_string()),
+                    event_index: Some(event_index),
                     arguments: data.arguments.clone(),
                     success: None,
                     error: None,
@@ -439,6 +441,7 @@ impl TurnReconstructor {
                             .clone()
                             .or_else(|| data.agent_display_name.clone())
                             .unwrap_or_else(|| "subagent".to_string()),
+                        event_index: Some(event_index),
                         arguments: None,
                         success: None,
                         error: None,
@@ -857,6 +860,7 @@ fn new_turn(
 ) -> ConversationTurn {
     ConversationTurn {
         turn_index,
+        event_index: None,
         turn_id: None,
         interaction_id,
         user_message,

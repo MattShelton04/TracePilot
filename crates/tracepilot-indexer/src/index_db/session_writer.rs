@@ -276,25 +276,35 @@ impl IndexDb {
             .ok();
 
         let Some((stored_ws_mtime, stored_ev_mtime, stored_ev_size, stored_av)) = stored else {
-            return true; // Not indexed yet
+            tracing::debug!(session_id, "needs_reindex: not in DB");
+            return true;
         };
 
         if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
+            tracing::debug!(session_id, stored = stored_av.unwrap_or(0), current = CURRENT_ANALYTICS_VERSION, "needs_reindex: analytics_version");
             return true;
         }
 
         if stored_ws_mtime.as_deref() != current_ws_mtime.as_deref() {
+            tracing::debug!(session_id, "needs_reindex: workspace_mtime changed");
             return true;
         }
 
         match (&current_events, &stored_ev_mtime) {
             (Some((cur_mtime, cur_size)), Some(st_mtime)) => {
                 if cur_mtime != st_mtime || Some(*cur_size as i64) != stored_ev_size {
+                    tracing::debug!(session_id, "needs_reindex: events file changed");
                     return true;
                 }
             }
-            (Some(_), None) => return true,
-            (None, Some(_)) => return true,
+            (Some(_), None) => {
+                tracing::debug!(session_id, "needs_reindex: events exist but not stored");
+                return true;
+            }
+            (None, Some(_)) => {
+                tracing::debug!(session_id, "needs_reindex: events gone");
+                return true;
+            }
             (None, None) => {}
         }
 
