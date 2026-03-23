@@ -601,5 +601,5 @@ export interface ActiveSessionInfo {
 - **Feature proposals**: `docs/copilot-cli-integration-report.md` Part 3
 - **SDK API reference**: `docs/copilot-sdk-deep-dive.md` Part 2
 - **Cost/interop analysis**: `docs/copilot-sdk-deep-dive.md` Part 0
-- **UI prototypes**: `docs/design/prototypes/orchestration/`
+- **UI prototypes**: *(removed during docs cleanup — see `docs/design/orchestration-pages-plan.md` for designs)*
 - **Page plan**: `docs/design/orchestration-pages-plan.md`

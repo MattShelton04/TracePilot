@@ -53,10 +53,7 @@ finishSetup() →
 
 ## Prototypes
 
-Five HTML prototypes are available at `docs/design/prototypes/loading-screens/`. Each is self-contained and can be opened directly in a browser. They share:
-
-- **`shared.css`** — Variant C design tokens (colors, typography, spacing, animations)
-- **`mock-data.js`** — Simulated indexing engine (`LoadingSimulator`), animated counters (`AnimatedCounter`), mock session data, and demo controls
+> **Note:** HTML prototypes were removed during docs cleanup. The design descriptions below document the five explored approaches. The design system tokens are preserved in `docs/design/prototypes/shared/`.
 
 ### Prototype A: "Pulse & Stats"
 

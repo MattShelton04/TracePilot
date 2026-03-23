@@ -789,15 +789,7 @@ The new rendering system is **additive** — it enhances `ToolCallDetail.vue` wi
 
 ## Appendix A: Prototype Reference
 
-Interactive HTML prototypes are available at:
-- `docs/design/prototypes/tool-call-renderers.html` — All proposed tool renderers in one page
-
-Open locally:
-```bash
-cd docs/design/prototypes
-python -m http.server 3333
-# Visit http://localhost:3333/tool-call-renderers.html
-```
+> **Note:** The HTML prototype was removed during docs cleanup. The design specifications above serve as the authoritative reference for tool call rendering.
 
 ---
 
