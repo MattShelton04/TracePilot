@@ -132,8 +132,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 6);
-        assert_eq!(count1, 6);
+        assert_eq!(v1, 7);
+        assert_eq!(count1, 7);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -141,7 +141,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 6);
+        assert_eq!(count2, 7);
     }
 
     #[test]

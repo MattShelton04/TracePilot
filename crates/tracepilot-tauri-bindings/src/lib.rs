@@ -780,8 +780,9 @@ mod commands {
 
         let result = tokio::task::spawn_blocking(move || {
             let _permit = permit;
+            let start = std::time::Instant::now();
             let app_fallback = app_handle.clone();
-            match tracepilot_indexer::reindex_incremental_with_rich_progress(
+            let res = match tracepilot_indexer::reindex_incremental_with_rich_progress(
                 &session_state_dir,
                 &index_path,
                 |progress| {
@@ -798,7 +799,9 @@ mod commands {
                 )
                 .map(|n| (n, n))
                 .map_err(|e| e.to_string()),
-            }
+            };
+            tracing::debug!(elapsed_ms = start.elapsed().as_millis(), "reindex_sessions Phase 1 wall time");
+            res
         })
         .await
         .map_err(|e| e.to_string());
@@ -816,6 +819,7 @@ mod commands {
                 let app2 = app.clone();
                 tokio::task::spawn_blocking(move || {
                     let _permit = search_permit;
+                    let start = std::time::Instant::now();
                     let _ = app2.emit("search-indexing-started", ());
                     match tracepilot_indexer::reindex_search_content(
                         &session_state_dir2,
@@ -831,7 +835,8 @@ mod commands {
                         },
                         || false,
                     ) {
-                        Ok(_) => {
+                        Ok((indexed, skipped)) => {
+                            tracing::debug!(indexed, skipped, elapsed_ms = start.elapsed().as_millis(), "reindex_sessions Phase 2 wall time");
                             let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
                         }
                         Err(e) => {
@@ -908,6 +913,7 @@ mod commands {
                 let app2 = app.clone();
                 tokio::task::spawn_blocking(move || {
                     let _permit = search_permit;
+                    let start = std::time::Instant::now();
                     let _ = app2.emit("search-indexing-started", ());
                     match tracepilot_indexer::rebuild_search_content(
                         &session_state_dir2,
@@ -923,7 +929,8 @@ mod commands {
                         },
                         || false,
                     ) {
-                        Ok(_) => {
+                        Ok((indexed, skipped)) => {
+                            tracing::debug!(indexed, skipped, elapsed_ms = start.elapsed().as_millis(), "rebuild_search_index Phase 2 wall time");
                             let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
                         }
                         Err(e) => {
@@ -940,7 +947,8 @@ mod commands {
 
     // ── Deep Search Commands ──────────────────────────────────────────
 
-    /// Search session content with full-text search.
+    /// Search session content with full-text search or browse mode
+    /// (filter-only, no query required).
     #[tauri::command]
     pub async fn search_content(
         state: tauri::State<'_, SharedConfig>,
@@ -976,8 +984,20 @@ mod commands {
                 sort_by,
             };
 
-            let results = db.search_content(&query_for_closure, &filters).map_err(|e| e.to_string())?;
-            let total_count = db.search_content_count(&query_for_closure, &filters).map_err(|e| e.to_string())?;
+            let is_empty_query = query_for_closure.trim().is_empty();
+
+            let (results, total_count) = if is_empty_query {
+                // Browse mode: filter-only, no FTS MATCH
+                let results = db.browse_content(&filters).map_err(|e| e.to_string())?;
+                let total = db.browse_content_count(&filters).map_err(|e| e.to_string())?;
+                (results, total)
+            } else {
+                // Standard FTS search
+                let results = db.search_content(&query_for_closure, &filters).map_err(|e| e.to_string())?;
+                let total = db.search_content_count(&query_for_closure, &filters).map_err(|e| e.to_string())?;
+                (results, total)
+            };
+
             let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
             let page_limit = filters.limit.unwrap_or(50).min(200) as i64;
@@ -1013,7 +1033,7 @@ mod commands {
         .map_err(|e: tokio::task::JoinError| e.to_string())?
     }
 
-    /// Get facet counts — with a query for result-scoped facets, or without for global facets.
+    /// Get facet counts — with a query for result-scoped facets, or without for global/browse facets.
     #[tauri::command]
     pub async fn get_search_facets(
         state: tauri::State<'_, SharedConfig>,
@@ -1032,21 +1052,23 @@ mod commands {
             let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&index_path)
                 .map_err(|e| e.to_string())?;
 
+            let filters = tracepilot_indexer::SearchFilters {
+                content_types: content_types.unwrap_or_default(),
+                repositories: repositories.unwrap_or_default(),
+                tool_names: tool_names.unwrap_or_default(),
+                session_id,
+                date_from_unix,
+                date_to_unix,
+                ..Default::default()
+            };
+
             let facets = match query.as_deref() {
                 Some(q) if !q.trim().is_empty() => {
-                    let filters = tracepilot_indexer::SearchFilters {
-                        content_types: content_types.unwrap_or_default(),
-                        repositories: repositories.unwrap_or_default(),
-                        tool_names: tool_names.unwrap_or_default(),
-                        session_id,
-                        date_from_unix,
-                        date_to_unix,
-                        ..Default::default()
-                    };
                     db.search_facets(q, &filters).map_err(|e| e.to_string())?
                 }
                 _ => {
-                    db.search_facets_all().map_err(|e| e.to_string())?
+                    // Browse mode or no query — use browse_facets for filter-scoped counts
+                    db.browse_facets(&filters).map_err(|e| e.to_string())?
                 }
             };
 

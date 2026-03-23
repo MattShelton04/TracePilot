@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import type {
   SearchResult,
   SearchContentType,
@@ -73,10 +73,14 @@ export const useSearchStore = defineStore('search', () => {
         await safeListen('search-indexing-finished', () => {
           searchIndexing.value = false;
           searchIndexingProgress.value = null;
-          // Auto-refresh stats and facets after search indexing completes
           fetchStats();
-          fetchFacets();
           fetchFilterOptions();
+          // Re-run current search if results are showing
+          if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
+            scheduleSearch(false);
+          } else {
+            fetchFacets();
+          }
         }),
       );
     } catch {
@@ -87,49 +91,53 @@ export const useSearchStore = defineStore('search', () => {
   // Initialize listeners eagerly when the store is first created
   initEventListeners();
 
-  // ── Debounce ─────────────────────────────────────────────────
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  const DEBOUNCE_MS = 150;
-
   // ── Computed ─────────────────────────────────────────────────
   const hasResults = computed(() => results.value.length > 0);
   const hasQuery = computed(() => query.value.trim().length > 0);
+  const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
-
-  const resultsBySession = computed(() => {
-    const groups = new Map<string, { results: SearchResult[]; summary: string | null; repository: string | null }>();
-    for (const result of results.value) {
-      if (!groups.has(result.sessionId)) {
-        groups.set(result.sessionId, {
-          results: [],
-          summary: result.sessionSummary,
-          repository: result.sessionRepository,
-        });
-      }
-      groups.get(result.sessionId)!.results.push(result);
-    }
-    return groups;
+  const hasActiveFilters = computed(() => {
+    return contentTypes.value.length > 0
+      || repository.value !== null
+      || toolName.value !== null
+      || dateFrom.value !== null
+      || dateTo.value !== null
+      || sessionId.value !== null;
   });
 
-  // ── Core search ──────────────────────────────────────────────
+  // ── Single search scheduler (replaces multiple watchers) ────
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let searchGeneration = 0;
+  const DEBOUNCE_MS = 150;
+
+  /**
+   * Schedule a search. All state changes funnel through here.
+   * - resetPage: reset to page 1 (true for query/filter changes, false for page changes)
+   * - debounce: add delay (true for typing, false for filter clicks)
+   */
+  function scheduleSearch(resetPage: boolean, debounce = false) {
+    if (searchTimer) clearTimeout(searchTimer);
+    if (resetPage) page.value = 1;
+
+    if (debounce) {
+      searchTimer = setTimeout(executeSearch, DEBOUNCE_MS);
+    } else {
+      // Use nextTick to coalesce synchronous state changes (e.g. presets)
+      nextTick(executeSearch);
+    }
+  }
 
   async function executeSearch() {
-    if (!query.value.trim()) {
-      ++searchGeneration;
-      results.value = [];
-      totalCount.value = 0;
-      hasMore.value = false;
-      latencyMs.value = 0;
-      return;
-    }
+    // In browse mode, default to newest sort since relevance is meaningless
+    const effectiveSort = isBrowseMode.value && sortBy.value === 'relevance'
+      ? 'newest'
+      : sortBy.value;
 
     const gen = ++searchGeneration;
     loading.value = true;
     error.value = null;
 
     try {
-      // Convert frontend filter state to backend SearchFilters
       let dateFromUnix: number | undefined;
       let dateToUnix: number | undefined;
       if (dateFrom.value) {
@@ -148,10 +156,9 @@ export const useSearchStore = defineStore('search', () => {
         dateToUnix,
         limit: pageSize.value,
         offset: (page.value - 1) * pageSize.value,
-        sortBy: sortBy.value !== 'relevance' ? sortBy.value : undefined,
+        sortBy: effectiveSort !== 'relevance' ? effectiveSort : undefined,
       });
 
-      // Discard stale results from superseded requests
       if (gen !== searchGeneration) return;
 
       results.value = response.results;
@@ -159,8 +166,9 @@ export const useSearchStore = defineStore('search', () => {
       hasMore.value = response.hasMore;
       latencyMs.value = response.latencyMs;
 
-      // Refresh facets with the current query for query-scoped counts
-      fetchFacets(query.value);
+      // Fetch facets alongside results
+      const facetQuery = hasQuery.value ? query.value : undefined;
+      fetchFacets(facetQuery);
     } catch (e) {
       if (gen !== searchGeneration) return;
       error.value = String(e);
@@ -173,54 +181,71 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
 
-  function debouncedSearch() {
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      page.value = 1;
-      executeSearch();
-    }, DEBOUNCE_MS);
+  // Query changes → debounced search (resets page)
+  watch(query, () => scheduleSearch(true, true));
+
+  // Filter changes → immediate search (resets page)
+  watch(
+    [contentTypes, repository, toolName, dateFrom, dateTo, sessionId, sortBy],
+    () => scheduleSearch(true),
+    { deep: true },
+  );
+
+  // Page changes → immediate search (no page reset)
+  watch(page, () => scheduleSearch(false));
+
+  // ── Quick browse presets ─────────────────────────────────────
+  // These set multiple refs synchronously. nextTick in scheduleSearch
+  // coalesces them into a single executeSearch call.
+  function browseErrors() {
+    query.value = '';
+    contentTypes.value = ['error', 'tool_error'];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
   }
 
-  // Watch query changes for debounced search
-  watch(query, () => {
-    debouncedSearch();
-  });
+  function browseUserMessages() {
+    query.value = '';
+    contentTypes.value = ['user_message'];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
+  }
 
-  // Watch filter changes for immediate search
-  watch([contentTypes, repository, toolName, dateFrom, dateTo, sessionId, sortBy], () => {
-    if (hasQuery.value) {
-      page.value = 1;
-      executeSearch();
-    }
-  }, { deep: true });
-
-  // Watch page changes
-  watch(page, () => {
-    if (hasQuery.value) {
-      executeSearch();
-    }
-  });
+  function browseToolCalls() {
+    query.value = '';
+    contentTypes.value = ['tool_call'];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
+  }
 
   // ── Facets & stats ───────────────────────────────────────────
   async function fetchFacets(forQuery?: string) {
     try {
-      // When a query is active, pass it + filters to get query-scoped facets
-      if (forQuery && forQuery.trim()) {
-        let dateFromUnix: number | undefined;
-        let dateToUnix: number | undefined;
-        if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
-        if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
-        facets.value = await getSearchFacets(forQuery, {
-          contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
-          repositories: repository.value ? [repository.value] : undefined,
-          toolNames: toolName.value ? [toolName.value] : undefined,
-          sessionId: sessionId.value ?? undefined,
-          dateFromUnix,
-          dateToUnix,
-        });
-      } else {
-        facets.value = await getSearchFacets();
-      }
+      let dateFromUnix: number | undefined;
+      let dateToUnix: number | undefined;
+      if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
+      if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+
+      facets.value = await getSearchFacets(forQuery, {
+        contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+        repositories: repository.value ? [repository.value] : undefined,
+        toolNames: toolName.value ? [toolName.value] : undefined,
+        sessionId: sessionId.value ?? undefined,
+        dateFromUnix,
+        dateToUnix,
+      });
     } catch (e) {
       console.warn('Failed to fetch search facets:', e);
     }
@@ -258,7 +283,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       await rebuildSearchIndex();
       await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);
-      if (hasQuery.value) {
+      if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
         await executeSearch();
       }
     } catch (e) {
@@ -334,11 +359,11 @@ export const useSearchStore = defineStore('search', () => {
     // Computed
     hasResults,
     hasQuery,
+    isBrowseMode,
+    hasActiveFilters,
     totalPages,
-    resultsBySession,
     // Actions
     executeSearch,
-    debouncedSearch,
     fetchFacets,
     fetchStats,
     fetchFilterOptions,
@@ -349,5 +374,8 @@ export const useSearchStore = defineStore('search', () => {
     nextPage,
     prevPage,
     initEventListeners,
+    browseErrors,
+    browseUserMessages,
+    browseToolCalls,
   };
 });

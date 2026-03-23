@@ -3,6 +3,10 @@
 //! Provides parameterized search across `search_content` + `search_fts`,
 //! with filtering by content type, session, tool name, date range, and
 //! repository. Results include highlighted snippets and pagination.
+//!
+//! Supports two search modes:
+//! - **FTS**: Full-text search via `search_fts` table (default)
+//! - **Browse**: Filter-only queries without FTS MATCH (empty query)
 
 use anyhow::Result;
 use rusqlite::{params_from_iter, types::ToSql};
@@ -252,7 +256,169 @@ impl IndexDb {
         Ok(count)
     }
 
+    // ── Browse mode (filter-only, no FTS MATCH) ─────────────────────
+
+    /// Browse search content using filters only (no text query required).
+    /// Returns results sorted by timestamp (newest first by default).
+    pub fn browse_content(
+        &self,
+        filters: &SearchFilters,
+    ) -> Result<Vec<SearchResult>> {
+        let mut sql = String::from(
+            "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index,
+                    sc.timestamp_unix, sc.tool_name,
+                    CASE WHEN LENGTH(sc.content) > 200
+                         THEN SUBSTR(sc.content, 1, 200) || '…'
+                         ELSE sc.content END,
+                    sc.metadata_json,
+                    s.summary, s.repository, s.branch, s.updated_at
+             FROM search_content sc
+             JOIN sessions s ON s.id = sc.session_id
+             WHERE 1=1",
+        );
+
+        let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
+        append_sql_filters(&mut sql, &mut query_params, filters);
+
+        // Browse mode: relevance is meaningless without FTS, default to newest
+        match filters.sort_by.as_deref() {
+            Some("oldest") => sql.push_str(" ORDER BY sc.timestamp_unix ASC NULLS LAST"),
+            _ => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
+        }
+
+        let limit = filters.limit.unwrap_or(50).min(200) as i64;
+        let offset = filters.offset.unwrap_or(0) as i64;
+        sql.push_str(" LIMIT ? OFFSET ?");
+        query_params.push(Box::new(limit));
+        query_params.push(Box::new(offset));
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+
+        let rows = stmt.query_map(params_from_iter(refs), |row| {
+            let raw_snippet: String = row.get(7)?;
+            Ok(SearchResult {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                content_type: row.get(2)?,
+                turn_number: row.get(3)?,
+                event_index: row.get(4)?,
+                timestamp_unix: row.get(5)?,
+                tool_name: row.get(6)?,
+                snippet: sanitize_snippet(&raw_snippet),
+                metadata_json: row.get(8)?,
+                session_summary: row.get(9)?,
+                session_repository: row.get(10)?,
+                session_branch: row.get(11)?,
+                session_updated_at: row.get(12)?,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Count total rows for browse mode (filter-only, no FTS).
+    pub fn browse_content_count(
+        &self,
+        filters: &SearchFilters,
+    ) -> Result<i64> {
+        let mut sql = String::from(
+            "SELECT COUNT(*) FROM search_content sc
+             JOIN sessions s ON s.id = sc.session_id
+             WHERE 1=1",
+        );
+
+        let mut query_params: Vec<Box<dyn ToSql>> = Vec::new();
+        append_sql_filters(&mut sql, &mut query_params, filters);
+
+        let refs: Vec<&dyn ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+        let count: i64 = self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?;
+        Ok(count)
+    }
+
+    /// Get facets for browse mode (filter-only, no FTS MATCH).
+    /// Each facet dimension excludes its own filter for proper faceted navigation.
+    pub fn browse_facets(&self, filters: &SearchFilters) -> Result<SearchFacets> {
+        // by_content_type: exclude content_types filter
+        let by_content_type = {
+            let mut sql = String::from(
+                "SELECT sc.content_type, COUNT(*) FROM search_content sc
+                 JOIN sessions s ON s.id = sc.session_id WHERE 1=1",
+            );
+            let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+            let excl = SearchFilters { content_types: Vec::new(), ..filters.clone() };
+            append_sql_filters(&mut sql, &mut params, &excl);
+            sql.push_str(" GROUP BY sc.content_type ORDER BY COUNT(*) DESC");
+            let mut stmt = self.conn.prepare(&sql)?;
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            stmt.query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // by_repository: exclude repositories filter
+        let by_repository = {
+            let mut sql = String::from(
+                "SELECT s.repository, COUNT(*) FROM search_content sc
+                 JOIN sessions s ON s.id = sc.session_id
+                 WHERE s.repository IS NOT NULL",
+            );
+            let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+            let excl = SearchFilters { repositories: Vec::new(), ..filters.clone() };
+            append_sql_filters(&mut sql, &mut params, &excl);
+            sql.push_str(" GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT 20");
+            let mut stmt = self.conn.prepare(&sql)?;
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            stmt.query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // by_tool_name: exclude tool_names filter
+        let by_tool_name = {
+            let mut sql = String::from(
+                "SELECT sc.tool_name, COUNT(*) FROM search_content sc
+                 JOIN sessions s ON s.id = sc.session_id
+                 WHERE sc.tool_name IS NOT NULL",
+            );
+            let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+            let excl = SearchFilters { tool_names: Vec::new(), ..filters.clone() };
+            append_sql_filters(&mut sql, &mut params, &excl);
+            sql.push_str(" GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT 20");
+            let mut stmt = self.conn.prepare(&sql)?;
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            stmt.query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        // Total matches and distinct sessions (combined into single query)
+        let (total_matches, session_count): (i64, i64) = {
+            let mut sql = String::from(
+                "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc
+                 JOIN sessions s ON s.id = sc.session_id WHERE 1=1",
+            );
+            let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+            append_sql_filters(&mut sql, &mut params, filters);
+            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            self.conn.query_row(&sql, params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
+        };
+
+        Ok(SearchFacets {
+            by_content_type,
+            by_repository,
+            by_tool_name,
+            total_matches,
+            session_count,
+        })
+    }
+
     /// Get facet counts for a search query (for the filter sidebar).
+    /// Each facet dimension excludes its own filter for proper faceted navigation.
     pub fn search_facets(&self, query: &str, filters: &SearchFilters) -> Result<SearchFacets> {
         let sanitized = sanitize_fts_query(query);
         if sanitized.is_empty() {
@@ -265,72 +431,67 @@ impl IndexDb {
             });
         }
 
-        // Build WHERE clause for filters (excluding the facet dimension being counted)
-        let base_where = build_filter_where(filters);
-
-        // Count by content type
-        let by_content_type = self.facet_query(
-            &format!(
-                "SELECT sc.content_type, COUNT(*) FROM search_fts
-                 JOIN search_content sc ON sc.id = search_fts.rowid
-                 JOIN sessions s ON s.id = sc.session_id
-                 WHERE search_fts MATCH ?1 {}
-                 GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
-                base_where
-            ),
-            &sanitized,
-            filters,
-        )?;
-
-        // Count by repository
-        let by_repository = self.facet_query(
-            &format!(
-                "SELECT s.repository, COUNT(*) FROM search_fts
-                 JOIN search_content sc ON sc.id = search_fts.rowid
-                 JOIN sessions s ON s.id = sc.session_id
-                 WHERE search_fts MATCH ?1 AND s.repository IS NOT NULL {}
-                 GROUP BY s.repository ORDER BY COUNT(*) DESC
-                 LIMIT 20",
-                base_where
-            ),
-            &sanitized,
-            filters,
-        )?;
-
-        // Count by tool name
-        let by_tool_name = self.facet_query(
-            &format!(
-                "SELECT sc.tool_name, COUNT(*) FROM search_fts
-                 JOIN search_content sc ON sc.id = search_fts.rowid
-                 JOIN sessions s ON s.id = sc.session_id
-                 WHERE search_fts MATCH ?1 AND sc.tool_name IS NOT NULL {}
-                 GROUP BY sc.tool_name ORDER BY COUNT(*) DESC
-                 LIMIT 20",
-                base_where
-            ),
-            &sanitized,
-            filters,
-        )?;
-
-        // Total matches
-        let total_matches: i64 = {
-            let sql = format!(
-                "SELECT COUNT(*) FROM search_fts
-                 JOIN search_content sc ON sc.id = search_fts.rowid
-                 JOIN sessions s ON s.id = sc.session_id
-                 WHERE search_fts MATCH ?1 {}",
-                base_where
-            );
-            let mut params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized.clone())];
-            append_filter_params(filters, &mut params);
-            let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-            self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?
+        // by_content_type: exclude content_types filter so all types show counts
+        let by_content_type = {
+            let excl = SearchFilters { content_types: Vec::new(), ..filters.clone() };
+            let filt_where = build_filter_where(&excl);
+            self.facet_query(
+                &format!(
+                    "SELECT sc.content_type, COUNT(*) FROM search_fts
+                     JOIN search_content sc ON sc.id = search_fts.rowid
+                     JOIN sessions s ON s.id = sc.session_id
+                     WHERE search_fts MATCH ?1 {}
+                     GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+                    filt_where
+                ),
+                &sanitized,
+                &excl,
+            )?
         };
 
-        // Distinct sessions
-        let session_count: i64 = {
+        // by_repository: exclude repositories filter
+        let by_repository = {
+            let excl = SearchFilters { repositories: Vec::new(), ..filters.clone() };
+            let filt_where = build_filter_where(&excl);
+            self.facet_query(
+                &format!(
+                    "SELECT s.repository, COUNT(*) FROM search_fts
+                     JOIN search_content sc ON sc.id = search_fts.rowid
+                     JOIN sessions s ON s.id = sc.session_id
+                     WHERE search_fts MATCH ?1 AND s.repository IS NOT NULL {}
+                     GROUP BY s.repository ORDER BY COUNT(*) DESC
+                     LIMIT 20",
+                    filt_where
+                ),
+                &sanitized,
+                &excl,
+            )?
+        };
+
+        // by_tool_name: exclude tool_names filter
+        let by_tool_name = {
+            let excl = SearchFilters { tool_names: Vec::new(), ..filters.clone() };
+            let filt_where = build_filter_where(&excl);
+            self.facet_query(
+                &format!(
+                    "SELECT sc.tool_name, COUNT(*) FROM search_fts
+                     JOIN search_content sc ON sc.id = search_fts.rowid
+                     JOIN sessions s ON s.id = sc.session_id
+                     WHERE search_fts MATCH ?1 AND sc.tool_name IS NOT NULL {}
+                     GROUP BY sc.tool_name ORDER BY COUNT(*) DESC
+                     LIMIT 20",
+                    filt_where
+                ),
+                &sanitized,
+                &excl,
+            )?
+        };
+
+        // Total matches and distinct sessions (combined into single query)
+        let (total_matches, session_count): (i64, i64) = {
+            let base_where = build_filter_where(filters);
             let sql = format!(
-                "SELECT COUNT(DISTINCT sc.session_id) FROM search_fts
+                "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts
                  JOIN search_content sc ON sc.id = search_fts.rowid
                  JOIN sessions s ON s.id = sc.session_id
                  WHERE search_fts MATCH ?1 {}",
@@ -339,7 +500,7 @@ impl IndexDb {
             let mut params: Vec<Box<dyn ToSql>> = vec![Box::new(sanitized.clone())];
             append_filter_params(filters, &mut params);
             let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-            self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?
+            self.conn.query_row(&sql, params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
         };
 
         Ok(SearchFacets {
@@ -560,6 +721,48 @@ fn append_filter_params(filters: &SearchFilters, params: &mut Vec<Box<dyn ToSql>
     }
     for tn in &filters.tool_names {
         params.push(Box::new(tn.clone()));
+    }
+}
+
+/// Append filter clauses using anonymous `?` placeholders (for browse queries
+/// that don't use numbered params). Appends both SQL fragments and param values.
+fn append_sql_filters(
+    sql: &mut String,
+    params: &mut Vec<Box<dyn ToSql>>,
+    filters: &SearchFilters,
+) {
+    if !filters.content_types.is_empty() {
+        let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        sql.push_str(&format!(" AND sc.content_type IN ({})", placeholders));
+        for ct in &filters.content_types {
+            params.push(Box::new(ct.clone()));
+        }
+    }
+    if !filters.repositories.is_empty() {
+        let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        sql.push_str(&format!(" AND s.repository IN ({})", placeholders));
+        for repo in &filters.repositories {
+            params.push(Box::new(repo.clone()));
+        }
+    }
+    if !filters.tool_names.is_empty() {
+        let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        sql.push_str(&format!(" AND sc.tool_name IN ({})", placeholders));
+        for tn in &filters.tool_names {
+            params.push(Box::new(tn.clone()));
+        }
+    }
+    if let Some(ref sid) = filters.session_id {
+        sql.push_str(" AND sc.session_id = ?");
+        params.push(Box::new(sid.clone()));
+    }
+    if let Some(from) = filters.date_from_unix {
+        sql.push_str(" AND sc.timestamp_unix >= ?");
+        params.push(Box::new(from));
+    }
+    if let Some(to) = filters.date_to_unix {
+        sql.push_str(" AND sc.timestamp_unix <= ?");
+        params.push(Box::new(to));
     }
 }
 

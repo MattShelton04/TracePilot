@@ -136,8 +136,17 @@ pub fn reindex_incremental_with_rich_progress(
     index_db_path: &Path,
     mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<(usize, usize)> {
+    let phase1_start = std::time::Instant::now();
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let discover_elapsed = phase1_start.elapsed();
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    let db_open_elapsed = phase1_start.elapsed() - discover_elapsed;
+    tracing::debug!(
+        sessions = sessions.len(),
+        discover_ms = discover_elapsed.as_millis(),
+        db_open_ms = db_open_elapsed.as_millis(),
+        "Phase 1: discovered sessions and opened DB"
+    );
 
     let live_ids: std::collections::HashSet<String> =
         sessions.iter().map(|s| s.id.clone()).collect();
@@ -206,6 +215,14 @@ pub fn reindex_incremental_with_rich_progress(
         db.commit_transaction()?;
     }
 
+    tracing::debug!(
+        indexed,
+        skipped,
+        total,
+        elapsed_ms = phase1_start.elapsed().as_millis(),
+        "Phase 1 complete"
+    );
+
     // Prune sessions that no longer exist on disk
     match db.prune_deleted(&live_ids) {
         Ok(pruned) if pruned > 0 => {
@@ -238,8 +255,10 @@ pub fn reindex_search_content(
     mut on_progress: impl FnMut(&SearchIndexingProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<(usize, usize)> {
+    let phase2_start = std::time::Instant::now();
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    tracing::debug!(sessions = sessions.len(), "Phase 2: starting search content indexing");
 
     let total = sessions.len();
     let mut indexed = 0;
@@ -255,6 +274,7 @@ pub fn reindex_search_content(
         if !db.needs_search_reindex(&session.id, &session.path) {
             skipped += 1;
         } else {
+            let session_start = std::time::Instant::now();
             // Parse OUTSIDE transaction (CPU-bound, no DB lock)
             let events_path = session.path.join("events.jsonl");
             let content_rows = if events_path.exists() {
@@ -279,10 +299,19 @@ pub fn reindex_search_content(
             };
 
             // Only write if parsing succeeded — don't wipe existing index on transient errors
-            if let Some(rows) = content_rows {
-                match db.upsert_search_content(&session.id, &rows) {
+            if let Some(ref rows) = content_rows {
+                match db.upsert_search_content(&session.id, rows) {
                     Ok(_) => {
                         indexed += 1;
+                        let elapsed = session_start.elapsed();
+                        if elapsed.as_millis() > 100 {
+                            tracing::debug!(
+                                session_id = %session.id,
+                                rows = rows.len(),
+                                elapsed_ms = elapsed.as_millis(),
+                                "Phase 2: slow session indexing"
+                            );
+                        }
                     }
                     Err(e) => {
                         tracing::warn!(
@@ -306,6 +335,14 @@ pub fn reindex_search_content(
 
     // Optimize after bulk writes
     let _ = db.conn.execute_batch("PRAGMA optimize");
+
+    tracing::debug!(
+        indexed,
+        skipped,
+        total,
+        elapsed_ms = phase2_start.elapsed().as_millis(),
+        "Phase 2 complete"
+    );
 
     Ok((indexed, skipped))
 }
