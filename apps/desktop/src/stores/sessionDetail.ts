@@ -21,6 +21,7 @@ import {
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
+import { useToastStore } from "@/stores/toast";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -36,6 +37,34 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const loaded = ref<Set<string>>(new Set());
+  const toastStore = useToastStore();
+
+  // Debounce noisy error notifications per section (e.g., paginated events)
+  const lastSectionErrorAt = new Map<string, number>();
+  const SECTION_ERROR_THROTTLE_MS = 5_000;
+
+  function sectionErrorMessage(section: string, err: unknown): string {
+    const reason = err instanceof Error ? err.message : String(err);
+    return `Failed to load ${section}: ${reason}`;
+  }
+
+  function clearSectionError(section: string) {
+    lastSectionErrorAt.delete(section);
+  }
+
+  function notifySectionError(section: string, err: unknown, silent = false) {
+    const message = sectionErrorMessage(section, err);
+    console.error(message, err);
+    if (silent) return;
+
+    const now = Date.now();
+    const last = lastSectionErrorAt.get(section) ?? 0;
+    if (now - last < SECTION_ERROR_THROTTLE_MS) {
+      return;
+    }
+    lastSectionErrorAt.set(section, now);
+    toastStore.error(message);
+  }
 
   // Track file size for freshness detection (avoids redundant turn re-fetches)
   let lastEventsFileSize = 0;
@@ -82,6 +111,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   async function loadDetail(id: string) {
     if (sessionId.value === id && loaded.value.has("detail")) {
       return;
+    }
+
+    if (sessionId.value !== id) {
+      lastSectionErrorAt.clear();
     }
 
     // Save current session before switching
@@ -150,10 +183,12 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       detail.value = result;
       loaded.value.add("detail");
+      clearSectionError("session details");
     } catch (e) {
       if (requestToken !== token) return;
       detail.value = null;
       error.value = String(e);
+      notifySectionError("session details", e);
     } finally {
       if (requestToken === token) loading.value = false;
     }
@@ -170,9 +205,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       turns.value = result.turns;
       lastEventsFileSize = result.eventsFileSize;
       loaded.value.add("turns");
+      clearSectionError("turns");
     } catch (e) {
       if (requestToken !== token) return;
-      console.error("Failed to load turns:", e);
+      notifySectionError("turns", e);
     }
   }
 
@@ -187,9 +223,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
       events.value = result;
       loaded.value.add("events");
+      clearSectionError("events");
     } catch (e) {
       if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      console.error("Failed to load events:", e);
+      notifySectionError("events", e);
     }
   }
 
@@ -203,9 +240,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       todos.value = result;
       loaded.value.add("todos");
+      clearSectionError("todos");
     } catch (e) {
       if (requestToken !== token) return;
-      console.error("Failed to load todos:", e);
+      notifySectionError("todos", e);
     }
   }
 
@@ -219,9 +257,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       checkpoints.value = result;
       loaded.value.add("checkpoints");
+      clearSectionError("checkpoints");
     } catch (e) {
       if (requestToken !== token) return;
-      console.error("Failed to load checkpoints:", e);
+      notifySectionError("checkpoints", e);
     }
   }
 
@@ -235,9 +274,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       plan.value = result;
       loaded.value.add("plan");
+      clearSectionError("plan");
     } catch (e) {
       if (requestToken !== token) return;
-      console.error("Failed to load plan:", e);
+      notifySectionError("plan", e);
     }
   }
 
@@ -251,9 +291,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       shutdownMetrics.value = result;
       loaded.value.add("metrics");
+      clearSectionError("metrics");
     } catch (e) {
       if (requestToken !== token) return;
-      console.error("Failed to load metrics:", e);
+      notifySectionError("metrics", e);
     }
   }
 
@@ -267,9 +308,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (requestToken !== token) return;
       incidents.value = result;
       loaded.value.add("incidents");
+      clearSectionError("incidents");
     } catch (e) {
       if (requestToken !== token) return;
-      console.warn("Failed to load incidents:", e);
+      notifySectionError("incidents", e);
     }
   }
 
@@ -288,6 +330,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     error.value = null;
     lastEventsFileSize = 0;
     sessionCache.clear();
+    lastSectionErrorAt.clear();
   }
 
   /**
@@ -309,7 +352,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           detail.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh detail:", e);
+          notifySectionError("session details", e);
         })
       );
     }
@@ -330,9 +373,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           if (requestToken !== token) return;
           turns.value = result.turns;
           lastEventsFileSize = result.eventsFileSize;
+          clearSectionError("turns");
         })().catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh turns:", e);
+          notifySectionError("turns", e);
         })
       );
     }
@@ -348,7 +392,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           todos.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh todos:", e);
+          notifySectionError("todos", e);
         })
       );
     }
@@ -360,7 +404,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           checkpoints.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh checkpoints:", e);
+          notifySectionError("checkpoints", e);
         })
       );
     }
@@ -372,7 +416,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           plan.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh plan:", e);
+          notifySectionError("plan", e);
         })
       );
     }
@@ -384,7 +428,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           shutdownMetrics.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.error("Failed to refresh metrics:", e);
+          notifySectionError("metrics", e);
         })
       );
     }
@@ -396,7 +440,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           incidents.value = result;
         }).catch((e) => {
           if (requestToken !== token) return;
-          console.warn("Failed to refresh incidents:", e);
+          notifySectionError("incidents", e);
         })
       );
     }
