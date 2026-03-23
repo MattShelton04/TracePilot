@@ -29,7 +29,10 @@ function retryLoadTokenFlow() {
   }
 }
 
-const tokenFlowError = computed(() => store.metricsError || store.turnsError);
+const tokenFlowError = computed(() => {
+  const errors = [store.metricsError, store.turnsError].filter(Boolean);
+  return errors.length ? errors.join('; ') : null;
+});
 const metrics = computed(() => store.shutdownMetrics);
 const turns = computed(() => store.turns);
 const hasTurns = computed(() => turns.value.length > 0);

@@ -218,7 +218,7 @@ function retryLoadTurns() {
       <BtnGroup v-model="activeView" :options="viewModes" />
     </div>
 
-    <EmptyState v-if="store.turns.length === 0" message="No conversation turns found." />
+    <EmptyState v-if="store.turns.length === 0 && !store.turnsError" message="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'chat'" class="turn-group">

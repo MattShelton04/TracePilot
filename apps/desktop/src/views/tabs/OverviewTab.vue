@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList, ErrorAlert,
@@ -8,7 +7,6 @@ import {
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
-const route = useRoute();
 
 useSessionTabLoader(
   () => store.sessionId,

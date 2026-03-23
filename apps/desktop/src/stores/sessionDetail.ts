@@ -374,7 +374,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {
           if (requestToken !== token) return;
-          if (turnsError.value) turnsError.value = formatError(e);
+          turnsError.value = formatError(e);
           console.error("Failed to refresh turns:", e);
         })
       );
@@ -392,7 +392,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           todosError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          if (todosError.value) todosError.value = formatError(e);
+          todosError.value = formatError(e);
           console.error("Failed to refresh todos:", e);
         })
       );
@@ -406,7 +406,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           checkpointsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          if (checkpointsError.value) checkpointsError.value = formatError(e);
+          checkpointsError.value = formatError(e);
           console.error("Failed to refresh checkpoints:", e);
         })
       );
@@ -420,7 +420,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           planError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          if (planError.value) planError.value = formatError(e);
+          planError.value = formatError(e);
           console.error("Failed to refresh plan:", e);
         })
       );
@@ -434,7 +434,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           metricsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          if (metricsError.value) metricsError.value = formatError(e);
+          metricsError.value = formatError(e);
           console.error("Failed to refresh metrics:", e);
         })
       );
@@ -448,7 +448,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           incidentsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          if (incidentsError.value) incidentsError.value = formatError(e);
+          incidentsError.value = formatError(e);
           console.warn("Failed to refresh incidents:", e);
         })
       );
