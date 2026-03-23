@@ -92,27 +92,26 @@ watch(
     if (key === lastScrolledKey) return;
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
-    // Auto-expand tool section, subagent section, and individual tool call detail
-    if (eventIndex != null) {
-      if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
-      const turn = store.turns.find(t => t.turnIndex === turnIndex);
-      if (turn) {
-        const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
-        if (tc) {
-          // Expand subagent section if target is inside one
-          if (tc.parentToolCallId) {
-            const subKey = `${turnIndex}-${tc.parentToolCallId}`;
-            if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
+    // Defer expansion to nextTick so useSessionTabLoader's onClear() runs first
+    nextTick(() => {
+      if (eventIndex != null) {
+        if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
+        const turn = store.turns.find(t => t.turnIndex === turnIndex);
+        if (turn) {
+          const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
+          if (tc) {
+            if (tc.parentToolCallId) {
+              const subKey = `${turnIndex}-${tc.parentToolCallId}`;
+              if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
+            }
+            const idx = findToolCallIndex(turn, tc);
+            const detailKey = `${turnIndex}-${idx}`;
+            if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
           }
-          // Expand the individual tool call detail
-          const idx = findToolCallIndex(turn, tc);
-          const detailKey = `${turnIndex}-${idx}`;
-          if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
         }
       }
-    }
-    // Wait two ticks: one for expansion render, one for scroll
-    nextTick(() => nextTick(() => scrollToTarget(turnIndex, eventIndex)));
+      nextTick(() => scrollToTarget(turnIndex, eventIndex));
+    });
   },
   { immediate: true },
 );
@@ -132,6 +131,7 @@ useSessionTabLoader(
       expandedToolDetails.clear();
       expandedReasoning.clear();
       collapsedSubagents.clear();
+      lastScrolledKey = null;
     },
   }
 );
