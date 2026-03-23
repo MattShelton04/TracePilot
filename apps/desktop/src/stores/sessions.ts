@@ -8,6 +8,8 @@ export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 /** Deduplicate concurrent indexing calls. */
 let indexingPromise: Promise<[number, number]> | null = null;
+/** Deduplicate concurrent fetchSessions calls. */
+let fetchPromise: Promise<void> | null = null;
 
 export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionListItem[]>([]);
@@ -88,24 +90,35 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   async function fetchSessions() {
+    if (fetchPromise) return fetchPromise;
     loading.value = true;
     error.value = null;
-    try {
-      sessions.value = await listSessions();
-    } catch (e) {
-      error.value = String(e);
-    } finally {
-      loading.value = false;
-    }
+    fetchPromise = (async () => {
+      try {
+        sessions.value = await listSessions();
+      } catch (e) {
+        error.value = String(e);
+      } finally {
+        fetchPromise = null;
+        loading.value = false;
+      }
+    })();
+    return fetchPromise;
   }
 
   /** Silently refresh session list without triggering loading skeleton. */
   async function refreshSessions() {
-    try {
-      sessions.value = await listSessions();
-    } catch (e) {
-      console.error("Silent refresh failed:", e);
-    }
+    if (fetchPromise) return fetchPromise;
+    fetchPromise = (async () => {
+      try {
+        sessions.value = await listSessions();
+      } catch (e) {
+        console.error("Silent refresh failed:", e);
+      } finally {
+        fetchPromise = null;
+      }
+    })();
+    return fetchPromise;
   }
 
   /** Reindex sessions in the background, then refresh the list. */

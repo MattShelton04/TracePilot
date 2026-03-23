@@ -56,6 +56,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   // Track what's been loaded to avoid redundant fetches
   const loaded = new Set<string>();
 
+  // In-flight promise dedup: if a fetch is already running for a cache key, return the same promise
+  const inflight = new Map<string, Promise<void>>();
+
   // Request generation counters to prevent stale async writes
   let analyticsGen = 0;
   let toolAnalysisGen = 0;
@@ -81,26 +84,32 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     const hideEmpty = prefs.hideEmptySessions;
     const cacheKey = cacheKeyFor('analytics', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
+    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
 
     const gen = ++analyticsGen;
     analyticsLoading.value = true;
     analyticsError.value = null;
-    try {
-      const result = await getAnalytics({
-        fromDate: merged.fromDate,
-        toDate: merged.toDate,
-        repo,
-        hideEmpty,
-      });
-      if (gen !== analyticsGen) return; // superseded by newer request
-      analytics.value = result;
-      loaded.add(cacheKey);
-    } catch (e) {
-      if (gen !== analyticsGen) return;
-      analyticsError.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      if (gen === analyticsGen) analyticsLoading.value = false;
-    }
+    const promise = (async () => {
+      try {
+        const result = await getAnalytics({
+          fromDate: merged.fromDate,
+          toDate: merged.toDate,
+          repo,
+          hideEmpty,
+        });
+        if (gen !== analyticsGen) return;
+        analytics.value = result;
+        loaded.add(cacheKey);
+      } catch (e) {
+        if (gen !== analyticsGen) return;
+        analyticsError.value = e instanceof Error ? e.message : String(e);
+      } finally {
+        inflight.delete(cacheKey);
+        if (gen === analyticsGen) analyticsLoading.value = false;
+      }
+    })();
+    inflight.set(cacheKey, promise);
+    return promise;
   }
 
   async function fetchToolAnalysis(options?: {
@@ -115,26 +124,32 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     const hideEmpty = prefs.hideEmptySessions;
     const cacheKey = cacheKeyFor('toolAnalysis', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
+    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
 
     const gen = ++toolAnalysisGen;
     toolAnalysisLoading.value = true;
     toolAnalysisError.value = null;
-    try {
-      const result = await getToolAnalysis({
-        fromDate: merged.fromDate,
-        toDate: merged.toDate,
-        repo,
-        hideEmpty,
-      });
-      if (gen !== toolAnalysisGen) return;
-      toolAnalysis.value = result;
-      loaded.add(cacheKey);
-    } catch (e) {
-      if (gen !== toolAnalysisGen) return;
-      toolAnalysisError.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      if (gen === toolAnalysisGen) toolAnalysisLoading.value = false;
-    }
+    const promise = (async () => {
+      try {
+        const result = await getToolAnalysis({
+          fromDate: merged.fromDate,
+          toDate: merged.toDate,
+          repo,
+          hideEmpty,
+        });
+        if (gen !== toolAnalysisGen) return;
+        toolAnalysis.value = result;
+        loaded.add(cacheKey);
+      } catch (e) {
+        if (gen !== toolAnalysisGen) return;
+        toolAnalysisError.value = e instanceof Error ? e.message : String(e);
+      } finally {
+        inflight.delete(cacheKey);
+        if (gen === toolAnalysisGen) toolAnalysisLoading.value = false;
+      }
+    })();
+    inflight.set(cacheKey, promise);
+    return promise;
   }
 
   async function fetchCodeImpact(options?: {
@@ -149,26 +164,32 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     const hideEmpty = prefs.hideEmptySessions;
     const cacheKey = cacheKeyFor('codeImpact', { ...merged, repo, hideEmpty });
     if (!options?.force && loaded.has(cacheKey)) return;
+    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
 
     const gen = ++codeImpactGen;
     codeImpactLoading.value = true;
     codeImpactError.value = null;
-    try {
-      const result = await getCodeImpact({
-        fromDate: merged.fromDate,
-        toDate: merged.toDate,
-        repo,
-        hideEmpty,
-      });
-      if (gen !== codeImpactGen) return;
-      codeImpact.value = result;
-      loaded.add(cacheKey);
-    } catch (e) {
-      if (gen !== codeImpactGen) return;
-      codeImpactError.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      if (gen === codeImpactGen) codeImpactLoading.value = false;
-    }
+    const promise = (async () => {
+      try {
+        const result = await getCodeImpact({
+          fromDate: merged.fromDate,
+          toDate: merged.toDate,
+          repo,
+          hideEmpty,
+        });
+        if (gen !== codeImpactGen) return;
+        codeImpact.value = result;
+        loaded.add(cacheKey);
+      } catch (e) {
+        if (gen !== codeImpactGen) return;
+        codeImpactError.value = e instanceof Error ? e.message : String(e);
+      } finally {
+        inflight.delete(cacheKey);
+        if (gen === codeImpactGen) codeImpactLoading.value = false;
+      }
+    })();
+    inflight.set(cacheKey, promise);
+    return promise;
   }
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {

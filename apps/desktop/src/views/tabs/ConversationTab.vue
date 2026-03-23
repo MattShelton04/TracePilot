@@ -67,19 +67,19 @@ function scrollToTurn(turnIndex: number) {
   setTimeout(() => observer.disconnect(), 10000);
 }
 
-// Watch for turns to load, then scroll to the target turn
-let hasScrolled = false;
+// Watch for turns to load, then scroll to the target turn.
+// Also re-scroll when ?turn= changes (e.g., clicking a different search result
+// in the same session without the component remounting).
+let lastScrolledTurn: number | null = null;
 watch(
-  () => store.turns.length,
-  (len) => {
-    if (hasScrolled) return;
-    const turnParam = route.query.turn;
+  [() => store.turns.length, () => route.query.turn],
+  ([len, turnParam]) => {
     if (!turnParam || len === 0) return;
     const turnIndex = Number(turnParam);
     if (Number.isNaN(turnIndex)) return;
-    // Only scroll once the target turn is actually rendered
+    if (turnIndex === lastScrolledTurn) return;
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
-    hasScrolled = true;
+    lastScrolledTurn = turnIndex;
     nextTick(() => scrollToTurn(turnIndex));
   },
   { immediate: true },
