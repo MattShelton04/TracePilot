@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { checkConfigExists } from '@tracepilot/client';
+import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
@@ -44,6 +44,14 @@ onMounted(async () => {
   try {
     const exists = await checkConfigExists();
     if (exists) {
+      // Check if setup was completed — if not, the user interrupted the
+      // setup wizard during indexing.  Restart the entire setup flow.
+      const cfg = await getConfig();
+      if (!cfg.general.setupComplete) {
+        phase.value = 'setup';
+        return;
+      }
+
       phase.value = 'app';
       sessionsStore.fetchSessions();
       // Wait for preferences to load from config.toml before using config-backed values
@@ -90,7 +98,15 @@ function onSetupComplete() {
   sessionsStore.fetchSessions();
 }
 
-function onIndexingComplete() {
+async function onIndexingComplete() {
+  // Mark setup as fully complete so interrupted indexing won't restart setup
+  try {
+    const cfg = await getConfig();
+    cfg.general.setupComplete = true;
+    await saveConfig(cfg);
+  } catch (e) {
+    console.error('Failed to save setupComplete flag:', e);
+  }
   phase.value = 'app';
   sessionsStore.fetchSessions();
 }

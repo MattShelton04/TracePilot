@@ -614,6 +614,8 @@ export interface TracePilotConfig {
   general: {
     autoIndexOnLaunch: boolean;
     cliCommand: string;
+    /** True once the first full indexing run completes. If false, setup restarts. */
+    setupComplete: boolean;
   };
   ui: {
     theme: string;
