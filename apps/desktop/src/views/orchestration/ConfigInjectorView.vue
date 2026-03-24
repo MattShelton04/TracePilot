@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, useDismissable, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
+import { useToast, useDismissable, truncateText, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
 import type { AgentDefinition } from '@tracepilot/types';
 import { previewBackupRestore } from '@tracepilot/client';
 import {
@@ -77,10 +77,6 @@ function visibleTools(agent: AgentDefinition): string[] {
 function hiddenToolCount(agent: AgentDefinition): number {
   if (!agent.tools?.length || agent.tools.length <= TOOLS_COLLAPSE_LIMIT) return 0;
   return agent.tools.length - TOOLS_COLLAPSE_LIMIT;
-}
-
-function truncateTool(name: string): string {
-  return name.length > 50 ? name.slice(0, 47) + '…' : name;
 }
 
 // ── Auto-save Indicator ─────────────────────────────────────────────────────
@@ -489,7 +485,7 @@ onMounted(() => {
                 :key="tool"
                 class="tool-chip"
                 :title="tool.length > 50 ? tool : undefined"
-              >{{ truncateTool(tool) }}</span>
+              >{{ truncateText(tool, 50) }}</span>
               <span
                 v-if="hiddenToolCount(agent) > 0 && !expandedTools[agent.filePath]"
                 class="tool-chip tool-chip--more"

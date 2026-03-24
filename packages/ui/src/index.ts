@@ -50,6 +50,7 @@ export * from "./utils/languageDetection";
 export * from "./utils/syntaxHighlight";
 export * from "./utils/agentTypes";
 export * from "./utils/agentGrouping";
+export * from "./utils/contentTypes";
 export { toTimeSpan, timeSpansOverlap, detectParallelIds, type TimeSpanItem } from "./utils/timelineUtils";
 
 // Composables
