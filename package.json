@@ -2,8 +2,19 @@
   "name": "tracepilot",
   "version": "0.4.0",
   "private": true,
+  "author": "Matt Shelton (@MattShelton04)",
   "license": "GPL-3.0-or-later",
   "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",
+  "homepage": "https://github.com/MattShelton04/TracePilot",
+  "keywords": [
+    "github-copilot",
+    "cli",
+    "tauri",
+    "rust",
+    "vue",
+    "analytics",
+    "orchestration"
+  ],
   "scripts": {
     "start": "pnpm install && pnpm tauri dev --no-watch",
     "dev": "pnpm --filter @tracepilot/desktop dev",

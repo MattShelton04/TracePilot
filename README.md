@@ -8,6 +8,10 @@
   <strong>Visualize, audit, orchestrate, and inspect your GitHub Copilot CLI sessions</strong>
 </p>
 
+**⚠️ Early State Disclaimer:** TracePilot is in an early stage of development. Features, user interface, and internal data structures are subject to significant change.
+
+**💻 Platform Support:** Currently, TracePilot has only been tested on **Windows**. While built with cross-platform technologies (Tauri, Rust, Vue), support for macOS and Linux is not yet verified or officially supported.
+
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#orchestration">Orchestration</a> •
