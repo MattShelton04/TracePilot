@@ -162,6 +162,8 @@ pub struct FeaturesConfig {
     pub health_scoring: bool,
     #[serde(default)]
     pub session_replay: bool,
+    #[serde(default = "default_true")]
+    pub render_markdown: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -170,6 +172,7 @@ impl Default for FeaturesConfig {
             export_view: false,
             health_scoring: false,
             session_replay: false,
+            render_markdown: true,
         }
     }
 }
