@@ -119,7 +119,8 @@ function escapeHtml(s: string): string {
 }
 
 function faviconUrl(domain: string): string {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+  // Use the site's own favicon instead of leaking domains to Google
+  return `https://${domain}/favicon.ico`;
 }
 </script>
 

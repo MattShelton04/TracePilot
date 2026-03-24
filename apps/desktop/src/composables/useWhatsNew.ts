@@ -11,7 +11,8 @@ async function fetchManifest(): Promise<ReleaseManifestEntry[]> {
     const resp = await fetch('/release-manifest.json');
     if (!resp.ok) return [];
     const data = await resp.json();
-    return data.versions ?? [];
+    const versions = data.versions ?? [];
+    return Array.isArray(versions) ? versions : [];
   } catch {
     return [];
   }

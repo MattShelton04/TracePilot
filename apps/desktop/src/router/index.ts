@@ -230,14 +230,27 @@ const router = createRouter({
   routes,
 });
 
-// Gate feature-flagged routes
-router.beforeEach((to) => {
+// Gate feature-flagged routes (await hydration so deep-links aren't incorrectly blocked)
+router.beforeEach(async (to) => {
   const flag = to.meta?.featureFlag as string | undefined;
   if (flag) {
     const prefs = usePreferencesStore();
+    await prefs.whenReady;
     if (!prefs.isFeatureEnabled(flag)) {
       return { name: "sessions" };
     }
+  }
+});
+
+// Handle lazy-load chunk failures (e.g., network errors, stale deploys)
+router.onError((error, to) => {
+  if (
+    error.message?.includes('Failed to fetch dynamically imported module') ||
+    error.message?.includes('Loading chunk') ||
+    error.message?.includes('Loading CSS chunk')
+  ) {
+    console.error(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
+    window.location.reload();
   }
 });
 

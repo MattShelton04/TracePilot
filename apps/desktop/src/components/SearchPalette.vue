@@ -15,6 +15,7 @@ const results = ref<SearchResult[]>([]);
 const totalCount = ref(0);
 const latencyMs = ref(0);
 const loading = ref(false);
+const searchError = ref<string | null>(null);
 const selectedIndex = ref(0);
 
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -75,11 +76,13 @@ async function executeSearch() {
     totalCount.value = 0;
     latencyMs.value = 0;
     loading.value = false;
+    searchError.value = null;
     return;
   }
 
   const gen = ++searchGeneration;
   loading.value = true;
+  searchError.value = null;
   try {
     const response: SearchResultsResponse = await searchContent(q, { limit: 20 });
     if (gen !== searchGeneration) return;
@@ -87,10 +90,11 @@ async function executeSearch() {
     totalCount.value = response.totalCount;
     latencyMs.value = response.latencyMs;
     selectedIndex.value = 0;
-  } catch {
+  } catch (e) {
     if (gen !== searchGeneration) return;
     results.value = [];
     totalCount.value = 0;
+    searchError.value = e instanceof Error ? e.message : 'Search failed';
   } finally {
     if (gen === searchGeneration) loading.value = false;
   }
@@ -308,6 +312,18 @@ onUnmounted(() => {
             </div>
 
             <!-- No results -->
+            <div v-else-if="searchError && !loading" class="palette-no-results">
+              <div class="palette-no-results-icon" style="color: var(--danger-fg);">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+                  <circle cx="8" cy="8" r="6" />
+                  <line x1="5.5" y1="5.5" x2="10.5" y2="10.5" />
+                  <line x1="10.5" y1="5.5" x2="5.5" y2="10.5" />
+                </svg>
+              </div>
+              <div class="palette-no-results-text">Search failed</div>
+              <div class="palette-no-results-hint">{{ searchError }}</div>
+            </div>
+
             <div v-else-if="!loading && !hasResults" class="palette-no-results">
               <div class="palette-no-results-icon">
                 <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">

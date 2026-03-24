@@ -12,7 +12,11 @@ const emit = defineEmits<{
 
 function onInput(e: Event) {
   const val = (e.target as HTMLInputElement).value;
-  emit('update:modelValue', props.type === 'number' ? Number(val) : val);
+  if (props.type === 'number') {
+    emit('update:modelValue', val === '' ? '' : Number(val));
+  } else {
+    emit('update:modelValue', val);
+  }
 }
 </script>
 
