@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
   tabs: Array<{ name: string; routeName: string; label: string; count?: number }>;
@@ -10,6 +10,14 @@ const route = useRoute();
 const router = useRouter();
 
 const activeTab = computed(() => route.name as string);
+
+// Track which tab has tabindex="0" — follows keyboard focus, resets on route change
+const focusedIndex = ref(0);
+
+watch(activeTab, (name) => {
+  const idx = props.tabs.findIndex((t) => t.routeName === name);
+  if (idx >= 0) focusedIndex.value = idx;
+}, { immediate: true });
 
 const tabRefs = ref<HTMLButtonElement[]>([]);
 
@@ -40,6 +48,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       break;
   }
   if (target >= 0) {
+    focusedIndex.value = target;
     tabRefs.value[target]?.focus();
   }
 }
@@ -53,7 +62,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       role="tab"
       :aria-selected="activeTab === tab.routeName"
       :aria-current="activeTab === tab.routeName ? 'page' : undefined"
-      :tabindex="activeTab === tab.routeName ? 0 : -1"
+      :tabindex="index === focusedIndex ? 0 : -1"
       class="tab-nav-item"
       :class="{ active: activeTab === tab.routeName }"
       @click="navigate(tab.routeName)"

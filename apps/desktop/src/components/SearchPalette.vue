@@ -202,11 +202,24 @@ function handlePaletteKeydown(e: KeyboardEvent) {
       e.preventDefault();
       selectCurrent();
       break;
-    case 'Tab':
-      // Focus trap: keep focus within the palette
+    case 'Tab': {
+      // Focus trap: cycle through focusable elements within the palette
       e.preventDefault();
-      inputRef.value?.focus();
+      const dialog = (e.target as HTMLElement).closest('.palette-dialog');
+      if (!dialog) break;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) break;
+      const current = focusable.indexOf(e.target as HTMLElement);
+      const next = e.shiftKey
+        ? (current - 1 + focusable.length) % focusable.length
+        : (current + 1) % focusable.length;
+      focusable[next]?.focus();
       break;
+    }
   }
 }
 
@@ -305,10 +318,10 @@ onUnmounted(() => {
           </div>
 
           <!-- ═══ Results ═══ -->
-          <div ref="resultsRef" class="palette-results" id="palette-listbox" role="listbox" aria-label="Search results">
+          <div ref="resultsRef" class="palette-results">
 
             <!-- Loading shimmer -->
-            <div v-if="loading" class="palette-loading">
+            <div v-if="loading" class="palette-loading" role="status" aria-label="Loading results">
               <div v-for="g in 3" :key="g" class="shimmer-group">
                 <div class="shimmer-header" />
                 <div v-for="r in (g === 1 ? 3 : 2)" :key="r" class="shimmer-row">
@@ -357,11 +370,13 @@ onUnmounted(() => {
             </div>
 
             <!-- Grouped results -->
-            <template v-else>
+            <div v-else id="palette-listbox" role="listbox" aria-label="Search results">
               <div
                 v-for="group in groupedResults"
                 :key="group.contentType"
                 class="palette-group"
+                role="group"
+                :aria-label="group.label"
               >
                 <div class="palette-group-header">
                   <span
@@ -454,7 +469,7 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-            </template>
+            </div>
           </div>
 
           <!-- ═══ Footer ═══ -->

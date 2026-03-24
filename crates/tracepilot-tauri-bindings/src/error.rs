@@ -45,7 +45,7 @@ pub enum BindingsError {
     Uuid(#[from] uuid::Error),
 
     /// A reindex is already running; callers should retry later.
-    #[error("Indexing is already in progress")]
+    #[error("ALREADY_INDEXING")]
     AlreadyIndexing,
 
     /// Input validation failed (user-facing message).
