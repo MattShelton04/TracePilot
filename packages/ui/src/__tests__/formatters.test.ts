@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatRate,
   formatRelativeTime,
+  toErrorMessage,
 } from '../utils/formatters';
 
 describe('formatRate', () => {
@@ -177,5 +178,49 @@ describe('formatRelativeTime', () => {
   it('returns days for Unix timestamps within the week', () => {
     const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
     expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
+  });
+});
+
+describe('toErrorMessage', () => {
+  it('extracts message from Error instances', () => {
+    expect(toErrorMessage(new Error('boom'))).toBe('boom');
+    expect(toErrorMessage(new TypeError('type issue'))).toBe('type issue');
+    expect(toErrorMessage(new RangeError('out of range'))).toBe('out of range');
+  });
+
+  it('returns empty string for Error with empty message', () => {
+    expect(toErrorMessage(new Error())).toBe('');
+    expect(toErrorMessage(new Error(''))).toBe('');
+  });
+
+  it('returns string values directly', () => {
+    expect(toErrorMessage('already a string')).toBe('already a string');
+    expect(toErrorMessage('')).toBe('');
+  });
+
+  it('converts other values via String()', () => {
+    expect(toErrorMessage(42)).toBe('42');
+    expect(toErrorMessage(null)).toBe('null');
+    expect(toErrorMessage(undefined)).toBe('undefined');
+    expect(toErrorMessage(true)).toBe('true');
+  });
+
+  it('uses fallback for non-Error, non-string values when provided', () => {
+    expect(toErrorMessage(42, 'Something went wrong')).toBe('Something went wrong');
+    expect(toErrorMessage(null, 'Unknown error')).toBe('Unknown error');
+    expect(toErrorMessage(undefined, 'Oops')).toBe('Oops');
+  });
+
+  it('ignores fallback for Error instances', () => {
+    expect(toErrorMessage(new Error('real error'), 'fallback')).toBe('real error');
+  });
+
+  it('ignores fallback for string values', () => {
+    expect(toErrorMessage('string error', 'fallback')).toBe('string error');
+  });
+
+  it('handles plain objects via String()', () => {
+    expect(toErrorMessage({})).toBe('[object Object]');
+    expect(toErrorMessage({}, 'Unexpected error')).toBe('Unexpected error');
   });
 });

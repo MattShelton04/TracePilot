@@ -9,6 +9,7 @@ import {
   listWorktrees,
   listRegisteredRepos,
 } from '@tracepilot/client';
+import { toErrorMessage } from '@tracepilot/ui';
 
 export interface ActivityEvent {
   id: string;
@@ -98,7 +99,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       // Surface background loading errors
       const bgFailures = [sessionsResult, versionsResult]
         .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map((r) => String(r.reason));
+        .map((r) => toErrorMessage(r.reason));
       if (bgFailures.length) {
         error.value = bgFailures.join('; ');
       } else {
@@ -124,7 +125,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
       lastInitialized.value = Date.now();
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       loading.value = false;
     }
   }

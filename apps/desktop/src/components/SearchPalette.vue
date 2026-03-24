@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { searchContent } from '@tracepilot/client';
 import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, toErrorMessage } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -94,7 +94,7 @@ async function executeSearch() {
     if (gen !== searchGeneration) return;
     results.value = [];
     totalCount.value = 0;
-    searchError.value = e instanceof Error ? e.message : 'Search failed';
+    searchError.value = toErrorMessage(e, 'Search failed');
   } finally {
     if (gen === searchGeneration) loading.value = false;
   }

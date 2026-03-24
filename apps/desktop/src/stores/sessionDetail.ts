@@ -21,6 +21,7 @@ import {
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
+import { toErrorMessage } from "@tracepilot/ui";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -81,11 +82,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       const oldest = sessionCache.keys().next().value;
       if (oldest) sessionCache.delete(oldest);
     }
-  }
-
-  /** Convert a caught value into an error message string. */
-  function formatError(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
   }
 
   /** Clear all per-section error refs (used on session switch / reset). */
@@ -179,7 +175,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     } catch (e) {
       if (requestToken !== token) return;
       detail.value = null;
-      error.value = formatError(e);
+      error.value = toErrorMessage(e);
     } finally {
       if (requestToken === token) loading.value = false;
     }
@@ -199,7 +195,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("turns");
     } catch (e) {
       if (requestToken !== token) return;
-      turnsError.value = formatError(e);
+      turnsError.value = toErrorMessage(e);
       console.error("Failed to load turns:", e);
     }
   }
@@ -218,7 +214,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("events");
     } catch (e) {
       if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      eventsError.value = formatError(e);
+      eventsError.value = toErrorMessage(e);
       console.error("Failed to load events:", e);
     }
   }
@@ -236,7 +232,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("todos");
     } catch (e) {
       if (requestToken !== token) return;
-      todosError.value = formatError(e);
+      todosError.value = toErrorMessage(e);
       console.error("Failed to load todos:", e);
     }
   }
@@ -254,7 +250,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("checkpoints");
     } catch (e) {
       if (requestToken !== token) return;
-      checkpointsError.value = formatError(e);
+      checkpointsError.value = toErrorMessage(e);
       console.error("Failed to load checkpoints:", e);
     }
   }
@@ -272,7 +268,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("plan");
     } catch (e) {
       if (requestToken !== token) return;
-      planError.value = formatError(e);
+      planError.value = toErrorMessage(e);
       console.error("Failed to load plan:", e);
     }
   }
@@ -290,7 +286,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("metrics");
     } catch (e) {
       if (requestToken !== token) return;
-      metricsError.value = formatError(e);
+      metricsError.value = toErrorMessage(e);
       console.error("Failed to load metrics:", e);
     }
   }
@@ -308,7 +304,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("incidents");
     } catch (e) {
       if (requestToken !== token) return;
-      incidentsError.value = formatError(e);
+      incidentsError.value = toErrorMessage(e);
       console.warn("Failed to load incidents:", e);
     }
   }
@@ -376,7 +372,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {
           if (requestToken !== token) return;
-          turnsError.value = formatError(e);
+          turnsError.value = toErrorMessage(e);
           console.error("Failed to refresh turns:", e);
         })
       );
@@ -394,7 +390,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           todosError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          todosError.value = formatError(e);
+          todosError.value = toErrorMessage(e);
           console.error("Failed to refresh todos:", e);
         })
       );
@@ -408,7 +404,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           checkpointsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          checkpointsError.value = formatError(e);
+          checkpointsError.value = toErrorMessage(e);
           console.error("Failed to refresh checkpoints:", e);
         })
       );
@@ -422,7 +418,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           planError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          planError.value = formatError(e);
+          planError.value = toErrorMessage(e);
           console.error("Failed to refresh plan:", e);
         })
       );
@@ -436,7 +432,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           metricsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          metricsError.value = formatError(e);
+          metricsError.value = toErrorMessage(e);
           console.error("Failed to refresh metrics:", e);
         })
       );
@@ -450,7 +446,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           incidentsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          incidentsError.value = formatError(e);
+          incidentsError.value = toErrorMessage(e);
           console.warn("Failed to refresh incidents:", e);
         })
       );

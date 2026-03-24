@@ -2,6 +2,7 @@
 import { getConfig, saveConfig, validateSessionDir } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
 import { createDefaultConfig } from '@tracepilot/types';
+import { toErrorMessage } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import WizardStepDatabase from '@/components/wizard/WizardStepDatabase.vue';
 import WizardStepFeatures from '@/components/wizard/WizardStepFeatures.vue';
@@ -71,7 +72,7 @@ async function validateDir() {
       validationError.value = result.error;
     }
   } catch (e) {
-    validationError.value = e instanceof Error ? e.message : String(e);
+    validationError.value = toErrorMessage(e);
   } finally {
     validating.value = false;
   }
@@ -133,7 +134,7 @@ async function finishSetup() {
     await saveConfig(config);
     emit('setup-saved', validationResult.value?.sessionCount ?? 0);
   } catch (e) {
-    setupError.value = e instanceof Error ? e.message : String(e);
+    setupError.value = toErrorMessage(e);
     console.error('Setup save failed:', e);
   } finally {
     saving.value = false;
