@@ -1,6 +1,7 @@
 //! Analytics Tauri commands (3 commands).
 
 use crate::config::SharedConfig;
+use crate::error::CmdResult;
 use crate::helpers::{open_index_db, read_config};
 
 #[tauri::command]
@@ -10,7 +11,7 @@ pub async fn get_analytics(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
-) -> Result<tracepilot_core::analytics::AnalyticsData, String> {
+) -> CmdResult<tracepilot_core::analytics::AnalyticsData> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -34,12 +35,10 @@ pub async fn get_analytics(
             to_date.as_deref(),
             repo.as_deref(),
             hide_empty.unwrap_or(false),
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(tracepilot_core::analytics::compute_analytics(&inputs))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
@@ -49,7 +48,7 @@ pub async fn get_tool_analysis(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
-) -> Result<tracepilot_core::analytics::ToolAnalysisData, String> {
+) -> CmdResult<tracepilot_core::analytics::ToolAnalysisData> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -73,12 +72,10 @@ pub async fn get_tool_analysis(
             to_date.as_deref(),
             repo.as_deref(),
             hide_empty.unwrap_or(false),
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(tracepilot_core::analytics::compute_tool_analysis(&inputs))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
@@ -88,7 +85,7 @@ pub async fn get_code_impact(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
-) -> Result<tracepilot_core::analytics::CodeImpactData, String> {
+) -> CmdResult<tracepilot_core::analytics::CodeImpactData> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -112,10 +109,8 @@ pub async fn get_code_impact(
             to_date.as_deref(),
             repo.as_deref(),
             hide_empty.unwrap_or(false),
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(tracepilot_core::analytics::compute_code_impact(&inputs))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }

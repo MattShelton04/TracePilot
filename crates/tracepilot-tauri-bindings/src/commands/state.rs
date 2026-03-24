@@ -2,12 +2,13 @@
 
 use crate::config::SharedConfig;
 use crate::helpers::{open_index_db, read_config};
+use crate::error::{BindingsError, CmdResult};
 use crate::types::{GitInfo, UpdateCheckResult};
 
 #[tauri::command]
 pub async fn get_db_size(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<u64, String> {
+) -> CmdResult<u64> {
     let index_path = read_config(&state).index_db_path();
 
     tokio::task::spawn_blocking(move || {
@@ -15,8 +16,7 @@ pub async fn get_db_size(
             .map(|m| m.len())
             .unwrap_or(0))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Check if a session is currently running by looking for `inuse.*.lock` files.
@@ -24,25 +24,23 @@ pub async fn get_db_size(
 pub async fn is_session_running(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<bool, String> {
+) -> CmdResult<bool> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(tracepilot_core::session::discovery::has_lock_file(&path))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_count(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<usize, String> {
+) -> CmdResult<usize> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -53,12 +51,9 @@ pub async fn get_session_count(
                 return Ok(count);
             }
         }
-        tracepilot_core::session::discovery::discover_sessions(&session_state_dir)
-            .map(|s| s.len())
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len())
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Returns the installation type: "source", "installed", or "portable".
@@ -77,23 +72,21 @@ pub fn get_install_type() -> String {
 }
 
 #[tauri::command]
-pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
+pub async fn check_for_updates() -> CmdResult<UpdateCheckResult> {
     let current_str = env!("CARGO_PKG_VERSION");
-    let current = semver::Version::parse(current_str).map_err(|e| e.to_string())?;
+    let current = semver::Version::parse(current_str)?;
 
     let client = reqwest::Client::builder()
         .user_agent(format!("TracePilot/{current_str}"))
         .timeout(std::time::Duration::from_secs(8))
-        .build()
-        .map_err(|e| e.to_string())?;
+        .build()?;
 
     let response = client
         .get("https://api.github.com/repos/MattShelton04/TracePilot/releases/latest")
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
-        .await
-        .map_err(|e| format!("Network error: {e}"))?;
+        .await?;
 
     match response.status().as_u16() {
         404 => {
@@ -106,16 +99,13 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
             })
         }
         429 | 403 => {
-            return Err("GitHub API rate limit reached. Try again later.".into())
+            return Err(BindingsError::Validation("GitHub API rate limit reached. Try again later.".into()))
         }
-        s if s >= 500 => return Err(format!("GitHub API error: HTTP {s}")),
+        s if s >= 500 => return Err(BindingsError::Validation(format!("GitHub API error: HTTP {s}"))),
         _ => {}
     }
 
-    let release: serde_json::Value = response
-        .json()
-        .await
-        .map_err(|e| format!("Parse error: {e}"))?;
+    let release: serde_json::Value = response.json().await?;
 
     let latest_str = release["tag_name"]
         .as_str()

@@ -1,13 +1,11 @@
 //! Logging Tauri commands (2 commands).
 
+use crate::error::{BindingsError, CmdResult};
 use tauri::Manager;
 
 #[tauri::command]
-pub async fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
-    let log_dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|e: tauri::Error| e.to_string())?;
+pub async fn get_log_path(app: tauri::AppHandle) -> CmdResult<String> {
+    let log_dir = app.path().app_log_dir()?;
     Ok(log_dir.to_string_lossy().to_string())
 }
 
@@ -15,11 +13,8 @@ pub async fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
 pub async fn export_logs(
     app: tauri::AppHandle,
     destination: String,
-) -> Result<String, String> {
-    let log_dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|e: tauri::Error| e.to_string())?;
+) -> CmdResult<String> {
+    let log_dir = app.path().app_log_dir()?;
 
     tokio::task::spawn_blocking(move || {
         use std::io::Read;
@@ -27,15 +22,14 @@ pub async fn export_logs(
         let dest = std::path::PathBuf::from(&destination);
 
         if !dest.is_absolute() {
-            return Err("Destination path must be absolute".into());
+            return Err(BindingsError::Validation("Destination path must be absolute".into()));
         }
 
         if !log_dir.exists() {
-            return Err("Log directory does not exist".into());
+            return Err(BindingsError::Validation("Log directory does not exist".into()));
         }
 
-        let mut log_files: Vec<_> = std::fs::read_dir(&log_dir)
-            .map_err(|e| format!("Failed to read log directory: {e}"))?
+        let mut log_files: Vec<_> = std::fs::read_dir(&log_dir)?
             .filter_map(|entry| {
                 let entry = entry.ok()?;
                 let path = entry.path();
@@ -55,7 +49,7 @@ pub async fn export_logs(
         });
 
         if log_files.is_empty() {
-            return Err("No log files found".into());
+            return Err(BindingsError::Validation("No log files found".into()));
         }
 
         let total_size: u64 = log_files
@@ -64,10 +58,10 @@ pub async fn export_logs(
             .map(|m| m.len())
             .sum();
         if total_size > 50_000_000 {
-            return Err(format!(
+            return Err(BindingsError::Validation(format!(
                 "Log files total {:.1}MB — too large to export. Clear old logs first.",
                 total_size as f64 / 1_000_000.0
-            ));
+            )));
         }
 
         let mut combined = String::new();
@@ -101,11 +95,10 @@ pub async fn export_logs(
         }
 
         if exported_count == 0 {
-            return Err("Could not read any log files (all locked or unreadable)".into());
+            return Err(BindingsError::Validation("Could not read any log files (all locked or unreadable)".into()));
         }
 
-        std::fs::write(&dest, &combined)
-            .map_err(|e| format!("Failed to write export: {e}"))?;
+        std::fs::write(&dest, &combined)?;
 
         let msg = if exported_count < log_files.len() {
             format!(
@@ -124,6 +117,5 @@ pub async fn export_logs(
         };
         Ok(msg)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }

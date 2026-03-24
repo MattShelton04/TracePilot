@@ -1,6 +1,7 @@
 //! Session-related Tauri commands (12 commands).
 
 use crate::config::SharedConfig;
+use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
     load_summary_list_item, read_config, truncate_utf8, MAX_CHECKPOINT_CONTENT_BYTES,
 };
@@ -16,7 +17,7 @@ pub async fn list_sessions(
     repo: Option<String>,
     branch: Option<String>,
     hide_empty: Option<bool>,
-) -> Result<Vec<SessionListItem>, String> {
+) -> CmdResult<Vec<SessionListItem>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -24,8 +25,7 @@ pub async fn list_sessions(
     tokio::task::spawn_blocking(move || {
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
         if index_path.exists() {
-            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-                .map_err(|e| e.to_string())?;
+            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
             // Check if index has any sessions; if empty, fall through to disk scan
             let count = db.session_count().unwrap_or(0);
@@ -36,8 +36,7 @@ pub async fn list_sessions(
                         repo.as_deref(),
                         branch.as_deref(),
                         hide_empty.unwrap_or(false),
-                    )
-                    .map_err(|e| e.to_string())?;
+                    )?;
 
                 return Ok(indexed
                     .into_iter()
@@ -69,8 +68,7 @@ pub async fn list_sessions(
 
         // Fallback: full disk scan (used when index is empty or missing)
         let sessions =
-            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)
-                .map_err(|e| e.to_string())?;
+            tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?;
 
         let mut items = Vec::new();
         let should_hide_empty = hide_empty.unwrap_or(false);
@@ -111,43 +109,38 @@ pub async fn list_sessions(
 
         Ok(items)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_detail(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<tracepilot_core::SessionSummary, String> {
+) -> CmdResult<tracepilot_core::SessionSummary> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
-        tracepilot_core::summary::load_session_summary(&path).map_err(|e| e.to_string())
+        )?;
+        Ok(tracepilot_core::summary::load_session_summary(&path)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_incidents(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<Vec<SessionIncidentItem>, String> {
+) -> CmdResult<Vec<SessionIncidentItem>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         let incidents = db
-            .get_session_incidents(&session_id)
-            .map_err(|e| e.to_string())?;
+            .get_session_incidents(&session_id)?;
         Ok(incidents
             .into_iter()
             .map(|i| SessionIncidentItem {
@@ -162,8 +155,7 @@ pub async fn get_session_incidents(
             })
             .collect())
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
@@ -171,7 +163,7 @@ pub async fn get_session_turns(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, TurnCache>,
     session_id: String,
-) -> Result<TurnsResponse, String> {
+) -> CmdResult<TurnsResponse> {
     let session_state_dir = read_config(&state).session_state_dir();
     let cache = cache.inner().clone();
 
@@ -179,8 +171,7 @@ pub async fn get_session_turns(
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let events_path = path.join("events.jsonl");
 
         let file_size = std::fs::metadata(&events_path)
@@ -192,8 +183,7 @@ pub async fn get_session_turns(
             let Ok(mut lru) = cache.lock() else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
                 // Fall through to disk parse below
-                let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-                    .map_err(|e| e.to_string())?
+                let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
                     .events;
                 let turns = tracepilot_core::turns::reconstruct_turns(&events);
                 let mut ipc_turns = turns;
@@ -216,8 +206,7 @@ pub async fn get_session_turns(
         }
 
         // Cache miss or stale — parse from disk
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-            .map_err(|e| e.to_string())?
+        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
             .events;
         let turns = tracepilot_core::turns::reconstruct_turns(&events);
 
@@ -239,32 +228,29 @@ pub async fn get_session_turns(
             events_file_size: file_size,
         })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
-/// Lightweight freshness probe — returns just the events.jsonl file size.
+/// Lightweight freshness probe— returns just the events.jsonl file size.
 #[tauri::command]
 pub async fn check_session_freshness(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<FreshnessResponse, String> {
+) -> CmdResult<FreshnessResponse> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let events_path = path.join("events.jsonl");
         let file_size = std::fs::metadata(&events_path)
             .map(|m| m.len())
             .unwrap_or(0);
         Ok(FreshnessResponse { events_file_size: file_size })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
@@ -274,18 +260,16 @@ pub async fn get_session_events(
     offset: Option<u32>,
     limit: Option<u32>,
     event_type: Option<String>,
-) -> Result<EventsResponse, String> {
+) -> CmdResult<EventsResponse> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let events_path = path.join("events.jsonl");
-        let all_events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-            .map_err(|e| e.to_string())?
+        let all_events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
             .events;
 
         let all_event_types: Vec<String> = {
@@ -329,50 +313,43 @@ pub async fn get_session_events(
             all_event_types,
         })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_todos(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<TodosResponse, String> {
+) -> CmdResult<TodosResponse> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let db_path = path.join("session.db");
-        let todos = tracepilot_core::parsing::session_db::read_todos(&db_path)
-            .map_err(|e| e.to_string())?;
-        let deps = tracepilot_core::parsing::session_db::read_todo_deps(&db_path)
-            .map_err(|e| e.to_string())?;
+        let todos = tracepilot_core::parsing::session_db::read_todos(&db_path)?;
+        let deps = tracepilot_core::parsing::session_db::read_todo_deps(&db_path)?;
 
         Ok(TodosResponse { todos, deps })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_checkpoints(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<Vec<tracepilot_core::parsing::checkpoints::CheckpointEntry>, String> {
+) -> CmdResult<Vec<tracepilot_core::parsing::checkpoints::CheckpointEntry>> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
-        let mut checkpoints = tracepilot_core::parsing::checkpoints::parse_checkpoints(&path)
-            .map_err(|e| e.to_string())?
+        )?;
+        let mut checkpoints = tracepilot_core::parsing::checkpoints::parse_checkpoints(&path)?
             .map(|index| index.checkpoints)
             .unwrap_or_default();
 
@@ -384,61 +361,55 @@ pub async fn get_session_checkpoints(
 
         Ok(checkpoints)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_session_plan(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<Option<serde_json::Value>, String> {
+) -> CmdResult<Option<serde_json::Value>> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let plan_path = path.join("plan.md");
         if !plan_path.exists() {
             return Ok(None);
         }
 
-        let mut content = std::fs::read_to_string(&plan_path).map_err(|e| e.to_string())?;
+        let mut content = std::fs::read_to_string(&plan_path)?;
         truncate_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
 
         Ok(Some(serde_json::json!({ "content": content })))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_shutdown_metrics(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> Result<Option<tracepilot_core::models::event_types::ShutdownData>, String> {
+) -> CmdResult<Option<tracepilot_core::models::event_types::ShutdownData>> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let events_path = path.join("events.jsonl");
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-            .map_err(|e| e.to_string())?
+        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
             .events;
         Ok(tracepilot_core::parsing::events::extract_combined_shutdown_data(
             &events,
         )
         .map(|(data, _count)| data))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Lazy-load the full result payload for a specific tool call.
@@ -447,18 +418,16 @@ pub async fn get_tool_result(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     tool_call_id: String,
-) -> Result<Option<serde_json::Value>, String> {
+) -> CmdResult<Option<serde_json::Value>> {
     let session_state_dir = read_config(&state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let events_path = path.join("events.jsonl");
-        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
-            .map_err(|e| e.to_string())?
+        let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
             .events;
 
         let mut last_result: Option<serde_json::Value> = None;
@@ -474,8 +443,7 @@ pub async fn get_tool_result(
         }
         Ok(last_result)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Open a new terminal window and run the configured CLI resume command.
@@ -484,17 +452,17 @@ pub async fn resume_session_in_terminal(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
     cli_command: Option<String>,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     // Validate UUID format to prevent command injection
     uuid::Uuid::parse_str(&session_id)
-        .map_err(|_| "Invalid session ID format".to_string())?;
+        .map_err(|_| BindingsError::Validation("Invalid session ID format".into()))?;
 
     let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
 
     // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
     // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
     if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
-        return Err("CLI command contains invalid characters".to_string());
+        return Err(BindingsError::Validation("CLI command contains invalid characters".into()));
     }
 
     // Resolve the session's original working directory from workspace.yaml
@@ -504,17 +472,14 @@ pub async fn resume_session_in_terminal(
         let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
             &sid,
             &session_state_dir,
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         let workspace_path = session_path.join("workspace.yaml");
-        let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)
-            .map_err(|e| e.to_string())?;
-        Ok::<Option<std::path::PathBuf>, String>(
+        let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
+        Ok::<Option<std::path::PathBuf>, BindingsError>(
             metadata.cwd.map(std::path::PathBuf::from),
         )
     })
-    .await
-    .map_err(|e| e.to_string())??;
+    .await??;
 
     // Find a valid directory for the terminal: session CWD > its closest ancestor > home
     let effective_cwd = session_cwd
@@ -556,16 +521,14 @@ pub async fn resume_session_in_terminal(
             &["-NoExit", "-EncodedCommand", &encoded],
             &effective_cwd,
             None,
-        )
-        .map_err(|e| format!("Failed to open terminal: {}", e))?;
+        )?;
     }
 
     #[cfg(not(windows))]
     {
         tracepilot_orchestrator::process::spawn_detached_terminal(
             &cmd, &[], &effective_cwd, None,
-        )
-        .map_err(|e| format!("Failed to open terminal: {}", e))?;
+        )?;
     }
 
     Ok(())

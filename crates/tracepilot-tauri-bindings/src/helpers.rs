@@ -1,6 +1,7 @@
 //! Shared helper functions used by multiple command modules.
 
 use crate::config::{SharedConfig, TracePilotConfig};
+use crate::error::{BindingsError, CmdResult};
 use crate::types::{IndexingProgressPayload, SessionListItem};
 use std::path::Path;
 use tauri::Emitter;
@@ -72,10 +73,9 @@ pub(crate) fn summary_to_list_item(
     }
 }
 
-pub(crate) fn load_summary_list_item(session_path: &Path) -> Result<SessionListItem, String> {
-    tracepilot_core::summary::load_session_summary(session_path)
-        .map(|s| summary_to_list_item(s, session_path))
-        .map_err(|e| e.to_string())
+pub(crate) fn load_summary_list_item(session_path: &Path) -> CmdResult<SessionListItem> {
+    let summary = tracepilot_core::summary::load_session_summary(session_path)?;
+    Ok(summary_to_list_item(summary, session_path))
 }
 
 pub(crate) fn open_index_db(
@@ -91,19 +91,24 @@ pub(crate) fn open_index_db(
     Some(db)
 }
 
-pub(crate) fn copilot_home() -> Result<std::path::PathBuf, String> {
-    tracepilot_orchestrator::launcher::copilot_home().map_err(|e| e.to_string())
+pub(crate) fn copilot_home() -> CmdResult<std::path::PathBuf> {
+    Ok(tracepilot_orchestrator::launcher::copilot_home()?)
 }
 
-pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> Result<(), String> {
+pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResult<()> {
     let p = std::path::Path::new(path);
     if !p.exists() {
-        return Err(format!("Path does not exist: {}", path));
+        return Err(BindingsError::Validation(format!(
+            "Path does not exist: {}",
+            path
+        )));
     }
-    let canonical = p.canonicalize().map_err(|e| e.to_string())?;
+    let canonical = p.canonicalize()?;
     let canonical_dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
     if !canonical.starts_with(&canonical_dir) {
-        return Err("Path is outside the allowed directory".to_string());
+        return Err(BindingsError::Validation(
+            "Path is outside the allowed directory".into(),
+        ));
     }
     Ok(())
 }

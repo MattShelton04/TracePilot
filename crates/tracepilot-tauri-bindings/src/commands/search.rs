@@ -1,6 +1,7 @@
 //! Search and indexing Tauri commands (9 commands).
 
 use crate::config::SharedConfig;
+use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{emit_indexing_progress, load_summary_list_item, read_config};
 use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
@@ -14,7 +15,7 @@ use tokio::sync::Semaphore;
 pub async fn search_sessions(
     state: tauri::State<'_, SharedConfig>,
     query: String,
-) -> Result<Vec<SessionListItem>, String> {
+) -> CmdResult<Vec<SessionListItem>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
@@ -24,9 +25,8 @@ pub async fn search_sessions(
             return Ok(Vec::new());
         }
 
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
-        let result_ids = db.search(&query).map_err(|e| e.to_string())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        let result_ids = db.search(&query)?;
         let mut sessions = Vec::new();
         for session_id in result_ids {
             let path = match db.get_session_path(&session_id) {
@@ -54,8 +54,7 @@ pub async fn search_sessions(
 
         Ok(sessions)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Returns (updated, total) session counts.
@@ -65,10 +64,10 @@ pub async fn reindex_sessions(
     semaphore: tauri::State<'_, Arc<Semaphore>>,
     search_semaphore: tauri::State<'_, SearchSemaphore>,
     app: tauri::AppHandle,
-) -> Result<(usize, usize), String> {
+) -> CmdResult<(usize, usize)> {
     let permit = match semaphore.inner().clone().try_acquire_owned() {
         Ok(permit) => permit,
-        Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
     let cfg = read_config(&state);
@@ -98,13 +97,12 @@ pub async fn reindex_sessions(
                 },
             )
             .map(|n| (n, n))
-            .map_err(|e| e.to_string()),
+            .map_err(Into::into),
         };
         tracing::debug!(elapsed_ms = start.elapsed().as_millis(), "reindex_sessions Phase 1 wall time");
         res
     })
-    .await
-    .map_err(|e| e.to_string());
+    .await;
 
     let _ = app.emit("indexing-finished", ());
 
@@ -157,10 +155,10 @@ pub async fn reindex_sessions_full(
     semaphore: tauri::State<'_, Arc<Semaphore>>,
     search_semaphore: tauri::State<'_, SearchSemaphore>,
     app: tauri::AppHandle,
-) -> Result<(usize, usize), String> {
+) -> CmdResult<(usize, usize)> {
     let permit = match semaphore.inner().clone().try_acquire_owned() {
         Ok(permit) => permit,
-        Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
     let cfg = read_config(&state);
@@ -189,10 +187,9 @@ pub async fn reindex_sessions_full(
             },
         )
         .map(|n| (n, n))
-        .map_err(|e| e.to_string())
+        .map_err(Into::into)
     })
-    .await
-    .map_err(|e| e.to_string());
+    .await;
 
     let _ = app.emit("indexing-finished", ());
 
@@ -252,15 +249,14 @@ pub async fn search_content(
     limit: Option<usize>,
     offset: Option<usize>,
     sort_by: Option<String>,
-) -> Result<SearchResultsResponse, String> {
+) -> CmdResult<SearchResultsResponse> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let query_for_closure = query.clone();
 
     tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
@@ -280,8 +276,8 @@ pub async fn search_content(
             Some(query_for_closure.as_str())
         };
 
-        let results = db.query_content(query_opt, &filters).map_err(|e| e.to_string())?;
-        let total_count = db.query_count(query_opt, &filters).map_err(|e| e.to_string())?;
+        let results = db.query_content(query_opt, &filters)?;
+        let total_count = db.query_count(query_opt, &filters)?;
 
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
@@ -289,7 +285,7 @@ pub async fn search_content(
         let page_offset = filters.offset.unwrap_or(0) as i64;
         let has_more = (page_offset + page_limit) < total_count;
 
-        Ok::<SearchResultsResponse, String>(SearchResultsResponse {
+        Ok::<SearchResultsResponse, BindingsError>(SearchResultsResponse {
             results: results
                 .into_iter()
                 .map(|r| SearchResultItem {
@@ -314,8 +310,7 @@ pub async fn search_content(
             latency_ms,
         })
     })
-    .await
-    .map_err(|e: tokio::task::JoinError| e.to_string())?
+    .await?
 }
 
 /// Get facet counts.
@@ -329,13 +324,12 @@ pub async fn get_search_facets(
     session_id: Option<String>,
     date_from_unix: Option<i64>,
     date_to_unix: Option<i64>,
-) -> Result<SearchFacetsResponse, String> {
+) -> CmdResult<SearchFacetsResponse> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
@@ -348,7 +342,7 @@ pub async fn get_search_facets(
         };
 
         let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
-        let facets = db.facets(query_opt, &filters).map_err(|e| e.to_string())?;
+        let facets = db.facets(query_opt, &filters)?;
 
         Ok(SearchFacetsResponse {
             by_content_type: facets.by_content_type,
@@ -358,23 +352,21 @@ pub async fn get_search_facets(
             session_count: facets.session_count,
         })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Get search index statistics.
 #[tauri::command]
 pub async fn get_search_stats(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<SearchStatsResponse, String> {
+) -> CmdResult<SearchStatsResponse> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
-        let stats = db.search_stats().map_err(|e| e.to_string())?;
+        let stats = db.search_stats()?;
 
         Ok(SearchStatsResponse {
             total_rows: stats.total_rows,
@@ -383,42 +375,37 @@ pub async fn get_search_stats(
             content_type_counts: stats.content_type_counts,
         })
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Get distinct repositories for search filter dropdown.
 #[tauri::command]
 pub async fn get_search_repositories(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<Vec<String>, String> {
+) -> CmdResult<Vec<String>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
-        db.search_repositories().map_err(|e| e.to_string())
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        Ok(db.search_repositories()?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Get distinct tool names for search filter dropdown.
 #[tauri::command]
 pub async fn get_search_tool_names(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<Vec<String>, String> {
+) -> CmdResult<Vec<String>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)
-            .map_err(|e| e.to_string())?;
-        db.search_tool_names().map_err(|e| e.to_string())
+        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        Ok(db.search_tool_names()?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Rebuild the search index from scratch.
@@ -428,13 +415,13 @@ pub async fn rebuild_search_index(
     semaphore: tauri::State<'_, Arc<Semaphore>>,
     search_semaphore: tauri::State<'_, SearchSemaphore>,
     app: tauri::AppHandle,
-) -> Result<(usize, usize), String> {
+) -> CmdResult<(usize, usize)> {
     if semaphore.inner().available_permits() == 0 {
-        return Err("ALREADY_INDEXING".to_string());
+        return Err(BindingsError::AlreadyIndexing);
     }
     let permit = match search_semaphore.0.clone().try_acquire_owned() {
         Ok(permit) => permit,
-        Err(_) => return Err("ALREADY_INDEXING".to_string()),
+        Err(_) => return Err(BindingsError::AlreadyIndexing),
     };
 
     let cfg = read_config(&state);
@@ -460,10 +447,9 @@ pub async fn rebuild_search_index(
             },
             || false,
         )
-        .map_err(|e| e.to_string())
+        .map_err(Into::into)
     })
-    .await
-    .map_err(|e| e.to_string());
+    .await;
 
     let success = result.as_ref().map(|r| r.is_ok()).unwrap_or(false);
     let _ = app.emit("search-indexing-finished", serde_json::json!({"success": success}));

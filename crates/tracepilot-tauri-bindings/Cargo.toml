@@ -12,6 +12,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["rt", "sync"] }
 uuid = "1"

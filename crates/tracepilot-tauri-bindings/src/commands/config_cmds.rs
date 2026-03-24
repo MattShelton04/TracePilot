@@ -1,20 +1,20 @@
 //! Configuration Tauri commands (24 commands).
 
 use crate::config::{self, SharedConfig, TracePilotConfig};
+use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{copilot_home, read_config, validate_path_within};
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
-pub async fn check_config_exists() -> Result<bool, String> {
+pub async fn check_config_exists() -> CmdResult<bool> {
     tokio::task::spawn_blocking(|| Ok(config::config_file_path().is_some_and(|p| p.exists())))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
 }
 
 #[tauri::command]
 pub async fn get_config(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<TracePilotConfig, String> {
+) -> CmdResult<TracePilotConfig> {
     Ok(read_config(&state))
 }
 
@@ -22,13 +22,15 @@ pub async fn get_config(
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
     config: TracePilotConfig,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     let cfg = config.clone();
     tokio::task::spawn_blocking(move || cfg.save())
-        .await
-        .map_err(|e| e.to_string())??;
+        .await?
+        .map_err(|e| BindingsError::Validation(e))?;
 
-    let mut guard = state.write().map_err(|_| "Config lock poisoned".to_string())?;
+    let mut guard = state
+        .write()
+        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
     *guard = Some(config);
     Ok(())
 }
@@ -36,7 +38,7 @@ pub async fn save_config(
 #[tauri::command]
 pub async fn validate_session_dir(
     path: String,
-) -> Result<ValidateSessionDirResult, String> {
+) -> CmdResult<ValidateSessionDirResult> {
     tokio::task::spawn_blocking(move || {
         let dir = std::path::PathBuf::from(&path);
         if !dir.exists() {
@@ -66,14 +68,13 @@ pub async fn validate_session_dir(
             }),
         }
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn factory_reset(
     state: tauri::State<'_, SharedConfig>,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let config_path = config::config_file_path();
@@ -88,12 +89,13 @@ pub async fn factory_reset(
         if let Some(ref path) = config_path {
             let _ = std::fs::remove_file(path);
         }
-        Ok::<(), String>(())
+        Ok::<(), BindingsError>(())
     })
-    .await
-    .map_err(|e| e.to_string())??;
+    .await??;
 
-    let mut guard = state.write().map_err(|_| "Config lock poisoned".to_string())?;
+    let mut guard = state
+        .write()
+        .map_err(|_| BindingsError::Validation("Config lock poisoned".into()))?;
     *guard = None;
     Ok(())
 }
@@ -101,224 +103,195 @@ pub async fn factory_reset(
 #[tauri::command]
 pub async fn get_agent_definitions(
     version: Option<String>,
-) -> Result<Vec<tracepilot_orchestrator::AgentDefinition>, String> {
+) -> CmdResult<Vec<tracepilot_orchestrator::AgentDefinition>> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
         let version_dir = if let Some(v) = version {
             home.join("pkg").join("universal").join(v)
         } else {
-            let active = tracepilot_orchestrator::version_manager::active_version(&home)
-                .map_err(|e| e.to_string())?;
+            let active = tracepilot_orchestrator::version_manager::active_version(&home)?;
             std::path::PathBuf::from(&active.path)
         };
-        tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::config_injector::read_agent_definitions(&version_dir)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn save_agent_definition(
     file_path: String,
     yaml_content: String,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::config_injector::write_agent_definition(
+        Ok(tracepilot_orchestrator::config_injector::write_agent_definition(
             std::path::Path::new(&file_path),
             &yaml_content,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn get_copilot_config() -> Result<tracepilot_orchestrator::CopilotConfig, String> {
+pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotConfig> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::config_injector::read_copilot_config(&home)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::config_injector::read_copilot_config(&home)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn save_copilot_config(config: serde_json::Value) -> Result<(), String> {
+pub async fn save_copilot_config(config: serde_json::Value) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn create_config_backup(
     file_path: String,
     label: String,
-) -> Result<tracepilot_orchestrator::BackupEntry, String> {
+) -> CmdResult<tracepilot_orchestrator::BackupEntry> {
     tokio::task::spawn_blocking(move || {
-        let backup_dir =
-            tracepilot_orchestrator::config_injector::backup_dir().map_err(|e| e.to_string())?;
-        tracepilot_orchestrator::config_injector::create_backup(
+        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
+        Ok(tracepilot_orchestrator::config_injector::create_backup(
             std::path::Path::new(&file_path),
             &backup_dir,
             &label,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn list_config_backups() -> Result<Vec<tracepilot_orchestrator::BackupEntry>, String> {
+pub async fn list_config_backups() -> CmdResult<Vec<tracepilot_orchestrator::BackupEntry>> {
     tokio::task::spawn_blocking(move || {
-        let backup_dir =
-            tracepilot_orchestrator::config_injector::backup_dir().map_err(|e| e.to_string())?;
-        tracepilot_orchestrator::config_injector::list_backups(&backup_dir)
-            .map_err(|e| e.to_string())
+        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
+        Ok(tracepilot_orchestrator::config_injector::list_backups(&backup_dir)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn restore_config_backup(
     backup_path: String,
     restore_to: String,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()
-            .map_err(|e| e.to_string())?;
+        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         validate_path_within(&backup_path, &backup_dir)?;
-        let copilot_home = copilot_home().map_err(|e| e.to_string())?;
+        let copilot_home = copilot_home()?;
         let restore_path = std::path::Path::new(&restore_to);
         if let Some(parent) = restore_path.parent() {
             if parent.exists() {
-                let canonical = parent.canonicalize().map_err(|e| e.to_string())?;
+                let canonical = parent.canonicalize()?;
                 let canonical_home = copilot_home.canonicalize().unwrap_or(copilot_home);
                 if !canonical.starts_with(&canonical_home) {
-                    return Err("Restore path is outside the Copilot directory".to_string());
+                    return Err(BindingsError::Validation(
+                        "Restore path is outside the Copilot directory".into(),
+                    ));
                 }
             }
         }
-        tracepilot_orchestrator::config_injector::restore_backup(
+        Ok(tracepilot_orchestrator::config_injector::restore_backup(
             std::path::Path::new(&backup_path),
             restore_path,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn delete_config_backup(backup_path: String) -> Result<(), String> {
+pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::config_injector::delete_backup(
+        Ok(tracepilot_orchestrator::config_injector::delete_backup(
             std::path::Path::new(&backup_path),
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn preview_backup_restore(
     backup_path: String,
     source_path: String,
-) -> Result<tracepilot_orchestrator::BackupDiffPreview, String> {
+) -> CmdResult<tracepilot_orchestrator::BackupDiffPreview> {
     tokio::task::spawn_blocking(move || {
-        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()
-            .map_err(|e| e.to_string())?;
+        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         validate_path_within(&backup_path, &backup_dir)?;
 
         let home = copilot_home()?;
         let source = std::path::Path::new(&source_path);
         if let Some(parent) = source.parent() {
             if parent.exists() {
-                let canonical = parent.canonicalize().map_err(|e| e.to_string())?;
+                let canonical = parent.canonicalize()?;
                 let canonical_home = home.canonicalize().unwrap_or(home);
                 if !canonical.starts_with(&canonical_home) {
-                    return Err(
-                        "Source path is outside the Copilot directory".to_string(),
-                    );
+                    return Err(BindingsError::Validation(
+                        "Source path is outside the Copilot directory".into(),
+                    ));
                 }
             }
         }
 
-        tracepilot_orchestrator::config_injector::preview_backup_restore(
+        Ok(tracepilot_orchestrator::config_injector::preview_backup_restore(
             std::path::Path::new(&backup_path),
             source,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn diff_config_files(
     old_path: String,
     new_path: String,
-) -> Result<tracepilot_orchestrator::ConfigDiff, String> {
+) -> CmdResult<tracepilot_orchestrator::ConfigDiff> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::config_injector::diff_files(
+        Ok(tracepilot_orchestrator::config_injector::diff_files(
             std::path::Path::new(&old_path),
             std::path::Path::new(&new_path),
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn discover_copilot_versions(
-) -> Result<Vec<tracepilot_orchestrator::CopilotVersion>, String> {
+) -> CmdResult<Vec<tracepilot_orchestrator::CopilotVersion>> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::discover_versions(&home)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::version_manager::discover_versions(&home)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_active_copilot_version(
-) -> Result<tracepilot_orchestrator::CopilotVersion, String> {
+) -> CmdResult<tracepilot_orchestrator::CopilotVersion> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::active_version(&home)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::version_manager::active_version(&home)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn get_migration_diffs(
     from_version: String,
     to_version: String,
-) -> Result<Vec<tracepilot_orchestrator::MigrationDiff>, String> {
+) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::migration_diffs(
+        Ok(tracepilot_orchestrator::version_manager::migration_diffs(
             &home,
             &from_version,
             &to_version,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
@@ -326,69 +299,56 @@ pub async fn migrate_agent_definition(
     file_name: String,
     from_version: String,
     to_version: String,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        tracepilot_orchestrator::version_manager::migrate_agent(
+        Ok(tracepilot_orchestrator::version_manager::migrate_agent(
             &home,
             &file_name,
             &from_version,
             &to_version,
-        )
-        .map_err(|e| e.to_string())
+        )?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
 pub async fn list_session_templates(
-) -> Result<Vec<tracepilot_orchestrator::SessionTemplate>, String> {
-    tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::templates::all_templates().map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+) -> CmdResult<Vec<tracepilot_orchestrator::SessionTemplate>> {
+    tokio::task::spawn_blocking(|| Ok(tracepilot_orchestrator::templates::all_templates()?))
+        .await?
 }
 
 #[tauri::command]
 pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
-) -> Result<(), String> {
+) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::templates::save_template(&template)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::templates::save_template(&template)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn delete_session_template(id: String) -> Result<(), String> {
+pub async fn delete_session_template(id: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::templates::delete_template(&id)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::templates::delete_template(&id)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn restore_default_templates() -> Result<(), String> {
+pub async fn restore_default_templates() -> CmdResult<()> {
     tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::templates::restore_all_default_templates()
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::templates::restore_all_default_templates()?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 #[tauri::command]
-pub async fn increment_template_usage(id: String) -> Result<(), String> {
+pub async fn increment_template_usage(id: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::templates::increment_usage(&id)
-            .map_err(|e| e.to_string())
+        Ok(tracepilot_orchestrator::templates::increment_usage(&id)?)
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }

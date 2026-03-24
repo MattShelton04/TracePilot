@@ -5407,12 +5407,14 @@ dependencies = [
 name = "tracepilot-tauri-bindings"
 version = "0.4.0"
 dependencies = [
+ "anyhow",
  "lru",
  "reqwest 0.12.28",
  "semver",
  "serde",
  "serde_json",
  "tauri",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.2",
  "tracepilot-core",
