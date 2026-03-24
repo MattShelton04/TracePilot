@@ -314,6 +314,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   }
 
   function reset() {
+    requestToken++;
+    eventsRequestToken++;
     sessionId.value = null;
     detail.value = null;
     turns.value = [];

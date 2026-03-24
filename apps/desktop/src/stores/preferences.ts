@@ -235,20 +235,25 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Debounced persist to backend ───────────────────────────
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  let saveGeneration = 0;
 
   function scheduleSave() {
     if (!hydrated) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
+      const gen = ++saveGeneration;
       try {
         // Re-read latest config from backend to avoid overwriting changes
         // made by other components (e.g. SettingsDataStorage paths/autoIndex)
         const freshConfig = await getConfig();
+        if (gen !== saveGeneration) return;
         backendConfig = freshConfig;
         const config = buildConfig();
         await saveConfig(config);
+        if (gen !== saveGeneration) return;
         backendConfig = config;
       } catch (e) {
+        if (gen !== saveGeneration) return;
         console.warn("[preferences] Failed to persist config:", e);
       }
     }, 300);

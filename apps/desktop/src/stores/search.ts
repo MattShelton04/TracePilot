@@ -231,14 +231,17 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   // ── Facets & stats ───────────────────────────────────────────
+  let facetGeneration = 0;
+
   async function fetchFacets(forQuery?: string) {
+    const gen = ++facetGeneration;
     try {
       let dateFromUnix: number | undefined;
       let dateToUnix: number | undefined;
       if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
       if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
 
-      facets.value = await getSearchFacets(forQuery, {
+      const result = await getSearchFacets(forQuery, {
         contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
         repositories: repository.value ? [repository.value] : undefined,
         toolNames: toolName.value ? [toolName.value] : undefined,
@@ -246,7 +249,10 @@ export const useSearchStore = defineStore('search', () => {
         dateFromUnix,
         dateToUnix,
       });
+      if (gen !== facetGeneration) return;
+      facets.value = result;
     } catch (e) {
+      if (gen !== facetGeneration) return;
       console.warn('Failed to fetch search facets:', e);
     }
   }
