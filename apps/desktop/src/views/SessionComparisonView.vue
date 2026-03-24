@@ -663,7 +663,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
                   width: pct + '%',
                   background: i % 2 === 0
                     ? `linear-gradient(90deg, ${CHART_COLORS.primary}, ${CHART_COLORS.primaryLight})`
-                    : 'rgba(99,102,241,0.3)',
+                    : 'var(--accent-muted)',
                 }"
                 :title="`Turn ${i + 1}: ${formatDuration(dataA.turns[i]?.durationMs) || '—'}`"
               ></div>
@@ -679,8 +679,8 @@ function exitLabel(m: ShutdownMetrics | null): string {
                 :style="{
                   width: pct + '%',
                   background: i % 2 === 0
-                    ? `linear-gradient(90deg, #7c3aed, ${CHART_COLORS.secondary})`
-                    : 'rgba(124,58,237,0.3)',
+                    ? `linear-gradient(90deg, var(--done-fg), ${CHART_COLORS.secondary})`
+                    : 'var(--done-muted)',
                 }"
                 :title="`Turn ${i + 1}: ${formatDuration(dataB.turns[i]?.durationMs) || '—'}`"
               ></div>
@@ -722,7 +722,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 .comp-select:focus {
   outline: none;
   border-color: var(--accent-emphasis);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 .vs-label {
@@ -739,14 +739,14 @@ function exitLabel(m: ShutdownMetrics | null): string {
   border: none;
   border-radius: var(--radius-md);
   background: var(--gradient-accent);
-  color: #fff;
+  color: var(--text-inverse);
   cursor: pointer;
   transition: all 150ms ease;
   white-space: nowrap;
 }
 
 .compare-btn:hover:not(:disabled) {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  box-shadow: var(--shadow-glow-accent);
   transform: translateY(-1px);
 }
 
@@ -794,7 +794,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .summary-card.session-b::before {
-  background: linear-gradient(90deg, #7c3aed, var(--chart-secondary));
+  background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary));
 }
 
 .summary-label {
@@ -843,7 +843,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 .delta-table td {
   padding: 10px 14px;
   font-size: 0.8125rem;
-  border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  border-bottom: 1px solid var(--border-subtle);
   font-variant-numeric: tabular-nums;
 }
 
@@ -965,13 +965,13 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .bar-fill-b {
-  background: linear-gradient(90deg, #7c3aed, var(--chart-secondary));
+  background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary));
 }
 
 .bar-value {
   font-size: 0.625rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-inverse);
   font-family: 'JetBrains Mono', monospace;
   white-space: nowrap;
   position: relative;
@@ -1075,14 +1075,14 @@ function exitLabel(m: ShutdownMetrics | null): string {
   padding-left: 6px;
   font-size: 0.625rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-inverse);
   font-family: 'JetBrains Mono', monospace;
   transition: width 500ms ease;
   min-width: 20px;
 }
 
 .tool-bar-a { background: linear-gradient(90deg, var(--chart-primary), var(--chart-primary-light)); }
-.tool-bar-b { background: linear-gradient(90deg, #7c3aed, var(--chart-secondary)); }
+.tool-bar-b { background: linear-gradient(90deg, var(--done-fg), var(--chart-secondary)); }
 
 /* ── Waveform ── */
 .waveform-container {
@@ -1102,7 +1102,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 }
 
 .waveform-bar-a { background: linear-gradient(180deg, var(--chart-primary-light), var(--chart-primary)); }
-.waveform-bar-b { background: linear-gradient(180deg, var(--chart-secondary), #7c3aed); }
+.waveform-bar-b { background: linear-gradient(180deg, var(--chart-secondary), var(--done-fg)); }
 
 /* ── Timeline ── */
 .timeline-desc {
