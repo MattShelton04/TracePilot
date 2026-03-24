@@ -40,3 +40,9 @@ tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }
 tracepilot-export = { path = "crates/tracepilot-export" }
 tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
+opt-level = "s"

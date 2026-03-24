@@ -197,7 +197,9 @@ pub fn migrate_agent(
     crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version))?;
 
     // Atomic copy
-    let parent = to_file.parent().unwrap();
+    let parent = to_file.parent().ok_or_else(|| {
+        OrchestratorError::Config(format!("Invalid destination path: {}", to_file.display()))
+    })?;
     let temp = parent.join(format!(".migrate-tmp-{}", file_name));
     std::fs::copy(&from_file, &temp)?;
     std::fs::rename(&temp, &to_file)?;

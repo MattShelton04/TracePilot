@@ -250,8 +250,13 @@ mod commands {
 
     /// Read config from shared state, falling back to defaults.
     fn read_config(state: &SharedConfig) -> TracePilotConfig {
-        let guard = state.read().unwrap();
-        guard.clone().unwrap_or_default()
+        match state.read() {
+            Ok(guard) => guard.clone().unwrap_or_default(),
+            Err(poisoned) => {
+                tracing::error!("Config RwLock poisoned — using defaults");
+                poisoned.into_inner().clone().unwrap_or_default()
+            }
+        }
     }
 
     fn truncate_utf8(s: &mut String, max_bytes: usize) {
@@ -484,7 +489,20 @@ mod commands {
 
             // Check LRU cache — return if file size unchanged (append-only)
             {
-                let mut lru = cache.lock().unwrap();
+                let Ok(mut lru) = cache.lock() else {
+                    tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
+                    // Fall through to disk parse below
+                    let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)
+                        .map_err(|e| e.to_string())?
+                        .events;
+                    let turns = tracepilot_core::turns::reconstruct_turns(&events);
+                    let mut ipc_turns = turns;
+                    tracepilot_core::turns::prepare_turns_for_ipc(&mut ipc_turns);
+                    return Ok(TurnsResponse {
+                        turns: ipc_turns,
+                        events_file_size: file_size,
+                    });
+                };
                 if let Some(cached) = lru.get(&session_id) {
                     if cached.events_file_size == file_size {
                         let mut turns = cached.turns.clone();
@@ -504,8 +522,7 @@ mod commands {
             let turns = tracepilot_core::turns::reconstruct_turns(&events);
 
             // Store full (untrimmed) turns in LRU
-            {
-                let mut lru = cache.lock().unwrap();
+            if let Ok(mut lru) = cache.lock() {
                 lru.put(
                     session_id,
                     CachedTurns {
@@ -1358,7 +1375,7 @@ mod commands {
             .map_err(|e| e.to_string())??;
 
         // Update shared state
-        let mut guard = state.write().unwrap();
+        let mut guard = state.write().map_err(|_| "Config lock poisoned".to_string())?;
         *guard = Some(config);
         Ok(())
     }
@@ -1486,7 +1503,7 @@ mod commands {
         .map_err(|e| e.to_string())??;
 
         // Clear shared state
-        let mut guard = state.write().unwrap();
+        let mut guard = state.write().map_err(|_| "Config lock poisoned".to_string())?;
         *guard = None;
         Ok(())
     }
@@ -2480,7 +2497,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 tokio::sync::Semaphore::new(1),
             )));
             let turn_cache: TurnCache = Arc::new(Mutex::new(lru::LruCache::new(
-                NonZeroUsize::new(10).unwrap(),
+                // SAFETY: 10 is non-zero
+                NonZeroUsize::new(10).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
             Ok(())
