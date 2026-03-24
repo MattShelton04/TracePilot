@@ -204,3 +204,189 @@ pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
         total_sessions_with_duration: n as u32,
     }
 }
+
+/// Build an IN clause filter for arrays of values (e.g., `col IN (?, ?, ?)`).
+/// Returns the SQL fragment and appends parameters to the provided vector.
+///
+/// If `values` is empty, returns an empty string and adds no parameters.
+/// This is a pure function with no side effects other than appending to `params`.
+pub(super) fn build_in_filter<T: ToSql + Clone + 'static>(
+    column: &str,
+    values: &[T],
+    params: &mut Vec<Box<dyn ToSql>>,
+) -> String {
+    if values.is_empty() {
+        return String::new();
+    }
+
+    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    for val in values {
+        params.push(Box::new(val.clone()));
+    }
+
+    format!(" AND {} IN ({})", column, placeholders)
+}
+
+/// Build an equality filter (e.g., `col = ?`).
+/// Returns the SQL fragment and appends the parameter to the provided vector.
+///
+/// This is a pure function with no side effects other than appending to `params`.
+pub(super) fn build_eq_filter<T: ToSql + 'static>(
+    column: &str,
+    value: T,
+    params: &mut Vec<Box<dyn ToSql>>,
+) -> String {
+    params.push(Box::new(value));
+    format!(" AND {} = ?", column)
+}
+
+/// Build a unix timestamp range filter (e.g., `col >= ? AND col <= ?`).
+/// Returns the SQL fragment and appends parameters to the provided vector.
+///
+/// If both `from_unix` and `to_unix` are None, returns an empty string.
+pub(super) fn build_timestamp_range_filter(
+    column: &str,
+    from_unix: Option<i64>,
+    to_unix: Option<i64>,
+    params: &mut Vec<Box<dyn ToSql>>,
+) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(from) = from_unix {
+        params.push(Box::new(from));
+        parts.push(format!("{} >= ?", column));
+    }
+
+    if let Some(to) = to_unix {
+        params.push(Box::new(to));
+        parts.push(format!("{} <= ?", column));
+    }
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" AND {}", parts.join(" AND "))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_in_filter_empty() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_in_filter("col", &Vec::<String>::new(), &mut params);
+        assert_eq!(sql, "");
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_build_in_filter_single_value() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_in_filter("col", &vec!["value1".to_string()], &mut params);
+        assert_eq!(sql, " AND col IN (?)");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_in_filter_multiple_values() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_in_filter("col", &vec!["a".to_string(), "b".to_string(), "c".to_string()], &mut params);
+        assert_eq!(sql, " AND col IN (?, ?, ?)");
+        assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn test_build_eq_filter() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_eq_filter("repository", "myrepo".to_string(), &mut params);
+        assert_eq!(sql, " AND repository = ?");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_timestamp_range_filter_both() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), Some(2000), &mut params);
+        assert_eq!(sql, " AND timestamp_unix >= ? AND timestamp_unix <= ?");
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_build_timestamp_range_filter_from_only() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), None, &mut params);
+        assert_eq!(sql, " AND timestamp_unix >= ?");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_timestamp_range_filter_to_only() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_timestamp_range_filter("timestamp_unix", None, Some(2000), &mut params);
+        assert_eq!(sql, " AND timestamp_unix <= ?");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_timestamp_range_filter_neither() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_timestamp_range_filter("timestamp_unix", None, None, &mut params);
+        assert_eq!(sql, "");
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_build_date_repo_filter_all_none() {
+        let (clause, values) = build_date_repo_filter(None, None, None, false);
+        assert_eq!(clause, " WHERE 1=1");
+        assert_eq!(values.len(), 0);
+    }
+
+    #[test]
+    fn test_build_date_repo_filter_hide_empty() {
+        let (clause, values) = build_date_repo_filter(None, None, None, true);
+        assert!(clause.contains("s.turn_count IS NOT NULL"));
+        assert!(clause.contains("s.turn_count > 0"));
+        assert_eq!(values.len(), 0);
+    }
+
+    #[test]
+    fn test_build_date_repo_filter_with_dates() {
+        let (clause, values) = build_date_repo_filter(
+            Some("2026-01-01"),
+            Some("2026-01-31"),
+            None,
+            false
+        );
+        assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
+        assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0], "2026-01-01");
+        assert_eq!(values[1], "2026-01-31");
+    }
+
+    #[test]
+    fn test_build_date_repo_filter_with_repo() {
+        let (clause, values) = build_date_repo_filter(None, None, Some("myrepo"), false);
+        assert!(clause.contains("s.repository = ?"));
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], "myrepo");
+    }
+
+    #[test]
+    fn test_build_date_repo_filter_all_filters() {
+        let (clause, values) = build_date_repo_filter(
+            Some("2026-01-01"),
+            Some("2026-01-31"),
+            Some("myrepo"),
+            true
+        );
+        assert!(clause.contains("s.turn_count"));
+        assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
+        assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
+        assert!(clause.contains("s.repository = ?"));
+        assert_eq!(values.len(), 3);
+    }
+}

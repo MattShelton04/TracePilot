@@ -33,10 +33,17 @@ export function formatTime(dateStr?: string | null): string {
   });
 }
 
-/** Format an ISO date string to a relative time string (e.g. "3m ago"). */
-export function formatRelativeTime(dateStr?: string | null): string {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
+/** Format a date to a relative time string (e.g. "3m ago").
+ *  Accepts an ISO date string or a Unix timestamp in **seconds**. */
+export function formatRelativeTime(value?: string | number | null): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number' && !Number.isFinite(value)) return '';
+  const ms = typeof value === 'number'
+    ? value * 1000
+    : new Date(value).getTime();
+  if (Number.isNaN(ms)) return '';
+  const diff = Date.now() - ms;
+  if (diff < 0) return 'just now';
   const seconds = Math.floor(diff / 1000);
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
@@ -44,7 +51,8 @@ export function formatRelativeTime(dateStr?: string | null): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
   return `${Math.floor(days / 30)}mo ago`;
 }
 
@@ -96,10 +104,16 @@ export function formatDateShort(iso?: string | null): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
-/** Format an ISO date as "Mar 19, 2026". Uses UTC. */
-export function formatDateMedium(iso?: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-US', {
+/** Format a date as "Mar 19, 2026". Uses UTC.
+ *  Accepts an ISO date string or a Unix timestamp in **seconds**. */
+export function formatDateMedium(value?: string | number | null): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number' && !Number.isFinite(value)) return '';
+  const d = typeof value === 'number'
+    ? new Date(value * 1000)
+    : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

@@ -387,10 +387,6 @@ function edgeOpacity(edge: { from: string; to: string }): number {
   return isEdgeConnected(edge, activeId) ? 0.8 : 0.1;
 }
 
-function truncate(s: string, len: number): string {
-  return truncateText(s, len);
-}
-
 // ── Click / hover handlers ──
 function onNodeClick(todoId: string) {
   selectedNodeId.value = selectedNodeId.value === todoId ? null : todoId;
@@ -614,12 +610,12 @@ watch(filteredTodos, () => {
             class="node-title"
             :x="(layout[todo.id]?.x ?? 0) + 26"
             :y="(layout[todo.id]?.y ?? 0) + 20"
-          >{{ truncate(todo.title, 18) }}</text>
+          >{{ truncateText(todo.title, 18) }}</text>
           <text
             class="node-desc"
             :x="(layout[todo.id]?.x ?? 0) + 10"
             :y="(layout[todo.id]?.y ?? 0) + 38"
-          >{{ truncate(todo.description ?? "", 28) }}</text>
+          >{{ truncateText(todo.description ?? "", 28) }}</text>
         </g>
       </svg>
         </div>

@@ -393,50 +393,8 @@ const successFailureChart = computed(() => {
   margin-right: 5px;
 }
 
-.chart-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* ── Chart container ──────────────────────────────────────── */
-.tooltip-area {
-  position: relative;
-}
-
-/* ── Chart bar & overlay styles ───────────────────────────── */
-.chart-overlay {
-  cursor: pointer;
-}
-
-.chart-bar {
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-}
-
-.chart-bar--active {
-  opacity: 0.7;
-}
-
-/* ── Tooltip ──────────────────────────────────────────────── */
-.chart-tooltip {
-  position: absolute;
-  pointer-events: none;
-  background: var(--canvas-overlay, rgba(0, 0, 0, 0.85));
-  color: var(--text-on-emphasis, #fff);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-  z-index: 10;
-  transform: translateX(-50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.chart-tooltip--pinned {
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
-}
+/* Shared chart styles (tooltip, overlay, bar, svg, etc.)
+   are in styles/chart-shared.css — imported globally via main.ts. */
 
 /* ── Table row hover ──────────────────────────────────────── */
 .data-table tbody tr:hover {

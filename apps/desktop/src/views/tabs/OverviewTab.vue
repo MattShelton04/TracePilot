@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
-  StatCard, Badge, SectionPanel, DefList,
-  formatDate, formatDuration, formatNumberFull, useSessionTabLoader, MarkdownContent,
+  StatCard, Badge, SectionPanel, DefList, ErrorAlert,
+  formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
-const route = useRoute();
 
 useSessionTabLoader(
   () => store.sessionId,
@@ -54,10 +52,6 @@ function isLongSummary(summary: string): boolean {
   return summary.length > 80;
 }
 
-function truncatedSummary(summary: string): string {
-  return summary.slice(0, 80) + '…';
-}
-
 function incidentSeverityVariant(severity: string): 'danger' | 'warning' | 'neutral' {
   if (severity === 'error') return 'danger';
   if (severity === 'warning') return 'warning';
@@ -72,14 +66,6 @@ function incidentTypeLabel(eventType: string): string {
     truncation: 'Truncation',
   };
   return labels[eventType] ?? eventType;
-}
-
-function formatIncidentTime(timestamp: string): string {
-  try {
-    return new Date(timestamp).toLocaleTimeString();
-  } catch {
-    return timestamp;
-  }
 }
 
 const expandedDetails = ref<Set<number>>(new Set());
@@ -116,10 +102,55 @@ function formatDetail(detail: unknown): string {
     return String(detail);
   }
 }
+
+function retryLoadSection(section: string) {
+  store.loaded.delete(section);
+  switch (section) {
+    case 'checkpoints': store.loadCheckpoints(); break;
+    case 'plan': store.loadPlan(); break;
+    case 'metrics': store.loadShutdownMetrics(); break;
+    case 'incidents': store.loadIncidents(); break;
+  }
+}
 </script>
 
 <template>
   <div>
+    <!-- Section load errors -->
+    <ErrorAlert
+      v-if="store.checkpointsError"
+      :message="`Checkpoints: ${store.checkpointsError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('checkpoints')"
+    />
+    <ErrorAlert
+      v-if="store.planError"
+      :message="`Plan: ${store.planError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('plan')"
+    />
+    <ErrorAlert
+      v-if="store.metricsError"
+      :message="`Metrics: ${store.metricsError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('metrics')"
+    />
+    <ErrorAlert
+      v-if="store.incidentsError"
+      :message="`Incidents: ${store.incidentsError}`"
+      severity="warning"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('incidents')"
+    />
+
     <!-- Stats row -->
     <div class="grid-4 mb-6">
       <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
@@ -186,7 +217,7 @@ function formatDetail(detail: unknown): string {
                   <button class="expand-btn" @click="toggleExpand(idx)">Show less</button>
                 </template>
                 <template v-else>
-                  {{ truncatedSummary(incident.summary) }}
+                  {{ truncateText(incident.summary, 80) }}
                   <button class="expand-btn" @click="toggleExpand(idx)">Show more</button>
                 </template>
               </template>
@@ -203,7 +234,7 @@ function formatDetail(detail: unknown): string {
               </button>
             </span>
             <span v-if="incident.timestamp" class="incident-time text-muted">
-              {{ formatIncidentTime(incident.timestamp) }}
+              {{ formatTime(incident.timestamp) }}
             </span>
           </div>
           <div v-if="expandedDetails.has(idx) && hasDetail(incident)" class="incident-detail">

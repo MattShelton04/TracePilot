@@ -1000,11 +1000,8 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 }
 
 /* ── Charts ───────────────────────────────────────────────── */
-.chart-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
+/* Shared chart styles (chart-svg, tooltip, overlay, etc.)
+   are in styles/chart-shared.css — imported globally via main.ts. */
 
 .legend {
   display: flex;
