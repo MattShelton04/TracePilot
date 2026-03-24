@@ -3,6 +3,9 @@
   "version": "0.4.0",
   "private": true,
   "description": "TracePilot CLI — inspect Copilot sessions from your terminal",
+  "author": "Matt Shelton (@MattShelton04)",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/MattShelton04/TracePilot",
   "type": "module",
   "bin": {
     "tracepilot": "dist/index.js"
