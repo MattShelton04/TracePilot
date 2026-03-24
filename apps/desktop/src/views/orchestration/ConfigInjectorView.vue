@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, useDismissable, truncateText, ErrorAlert, LoadingSpinner } from '@tracepilot/ui';
+import { useToast, useDismissable, truncateText, ErrorAlert, LoadingSpinner, shortenPath, normalizePath } from '@tracepilot/ui';
 import type { AgentDefinition } from '@tracepilot/types';
 import { previewBackupRestore } from '@tracepilot/client';
 import {
@@ -233,7 +233,7 @@ const backupableFiles = computed(() => {
   const files: { label: string; path: string }[] = [];
   // Derive copilot home from active version path (~/.copilot/pkg/universal/<ver>)
   if (store.activeVersion?.path) {
-    const parts = store.activeVersion.path.replace(/\\/g, '/').split('/');
+    const parts = normalizePath(store.activeVersion.path).split('/');
     // Go up 3 levels: <ver> -> universal -> pkg -> .copilot
     const copilotHome = parts.slice(0, -3).join(parts[0].includes(':') ? '\\' : '/');
     if (copilotHome) {
@@ -304,13 +304,6 @@ function formatBackupLabel(backup: { label: string; backupPath: string; sourcePa
   if (label.startsWith('pre-migrate')) return `${prefix} (pre-migrate)`;
   if (label && label !== fileName) return `${prefix} — ${label}`;
   return prefix;
-}
-
-function shortenPath(path: string): string {
-  if (!path) return '';
-  // Show last 2 path segments for brevity
-  const parts = path.replace(/\\/g, '/').split('/');
-  return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : path;
 }
 
 const confirmingDeleteBackupId = ref<string | null>(null);

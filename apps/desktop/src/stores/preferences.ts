@@ -1,4 +1,5 @@
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
+import { normalizePath } from '@tracepilot/ui';
 import type {
   ModelPriceEntry,
   RichRenderableToolName,
@@ -408,7 +409,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   /** Add a repo path to recents (max 10, deduped, most recent first). */
   function addRecentRepoPath(path: string) {
-    const normalized = path.replace(/\\/g, '/').replace(/\/$/, '');
+    const normalized = normalizePath(path);
     recentRepoPaths.value = [
       normalized,
       ...recentRepoPaths.value.filter((p) => p !== normalized),

@@ -5,7 +5,7 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert } from '@tracepilot/ui';
+import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
@@ -103,9 +103,9 @@ const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
 // Preview path for worktree creation
 const worktreePreviewPath = computed(() => {
   if (!createWorktree.value || !repoPath.value || !branch.value) return '';
-  const repoName = repoPath.value.replace(/\\/g, '/').split('/').pop() || '';
-  const sanitized = branch.value.replace(/[~^:?*[\]\\<>|]/g, '-').replace(/\.\./g, '-').replace(/\/+/g, '-');
-  const parent = repoPath.value.replace(/\\/g, '/').replace(/\/[^/]+$/, '');
+  const repoName = pathBasename(repoPath.value);
+  const sanitized = sanitizeBranchForPath(branch.value);
+  const parent = pathDirname(repoPath.value);
   return `${parent}/${repoName}-${sanitized}`.replace(/\//g, '\\');
 });
 
