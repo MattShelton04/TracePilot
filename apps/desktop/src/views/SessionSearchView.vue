@@ -1435,8 +1435,6 @@ onUnmounted(() => {
   animation: spin 0.8s linear infinite;
 }
 
-
-
 /* ÔöÇÔöÇ Indexing Progress Banner ÔöÇÔöÇ */
 .indexing-banner {
   margin: 0 0 12px 0;
