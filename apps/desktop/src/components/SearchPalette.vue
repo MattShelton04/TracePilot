@@ -112,6 +112,7 @@ watch(query, () => {
 
 // ── Open / Close ─────────────────────────────────────────────
 function open() {
+  previouslyFocused = document.activeElement as HTMLElement | null;
   isOpen.value = true;
   nextTick(() => {
     inputRef.value?.focus();
@@ -127,6 +128,11 @@ function close() {
   selectedIndex.value = 0;
   loading.value = false;
   if (debounceTimer) clearTimeout(debounceTimer);
+  // Restore focus to the element that was focused before opening
+  nextTick(() => {
+    previouslyFocused?.focus();
+    previouslyFocused = null;
+  });
 }
 
 // ── Navigation ───────────────────────────────────────────────
@@ -196,6 +202,11 @@ function handlePaletteKeydown(e: KeyboardEvent) {
       e.preventDefault();
       selectCurrent();
       break;
+    case 'Tab':
+      // Focus trap: keep focus within the palette
+      e.preventDefault();
+      inputRef.value?.focus();
+      break;
   }
 }
 
@@ -222,6 +233,10 @@ function uniqueSessionCount(): number {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
+
+/** Save the element that had focus before opening so we can restore it. */
+let previouslyFocused: HTMLElement | null = null;
+
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown);
 });
@@ -244,6 +259,7 @@ onUnmounted(() => {
           ref="modalRef"
           class="palette-modal"
           role="dialog"
+          aria-modal="true"
           aria-label="Session search"
           tabindex="-1"
           @keydown="handlePaletteKeydown"
@@ -251,7 +267,7 @@ onUnmounted(() => {
           <!-- ═══ Search Input ═══ -->
           <div class="palette-search">
             <div class="palette-search-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <circle cx="7" cy="7" r="4.5" />
                 <line x1="10.5" y1="10.5" x2="14" y2="14" />
               </svg>
@@ -262,6 +278,10 @@ onUnmounted(() => {
               type="text"
               class="palette-input"
               placeholder="Search sessions, messages, tools…"
+              aria-label="Search sessions"
+              aria-autocomplete="list"
+              aria-controls="palette-listbox"
+              :aria-activedescendant="hasResults ? `palette-item-${selectedIndex}` : undefined"
               spellcheck="false"
               autocomplete="off"
             />
@@ -269,6 +289,7 @@ onUnmounted(() => {
               v-if="query.length > 0"
               class="palette-clear-btn"
               title="Clear"
+              aria-label="Clear search"
               @click="query = ''"
             >
               ✕
@@ -284,7 +305,7 @@ onUnmounted(() => {
           </div>
 
           <!-- ═══ Results ═══ -->
-          <div ref="resultsRef" class="palette-results">
+          <div ref="resultsRef" class="palette-results" id="palette-listbox" role="listbox" aria-label="Search results">
 
             <!-- Loading shimmer -->
             <div v-if="loading" class="palette-loading">
@@ -353,7 +374,10 @@ onUnmounted(() => {
                 <div
                   v-for="result in group.results"
                   :key="result.id"
+                  :id="`palette-item-${resultIndex(result)}`"
                   class="palette-item"
+                  role="option"
+                  :aria-selected="resultIndex(result) === selectedIndex"
                   :class="{ selected: resultIndex(result) === selectedIndex }"
                   @mousedown.prevent
                   @click="navigateToResult(result)"
