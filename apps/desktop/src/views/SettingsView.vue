@@ -6,7 +6,6 @@ import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
 import SettingsLogging from '@/components/settings/SettingsLogging.vue';
 import SettingsPricing from '@/components/settings/SettingsPricing.vue';
 import SettingsToolVisualization from '@/components/settings/SettingsToolVisualization.vue';
-import SettingsHealthScoring from '@/components/settings/SettingsHealthScoring.vue';
 import SettingsUpdates from '@/components/settings/SettingsUpdates.vue';
 import SettingsExperimental from '@/components/settings/SettingsExperimental.vue';
 import SettingsAbout from '@/components/settings/SettingsAbout.vue';
@@ -34,7 +33,6 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? '—')
       <SettingsLogging />
       <SettingsPricing />
       <SettingsToolVisualization />
-      <SettingsHealthScoring />
       <SettingsUpdates />
       <SettingsExperimental />
       <SettingsAbout :session-count="sessionCount" :database-size="databaseSize" />

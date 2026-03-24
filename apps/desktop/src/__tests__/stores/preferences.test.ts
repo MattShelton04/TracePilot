@@ -30,9 +30,9 @@ describe("usePreferencesStore", () => {
     expect(store.lastViewedSession).toBe("session-123");
   });
 
-  it("initializes contentMaxWidth with default (1200)", () => {
+  it("initializes contentMaxWidth with default (1600)", () => {
     const store = usePreferencesStore();
-    expect(store.contentMaxWidth).toBe(1200);
+    expect(store.contentMaxWidth).toBe(1600);
   });
 
   it("initializes uiScale with default (1.0)", () => {

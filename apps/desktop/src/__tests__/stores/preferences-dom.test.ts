@@ -67,7 +67,7 @@ describe("usePreferencesStore DOM side effects", () => {
   it("applies default content max width to CSS variable on initialization", async () => {
     usePreferencesStore();
     await nextTick();
-    expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("1200px");
+    expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("1600px");
   });
 
   it("updates --content-max-width when contentMaxWidth changes", async () => {

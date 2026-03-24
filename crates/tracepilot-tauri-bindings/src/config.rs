@@ -106,7 +106,7 @@ impl Default for UiConfig {
             check_for_updates: false,
             favourite_models: default_favourite_models(),
             recent_repo_paths: Vec::new(),
-            content_max_width: 1200,
+            content_max_width: 1600,
             ui_scale: 1.0,
         }
     }
@@ -216,7 +216,7 @@ fn default_auto_refresh_interval() -> u32 {
     5
 }
 fn default_content_max_width() -> u32 {
-    1200
+    1600
 }
 fn default_ui_scale() -> f64 {
     1.0
@@ -262,7 +262,7 @@ impl Default for TracePilotConfig {
         // sentinel values — the setup wizard will prompt the user for paths.
         let home = home_dir().unwrap_or_default();
         Self {
-            version: 2,
+            version: 3,
             paths: PathsConfig {
                 session_state_dir: home
                     .join(".copilot")
@@ -288,7 +288,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 2;
+    pub const CURRENT_VERSION: u32 = 3;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -301,8 +301,23 @@ impl TracePilotConfig {
             tracing::info!("Migrated config from v1 → v2");
         }
 
+        // Migration from v2 → v3: backfill setupComplete for existing installs.
+        // The setupComplete field was added without a migration, so existing configs
+        // deserialize with setup_complete=false even though setup was already done.
+        if self.version < 3 {
+            if !self.general.setup_complete {
+                let db_exists = std::path::Path::new(&self.paths.index_db_path).exists();
+                if db_exists {
+                    self.general.setup_complete = true;
+                    tracing::info!("Backfilled setupComplete=true (index DB exists)");
+                }
+            }
+            self.version = 3;
+            tracing::info!("Migrated config from v2 → v3");
+        }
+
         // Future migrations go here:
-        // if self.version < 3 { ... self.version = 3; }
+        // if self.version < 4 { ... self.version = 4; }
 
         self.version != original
     }
@@ -376,11 +391,11 @@ mod tests {
     }
 
     #[test]
-    fn migrate_v1_to_v2() {
+    fn migrate_v1_to_v3() {
         let mut config = TracePilotConfig::default();
         config.version = 1;
         assert!(config.migrate());
-        assert_eq!(config.version, 2);
+        assert_eq!(config.version, 3);
     }
 
     #[test]
@@ -425,7 +440,7 @@ mod tests {
             sessionStateDir = "~/.copilot/tracepilot"
         "#;
         let config: TracePilotConfig = toml::from_str(minimal).expect("parse minimal config");
-        assert_eq!(config.version, 2);
+        assert_eq!(config.version, 2); // still v2 in TOML, migration upgrades it
         assert_eq!(config.general.auto_index_on_launch, true);
         assert_eq!(config.ui.theme, "dark");
         assert_eq!(config.features.render_markdown, true);
@@ -446,7 +461,7 @@ mod tests {
         let mut config: TracePilotConfig = toml::from_str(v1_toml).expect("parse v1 config");
         assert_eq!(config.version, 1);
         assert!(config.migrate());
-        assert_eq!(config.version, 2);
+        assert_eq!(config.version, 3);
         // Preserved user settings survive migration
         assert_eq!(config.paths.index_db_path, "/custom/path/index.db");
         assert_eq!(config.ui.theme, "light");

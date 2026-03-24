@@ -41,7 +41,6 @@ const defaultDbPath = ref(FALLBACK_DB_PATH);
 
 const sessionDir = ref(FALLBACK_SESSION_DIR);
 const dbPath = ref(FALLBACK_DB_PATH);
-const autoIndex = ref(true);
 
 // ── Validation state ───────────────────────────────────────────
 const validating = ref(false);
@@ -128,7 +127,7 @@ async function finishSetup() {
         indexDbPath: dbPath.value.trim(),
       },
       general: {
-        autoIndexOnLaunch: autoIndex.value,
+        autoIndexOnLaunch: true,
       },
     });
     await saveConfig(config);
@@ -150,7 +149,6 @@ onMounted(async () => {
     const config = await getConfig();
     sessionDir.value = config.paths.sessionStateDir;
     dbPath.value = config.paths.indexDbPath;
-    autoIndex.value = config.general.autoIndexOnLaunch;
     defaultSessionDir.value = config.paths.sessionStateDir;
     defaultDbPath.value = config.paths.indexDbPath;
   } catch {
@@ -207,10 +205,8 @@ onUnmounted(() => {
         <WizardStepDatabase
           :db-path="dbPath"
           :default-db-path="defaultDbPath"
-          :auto-index="autoIndex"
           @next="next"
           @update:db-path="dbPath = $event"
-          @update:auto-index="autoIndex = $event"
           @browse="browseDbPath"
           @reset="resetDbPath"
         />
@@ -219,7 +215,6 @@ onUnmounted(() => {
           :active="currentStep === 4"
           :session-dir="sessionDir"
           :db-path="dbPath"
-          :auto-index="autoIndex"
           :session-count="sessionCount"
           :saving="saving"
           :setup-error="setupError"
@@ -613,10 +608,6 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: var(--text-tertiary, #71717a);
   margin-top: -4px;
-}
-
-:deep(.toggle-row) {
-  margin: 4px 0;
 }
 
 /* ── Slide 5: Ready ───────────────────────────────────────── */

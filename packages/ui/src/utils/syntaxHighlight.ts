@@ -91,6 +91,15 @@ const GO_KEYWORDS = [
   "make", "len", "cap", "new", "delete", "close", "panic", "recover",
 ];
 
+const SCALA_KEYWORDS = [
+  "def", "val", "var", "object", "class", "trait", "extends", "with",
+  "import", "package", "sealed", "abstract", "override", "final",
+  "case", "match", "if", "else", "for", "while", "do", "yield",
+  "return", "throw", "try", "catch", "finally", "new", "this", "super",
+  "type", "lazy", "implicit", "given", "using", "enum", "then",
+  "true", "false", "null", "private", "protected", "public",
+];
+
 function makeKeywordPattern(keywords: string[], caseInsensitive = false): RegExp {
   const flags = caseInsensitive ? "gi" : "g";
   return new RegExp(`\\b(${keywords.join("|")})\\b`, flags);
@@ -273,6 +282,24 @@ function goRules(): TokenRule[] {
   ];
 }
 
+function scalaRules(): TokenRule[] {
+  return [
+    { pattern: /\/\/.*$/gm, className: "comment" },
+    { pattern: /\/\*[\s\S]*?\*\//g, className: "comment" },
+    { pattern: /"""[\s\S]*?"""/g, className: "string" },
+    { pattern: /s"(?:\\.|[^"\\])*"/g, className: "string" },
+    { pattern: /f"(?:\\.|[^"\\])*"/g, className: "string" },
+    { pattern: /"(?:\\.|[^"\\])*"/g, className: "string" },
+    { pattern: /\b\d+(?:\.\d+)?(?:e[+-]?\d+)?[LlFfDd]?\b/gi, className: "number" },
+    { pattern: makeKeywordPattern(SCALA_KEYWORDS), className: "keyword" },
+    { pattern: /\b[A-Z][a-zA-Z0-9]*\b/g, className: "type" },
+    { pattern: /\b[a-z_]\w*(?=\s*[(\[])/g, className: "func" },
+    { pattern: /@\w+/g, className: "keyword" },
+    { pattern: /[+\-*/%=!<>&|^~?:]+|=>/g, className: "operator" },
+    { pattern: /[{}[\]();,]/g, className: "punct" },
+  ];
+}
+
 function htmlRules(): TokenRule[] {
   return [
     { pattern: /<!--[\s\S]*?-->/g, className: "comment" },
@@ -357,6 +384,7 @@ const LANG_RULES: Record<string, () => TokenRule[]> = {
   elixir: pythonRules,
   erlang: pythonRules,
   hcl: tomlRules,
+  scala: scalaRules,
 };
 
 /**

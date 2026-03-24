@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { FormSwitch } from '@tracepilot/ui';
-
 defineProps<{
   dbPath: string;
   defaultDbPath: string;
-  autoIndex: boolean;
 }>();
 
 const emit = defineEmits<{
   next: [];
   'update:dbPath': [value: string];
-  'update:autoIndex': [value: boolean];
   browse: [];
   reset: [];
 }>();
@@ -56,14 +52,6 @@ function onPathInput(e: Event) {
       </div>
 
       <p class="form-note">~2 MB per 100 sessions. Will be created automatically.</p>
-
-      <div class="toggle-row">
-        <FormSwitch
-          :model-value="autoIndex"
-          label="Auto-index sessions on launch"
-          @update:model-value="emit('update:autoIndex', $event)"
-        />
-      </div>
 
       <button class="btn-accent" @click="emit('next')">Continue →</button>
     </div>

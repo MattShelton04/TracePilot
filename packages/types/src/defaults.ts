@@ -10,7 +10,7 @@ import type { TracePilotConfig } from './index.js';
 import { DEFAULT_FAVOURITE_MODELS } from './models.js';
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 2;
+export const CONFIG_VERSION = 3;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -22,7 +22,7 @@ export const DEFAULT_CLI_COMMAND = 'copilot';
 export const DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS = 5;
 
 /** Default content max-width in px. 0 means full width (no cap). */
-export const DEFAULT_CONTENT_MAX_WIDTH = 1200;
+export const DEFAULT_CONTENT_MAX_WIDTH = 1600;
 
 /** Default UI scale factor. */
 export const DEFAULT_UI_SCALE = 1.0;

@@ -874,7 +874,7 @@ onMounted(() => {
 }
 
 .page-content-inner {
-  max-width: var(--content-max-width, 1200px);
+  max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
   padding: 24px 28px 48px;
 }
