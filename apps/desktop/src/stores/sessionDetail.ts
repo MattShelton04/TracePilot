@@ -21,6 +21,11 @@ import {
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
+import { LRUCache } from "./utils/LRUCache";
+import {
+  createSectionLoader,
+  type LoadedSection,
+} from "./utils/createSectionLoader";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -35,7 +40,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const loaded = ref<Set<string>>(new Set());
+  const loaded = ref<Set<LoadedSection>>(new Set());
 
   // Per-section error state — surfaces failures to the UI instead of silent console.error
   const turnsError = ref<string | null>(null);
@@ -47,9 +52,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const incidentsError = ref<string | null>(null);
 
   // Track file size for freshness detection (avoids redundant turn re-fetches)
-  let lastEventsFileSize = 0;
+  const lastEventsFileSize = ref(0);
 
-  // ── Frontend session cache (last 5 sessions) ────────────────────────
+  // ── Frontend session cache (last 10 sessions with LRU eviction) ───────
   // Caches all loaded section data so switching between recently viewed
   // sessions restores the UI instantly without any IPC roundtrip.
   interface CachedSession {
@@ -60,27 +65,23 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     plan: SessionPlan | null;
     shutdownMetrics: ShutdownMetrics | null;
     incidents: SessionIncident[];
-    loadedSections: Set<string>;
+    loadedSections: Set<LoadedSection>;
   }
   const SESSION_CACHE_SIZE = 10;
-  const sessionCache = new Map<string, CachedSession>();
+  const sessionCache = new LRUCache<string, CachedSession>(SESSION_CACHE_SIZE);
 
-  function saveToCache(id: string) {
+  function saveToCache(id: string): void {
     if (!detail.value) return;
     sessionCache.set(id, {
       detail: detail.value,
       turns: turns.value,
-      eventsFileSize: lastEventsFileSize,
+      eventsFileSize: lastEventsFileSize.value,
       checkpoints: checkpoints.value,
       plan: plan.value,
       shutdownMetrics: shutdownMetrics.value,
       incidents: incidents.value,
       loadedSections: new Set(loaded.value),
     });
-    if (sessionCache.size > SESSION_CACHE_SIZE) {
-      const oldest = sessionCache.keys().next().value;
-      if (oldest) sessionCache.delete(oldest);
-    }
   }
 
   /** Convert a caught value into an error message string. */
@@ -100,11 +101,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   }
 
   // Guard against stale async responses when user switches sessions quickly
-  let requestToken = 0;
+  const requestToken = ref(0);
   // Separate token for events requests (filter/pagination within same session)
-  let eventsRequestToken = 0;
+  const eventsRequestToken = ref(0);
 
-  async function loadDetail(id: string) {
+  async function loadDetail(id: string): Promise<void> {
     if (sessionId.value === id && loaded.value.has("detail")) {
       return;
     }
@@ -114,7 +115,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       saveToCache(sessionId.value);
     }
 
-    const token = ++requestToken;
+    const token = ++requestToken.value;
     sessionId.value = id;
     error.value = null;
     clearSectionErrors();
@@ -125,7 +126,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       // Restore ALL sections immediately — zero IPC, zero spinner
       detail.value = cached.detail;
       turns.value = cached.turns;
-      lastEventsFileSize = cached.eventsFileSize;
+      lastEventsFileSize.value = cached.eventsFileSize;
       checkpoints.value = cached.checkpoints;
       plan.value = cached.plan;
       shutdownMetrics.value = cached.shutdownMetrics;
@@ -137,23 +138,29 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       todos.value = null;
 
       // Background refresh: silently update stale data
-      getSessionDetail(id).then((result) => {
-        if (requestToken !== token) return;
-        detail.value = result;
-      }).catch(() => {});
-      checkSessionFreshness(id).then(async (freshness) => {
-        if (requestToken !== token) return;
-        if (freshness.eventsFileSize === lastEventsFileSize) return;
-        const result = await getSessionTurns(id);
-        if (requestToken !== token) return;
-        turns.value = result.turns;
-        lastEventsFileSize = result.eventsFileSize;
-      }).catch(() => {});
+      getSessionDetail(id)
+        .then((result) => {
+          if (requestToken.value !== token) return;
+          detail.value = result;
+        })
+        .catch(() => {});
+      checkSessionFreshness(id)
+        .then(async (freshness) => {
+          if (requestToken.value !== token) return;
+          if (freshness.eventsFileSize === lastEventsFileSize.value) return;
+          const result = await getSessionTurns(id);
+          if (requestToken.value !== token) return;
+          turns.value = result.turns;
+          lastEventsFileSize.value = result.eventsFileSize;
+        })
+        .catch(() => {});
       if (loaded.value.has("plan")) {
-        getSessionPlan(id).then((result) => {
-          if (requestToken !== token) return;
-          plan.value = result;
-        }).catch(() => {});
+        getSessionPlan(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            plan.value = result;
+          })
+          .catch(() => {});
       }
       return;
     }
@@ -169,153 +176,91 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     shutdownMetrics.value = null;
     incidents.value = [];
     loaded.value.clear();
-    lastEventsFileSize = 0;
+    lastEventsFileSize.value = 0;
 
     try {
       const result = await getSessionDetail(id);
-      if (requestToken !== token) return;
+      if (requestToken.value !== token) return;
       detail.value = result;
       loaded.value.add("detail");
     } catch (e) {
-      if (requestToken !== token) return;
+      if (requestToken.value !== token) return;
       detail.value = null;
       error.value = formatError(e);
     } finally {
-      if (requestToken === token) loading.value = false;
+      if (requestToken.value === token) loading.value = false;
     }
   }
 
-  async function loadTurns() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("turns")) return;
-    const token = requestToken;
-    turnsError.value = null;
+  // ── Loader Context ─────────────────────────────────────────────────
+  const loaderContext = {
+    sessionId,
+    loaded,
+    requestToken,
+    eventsRequestToken,
+  };
 
-    try {
-      const result = await getSessionTurns(id);
-      if (requestToken !== token) return;
-      turns.value = result.turns;
-      lastEventsFileSize = result.eventsFileSize;
-      loaded.value.add("turns");
-    } catch (e) {
-      if (requestToken !== token) return;
-      turnsError.value = formatError(e);
-      console.error("Failed to load turns:", e);
-    }
-  }
+  // ── Factory-generated section loaders ─────────────────────────────
+  const loadTurns = createSectionLoader(loaderContext, {
+    key: "turns",
+    fetcher: getSessionTurns,
+    dataRef: turns,
+    errorRef: turnsError,
+    onSuccess: (result) => {
+      lastEventsFileSize.value = result.eventsFileSize;
+    },
+  });
 
-  async function loadEvents(offset = 0, limit = 100, eventType?: string) {
-    const id = sessionId.value;
-    if (!id) return;
-    const sessionToken = requestToken;
-    const eventsToken = ++eventsRequestToken;
-    eventsError.value = null;
+  const loadEvents = createSectionLoader<
+    EventsResponse,
+    [number?, number?, string?]
+  >(loaderContext, {
+    key: "events",
+    fetcher: getSessionEvents,
+    dataRef: events,
+    errorRef: eventsError,
+    skipLoadedCheck: true,
+    useEventsToken: true,
+  });
 
-    try {
-      const result = await getSessionEvents(id, offset, limit, eventType);
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      events.value = result;
-      loaded.value.add("events");
-    } catch (e) {
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      eventsError.value = formatError(e);
-      console.error("Failed to load events:", e);
-    }
-  }
+  const loadTodos = createSectionLoader(loaderContext, {
+    key: "todos",
+    fetcher: getSessionTodos,
+    dataRef: todos,
+    errorRef: todosError,
+  });
 
-  async function loadTodos() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("todos")) return;
-    const token = requestToken;
-    todosError.value = null;
+  const loadCheckpoints = createSectionLoader(loaderContext, {
+    key: "checkpoints",
+    fetcher: getSessionCheckpoints,
+    dataRef: checkpoints,
+    errorRef: checkpointsError,
+  });
 
-    try {
-      const result = await getSessionTodos(id);
-      if (requestToken !== token) return;
-      todos.value = result;
-      loaded.value.add("todos");
-    } catch (e) {
-      if (requestToken !== token) return;
-      todosError.value = formatError(e);
-      console.error("Failed to load todos:", e);
-    }
-  }
+  const loadPlan = createSectionLoader(loaderContext, {
+    key: "plan",
+    fetcher: getSessionPlan,
+    dataRef: plan,
+    errorRef: planError,
+  });
 
-  async function loadCheckpoints() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("checkpoints")) return;
-    const token = requestToken;
-    checkpointsError.value = null;
+  const loadShutdownMetrics = createSectionLoader(loaderContext, {
+    key: "metrics",
+    fetcher: getShutdownMetrics,
+    dataRef: shutdownMetrics,
+    errorRef: metricsError,
+  });
 
-    try {
-      const result = await getSessionCheckpoints(id);
-      if (requestToken !== token) return;
-      checkpoints.value = result;
-      loaded.value.add("checkpoints");
-    } catch (e) {
-      if (requestToken !== token) return;
-      checkpointsError.value = formatError(e);
-      console.error("Failed to load checkpoints:", e);
-    }
-  }
+  const loadIncidents = createSectionLoader(loaderContext, {
+    key: "incidents",
+    fetcher: getSessionIncidents,
+    dataRef: incidents,
+    errorRef: incidentsError,
+  });
 
-  async function loadPlan() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("plan")) return;
-    const token = requestToken;
-    planError.value = null;
-
-    try {
-      const result = await getSessionPlan(id);
-      if (requestToken !== token) return;
-      plan.value = result;
-      loaded.value.add("plan");
-    } catch (e) {
-      if (requestToken !== token) return;
-      planError.value = formatError(e);
-      console.error("Failed to load plan:", e);
-    }
-  }
-
-  async function loadShutdownMetrics() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("metrics")) return;
-    const token = requestToken;
-    metricsError.value = null;
-
-    try {
-      const result = await getShutdownMetrics(id);
-      if (requestToken !== token) return;
-      shutdownMetrics.value = result;
-      loaded.value.add("metrics");
-    } catch (e) {
-      if (requestToken !== token) return;
-      metricsError.value = formatError(e);
-      console.error("Failed to load metrics:", e);
-    }
-  }
-
-  async function loadIncidents() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("incidents")) return;
-    const token = requestToken;
-    incidentsError.value = null;
-
-    try {
-      const result = await getSessionIncidents(id);
-      if (requestToken !== token) return;
-      incidents.value = result;
-      loaded.value.add("incidents");
-    } catch (e) {
-      if (requestToken !== token) return;
-      incidentsError.value = formatError(e);
-      console.warn("Failed to load incidents:", e);
-    }
-  }
-
-  function reset() {
-    requestToken++;
-    eventsRequestToken++;
+  function reset(): void {
+    requestToken.value++;
+    eventsRequestToken.value++;
     sessionId.value = null;
     detail.value = null;
     turns.value = [];
@@ -329,7 +274,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loading.value = false;
     error.value = null;
     clearSectionErrors();
-    lastEventsFileSize = 0;
+    lastEventsFileSize.value = 0;
     sessionCache.clear();
   }
 
@@ -337,23 +282,25 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
    * Soft-refresh all previously loaded sections without clearing existing data.
    * Preserves UI state (selections, scroll, pagination) by not resetting refs.
    */
-  async function refreshAll() {
+  async function refreshAll(): Promise<void> {
     const id = sessionId.value;
     if (!id) return;
-    const token = requestToken;
+    const token = requestToken.value;
     const sections = new Set(loaded.value);
 
     const promises: Promise<void>[] = [];
 
     if (sections.has("detail")) {
       promises.push(
-        getSessionDetail(id).then((result) => {
-          if (requestToken !== token) return;
-          detail.value = result;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          console.error("Failed to refresh detail:", e);
-        })
+        getSessionDetail(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            detail.value = result;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            console.error("Failed to refresh detail:", e);
+          })
       );
     }
 
@@ -363,19 +310,19 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           // Freshness check: skip full turn fetch if events.jsonl hasn't changed
           try {
             const freshness = await checkSessionFreshness(id);
-            if (requestToken !== token) return;
-            if (freshness.eventsFileSize === lastEventsFileSize) return;
+            if (requestToken.value !== token) return;
+            if (freshness.eventsFileSize === lastEventsFileSize.value) return;
           } catch {
             // Freshness check failed — fall through to full fetch
           }
 
           const result = await getSessionTurns(id);
-          if (requestToken !== token) return;
+          if (requestToken.value !== token) return;
           turns.value = result.turns;
           turnsError.value = null;
-          lastEventsFileSize = result.eventsFileSize;
+          lastEventsFileSize.value = result.eventsFileSize;
         })().catch((e) => {
-          if (requestToken !== token) return;
+          if (requestToken.value !== token) return;
           turnsError.value = formatError(e);
           console.error("Failed to refresh turns:", e);
         })
@@ -388,71 +335,81 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     if (sections.has("todos")) {
       promises.push(
-        getSessionTodos(id).then((result) => {
-          if (requestToken !== token) return;
-          todos.value = result;
-          todosError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          todosError.value = formatError(e);
-          console.error("Failed to refresh todos:", e);
-        })
+        getSessionTodos(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            todos.value = result;
+            todosError.value = null;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            todosError.value = formatError(e);
+            console.error("Failed to refresh todos:", e);
+          })
       );
     }
 
     if (sections.has("checkpoints")) {
       promises.push(
-        getSessionCheckpoints(id).then((result) => {
-          if (requestToken !== token) return;
-          checkpoints.value = result;
-          checkpointsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          checkpointsError.value = formatError(e);
-          console.error("Failed to refresh checkpoints:", e);
-        })
+        getSessionCheckpoints(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            checkpoints.value = result;
+            checkpointsError.value = null;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            checkpointsError.value = formatError(e);
+            console.error("Failed to refresh checkpoints:", e);
+          })
       );
     }
 
     if (sections.has("plan")) {
       promises.push(
-        getSessionPlan(id).then((result) => {
-          if (requestToken !== token) return;
-          plan.value = result;
-          planError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          planError.value = formatError(e);
-          console.error("Failed to refresh plan:", e);
-        })
+        getSessionPlan(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            plan.value = result;
+            planError.value = null;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            planError.value = formatError(e);
+            console.error("Failed to refresh plan:", e);
+          })
       );
     }
 
     if (sections.has("metrics")) {
       promises.push(
-        getShutdownMetrics(id).then((result) => {
-          if (requestToken !== token) return;
-          shutdownMetrics.value = result;
-          metricsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          metricsError.value = formatError(e);
-          console.error("Failed to refresh metrics:", e);
-        })
+        getShutdownMetrics(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            shutdownMetrics.value = result;
+            metricsError.value = null;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            metricsError.value = formatError(e);
+            console.error("Failed to refresh metrics:", e);
+          })
       );
     }
 
     if (sections.has("incidents")) {
       promises.push(
-        getSessionIncidents(id).then((result) => {
-          if (requestToken !== token) return;
-          incidents.value = result;
-          incidentsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          incidentsError.value = formatError(e);
-          console.warn("Failed to refresh incidents:", e);
-        })
+        getSessionIncidents(id)
+          .then((result) => {
+            if (requestToken.value !== token) return;
+            incidents.value = result;
+            incidentsError.value = null;
+          })
+          .catch((e) => {
+            if (requestToken.value !== token) return;
+            incidentsError.value = formatError(e);
+            console.warn("Failed to refresh incidents:", e);
+          })
       );
     }
 
