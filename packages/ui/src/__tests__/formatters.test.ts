@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   formatDateMedium,
   formatDateShort,
   formatNumberFull,
   formatPercent,
   formatRate,
+  formatRelativeTime,
 } from '../utils/formatters';
 
 describe('formatRate', () => {
@@ -53,6 +54,22 @@ describe('formatDateMedium', () => {
     expect(formatDateMedium(null)).toBe('');
     expect(formatDateMedium('')).toBe('');
   });
+  it('formats Unix timestamp (seconds) as medium date string', () => {
+    // 2026-03-19T00:00:00Z = 1773878400 seconds
+    const result = formatDateMedium(1773878400);
+    expect(result).toContain('Mar');
+    expect(result).toContain('19');
+    expect(result).toContain('2026');
+  });
+  it('returns empty for invalid number inputs', () => {
+    expect(formatDateMedium(NaN)).toBe('');
+    expect(formatDateMedium(Infinity)).toBe('');
+    expect(formatDateMedium(-Infinity)).toBe('');
+  });
+  it('handles Unix epoch (0)', () => {
+    const result = formatDateMedium(0);
+    expect(result).toContain('1970');
+  });
 });
 
 describe('formatNumberFull', () => {
@@ -63,5 +80,102 @@ describe('formatNumberFull', () => {
   it('handles null/undefined', () => {
     expect(formatNumberFull(null)).toBe('0');
     expect(formatNumberFull(undefined)).toBe('0');
+  });
+});
+
+describe('formatRelativeTime', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Fix "now" to 2026-03-23T12:00:00Z
+    vi.setSystemTime(new Date('2026-03-23T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns empty for null/undefined/empty string', () => {
+    expect(formatRelativeTime(null)).toBe('');
+    expect(formatRelativeTime(undefined)).toBe('');
+    expect(formatRelativeTime('')).toBe('');
+  });
+
+  it('returns "just now" for recent ISO dates', () => {
+    expect(formatRelativeTime('2026-03-23T11:59:30Z')).toBe('just now');
+  });
+
+  it('returns minutes for ISO dates within the hour', () => {
+    expect(formatRelativeTime('2026-03-23T11:55:00Z')).toBe('5m ago');
+  });
+
+  it('returns hours for ISO dates within the day', () => {
+    expect(formatRelativeTime('2026-03-23T09:00:00Z')).toBe('3h ago');
+  });
+
+  it('returns days for ISO dates within the week', () => {
+    expect(formatRelativeTime('2026-03-20T12:00:00Z')).toBe('3d ago');
+  });
+
+  it('returns weeks for ISO dates within the month', () => {
+    expect(formatRelativeTime('2026-03-09T12:00:00Z')).toBe('2w ago');
+  });
+
+  it('returns months for ISO dates beyond 30 days', () => {
+    expect(formatRelativeTime('2026-01-23T12:00:00Z')).toBe('1mo ago');
+  });
+
+  // ── Unix timestamp (seconds) support ──
+
+  it('returns "just now" for recent Unix timestamps', () => {
+    const thirtySecsAgo = Math.floor(new Date('2026-03-23T11:59:30Z').getTime() / 1000);
+    expect(formatRelativeTime(thirtySecsAgo)).toBe('just now');
+  });
+
+  it('returns minutes for Unix timestamps within the hour', () => {
+    const fiveMinAgo = Math.floor(new Date('2026-03-23T11:55:00Z').getTime() / 1000);
+    expect(formatRelativeTime(fiveMinAgo)).toBe('5m ago');
+  });
+
+  it('returns hours for Unix timestamps within the day', () => {
+    const threeHrsAgo = Math.floor(new Date('2026-03-23T09:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(threeHrsAgo)).toBe('3h ago');
+  });
+
+  it('returns weeks for Unix timestamps within the month', () => {
+    const twoWeeksAgo = Math.floor(new Date('2026-03-09T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(twoWeeksAgo)).toBe('2w ago');
+  });
+
+  it('returns months for Unix timestamps beyond 30 days', () => {
+    const twoMonthsAgo = Math.floor(new Date('2026-01-23T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(twoMonthsAgo)).toBe('1mo ago');
+  });
+
+  // ── Edge cases ──
+
+  it('returns empty for NaN/Infinity number inputs', () => {
+    expect(formatRelativeTime(NaN)).toBe('');
+    expect(formatRelativeTime(Infinity)).toBe('');
+    expect(formatRelativeTime(-Infinity)).toBe('');
+  });
+
+  it('handles Unix epoch (0) as a very old date', () => {
+    const result = formatRelativeTime(0);
+    expect(result).toMatch(/\d+mo ago/);
+  });
+
+  it('returns empty for invalid ISO strings', () => {
+    expect(formatRelativeTime('not-a-date')).toBe('');
+  });
+
+  it('returns "just now" for future timestamps', () => {
+    expect(formatRelativeTime('2026-03-24T12:00:00Z')).toBe('just now');
+    const futureUnix = Math.floor(new Date('2026-03-24T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(futureUnix)).toBe('just now');
+  });
+
+  it('returns days for Unix timestamps within the week', () => {
+    const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
+    expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
   });
 });

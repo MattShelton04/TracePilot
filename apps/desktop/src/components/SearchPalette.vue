@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { searchContent } from '@tracepilot/client';
 import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tracepilot/types';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -22,20 +23,8 @@ const modalRef = ref<HTMLElement | null>(null);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ── Content type config ──────────────────────────────────────
-const contentTypeConfig: Record<string, { label: string; color: string }> = {
-  user_message: { label: 'User Message', color: '#4ade80' },
-  assistant_message: { label: 'Assistant Message', color: '#60a5fa' },
-  reasoning: { label: 'Reasoning', color: '#a78bfa' },
-  tool_call: { label: 'Tool Call', color: '#f59e0b' },
-  tool_error: { label: 'Tool Error', color: '#ef4444' },
-  error: { label: 'Error', color: '#ef4444' },
-  warning: { label: 'Warning', color: '#eab308' },
-  compaction_summary: { label: 'Compaction', color: '#818cf8' },
-  system_message: { label: 'System Message', color: '#94a3b8' },
-  subagent: { label: 'Subagent', color: '#c084fc' },
-  checkpoint: { label: 'Checkpoint', color: '#06b6d4' },
-};
+// ── Content type config (shared) ─────────────────────────────
+const contentTypeConfig = CONTENT_TYPE_CONFIG;
 
 // ── Grouped results ──────────────────────────────────────────
 interface ResultGroup {
@@ -207,24 +196,6 @@ function handlePaletteKeydown(e: KeyboardEvent) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
-function formatSnippet(snippet: string): string {
-  return snippet;
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
 
 function badgeBackground(color: string): string {
   return `rgba(${hexToRgb(color)}, 0.12)`;
@@ -406,7 +377,7 @@ onUnmounted(() => {
 
                   <div class="palette-item-body">
                     <!-- eslint-disable-next-line vue/no-v-html -->
-                    <div class="palette-item-title" v-html="formatSnippet(result.snippet)" />
+                    <div class="palette-item-title" v-html="result.snippet" />
                     <div class="palette-item-meta">
                       <span v-if="result.sessionSummary" class="palette-meta-session">{{ result.sessionSummary }}</span>
                       <span v-if="result.sessionSummary && result.turnNumber != null" class="sep">·</span>
@@ -414,7 +385,7 @@ onUnmounted(() => {
                       <span v-if="result.turnNumber != null && (result.sessionRepository || result.sessionUpdatedAt)" class="sep">·</span>
                       <span v-if="result.sessionRepository">{{ result.sessionRepository }}</span>
                       <span v-if="result.sessionRepository && result.sessionUpdatedAt" class="sep">·</span>
-                      <span v-if="result.sessionUpdatedAt">{{ formatTimestamp(result.sessionUpdatedAt) }}</span>
+                      <span v-if="result.sessionUpdatedAt">{{ formatRelativeTime(result.sessionUpdatedAt) }}</span>
                     </div>
                   </div>
 

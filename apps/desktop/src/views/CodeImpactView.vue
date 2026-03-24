@@ -371,15 +371,8 @@ const timelineChart = computed(() => {
   background: var(--chart-danger);
 }
 
-/* Chart */
-.tooltip-area {
-  position: relative;
-}
-.tooltip-area svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
+/* Chart — shared chart styles (tooltip, overlay, grid, axis, etc.)
+   are in styles/chart-shared.css — imported globally via main.ts. */
 .chart-legend {
   display: flex;
   gap: 16px;
@@ -395,47 +388,5 @@ const timelineChart = computed(() => {
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
-}
-
-/* ── Theme-aware SVG chart styles ──────────────────────────── */
-.chart-grid-line {
-  stroke: var(--border-subtle);
-}
-
-.chart-axis {
-  stroke: var(--border-default);
-}
-
-.chart-label {
-  fill: var(--text-tertiary);
-}
-
-/* ── Tooltip & hover enrichments ───────────────────────────── */
-.chart-overlay {
-  cursor: pointer;
-}
-
-.chart-highlight-ring {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.chart-tooltip {
-  position: absolute;
-  pointer-events: none;
-  background: var(--canvas-overlay, rgba(0, 0, 0, 0.85));
-  color: var(--text-on-emphasis, #fff);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-  z-index: 10;
-  transform: translateX(-50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.chart-tooltip--pinned {
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
 }
 </style>
