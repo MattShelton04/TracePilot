@@ -21,7 +21,7 @@ pub enum TracePilotError {
     DatabaseError(#[from] rusqlite::Error),
 
     #[error("YAML parse error: {0}")]
-    YamlError(#[from] serde_yaml::Error),
+    YamlError(#[from] serde_yml::Error),
 
     #[error("JSON parse error: {0}")]
     JsonError(#[from] serde_json::Error),
