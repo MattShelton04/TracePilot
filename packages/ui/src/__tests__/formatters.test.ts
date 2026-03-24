@@ -215,4 +215,10 @@ describe('toErrorMessage', () => {
     expect(toErrorMessage('actual error', 'Custom fallback')).toBe('actual error');
     expect(toErrorMessage(404, 'Not found')).toBe('404');
   });
+
+  it('extracts message from error-like objects with message property', () => {
+    expect(toErrorMessage({ message: 'serialized error' })).toBe('serialized error');
+    expect(toErrorMessage({ message: '' })).toBe('Unknown error');
+    expect(toErrorMessage({ message: 'fail', code: 42 })).toBe('fail');
+  });
 });

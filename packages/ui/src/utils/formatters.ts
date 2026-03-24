@@ -142,6 +142,9 @@ export function formatBytes(bytes?: number | null): string {
 export function toErrorMessage(e: unknown, fallback = 'Unknown error'): string {
   if (e instanceof Error) return e.message;
   if (e == null) return fallback;
+  if (typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
+    return (e as { message: string }).message || fallback;
+  }
   const s = String(e);
   return s || fallback;
 }

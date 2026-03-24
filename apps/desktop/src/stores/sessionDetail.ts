@@ -244,35 +244,35 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     key: 'todos',
     errorRef: todosError,
     fetchFn: (id) => getSessionTodos(id),
-    onResult: (r) => { todos.value = r; },
+    onResult: (result) => { todos.value = result; },
   });
 
   const loadCheckpoints = buildSectionLoader({
     key: 'checkpoints',
     errorRef: checkpointsError,
     fetchFn: (id) => getSessionCheckpoints(id),
-    onResult: (r) => { checkpoints.value = r; },
+    onResult: (result) => { checkpoints.value = result; },
   });
 
   const loadPlan = buildSectionLoader({
     key: 'plan',
     errorRef: planError,
     fetchFn: (id) => getSessionPlan(id),
-    onResult: (r) => { plan.value = r; },
+    onResult: (result) => { plan.value = result; },
   });
 
   const loadShutdownMetrics = buildSectionLoader({
     key: 'metrics',
     errorRef: metricsError,
     fetchFn: (id) => getShutdownMetrics(id),
-    onResult: (r) => { shutdownMetrics.value = r; },
+    onResult: (result) => { shutdownMetrics.value = result; },
   });
 
   const loadIncidents = buildSectionLoader({
     key: 'incidents',
     errorRef: incidentsError,
     fetchFn: (id) => getSessionIncidents(id),
-    onResult: (r) => { incidents.value = r; },
+    onResult: (result) => { incidents.value = result; },
     logLevel: 'warn',
   });
 

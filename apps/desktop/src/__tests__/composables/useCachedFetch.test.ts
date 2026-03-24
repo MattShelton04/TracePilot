@@ -88,7 +88,7 @@ describe('useCachedFetch', () => {
 
       await fetch(undefined);
 
-      expect(error.value).toBe('[object Object]');
+      expect(error.value).toBe('object error');
     });
 
     it('clears previous error on successful retry', async () => {
