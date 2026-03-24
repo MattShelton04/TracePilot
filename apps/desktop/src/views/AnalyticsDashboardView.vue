@@ -1056,62 +1056,10 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 }
 
 /* ── Chart interaction styles ─────────────────────────────────── */
+/* Shared chart styles (tooltip, overlay, bar, grid, axis, label, etc.)
+   are in styles/chart-shared.css — imported globally via main.ts. */
 .chart-container {
   position: relative;
-}
-
-.chart-overlay {
-  cursor: pointer;
-}
-
-.chart-bar {
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-}
-
-.chart-bar--active {
-  opacity: 0.7;
-}
-
-.chart-dot {
-  pointer-events: none;
-}
-
-.chart-highlight-ring {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.chart-tooltip {
-  position: absolute;
-  pointer-events: none;
-  background: var(--canvas-overlay, rgba(0, 0, 0, 0.85));
-  color: var(--text-on-emphasis, #fff);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-  z-index: 10;
-  transform: translateX(-50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.chart-tooltip--pinned {
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.2));
-}
-
-/* ── Theme-aware SVG chart styles ──────────────────────────── */
-.chart-grid-line {
-  stroke: var(--border-subtle);
-}
-
-.chart-axis {
-  stroke: var(--border-default);
-}
-
-.chart-label {
-  fill: var(--text-tertiary);
 }
 
 .more-info-link {
