@@ -8,7 +8,7 @@
 //! - **FTS**: Full-text search via `search_fts` table (default)
 //! - **Browse**: Filter-only queries without FTS MATCH (empty query)
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 
 use super::IndexDb;

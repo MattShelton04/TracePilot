@@ -4,7 +4,7 @@
 //! Each row represents one searchable chunk (a message, tool call, error, etc.)
 //! with a content type, turn number, and event index for deep-linking.
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::params;
 use std::path::Path;
 

@@ -5,10 +5,12 @@
 //! - Shutdown metrics
 //! - FTS5 full-text search over summaries and messages
 
-use anyhow::Result;
 use std::path::{Path, PathBuf};
 
+pub mod error;
 pub mod index_db;
+
+pub use error::{IndexerError, Result};
 
 pub use index_db::SessionIndexInfo;
 pub use index_db::{SearchFacets, SearchFilters, SearchResult, SearchStats};

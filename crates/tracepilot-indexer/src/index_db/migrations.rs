@@ -1,6 +1,6 @@
 //! Schema migrations for the index database.
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::Connection;
 
 pub(super) const MIGRATION_1: &str = r#"

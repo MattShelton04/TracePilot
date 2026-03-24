@@ -1,6 +1,6 @@
 //! Read-only session query methods.
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
