@@ -58,7 +58,12 @@ fn table_exists(conn: &Connection, table_name: &str) -> bool {
 }
 
 /// Read all todo items from a session database (opened read-only).
+/// Returns an empty list if the database file does not exist.
 pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
+    if !db_path.exists() {
+        return Ok(Vec::new());
+    }
+
     let conn = open_readonly(db_path)?;
 
     if !table_exists(&conn, "todos") {
@@ -85,7 +90,12 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
 }
 
 /// Read all todo dependencies from a session database (opened read-only).
+/// Returns an empty list if the database file does not exist.
 pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
+    if !db_path.exists() {
+        return Ok(Vec::new());
+    }
+
     let conn = open_readonly(db_path)?;
 
     if !table_exists(&conn, "todo_deps") {
@@ -106,7 +116,12 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
 }
 
 /// List all table names in a session database (opened read-only).
+/// Returns an empty list if the database file does not exist.
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
+    if !db_path.exists() {
+        return Ok(Vec::new());
+    }
+
     let conn = open_readonly(db_path)?;
 
     let mut stmt =
@@ -127,6 +142,14 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
 /// - NULL → Null
 /// - BLOB → skipped (set to Null)
 pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTableInfo> {
+    if !db_path.exists() {
+        return Ok(CustomTableInfo {
+            name: table_name.to_string(),
+            columns: Vec::new(),
+            rows: Vec::new(),
+        });
+    }
+
     let conn = open_readonly(db_path)?;
 
     if !table_exists(&conn, table_name) {
@@ -284,6 +307,27 @@ mod tests {
 
         // read_custom_table: nonexistent table → empty CustomTableInfo
         let info = read_custom_table(&db_path, "nonexistent").unwrap();
+        assert!(info.columns.is_empty());
+        assert!(info.rows.is_empty());
+    }
+
+    #[test]
+    fn test_missing_db_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("nonexistent.db");
+
+        // All functions should return empty results for a missing DB file
+        let todos = read_todos(&db_path).unwrap();
+        assert!(todos.is_empty());
+
+        let deps = read_todo_deps(&db_path).unwrap();
+        assert!(deps.is_empty());
+
+        let tables = list_tables(&db_path).unwrap();
+        assert!(tables.is_empty());
+
+        let info = read_custom_table(&db_path, "test").unwrap();
+        assert_eq!(info.name, "test");
         assert!(info.columns.is_empty());
         assert!(info.rows.is_empty());
     }

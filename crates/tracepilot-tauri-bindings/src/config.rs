@@ -57,6 +57,10 @@ pub struct GeneralConfig {
     pub auto_index_on_launch: bool,
     #[serde(default = "default_cli_command")]
     pub cli_command: String,
+    /// Set to true only after the first full indexing run completes.
+    /// If false on startup, the setup wizard/indexing screen is shown.
+    #[serde(default)]
+    pub setup_complete: bool,
 }
 
 impl Default for GeneralConfig {
@@ -64,6 +68,7 @@ impl Default for GeneralConfig {
         Self {
             auto_index_on_launch: true,
             cli_command: "copilot".to_string(),
+            setup_complete: false,
         }
     }
 }

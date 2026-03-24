@@ -61,6 +61,7 @@ export function createDefaultConfig(
     general: {
       autoIndexOnLaunch: true,
       cliCommand: DEFAULT_CLI_COMMAND,
+      setupComplete: false,
       ...overrides?.general,
     },
     ui: {
