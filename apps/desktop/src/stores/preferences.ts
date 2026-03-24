@@ -240,8 +240,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   function scheduleSave() {
     if (!hydrated) return;
     if (saveTimer) clearTimeout(saveTimer);
+    const gen = ++saveGeneration;
     saveTimer = setTimeout(async () => {
-      const gen = ++saveGeneration;
       try {
         // Re-read latest config from backend to avoid overwriting changes
         // made by other components (e.g. SettingsDataStorage paths/autoIndex)

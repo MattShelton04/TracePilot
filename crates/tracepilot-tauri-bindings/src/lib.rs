@@ -253,7 +253,7 @@ mod commands {
         match state.read() {
             Ok(guard) => guard.clone().unwrap_or_default(),
             Err(poisoned) => {
-                tracing::error!("Config RwLock poisoned — using defaults");
+                tracing::error!("Config RwLock poisoned — recovering inner value");
                 poisoned.into_inner().clone().unwrap_or_default()
             }
         }
