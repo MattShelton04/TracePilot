@@ -8,6 +8,11 @@ import { useAnalyticsStore } from '@/stores/analytics';
  * and re-fetches (with `force: true`) whenever the selected repository or
  * date range changes.
  *
+ * **Important:** `fetchFn` is only called asynchronously (inside `onMounted`
+ * and `watch` callbacks). Callers may reference variables that are assigned
+ * from the return value of this function inside the callback — this is safe
+ * because the callback is never invoked synchronously.
+ *
  * @param fetchFn - The store fetch action to call (e.g. `store.fetchAnalytics`).
  * @returns The analytics store instance for convenient destructuring.
  */

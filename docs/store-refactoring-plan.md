@@ -101,7 +101,7 @@ export function useCachedFetch<TData, TParams = void>(
         // Only update error if this is still the latest request
         if (gen !== generation) return;
 
-        error.value = e instanceof Error ? e.message : String(e);
+        error.value = toErrorMessage(e);
       } finally {
         // Clean up inflight tracking
         inflight.delete(cacheKey);
@@ -175,7 +175,7 @@ async function fetchAnalytics(options?: { fromDate?: string; toDate?: string; re
       loaded.add(cacheKey);
     } catch (e) {
       if (gen !== analyticsGen) return;
-      analyticsError.value = e instanceof Error ? e.message : String(e);
+      analyticsError.value = toErrorMessage(e);
     } finally {
       inflight.delete(cacheKey);
       if (gen === analyticsGen) analyticsLoading.value = false;
