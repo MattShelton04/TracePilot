@@ -1566,7 +1566,8 @@ mod commands {
 
         let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
 
-        // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, and spaces
+        // Sanitize CLI command: allow only alphanumeric, hyphens, underscores, dots, slashes, spaces.
+        // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
         if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
             return Err("CLI command contains invalid characters".to_string());
         }

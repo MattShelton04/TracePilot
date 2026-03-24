@@ -282,13 +282,40 @@ impl Default for TracePilotConfig {
 }
 
 impl TracePilotConfig {
+    /// Current schema version. Bump this when adding migrations.
+    pub const CURRENT_VERSION: u32 = 2;
+
+    /// Apply any pending migrations to bring the config up to the current version.
+    /// Returns true if any migrations were applied.
+    pub fn migrate(&mut self) -> bool {
+        let original = self.version;
+
+        // Migration from v1 → v2: added features.render_markdown (handled by serde default)
+        if self.version < 2 {
+            self.version = 2;
+            tracing::info!("Migrated config from v1 → v2");
+        }
+
+        // Future migrations go here:
+        // if self.version < 3 { ... self.version = 3; }
+
+        self.version != original
+    }
+
     /// Load config from the standard location, or return None if it doesn't exist.
+    /// Applies pending migrations and auto-saves if the version was bumped.
     pub fn load() -> Option<Self> {
         let path = config_file_path()?;
         let content = std::fs::read_to_string(&path).ok()?;
-        match toml::from_str(&content) {
-            Ok(config) => {
-                tracing::info!(path = %path.display(), "Loaded config.toml");
+        match toml::from_str::<Self>(&content) {
+            Ok(mut config) => {
+                tracing::info!(path = %path.display(), version = config.version, "Loaded config.toml");
+                if config.migrate() {
+                    tracing::info!(new_version = config.version, "Config migrated — saving");
+                    if let Err(e) = config.save() {
+                        tracing::warn!(error = %e, "Failed to save migrated config");
+                    }
+                }
                 Some(config)
             }
             Err(e) => {
