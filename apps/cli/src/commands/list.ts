@@ -77,14 +77,26 @@ export async function listSessionsCommand(options: {
     }
 
     // Sort
+    const sortField = options.sort || "updated";
     sessions.sort((a, b) => {
+      if (sortField === "name") {
+        const nameA = (a.summary || "").toLowerCase();
+        const nameB = (b.summary || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortField === "created") {
+        const dateA = a.createdAt || "";
+        const dateB = b.createdAt || "";
+        return String(dateB).localeCompare(String(dateA));
+      }
+      // Default: "updated"
       const dateA = a.updatedAt || a.createdAt || "";
       const dateB = b.updatedAt || b.createdAt || "";
       return String(dateB).localeCompare(String(dateA));
     });
 
     // Limit
-    const limit = parseInt(options.limit, 10) || 20;
+    const limit = Math.max(1, parseInt(options.limit, 10) || 20);
     sessions = sessions.slice(0, limit);
 
     if (options.json) {
