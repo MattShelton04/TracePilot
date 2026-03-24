@@ -11,29 +11,16 @@ import {
   formatPercent,
   useChartTooltip,
 } from '@tracepilot/ui';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { usePreferencesStore } from '@/stores/preferences';
 import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
-const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
-
-onMounted(() => {
-  store.fetchAvailableRepos();
-  store.fetchAnalytics();
-});
-
-watch(
-  [() => store.selectedRepo, () => store.dateRange],
-  () => {
-    store.fetchAnalytics({ force: true });
-  },
-  { deep: true },
-);
+const { store } = useAnalyticsPage((opts) => store.fetchAnalytics(opts));
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);

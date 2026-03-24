@@ -14,6 +14,9 @@ interface AnalyticsFetchParams {
   hideEmpty?: boolean;
 }
 
+/** Options accepted by all analytics fetch actions. */
+export interface AnalyticsFetchOptions { fromDate?: string; toDate?: string; repo?: string; force?: boolean }
+
 export const useAnalyticsStore = defineStore('analytics', () => {
   // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
   const selectedRepo = ref<string | null>(null);
@@ -73,55 +76,28 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
-  // Actions
-  async function fetchAnalytics(options?: { fromDate?: string; toDate?: string; repo?: string; force?: boolean }) {
-    const prefs = usePreferencesStore();
-    const merged = { ...dateRange.value, ...options };
-    const params: AnalyticsFetchParams = {
-      fromDate: merged.fromDate,
-      toDate: merged.toDate,
-      repo: merged.repo ?? selectedRepo.value ?? undefined,
-      hideEmpty: prefs.hideEmptySessions,
-    };
+  // ── Shared fetch factory ──────────────────────────────────────
+  // All three analytics fetch actions share the same parameter-building logic.
 
-    await analyticsFetcher.fetch(params, { force: options?.force });
+  function buildFetchAction(
+    fetcher: { fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<void> },
+  ) {
+    return async (options?: AnalyticsFetchOptions) => {
+      const prefs = usePreferencesStore();
+      const merged = { ...dateRange.value, ...options };
+      const params: AnalyticsFetchParams = {
+        fromDate: merged.fromDate,
+        toDate: merged.toDate,
+        repo: merged.repo ?? selectedRepo.value ?? undefined,
+        hideEmpty: prefs.hideEmptySessions,
+      };
+      await fetcher.fetch(params, { force: options?.force });
+    };
   }
 
-  async function fetchToolAnalysis(options?: {
-    fromDate?: string;
-    toDate?: string;
-    repo?: string;
-    force?: boolean;
-  }) {
-    const prefs = usePreferencesStore();
-    const merged = { ...dateRange.value, ...options };
-    const params: AnalyticsFetchParams = {
-      fromDate: merged.fromDate,
-      toDate: merged.toDate,
-      repo: merged.repo ?? selectedRepo.value ?? undefined,
-      hideEmpty: prefs.hideEmptySessions,
-    };
-
-    await toolAnalysisFetcher.fetch(params, { force: options?.force });
-  }
-
-  async function fetchCodeImpact(options?: {
-    fromDate?: string;
-    toDate?: string;
-    repo?: string;
-    force?: boolean;
-  }) {
-    const prefs = usePreferencesStore();
-    const merged = { ...dateRange.value, ...options };
-    const params: AnalyticsFetchParams = {
-      fromDate: merged.fromDate,
-      toDate: merged.toDate,
-      repo: merged.repo ?? selectedRepo.value ?? undefined,
-      hideEmpty: prefs.hideEmptySessions,
-    };
-
-    await codeImpactFetcher.fetch(params, { force: options?.force });
-  }
+  const fetchAnalytics = buildFetchAction(analyticsFetcher);
+  const fetchToolAnalysis = buildFetchAction(toolAnalysisFetcher);
+  const fetchCodeImpact = buildFetchAction(codeImpactFetcher);
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {
     await Promise.all([
@@ -147,11 +123,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }
 
   // Invalidate analytics cache when hideEmptySessions preference changes
+  const allFetchers = [analyticsFetcher, toolAnalysisFetcher, codeImpactFetcher];
   const prefs = usePreferencesStore();
   watch(() => prefs.hideEmptySessions, () => {
-    analyticsFetcher.clearCache();
-    toolAnalysisFetcher.clearCache();
-    codeImpactFetcher.clearCache();
+    for (const f of allFetchers) f.clearCache();
   });
 
   return {

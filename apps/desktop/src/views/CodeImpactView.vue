@@ -1,25 +1,12 @@
 <script setup lang="ts">
 import { ErrorState, formatDateShort, formatNumberFull, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
-import { computed, onMounted, watch } from 'vue';
+import { computed } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { CHART_COLORS } from '@/utils/chartColors';
 
-const store = useAnalyticsStore();
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } = useChartTooltip();
-
-onMounted(() => {
-  store.fetchAvailableRepos();
-  store.fetchCodeImpact();
-});
-
-watch(
-  [() => store.selectedRepo, () => store.dateRange],
-  () => {
-    store.fetchCodeImpact({ force: true });
-  },
-  { deep: true },
-);
+const { store } = useAnalyticsPage((opts) => store.fetchCodeImpact(opts));
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
