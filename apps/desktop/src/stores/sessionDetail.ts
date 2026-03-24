@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import type {
   SessionDetail,
   ConversationTurn,
@@ -185,133 +185,141 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  async function loadTurns() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("turns")) return;
-    const token = requestToken;
-    turnsError.value = null;
+  /**
+   * Factory function that creates a type-safe section loader with consistent error
+   * handling, token guarding, and loaded state tracking. Eliminates code duplication
+   * across 7 similar load functions by centralizing the async loading pattern.
+   *
+   * @template T The type of data being loaded
+   * @template Args The types of additional arguments passed to fetchFn
+   */
+  function createLoader<T, Args extends any[] = []>(config: {
+    /** Unique section name for tracking loaded state */
+    sectionName: string;
+    /** Ref to store the fetched data */
+    dataRef: Ref<T>;
+    /** Ref to store any error messages */
+    errorRef: Ref<string | null>;
+    /** Async function that fetches the data */
+    fetchFn: (sessionId: string, ...args: Args) => Promise<T>;
+    /** Use separate events token instead of global request token */
+    useEventsToken?: boolean;
+    /** Skip the "already loaded" check (for paginated/filterable data) */
+    skipLoadedCheck?: boolean;
+    /** Console log level for errors (default: 'error') */
+    logLevel?: "error" | "warn" | "log";
+  }): (...args: Args) => Promise<void> {
+    return async (...args: Args) => {
+      const id = sessionId.value;
+      if (!id) return;
 
-    try {
+      // Skip if already loaded (unless explicitly disabled, e.g., for events pagination)
+      if (!config.skipLoadedCheck && loaded.value.has(config.sectionName))
+        return;
+
+      // Capture token at start of request
+      const token = config.useEventsToken ? ++eventsRequestToken : requestToken;
+      const sessionToken = requestToken;
+
+      config.errorRef.value = null;
+
+      try {
+        // Pass through any arguments (e.g., pagination params for events)
+        const result = await config.fetchFn(id, ...args);
+
+        // Check token freshness before updating state
+        const tokenValid = config.useEventsToken
+          ? eventsRequestToken === token && requestToken === sessionToken
+          : requestToken === token;
+
+        if (!tokenValid) return;
+
+        config.dataRef.value = result;
+        if (!config.skipLoadedCheck) {
+          loaded.value.add(config.sectionName);
+        }
+      } catch (e) {
+        // Re-check token after async catch
+        const tokenValid = config.useEventsToken
+          ? eventsRequestToken === token && requestToken === sessionToken
+          : requestToken === token;
+
+        if (!tokenValid) return;
+
+        config.errorRef.value = formatError(e);
+
+        // Configurable log level
+        const logFn =
+          config.logLevel === "warn"
+            ? console.warn
+            : config.logLevel === "log"
+              ? console.log
+              : console.error;
+
+        logFn(`Failed to load ${config.sectionName}:`, e);
+      }
+    };
+  }
+
+  // ── Section Loaders ─────────────────────────────────────────────────
+  // Factory-generated loaders with consistent behavior and error handling.
+
+  const loadTurns = createLoader<ConversationTurn[]>({
+    sectionName: "turns",
+    dataRef: turns,
+    errorRef: turnsError,
+    fetchFn: async (id) => {
       const result = await getSessionTurns(id);
-      if (requestToken !== token) return;
-      turns.value = result.turns;
       lastEventsFileSize = result.eventsFileSize;
-      loaded.value.add("turns");
-    } catch (e) {
-      if (requestToken !== token) return;
-      turnsError.value = formatError(e);
-      console.error("Failed to load turns:", e);
-    }
-  }
+      return result.turns;
+    },
+  });
 
-  async function loadEvents(offset = 0, limit = 100, eventType?: string) {
-    const id = sessionId.value;
-    if (!id) return;
-    const sessionToken = requestToken;
-    const eventsToken = ++eventsRequestToken;
-    eventsError.value = null;
+  const loadEvents = createLoader<EventsResponse | null, [number?, number?, string?]>({
+    sectionName: "events",
+    dataRef: events,
+    errorRef: eventsError,
+    fetchFn: (id, offset = 0, limit = 100, eventType?: string) =>
+      getSessionEvents(id, offset, limit, eventType),
+    useEventsToken: true,
+    skipLoadedCheck: true, // Events supports pagination and filtering
+  });
 
-    try {
-      const result = await getSessionEvents(id, offset, limit, eventType);
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      events.value = result;
-      loaded.value.add("events");
-    } catch (e) {
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      eventsError.value = formatError(e);
-      console.error("Failed to load events:", e);
-    }
-  }
+  const loadTodos = createLoader<TodosResponse | null>({
+    sectionName: "todos",
+    dataRef: todos,
+    errorRef: todosError,
+    fetchFn: getSessionTodos,
+  });
 
-  async function loadTodos() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("todos")) return;
-    const token = requestToken;
-    todosError.value = null;
+  const loadCheckpoints = createLoader<CheckpointEntry[]>({
+    sectionName: "checkpoints",
+    dataRef: checkpoints,
+    errorRef: checkpointsError,
+    fetchFn: getSessionCheckpoints,
+  });
 
-    try {
-      const result = await getSessionTodos(id);
-      if (requestToken !== token) return;
-      todos.value = result;
-      loaded.value.add("todos");
-    } catch (e) {
-      if (requestToken !== token) return;
-      todosError.value = formatError(e);
-      console.error("Failed to load todos:", e);
-    }
-  }
+  const loadPlan = createLoader<SessionPlan | null>({
+    sectionName: "plan",
+    dataRef: plan,
+    errorRef: planError,
+    fetchFn: getSessionPlan,
+  });
 
-  async function loadCheckpoints() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("checkpoints")) return;
-    const token = requestToken;
-    checkpointsError.value = null;
+  const loadShutdownMetrics = createLoader<ShutdownMetrics | null>({
+    sectionName: "metrics",
+    dataRef: shutdownMetrics,
+    errorRef: metricsError,
+    fetchFn: getShutdownMetrics,
+  });
 
-    try {
-      const result = await getSessionCheckpoints(id);
-      if (requestToken !== token) return;
-      checkpoints.value = result;
-      loaded.value.add("checkpoints");
-    } catch (e) {
-      if (requestToken !== token) return;
-      checkpointsError.value = formatError(e);
-      console.error("Failed to load checkpoints:", e);
-    }
-  }
-
-  async function loadPlan() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("plan")) return;
-    const token = requestToken;
-    planError.value = null;
-
-    try {
-      const result = await getSessionPlan(id);
-      if (requestToken !== token) return;
-      plan.value = result;
-      loaded.value.add("plan");
-    } catch (e) {
-      if (requestToken !== token) return;
-      planError.value = formatError(e);
-      console.error("Failed to load plan:", e);
-    }
-  }
-
-  async function loadShutdownMetrics() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("metrics")) return;
-    const token = requestToken;
-    metricsError.value = null;
-
-    try {
-      const result = await getShutdownMetrics(id);
-      if (requestToken !== token) return;
-      shutdownMetrics.value = result;
-      loaded.value.add("metrics");
-    } catch (e) {
-      if (requestToken !== token) return;
-      metricsError.value = formatError(e);
-      console.error("Failed to load metrics:", e);
-    }
-  }
-
-  async function loadIncidents() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("incidents")) return;
-    const token = requestToken;
-    incidentsError.value = null;
-
-    try {
-      const result = await getSessionIncidents(id);
-      if (requestToken !== token) return;
-      incidents.value = result;
-      loaded.value.add("incidents");
-    } catch (e) {
-      if (requestToken !== token) return;
-      incidentsError.value = formatError(e);
-      console.warn("Failed to load incidents:", e);
-    }
-  }
+  const loadIncidents = createLoader<SessionIncident[]>({
+    sectionName: "incidents",
+    dataRef: incidents,
+    errorRef: incidentsError,
+    fetchFn: getSessionIncidents,
+    logLevel: "warn", // Incidents use console.warn instead of console.error
+  });
 
   function reset() {
     requestToken++;
