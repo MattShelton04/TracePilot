@@ -4,6 +4,7 @@ import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tr
 import { CONTENT_TYPE_CONFIG, formatRelativeTime, toErrorMessage } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 
 // ── Stores & Router ──────────────────────────────────────────
 const router = useRouter();
@@ -170,6 +171,8 @@ function moveSelection(delta: number) {
 
 // ── Global keyboard handler ──────────────────────────────────
 function handleGlobalKeydown(e: KeyboardEvent) {
+  if (shouldIgnoreGlobalShortcut(e)) return;
+
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     if (isOpen.value) {

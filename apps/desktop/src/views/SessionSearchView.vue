@@ -181,6 +181,7 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
 function handleKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
+    e.stopImmediatePropagation();
     searchInputRef.value?.focus();
     searchInputRef.value?.select();
   }
@@ -192,7 +193,7 @@ onMounted(async () => {
   store.fetchFilterOptions();
   // Fetch initial facets (browse mode gets filter-scoped counts)
   store.fetchFacets();
-  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keydown', handleKeydown, { capture: true });
 
   // Main indexing events (local — only for showing main index progress)
   unlisteners.push(
@@ -212,7 +213,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keydown', handleKeydown, { capture: true });
   for (const unlisten of unlisteners) unlisten();
 });
 </script>
