@@ -21,6 +21,7 @@ import {
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
+import { toErrorMessage } from "@tracepilot/ui";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -85,7 +86,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   /** Convert a caught value into an error message string. */
   function formatError(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
+    return toErrorMessage(e);
   }
 
   /** Clear all per-section error refs (used on session switch / reset). */

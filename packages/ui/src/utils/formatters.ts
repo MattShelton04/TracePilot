@@ -135,3 +135,30 @@ export function formatBytes(bytes?: number | null): string {
   const value = bytes / Math.pow(1024, i);
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+/**
+ * Convert any caught error value to a user-friendly error message string.
+ * Provides consistent error formatting across the application.
+ *
+ * @param e - The caught error value (can be Error, string, or any type)
+ * @param fallback - Optional fallback message if error is null/undefined
+ * @returns A formatted error message string
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await riskyOperation();
+ * } catch (e) {
+ *   errorMessage.value = toErrorMessage(e);
+ * }
+ * ```
+ */
+export function toErrorMessage(e: unknown, fallback = 'An unknown error occurred'): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'string') return e;
+  if (e == null) return fallback;
+  if (typeof e === 'object' && 'message' in e && typeof e.message === 'string') {
+    return e.message;
+  }
+  return String(e);
+}

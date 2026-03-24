@@ -17,6 +17,7 @@ import {
   incrementTemplateUsage as incrementUsageApi,
   checkSystemDeps,
 } from '@tracepilot/client';
+import { toErrorMessage } from '@tracepilot/ui';
 
 export const useLauncherStore = defineStore('launcher', () => {
   const models = ref<ModelInfo[]>([]);
@@ -52,10 +53,10 @@ export const useLauncherStore = defineStore('launcher', () => {
       if (templatesResult.status === 'fulfilled') templates.value = templatesResult.value;
       const failures = [depsResult, modelsResult, templatesResult]
         .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map((r) => String(r.reason));
+        .map((r) => toErrorMessage(r.reason));
       if (failures.length) error.value = failures.join('; ');
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       loading.value = false;
     }
@@ -68,7 +69,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       recentLaunches.value = [session, ...recentLaunches.value.slice(0, 9)];
       return session;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -79,7 +80,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = await listSessionTemplates();
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -90,7 +91,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = templates.value.filter((t) => t.id !== id);
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -101,7 +102,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = await listSessionTemplates();
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }

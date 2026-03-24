@@ -22,6 +22,7 @@ import {
   migrateAgentDefinition as migrateAgentApi,
 } from '@tracepilot/client';
 import { useToastStore } from '@/stores/toast';
+import { toErrorMessage } from '@tracepilot/ui';
 
 export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
 
@@ -64,10 +65,10 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       const failures = [agentsRes, configRes, versionsRes, activeRes, backupsRes]
         .filter((r): r is PromiseRejectedResult => r.status === 'rejected');
       if (failures.length > 0) {
-        error.value = failures.map((f) => String(f.reason)).join('; ');
+        error.value = failures.map((f) => toErrorMessage(f.reason)).join('; ');
       }
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       loading.value = false;
     }
@@ -89,7 +90,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       agents.value = await getAgentDefinitions();
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     } finally {
       saving.value = false;
@@ -105,7 +106,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       toastStore.success('Global config saved');
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     } finally {
       saving.value = false;
@@ -121,7 +122,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       }
       return true;
     } catch (e) {
-      if (!silent) error.value = String(e);
+      if (!silent) error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -133,7 +134,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await initialize(); // Reload everything
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -145,7 +146,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       toastStore.success('Backup deleted');
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -154,7 +155,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       migrationDiffs.value = await getMigrationDiffs(from, to);
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     }
   }
 
@@ -164,7 +165,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       toastStore.success(`Migrated ${fileName}`);
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
