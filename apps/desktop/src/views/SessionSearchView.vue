@@ -5,7 +5,7 @@ import { useSearchStore } from '@/stores/search';
 import { useSessionsStore } from '@/stores/sessions';
 import { safeListen } from '@/utils/tauriEvents';
 import type { SearchContentType } from '@tracepilot/types';
-import { formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
 
 const store = useSearchStore();
 const sessionsStore = useSessionsStore();
@@ -26,20 +26,9 @@ const filtersOpen = ref(true);
 const activeDatePreset = ref<string>('all');
 
 // ÔöÇÔöÇ Content type config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const contentTypeConfig: Record<string, { label: string; color: string }> = {
-  user_message:       { label: 'User Message',       color: '#4ade80' },
-  assistant_message:  { label: 'Assistant Message',  color: '#60a5fa' },
-  reasoning:          { label: 'Reasoning',          color: '#a78bfa' },
-  tool_call:          { label: 'Tool Call',          color: '#f59e0b' },
-  tool_error:         { label: 'Tool Error',         color: '#ef4444' },
-  error:              { label: 'Error',              color: '#ef4444' },
-  compaction_summary: { label: 'Compaction',         color: '#818cf8' },
-  system_message:     { label: 'System Message',     color: '#94a3b8' },
-  subagent:           { label: 'Subagent',           color: '#c084fc' },
-  checkpoint:         { label: 'Checkpoint',         color: '#06b6d4' },
-};
-
-const allContentTypes = Object.keys(contentTypeConfig) as SearchContentType[];
+// ── Content type config (shared) ─────────────────────────────
+const contentTypeConfig = CONTENT_TYPE_CONFIG;
+const allContentTypes = ALL_CONTENT_TYPES;
 
 // ÔöÇÔöÇ Computed helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const activeFilterCount = computed(() => {

@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList,
-  formatDate, formatDuration, formatNumberFull, formatTime, useSessionTabLoader, MarkdownContent,
+  formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -52,10 +52,6 @@ function toggleExpand(idx: number) {
 
 function isLongSummary(summary: string): boolean {
   return summary.length > 80;
-}
-
-function truncatedSummary(summary: string): string {
-  return summary.slice(0, 80) + '…';
 }
 
 function incidentSeverityVariant(severity: string): 'danger' | 'warning' | 'neutral' {
@@ -178,7 +174,7 @@ function formatDetail(detail: unknown): string {
                   <button class="expand-btn" @click="toggleExpand(idx)">Show less</button>
                 </template>
                 <template v-else>
-                  {{ truncatedSummary(incident.summary) }}
+                  {{ truncateText(incident.summary, 80) }}
                   <button class="expand-btn" @click="toggleExpand(idx)">Show more</button>
                 </template>
               </template>

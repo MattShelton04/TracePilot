@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { searchContent } from '@tracepilot/client';
 import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tracepilot/types';
-import { formatRelativeTime } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -23,20 +23,8 @@ const modalRef = ref<HTMLElement | null>(null);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ── Content type config ──────────────────────────────────────
-const contentTypeConfig: Record<string, { label: string; color: string }> = {
-  user_message: { label: 'User Message', color: '#4ade80' },
-  assistant_message: { label: 'Assistant Message', color: '#60a5fa' },
-  reasoning: { label: 'Reasoning', color: '#a78bfa' },
-  tool_call: { label: 'Tool Call', color: '#f59e0b' },
-  tool_error: { label: 'Tool Error', color: '#ef4444' },
-  error: { label: 'Error', color: '#ef4444' },
-  warning: { label: 'Warning', color: '#eab308' },
-  compaction_summary: { label: 'Compaction', color: '#818cf8' },
-  system_message: { label: 'System Message', color: '#94a3b8' },
-  subagent: { label: 'Subagent', color: '#c084fc' },
-  checkpoint: { label: 'Checkpoint', color: '#06b6d4' },
-};
+// ── Content type config (shared) ─────────────────────────────
+const contentTypeConfig = CONTENT_TYPE_CONFIG;
 
 // ── Grouped results ──────────────────────────────────────────
 interface ResultGroup {
