@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-24
+
+### Added
+- **Search browse mode** with presets (All Errors, User Messages, Tool Calls) and event-level deep-linking to exact tool calls (#87)
+- **Unified Session View** in Agent Tree with failure reasons and expandable outputs (#86)
+- **Worktree favourites** (#85)
+- **Accessibility**: focus trap, ARIA semantics, and keyboard navigation in search palette and tabs (#102)
+
+### Changed
+- **Security hardening**: tightened CSP and trimmed Tauri capabilities (#98, #102)
+- **Typed error handling**: all Tauri commands return structured `BindingsError` instead of raw strings (#102)
+- **Modular Rust backend**: split monolithic `lib.rs` into domain command modules (#102)
+- Read-only DB connections for all query operations (#87)
+- Significant deduplication: shared composables, formatters, chart styles, and SQL helpers (#81, #88, #90, #91, #93, #96)
+
+### Fixed
+- Race conditions in preferences, search facets, and session detail loads via generation tokens (#98)
+- Turn model attribution no longer inherits from subagent child tool calls (#86)
+- FTS query sanitisation for special characters (#87)
+- Setup wizard restart when shutdown midway through (#101)
+- External link handling, CLI argument validation, TypeScript/Rust type alignment (#98, #103)
+
 ## [0.4.0] - 2026-03-23
 
 ### Added
