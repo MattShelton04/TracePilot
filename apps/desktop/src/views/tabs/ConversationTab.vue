@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -48,22 +48,37 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
 // Tries event-level first (via ?event=N), falls back to turn-level (via ?turn=N).
 // Uses IntersectionObserver so the highlight animation only starts once
 // the element is actually visible (loading can take a while).
+// Track timers and observers for cleanup on unmount
+const activeTimers: ReturnType<typeof setTimeout>[] = [];
+let activeObserver: IntersectionObserver | null = null;
+
 function scrollAndHighlight(el: HTMLElement) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+  activeObserver?.disconnect();
   const observer = new IntersectionObserver(
     (entries) => {
       if (entries[0]?.isIntersecting) {
         observer.disconnect();
+        if (activeObserver === observer) activeObserver = null;
         el.classList.add('turn-highlight');
-        setTimeout(() => el.classList.remove('turn-highlight'), 4000);
+        const t = setTimeout(() => el.classList.remove('turn-highlight'), 4000);
+        activeTimers.push(t);
       }
     },
     { threshold: 0.3 },
   );
+  activeObserver = observer;
   observer.observe(el);
-  setTimeout(() => observer.disconnect(), 10000);
+  const fallback = setTimeout(() => observer.disconnect(), 10000);
+  activeTimers.push(fallback);
 }
+
+onBeforeUnmount(() => {
+  activeObserver?.disconnect();
+  for (const t of activeTimers) clearTimeout(t);
+  activeTimers.length = 0;
+});
 
 function scrollToTarget(turnIndex: number, eventIndex: number | null) {
   if (eventIndex != null) {

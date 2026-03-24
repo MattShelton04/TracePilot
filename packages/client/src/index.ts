@@ -31,20 +31,14 @@ import { createDefaultConfig } from '@tracepilot/types';
 
 import { isTauri, invokePlugin } from './invoke.js';
 
-import {
-  getMockSessionDetail,
-  MOCK_ANALYTICS,
-  MOCK_CHECKPOINTS,
-  MOCK_CODE_IMPACT,
-  MOCK_EVENTS,
-  MOCK_EXPORT_RESULT,
-  MOCK_HEALTH_SCORING,
-  MOCK_SESSIONS,
-  MOCK_SHUTDOWN_METRICS,
-  MOCK_TODOS,
-  MOCK_TOOL_ANALYSIS,
-  MOCK_TURNS,
-} from './mock/index.js';
+// Lazy-load mocks only when needed (non-Tauri / dev mode)
+let mocksModule: typeof import('./mock/index.js') | null = null;
+async function getMocks() {
+  if (!mocksModule) {
+    mocksModule = await import('./mock/index.js');
+  }
+  return mocksModule;
+}
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
@@ -54,15 +48,16 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   return getMockData<T>(cmd, args);
 }
 
-function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
+async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mocks = await getMocks();
   const mockSessionId = typeof args?.sessionId === 'string' ? args.sessionId : 'mock-id';
 
   // Mock search filters the session list
   const searchQuery = typeof args?.query === 'string' ? args.query.toLowerCase() : '';
 
-  const mocks: Record<string, unknown> = {
-    list_sessions: MOCK_SESSIONS,
-    get_session_detail: getMockSessionDetail(mockSessionId),
+  const mockMap: Record<string, unknown> = {
+    list_sessions: mocks.MOCK_SESSIONS,
+    get_session_detail: mocks.getMockSessionDetail(mockSessionId),
     get_session_incidents: [
       {
         eventType: 'error',
@@ -81,25 +76,25 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
         detailJson: { preCompactionTokens: 45000, postCompactionTokens: 12000 },
       },
     ],
-    get_session_turns: { turns: MOCK_TURNS, eventsFileSize: 1024 } as TurnsResponse,
+    get_session_turns: { turns: mocks.MOCK_TURNS, eventsFileSize: 1024 } as TurnsResponse,
     check_session_freshness: { eventsFileSize: 1024 } as FreshnessResponse,
-    get_session_events: MOCK_EVENTS,
-    get_session_todos: MOCK_TODOS,
-    get_session_checkpoints: MOCK_CHECKPOINTS,
+    get_session_events: mocks.MOCK_EVENTS,
+    get_session_todos: mocks.MOCK_TODOS,
+    get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: '# Mock Plan\n\n1. Task one\n2. Task two' },
-    get_shutdown_metrics: MOCK_SHUTDOWN_METRICS,
+    get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
     search_sessions: searchQuery
-      ? MOCK_SESSIONS.filter((s) =>
+      ? mocks.MOCK_SESSIONS.filter((s) =>
           [s.summary, s.repository, s.branch, s.id].some((f) =>
             f?.toLowerCase().includes(searchQuery),
           ),
         )
-      : MOCK_SESSIONS,
+      : mocks.MOCK_SESSIONS,
     reindex_sessions: [0, 0] as [number, number],
     reindex_sessions_full: [0, 0] as [number, number],
-    get_analytics: MOCK_ANALYTICS,
-    get_tool_analysis: MOCK_TOOL_ANALYSIS,
-    get_code_impact: MOCK_CODE_IMPACT,
+    get_analytics: mocks.MOCK_ANALYTICS,
+    get_tool_analysis: mocks.MOCK_TOOL_ANALYSIS,
+    get_code_impact: mocks.MOCK_CODE_IMPACT,
     check_config_exists: true,
     get_config: createDefaultConfig({
       paths: {
@@ -114,7 +109,7 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     factory_reset: undefined,
     get_tool_result: (() => {
       const toolCallId = typeof args?.toolCallId === 'string' ? args.toolCallId : '';
-      for (const turn of MOCK_TURNS) {
+      for (const turn of mocks.MOCK_TURNS) {
         const tc = turn.toolCalls?.find((t) => t.toolCallId === toolCallId);
         if (tc && tc.resultContent != null) return tc.resultContent;
       }
@@ -157,10 +152,10 @@ function getMockData<T>(cmd: string, args?: Record<string, unknown>): T {
     get_search_tool_names: [] as string[],
     rebuild_search_index: [0, 0] as [number, number],
   };
-  if (!(cmd in mocks)) {
+  if (!(cmd in mockMap)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
   }
-  return mocks[cmd] as T;
+  return mockMap[cmd] as T;
 }
 
 export async function listSessions(options?: {
@@ -347,7 +342,8 @@ export async function getCodeImpact(options?: {
 export async function getHealthScores(): Promise<HealthScoringData> {
   // STUB: No Tauri command exists yet for health scores.
   // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_health_scores')
-  return MOCK_HEALTH_SCORING;
+  const m = await getMocks();
+  return m.MOCK_HEALTH_SCORING;
 }
 
 /**
@@ -358,7 +354,8 @@ export async function getHealthScores(): Promise<HealthScoringData> {
 export async function exportSession(_config: ExportConfig): Promise<ExportResult> {
   // STUB: No Tauri command exists yet for export.
   // STUB: When implemented, this should call: invoke('plugin:tracepilot|export_session', { config })
-  return MOCK_EXPORT_RESULT;
+  const m = await getMocks();
+  return m.MOCK_EXPORT_RESULT;
 }
 
 // ── Setup / Configuration Commands ────────────────────────────
