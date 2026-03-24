@@ -141,7 +141,17 @@ pub fn migration_diffs(
     }
 
     // Also check for files that exist in `from` but not in `to` (removed agents)
-    for entry in std::fs::read_dir(&from_dir)? {
+    let from_entries = match std::fs::read_dir(&from_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(OrchestratorError::NotFound(format!(
+                "Source version definitions not found: {}",
+                from_dir.display()
+            )));
+        }
+        Err(e) => return Err(e.into()),
+    };
+    for entry in from_entries {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
@@ -184,9 +194,15 @@ pub fn migrate_agent(
     let from_file = universal.join(from_version).join("definitions").join(file_name);
     let to_file = universal.join(to_version).join("definitions").join(file_name);
 
-    // Backup the target first
+    // Backup the target first (skip if target doesn't exist yet — new agent)
     let backup_dir = crate::config_injector::backup_dir()?;
-    crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version))?;
+    match crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version)) {
+        Ok(_) => {}
+        Err(OrchestratorError::NotFound(_)) => {
+            // Target doesn't exist yet — nothing to back up for new agents
+        }
+        Err(e) => return Err(e),
+    }
 
     // Copy source to destination via temp file — avoid TOCTOU by handling copy errors directly
     let parent = to_file.parent().ok_or_else(|| {

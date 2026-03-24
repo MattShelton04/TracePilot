@@ -297,17 +297,17 @@ impl IndexDb {
             total_calls = total_calls.saturating_add(calls_u32);
             total_success = total_success.saturating_add(success_u32);
             total_failure = total_failure.saturating_add(failure_u32);
-            total_duration += dur as f64;
+            total_duration += dur.max(0) as f64;
             total_with_duration = total_with_duration.saturating_add(dur_count_u32);
 
-            let determined = success + failure;
+            let determined = success_u32 + failure_u32;
             let success_rate = if determined > 0 {
-                success as f64 / determined as f64
+                success_u32 as f64 / determined as f64
             } else {
                 0.0
             };
-            let avg_dur = if dur_count > 0 {
-                dur as f64 / dur_count as f64
+            let avg_dur = if dur_count_u32 > 0 {
+                dur.max(0) as f64 / dur_count_u32 as f64
             } else {
                 0.0
             };
@@ -317,7 +317,7 @@ impl IndexDb {
                 call_count: calls_u32,
                 success_rate,
                 avg_duration_ms: avg_dur,
-                total_duration_ms: dur as f64,
+                total_duration_ms: dur.max(0) as f64,
             });
         }
 
