@@ -359,3 +359,93 @@ pub fn create_shared_config() -> SharedConfig {
     let config = TracePilotConfig::load();
     Arc::new(RwLock::new(config))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_version_matches_default() {
+        let config = TracePilotConfig::default();
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+    }
+
+    #[test]
+    fn migrate_v1_to_v2() {
+        let mut config = TracePilotConfig::default();
+        config.version = 1;
+        assert!(config.migrate());
+        assert_eq!(config.version, 2);
+    }
+
+    #[test]
+    fn migrate_current_version_is_noop() {
+        let mut config = TracePilotConfig::default();
+        assert!(!config.migrate());
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+    }
+
+    #[test]
+    fn migrate_future_version_is_noop() {
+        let mut config = TracePilotConfig::default();
+        config.version = 999;
+        assert!(!config.migrate());
+        assert_eq!(config.version, 999);
+    }
+
+    #[test]
+    fn migrate_v0_bumps_through_all_versions() {
+        let mut config = TracePilotConfig::default();
+        config.version = 0;
+        assert!(config.migrate());
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+    }
+
+    #[test]
+    fn roundtrip_toml_serialization() {
+        let config = TracePilotConfig::default();
+        let toml_str = toml::to_string_pretty(&config).expect("serialize");
+        let parsed: TracePilotConfig = toml::from_str(&toml_str).expect("deserialize");
+        assert_eq!(parsed.version, config.version);
+        assert_eq!(parsed.paths.index_db_path, config.paths.index_db_path);
+    }
+
+    #[test]
+    fn deserialize_missing_optional_sections_uses_defaults() {
+        let minimal = r#"
+            version = 2
+
+            [paths]
+            indexDbPath = "~/.copilot/tracepilot/index.db"
+            sessionStateDir = "~/.copilot/tracepilot"
+        "#;
+        let config: TracePilotConfig = toml::from_str(minimal).expect("parse minimal config");
+        assert_eq!(config.version, 2);
+        assert_eq!(config.general.auto_index_on_launch, true);
+        assert_eq!(config.ui.theme, "dark");
+        assert_eq!(config.features.render_markdown, true);
+    }
+
+    #[test]
+    fn deserialize_v1_config_and_migrate() {
+        let v1_toml = r#"
+            version = 1
+
+            [paths]
+            indexDbPath = "/custom/path/index.db"
+            sessionStateDir = "/custom/path"
+
+            [ui]
+            theme = "light"
+        "#;
+        let mut config: TracePilotConfig = toml::from_str(v1_toml).expect("parse v1 config");
+        assert_eq!(config.version, 1);
+        assert!(config.migrate());
+        assert_eq!(config.version, 2);
+        // Preserved user settings survive migration
+        assert_eq!(config.paths.index_db_path, "/custom/path/index.db");
+        assert_eq!(config.ui.theme, "light");
+        // New v2 field gets default value
+        assert_eq!(config.features.render_markdown, true);
+    }
+}
