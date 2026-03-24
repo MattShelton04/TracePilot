@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
 import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
-import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog } from '@tracepilot/ui';
+import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog, normalizePath, pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -98,11 +98,9 @@ const computedWorktreePath = computed(() => {
   if (!newBranch.value.trim()) return '';
   const repoPath = createModalRepoPath.value;
   if (!repoPath) return '';
-  const normalized = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
-  const parts = normalized.split('/');
-  const repoName = parts[parts.length - 1];
-  const parent = parts.slice(0, -1).join('/');
-  const sanitized = newBranch.value.trim().replace(/[\/\s~^:?*[\]\\<>|"]/g, '-');
+  const repoName = pathBasename(repoPath);
+  const parent = pathDirname(repoPath);
+  const sanitized = sanitizeBranchForPath(newBranch.value);
   return `${parent}/${repoName}-${sanitized}`;
 });
 

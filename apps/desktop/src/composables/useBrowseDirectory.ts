@@ -3,6 +3,13 @@
  * Falls back to browser prompt() when running outside Tauri (dev mode).
  */
 
+/** Strip null bytes and control characters from user-provided paths. */
+function sanitizePath(raw: string | null): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\x00-\x1f]/g, '').trim();
+  return cleaned || null;
+}
+
 /**
  * Opens a native directory picker dialog (Tauri) or falls back to prompt().
  * Returns the selected path or null if cancelled.
@@ -16,7 +23,7 @@ export async function browseForDirectory(options?: {
       options?.title ?? 'Select directory:',
       options?.defaultPath ?? '',
     );
-    return input || null;
+    return sanitizePath(input);
   }
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
@@ -31,7 +38,7 @@ export async function browseForDirectory(options?: {
       options?.title ?? 'Select directory:',
       options?.defaultPath ?? '',
     );
-    return input || null;
+    return sanitizePath(input);
   }
 }
 
@@ -48,7 +55,7 @@ export async function browseForSavePath(options?: {
       options?.title ?? 'Select file path:',
       options?.defaultPath ?? '',
     );
-    return input || null;
+    return sanitizePath(input);
   }
   try {
     const { save } = await import('@tauri-apps/plugin-dialog');
@@ -62,6 +69,6 @@ export async function browseForSavePath(options?: {
       options?.title ?? 'Select file path:',
       options?.defaultPath ?? '',
     );
-    return input || null;
+    return sanitizePath(input);
   }
 }

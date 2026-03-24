@@ -140,10 +140,16 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     }
   }
 
+  let branchGeneration = 0;
+
   async function loadBranches(repoPath: string) {
+    const gen = ++branchGeneration;
     try {
-      branches.value = await listBranchesApi(repoPath);
+      const result = await listBranchesApi(repoPath);
+      if (gen !== branchGeneration) return;
+      branches.value = result;
     } catch {
+      if (gen !== branchGeneration) return;
       branches.value = [];
     }
   }

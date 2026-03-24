@@ -67,7 +67,7 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 /// Uses atomic write (write to temp then rename) for safety.
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
     // Validate YAML is parseable before writing
-    let _: serde_yaml::Value = serde_yaml::from_str(yaml_content)
+    let _: serde_yml::Value = serde_yml::from_str(yaml_content)
         .map_err(|e| OrchestratorError::Config(format!("Invalid YAML: {e}")))?;
 
     let parent = path
@@ -305,7 +305,7 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 
 fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
     let content = std::fs::read_to_string(path)?;
-    let value: serde_yaml::Value = serde_yaml::from_str(&content)?;
+    let value: serde_yml::Value = serde_yml::from_str(&content)?;
 
     let name = value
         .get("name")

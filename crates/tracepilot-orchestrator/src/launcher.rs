@@ -95,7 +95,8 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
         (repo.to_path_buf(), None)
     };
 
-    // Sanitize CLI command — allow only safe characters
+    // Sanitize CLI command — allow only safe characters.
+    // Colon is needed for Windows drive letters (e.g., C:\path\to\copilot).
     let cli = &config.cli_command;
     if !cli.chars().all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c)) {
         return Err(OrchestratorError::Launch(

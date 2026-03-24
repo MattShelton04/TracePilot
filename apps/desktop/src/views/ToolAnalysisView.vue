@@ -239,7 +239,7 @@ const successFailureChart = computed(() => {
                       :y="row.y + BAR_HEIGHT / 2 + 4"
                       font-family="Inter, sans-serif"
                       font-size="12"
-                      fill="#a1a1aa"
+                      fill="var(--text-placeholder)"
                       text-anchor="end"
                     >{{ row.tool.name }}</text>
                     <!-- Success bar -->
@@ -271,7 +271,7 @@ const successFailureChart = computed(() => {
                       :y="row.y + BAR_HEIGHT / 2 + 4"
                       font-family="Inter, sans-serif"
                       font-size="10"
-                      fill="#a1a1aa"
+                      fill="var(--text-placeholder)"
                     >{{ row.successCount }} / {{ row.failureCount }}</text>
                   </template>
                   <!-- Invisible overlay for mouse capture -->
@@ -382,7 +382,7 @@ const successFailureChart = computed(() => {
   gap: 16px;
   margin-bottom: 12px;
   font-size: 0.75rem;
-  color: #a1a1aa;
+  color: var(--text-placeholder);
 }
 
 .legend-dot {

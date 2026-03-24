@@ -27,7 +27,7 @@ pub fn parse_workspace_yaml(path: &Path) -> Result<WorkspaceMetadata> {
         source: Some(Box::new(e)),
     })?;
     let metadata: WorkspaceMetadata =
-        serde_yaml::from_str(&content).map_err(|e| TracePilotError::ParseError {
+        serde_yml::from_str(&content).map_err(|e| TracePilotError::ParseError {
             context: format!("Failed to parse {}", path.display()),
             source: Some(Box::new(e)),
         })?;
@@ -46,7 +46,7 @@ id: c86fe369-c858-4d91-81da-203c5e276e33
 cwd: /home/user/project
 summary: "Implemented login feature"
 "#;
-        let meta: WorkspaceMetadata = serde_yaml::from_str(yaml).unwrap();
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
         assert_eq!(meta.id, "c86fe369-c858-4d91-81da-203c5e276e33");
         assert_eq!(meta.summary.as_deref(), Some("Implemented login feature"));
     }
@@ -65,7 +65,7 @@ summary_count: 5
 created_at: "2026-03-10T07:14:50.780Z"
 updated_at: "2026-03-10T07:15:00.000Z"
 "#;
-        let meta: WorkspaceMetadata = serde_yaml::from_str(yaml).unwrap();
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
         assert_eq!(meta.id, "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
         assert_eq!(meta.cwd.as_deref(), Some("/home/user/project"));
         assert_eq!(meta.git_root.as_deref(), Some("/home/user/project"));
@@ -81,7 +81,7 @@ updated_at: "2026-03-10T07:15:00.000Z"
     #[test]
     fn test_parse_workspace_missing_optional_fields() {
         let yaml = "id: minimal-id-only\n";
-        let meta: WorkspaceMetadata = serde_yaml::from_str(yaml).unwrap();
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
         assert_eq!(meta.id, "minimal-id-only");
         assert!(meta.cwd.is_none());
         assert!(meta.git_root.is_none());
@@ -101,7 +101,7 @@ id: date-test
 created_at: "2026-01-15T12:00:00Z"
 updated_at: "2026-06-20T18:30:45.123Z"
 "#;
-        let meta: WorkspaceMetadata = serde_yaml::from_str(yaml).unwrap();
+        let meta: WorkspaceMetadata = serde_yml::from_str(yaml).unwrap();
         assert_eq!(meta.id, "date-test");
         let created = meta.created_at.unwrap();
         assert_eq!(created.year(), 2026);

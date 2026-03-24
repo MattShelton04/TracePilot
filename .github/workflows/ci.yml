@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+  # Uncomment to enable CI on pull requests:
+  # pull_request:
+  #   branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -48,19 +51,31 @@ jobs:
           fi
           echo "✓ Version OK: $CARGO_VER"
 
-      - name: Rust tests
-        run: cargo test --workspace --exclude tracepilot-desktop
-
-      # Temporarily disabled Rust lint step.
-      # - name: Rust lint
-      #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
-
-      - name: Frontend tests
-        run: pnpm test
+      # ── Build checks (fast fail before slower tests) ────────
+      - name: Rust build check
+        run: cargo check --workspace --exclude tracepilot-desktop
 
       - name: Typecheck
         run: pnpm typecheck
 
-      # Temporarily disabled pnpm lint step.
-      # - name: Lint
+      - name: Frontend build
+        run: pnpm build
+
+      # ── Tests ───────────────────────────────────────────────
+      - name: Rust tests
+        run: cargo test --workspace --exclude tracepilot-desktop
+
+      - name: Frontend tests
+        run: pnpm test
+
+      # ── Security ────────────────────────────────────────────
+      - name: Security audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Temporarily disabled lint steps.
+      # - name: Rust lint
+      #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
+      # - name: Frontend lint
       #   run: pnpm lint

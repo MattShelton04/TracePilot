@@ -147,8 +147,8 @@ impl IndexDb {
                 params_from_iter(refs.iter().copied()),
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )?;
-        let total_cache_read_tokens = total_cache_read_tokens as u64;
-        let total_input_tokens = total_input_tokens as u64;
+        let total_cache_read_tokens = total_cache_read_tokens.max(0) as u64;
+        let total_input_tokens = total_input_tokens.max(0) as u64;
         let cache_hit_rate = if total_input_tokens > 0 {
             (total_cache_read_tokens as f64 / total_input_tokens as f64) * 100.0
         } else {
@@ -208,17 +208,17 @@ impl IndexDb {
             .query_map(params_from_iter(refs.iter().copied()), |row| {
                 Ok(DayIncidents {
                     date: row.get(0)?,
-                    errors: row.get::<_, i64>(1)? as u64,
-                    rate_limits: row.get::<_, i64>(2)? as u64,
-                    compactions: row.get::<_, i64>(3)? as u64,
-                    truncations: row.get::<_, i64>(4)? as u64,
+                    errors: row.get::<_, i64>(1)?.max(0) as u64,
+                    rate_limits: row.get::<_, i64>(2)?.max(0) as u64,
+                    compactions: row.get::<_, i64>(3)?.max(0) as u64,
+                    truncations: row.get::<_, i64>(4)?.max(0) as u64,
                 })
             })?
             .collect::<std::result::Result<_, _>>()?;
 
         Ok(AnalyticsData {
             total_sessions,
-            total_tokens: total_tokens as u64,
+            total_tokens: total_tokens.max(0) as u64,
             total_cost,
             total_premium_requests,
             average_health_score: avg_health,
@@ -240,9 +240,9 @@ impl IndexDb {
                 critical_count,
             },
             sessions_with_errors,
-            total_rate_limits: total_rate_limits as u64,
-            total_compactions: total_compactions as u64,
-            total_truncations: total_truncations as u64,
+            total_rate_limits: total_rate_limits.max(0) as u64,
+            total_compactions: total_compactions.max(0) as u64,
+            total_truncations: total_truncations.max(0) as u64,
             incidents_by_day,
         })
     }
@@ -290,30 +290,34 @@ impl IndexDb {
 
         for row in rows {
             let (name, calls, success, failure, dur, dur_count) = row?;
-            total_calls += calls as u32;
-            total_success += success as u32;
-            total_failure += failure as u32;
-            total_duration += dur as f64;
-            total_with_duration += dur_count as u32;
+            let calls_u32 = u32::try_from(calls.max(0)).unwrap_or(u32::MAX);
+            let success_u32 = u32::try_from(success.max(0)).unwrap_or(u32::MAX);
+            let failure_u32 = u32::try_from(failure.max(0)).unwrap_or(u32::MAX);
+            let dur_count_u32 = u32::try_from(dur_count.max(0)).unwrap_or(u32::MAX);
+            total_calls = total_calls.saturating_add(calls_u32);
+            total_success = total_success.saturating_add(success_u32);
+            total_failure = total_failure.saturating_add(failure_u32);
+            total_duration += dur.max(0) as f64;
+            total_with_duration = total_with_duration.saturating_add(dur_count_u32);
 
-            let determined = success + failure;
+            let determined = success_u32 + failure_u32;
             let success_rate = if determined > 0 {
-                success as f64 / determined as f64
+                success_u32 as f64 / determined as f64
             } else {
                 0.0
             };
-            let avg_dur = if dur_count > 0 {
-                dur as f64 / dur_count as f64
+            let avg_dur = if dur_count_u32 > 0 {
+                dur.max(0) as f64 / dur_count_u32 as f64
             } else {
                 0.0
             };
 
             tools.push(ToolUsageEntry {
                 name,
-                call_count: calls as u32,
+                call_count: calls_u32,
                 success_rate,
                 avg_duration_ms: avg_dur,
-                total_duration_ms: dur as f64,
+                total_duration_ms: dur.max(0) as f64,
             });
         }
 
@@ -504,8 +508,8 @@ impl IndexDb {
 
         Ok(CodeImpactData {
             files_modified,
-            lines_added: total_added as u64,
-            lines_removed: total_removed as u64,
+            lines_added: total_added.max(0) as u64,
+            lines_removed: total_removed.max(0) as u64,
             net_change,
             file_type_breakdown,
             most_modified_files,

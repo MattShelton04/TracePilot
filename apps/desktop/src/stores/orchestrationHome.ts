@@ -129,13 +129,22 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     }
   }
 
+  /** Compute aggregate stats from a list of worktrees. */
+  function computeWorktreeStats(worktrees: WorktreeInfo[]) {
+    return {
+      total: worktrees.length,
+      stale: worktrees.filter((w) => w.status === 'stale').length,
+      diskUsage: worktrees.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
+    };
+  }
+
   async function loadWorktreeStats(repoPath?: string) {
     if (!repoPath) return;
     try {
-      const wts = await listWorktrees(repoPath);
-      worktreeCount.value = wts.length;
-      staleWorktreeCount.value = wts.filter((w: WorktreeInfo) => w.status === 'stale').length;
-      totalDiskUsage.value = wts.reduce((sum: number, w: WorktreeInfo) => sum + (w.diskUsageBytes ?? 0), 0);
+      const stats = computeWorktreeStats(await listWorktrees(repoPath));
+      worktreeCount.value = stats.total;
+      staleWorktreeCount.value = stats.stale;
+      totalDiskUsage.value = stats.diskUsage;
     } catch {
       // Non-critical
     }
@@ -156,10 +165,10 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       );
       for (const result of results) {
         if (result.status === 'fulfilled') {
-          const wts = result.value;
-          totalWt += wts.length;
-          staleWt += wts.filter((w: WorktreeInfo) => w.status === 'stale').length;
-          totalDisk += wts.reduce((sum: number, w: WorktreeInfo) => sum + (w.diskUsageBytes ?? 0), 0);
+          const stats = computeWorktreeStats(result.value);
+          totalWt += stats.total;
+          staleWt += stats.stale;
+          totalDisk += stats.diskUsage;
         }
       }
 

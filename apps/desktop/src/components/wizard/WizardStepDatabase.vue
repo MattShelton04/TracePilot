@@ -14,6 +14,16 @@ const emit = defineEmits<{
   browse: [];
   reset: [];
 }>();
+
+function sanitizePath(raw: string): string {
+  // Strip null bytes and control characters
+  return raw.replace(/[\x00-\x1f]/g, '');
+}
+
+function onPathInput(e: Event) {
+  const raw = (e.target as HTMLInputElement).value;
+  emit('update:dbPath', sanitizePath(raw));
+}
 </script>
 
 <template>
@@ -33,7 +43,7 @@ const emit = defineEmits<{
           class="path-input"
           placeholder="~/.copilot/tracepilot/index.db"
           spellcheck="false"
-          @input="emit('update:dbPath', ($event.target as HTMLInputElement).value)"
+          @input="onPathInput"
         />
         <button class="btn-browse" @click="emit('browse')">Browse…</button>
         <button

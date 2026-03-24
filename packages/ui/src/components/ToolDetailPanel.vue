@@ -116,14 +116,14 @@ defineEmits<{
     <slot name="before-renderers" />
 
     <!-- Arguments (rich renderer) -->
-    <ToolArgsRenderer :tc="tc" :rich-enabled="richEnabled ?? false" />
+    <ToolArgsRenderer :tc="tc" :rich-enabled="richEnabled ?? true" />
 
     <!-- Result (rich renderer) -->
     <div v-if="tc.resultContent || (tc.toolCallId && fullResult)" class="tool-result-section">
       <ToolResultRenderer
         :tc="tc"
         :content="fullResult ?? tc.resultContent ?? ''"
-        :rich-enabled="richEnabled ?? false"
+        :rich-enabled="richEnabled ?? true"
         :is-truncated="!!(tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResult)"
         :loading="loadingFullResult ?? false"
         @load-full="$emit('load-full-result', tc.toolCallId!)"

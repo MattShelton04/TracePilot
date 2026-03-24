@@ -879,7 +879,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     :y="bar.truncRect.y"
                     :width="incidentChart.barW"
                     :height="bar.truncRect.h"
-                    fill="var(--text-tertiary, #9ca3af)"
+                    fill="var(--text-tertiary, #71717a)"
                     rx="1"
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
@@ -891,7 +891,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     :y="bar.compRect.y"
                     :width="incidentChart.barW"
                     :height="bar.compRect.h"
-                    fill="var(--chart-secondary, #6366f1)"
+                    fill="var(--chart-secondary, #a78bfa)"
                     rx="1"
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
@@ -903,7 +903,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     :y="bar.otherRect.y"
                     :width="incidentChart.barW"
                     :height="bar.otherRect.h"
-                    fill="var(--color-danger, #ef4444)"
+                    fill="var(--danger-fg)"
                     rx="1"
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
@@ -915,7 +915,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     :y="bar.rlRect.y"
                     :width="incidentChart.barW"
                     :height="bar.rlRect.h"
-                    fill="var(--color-warning, #f59e0b)"
+                    fill="var(--warning-fg)"
                     rx="1"
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
@@ -950,10 +950,10 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
               >{{ tooltip.content }}</div>
               <!-- Legend -->
               <div class="incident-chart-legend">
-                <span class="legend-item"><span class="legend-dot" style="background: var(--color-warning, #f59e0b);"></span> Rate Limits</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--color-danger, #ef4444);"></span> Other Errors</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary, #6366f1);"></span> Compactions</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary, #9ca3af);"></span> Truncations</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--warning-fg);"></span> Rate Limits</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--danger-fg);"></span> Other Errors</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary);"></span> Compactions</span>
+                <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary);"></span> Truncations</span>
               </div>
             </div>
           </div>
@@ -1098,23 +1098,23 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 }
 
 .stat-card--incident-error {
-  border-left: 3px solid var(--color-danger, #ef4444);
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 6%, var(--surface-secondary));
+  border-left: 3px solid var(--danger-fg);
+  background: color-mix(in srgb, var(--danger-fg) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-ratelimit {
-  border-left: 3px solid var(--color-warning, #f59e0b);
-  background: color-mix(in srgb, var(--color-warning, #f59e0b) 6%, var(--surface-secondary));
+  border-left: 3px solid var(--warning-fg);
+  background: color-mix(in srgb, var(--warning-fg) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-compaction {
-  border-left: 3px solid var(--chart-secondary, #6366f1);
-  background: color-mix(in srgb, var(--chart-secondary, #6366f1) 6%, var(--surface-secondary));
+  border-left: 3px solid var(--chart-secondary);
+  background: color-mix(in srgb, var(--chart-secondary) 6%, var(--canvas-subtle));
 }
 
 .stat-card--incident-truncation {
-  border-left: 3px solid var(--text-tertiary, #9ca3af);
-  background: color-mix(in srgb, var(--text-tertiary, #9ca3af) 6%, var(--surface-secondary));
+  border-left: 3px solid var(--text-tertiary);
+  background: color-mix(in srgb, var(--text-tertiary) 6%, var(--canvas-subtle));
 }
 
 .incident-chart-legend {
@@ -1166,8 +1166,8 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 .cache-progress-track {
   height: 8px;
   border-radius: 4px;
-  background: var(--border-subtle, rgba(255,255,255,0.12));
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+  background: var(--border-subtle);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
   overflow: hidden;
 }
 
@@ -1178,7 +1178,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 }
 
 .cache-progress-fill--high  { background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light)); }
-.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), #fde68a); }
+.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), var(--chart-warning-light)); }
 .cache-progress-fill--low   { background: linear-gradient(90deg, var(--chart-danger), var(--chart-danger-light)); }
 
 .mt-3 {
@@ -1204,18 +1204,18 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 }
 
 .health-dist-card--healthy {
-  background: rgba(52, 211, 153, 0.08);
-  border-color: rgba(52, 211, 153, 0.2);
+  background: var(--success-subtle);
+  border-color: var(--success-muted);
 }
 
 .health-dist-card--attention {
-  background: rgba(251, 191, 36, 0.08);
-  border-color: rgba(251, 191, 36, 0.2);
+  background: var(--warning-subtle);
+  border-color: var(--warning-muted);
 }
 
 .health-dist-card--critical {
-  background: rgba(251, 113, 133, 0.08);
-  border-color: rgba(251, 113, 133, 0.2);
+  background: var(--danger-subtle);
+  border-color: var(--danger-muted);
 }
 
 .health-dist-count {

@@ -6,8 +6,15 @@
   "author": "Matt Shelton (@MattShelton04)",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/MattShelton04/TracePilot",
+  "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"

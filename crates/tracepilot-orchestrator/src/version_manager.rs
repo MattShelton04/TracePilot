@@ -82,23 +82,22 @@ pub fn migration_diffs(
     let from_dir = universal.join(from_version).join("definitions");
     let to_dir = universal.join(to_version).join("definitions");
 
-    if !from_dir.exists() {
-        return Err(OrchestratorError::NotFound(format!(
-            "Source version definitions not found: {}",
-            from_dir.display()
-        )));
-    }
-    if !to_dir.exists() {
-        return Err(OrchestratorError::NotFound(format!(
-            "Target version definitions not found: {}",
-            to_dir.display()
-        )));
-    }
+    // Read directories directly — avoid TOCTOU by handling errors from the IO operations
+    let to_entries = match std::fs::read_dir(&to_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(OrchestratorError::NotFound(format!(
+                "Target version definitions not found: {}",
+                to_dir.display()
+            )));
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     let mut diffs = Vec::new();
 
     // Compare each agent YAML in the target version
-    for entry in std::fs::read_dir(&to_dir)? {
+    for entry in to_entries {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
@@ -108,10 +107,10 @@ pub fn migration_diffs(
         let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
         let from_path = from_dir.join(&file_name);
 
-        let old_content = if from_path.exists() {
-            std::fs::read_to_string(&from_path)?
-        } else {
-            String::new()
+        let old_content = match std::fs::read_to_string(&from_path) {
+            Ok(c) => c,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(e) => return Err(e.into()),
         };
         let new_content = std::fs::read_to_string(&path)?;
 
@@ -142,7 +141,17 @@ pub fn migration_diffs(
     }
 
     // Also check for files that exist in `from` but not in `to` (removed agents)
-    for entry in std::fs::read_dir(&from_dir)? {
+    let from_entries = match std::fs::read_dir(&from_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(OrchestratorError::NotFound(format!(
+                "Source version definitions not found: {}",
+                from_dir.display()
+            )));
+        }
+        Err(e) => return Err(e.into()),
+    };
+    for entry in from_entries {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
@@ -185,21 +194,31 @@ pub fn migrate_agent(
     let from_file = universal.join(from_version).join("definitions").join(file_name);
     let to_file = universal.join(to_version).join("definitions").join(file_name);
 
-    if !from_file.exists() {
-        return Err(OrchestratorError::NotFound(format!(
-            "Source file not found: {}",
-            from_file.display()
-        )));
+    // Backup the target first (skip if target doesn't exist yet — new agent)
+    let backup_dir = crate::config_injector::backup_dir()?;
+    match crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version)) {
+        Ok(_) => {}
+        Err(OrchestratorError::NotFound(_)) => {
+            // Target doesn't exist yet — nothing to back up for new agents
+        }
+        Err(e) => return Err(e),
     }
 
-    // Backup the target first
-    let backup_dir = crate::config_injector::backup_dir()?;
-    crate::config_injector::create_backup(&to_file, &backup_dir, &format!("pre-migrate-{}", to_version))?;
-
-    // Atomic copy
-    let parent = to_file.parent().unwrap();
+    // Copy source to destination via temp file — avoid TOCTOU by handling copy errors directly
+    let parent = to_file.parent().ok_or_else(|| {
+        OrchestratorError::Config(format!("Invalid destination path: {}", to_file.display()))
+    })?;
     let temp = parent.join(format!(".migrate-tmp-{}", file_name));
-    std::fs::copy(&from_file, &temp)?;
+    match std::fs::copy(&from_file, &temp) {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(OrchestratorError::NotFound(format!(
+                "Source file not found: {}",
+                from_file.display()
+            )));
+        }
+        Err(e) => return Err(e.into()),
+    }
     std::fs::rename(&temp, &to_file)?;
 
     Ok(())

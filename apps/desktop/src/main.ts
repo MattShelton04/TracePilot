@@ -29,5 +29,18 @@ app.use(createPinia());
 app.use(router);
 app.mount("#root");
 
+// Window-level error handlers — catch errors that escape Vue's boundary
+window.addEventListener('error', (event) => {
+  const msg = `[window.onerror] ${event.error instanceof Error ? event.error.message : String(event.error)}`;
+  console.error(msg, event.error);
+  import('./utils/logger').then(({ error }) => error(msg)).catch(() => {});
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = `[unhandledrejection] ${event.reason instanceof Error ? event.reason.message : String(event.reason)}`;
+  console.error(msg, event.reason);
+  import('./utils/logger').then(({ error }) => error(msg)).catch(() => {});
+});
+
 // Init logging AFTER mount — Tauri IPC requires mounted webview
 initLogging();

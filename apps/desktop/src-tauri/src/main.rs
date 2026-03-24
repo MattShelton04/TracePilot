@@ -57,5 +57,8 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running TracePilot");
+        .unwrap_or_else(|e| {
+            eprintln!("Fatal: TracePilot failed to start: {e}");
+            std::process::exit(1);
+        });
 }

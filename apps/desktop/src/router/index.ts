@@ -230,13 +230,36 @@ const router = createRouter({
   routes,
 });
 
-// Gate feature-flagged routes
-router.beforeEach((to) => {
+// Gate feature-flagged routes (await hydration so deep-links aren't incorrectly blocked)
+router.beforeEach(async (to) => {
   const flag = to.meta?.featureFlag as string | undefined;
   if (flag) {
     const prefs = usePreferencesStore();
+    await prefs.whenReady;
     if (!prefs.isFeatureEnabled(flag)) {
       return { name: "sessions" };
+    }
+  }
+});
+
+// Handle lazy-load chunk failures (e.g., network errors, stale deploys)
+// Guard against infinite reload loops with a sessionStorage timestamp
+router.onError((error, to) => {
+  if (
+    error.message?.includes('Failed to fetch dynamically imported module') ||
+    error.message?.includes('Loading chunk') ||
+    error.message?.includes('Loading CSS chunk')
+  ) {
+    const key = 'chunk-reload-ts';
+    const last = Number(sessionStorage.getItem(key) || 0);
+    const now = Date.now();
+    if (now - last > 10_000) {
+      sessionStorage.setItem(key, String(now));
+      console.error(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
+      window.location.reload();
+    } else {
+      console.error(`[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`, error);
+      router.replace({ name: 'sessions' });
     }
   }
 });

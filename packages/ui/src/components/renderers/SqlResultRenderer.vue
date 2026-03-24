@@ -36,7 +36,7 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
   if (!props.content) return null;
   try {
     const parsed = JSON.parse(props.content);
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && parsed[0] !== null) {
       const headers = Object.keys(parsed[0]);
       const rows = parsed.map(obj =>
         headers.map(h => String(obj[h] ?? ""))

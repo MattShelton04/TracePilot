@@ -119,7 +119,8 @@ function escapeHtml(s: string): string {
 }
 
 function faviconUrl(domain: string): string {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+  // DuckDuckGo's privacy-respecting favicon proxy (no user tracking)
+  return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
 </script>
 
@@ -152,7 +153,7 @@ function faviconUrl(domain: string): string {
             <div class="ws-source-info">
               <span class="ws-source-title">{{ src.title }}</span>
               <span class="ws-source-domain">
-                <img :src="faviconUrl(src.domain)" :alt="src.domain" width="12" height="12" class="ws-favicon" loading="lazy" />
+                <img :src="faviconUrl(src.domain)" :alt="src.domain" width="12" height="12" class="ws-favicon" loading="lazy" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 {{ src.domain }}
               </span>
             </div>

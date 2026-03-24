@@ -86,11 +86,11 @@ export async function versionsDiffCommand(
     const ver2 = findVersion(versions, v2);
     if (!ver1) {
       console.error(chalk.red(`Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
-      return;
+      process.exit(1);
     }
     if (!ver2) {
       console.error(chalk.red(`Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
-      return;
+      process.exit(1);
     }
 
     const diff = diffVersions(ver1, ver2);

@@ -102,6 +102,11 @@ export async function searchCommand(
   query: string,
   options: { json?: boolean }
 ) {
+  if (!query.trim()) {
+    console.error(chalk.red("Search query cannot be empty."));
+    process.exit(1);
+  }
+
   try {
     const hits = await searchSessions(query);
 

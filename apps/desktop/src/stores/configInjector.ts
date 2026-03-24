@@ -48,18 +48,24 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     loading.value = true;
     error.value = null;
     try {
-      const [agentsData, config, versionsData, active, backupsData] = await Promise.all([
+      const [agentsRes, configRes, versionsRes, activeRes, backupsRes] = await Promise.allSettled([
         getAgentDefinitions(),
         getCopilotConfig(),
         discoverCopilotVersions(),
         getActiveCopilotVersion(),
         listConfigBackups(),
       ]);
-      agents.value = agentsData;
-      copilotConfig.value = config;
-      versions.value = versionsData;
-      activeVersion.value = active;
-      backups.value = backupsData;
+      if (agentsRes.status === 'fulfilled') agents.value = agentsRes.value;
+      if (configRes.status === 'fulfilled') copilotConfig.value = configRes.value;
+      if (versionsRes.status === 'fulfilled') versions.value = versionsRes.value;
+      if (activeRes.status === 'fulfilled') activeVersion.value = activeRes.value;
+      if (backupsRes.status === 'fulfilled') backups.value = backupsRes.value;
+
+      const failures = [agentsRes, configRes, versionsRes, activeRes, backupsRes]
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failures.length > 0) {
+        error.value = failures.map((f) => String(f.reason)).join('; ');
+      }
     } catch (e) {
       error.value = String(e);
     } finally {
