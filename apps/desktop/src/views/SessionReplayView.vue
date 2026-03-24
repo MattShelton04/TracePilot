@@ -133,6 +133,11 @@ async function loadSession(id: string) {
   }
 }
 
+function retryLoadTurns() {
+  store.loaded.delete('turns');
+  store.loadTurns();
+}
+
 // Watch for route changes
 watch(
   sessionId,
@@ -216,6 +221,22 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
           </div>
         </header>
         <ErrorAlert :message="store.error" />
+      </template>
+
+      <!-- ═════════════ TURNS LOAD ERROR ═════════════ -->
+      <template v-else-if="store.turnsError">
+        <header class="replay-header">
+          <div class="header-left">
+            <h1>Session Replay</h1>
+            <span class="header-subtitle">{{ store.detail?.id ?? sessionId }}</span>
+          </div>
+        </header>
+        <ErrorAlert
+          :message="store.turnsError"
+          retryable
+          class="mb-3"
+          @retry="retryLoadTurns"
+        />
       </template>
 
       <!-- ═════════════ NO TURNS ═════════════ -->
