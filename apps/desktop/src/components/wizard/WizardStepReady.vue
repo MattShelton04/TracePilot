@@ -3,7 +3,6 @@ defineProps<{
   active: boolean;
   sessionDir: string;
   dbPath: string;
-  autoIndex: boolean;
   sessionCount: number;
   saving: boolean;
   setupError: string;
@@ -54,13 +53,6 @@ const emit = defineEmits<{
           <div class="summary-text">
             <span class="summary-label">Database</span>
             <span class="summary-value">{{ dbPath }}</span>
-          </div>
-        </div>
-        <div class="summary-row">
-          <span class="summary-icon">⚡</span>
-          <div class="summary-text">
-            <span class="summary-label">Auto-index</span>
-            <span class="summary-value">{{ autoIndex ? 'Enabled' : 'Disabled' }}</span>
           </div>
         </div>
       </div>

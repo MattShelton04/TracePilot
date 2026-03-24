@@ -8,7 +8,13 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "log:default",
-    "opener:allow-open-url",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://api.github.com/*" }
+      ]
+    },
     "process:allow-restart",
     "updater:default"
   ]

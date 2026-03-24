@@ -16,6 +16,7 @@ const EXTENSION_MAP: Record<string, string> = {
   // Systems
   rs: "rust", go: "go", c: "c", cpp: "cpp", h: "c", hpp: "cpp",
   cs: "csharp", java: "java", kt: "kotlin", swift: "swift",
+  scala: "scala", sc: "scala",
   // Scripting
   py: "python", rb: "ruby", php: "php", pl: "perl",
   lua: "lua", r: "r",
@@ -91,7 +92,7 @@ export function languageDisplayName(lang: string): string {
     json: "JSON", yaml: "YAML", toml: "TOML", html: "HTML", css: "CSS",
     markdown: "Markdown", text: "Plain Text", dockerfile: "Dockerfile",
     csharp: "C#", cpp: "C++", java: "Java", ruby: "Ruby", php: "PHP",
-    swift: "Swift", kotlin: "Kotlin",
+    swift: "Swift", kotlin: "Kotlin", scala: "Scala",
   };
   return names[lang] ?? lang;
 }

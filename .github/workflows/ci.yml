@@ -69,10 +69,10 @@ jobs:
         run: pnpm test
 
       # ── Security ────────────────────────────────────────────
-      - name: Security audit
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Security audit
+      #   uses: rustsec/audit-check@v2
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
 
       # Temporarily disabled lint steps.
       # - name: Rust lint

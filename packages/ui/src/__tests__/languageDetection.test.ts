@@ -97,6 +97,14 @@ describe("detectLanguage", () => {
   it("returns 'text' for extensionless non-known filenames", () => {
     expect(detectLanguage("README")).toBe("text");
   });
+
+  it("detects Scala from .scala extension", () => {
+    expect(detectLanguage("Main.scala")).toBe("scala");
+  });
+
+  it("detects Scala from .sc extension", () => {
+    expect(detectLanguage("script.sc")).toBe("scala");
+  });
 });
 
 describe("languageDisplayName", () => {
@@ -105,6 +113,7 @@ describe("languageDisplayName", () => {
     expect(languageDisplayName("javascript")).toBe("JavaScript");
     expect(languageDisplayName("rust")).toBe("Rust");
     expect(languageDisplayName("python")).toBe("Python");
+    expect(languageDisplayName("scala")).toBe("Scala");
   });
 
   it("returns raw identifier for unknown languages", () => {
