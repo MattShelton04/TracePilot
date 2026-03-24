@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -60,6 +62,17 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Frontend build
+        run: pnpm build
+
+      - name: Rust build check
+        run: cargo check --workspace --exclude tracepilot-desktop
+
+      - name: Security audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Temporarily disabled pnpm lint step.
       # - name: Lint
