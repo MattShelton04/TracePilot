@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
   StatCard, Badge, SectionPanel, DefList,
-  formatDate, formatDuration, formatNumberFull, truncateText, useSessionTabLoader, MarkdownContent,
+  formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -68,14 +68,6 @@ function incidentTypeLabel(eventType: string): string {
     truncation: 'Truncation',
   };
   return labels[eventType] ?? eventType;
-}
-
-function formatIncidentTime(timestamp: string): string {
-  try {
-    return new Date(timestamp).toLocaleTimeString();
-  } catch {
-    return timestamp;
-  }
 }
 
 const expandedDetails = ref<Set<number>>(new Set());
@@ -199,7 +191,7 @@ function formatDetail(detail: unknown): string {
               </button>
             </span>
             <span v-if="incident.timestamp" class="incident-time text-muted">
-              {{ formatIncidentTime(incident.timestamp) }}
+              {{ formatTime(incident.timestamp) }}
             </span>
           </div>
           <div v-if="expandedDetails.has(idx) && hasDetail(incident)" class="incident-detail">

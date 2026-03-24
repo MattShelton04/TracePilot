@@ -5,7 +5,7 @@ import { useSearchStore } from '@/stores/search';
 import { useSessionsStore } from '@/stores/sessions';
 import { safeListen } from '@/utils/tauriEvents';
 import type { SearchContentType } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
 
 const store = useSearchStore();
 const sessionsStore = useSessionsStore();
@@ -167,30 +167,7 @@ function handleClearFilters() {
   activeDatePreset.value = 'all';
 }
 
-// ÔöÇÔöÇ Format timestamp ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function formatTimestamp(unix: number | null): string {
-  if (unix == null) return '';
-  const d = new Date(unix * 1000);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatRelativeTime(unix: number | null): string {
-  if (unix == null) return '';
-  const now = Date.now();
-  const diffMs = now - unix * 1000;
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  if (diffDay < 30) return `${Math.floor(diffDay / 7)}w ago`;
-  return formatTimestamp(unix);
-}
-
-// ÔöÇÔöÇ Session link path ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Session link path ──────────────────────────────────────────────────────────
 function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: number | null = null): string {
   const base = `/session/${sessionId}/conversation`;
   const params = new URLSearchParams();
@@ -561,7 +538,7 @@ onUnmounted(() => {
                   >
                     {{ result.sessionBranch }}
                   </span>
-                  <span v-if="result.timestampUnix != null" class="result-date" :title="formatTimestamp(result.timestampUnix)">
+                  <span v-if="result.timestampUnix != null" class="result-date" :title="formatDateMedium(result.timestampUnix)">
                     {{ formatRelativeTime(result.timestampUnix) }}
                   </span>
                   <span
@@ -623,7 +600,7 @@ onUnmounted(() => {
                     </div>
                     <div v-if="result.timestampUnix != null" class="expanded-item">
                       <span class="expanded-label">Timestamp</span>
-                      <span class="expanded-value">{{ formatTimestamp(result.timestampUnix) }}</span>
+                      <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
                     </div>
                   </div>
                   <router-link

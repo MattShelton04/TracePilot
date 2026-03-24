@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { searchContent } from '@tracepilot/client';
 import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -196,24 +196,6 @@ function handlePaletteKeydown(e: KeyboardEvent) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
-function formatSnippet(snippet: string): string {
-  return snippet;
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
 
 function badgeBackground(color: string): string {
   return `rgba(${hexToRgb(color)}, 0.12)`;
@@ -395,7 +377,7 @@ onUnmounted(() => {
 
                   <div class="palette-item-body">
                     <!-- eslint-disable-next-line vue/no-v-html -->
-                    <div class="palette-item-title" v-html="formatSnippet(result.snippet)" />
+                    <div class="palette-item-title" v-html="result.snippet" />
                     <div class="palette-item-meta">
                       <span v-if="result.sessionSummary" class="palette-meta-session">{{ result.sessionSummary }}</span>
                       <span v-if="result.sessionSummary && result.turnNumber != null" class="sep">·</span>
@@ -403,7 +385,7 @@ onUnmounted(() => {
                       <span v-if="result.turnNumber != null && (result.sessionRepository || result.sessionUpdatedAt)" class="sep">·</span>
                       <span v-if="result.sessionRepository">{{ result.sessionRepository }}</span>
                       <span v-if="result.sessionRepository && result.sessionUpdatedAt" class="sep">·</span>
-                      <span v-if="result.sessionUpdatedAt">{{ formatTimestamp(result.sessionUpdatedAt) }}</span>
+                      <span v-if="result.sessionUpdatedAt">{{ formatRelativeTime(result.sessionUpdatedAt) }}</span>
                     </div>
                   </div>
 
