@@ -21,6 +21,7 @@ import {
   MarkdownContent,
   inferAgentTypeFromToolCall,
   AGENT_COLORS,
+  getAgentColor,
   extractPrompt,
   useTimelineNavigation,
   agentStatusFromToolCall,
@@ -699,7 +700,7 @@ function lineColor(line: SvgLine): string {
   // Search treeData for the child node to find its type
   function findType(nodes: AgentNode[]): string | undefined {
     for (const n of nodes) {
-      if (n.id === line.childId) return AGENT_COLORS[n.type];
+      if (n.id === line.childId) return getAgentColor(n.type);
       if (n.children?.length) {
         const found = findType(n.children);
         if (found) return found;
@@ -908,7 +909,7 @@ watch(
               left: `${ln.x}px`,
               top: `${ln.y}px`,
               width: `${ln.width}px`,
-              '--node-color': AGENT_COLORS[ln.node.type] ?? AGENT_COLORS.main,
+              '--node-color': getAgentColor(ln.node.type),
             }"
             role="button"
             tabindex="0"

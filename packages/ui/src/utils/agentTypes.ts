@@ -80,3 +80,39 @@ export function agentStatusFromToolCall(tc: TurnToolCall): AgentStatus {
   if (tc.success === false) return "failed";
   return "completed";
 }
+
+/**
+ * Resolve the CSS color variable for a given agent type.
+ * Falls back to the main agent color for unrecognized types.
+ */
+export function getAgentColor(type: AgentType | string): string {
+  return AGENT_COLORS[type as AgentType] ?? AGENT_COLORS.main;
+}
+
+/**
+ * Determine the display color for a regular (non-subagent) tool call
+ * based on its execution status.
+ *
+ * - Failed → danger
+ * - Pending (success not yet known) → tertiary (dimmed)
+ * - read_agent tool → tertiary (read-only, dimmed)
+ * - Successful → warning (standard tool accent color)
+ */
+export function getToolStatusColor(tc: TurnToolCall): string {
+  if (tc.success === false) return "var(--danger-fg)";
+  if (tc.success == null) return "var(--text-tertiary)";
+  if (tc.toolName === "read_agent") return "var(--text-tertiary)";
+  return "var(--warning-fg)";
+}
+
+/**
+ * Determine the display color for any tool call (subagent or regular).
+ * Subagent calls are colored by their inferred agent type;
+ * regular tools are colored by execution status.
+ */
+export function getToolCallColor(tc: TurnToolCall): string {
+  if (tc.isSubagent) {
+    return getAgentColor(inferAgentTypeFromToolCall(tc));
+  }
+  return getToolStatusColor(tc);
+}

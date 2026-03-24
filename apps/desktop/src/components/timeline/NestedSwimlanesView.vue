@@ -17,7 +17,8 @@ import {
   categoryColor,
   formatArgsSummary,
   extractPrompt,
-  AGENT_COLORS,
+  getAgentColor,
+  getToolStatusColor,
   inferAgentTypeFromToolCall,
   useToggleSet,
   useLiveDuration,
@@ -132,8 +133,7 @@ function countNestedTools(agent: TurnToolCall): number {
 // ── Subagent lane color ──────────────────────────────────────
 
 function agentColor(agent: TurnToolCall): string {
-  const type = inferAgentTypeFromToolCall(agent);
-  return AGENT_COLORS[type] ?? "var(--accent-fg)";
+  return getAgentColor(inferAgentTypeFromToolCall(agent));
 }
 
 // ── Phase grouping ───────────────────────────────────────────
@@ -261,12 +261,7 @@ function barWidthPct(tc: TurnToolCall, maxMs: number): string {
 
 // ── Tool bar color ───────────────────────────────────────────
 
-function toolBarColor(tc: TurnToolCall): string {
-  if (tc.success === false) return "var(--danger-fg)";
-  if (tc.success === undefined || tc.success === null) return "var(--text-tertiary)";
-  if (tc.toolName === "read_agent") return "var(--text-tertiary)";
-  return "var(--warning-fg)";
-}
+const toolBarColor = getToolStatusColor;
 
 // ── Subagent status icon ─────────────────────────────────────
 
