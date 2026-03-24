@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue';
+import { toErrorMessage } from '@tracepilot/ui';
 
 /**
  * Options for configuring the cached fetch composable.
@@ -138,7 +139,7 @@ export function useCachedFetch<TData, TParams = void>(
         // Only update error if this is still the latest request
         if (gen !== generation) return;
 
-        error.value = e instanceof Error ? e.message : String(e);
+        error.value = toErrorMessage(e);
       } finally {
         // Clean up inflight tracking
         inflight.delete(cacheKey);

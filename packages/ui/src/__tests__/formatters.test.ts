@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatRate,
   formatRelativeTime,
+  toErrorMessage,
 } from '../utils/formatters';
 
 describe('formatRate', () => {
@@ -177,5 +178,109 @@ describe('formatRelativeTime', () => {
   it('returns days for Unix timestamps within the week', () => {
     const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
     expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
+  });
+});
+
+describe('toErrorMessage', () => {
+  it('extracts message from Error objects', () => {
+    const error = new Error('Something went wrong');
+    expect(toErrorMessage(error)).toBe('Something went wrong');
+  });
+
+  it('extracts message from TypeError', () => {
+    const error = new TypeError('Type mismatch');
+    expect(toErrorMessage(error)).toBe('Type mismatch');
+  });
+
+  it('extracts message from RangeError', () => {
+    const error = new RangeError('Index out of bounds');
+    expect(toErrorMessage(error)).toBe('Index out of bounds');
+  });
+
+  it('extracts message from error-like objects', () => {
+    const errorLike = { message: 'Custom error' };
+    expect(toErrorMessage(errorLike)).toBe('Custom error');
+  });
+
+  it('ignores non-string message properties', () => {
+    const errorLike = { message: 123 };
+    expect(toErrorMessage(errorLike)).toBe('[object Object]');
+  });
+
+  it('returns string errors as-is', () => {
+    expect(toErrorMessage('String error')).toBe('String error');
+  });
+
+  it('returns empty string errors as-is', () => {
+    expect(toErrorMessage('')).toBe('');
+  });
+
+  it('handles null with default fallback', () => {
+    expect(toErrorMessage(null)).toBe('Unknown error');
+  });
+
+  it('handles undefined with default fallback', () => {
+    expect(toErrorMessage(undefined)).toBe('Unknown error');
+  });
+
+  it('uses custom fallback when provided for null', () => {
+    expect(toErrorMessage(null, 'Operation failed')).toBe('Operation failed');
+  });
+
+  it('uses custom fallback when provided for undefined', () => {
+    expect(toErrorMessage(undefined, 'Connection lost')).toBe('Connection lost');
+  });
+
+  it('ignores fallback for non-null errors', () => {
+    expect(toErrorMessage('Real error', 'Fallback')).toBe('Real error');
+  });
+
+  it('stringifies numbers', () => {
+    expect(toErrorMessage(42)).toBe('42');
+    expect(toErrorMessage(0)).toBe('0');
+    expect(toErrorMessage(-1)).toBe('-1');
+    expect(toErrorMessage(3.14)).toBe('3.14');
+  });
+
+  it('stringifies booleans', () => {
+    expect(toErrorMessage(true)).toBe('true');
+    expect(toErrorMessage(false)).toBe('false');
+  });
+
+  it('handles objects without message property', () => {
+    const obj = { code: 500, status: 'error' };
+    expect(toErrorMessage(obj)).toBe('[object Object]');
+  });
+
+  it('handles arrays', () => {
+    expect(toErrorMessage([1, 2, 3])).toBe('1,2,3');
+    expect(toErrorMessage([])).toBe('');
+  });
+
+  it('handles Error with empty message', () => {
+    const error = new Error('');
+    expect(toErrorMessage(error)).toBe('');
+  });
+
+  it('handles nested Error objects', () => {
+    const innerError = new Error('Inner error');
+    const outerError = new Error('Outer error');
+    (outerError as any).cause = innerError;
+    // Should only extract the outer message
+    expect(toErrorMessage(outerError)).toBe('Outer error');
+  });
+
+  it('preserves multi-line error messages', () => {
+    const error = new Error('Line 1\nLine 2\nLine 3');
+    expect(toErrorMessage(error)).toBe('Line 1\nLine 2\nLine 3');
+  });
+
+  it('handles error-like objects with non-enumerable message', () => {
+    const errorLike = Object.create(null);
+    Object.defineProperty(errorLike, 'message', {
+      value: 'Hidden message',
+      enumerable: false,
+    });
+    expect(toErrorMessage(errorLike)).toBe('Hidden message');
   });
 });
