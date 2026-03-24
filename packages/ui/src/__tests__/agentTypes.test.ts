@@ -210,7 +210,7 @@ describe("getToolCallColor", () => {
     expect(getToolCallColor(tc)).toBe(AGENT_COLORS.explore);
   });
 
-  it("returns main agent color for subagent with unknown type", () => {
+  it("returns task agent color for subagent with unrecognized type", () => {
     const tc = makeToolCall({
       isSubagent: true,
       toolName: "unknown",
@@ -225,6 +225,16 @@ describe("getToolCallColor", () => {
 
     const success = makeToolCall({ toolName: "grep", success: true });
     expect(getToolCallColor(success)).toBe("var(--warning-fg)");
+  });
+
+  it("returns tertiary for non-subagent pending tool calls", () => {
+    const pending = makeToolCall({ toolName: "edit", success: undefined });
+    expect(getToolCallColor(pending)).toBe("var(--text-tertiary)");
+  });
+
+  it("returns tertiary for non-subagent read_agent calls", () => {
+    const readAgent = makeToolCall({ toolName: "read_agent", success: true });
+    expect(getToolCallColor(readAgent)).toBe("var(--text-tertiary)");
   });
 
   it("isSubagent check takes precedence over status coloring", () => {
