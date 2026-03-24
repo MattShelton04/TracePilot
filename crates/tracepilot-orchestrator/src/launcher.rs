@@ -14,7 +14,7 @@ pub use crate::process::spawn_outside_job;
 
 /// Resolve the copilot home directory.
 pub fn copilot_home() -> Result<std::path::PathBuf> {
-    home_dir()
+    tracepilot_core::utils::home_dir_opt()
         .map(|h| h.join(".copilot"))
         .filter(|p| p.exists())
         .ok_or_else(|| OrchestratorError::Launch("Copilot home directory not found".into()))
@@ -24,7 +24,7 @@ pub fn copilot_home() -> Result<std::path::PathBuf> {
 pub fn check_dependencies() -> SystemDependencies {
     let git = check_tool("git", &["--version"]);
     let copilot = check_tool("copilot", &["--version"]);
-    let copilot_home_exists = home_dir()
+    let copilot_home_exists = tracepilot_core::utils::home_dir_opt()
         .map(|h| h.join(".copilot").exists())
         .unwrap_or(false);
 
@@ -354,21 +354,6 @@ pub fn available_models() -> Vec<ModelInfo> {
 
 // ─── Internal helpers ─────────────────────────────────────────────
 
-fn home_dir() -> Option<std::path::PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE")
-            .map(std::path::PathBuf::from)
-            .ok()
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME")
-            .map(std::path::PathBuf::from)
-            .ok()
-    }
-}
-
 fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
     match crate::process::run_hidden(name, args, None) {
         Ok(output) if output.status.success() => {
@@ -431,7 +416,7 @@ mod tests {
     #[test]
     fn test_home_dir_returns_something() {
         // Should always return Some on developer machines
-        assert!(home_dir().is_some());
+        assert!(tracepilot_core::utils::home_dir_opt().is_some());
     }
 
     #[test]

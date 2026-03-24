@@ -1609,10 +1609,7 @@ mod commands {
                 None
             })
             .or_else(|| {
-                std::env::var("USERPROFILE")
-                    .or_else(|_| std::env::var("HOME"))
-                    .ok()
-                    .map(std::path::PathBuf::from)
+                tracepilot_core::utils::home_dir_opt()
                     .filter(|p| p.is_dir())
             })
             .unwrap_or_else(|| std::path::PathBuf::from("."));
