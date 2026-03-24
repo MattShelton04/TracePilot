@@ -4,6 +4,7 @@ import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tr
 import { CONTENT_TYPE_CONFIG, formatRelativeTime } from '@tracepilot/ui';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { toErrorMessage } from '@/utils/errors';
 
 // ── Stores & Router ──────────────────────────────────────────
 const router = useRouter();
@@ -94,7 +95,7 @@ async function executeSearch() {
     if (gen !== searchGeneration) return;
     results.value = [];
     totalCount.value = 0;
-    searchError.value = e instanceof Error ? e.message : 'Search failed';
+    searchError.value = toErrorMessage(e, 'Search failed');
   } finally {
     if (gen === searchGeneration) loading.value = false;
   }

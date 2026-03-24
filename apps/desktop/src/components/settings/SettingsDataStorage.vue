@@ -13,6 +13,7 @@ import type { IndexingProgressPayload } from '@tracepilot/types';
 import { ActionButton, FormInput, SectionPanel, formatBytes, useToast, useConfirmDialog } from '@tracepilot/ui';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { toErrorMessage } from '@/utils/errors';
 import { safeListen } from '@/utils/tauriEvents';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
@@ -111,7 +112,7 @@ async function clearCache() {
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = toErrorMessage(e);
     if (msg === 'ALREADY_INDEXING') {
       reindexResult.value = 'Indexing already in progress…';
     } else {
@@ -130,7 +131,7 @@ async function rebuildSearchIndex() {
     searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
     toast.success('Search index rebuilt successfully');
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = toErrorMessage(e);
     if (msg === 'ALREADY_INDEXING') {
       searchRebuildResult.value = 'Search indexing already in progress…';
     } else {
@@ -163,7 +164,7 @@ async function handleFactoryReset() {
     window.location.reload();
   } catch (e) {
     resetting.value = false;
-    toast.error(`Factory reset failed: ${e instanceof Error ? e.message : String(e)}`);
+    toast.error(`Factory reset failed: ${toErrorMessage(e)}`);
   }
 }
 

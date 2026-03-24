@@ -8,6 +8,7 @@ import type { HealthScoringData } from '@tracepilot/types';
 import { getHealthScores } from '@tracepilot/client';
 import { ErrorAlert, HealthRing, LoadingOverlay } from '@tracepilot/ui';
 import StubBanner from '@/components/StubBanner.vue';
+import { toErrorMessage } from '@/utils/errors';
 
 const data = ref<HealthScoringData | null>(null);
 const loading = ref(true);
@@ -20,7 +21,7 @@ async function reload() {
   try {
     data.value = await getHealthScores();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load health scores';
+    error.value = toErrorMessage(e, 'Failed to load health scores');
   } finally {
     loading.value = false;
   }

@@ -1,5 +1,6 @@
 import { getInstallType } from '@tracepilot/client';
 import { ref } from 'vue';
+import { toErrorMessage } from '@/utils/errors';
 
 export type AutoUpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'done' | 'error';
 export type InstallType = 'source' | 'installed' | 'portable' | 'unknown';
@@ -71,7 +72,7 @@ async function installUpdate(): Promise<void> {
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : 'Auto-update failed';
+    errorMessage.value = toErrorMessage(e, 'Auto-update failed');
     status.value = 'error';
   }
 }

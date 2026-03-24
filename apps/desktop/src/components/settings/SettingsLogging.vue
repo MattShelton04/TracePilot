@@ -4,6 +4,7 @@ import { exportLogs, getLogPath } from '@tracepilot/client';
 import { ActionButton, SectionPanel } from '@tracepilot/ui';
 import { onMounted, ref, watch } from 'vue';
 import { usePreferencesStore } from '@/stores/preferences';
+import { toErrorMessage } from '@/utils/errors';
 
 const prefsStore = usePreferencesStore();
 
@@ -32,7 +33,7 @@ async function openLogDirectory() {
     const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
     await tauriInvoke('plugin:tracepilot|open_in_explorer', { path: logPath.value });
   } catch (e) {
-    exportResult.value = `Failed to open directory: ${e instanceof Error ? e.message : String(e)}`;
+    exportResult.value = `Failed to open directory: ${toErrorMessage(e)}`;
   }
 }
 
@@ -51,7 +52,7 @@ async function doExportLogs() {
     }
     exportResult.value = await exportLogs(dest);
   } catch (e) {
-    exportResult.value = `Export failed: ${e instanceof Error ? e.message : String(e)}`;
+    exportResult.value = `Export failed: ${toErrorMessage(e)}`;
   } finally {
     exporting.value = false;
   }

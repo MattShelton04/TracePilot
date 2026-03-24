@@ -36,6 +36,7 @@ import {
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 import { CHART_COLORS } from '@/utils/chartColors';
+import { toErrorMessage } from '@/utils/errors';
 
 // ── State ───────────────────────────────────────────────────────────
 
@@ -89,17 +90,17 @@ async function runComparison() {
       getSessionTurns(selectedB.value).then(r => r.turns),
     ]);
     dataA.detail = detailA;
-    dataA.metrics = metricsA;
-    dataA.turns = turnsA;
-    dataB.detail = detailB;
-    dataB.metrics = metricsB;
-    dataB.turns = turnsB;
-    compared.value = true;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
+  dataA.metrics = metricsA;
+  dataA.turns = turnsA;
+  dataB.detail = detailB;
+  dataB.metrics = metricsB;
+  dataB.turns = turnsB;
+  compared.value = true;
+} catch (e) {
+  error.value = toErrorMessage(e);
+} finally {
+  loading.value = false;
+}
 }
 
 // ── Delta table─────────────────────────────────────────────────────

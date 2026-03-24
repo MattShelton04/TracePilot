@@ -11,6 +11,7 @@ import WizardStepWelcome from '@/components/wizard/WizardStepWelcome.vue';
 import { useAppVersion } from '@/composables/useAppVersion';
 import { browseForDirectory, browseForSavePath } from '@/composables/useBrowseDirectory';
 import { useWizardNavigation } from '@/composables/useWizardNavigation';
+import { toErrorMessage } from '@/utils/errors';
 
 const { appVersion } = useAppVersion();
 
@@ -71,7 +72,7 @@ async function validateDir() {
       validationError.value = result.error;
     }
   } catch (e) {
-    validationError.value = e instanceof Error ? e.message : String(e);
+    validationError.value = toErrorMessage(e);
   } finally {
     validating.value = false;
   }
@@ -133,7 +134,7 @@ async function finishSetup() {
     await saveConfig(config);
     emit('setup-saved', validationResult.value?.sessionCount ?? 0);
   } catch (e) {
-    setupError.value = e instanceof Error ? e.message : String(e);
+    setupError.value = toErrorMessage(e);
     console.error('Setup save failed:', e);
   } finally {
     saving.value = false;
