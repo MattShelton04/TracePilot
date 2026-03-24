@@ -7,7 +7,7 @@
 
 /** Normalize a path to forward slashes and strip trailing slash. */
 export function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/$/, '');
+  return path.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
 /** Extract the last segment (file/directory name) from a path. */

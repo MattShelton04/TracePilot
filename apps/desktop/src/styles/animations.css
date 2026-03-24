@@ -1,0 +1,29 @@
+/**
+ * Shared CSS animations — extracted from multiple Vue components to eliminate
+ * duplicate @keyframes definitions.
+ *
+ * CSS keyframe names are always global scope (even inside <style scoped>), so
+ * defining them once here avoids multiple components competing for the same
+ * global animation name.
+ *
+ * Individual components retain their scoped `animation:` properties to control
+ * duration and timing per-use.
+ *
+ * Imported globally via main.ts alongside styles.css and chart-shared.css.
+ *
+ * Previously duplicated in:
+ *   - RefreshToolbar.vue
+ *   - SetupWizard.vue
+ *   - ExportView.vue
+ *   - SessionSearchView.vue
+ *   - WorktreeManagerView.vue
+ */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

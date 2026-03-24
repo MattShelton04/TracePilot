@@ -590,10 +590,6 @@ onUnmounted(() => {
   animation: spin 600ms linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 :deep(.spinner-white) {
   border-color: rgba(255,255,255,0.25);
   border-top-color: white;

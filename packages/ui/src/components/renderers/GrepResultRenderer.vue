@@ -5,6 +5,7 @@
  */
 import { computed } from "vue";
 import RendererShell from "./RendererShell.vue";
+import { normalizePath } from "../../utils/pathUtils";
 
 const props = defineProps<{
   content: string;
@@ -110,11 +111,6 @@ const parsedMatches = computed<GrepMatch[]>(() => {
 
   return results;
 });
-
-/** Normalize file paths for consistent grouping. */
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/").replace(/\/+$/, "");
-}
 
 /** Group matches by file (using normalized path for consistent grouping). */
 const groupedByFile = computed(() => {
