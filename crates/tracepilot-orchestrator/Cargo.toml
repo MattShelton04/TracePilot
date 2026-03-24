@@ -13,6 +13,7 @@ uuid = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 semver = { workspace = true }
+tracepilot-core = { path = "../tracepilot-core" }
 
 similar = "2"
 walkdir = "2"

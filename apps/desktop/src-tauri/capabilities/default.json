@@ -5,10 +5,11 @@
   "permissions": [
     "core:default",
     "tracepilot:default",
-    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
     "log:default",
-    "opener:default",
-    "process:default",
+    "opener:allow-open-url",
+    "process:allow-restart",
     "updater:default"
   ]
 }

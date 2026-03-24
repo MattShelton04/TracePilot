@@ -25,7 +25,7 @@ struct RegistryFile {
 
 /// Get the path to the registry JSON file.
 fn registry_path() -> Result<PathBuf> {
-    let home = home_dir().ok_or_else(|| {
+    let home = tracepilot_core::utils::home_dir_opt().ok_or_else(|| {
         OrchestratorError::Registry("Cannot determine home directory".into())
     })?;
     let dir = home.join(".copilot").join("tracepilot");
@@ -250,17 +250,6 @@ pub fn discover_repos_from_sessions(session_cwds: &[String]) -> Result<Vec<Regis
     }
 
     Ok(new_repos)
-}
-
-fn home_dir() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE").map(PathBuf::from).ok()
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME").map(PathBuf::from).ok()
-    }
 }
 
 #[cfg(test)]

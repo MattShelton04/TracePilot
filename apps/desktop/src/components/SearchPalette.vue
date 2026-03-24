@@ -112,6 +112,7 @@ watch(query, () => {
 
 // ── Open / Close ─────────────────────────────────────────────
 function open() {
+  previouslyFocused = document.activeElement as HTMLElement | null;
   isOpen.value = true;
   nextTick(() => {
     inputRef.value?.focus();
@@ -127,6 +128,11 @@ function close() {
   selectedIndex.value = 0;
   loading.value = false;
   if (debounceTimer) clearTimeout(debounceTimer);
+  // Restore focus to the element that was focused before opening
+  nextTick(() => {
+    previouslyFocused?.focus();
+    previouslyFocused = null;
+  });
 }
 
 // ── Navigation ───────────────────────────────────────────────
@@ -196,6 +202,24 @@ function handlePaletteKeydown(e: KeyboardEvent) {
       e.preventDefault();
       selectCurrent();
       break;
+    case 'Tab': {
+      // Focus trap: cycle through focusable elements within the palette
+      e.preventDefault();
+      const dialog = (e.target as HTMLElement).closest('.palette-dialog');
+      if (!dialog) break;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) break;
+      const current = focusable.indexOf(e.target as HTMLElement);
+      const next = e.shiftKey
+        ? (current - 1 + focusable.length) % focusable.length
+        : (current + 1) % focusable.length;
+      focusable[next]?.focus();
+      break;
+    }
   }
 }
 
@@ -222,6 +246,10 @@ function uniqueSessionCount(): number {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
+
+/** Save the element that had focus before opening so we can restore it. */
+let previouslyFocused: HTMLElement | null = null;
+
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown);
 });
@@ -244,6 +272,7 @@ onUnmounted(() => {
           ref="modalRef"
           class="palette-modal"
           role="dialog"
+          aria-modal="true"
           aria-label="Session search"
           tabindex="-1"
           @keydown="handlePaletteKeydown"
@@ -251,7 +280,7 @@ onUnmounted(() => {
           <!-- ═══ Search Input ═══ -->
           <div class="palette-search">
             <div class="palette-search-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <circle cx="7" cy="7" r="4.5" />
                 <line x1="10.5" y1="10.5" x2="14" y2="14" />
               </svg>
@@ -262,6 +291,10 @@ onUnmounted(() => {
               type="text"
               class="palette-input"
               placeholder="Search sessions, messages, tools…"
+              aria-label="Search sessions"
+              aria-autocomplete="list"
+              aria-controls="palette-listbox"
+              :aria-activedescendant="hasResults ? `palette-item-${selectedIndex}` : undefined"
               spellcheck="false"
               autocomplete="off"
             />
@@ -269,6 +302,7 @@ onUnmounted(() => {
               v-if="query.length > 0"
               class="palette-clear-btn"
               title="Clear"
+              aria-label="Clear search"
               @click="query = ''"
             >
               ✕
@@ -287,7 +321,7 @@ onUnmounted(() => {
           <div ref="resultsRef" class="palette-results">
 
             <!-- Loading shimmer -->
-            <div v-if="loading" class="palette-loading">
+            <div v-if="loading" class="palette-loading" role="status" aria-label="Loading results">
               <div v-for="g in 3" :key="g" class="shimmer-group">
                 <div class="shimmer-header" />
                 <div v-for="r in (g === 1 ? 3 : 2)" :key="r" class="shimmer-row">
@@ -336,11 +370,13 @@ onUnmounted(() => {
             </div>
 
             <!-- Grouped results -->
-            <template v-else>
+            <div v-else id="palette-listbox" role="listbox" aria-label="Search results">
               <div
                 v-for="group in groupedResults"
                 :key="group.contentType"
                 class="palette-group"
+                role="group"
+                :aria-label="group.label"
               >
                 <div class="palette-group-header">
                   <span
@@ -353,7 +389,10 @@ onUnmounted(() => {
                 <div
                   v-for="result in group.results"
                   :key="result.id"
+                  :id="`palette-item-${resultIndex(result)}`"
                   class="palette-item"
+                  role="option"
+                  :aria-selected="resultIndex(result) === selectedIndex"
                   :class="{ selected: resultIndex(result) === selectedIndex }"
                   @mousedown.prevent
                   @click="navigateToResult(result)"
@@ -430,7 +469,7 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-            </template>
+            </div>
           </div>
 
           <!-- ═══ Footer ═══ -->
