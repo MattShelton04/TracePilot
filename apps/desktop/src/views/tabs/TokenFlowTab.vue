@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
-  StatCard, SectionPanel, EmptyState,
+  StatCard, SectionPanel, EmptyState, ErrorAlert,
   formatNumber, formatCost, useSessionTabLoader,
 } from "@tracepilot/ui";
 import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
@@ -18,6 +18,21 @@ useSessionTabLoader(
   },
 );
 
+function retryLoadTokenFlow() {
+  if (store.metricsError) {
+    store.loaded.delete("metrics");
+    store.loadShutdownMetrics();
+  }
+  if (store.turnsError) {
+    store.loaded.delete("turns");
+    store.loadTurns();
+  }
+}
+
+const tokenFlowError = computed(() => {
+  const errors = [store.metricsError, store.turnsError].filter(Boolean);
+  return errors.length ? errors.join('; ') : null;
+});
 const metrics = computed(() => store.shutdownMetrics);
 const turns = computed(() => store.turns);
 const hasTurns = computed(() => turns.value.length > 0);
@@ -428,7 +443,16 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
 
 <template>
   <div>
-    <EmptyState v-if="!metrics" message="No token data available for this session." />
+    <ErrorAlert
+      v-if="tokenFlowError"
+      :message="tokenFlowError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadTokenFlow"
+    />
+
+    <EmptyState v-if="!metrics && !tokenFlowError" message="No token data available for this session." />
 
     <template v-else-if="sankeyData">
       <!-- Stat cards -->

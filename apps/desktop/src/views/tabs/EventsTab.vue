@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, DataTable, ActionButton, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
+import { Badge, DataTable, ActionButton, ErrorAlert, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
 const filterType = ref<string | null>(null);
@@ -84,10 +84,24 @@ async function loadPage(page: number) {
     if (seq === loadSeq) pageLoading.value = false;
   }
 }
+
+function retryLoadEvents() {
+  store.loadEvents(currentPage.value * pageSize, pageSize, filterType.value ?? undefined);
+}
 </script>
 
 <template>
   <div>
+    <!-- Error alert for failed event loading -->
+    <ErrorAlert
+      v-if="store.eventsError"
+      :message="store.eventsError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadEvents"
+    />
+
     <!-- Header with count -->
     <div class="flex items-center gap-3 mb-4">
       <FilterSelect

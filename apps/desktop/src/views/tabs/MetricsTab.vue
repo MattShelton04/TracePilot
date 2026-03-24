@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import {
-  StatCard, Badge, SectionPanel, EmptyState,
+  StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
   formatNumber, formatCost, formatDuration, useSessionTabLoader,
 } from "@tracepilot/ui";
@@ -15,6 +15,11 @@ useSessionTabLoader(
   () => store.sessionId,
   () => store.loadShutdownMetrics()
 );
+
+function retryLoadMetrics() {
+  store.loaded.delete("metrics");
+  store.loadShutdownMetrics();
+}
 
 const metrics = computed(() => store.shutdownMetrics);
 
@@ -81,9 +86,18 @@ const modelColumns = [
 
 <template>
   <div>
-    <EmptyState v-if="!metrics" message="No shutdown metrics available for this session." />
+    <ErrorAlert
+      v-if="store.metricsError"
+      :message="store.metricsError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadMetrics"
+    />
 
-    <template v-else>
+    <EmptyState v-if="!metrics && !store.metricsError" message="No shutdown metrics available for this session." />
+
+    <template v-if="metrics">
       <!-- Stats row — cost comparison -->
       <div class="grid-4 mb-6">
         <StatCard :value="totalRequests" label="Total Requests" color="accent" />
