@@ -5,11 +5,11 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
+import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath, SearchableSelect } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
-const store = useLauncherStore();
+const lStore = useLauncherStore();
 const prefsStore = usePreferencesStore();
 const worktreeStore = useWorktreesStore();
 const route = useRoute();
@@ -39,12 +39,12 @@ const confirmingDeleteId = ref<string | null>(null);
 
 // ── Derived ─────────────────────────────────────────────────────────
 const selectedModelInfo = computed(() =>
-  store.models.find((m) => m.id === selectedModel.value),
+  lStore.models.find((m) => m.id === selectedModel.value),
 );
 
 const selectedTemplateName = computed(() => {
   if (!selectedTemplateId.value) return 'Custom';
-  return store.templates.find((t) => t.id === selectedTemplateId.value)?.name ?? 'Custom';
+  return lStore.templates.find((t) => t.id === selectedTemplateId.value)?.name ?? 'Custom';
 });
 
 const envVarsRecord = computed(() => {
@@ -118,14 +118,14 @@ const estimatedCost = computed(() => {
 });
 
 const canLaunch= computed(() => {
-  if (!repoPath.value.trim() || store.loading) return false;
+  if (!repoPath.value.trim() || lStore.loading) return false;
   if (createWorktree.value && !branch.value.trim()) return false;
   return true;
 });
 
 const defaultTemplateIds = ['default-multi-agent-review', 'default-write-tests'];
 const hasDismissedDefaults = computed(() =>
-  defaultTemplateIds.some((id) => !store.templates.some((t) => t.id === id)),
+  defaultTemplateIds.some((id) => !lStore.templates.some((t) => t.id === id)),
 );
 
 function tierLabel(tier: string): string {
@@ -155,7 +155,7 @@ function applyTemplate(tplId: string) {
     selectedTemplateId.value = null;
     return;
   }
-  const tpl = store.templates.find((t: SessionTemplate) => t.id === tplId);
+  const tpl = lStore.templates.find((t: SessionTemplate) => t.id === tplId);
   if (!tpl) return;
   selectedTemplateId.value = tplId;
   // Only override repoPath if the template specifies one
@@ -185,15 +185,15 @@ function clearTemplateSelection() {
 
 function moveTemplate(idx: number, direction: 'up' | 'down') {
   const target = direction === 'up' ? idx - 1 : idx + 1;
-  if (target < 0 || target >= store.templates.length) return;
-  const arr = [...store.templates];
+  if (target < 0 || target >= lStore.templates.length) return;
+  const arr = [...lStore.templates];
   [arr[idx], arr[target]] = [arr[target], arr[idx]];
-  store.templates = arr;
+  lStore.templates = arr;
 }
 
 async function deleteTemplateInline(tplId: string) {
   if (confirmingDeleteId.value === tplId) {
-    await store.deleteTemplate(tplId);
+    await lStore.deleteTemplate(tplId);
     if (selectedTemplateId.value === tplId) selectedTemplateId.value = null;
     confirmingDeleteId.value = null;
   } else {
@@ -232,16 +232,16 @@ function removeEnvVar(idx: number) {
 async function handleLaunch(asHeadless = false) {
   if (!canLaunch.value || launching.value) return;
   launching.value = true;
-  store.error = null;
+  lStore.error = null;
   const cfg = { ...launchConfig.value };
   if (asHeadless) cfg.headless = true;
   try {
     if (cfg.repoPath) prefsStore.addRecentRepoPath(cfg.repoPath);
-    const session = await store.launch(cfg);
+    const session = await lStore.launch(cfg);
     if (session) {
       // Track template usage if one was selected
       if (selectedTemplateId.value) {
-        store.incrementUsage(selectedTemplateId.value);
+        lStore.incrementUsage(selectedTemplateId.value);
       }
       toastSuccess(`PID ${session.pid}`, {
         title: 'Session launched',
@@ -256,7 +256,7 @@ async function handleLaunch(asHeadless = false) {
 
 async function handleSaveTemplate() {
   if (!templateForm.name.trim()) return;
-  const existing = store.templates.find(
+  const existing = lStore.templates.find(
     (t) => t.name.toLowerCase() === templateForm.name.trim().toLowerCase(),
   );
   if (existing) {
@@ -268,7 +268,7 @@ async function handleSaveTemplate() {
     });
     if (!confirmed) return;
   }
-  await store.saveTemplate({
+  await lStore.saveTemplate({
     id: existing?.id ?? crypto.randomUUID(),
     name: templateForm.name,
     description: templateForm.description,
@@ -293,7 +293,7 @@ function openContextMenu(e: MouseEvent, tplId: string) {
 
 async function deleteContextTemplate() {
   if (!contextMenuTpl.value) return;
-  await store.deleteTemplate(contextMenuTpl.value.id);
+  await lStore.deleteTemplate(contextMenuTpl.value.id);
   if (selectedTemplateId.value === contextMenuTpl.value.id) {
     selectedTemplateId.value = null;
   }
@@ -309,8 +309,14 @@ async function copyCommand() {
   if (ok) toastSuccess('Command copied to clipboard');
 }
 
+watch(repoPath, (newPath) => {
+  if (newPath) {
+    worktreeStore.loadBranches(newPath);
+  }
+});
+
 onMounted(async () => {
-  store.initialize();
+  lStore.initialize();
   document.addEventListener('click', closeContextMenu);
 
   // Load registered repos for the dropdown, discovering from sessions if needed
@@ -324,6 +330,7 @@ onMounted(async () => {
   // Pre-fill from query params (e.g., navigated from Worktree Manager)
   if (route.query.repoPath) {
     repoPath.value = String(route.query.repoPath);
+    worktreeStore.loadBranches(repoPath.value);
   }
   if (route.query.branch) {
     branch.value = String(route.query.branch);
@@ -340,7 +347,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="launcher-shell" @click="closeContextMenu">
+  <div class="lStore-shell" @click="closeContextMenu">
     <!-- Context menu for template deletion -->
     <Teleport to="body">
       <div
@@ -366,16 +373,16 @@ onUnmounted(() => {
         </header>
 
         <!-- Readiness banner -->
-        <div v-if="!store.isReady && !store.loading" class="readiness-banner">
+        <div v-if="lStore && !lStore.isReady && !lStore.loading" class="readiness-banner">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="readiness-icon">
             <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/>
           </svg>
           <span>
             System not ready —
-            <template v-if="store.systemDeps">
-              <strong v-if="!store.systemDeps.gitAvailable">git</strong>
-              <template v-if="!store.systemDeps.gitAvailable && !store.systemDeps.copilotAvailable"> and </template>
-              <strong v-if="!store.systemDeps.copilotAvailable">GitHub Copilot CLI</strong>
+            <template v-if="lStore.systemDeps">
+              <strong v-if="!lStore.systemDeps.gitAvailable">git</strong>
+              <template v-if="!lStore.systemDeps.gitAvailable && !lStore.systemDeps.copilotAvailable"> and </template>
+              <strong v-if="!lStore.systemDeps.copilotAvailable">GitHub Copilot CLI</strong>
               not found on PATH.
             </template>
             <template v-else>ensure <strong>git</strong> and <strong>GitHub Copilot CLI</strong> are installed.</template>
@@ -383,22 +390,22 @@ onUnmounted(() => {
         </div>
 
         <!-- Error -->
-        <ErrorAlert v-if="store.error" :message="store.error" variant="banner" dismissible @dismiss="store.error = null" />
+        <ErrorAlert v-if="lStore.error" :message="lStore.error" variant="banner" dismissible @dismiss="lStore.error = null" />
 
         <!-- ── Templates ─────────────────────────────────────── -->
-        <section v-if="store.loading || store.templates.length || hasDismissedDefaults" class="section-block">
+        <section v-if="lStore.loading || lStore.templates.length || hasDismissedDefaults" class="section-block">
           <div class="section-header-row">
             <h2 class="section-label">Saved Templates</h2>
             <button
               v-if="hasDismissedDefaults"
               class="tpl-restore-btn"
-              title="Restore dismissed default templates"
-              @click="store.restoreDefaults()"
+              title="RelStore dismissed default templates"
+              @click="lStore.restoreDefaults()"
             >
-              ↻ Restore Defaults
+              ↻ RelStore Defaults
             </button>
           </div>
-          <div v-if="store.loading && !store.templates.length" class="tpl-grid">
+          <div v-if="lStore.loading && !lStore.templates.length" class="tpl-grid">
             <div v-for="n in 3" :key="n" class="tpl-card tpl-skeleton">
               <span class="tpl-emoji">⏳</span>
               <span class="tpl-name skeleton-text">&nbsp;</span>
@@ -407,7 +414,7 @@ onUnmounted(() => {
           </div>
           <div v-else class="tpl-grid">
             <button
-              v-for="(tpl, idx) in store.templates"
+              v-for="(tpl, idx) in lStore.templates"
               :key="tpl.id"
               class="tpl-card"
               :class="{ selected: selectedTemplateId === tpl.id }"
@@ -423,7 +430,7 @@ onUnmounted(() => {
                 >▲</button>
                 <button
                   class="tpl-action-btn tpl-move-btn"
-                  :disabled="idx === store.templates.length - 1"
+                  :disabled="idx === lStore.templates.length - 1"
                   title="Move down"
                   @click="moveTemplate(idx, 'down')"
                 >▼</button>
@@ -488,12 +495,11 @@ onUnmounted(() => {
               </div>
               <div class="form-group">
                 <label class="form-label">Branch</label>
-                <input
+                <SearchableSelect
                   v-model="branch"
-                  type="text"
-                  class="form-input"
+                  :options="worktreeStore.branches"
                   :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
-                  @input="clearTemplateSelection"
+                  @update:model-value="clearTemplateSelection"
                 />
                 <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
               </div>
@@ -502,7 +508,7 @@ onUnmounted(() => {
                 <select v-model="selectedModel" class="form-input form-select" @change="clearTemplateSelection">
                   <option value="">— Default —</option>
                   <optgroup
-                    v-for="(group, tier) in store.modelsByTier"
+                    v-for="(group, tier) in lStore.modelsByTier"
                     :key="tier"
                     :label="tierLabel(String(tier))"
                   >
@@ -584,10 +590,9 @@ onUnmounted(() => {
                 <div v-if="createWorktree" class="worktree-options">
                   <div class="form-group" style="margin: 8px 0 0 0">
                     <label class="form-label">Base Branch</label>
-                    <input
+                    <SearchableSelect
                       v-model="baseBranch"
-                      type="text"
-                      class="form-input"
+                      :options="worktreeStore.branches"
                       placeholder="Leave blank to use current HEAD"
                     />
                     <span class="form-hint">The branch to base the new worktree on. If left blank, the worktree is created from the current HEAD.</span>
@@ -705,7 +710,7 @@ onUnmounted(() => {
               </div>
               <div class="meta-card">
                 <span class="meta-label">Active Sessions</span>
-                <span class="meta-value success">{{ store.recentLaunches.length }}</span>
+                <span class="meta-value success">{{ lStore.recentLaunches.length }}</span>
               </div>
               <div class="meta-card">
                 <span class="meta-label">Template</span>
@@ -776,7 +781,7 @@ onUnmounted(() => {
             </button>
             <button class="btn btn-primary footer-btn-primary" @click="handleLaunch(false)" :disabled="!canLaunch">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 6px"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/></svg>
-              {{ store.loading ? 'Launching…' : 'Launch Session' }}
+              {{ lStore.loading ? 'Launching…' : 'Launch Session' }}
             </button>
           </div>
         </div>
@@ -787,7 +792,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* ── Shell & Layout ──────────────────────────────────────────────── */
-.launcher-shell {
+.lStore-shell {
   height: 100%;
   overflow: hidden;
 }

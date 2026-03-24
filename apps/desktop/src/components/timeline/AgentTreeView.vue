@@ -90,13 +90,25 @@ const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 const hasInProgressRef = ref(false);
 const { nowMs } = useLiveDuration(hasInProgressRef);
 
+const sessionStartTime = computed(() => {
+  const firstTurn = store.turns[0];
+  if (!firstTurn?.timestamp) return undefined;
+  const t = new Date(firstTurn.timestamp).getTime();
+  return isNaN(t) ? undefined : t;
+});
+
 /** Returns live elapsed ms for in-progress nodes, or the static durationMs for completed ones. */
 function liveDuration(node: AgentNode): number | undefined {
   if (node.status === "in-progress" && node.toolCallRef?.startedAt) {
     return nowMs.value - new Date(node.toolCallRef.startedAt).getTime();
   }
-  if (node.status === "in-progress" && node.type === "main" && currentTurn.value?.timestamp) {
-    return nowMs.value - new Date(currentTurn.value.timestamp).getTime();
+  if (node.status === "in-progress" && node.type === "main") {
+    if (viewMode.value === "unified" && sessionStartTime.value) {
+      return nowMs.value - sessionStartTime.value;
+    }
+    if (currentTurn.value?.timestamp) {
+      return nowMs.value - new Date(currentTurn.value.timestamp).getTime();
+    }
   }
   return node.durationMs;
 }

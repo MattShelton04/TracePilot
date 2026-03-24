@@ -95,7 +95,7 @@ const modelColumns = [
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" message="No shutdown metrics available for this session." />
+    <EmptyState v-if="!metrics && !store.metricsError" message="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
     <template v-if="metrics">
       <!-- Stats row — cost comparison -->
