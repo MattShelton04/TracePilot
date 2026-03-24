@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import type {
   SessionDetail,
   ConversationTurn,
@@ -21,6 +21,7 @@ import {
   getShutdownMetrics,
   getSessionIncidents,
 } from "@tracepilot/client";
+import { toErrorMessage } from "@tracepilot/ui";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -83,11 +84,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  /** Convert a caught value into an error message string. */
-  function formatError(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-  }
-
   /** Clear all per-section error refs (used on session switch / reset). */
   function clearSectionErrors() {
     turnsError.value = null;
@@ -103,6 +99,36 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   let requestToken = 0;
   // Separate token for events requests (filter/pagination within same session)
   let eventsRequestToken = 0;
+
+  // ── Section loader factory ───────────────────────────────────────────
+  // Eliminates boilerplate across load functions that share identical
+  // guard / fetch / stale-token / error-handling logic.
+  function buildSectionLoader<T>(opts: {
+    key: string;
+    errorRef: Ref<string | null>;
+    fetchFn: (id: string) => Promise<T>;
+    onResult: (result: T) => void;
+    logLevel?: 'error' | 'warn';
+  }) {
+    return async () => {
+      const id = sessionId.value;
+      if (!id || loaded.value.has(opts.key)) return;
+      const token = requestToken;
+      opts.errorRef.value = null;
+
+      try {
+        const result = await opts.fetchFn(id);
+        if (requestToken !== token) return;
+        opts.onResult(result);
+        loaded.value.add(opts.key);
+      } catch (e) {
+        if (requestToken !== token) return;
+        opts.errorRef.value = toErrorMessage(e);
+        const logFn = opts.logLevel === 'warn' ? console.warn : console.error;
+        logFn(`Failed to load ${opts.key}:`, e);
+      }
+    };
+  }
 
   async function loadDetail(id: string) {
     if (sessionId.value === id && loaded.value.has("detail")) {
@@ -179,30 +205,21 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     } catch (e) {
       if (requestToken !== token) return;
       detail.value = null;
-      error.value = formatError(e);
+      error.value = toErrorMessage(e);
     } finally {
       if (requestToken === token) loading.value = false;
     }
   }
 
-  async function loadTurns() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("turns")) return;
-    const token = requestToken;
-    turnsError.value = null;
-
-    try {
-      const result = await getSessionTurns(id);
-      if (requestToken !== token) return;
+  const loadTurns = buildSectionLoader({
+    key: 'turns',
+    errorRef: turnsError,
+    fetchFn: (id) => getSessionTurns(id),
+    onResult: (result) => {
       turns.value = result.turns;
       lastEventsFileSize = result.eventsFileSize;
-      loaded.value.add("turns");
-    } catch (e) {
-      if (requestToken !== token) return;
-      turnsError.value = formatError(e);
-      console.error("Failed to load turns:", e);
-    }
-  }
+    },
+  });
 
   async function loadEvents(offset = 0, limit = 100, eventType?: string) {
     const id = sessionId.value;
@@ -218,100 +235,46 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       loaded.value.add("events");
     } catch (e) {
       if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
-      eventsError.value = formatError(e);
+      eventsError.value = toErrorMessage(e);
       console.error("Failed to load events:", e);
     }
   }
 
-  async function loadTodos() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("todos")) return;
-    const token = requestToken;
-    todosError.value = null;
+  const loadTodos = buildSectionLoader({
+    key: 'todos',
+    errorRef: todosError,
+    fetchFn: (id) => getSessionTodos(id),
+    onResult: (r) => { todos.value = r; },
+  });
 
-    try {
-      const result = await getSessionTodos(id);
-      if (requestToken !== token) return;
-      todos.value = result;
-      loaded.value.add("todos");
-    } catch (e) {
-      if (requestToken !== token) return;
-      todosError.value = formatError(e);
-      console.error("Failed to load todos:", e);
-    }
-  }
+  const loadCheckpoints = buildSectionLoader({
+    key: 'checkpoints',
+    errorRef: checkpointsError,
+    fetchFn: (id) => getSessionCheckpoints(id),
+    onResult: (r) => { checkpoints.value = r; },
+  });
 
-  async function loadCheckpoints() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("checkpoints")) return;
-    const token = requestToken;
-    checkpointsError.value = null;
+  const loadPlan = buildSectionLoader({
+    key: 'plan',
+    errorRef: planError,
+    fetchFn: (id) => getSessionPlan(id),
+    onResult: (r) => { plan.value = r; },
+  });
 
-    try {
-      const result = await getSessionCheckpoints(id);
-      if (requestToken !== token) return;
-      checkpoints.value = result;
-      loaded.value.add("checkpoints");
-    } catch (e) {
-      if (requestToken !== token) return;
-      checkpointsError.value = formatError(e);
-      console.error("Failed to load checkpoints:", e);
-    }
-  }
+  const loadShutdownMetrics = buildSectionLoader({
+    key: 'metrics',
+    errorRef: metricsError,
+    fetchFn: (id) => getShutdownMetrics(id),
+    onResult: (r) => { shutdownMetrics.value = r; },
+  });
 
-  async function loadPlan() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("plan")) return;
-    const token = requestToken;
-    planError.value = null;
-
-    try {
-      const result = await getSessionPlan(id);
-      if (requestToken !== token) return;
-      plan.value = result;
-      loaded.value.add("plan");
-    } catch (e) {
-      if (requestToken !== token) return;
-      planError.value = formatError(e);
-      console.error("Failed to load plan:", e);
-    }
-  }
-
-  async function loadShutdownMetrics() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("metrics")) return;
-    const token = requestToken;
-    metricsError.value = null;
-
-    try {
-      const result = await getShutdownMetrics(id);
-      if (requestToken !== token) return;
-      shutdownMetrics.value = result;
-      loaded.value.add("metrics");
-    } catch (e) {
-      if (requestToken !== token) return;
-      metricsError.value = formatError(e);
-      console.error("Failed to load metrics:", e);
-    }
-  }
-
-  async function loadIncidents() {
-    const id = sessionId.value;
-    if (!id || loaded.value.has("incidents")) return;
-    const token = requestToken;
-    incidentsError.value = null;
-
-    try {
-      const result = await getSessionIncidents(id);
-      if (requestToken !== token) return;
-      incidents.value = result;
-      loaded.value.add("incidents");
-    } catch (e) {
-      if (requestToken !== token) return;
-      incidentsError.value = formatError(e);
-      console.warn("Failed to load incidents:", e);
-    }
-  }
+  const loadIncidents = buildSectionLoader({
+    key: 'incidents',
+    errorRef: incidentsError,
+    fetchFn: (id) => getSessionIncidents(id),
+    onResult: (r) => { incidents.value = r; },
+    logLevel: 'warn',
+  });
 
   function reset() {
     requestToken++;
@@ -376,7 +339,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {
           if (requestToken !== token) return;
-          turnsError.value = formatError(e);
+          turnsError.value = toErrorMessage(e);
           console.error("Failed to refresh turns:", e);
         })
       );
@@ -394,7 +357,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           todosError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          todosError.value = formatError(e);
+          todosError.value = toErrorMessage(e);
           console.error("Failed to refresh todos:", e);
         })
       );
@@ -408,7 +371,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           checkpointsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          checkpointsError.value = formatError(e);
+          checkpointsError.value = toErrorMessage(e);
           console.error("Failed to refresh checkpoints:", e);
         })
       );
@@ -422,7 +385,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           planError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          planError.value = formatError(e);
+          planError.value = toErrorMessage(e);
           console.error("Failed to refresh plan:", e);
         })
       );
@@ -436,7 +399,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           metricsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          metricsError.value = formatError(e);
+          metricsError.value = toErrorMessage(e);
           console.error("Failed to refresh metrics:", e);
         })
       );
@@ -450,7 +413,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           incidentsError.value = null;
         }).catch((e) => {
           if (requestToken !== token) return;
-          incidentsError.value = formatError(e);
+          incidentsError.value = toErrorMessage(e);
           console.warn("Failed to refresh incidents:", e);
         })
       );

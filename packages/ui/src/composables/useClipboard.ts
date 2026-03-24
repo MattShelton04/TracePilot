@@ -1,5 +1,6 @@
 import { ref, onScopeDispose } from "vue";
 import type { Ref } from "vue";
+import { toErrorMessage } from "../utils/formatters";
 
 export interface UseClipboardOptions {
   /** Duration in ms to show "copied" state. Default: 2000 */
@@ -52,7 +53,7 @@ export function useClipboard(
       }, duration);
       return true;
     } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err);
+      error.value = toErrorMessage(err);
       copied.value = false;
       return false;
     }

@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import { toErrorMessage } from "@tracepilot/ui";
 import App from "./App.vue";
 import router from "./router";
 import "./styles.css";
@@ -19,7 +20,7 @@ const app = createApp(App);
 
 // Global error handler — captures unhandled errors for both devtools AND log file
 app.config.errorHandler = (err, _instance, info) => {
-  const msg = `[TracePilot] Unhandled error (${info}): ${err instanceof Error ? err.message : String(err)}`;
+  const msg = `[TracePilot] Unhandled error (${info}): ${toErrorMessage(err)}`;
   console.error(msg, err);
   // Write to backend log file via tauri-plugin-log (works before initLogging)
   import('./utils/logger').then(({ error }) => error(msg)).catch(() => {});
@@ -31,13 +32,13 @@ app.mount("#root");
 
 // Window-level error handlers — catch errors that escape Vue's boundary
 window.addEventListener('error', (event) => {
-  const msg = `[window.onerror] ${event.error instanceof Error ? event.error.message : String(event.error)}`;
+  const msg = `[window.onerror] ${toErrorMessage(event.error)}`;
   console.error(msg, event.error);
   import('./utils/logger').then(({ error }) => error(msg)).catch(() => {});
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  const msg = `[unhandledrejection] ${event.reason instanceof Error ? event.reason.message : String(event.reason)}`;
+  const msg = `[unhandledrejection] ${toErrorMessage(event.reason)}`;
   console.error(msg, event.reason);
   import('./utils/logger').then(({ error }) => error(msg)).catch(() => {});
 });

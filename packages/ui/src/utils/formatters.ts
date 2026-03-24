@@ -135,3 +135,13 @@ export function formatBytes(bytes?: number | null): string {
   const value = bytes / Math.pow(1024, i);
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+/** Convert a caught value into an error message string.
+ *  @param e — the caught value (may be Error, string, or anything)
+ *  @param fallback — returned when `e` is null/undefined or stringifies to empty */
+export function toErrorMessage(e: unknown, fallback = 'Unknown error'): string {
+  if (e instanceof Error) return e.message;
+  if (e == null) return fallback;
+  const s = String(e);
+  return s || fallback;
+}

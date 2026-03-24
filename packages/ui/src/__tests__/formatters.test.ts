@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatRate,
   formatRelativeTime,
+  toErrorMessage,
 } from '../utils/formatters';
 
 describe('formatRate', () => {
@@ -177,5 +178,41 @@ describe('formatRelativeTime', () => {
   it('returns days for Unix timestamps within the week', () => {
     const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
     expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
+  });
+});
+
+describe('toErrorMessage', () => {
+  it('extracts message from Error objects', () => {
+    expect(toErrorMessage(new Error('oops'))).toBe('oops');
+  });
+
+  it('returns Error.message even when empty (no fallback override)', () => {
+    expect(toErrorMessage(new Error(''))).toBe('');
+  });
+
+  it('stringifies non-Error values', () => {
+    expect(toErrorMessage('string error')).toBe('string error');
+    expect(toErrorMessage(42)).toBe('42');
+    expect(toErrorMessage(false)).toBe('false');
+  });
+
+  it('returns fallback for null and undefined', () => {
+    expect(toErrorMessage(null)).toBe('Unknown error');
+    expect(toErrorMessage(undefined)).toBe('Unknown error');
+  });
+
+  it('returns fallback for empty string', () => {
+    expect(toErrorMessage('')).toBe('Unknown error');
+  });
+
+  it('uses custom fallback when provided', () => {
+    expect(toErrorMessage(null, 'Custom fallback')).toBe('Custom fallback');
+    expect(toErrorMessage(undefined, 'Custom fallback')).toBe('Custom fallback');
+    expect(toErrorMessage('', 'Custom fallback')).toBe('Custom fallback');
+  });
+
+  it('ignores fallback when non-Error value stringifies to non-empty', () => {
+    expect(toErrorMessage('actual error', 'Custom fallback')).toBe('actual error');
+    expect(toErrorMessage(404, 'Not found')).toBe('404');
   });
 });
