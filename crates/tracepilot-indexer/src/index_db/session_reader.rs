@@ -17,6 +17,8 @@ impl IndexDb {
         filter_branch: Option<&str>,
         hide_empty: bool,
     ) -> Result<Vec<IndexedSession>> {
+        use super::helpers::build_eq_filter;
+
         let mut sql = String::from(
             "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, error_count, rate_limit_count, compaction_count, truncation_count FROM sessions WHERE 1=1",
         );
@@ -27,12 +29,10 @@ impl IndexDb {
         }
 
         if let Some(repo) = filter_repo {
-            sql.push_str(" AND repository = ?");
-            query_params.push(Box::new(repo.to_string()));
+            sql.push_str(&build_eq_filter("repository", repo.to_string(), &mut query_params));
         }
         if let Some(branch) = filter_branch {
-            sql.push_str(" AND branch = ?");
-            query_params.push(Box::new(branch.to_string()));
+            sql.push_str(&build_eq_filter("branch", branch.to_string(), &mut query_params));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");
