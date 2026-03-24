@@ -1178,7 +1178,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 }
 
 .cache-progress-fill--high  { background: linear-gradient(90deg, var(--chart-success), var(--chart-success-light)); }
-.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), var(--chart-warning)); }
+.cache-progress-fill--mid   { background: linear-gradient(90deg, var(--chart-warning), var(--chart-warning-light)); }
 .cache-progress-fill--low   { background: linear-gradient(90deg, var(--chart-danger), var(--chart-danger-light)); }
 
 .mt-3 {

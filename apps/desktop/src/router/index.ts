@@ -243,14 +243,24 @@ router.beforeEach(async (to) => {
 });
 
 // Handle lazy-load chunk failures (e.g., network errors, stale deploys)
+// Guard against infinite reload loops with a sessionStorage timestamp
 router.onError((error, to) => {
   if (
     error.message?.includes('Failed to fetch dynamically imported module') ||
     error.message?.includes('Loading chunk') ||
     error.message?.includes('Loading CSS chunk')
   ) {
-    console.error(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
-    window.location.reload();
+    const key = 'chunk-reload-ts';
+    const last = Number(sessionStorage.getItem(key) || 0);
+    const now = Date.now();
+    if (now - last > 10_000) {
+      sessionStorage.setItem(key, String(now));
+      console.error(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
+      window.location.reload();
+    } else {
+      console.error(`[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`, error);
+      router.replace({ name: 'sessions' });
+    }
   }
 });
 

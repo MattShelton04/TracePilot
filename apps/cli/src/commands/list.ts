@@ -77,7 +77,12 @@ export async function listSessionsCommand(options: {
     }
 
     // Sort
+    const validSorts = ["updated", "created", "name"] as const;
     const sortField = options.sort || "updated";
+    if (!validSorts.includes(sortField as typeof validSorts[number])) {
+      console.error(chalk.red(`Invalid --sort value "${options.sort}". Must be one of: ${validSorts.join(", ")}`));
+      process.exit(1);
+    }
     sessions.sort((a, b) => {
       if (sortField === "name") {
         const nameA = (a.summary || "").toLowerCase();
@@ -96,7 +101,12 @@ export async function listSessionsCommand(options: {
     });
 
     // Limit
-    const limit = Math.max(1, parseInt(options.limit, 10) || 20);
+    const parsedLimit = parseInt(options.limit, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      console.error(chalk.red(`Invalid --limit value "${options.limit}". Must be a positive integer.`));
+      process.exit(1);
+    }
+    const limit = parsedLimit;
     sessions = sessions.slice(0, limit);
 
     if (options.json) {
