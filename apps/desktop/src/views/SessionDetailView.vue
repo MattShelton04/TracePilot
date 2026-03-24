@@ -86,8 +86,8 @@ function cancelResume() {
 
 const tabs = computed(() => [
   { name: "overview", routeName: "session-overview", label: "Overview" },
-  { name: "conversation", routeName: "session-conversation", label: "Conversation", count: store.detail?.turnCount },
-  { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount },
+  { name: "conversation", routeName: "session-conversation", label: "Conversation", count: store.detail?.turnCount ?? undefined },
+  { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount ?? undefined },
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
   { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },

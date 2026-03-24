@@ -35,32 +35,32 @@ export interface SessionIncident {
 /** Full session detail from load_session_summary */
 export interface SessionDetail {
   id: string;
-  summary?: string;
-  repository?: string;
-  branch?: string;
-  cwd?: string;
+  summary?: string | null;
+  repository?: string | null;
+  branch?: string | null;
+  cwd?: string | null;
   gitRoot?: string;
-  hostType?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  eventCount?: number;
-  turnCount?: number;
+  hostType?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  eventCount?: number | null;
+  turnCount?: number | null;
   hasPlan: boolean;
   hasCheckpoints: boolean;
-  checkpointCount?: number;
-  shutdownMetrics?: ShutdownMetrics;
+  checkpointCount?: number | null;
+  shutdownMetrics?: ShutdownMetrics | null;
 }
 
 /** Shutdown metrics from session.shutdown event */
 export interface ShutdownMetrics {
-  shutdownType?: string;
-  shutdownCount?: number;
-  totalPremiumRequests?: number;
-  totalApiDurationMs?: number;
-  sessionStartTime?: number;
-  currentModel?: string;
-  codeChanges?: CodeChanges;
-  modelMetrics?: Record<string, ModelMetricDetail>;
+  shutdownType?: string | null;
+  shutdownCount?: number | null;
+  totalPremiumRequests?: number | null;
+  totalApiDurationMs?: number | null;
+  sessionStartTime?: number | null;
+  currentModel?: string | null;
+  codeChanges?: CodeChanges | null;
+  modelMetrics?: Record<string, ModelMetricDetail> | null;
 }
 
 export interface CodeChanges {
@@ -659,7 +659,7 @@ export interface ValidateSessionDirResult {
 /** Result from checking for a newer TracePilot release. */
 export interface UpdateCheckResult {
   currentVersion: string;
-  latestVersion: string;
+  latestVersion: string | null;
   hasUpdate: boolean;
   releaseUrl: string | null;
   publishedAt: string | null;
@@ -667,8 +667,8 @@ export interface UpdateCheckResult {
 
 /** Git metadata for the running TracePilot instance. */
 export interface GitInfo {
-  commitHash: string;
-  branch: string;
+  commitHash: string | null;
+  branch: string | null;
 }
 
 /** A single entry in the release manifest used by the What's New modal. */
