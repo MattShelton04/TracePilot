@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
+import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath, SearchableSelect } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 
@@ -309,6 +309,12 @@ async function copyCommand() {
   if (ok) toastSuccess('Command copied to clipboard');
 }
 
+watch(repoPath, (newPath) => {
+  if (newPath) {
+    worktreeStore.loadBranches(newPath);
+  }
+});
+
 onMounted(async () => {
   store.initialize();
   document.addEventListener('click', closeContextMenu);
@@ -324,6 +330,7 @@ onMounted(async () => {
   // Pre-fill from query params (e.g., navigated from Worktree Manager)
   if (route.query.repoPath) {
     repoPath.value = String(route.query.repoPath);
+    worktreeStore.loadBranches(repoPath.value);
   }
   if (route.query.branch) {
     branch.value = String(route.query.branch);
@@ -340,7 +347,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="launcher-shell" @click="closeContextMenu">
+  <div class="store-shell" @click="closeContextMenu">
     <!-- Context menu for template deletion -->
     <Teleport to="body">
       <div
@@ -366,7 +373,7 @@ onUnmounted(() => {
         </header>
 
         <!-- Readiness banner -->
-        <div v-if="!store.isReady && !store.loading" class="readiness-banner">
+        <div v-if="store && !store.isReady && !store.loading" class="readiness-banner">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="readiness-icon">
             <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"/>
           </svg>
@@ -488,12 +495,12 @@ onUnmounted(() => {
               </div>
               <div class="form-group">
                 <label class="form-label">Branch</label>
-                <input
+                <SearchableSelect
                   v-model="branch"
-                  type="text"
-                  class="form-input"
+                  :options="worktreeStore.branches"
                   :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
-                  @input="clearTemplateSelection"
+                  clearable
+                  @update:model-value="clearTemplateSelection"
                 />
                 <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
               </div>
@@ -584,11 +591,11 @@ onUnmounted(() => {
                 <div v-if="createWorktree" class="worktree-options">
                   <div class="form-group" style="margin: 8px 0 0 0">
                     <label class="form-label">Base Branch</label>
-                    <input
+                    <SearchableSelect
                       v-model="baseBranch"
-                      type="text"
-                      class="form-input"
+                      :options="worktreeStore.branches"
                       placeholder="Leave blank to use current HEAD"
+                      clearable
                     />
                     <span class="form-hint">The branch to base the new worktree on. If left blank, the worktree is created from the current HEAD.</span>
                   </div>
@@ -787,7 +794,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* ── Shell & Layout ──────────────────────────────────────────────── */
-.launcher-shell {
+.store-shell {
   height: 100%;
   overflow: hidden;
 }

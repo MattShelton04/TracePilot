@@ -72,7 +72,11 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const branches = computed(() => {
-    const br = new Set(sessions.value.map((s) => s.branch).filter(Boolean));
+    let s = sessions.value;
+    if (filterRepo.value) {
+      s = s.filter((x) => x.repository === filterRepo.value);
+    }
+    const br = new Set(s.map((s) => s.branch).filter(Boolean));
     return [...br].sort();
   });
 

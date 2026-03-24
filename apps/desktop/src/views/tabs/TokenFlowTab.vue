@@ -452,7 +452,7 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
       @retry="retryLoadTokenFlow"
     />
 
-    <EmptyState v-if="!metrics && !tokenFlowError" message="No token data available for this session." />
+    <EmptyState v-if="!metrics && !tokenFlowError" message="No token data available for this session. Token data is only generated after the first session shutdown." />
 
     <template v-else-if="sankeyData">
       <!-- Stat cards -->

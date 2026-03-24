@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
 import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
-import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog, normalizePath, pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
+import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog, normalizePath, pathBasename, pathDirname, sanitizeBranchForPath, SearchableSelect } from '@tracepilot/ui';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
@@ -942,22 +942,10 @@ watch(() => store.worktrees, () => {
 
               <div class="form-group">
                 <label class="form-label" for="cw-base">Base Branch</label>
-                <select
-                  v-if="store.branches.length"
-                  id="cw-base"
+                <SearchableSelect
                   v-model="newBaseBranch"
-                  class="form-input"
-                >
-                  <option value="">Current HEAD</option>
-                  <option v-for="b in store.branches" :key="b" :value="b">{{ b }}</option>
-                </select>
-                <input
-                  v-else
-                  id="cw-base"
-                  v-model="newBaseBranch"
-                  type="text"
-                  class="form-input"
-                  placeholder="main"
+                  :options="store.branches"
+                  placeholder="Current HEAD"
                 />
               </div>
 
@@ -1794,6 +1782,7 @@ watch(() => store.worktrees, () => {
 /* ─── Form Inputs ─────────────────────────────────────────────── */
 .form-input {
   width: 100%;
+  max-width: 100%;
   padding: 8px 12px;
   font-size: 0.8125rem;
   font-family: var(--font-family);
@@ -1803,6 +1792,8 @@ watch(() => store.worktrees, () => {
   border-radius: var(--radius-sm);
   outline: none;
   transition: border-color var(--transition-fast);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .form-input:focus {
