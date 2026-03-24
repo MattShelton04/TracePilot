@@ -215,7 +215,8 @@ describe("getToolCallColor", () => {
       isSubagent: true,
       toolName: "unknown",
     });
-    // inferAgentType defaults to "task" for unrecognized names
+    // "unknown" doesn't match any agent type pattern, so inferAgentType
+    // defaults to "task" — getAgentColor then resolves AGENT_COLORS.task
     expect(getToolCallColor(tc)).toBe(AGENT_COLORS.task);
   });
 
