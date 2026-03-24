@@ -1,6 +1,7 @@
 //! Session-related Tauri commands (12 commands).
 
 use crate::config::SharedConfig;
+use crate::db_helpers::{with_index_db, with_index_db_or_default};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
     load_summary_list_item, read_config, truncate_utf8, MAX_CHECKPOINT_CONTENT_BYTES,
@@ -24,21 +25,22 @@ pub async fn list_sessions(
 
     tokio::task::spawn_blocking(move || {
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
-        if index_path.exists() {
-            let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-
-            // Check if index has any sessions; if empty, fall through to disk scan
+        let indexed_sessions = with_index_db_or_default(&index_path, |db| {
+            // Check if index has any sessions; if empty, return None to fall through to disk scan
             let count = db.session_count().unwrap_or(0);
-            if count > 0 {
-                let indexed = db
-                    .list_sessions(
-                        limit.map(|l| l as usize),
-                        repo.as_deref(),
-                        branch.as_deref(),
-                        hide_empty.unwrap_or(false),
-                    )?;
+            if count == 0 {
+                return Ok(None);
+            }
 
-                return Ok(indexed
+            let indexed = db.list_sessions(
+                limit.map(|l| l as usize),
+                repo.as_deref(),
+                branch.as_deref(),
+                hide_empty.unwrap_or(false),
+            )?;
+
+            Ok(Some(
+                indexed
                     .into_iter()
                     .map(|s| {
                         let is_running = tracepilot_core::session::discovery::has_lock_file(
@@ -62,8 +64,13 @@ pub async fn list_sessions(
                             truncation_count: s.truncation_count.map(|v| v as usize),
                         }
                     })
-                    .collect());
-            }
+                    .collect(),
+            ))
+        })?;
+
+        // If we got results from index, return them
+        if let Some(sessions) = indexed_sessions {
+            return Ok(sessions);
         }
 
         // Fallback: full disk scan (used when index is empty or missing)
@@ -138,22 +145,22 @@ pub async fn get_session_incidents(
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        let incidents = db
-            .get_session_incidents(&session_id)?;
-        Ok(incidents
-            .into_iter()
-            .map(|i| SessionIncidentItem {
-                event_type: i.event_type,
-                source_event_type: i.source_event_type,
-                timestamp: i.timestamp,
-                severity: i.severity,
-                summary: i.summary,
-                detail_json: i
-                    .detail_json
-                    .and_then(|s| serde_json::from_str(&s).ok()),
-            })
-            .collect())
+        with_index_db(&index_path, |db| {
+            let incidents = db.get_session_incidents(&session_id)?;
+            Ok(incidents
+                .into_iter()
+                .map(|i| SessionIncidentItem {
+                    event_type: i.event_type,
+                    source_event_type: i.source_event_type,
+                    timestamp: i.timestamp,
+                    severity: i.severity,
+                    summary: i.summary,
+                    detail_json: i
+                        .detail_json
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                })
+                .collect())
+        })
     })
     .await?
 }

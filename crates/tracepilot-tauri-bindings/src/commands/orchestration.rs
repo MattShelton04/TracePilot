@@ -1,6 +1,7 @@
 //! Orchestration Tauri commands (22 commands).
 
 use crate::config::SharedConfig;
+use crate::db_helpers::with_index_db_or_default;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
 
@@ -192,11 +193,7 @@ pub async fn discover_repos_from_sessions(
     let index_path = cfg.index_db_path();
 
     let cwds = tokio::task::spawn_blocking(move || -> CmdResult<Vec<String>> {
-        if !index_path.exists() {
-            return Ok(Vec::new());
-        }
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.distinct_session_cwds()?)
+        with_index_db_or_default(&index_path, |db| Ok(db.distinct_session_cwds()?))
     })
     .await??;
 

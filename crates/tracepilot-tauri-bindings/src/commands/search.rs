@@ -1,6 +1,7 @@
 //! Search and indexing Tauri commands (9 commands).
 
 use crate::config::SharedConfig;
+use crate::db_helpers::{with_index_db, with_index_db_or_default};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{emit_indexing_progress, load_summary_list_item, read_config};
 use crate::types::{
@@ -21,38 +22,35 @@ pub async fn search_sessions(
     let session_state_dir = cfg.session_state_dir();
 
     tokio::task::spawn_blocking(move || {
-        if !index_path.exists() {
-            return Ok(Vec::new());
-        }
-
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        let result_ids = db.search(&query)?;
-        let mut sessions = Vec::new();
-        for session_id in result_ids {
-            let path = match db.get_session_path(&session_id) {
-                Ok(Some(p)) => p,
-                _ => match tracepilot_core::session::discovery::resolve_session_path_in(
-                    &session_id,
-                    &session_state_dir,
-                ) {
-                    Ok(path) => path,
+        with_index_db_or_default(&index_path, |db| {
+            let result_ids = db.search(&query)?;
+            let mut sessions = Vec::new();
+            for session_id in result_ids {
+                let path = match db.get_session_path(&session_id) {
+                    Ok(Some(p)) => p,
+                    _ => match tracepilot_core::session::discovery::resolve_session_path_in(
+                        &session_id,
+                        &session_state_dir,
+                    ) {
+                        Ok(path) => path,
+                        Err(_) => continue,
+                    },
+                };
+                let item = match load_summary_list_item(&path) {
+                    Ok(item) => item,
                     Err(_) => continue,
-                },
-            };
-            let item = match load_summary_list_item(&path) {
-                Ok(item) => item,
-                Err(_) => continue,
-            };
-            sessions.push(item);
-        }
+                };
+                sessions.push(item);
+            }
 
-        sessions.sort_by(|a, b| {
-            b.updated_at
-                .cmp(&a.updated_at)
-                .then_with(|| a.id.cmp(&b.id))
-        });
+            sessions.sort_by(|a, b| {
+                b.updated_at
+                    .cmp(&a.updated_at)
+                    .then_with(|| a.id.cmp(&b.id))
+            });
 
-        Ok(sessions)
+            Ok(sessions)
+        })
     })
     .await?
 }
@@ -256,9 +254,9 @@ pub async fn search_content(
 
     tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
-        let filters = tracepilot_indexer::SearchFilters {
+        with_index_db(&index_path, |db| {
+            let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
@@ -309,6 +307,7 @@ pub async fn search_content(
             query: query_for_closure,
             latency_ms,
         })
+        })
     })
     .await?
 }
@@ -329,9 +328,8 @@ pub async fn get_search_facets(
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-
-        let filters = tracepilot_indexer::SearchFilters {
+        with_index_db(&index_path, |db| {
+            let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
@@ -351,6 +349,7 @@ pub async fn get_search_facets(
             total_matches: facets.total_matches,
             session_count: facets.session_count,
         })
+        })
     })
     .await?
 }
@@ -364,15 +363,15 @@ pub async fn get_search_stats(
     let index_path = cfg.index_db_path();
 
     tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+        with_index_db(&index_path, |db| {
+            let stats = db.search_stats()?;
 
-        let stats = db.search_stats()?;
-
-        Ok(SearchStatsResponse {
-            total_rows: stats.total_rows,
-            indexed_sessions: stats.indexed_sessions,
-            total_sessions: stats.total_sessions,
-            content_type_counts: stats.content_type_counts,
+            Ok(SearchStatsResponse {
+                total_rows: stats.total_rows,
+                indexed_sessions: stats.indexed_sessions,
+                total_sessions: stats.total_sessions,
+                content_type_counts: stats.content_type_counts,
+            })
         })
     })
     .await?
@@ -386,10 +385,7 @@ pub async fn get_search_repositories(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_repositories()?)
-    })
+    tokio::task::spawn_blocking(move || with_index_db(&index_path, |db| Ok(db.search_repositories()?)))
     .await?
 }
 
@@ -401,10 +397,7 @@ pub async fn get_search_tool_names(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-        Ok(db.search_tool_names()?)
-    })
+    tokio::task::spawn_blocking(move || with_index_db(&index_path, |db| Ok(db.search_tool_names()?)))
     .await?
 }
 

@@ -57,24 +57,44 @@ fn table_exists(conn: &Connection, table_name: &str) -> bool {
     .unwrap_or(false)
 }
 
-/// Read all todo items from a session database (opened read-only).
-/// Returns an empty list if the database file does not exist.
-pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
+/// Execute a function with a session database connection.
+/// Handles existence checks, table validation, and returns default value on missing DB/table.
+///
+/// This helper eliminates duplication across the session_db functions, providing consistent
+/// error handling and existence checking logic.
+fn with_session_db<T, F>(
+    db_path: &Path,
+    required_table: Option<&str>,
+    f: F,
+) -> Result<T>
+where
+    F: FnOnce(&Connection) -> Result<T>,
+    T: Default,
+{
     if !db_path.exists() {
-        return Ok(Vec::new());
+        return Ok(T::default());
     }
 
     let conn = open_readonly(db_path)?;
 
-    if !table_exists(&conn, "todos") {
-        return Ok(Vec::new());
+    if let Some(table) = required_table {
+        if !table_exists(&conn, table) {
+            return Ok(T::default());
+        }
     }
 
-    let mut stmt =
-        conn.prepare("SELECT id, title, description, status, created_at, updated_at FROM todos")?;
+    f(&conn)
+}
 
-    let todos = stmt
-        .query_map([], |row| {
+/// Read all todo items from a session database (opened read-only).
+/// Returns an empty list if the database file does not exist or if the todos table is missing.
+pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
+    with_session_db(db_path, Some("todos"), |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, status, created_at, updated_at FROM todos",
+        )?;
+
+        stmt.query_map([], |row| {
             Ok(TodoItem {
                 id: row.get(0)?,
                 title: row.get(1)?,
@@ -84,53 +104,37 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
                 updated_at: row.get(5)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(todos)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
+    })
 }
 
 /// Read all todo dependencies from a session database (opened read-only).
-/// Returns an empty list if the database file does not exist.
+/// Returns an empty list if the database file does not exist or if the todo_deps table is missing.
 pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
-    if !db_path.exists() {
-        return Ok(Vec::new());
-    }
-
-    let conn = open_readonly(db_path)?;
-
-    if !table_exists(&conn, "todo_deps") {
-        return Ok(Vec::new());
-    }
-
-    let mut stmt = conn.prepare("SELECT todo_id, depends_on FROM todo_deps")?;
-    let deps = stmt
-        .query_map([], |row| {
+    with_session_db(db_path, Some("todo_deps"), |conn| {
+        let mut stmt = conn.prepare("SELECT todo_id, depends_on FROM todo_deps")?;
+        stmt.query_map([], |row| {
             Ok(TodoDep {
                 todo_id: row.get(0)?,
                 depends_on: row.get(1)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(deps)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
+    })
 }
 
 /// List all table names in a session database (opened read-only).
 /// Returns an empty list if the database file does not exist.
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
-    if !db_path.exists() {
-        return Ok(Vec::new());
-    }
-
-    let conn = open_readonly(db_path)?;
-
-    let mut stmt =
-        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
-    let tables = stmt
-        .query_map([], |row| row.get::<_, String>(0))?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(tables)
+    with_session_db(db_path, None, |conn| {
+        let mut stmt =
+            conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+        stmt.query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    })
 }
 
 /// Read all rows from a custom table, using `PRAGMA table_info` for schema discovery.
@@ -142,49 +146,33 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
 /// - NULL → Null
 /// - BLOB → skipped (set to Null)
 pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTableInfo> {
-    if !db_path.exists() {
-        return Ok(CustomTableInfo {
-            name: table_name.to_string(),
-            columns: Vec::new(),
-            rows: Vec::new(),
-        });
-    }
+    with_session_db(db_path, Some(table_name), |conn| {
+        // Discover columns via PRAGMA — escape table name for safe SQL interpolation
+        let safe_name = table_name.replace('"', "\"\"");
+        let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_name))?;
+        let columns: Vec<String> = pragma_stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    let conn = open_readonly(db_path)?;
+        // Read all rows
+        let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
+        let mut rows = Vec::new();
 
-    if !table_exists(&conn, table_name) {
-        return Ok(CustomTableInfo {
-            name: table_name.to_string(),
-            columns: Vec::new(),
-            rows: Vec::new(),
-        });
-    }
-
-    // Discover columns via PRAGMA — escape table name for safe SQL interpolation
-    let safe_name = table_name.replace('"', "\"\"");
-    let mut pragma_stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_name))?;
-    let columns: Vec<String> = pragma_stmt
-        .query_map([], |row| row.get::<_, String>(1))?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    // Read all rows
-    let mut select_stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", safe_name))?;
-    let mut rows = Vec::new();
-
-    let mut result_rows = select_stmt.query([])?;
-    while let Some(row) = result_rows.next()? {
-        let mut map = HashMap::new();
-        for (i, col_name) in columns.iter().enumerate() {
-            let val = sqlite_value_to_json(row, i);
-            map.insert(col_name.clone(), val);
+        let mut result_rows = select_stmt.query([])?;
+        while let Some(row) = result_rows.next()? {
+            let mut map = HashMap::new();
+            for (i, col_name) in columns.iter().enumerate() {
+                let val = sqlite_value_to_json(row, i);
+                map.insert(col_name.clone(), val);
+            }
+            rows.push(map);
         }
-        rows.push(map);
-    }
 
-    Ok(CustomTableInfo {
-        name: table_name.to_string(),
-        columns,
-        rows,
+        Ok(CustomTableInfo {
+            name: table_name.to_string(),
+            columns,
+            rows,
+        })
     })
 }
 

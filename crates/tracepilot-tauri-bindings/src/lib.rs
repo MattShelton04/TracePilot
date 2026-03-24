@@ -11,6 +11,7 @@
 
 pub mod config;
 mod commands;
+mod db_helpers;
 pub(crate) mod error;
 mod helpers;
 pub mod types;
