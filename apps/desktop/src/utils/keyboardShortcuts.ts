@@ -7,7 +7,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   if (!el) return false;
 
   const tag = el.tagName?.toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (tag === 'input') return (el as HTMLInputElement).type !== 'hidden';
+  if (tag === 'textarea' || tag === 'select') return true;
 
   if (el.isContentEditable) return true;
   return el.closest('[contenteditable="true"]') !== null;

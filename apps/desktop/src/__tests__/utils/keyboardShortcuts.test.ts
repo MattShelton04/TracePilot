@@ -12,6 +12,16 @@ describe('keyboardShortcuts', () => {
     expect(isEditableTarget(select)).toBe(true);
   });
 
+  it('excludes hidden inputs from editable targets', () => {
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    expect(isEditableTarget(hidden)).toBe(false);
+  });
+
+  it('returns false for null target', () => {
+    expect(isEditableTarget(null)).toBe(false);
+  });
+
   it('detects contenteditable descendants', () => {
     const wrapper = document.createElement('div');
     wrapper.setAttribute('contenteditable', 'true');

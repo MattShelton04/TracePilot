@@ -4,6 +4,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useSearchStore } from '@/stores/search';
 import { useSessionsStore } from '@/stores/sessions';
 import { safeListen } from '@/utils/tauriEvents';
+import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 import type { SearchContentType } from '@tracepilot/types';
 import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
 
@@ -179,6 +180,7 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
 
 // ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function handleKeydown(e: KeyboardEvent) {
+  if (shouldIgnoreGlobalShortcut(e)) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     e.stopImmediatePropagation();
