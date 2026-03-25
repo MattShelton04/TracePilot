@@ -241,6 +241,7 @@ pub async fn search_content(
     state: tauri::State<'_, SharedConfig>,
     query: String,
     content_types: Option<Vec<String>>,
+    exclude_content_types: Option<Vec<String>>,
     repositories: Option<Vec<String>>,
     tool_names: Option<Vec<String>>,
     session_id: Option<String>,
@@ -260,6 +261,7 @@ pub async fn search_content(
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
+            exclude_content_types: exclude_content_types.unwrap_or_default(),
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
             session_id,
@@ -319,6 +321,7 @@ pub async fn get_search_facets(
     state: tauri::State<'_, SharedConfig>,
     query: Option<String>,
     content_types: Option<Vec<String>>,
+    exclude_content_types: Option<Vec<String>>,
     repositories: Option<Vec<String>>,
     tool_names: Option<Vec<String>>,
     session_id: Option<String>,
@@ -333,6 +336,7 @@ pub async fn get_search_facets(
 
         let filters = tracepilot_indexer::SearchFilters {
             content_types: content_types.unwrap_or_default(),
+            exclude_content_types: exclude_content_types.unwrap_or_default(),
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
             session_id,

@@ -2,6 +2,48 @@
 
 > **Generated**: 2026-03-25 · **Validated against**: 251 sessions, 177,734 search content rows, 155 MB index DB
 > **Multi-model reviewed**: Claude Opus 4.6, GPT-5.4, GPT-5.3-Codex, Gemini 3 Pro
+> **Phase 1 implemented**: 2026-03-26 — Session-grouped results, negative filter chips, and UI refinements
+
+---
+
+## Phase 1 Implementation Status ✅
+
+Phase 1 has been implemented and verified. Below is a summary of what was delivered.
+
+### Completed Features
+
+| Proposal | Status | Notes |
+|---|---|---|
+| **2.1 Session-Grouped Results** | ✅ Done | Flat/grouped toggle in results bar. Groups show session name, repo, branch, match count. Collapse/expand per group. Expandable result detail within groups. |
+| **2.13 Negative Filter Chips** | ✅ Done | Tri-state content type filter (off → include ✓ → exclude ✕). Active filter chips bar with remove buttons. Backend `NOT IN` clause in Rust. |
+| **2.2 Search Within Session** | ✅ Done (revised) | Filter-by-session button in grouped view scopes results to a single session. Session chip shows session name (not GUID). In-session search overlay was removed per user feedback — native Ctrl+F is sufficient. |
+
+### Additional UI Refinements Delivered
+
+- **Session name display**: Session filter chip shows the human-readable session name, not the GUID
+- **Expandable grouped results**: Click any result row in grouped view to see full snippet + metadata details (session, turn, tool, event index, timestamp)
+- **Separate "Go to session" button**: Arrow icon on session group header navigates to the full session view, distinct from collapse/expand
+- **Timestamps in grouped view**: Each result row shows relative time with full date on hover
+- **Left/right margin**: Added 16px horizontal padding to the results scroll area
+
+### Files Modified
+
+| File | Changes |
+|---|---|
+| `crates/tracepilot-indexer/src/index_db/search_reader.rs` | Added `exclude_content_types` to `SearchFilters`; wired into `append_filters()` |
+| `crates/tracepilot-indexer/src/index_db/helpers.rs` | Added `build_not_in_filter()` + 3 unit tests |
+| `crates/tracepilot-tauri-bindings/src/commands/search.rs` | Added `exclude_content_types` param to search commands |
+| `packages/types/src/search.ts` | Added `excludeContentTypes` to `SearchFilters` interface |
+| `packages/client/src/index.ts` | Wired `excludeContentTypes` into `searchContent()` and `getSearchFacets()` |
+| `apps/desktop/src/stores/search.ts` | Added `excludeContentTypes`, `resultViewMode`, `groupedResults` computed, `SessionGroup` interface |
+| `apps/desktop/src/views/SessionSearchView.vue` | Major UI additions: tri-state checkboxes, filter chips bar, view mode toggle, grouped results with collapse/expand, expandable detail rows |
+
+### Verification
+
+- All 6 packages typecheck clean (`pnpm -r typecheck`)
+- 256 desktop tests pass
+- 537 UI package tests pass
+- 63 Rust indexer tests pass (including 3 new `build_not_in_filter` tests)
 
 ---
 
@@ -1236,12 +1278,12 @@ The grouped query (Section 2.1) adds GROUP BY overhead. Mitigation:
 
 > *Priority reordered per multi-model consensus.* All 4 reviewers agreed critical UX items should not be in Phase 3. Search Within Session was unanimously recommended as Phase 1 since the backend already supports it.
 
-### Phase 1: Critical UX + Quick Wins (3-4 days)
-| # | Improvement | Impact | Effort |
+### Phase 1: Critical UX + Quick Wins ✅ COMPLETE
+| # | Improvement | Impact | Status |
 |---|---|---|---|
-| 2.2 | **Search within session** (backend ready!) | 🔴 Critical | 1-2d |
-| 2.1 | **Session-grouped results** | 🔴 Critical | 2-3d |
-| 2.13 | Negative filter chips (exclude tool_calls) | 🟢→🟡 | 1d |
+| 2.2 | **Search within session** (filter-by-session from grouped view) | 🔴 Critical | ✅ Done |
+| 2.1 | **Session-grouped results** (flat/grouped toggle, collapse, expand) | 🔴 Critical | ✅ Done |
+| 2.13 | **Negative filter chips** (tri-state + active filter bar) | 🟢→🟡 | ✅ Done |
 
 ### Phase 2: Data Completeness + Relevance (2-3 days)
 | # | Improvement | Impact | Effort |

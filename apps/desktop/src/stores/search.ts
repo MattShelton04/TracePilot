@@ -18,10 +18,19 @@ import {
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
+export interface SessionGroup {
+  sessionId: string;
+  sessionSummary: string | null;
+  sessionRepository: string | null;
+  sessionBranch: string | null;
+  results: SearchResult[];
+}
+
 export const useSearchStore = defineStore('search', () => {
   // ── Query state ──────────────────────────────────────────────
   const query = ref('');
   const contentTypes = ref<SearchContentType[]>([]);
+  const excludeContentTypes = ref<SearchContentType[]>([]);
   const repository = ref<string | null>(null);
   const toolName = ref<string | null>(null);
   const dateFrom = ref<string | null>(null);
@@ -38,6 +47,7 @@ export const useSearchStore = defineStore('search', () => {
   const latencyMs = ref(0);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const resultViewMode = ref<'flat' | 'grouped'>('flat');
 
   // ── Facets & stats ───────────────────────────────────────────
   const stats = ref<SearchStatsResponse | null>(null);
@@ -98,11 +108,33 @@ export const useSearchStore = defineStore('search', () => {
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
   const hasActiveFilters = computed(() => {
     return contentTypes.value.length > 0
+      || excludeContentTypes.value.length > 0
       || repository.value !== null
       || toolName.value !== null
       || dateFrom.value !== null
       || dateTo.value !== null
       || sessionId.value !== null;
+  });
+
+  // Session-grouped view: group flat results by sessionId
+  const groupedResults = computed<SessionGroup[]>(() => {
+    if (results.value.length === 0) return [];
+    const map = new Map<string, SessionGroup>();
+    for (const r of results.value) {
+      let group = map.get(r.sessionId);
+      if (!group) {
+        group = {
+          sessionId: r.sessionId,
+          sessionSummary: r.sessionSummary ?? null,
+          sessionRepository: r.sessionRepository ?? null,
+          sessionBranch: r.sessionBranch ?? null,
+          results: [],
+        };
+        map.set(r.sessionId, group);
+      }
+      group.results.push(r);
+    }
+    return Array.from(map.values());
   });
 
   // ── Single search scheduler (replaces multiple watchers) ────
@@ -149,6 +181,7 @@ export const useSearchStore = defineStore('search', () => {
 
       const response = await searchContent(query.value, {
         contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+        excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
         repositories: repository.value ? [repository.value] : undefined,
         toolNames: toolName.value ? [toolName.value] : undefined,
         sessionId: sessionId.value ?? undefined,
@@ -186,7 +219,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // Filter changes → immediate search (resets page)
   watch(
-    [contentTypes, repository, toolName, dateFrom, dateTo, sessionId, sortBy],
+    [contentTypes, excludeContentTypes, repository, toolName, dateFrom, dateTo, sessionId, sortBy],
     () => scheduleSearch(true),
     { deep: true },
   );
@@ -200,6 +233,7 @@ export const useSearchStore = defineStore('search', () => {
   function browseErrors() {
     query.value = '';
     contentTypes.value = ['error', 'tool_error'];
+    excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
     dateFrom.value = null;
@@ -211,6 +245,7 @@ export const useSearchStore = defineStore('search', () => {
   function browseUserMessages() {
     query.value = '';
     contentTypes.value = ['user_message'];
+    excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
     dateFrom.value = null;
@@ -222,6 +257,7 @@ export const useSearchStore = defineStore('search', () => {
   function browseToolCalls() {
     query.value = '';
     contentTypes.value = ['tool_call'];
+    excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
     dateFrom.value = null;
@@ -243,6 +279,7 @@ export const useSearchStore = defineStore('search', () => {
 
       const result = await getSearchFacets(forQuery, {
         contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+        excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
         repositories: repository.value ? [repository.value] : undefined,
         toolNames: toolName.value ? [toolName.value] : undefined,
         sessionId: sessionId.value ?? undefined,
@@ -302,6 +339,7 @@ export const useSearchStore = defineStore('search', () => {
   // ── Helpers ──────────────────────────────────────────────────
   function clearFilters() {
     contentTypes.value = [];
+    excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
     dateFrom.value = null;
@@ -337,6 +375,7 @@ export const useSearchStore = defineStore('search', () => {
     // Query state
     query,
     contentTypes,
+    excludeContentTypes,
     repository,
     toolName,
     dateFrom,
@@ -352,6 +391,8 @@ export const useSearchStore = defineStore('search', () => {
     latencyMs,
     loading,
     error,
+    resultViewMode,
+    groupedResults,
     // Facets & stats
     stats,
     facets,

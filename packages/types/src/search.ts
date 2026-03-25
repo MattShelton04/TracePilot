@@ -45,6 +45,7 @@ export interface SearchResultsResponse {
 /** Filters for deep content search. */
 export interface SearchFilters {
   contentTypes?: string[];
+  excludeContentTypes?: string[];
   repositories?: string[];
   toolNames?: string[];
   sessionId?: string;
