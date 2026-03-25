@@ -1,5 +1,16 @@
 <script setup lang="ts">
-import { ErrorState, formatDateShort, formatNumberFull, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
+import {
+  ErrorState,
+  computeGridLines,
+  createChartLayout,
+  formatDateShort,
+  formatNumberFull,
+  generateYLabels,
+  LoadingOverlay,
+  mapToLineCoords,
+  toPolylinePoints,
+  useChartTooltip,
+} from '@tracepilot/ui';
 import { computed } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
@@ -39,54 +50,32 @@ function addPct(adds: number, dels: number): number {
 }
 
 // ── Changes Over Time Area Chart ─────────────────────────────
-const CHART_LEFT = 50;
-const CHART_RIGHT = 680;
-const CHART_TOP = 30;
-const CHART_BOTTOM = 200;
-const CHART_W = CHART_RIGHT - CHART_LEFT;
-const CHART_H = CHART_BOTTOM - CHART_TOP;
+const chartLayout = createChartLayout(50, 680, 30, 200);
+const { left: CHART_LEFT, right: CHART_RIGHT, top: CHART_TOP, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
 
 const GRID_ROWS = 4;
-const gridYPositions = computed(() =>
-  Array.from({ length: GRID_ROWS + 1 }, (_, i) => CHART_TOP + (i * CHART_H) / GRID_ROWS),
-);
+const gridYPositions = computed(() => computeGridLines(chartLayout, GRID_ROWS + 1, GRID_ROWS));
 
 const timelineChart = computed(() => {
   if (!data.value) return null;
   const pts = data.value.changesByDay;
   const maxVal = Math.max(...pts.map((p) => Math.max(p.additions, p.deletions)), 1);
-  const step = pts.length > 1 ? CHART_W / (pts.length - 1) : CHART_W;
 
-  const addCoords = pts.map((p, i) => ({
-    x: CHART_LEFT + i * step,
-    y: CHART_BOTTOM - (p.additions / maxVal) * CHART_H,
-    date: p.date,
-    additions: p.additions,
-    deletions: p.deletions,
-  }));
+  const addCoords = mapToLineCoords(pts, chartLayout, (p) => p.additions, maxVal);
+  const delCoords = mapToLineCoords(pts, chartLayout, (p) => p.deletions, maxVal);
 
-  const delCoords = pts.map((p, i) => ({
-    x: CHART_LEFT + i * step,
-    y: CHART_BOTTOM - (p.deletions / maxVal) * CHART_H,
-    date: p.date,
-    additions: p.additions,
-    deletions: p.deletions,
-  }));
-
-  const addLine = addCoords.map((c) => `${c.x},${c.y}`).join(' ');
-  const delLine = delCoords.map((c) => `${c.x},${c.y}`).join(' ');
+  const addLine = toPolylinePoints(addCoords);
+  const delLine = toPolylinePoints(delCoords);
 
   const addArea = `${CHART_LEFT},${CHART_BOTTOM} ${addLine} ${CHART_RIGHT},${CHART_BOTTOM}`;
   const delArea = `${CHART_LEFT},${CHART_BOTTOM} ${delLine} ${CHART_RIGHT},${CHART_BOTTOM}`;
 
-  const yLabels = Array.from({ length: 5 }, (_, i) => ({
-    value: formatNumberFull(Math.round((maxVal / 4) * i)),
-    y: CHART_BOTTOM - (i * CHART_H) / 4,
-  }));
+  const yLabels = generateYLabels(maxVal, chartLayout, 5, (v) => formatNumberFull(Math.round(v)));
 
-  const xLabels = pts.map((p, i) => ({
-    label: formatDateShort(p.date),
-    x: CHART_LEFT + i * step,
+  // Show all labels (no stride filtering) — this chart has fewer data points
+  const xLabels = addCoords.map((c) => ({
+    label: formatDateShort(c.date),
+    x: c.x,
   }));
 
   return { addLine, delLine, addArea, delArea, yLabels, xLabels, addCoords, delCoords };
