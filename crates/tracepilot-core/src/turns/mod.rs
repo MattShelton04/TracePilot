@@ -1188,5 +1188,4 @@ fn extract_result_preview(result: &serde_json::Value) -> Option<String> {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
 mod tests;
