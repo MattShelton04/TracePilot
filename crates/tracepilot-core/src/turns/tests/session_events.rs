@@ -13,36 +13,6 @@
 
 use super::*;
 
-// Helper function
-fn make_turn_events(
-    session_events: Vec<TypedEvent>,
-) -> Vec<TypedEvent> {
-    let mut events = vec![make_event(
-        SessionEventType::UserMessage,
-        TypedEventData::UserMessage(UserMessageData {
-            content: Some("Hello".to_string()),
-            transformed_content: None,
-            interaction_id: Some("int-1".to_string()),
-            attachments: None,
-            source: None,
-            agent_mode: None,
-        }),
-        "evt-user",
-        "2026-03-10T07:00:00.000Z",
-        None,
-    )];
-    events.extend(session_events);
-    events.push(make_event(
-        SessionEventType::AssistantTurnEnd,
-        TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
-        "evt-end",
-        "2026-03-10T07:01:00.000Z",
-        None,
-    ));
-    events
-}
-
-
 #[test]
 fn marks_incomplete_session_without_turn_end() {
     let events = vec![
@@ -1055,4 +1025,27 @@ fn abort_event_finalizes_current_turn() {
         !turns[0].is_complete,
         "aborted turn should be marked incomplete"
     );
+}
+
+#[test]
+fn truncation_summary_messages_only() {
+    let events = make_turn_events(vec![make_event(
+        SessionEventType::SessionTruncation,
+        TypedEventData::SessionTruncation(SessionTruncationData {
+            token_limit: None,
+            pre_truncation_tokens_in_messages: None,
+            pre_truncation_messages_length: None,
+            post_truncation_tokens_in_messages: None,
+            post_truncation_messages_length: None,
+            tokens_removed_during_truncation: None,
+            messages_removed_during_truncation: Some(25),
+            performed_by: None,
+        }),
+        "evt-trunc",
+        "2026-03-10T07:00:30.000Z",
+        None,
+    )]);
+
+    let turns = reconstruct_turns(&events);
+    assert_eq!(turns[0].session_events[0].summary, "Truncated 25 messages");
 }

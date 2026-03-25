@@ -110,6 +110,38 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
     }
 }
 
+/// Helper: wrap a full turn around session events for testing.
+///
+/// Creates a minimal valid turn (UserMessage → [session_events] → TurnEnd)
+/// so tests can focus on session-level event behavior.
+pub(super) fn make_turn_events(
+    session_events: Vec<TypedEvent>,
+) -> Vec<TypedEvent> {
+    let mut events = vec![make_event(
+        SessionEventType::UserMessage,
+        TypedEventData::UserMessage(UserMessageData {
+            content: Some("Hello".to_string()),
+            transformed_content: None,
+            interaction_id: Some("int-1".to_string()),
+            attachments: None,
+            source: None,
+            agent_mode: None,
+        }),
+        "evt-user",
+        "2026-03-10T07:00:00.000Z",
+        None,
+    )];
+    events.extend(session_events);
+    events.push(make_event(
+        SessionEventType::AssistantTurnEnd,
+        TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
+        "evt-end",
+        "2026-03-10T07:01:00.000Z",
+        None,
+    ));
+    events
+}
+
 /// Helper: base subagent event sequence for lifecycle tests.
 ///
 /// Returns a tuple of (UserMessage, TurnStart, ToolExecStart, SubagentStarted)
