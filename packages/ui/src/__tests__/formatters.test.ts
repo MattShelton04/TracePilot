@@ -221,4 +221,50 @@ describe('toErrorMessage', () => {
     expect(toErrorMessage({ message: '' })).toBe('Unknown error');
     expect(toErrorMessage({ message: 'fail', code: 42 })).toBe('fail');
   });
+
+  // Cherry-picked edge-case tests from PR #124
+  it('extracts message from Error subclasses (TypeError, RangeError)', () => {
+    expect(toErrorMessage(new TypeError('Type mismatch'))).toBe('Type mismatch');
+    expect(toErrorMessage(new RangeError('Index out of bounds'))).toBe('Index out of bounds');
+  });
+
+  it('ignores non-string message properties', () => {
+    expect(toErrorMessage({ message: 42 })).toBe('[object Object]');
+    expect(toErrorMessage({ message: true })).toBe('[object Object]');
+    expect(toErrorMessage({ message: null })).toBe('[object Object]');
+  });
+
+  it('handles objects without message property', () => {
+    expect(toErrorMessage({ code: 500, status: 'error' })).toBe('[object Object]');
+  });
+
+  it('stringifies additional number edge cases', () => {
+    expect(toErrorMessage(0)).toBe('0');
+    expect(toErrorMessage(-1)).toBe('-1');
+    expect(toErrorMessage(3.14)).toBe('3.14');
+  });
+
+  it('handles arrays', () => {
+    expect(toErrorMessage([1, 2, 3])).toBe('1,2,3');
+    expect(toErrorMessage([])).toBe('Unknown error');
+  });
+
+  it('handles nested Error objects (extracts outer message only)', () => {
+    const outerError = new Error('Outer error');
+    (outerError as any).cause = new Error('Inner error');
+    expect(toErrorMessage(outerError)).toBe('Outer error');
+  });
+
+  it('preserves multi-line error messages', () => {
+    expect(toErrorMessage(new Error('Line 1\nLine 2\nLine 3'))).toBe('Line 1\nLine 2\nLine 3');
+  });
+
+  it('handles error-like objects with non-enumerable message', () => {
+    const errorLike = Object.create(null);
+    Object.defineProperty(errorLike, 'message', {
+      value: 'Hidden message',
+      enumerable: false,
+    });
+    expect(toErrorMessage(errorLike)).toBe('Hidden message');
+  });
 });
