@@ -23,6 +23,7 @@ import {
   discoverReposFromSessions as discoverReposApi,
   toggleRepoFavourite,
 } from '@tracepilot/client';
+import { toErrorMessage } from '@tracepilot/ui';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
     } catch (e) {
       if (thisGen !== loadGeneration) return;
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       if (thisGen === loadGeneration) loading.value = false;
     }
@@ -134,7 +135,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
     } catch (e) {
       if (thisGen !== loadGeneration) return;
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       if (thisGen === loadGeneration) loading.value = false;
     }
@@ -161,7 +162,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       worktrees.value = [...worktrees.value, wt];
       return wt;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -178,7 +179,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       worktrees.value = worktrees.value.filter((w) => w.path !== worktreePath);
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -193,7 +194,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
       return result;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -217,7 +218,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -237,7 +238,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -268,7 +269,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     try {
       registeredRepos.value = await listRegisteredRepos();
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       reposLoading.value = false;
     }
@@ -282,7 +283,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       await loadRegisteredRepos();
       return repo;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return null;
     }
   }
@@ -296,7 +297,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       worktrees.value = worktrees.value.filter((w) => w.repoRoot !== path);
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return false;
     }
   }
@@ -310,7 +311,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
       return newRepos;
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       return [];
     }
   }
@@ -327,7 +328,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         repo.favourite = newState;
       }
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       togglingFavourites.value.delete(path);
     }
