@@ -10,7 +10,7 @@ const mockGetAnalytics = vi.fn().mockResolvedValue({
   totalPremiumRequests: 0,
   averageHealthScore: 0,
   tokenUsageByDay: [],
-  sessionsPerDay: [],
+  activityPerDay: [],
   modelDistribution: [],
   costByDay: [],
   sessionsWithErrors: 0,

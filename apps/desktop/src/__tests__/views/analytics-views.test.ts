@@ -26,7 +26,7 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-02', tokens: 150_000 },
     { date: '2025-01-03', tokens: 200_000 },
   ],
-  sessionsPerDay: [
+  activityPerDay: [
     { date: '2025-01-01', count: 3 },
     { date: '2025-01-02', count: 4 },
     { date: '2025-01-03', count: 3 },

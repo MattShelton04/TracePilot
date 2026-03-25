@@ -110,10 +110,10 @@ const tokenChart = computed(() => {
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
-// ── Sessions Per Day Bar Chart───────────────────────────────
-const sessionsChart = computed(() => {
+// ── Session Activity Per Day Bar Chart───────────────────────────────
+const activityChart = computed(() => {
   if (!data.value) return null;
-  const pts = data.value.sessionsPerDay;
+  const pts = data.value.activityPerDay;
   if (pts.length === 0) return null;
   const max = Math.max(...pts.map((p) => p.count), 1);
   const spacing = CHART_W / pts.length;
@@ -206,11 +206,11 @@ const incidentNormalize = ref(false);
 const incidentChart = computed(() => {
   if (!data.value?.incidentsByDay?.length) return null;
   const pts = data.value.incidentsByDay;
-  const sessionsPerDay = data.value.sessionsPerDay ?? [];
+  const activityPerDay = data.value.activityPerDay ?? [];
 
   // Build a lookup for sessions count per day (for normalization)
   const sessionMap = new Map<string, number>();
-  for (const s of sessionsPerDay) {
+  for (const s of activityPerDay) {
     sessionMap.set(s.date, s.count);
   }
 
@@ -402,7 +402,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             </div>
           </div>
 
-          <!-- Row 1: Token Usage + Sessions Per Day -->
+          <!-- Row 1: Token Usage + Session Activity Per Day -->
           <div class="grid-2 mb-4">
             <!-- Token Usage Over Time -->
             <div class="section-panel">
@@ -509,18 +509,18 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
               </div>
             </div>
 
-            <!-- Sessions Per Day -->
+            <!-- Session Activity Per Day -->
             <div class="section-panel">
-              <div class="section-panel-header">Sessions Per Day</div>
+              <div class="section-panel-header">Session Activity Per Day</div>
               <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
                 <svg
-                  v-if="sessionsChart"
+                  v-if="activityChart"
                   viewBox="0 0 500 200"
                   width="100%"
                   role="img"
-                  :aria-label="`Bar chart showing sessions per day over ${timeRangeLabel}`"
-                  @mousemove="onChartMouseMove($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions', '.chart-container')"
-                  @click="onChartClick($event, sessionsChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(sessionsChart!.bars[i].date)} — ${sessionsChart!.bars[i].count} session${sessionsChart!.bars[i].count !== 1 ? 's' : ''}`, 'sessions', '.chart-container')"
+                  :aria-label="`Bar chart showing session activity per day over ${timeRangeLabel}`"
+                  @mousemove="onChartMouseMove($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
+                  @click="onChartClick($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
                 >
                   <defs>
                     <linearGradient id="sessionBarGrad" x1="0" y1="0" x2="0" y2="1">
@@ -544,7 +544,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
                   <!-- Y labels -->
                   <text
-                    v-for="(yl, yi) in sessionsChart.yLabels"
+                    v-for="(yl, yi) in activityChart.yLabels"
                     :key="`sy-${yi}`"
                     :x="CHART_LEFT - 7"
                     :y="yl.y + 3"
@@ -554,7 +554,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   >{{ yl.value }}</text>
                   <!-- Bars -->
                   <rect
-                    v-for="(bar, bi) in sessionsChart.bars"
+                    v-for="(bar, bi) in activityChart.bars"
                     :key="`sb-${bi}`"
                     :x="bar.x"
                     :y="bar.y"
@@ -563,7 +563,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     rx="3"
                     fill="url(#sessionBarGrad)"
                     class="chart-bar"
-                    :class="{ 'chart-bar--active': tooltip.chartId === 'sessions' && tooltip.highlightIndex === bi }"
+                    :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
                   />
                   <!-- Overlay for mouse capture -->
                   <rect
@@ -576,7 +576,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   />
                   <!-- X labels -->
                   <text
-                    v-for="(xl, xi) in sessionsChart.xLabels"
+                    v-for="(xl, xi) in activityChart.xLabels"
                     :key="`sx-${xi}`"
                     :x="xl.x"
                     y="192"
@@ -586,7 +586,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   >{{ xl.label }}</text>
                 </svg>
                 <div
-                  v-if="tooltip.visible && tooltip.chartId === 'sessions'"
+                  v-if="tooltip.visible && tooltip.chartId === 'activity'"
                   class="chart-tooltip"
                   :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
                   :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"

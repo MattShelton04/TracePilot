@@ -585,7 +585,7 @@ export const MOCK_ANALYTICS: AnalyticsData = {
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
     tokens: Math.floor(150000 + Math.random() * 100000),
   })),
-  sessionsPerDay: Array.from({ length: 14 }, (_, i) => ({
+  activityPerDay: Array.from({ length: 14 }, (_, i) => ({
     date: new Date(Date.now() - (13 - i) * 86400000).toISOString().split('T')[0],
     count: Math.floor(2 + Math.random() * 6),
   })),

@@ -392,7 +392,7 @@ updated_at: "{updated_at}"
 
         let result = db.query_analytics(None, None, None, false).unwrap();
         assert_eq!(result.total_sessions, 2);
-        assert!(result.sessions_per_day.len() >= 1);
+        assert!(result.activity_per_day.len() >= 1);
     }
 
     #[test]

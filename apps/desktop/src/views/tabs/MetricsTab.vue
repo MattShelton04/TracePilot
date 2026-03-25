@@ -278,7 +278,7 @@ const modelColumns = [
         </div>
       </SectionPanel>
 
-      <!-- Cache Breakdown (Full Width) -->
+    <!-- Cache Breakdown (Full Width) -->
       <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
         <div class="cache-section">
           <HealthRing :score="cacheHitRatio" size="lg" />
@@ -338,6 +338,7 @@ const modelColumns = [
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
   margin: 0 -8px;
+  justify-content: center;
 }
 
 .activity-horizontal::-webkit-scrollbar {
