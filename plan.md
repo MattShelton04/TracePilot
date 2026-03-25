@@ -1,349 +1,929 @@
-# Plan: Consolidate Formatting Utilities into Shared Package
+# TracePilot: Async State Management Refactoring Plan
 
-## Problem Statement
+## Executive Summary
 
-The TracePilot codebase has duplicated formatting utilities across multiple packages:
+**Problem Identified:** Duplicated async state management pattern across all stores (loading/error/loaded states repeated 39+ times)
 
-1. **`packages/ui/src/utils/formatters.ts`** - Contains comprehensive formatting utilities including:
-   - `formatNumber(n)` - Abbreviates numbers (1200 → "1.2K", 1500000 → "1.5M")
-   - `formatDuration(ms)` - Formats milliseconds to human-readable duration
-   - `formatCost(cost)` - Formats USD values
-   - `formatDate`, `formatTime`, `formatRelativeTime`, etc.
-   - `toErrorMessage(e)` - Error handling utility
-   - And ~15 other formatting functions
+**Impact:**
+- High cognitive load for developers
+- Difficult to maintain consistency
+- No centralized error handling strategy
+- Testing complexity
+- Code duplication across 9+ stores (~2,000+ lines of boilerplate)
 
-2. **`apps/cli/src/commands/utils.ts`** - Contains:
-   - `formatTokens(n)` - Identical implementation to `formatNumber` but named for tokens
+**Solution:** Extract a reusable `useAsyncState` composable that centralizes async operation management
 
-**Current Issues:**
-- **Code Duplication**: `formatTokens` duplicates `formatNumber` logic
-- **Inconsistent Imports**: CLI imports from its own utils, UI/Desktop imports from `@tracepilot/ui`
-- **Maintenance Burden**: Changes to formatting logic must be made in multiple places
-- **Naming Confusion**: `formatNumber` is used for tokens throughout the UI, but CLI uses `formatTokens`
-- **Package Architecture Violation**: Formatting utilities in `@tracepilot/ui` couples UI components with formatting logic that should be reusable by CLI
+**Estimated Impact:**
+- Reduce store boilerplate by ~40%
+- Improve testability with centralized mock points
+- Standardize error handling across the application
+- Make async patterns more discoverable and consistent
 
-**Impact on Codebase:**
-- 21 files currently use formatters from `packages/ui/src/utils/formatters.ts`
-- CLI has its own implementation that can drift from UI implementation
-- `@tracepilot/types` is the natural home for shared utilities (already exists, no build step needed)
+---
+
+## Problem Analysis
+
+### Current State
+
+Every store in the application manually implements the same three-state pattern:
+
+```typescript
+// Pattern repeated 39+ times across stores
+const loading = ref(false);
+const error = ref<string | null>(null);
+const data = ref<T | null>(null);
+
+async function fetchData() {
+  loading.value = true;
+  error.value = null;
+  try {
+    data.value = await apiCall();
+  } catch (e) {
+    error.value = toErrorMessage(e);
+  } finally {
+    loading.value = false;
+  }
+}
+```
+
+### Specific Issues Identified
+
+1. **sessionDetail.ts (495 lines)**
+   - 7 separate error state refs (lines 37-48): `turnsError`, `eventsError`, `todosError`, `checkpointsError`, `planError`, `metricsError`, `incidentsError`
+   - Manual request token management for stale request prevention (lines 99-101)
+   - Custom `buildSectionLoader` factory (lines 106-131) that should be generalized
+   - Each section duplicates loading/error/success logic
+
+2. **search.ts (428 lines)**
+   - Manual generation counters: `searchGeneration` (line 142), `facetGeneration` (line 270)
+   - Duplicated stale request checking in multiple functions
+   - Manual error conversion with `String(e)` instead of `toErrorMessage` (lines 207, 333)
+
+3. **sessions.ts (204 lines)**
+   - Manual promise deduplication: `indexingPromise`, `fetchPromise` (lines 10-12)
+   - Duplicated try-catch-finally blocks across 4 functions
+   - Inconsistent error handling (lines 104, 136, 152)
+
+4. **preferences.ts (475 lines)**
+   - Multiple loading states for different operations
+   - Manual hydration gate (line 95) to prevent premature saves
+   - Complex watch-based persistence that could benefit from async state
+
+### Files Affected
+
+Core stores that will benefit:
+- `/apps/desktop/src/stores/sessionDetail.ts` (495 lines) - **Primary beneficiary**
+- `/apps/desktop/src/stores/search.ts` (428 lines)
+- `/apps/desktop/src/stores/sessions.ts` (204 lines)
+- `/apps/desktop/src/stores/preferences.ts` (475 lines)
+- `/apps/desktop/src/stores/worktrees.ts` (397 lines)
+- `/apps/desktop/src/stores/launcher.ts` (~200 lines)
+- `/apps/desktop/src/stores/orchestrationHome.ts`
+- `/apps/desktop/src/stores/configInjector.ts`
+
+Total impact: ~2,500+ lines of code will be simplified
+
+---
 
 ## Proposed Solution
 
-**Move all formatting utilities from `@tracepilot/ui` to `@tracepilot/types`**, creating a new `utils/formatters.ts` module that both CLI and Desktop/UI can import.
+### Architecture
 
-### Benefits:
-1. **Single Source of Truth**: One implementation, no drift
-2. **Better Architecture**: Separates presentation formatting from UI components
-3. **CLI Access**: CLI can use all formatters without importing from UI package
-4. **Zero Breaking Changes**: All existing imports continue to work via barrel re-exports
-5. **Type Safety**: All utilities remain strongly typed
-6. **No Build Overhead**: Types package is source-only (no compilation needed)
+Create a new composable: `/apps/desktop/src/composables/useAsyncState.ts`
 
-### Architecture Decision:
+This composable will encapsulate:
+1. **State Management**: `loading`, `error`, `data` refs
+2. **Stale Request Protection**: Automatic generation counter/token management
+3. **Error Normalization**: Automatic use of `toErrorMessage`
+4. **Promise Deduplication**: Optional in-flight request tracking
+5. **Type Safety**: Full TypeScript generic support
+6. **Lifecycle Hooks**: `onSuccess`, `onError`, `onFinally` callbacks
 
+### API Design
+
+```typescript
+interface AsyncStateOptions<T, Args extends any[]> {
+  /** Optional: deduplicate concurrent calls (returns existing promise) */
+  dedupe?: boolean;
+  /** Optional: callback on successful fetch */
+  onSuccess?: (data: T) => void;
+  /** Optional: callback on error */
+  onError?: (error: Error) => void;
+  /** Optional: callback on finally */
+  onFinally?: () => void;
+  /** Optional: initial data value */
+  initialData?: T;
+  /** Optional: reset data to null on error */
+  resetOnError?: boolean;
+  /** Optional: custom error message transformation */
+  errorTransform?: (error: unknown) => string;
+}
+
+function useAsyncState<T, Args extends any[] = []>(
+  fetcher: (...args: Args) => Promise<T>,
+  options?: AsyncStateOptions<T, Args>
+) {
+  return {
+    // State
+    data: Ref<T | null>;
+    loading: Ref<boolean>;
+    error: Ref<string | null>;
+
+    // Actions
+    execute: (...args: Args) => Promise<void>;
+    reset: () => void;
+
+    // Utils
+    isStale: (token: number) => boolean;
+  };
+}
 ```
-Before:
-apps/cli/src/commands/utils.ts (formatTokens)
-packages/ui/src/utils/formatters.ts (formatNumber, formatDuration, etc.)
 
-After:
-packages/types/src/utils/formatters.ts (all formatters, including formatTokens)
-packages/ui/src/utils/formatters.ts (re-export for backwards compatibility)
-apps/cli/src/commands/utils.ts (remove formatTokens, import from @tracepilot/types)
+### Usage Examples
+
+#### Before (sessionDetail.ts - lines 214-222)
+```typescript
+const loadTurns = buildSectionLoader({
+  key: 'turns',
+  errorRef: turnsError,
+  fetchFn: (id) => getSessionTurns(id),
+  onResult: (result) => {
+    turns.value = result.turns;
+    lastEventsFileSize = result.eventsFileSize;
+  },
+});
 ```
 
-## Detailed Implementation Plan
-
-### Phase 1: Setup New Shared Utilities Module
-
-**1.1. Create `packages/types/src/utils/` directory**
-- Create directory structure for utilities
-
-**1.2. Move formatters to types package**
-- Copy `packages/ui/src/utils/formatters.ts` → `packages/types/src/utils/formatters.ts`
-- Keep all existing functions:
-  - `formatDuration(ms)`
-  - `formatDate(dateStr)`, `formatShortDate`, `formatTime`, `formatRelativeTime`
-  - `formatNumber(n)` - The main number abbreviation function
-  - `formatCost(cost)`, `formatBytes(bytes)`
-  - `formatLiveDuration(ms)`, `formatRate`, `formatPercent`
-  - `formatDateShort`, `formatDateMedium`, `formatNumberFull`
-  - `toErrorMessage(e, fallback)`
-- Add new **alias** for CLI compatibility:
-  ```typescript
-  /** Alias for formatNumber - formats token counts (e.g. 1234567 → "1.2M") */
-  export function formatTokens(n?: number | null): string {
-    return formatNumber(n);
+#### After
+```typescript
+const turnsState = useAsyncState(
+  (id: string) => getSessionTurns(id),
+  {
+    onSuccess: (result) => {
+      turns.value = result.turns;
+      lastEventsFileSize = result.eventsFileSize;
+      loaded.value.add('turns');
+    }
   }
-  ```
+);
 
-**1.3. Update `packages/types/src/index.ts`**
-- Add barrel export: `export * from './utils/formatters.js';`
-- Ensures all formatters are available via `import { formatNumber } from '@tracepilot/types'`
+async function loadTurns() {
+  if (!sessionId.value || loaded.value.has('turns')) return;
+  await turnsState.execute(sessionId.value);
+}
 
-**1.4. Update types package.json exports**
-- Add subpath export for direct imports (optional but good practice):
-  ```json
-  "exports": {
-    ".": "./src/index.ts",
-    "./utils/formatters": "./src/utils/formatters.ts"
+// Expose per-section error for UI
+const turnsError = turnsState.error;
+```
+
+#### Before (sessions.ts - lines 96-111)
+```typescript
+let fetchPromise: Promise<void> | null = null;
+
+async function fetchSessions() {
+  if (fetchPromise) return fetchPromise;
+  loading.value = true;
+  error.value = null;
+  fetchPromise = (async () => {
+    try {
+      sessions.value = await listSessions();
+    } catch (e) {
+      error.value = String(e);
+    } finally {
+      fetchPromise = null;
+      loading.value = false;
+    }
+  })();
+  return fetchPromise;
+}
+```
+
+#### After
+```typescript
+const sessionsFetch = useAsyncState(
+  () => listSessions(),
+  {
+    dedupe: true,
+    onSuccess: (data) => { sessions.value = data; }
   }
-  ```
+);
 
-### Phase 2: Update UI Package
+const loading = sessionsFetch.loading;
+const error = sessionsFetch.error;
 
-**2.1. Replace `packages/ui/src/utils/formatters.ts` with re-exports**
-- Replace entire file content with:
-  ```typescript
-  /**
-   * Re-exports from @tracepilot/types for backwards compatibility.
-   * All formatting utilities have been moved to @tracepilot/types.
-   */
-  export * from '@tracepilot/types';
-  ```
-- This ensures **zero breaking changes** for existing UI components
+async function fetchSessions() {
+  await sessionsFetch.execute();
+}
+```
 
-**2.2. Update `packages/ui/src/index.ts`**
-- Verify that `formatters` utilities are exported (if they were before)
-- Ensure barrel export includes re-exported formatters
+---
 
-**2.3. Verify UI package dependencies**
-- Confirm `@tracepilot/types` is already in `packages/ui/package.json` dependencies (it should be)
+## Implementation Plan
 
-### Phase 3: Update CLI Package
+### Phase 1: Create Core Composable (2 files created)
 
-**3.1. Remove duplicate `formatTokens` from CLI utils**
-- In `apps/cli/src/commands/utils.ts`:
-  - Remove lines 105-112 (the `formatTokens` function)
-  - Add import: `import { formatTokens } from '@tracepilot/types';`
-  - Keep all other CLI-specific utilities (UUID_REGEX, getSessionStateDir, findSession, parseWorkspace, streamEvents, fileExists)
+**File:** `/apps/desktop/src/composables/useAsyncState.ts`
 
-**3.2. Update CLI imports**
-- Search for any direct imports of `formatTokens` from './utils'
-- All should automatically work after step 3.1 (named export maintained)
+```typescript
+import { ref, type Ref } from 'vue';
+import { toErrorMessage } from '@tracepilot/ui';
 
-**3.3. Verify CLI package dependencies**
-- Confirm `@tracepilot/types` is in `apps/cli/package.json` dependencies
+export interface AsyncStateOptions<T, Args extends any[]> {
+  dedupe?: boolean;
+  onSuccess?: (data: T) => void;
+  onError?: (error: Error | string) => void;
+  onFinally?: () => void;
+  initialData?: T | null;
+  resetOnError?: boolean;
+  errorTransform?: (error: unknown) => string;
+}
 
-### Phase 4: Update Desktop Package
+export interface AsyncState<T, Args extends any[]> {
+  data: Ref<T | null>;
+  loading: Ref<boolean>;
+  error: Ref<string | null>;
+  execute: (...args: Args) => Promise<void>;
+  reset: () => void;
+  currentToken: Ref<number>;
+}
 
-**4.1. Verify Desktop imports**
-- Desktop currently imports from `@tracepilot/ui` (e.g., `import { toErrorMessage } from '@tracepilot/ui'`)
-- These should continue working unchanged due to re-exports in Phase 2.1
+/**
+ * Composable for managing async operations with loading/error/data state.
+ *
+ * Features:
+ * - Automatic loading/error state management
+ * - Stale request protection via generation tokens
+ * - Optional promise deduplication
+ * - Consistent error message normalization
+ * - Lifecycle hooks
+ *
+ * @example
+ * const userState = useAsyncState(
+ *   (id: string) => fetchUser(id),
+ *   {
+ *     onSuccess: (user) => console.log('Loaded user:', user.name),
+ *     dedupe: true
+ *   }
+ * );
+ *
+ * await userState.execute('user-123');
+ */
+export function useAsyncState<T, Args extends any[] = []>(
+  fetcher: (...args: Args) => Promise<T>,
+  options: AsyncStateOptions<T, Args> = {}
+): AsyncState<T, Args> {
+  const {
+    dedupe = false,
+    onSuccess,
+    onError,
+    onFinally,
+    initialData = null,
+    resetOnError = false,
+    errorTransform = toErrorMessage,
+  } = options;
 
-**4.2. Optional: Update to direct imports**
-- Could update Desktop to import from `@tracepilot/types` instead:
-  ```typescript
-  // Before: import { formatDuration, toErrorMessage } from '@tracepilot/ui';
-  // After:  import { formatDuration, toErrorMessage } from '@tracepilot/types';
-  ```
-- This is **optional** - re-exports provide compatibility either way
+  const data = ref<T | null>(initialData) as Ref<T | null>;
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+  const currentToken = ref(0);
 
-### Phase 5: Testing & Validation
+  let inflightPromise: Promise<void> | null = null;
 
-**5.1. TypeScript Type Checking**
-- Run `pnpm typecheck` in root to verify no type errors
-- Run `pnpm --filter @tracepilot/types typecheck`
-- Run `pnpm --filter @tracepilot/ui typecheck`
-- Run `pnpm --filter @tracepilot/desktop typecheck`
-- Run `pnpm --filter @tracepilot/cli typecheck`
+  async function execute(...args: Args): Promise<void> {
+    // Deduplication: return existing promise if one is in flight
+    if (dedupe && inflightPromise) {
+      return inflightPromise;
+    }
 
-**5.2. Unit Tests**
-- Run `pnpm --filter @tracepilot/ui test` (should pass - formatters have tests)
-- Run `pnpm --filter @tracepilot/desktop test`
-- Tests should pass unchanged due to re-exports
+    const token = ++currentToken.value;
+    loading.value = true;
+    error.value = null;
 
-**5.3. CLI Functional Testing**
-- Test `pnpm --filter @tracepilot/cli start list` command
-- Verify token counts display correctly with `formatTokens`
-- Test `pnpm --filter @tracepilot/cli start show <session-id>`
-- Verify formatting is consistent
+    const promise = (async () => {
+      try {
+        const result = await fetcher(...args);
 
-**5.4. Desktop App Testing**
-- Build and run desktop app: `pnpm --filter @tracepilot/desktop dev`
-- Navigate to Analytics view - verify number formatting (uses `formatNumber`)
-- Navigate to Session Detail - verify duration formatting (uses `formatDuration`)
-- Check Timeline view - verify tool call formatting
-- Verify error messages display correctly (uses `toErrorMessage`)
+        // Stale request check: only update if this is still the latest request
+        if (currentToken.value !== token) return;
 
-**5.5. Integration Testing**
-- Create a test session with large token counts (>1M tokens)
-- Verify CLI shows "1.2M tokens" format
-- Verify Desktop Analytics shows same "1.2M" format
-- Confirm consistency across both interfaces
+        data.value = result;
+        onSuccess?.(result);
+      } catch (e) {
+        // Stale request check
+        if (currentToken.value !== token) return;
 
-### Phase 6: Documentation & Memory Storage
+        const errorMsg = errorTransform(e);
+        error.value = errorMsg;
 
-**6.1. Update code comments**
-- Add JSDoc to `packages/types/src/utils/formatters.ts` explaining this is the canonical location
-- Add deprecation notice in UI re-export file (soft deprecation, not breaking)
+        if (resetOnError) {
+          data.value = null;
+        }
 
-**6.2. Store memory**
-- Use `store_memory` tool to record:
-  - Subject: "formatting utilities"
-  - Fact: "All formatting utilities (formatDuration, formatNumber/formatTokens, formatCost, toErrorMessage, etc.) are in @tracepilot/types/utils/formatters. Import from @tracepilot/types, not @tracepilot/ui."
-  - Citations: packages/types/src/utils/formatters.ts
+        onError?.(errorMsg);
+      } finally {
+        // Only update loading if this is still the latest request
+        if (currentToken.value === token) {
+          loading.value = false;
+        }
 
-**6.3. Update migration notes**
-- Document that formatters moved from UI to types package
-- Note that re-exports maintain backwards compatibility
+        if (dedupe) {
+          inflightPromise = null;
+        }
 
-## Code Changes Summary
+        onFinally?.();
+      }
+    })();
 
-### Files Created/Modified:
+    if (dedupe) {
+      inflightPromise = promise;
+    }
 
-**Created:**
-1. `packages/types/src/utils/formatters.ts` (moved from UI package)
+    return promise;
+  }
 
-**Modified:**
-2. `packages/types/src/index.ts` - Add formatters export
-3. `packages/types/package.json` - Add exports subpath (optional)
-4. `packages/ui/src/utils/formatters.ts` - Replace with re-exports
-5. `apps/cli/src/commands/utils.ts` - Remove formatTokens, import from types
+  function reset() {
+    currentToken.value++;
+    data.value = initialData;
+    loading.value = false;
+    error.value = null;
+    inflightPromise = null;
+  }
 
-**Unchanged (verified):**
-- All 21 files that import formatters - work via re-exports
-- All Desktop components - continue importing from `@tracepilot/ui`
-- All tests - pass unchanged
+  return {
+    data,
+    loading,
+    error,
+    execute,
+    reset,
+    currentToken,
+  };
+}
+```
 
-### Lines of Code Impact:
-- **Removed duplication**: ~10 lines (formatTokens function)
-- **New code**: ~5 lines (import + re-export statements)
-- **Net change**: Reduces effective codebase by ~5 lines, consolidates 2 implementations into 1
+**File:** `/apps/desktop/src/composables/useAsyncState.test.ts`
 
-## Risk Assessment & Mitigation
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useAsyncState } from './useAsyncState';
 
-### Risks:
+describe('useAsyncState', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-1. **Import Resolution Issues**
-   - Risk: TypeScript may not resolve re-exports correctly
-   - Mitigation: Use `export *` which TypeScript handles well; verify with typecheck
+  it('should initialize with default values', () => {
+    const state = useAsyncState(() => Promise.resolve('data'));
 
-2. **Circular Dependency**
-   - Risk: types → ui → types cycle
-   - Mitigation: This actually **breaks** existing cycle (ui won't depend on types for formatters anymore internally)
+    expect(state.data.value).toBe(null);
+    expect(state.loading.value).toBe(false);
+    expect(state.error.value).toBe(null);
+  });
 
-3. **Build/Bundle Size**
-   - Risk: Importing formatters into types increases bundle size
-   - Mitigation: Types package is source-only (no build), tree-shaking works normally
+  it('should handle successful fetch', async () => {
+    const fetcher = vi.fn().mockResolvedValue('test-data');
+    const state = useAsyncState(fetcher);
 
-4. **Test Failures**
-   - Risk: Tests may fail due to import changes
-   - Mitigation: Re-exports maintain compatibility; run full test suite before/after
+    await state.execute();
 
-### Mitigation Strategy:
-- Make changes incrementally with typecheck after each phase
-- Maintain re-exports for full backwards compatibility
-- Run comprehensive test suite at each phase
-- Test both CLI and Desktop apps manually
+    expect(state.data.value).toBe('test-data');
+    expect(state.loading.value).toBe(false);
+    expect(state.error.value).toBe(null);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
 
-## Success Criteria
+  it('should handle errors', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error('fetch failed'));
+    const state = useAsyncState(fetcher);
 
-✅ **Functionality:**
-- CLI `list` and `show` commands display correctly formatted numbers
-- Desktop Analytics view shows correctly formatted metrics
-- All formatting functions work identically to before
+    await state.execute();
 
-✅ **Code Quality:**
-- Zero code duplication between CLI and UI formatters
-- Single source of truth in `@tracepilot/types`
-- Clear, maintainable import paths
+    expect(state.data.value).toBe(null);
+    expect(state.loading.value).toBe(false);
+    expect(state.error.value).toBe('fetch failed');
+  });
 
-✅ **Testing:**
-- All existing tests pass (`pnpm -r test`)
-- All type checks pass (`pnpm -r typecheck`)
-- Manual testing confirms no regressions
+  it('should call onSuccess callback', async () => {
+    const onSuccess = vi.fn();
+    const state = useAsyncState(
+      () => Promise.resolve('data'),
+      { onSuccess }
+    );
 
-✅ **Architecture:**
-- `@tracepilot/types` contains all shared utilities
-- `@tracepilot/ui` focuses on components and UI-specific logic
-- CLI and Desktop share formatting utilities without duplication
+    await state.execute();
 
-## Testing Checklist
+    expect(onSuccess).toHaveBeenCalledWith('data');
+  });
 
-### Automated Tests:
-- [ ] `pnpm typecheck` (root) - All packages type-check
-- [ ] `pnpm --filter @tracepilot/types typecheck`
-- [ ] `pnpm --filter @tracepilot/ui typecheck`
-- [ ] `pnpm --filter @tracepilot/ui test` - All UI tests pass
-- [ ] `pnpm --filter @tracepilot/desktop typecheck`
-- [ ] `pnpm --filter @tracepilot/desktop test` - All Desktop tests pass
-- [ ] `pnpm --filter @tracepilot/cli typecheck`
+  it('should call onError callback', async () => {
+    const onError = vi.fn();
+    const state = useAsyncState(
+      () => Promise.reject(new Error('failed')),
+      { onError }
+    );
 
-### Manual CLI Testing:
-- [ ] CLI builds successfully
-- [ ] `tracepilot list` shows correctly formatted token counts
-- [ ] `tracepilot show <session>` displays formatted metrics
-- [ ] Large numbers (>1M) display as "1.2M" format
-- [ ] Small numbers (<1K) display as plain numbers
+    await state.execute();
 
-### Manual Desktop Testing:
-- [ ] Desktop app builds successfully
-- [ ] Navigate to Session List - verify session metrics display
-- [ ] Navigate to Session Detail → Overview tab - verify token counts
-- [ ] Navigate to Analytics Dashboard - verify all number formatting
-- [ ] Navigate to Tool Analysis view - verify duration formatting
-- [ ] Verify Timeline views display correctly formatted durations
-- [ ] Test error scenarios - verify `toErrorMessage` works correctly
-- [ ] Check Metrics tab - verify cost formatting ($X.XX format)
+    expect(onError).toHaveBeenCalledWith('failed');
+  });
 
-### Integration Testing:
-- [ ] Create/import a new session via Desktop
-- [ ] View same session in CLI - verify formatting consistency
-- [ ] Session with >1M tokens displays identically in both CLI and Desktop
-- [ ] Duration formatting matches between CLI and Desktop
-- [ ] Cost calculations display with same precision
+  it('should deduplicate concurrent requests', async () => {
+    let resolvePromise: (value: string) => void;
+    const fetcher = vi.fn().mockImplementation(() => {
+      return new Promise<string>((resolve) => {
+        resolvePromise = resolve;
+      });
+    });
 
-### Regression Testing:
-- [ ] Existing sessions display correctly
-- [ ] Search functionality works (uses formatted numbers)
-- [ ] Replay feature displays correctly formatted timestamps
-- [ ] Export functionality preserves correct formatting
-- [ ] Session comparison view shows correctly formatted metrics
+    const state = useAsyncState(fetcher, { dedupe: true });
+
+    const promise1 = state.execute();
+    const promise2 = state.execute();
+    const promise3 = state.execute();
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(promise1).toBe(promise2);
+    expect(promise2).toBe(promise3);
+
+    resolvePromise!('data');
+    await promise1;
+  });
+
+  it('should protect against stale requests', async () => {
+    let resolvers: Array<(value: string) => void> = [];
+    const fetcher = vi.fn().mockImplementation(() => {
+      return new Promise<string>((resolve) => {
+        resolvers.push(resolve);
+      });
+    });
+
+    const state = useAsyncState(fetcher);
+
+    // Start two requests
+    state.execute();
+    state.execute();
+
+    // Resolve first request (now stale) after second request started
+    resolvers[0]('stale-data');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Should still be loading because second request hasn't resolved
+    expect(state.loading.value).toBe(true);
+    expect(state.data.value).toBe(null);
+
+    // Resolve second request
+    resolvers[1]('fresh-data');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Should have fresh data
+    expect(state.loading.value).toBe(false);
+    expect(state.data.value).toBe('fresh-data');
+  });
+
+  it('should reset state', async () => {
+    const state = useAsyncState(() => Promise.resolve('data'));
+
+    await state.execute();
+    expect(state.data.value).toBe('data');
+
+    state.reset();
+
+    expect(state.data.value).toBe(null);
+    expect(state.loading.value).toBe(false);
+    expect(state.error.value).toBe(null);
+  });
+
+  it('should support initial data', () => {
+    const state = useAsyncState(
+      () => Promise.resolve('new-data'),
+      { initialData: 'initial-data' }
+    );
+
+    expect(state.data.value).toBe('initial-data');
+  });
+
+  it('should reset data on error if resetOnError is true', async () => {
+    const state = useAsyncState(
+      () => Promise.resolve('data'),
+      { resetOnError: true }
+    );
+
+    await state.execute();
+    expect(state.data.value).toBe('data');
+
+    // Reconfigure to throw
+    const errorState = useAsyncState(
+      () => Promise.reject(new Error('failed')),
+      { resetOnError: true, initialData: 'data' }
+    );
+    errorState.data.value = 'data';
+
+    await errorState.execute();
+    expect(errorState.data.value).toBe(null);
+  });
+
+  it('should support custom error transform', async () => {
+    const state = useAsyncState(
+      () => Promise.reject({ code: 'ERR_001', message: 'Custom error' }),
+      { errorTransform: (e: any) => `Error ${e.code}: ${e.message}` }
+    );
+
+    await state.execute();
+    expect(state.error.value).toBe('Error ERR_001: Custom error');
+  });
+
+  it('should pass arguments to fetcher', async () => {
+    const fetcher = vi.fn().mockResolvedValue('data');
+    const state = useAsyncState(fetcher);
+
+    await state.execute('arg1', 123, { key: 'value' });
+
+    expect(fetcher).toHaveBeenCalledWith('arg1', 123, { key: 'value' });
+  });
+});
+```
+
+### Phase 2: Refactor sessionDetail Store (1 file modified)
+
+**File:** `/apps/desktop/src/stores/sessionDetail.ts`
+
+**Changes:**
+1. Import `useAsyncState` at the top
+2. Replace `buildSectionLoader` with `useAsyncState` instances
+3. Remove individual error refs (lines 42-48), replace with state.error refs
+4. Simplify load functions to use `state.execute()`
+5. Keep the cache and token logic for the main `loadDetail` function (more complex)
+6. Update `refreshAll` to use the new states
+
+**Specific modifications:**
+
+```typescript
+// Replace lines 214-222 (loadTurns)
+const turnsState = useAsyncState(
+  (id: string) => getSessionTurns(id),
+  {
+    onSuccess: (result) => {
+      turns.value = result.turns;
+      lastEventsFileSize = result.eventsFileSize;
+      loaded.value.add('turns');
+    }
+  }
+);
+
+const loadTurns = async () => {
+  if (!sessionId.value || loaded.value.has('turns')) return;
+  await turnsState.execute(sessionId.value);
+};
+
+const turnsError = turnsState.error;
+
+// Similar patterns for todos, checkpoints, plan, metrics, incidents
+```
+
+**Lines to modify:**
+- Lines 42-48: Remove individual error refs, use state.error instead
+- Lines 106-131: Remove `buildSectionLoader` function
+- Lines 214-277: Replace with useAsyncState instances
+- Lines 303-423: Update `refreshAll` to reset error states from async states
+
+### Phase 3: Refactor sessions Store (1 file modified)
+
+**File:** `/apps/desktop/src/stores/sessions.ts`
+
+**Changes:**
+1. Replace lines 10-12 manual promise tracking with `useAsyncState({ dedupe: true })`
+2. Replace lines 96-111 `fetchSessions` with async state
+3. Simplify `refreshSessions` to use same state but skip loading indicator
+4. Replace `reindex` function (lines 129-160) with async state
+
+**Specific modifications:**
+
+```typescript
+const sessionsFetch = useAsyncState(
+  () => listSessions(),
+  {
+    dedupe: true,
+    onSuccess: (data) => { sessions.value = data; }
+  }
+);
+
+const indexState = useAsyncState(
+  () => reindexSessions(),
+  {
+    dedupe: true,
+    onSuccess: async () => {
+      // Refresh list after reindex
+      sessions.value = await listSessions();
+    }
+  }
+);
+
+const loading = sessionsFetch.loading;
+const indexing = indexState.loading;
+const error = computed(() => sessionsFetch.error.value || indexState.error.value);
+
+async function fetchSessions() {
+  await sessionsFetch.execute();
+}
+
+async function refreshSessions() {
+  // Silent refresh: directly call API without showing loading state
+  try {
+    sessions.value = await listSessions();
+  } catch (e) {
+    console.error('Silent refresh failed:', e);
+  }
+}
+
+async function reindex() {
+  await indexState.execute();
+}
+```
+
+### Phase 4: Refactor search Store (1 file modified)
+
+**File:** `/apps/desktop/src/stores/search.ts`
+
+**Changes:**
+1. Replace `searchGeneration` (line 142) with useAsyncState
+2. Replace `facetGeneration` (line 270) with useAsyncState
+3. Fix error handling: replace `String(e)` with `toErrorMessage` (lines 207, 333)
+4. Simplify `executeSearch` and `fetchFacets` functions
+
+**Specific modifications:**
+
+```typescript
+import { toErrorMessage } from '@tracepilot/ui';
+
+const searchState = useAsyncState(
+  async () => {
+    // Build search params
+    let dateFromUnix: number | undefined;
+    let dateToUnix: number | undefined;
+    if (dateFrom.value) {
+      dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
+    }
+    if (dateTo.value) {
+      dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
+    }
+
+    const effectiveSort = isBrowseMode.value && sortBy.value === 'relevance'
+      ? 'newest'
+      : sortBy.value;
+
+    return await searchContent(query.value, {
+      contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+      excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
+      repositories: repository.value ? [repository.value] : undefined,
+      toolNames: toolName.value ? [toolName.value] : undefined,
+      sessionId: sessionId.value ?? undefined,
+      dateFromUnix,
+      dateToUnix,
+      limit: pageSize.value,
+      offset: (page.value - 1) * pageSize.value,
+      sortBy: effectiveSort !== 'relevance' ? effectiveSort : undefined,
+    });
+  },
+  {
+    onSuccess: (response) => {
+      results.value = response.results;
+      totalCount.value = response.totalCount;
+      hasMore.value = response.hasMore;
+      latencyMs.value = response.latencyMs;
+
+      const facetQuery = hasQuery.value ? query.value : undefined;
+      fetchFacets(facetQuery);
+    },
+    resetOnError: true
+  }
+);
+
+const loading = searchState.loading;
+const error = searchState.error;
+
+async function executeSearch() {
+  await searchState.execute();
+}
+```
+
+### Phase 5: Update Other Stores (4 files modified)
+
+Similar refactoring for:
+- `/apps/desktop/src/stores/worktrees.ts`
+- `/apps/desktop/src/stores/launcher.ts`
+- `/apps/desktop/src/stores/orchestrationHome.ts`
+- `/apps/desktop/src/stores/configInjector.ts`
+
+Each will follow the same pattern: replace manual loading/error state management with `useAsyncState`.
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+
+**File:** `/apps/desktop/src/composables/useAsyncState.test.ts` (created in Phase 1)
+
+Test coverage:
+- ✅ Basic fetch success/failure
+- ✅ Loading state transitions
+- ✅ Error normalization
+- ✅ Stale request protection
+- ✅ Promise deduplication
+- ✅ Lifecycle callbacks
+- ✅ Reset functionality
+- ✅ Initial data
+- ✅ Custom error transform
+- ✅ Argument passing
+
+### Integration Tests
+
+**Existing Store Tests** - verify they still pass:
+- `/apps/desktop/src/stores/__tests__/` (if exists)
+
+**Manual Testing Checklist:**
+1. Session Detail View
+   - Load session → verify no errors, data loads
+   - Switch sessions quickly → verify no stale data displayed
+   - Load turns, events, todos, checkpoints, plan, metrics, incidents
+   - Verify error states display correctly in UI
+   - Test refresh functionality
+
+2. Sessions List View
+   - Initial load → verify sessions display
+   - Reindex → verify loading indicator, successful refresh
+   - Concurrent reindex calls → verify deduplication
+
+3. Search View
+   - Type query → verify debounced search
+   - Change filters → verify immediate search
+   - Rapid filter changes → verify only latest results shown
+   - Switch pages → verify correct page loads
+
+### Validation Commands
+
+```bash
+# Type checking
+pnpm --filter @tracepilot/desktop typecheck
+
+# Run tests
+pnpm --filter @tracepilot/desktop test
+
+# Run specific test file
+pnpm --filter @tracepilot/desktop test useAsyncState.test.ts
+
+# Full repo validation
+pnpm -r typecheck
+pnpm -r test
+```
+
+---
+
+## Integration with Existing Code
+
+### Backwards Compatibility
+
+✅ **No breaking changes** - The refactoring is internal to stores
+- Store public APIs remain unchanged
+- Components continue to work without modification
+- Existing patterns (like `loaded` Set in sessionDetail) are preserved
+
+### Interaction Points
+
+1. **Error Display**
+   - Components already read `error` refs from stores
+   - UI components like error alerts will work identically
+   - Error messages normalized via `toErrorMessage` (already in use)
+
+2. **Loading Indicators**
+   - Components already read `loading` refs
+   - Skeleton loaders, spinners will continue to work
+
+3. **Data Access**
+   - Components already read data refs from stores
+   - No changes needed to reactive dependencies
+
+4. **Existing Abstractions**
+   - `buildSectionLoader` in sessionDetail.ts will be removed (no external usage)
+   - Manual promise tracking will be replaced (internal implementation detail)
+
+### Migration Path
+
+Since this is internal refactoring:
+1. No coordination needed with other teams
+2. No API version changes
+3. No documentation updates required (internal change)
+4. Can be done incrementally (store by store)
+
+---
+
+## Risks & Mitigation
+
+### Risk 1: Subtle State Management Bugs
+**Probability:** Medium
+**Impact:** High
+**Mitigation:**
+- Comprehensive unit tests for useAsyncState
+- Thorough manual testing of each refactored store
+- Use same token/generation pattern as existing code
+- Keep existing integration tests passing
+
+### Risk 2: Performance Regression
+**Probability:** Low
+**Impact:** Medium
+**Mitigation:**
+- useAsyncState adds minimal overhead (just refs and a counter)
+- Dedupe option can actually improve performance (fewer concurrent requests)
+- Profile before/after if concerns arise
+
+### Risk 3: Race Conditions
+**Probability:** Low
+**Impact:** High
+**Mitigation:**
+- Token-based stale request protection (same as current code)
+- Extensive testing of concurrent request scenarios
+- Use same patterns that are already proven to work
+
+### Risk 4: Breaking Edge Cases
+**Probability:** Medium
+**Impact:** Medium
+**Mitigation:**
+- Keep complex logic (like sessionDetail cache) mostly intact
+- Only extract the repeated patterns
+- Test edge cases: rapid switching, concurrent operations, error recovery
+
+---
+
+## Success Metrics
+
+### Quantitative
+- **Code Reduction:** ~500-800 lines removed across stores
+- **Test Coverage:** >90% coverage for useAsyncState
+- **Type Safety:** Zero TypeScript errors
+- **Test Pass Rate:** 100% existing tests still pass
+
+### Qualitative
+- **Readability:** Store code easier to understand
+- **Maintainability:** Single place to fix async bugs
+- **Consistency:** All stores follow same pattern
+- **Developer Experience:** Clearer pattern for new async operations
+
+---
 
 ## Rollback Plan
 
 If issues are discovered:
+1. Git revert is straightforward (surgical changes to stores)
+2. Each store refactored independently (can revert one at a time)
+3. Existing functionality preserved (no API changes)
+4. Manual testing checklist validates each store
 
-1. **Immediate rollback:**
-   - Restore `packages/ui/src/utils/formatters.ts` to original content
-   - Restore `apps/cli/src/commands/utils.ts` with formatTokens function
-   - Delete `packages/types/src/utils/formatters.ts`
-   - Revert `packages/types/src/index.ts` changes
-
-2. **Partial rollback:**
-   - Keep formatters in types package
-   - Keep both implementations (UI and Types) temporarily
-   - Update UI to use Types internally, maintain external API
+---
 
 ## Future Enhancements
 
-After this consolidation, consider:
+After successful implementation, potential improvements:
 
-1. **Add more shared utilities to types package:**
-   - Color utilities (currently in `agentTypes.ts`)
-   - Tool call utilities (currently in `toolCall.ts`)
-   - Timeline utilities (currently in `timelineUtils.ts`)
+1. **React Query Style Features**
+   - Automatic background refetch
+   - Cache time management
+   - Optimistic updates
 
-2. **Create comprehensive formatting test suite:**
-   - Add tests in types package for all formatters
-   - Test edge cases (null, undefined, negative numbers, very large numbers)
+2. **Request Cancellation**
+   - AbortController integration
+   - Cancel in-flight requests on component unmount
 
-3. **Add formatting customization:**
-   - Support locale-specific formatting
-   - Support user preferences for number formats
-   - Add configuration for date/time formats
+3. **Retry Logic**
+   - Automatic retry with exponential backoff
+   - Configurable retry strategies
+
+4. **DevTools Integration**
+   - Debug panel showing all async operations
+   - Request/response inspection
+
+5. **SSR Support**
+   - Hydration from server-rendered state
+   - Prefetch support
+
+---
+
+## Implementation Timeline
+
+- **Phase 1:** Create useAsyncState composable + tests (Core foundation)
+- **Phase 2:** Refactor sessionDetail store (Most complex, highest impact)
+- **Phase 3:** Refactor sessions store (Second highest impact)
+- **Phase 4:** Refactor search store (Fix error handling issues)
+- **Phase 5:** Refactor remaining stores (worktrees, launcher, orchestrationHome, configInjector)
+
+---
 
 ## Conclusion
 
-This consolidation:
-- ✅ Eliminates code duplication
-- ✅ Improves architecture (separates concerns)
-- ✅ Maintains backwards compatibility (zero breaking changes)
-- ✅ Provides clear path for future utility consolidation
-- ✅ Improves maintainability (one place to update formatting logic)
-- ✅ Enables CLI to access all formatting utilities without depending on UI package
+This refactoring addresses a critical technical debt issue that affects every store in the application. By extracting the repeated async state management pattern into a reusable composable, we:
 
-**Estimated Effort:** 1-2 hours
-**Risk Level:** Low (re-exports maintain compatibility)
-**Impact:** High (better architecture, eliminated duplication, improved maintainability)
+1. **Reduce boilerplate** by ~40% across stores
+2. **Improve consistency** in error handling and loading states
+3. **Enhance testability** with a single, well-tested abstraction
+4. **Lower cognitive load** for developers working with async operations
+5. **Set a pattern** for future async operations
+
+The solution is backward-compatible, thoroughly tested, and provides immediate value while enabling future enhancements.
