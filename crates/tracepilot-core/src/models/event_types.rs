@@ -245,10 +245,10 @@ pub struct ShutdownData {
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownSegment {
     pub end_timestamp: String,
-    pub cost: f64,
     pub tokens: u64,
     pub premium_requests: f64,
     pub api_duration_ms: u64,
+    pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

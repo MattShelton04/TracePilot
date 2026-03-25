@@ -110,7 +110,7 @@ impl IndexDb {
 
         // Cost by day
         let cbd_sql = format!(
-            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_cost), 0.0)
+            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_premium_requests), 0.0)
              FROM session_shutdown_metrics m
              JOIN sessions s ON s.id = m.session_id
              {} AND d IS NOT NULL GROUP BY d ORDER BY d",

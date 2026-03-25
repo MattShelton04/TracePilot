@@ -370,16 +370,12 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
         let ts_str = ts
             .map(|t| t.to_rfc3339())
             .unwrap_or_else(|| "unknown".to_string());
-        
+
         let mut tokens = 0;
-        let mut cost = 0.0;
         if let Some(ref mm) = sd.model_metrics {
             for detail in mm.values() {
                 if let Some(ref usage) = detail.usage {
                     tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
-                }
-                if let Some(ref req) = detail.requests {
-                    cost += req.cost.unwrap_or(0.0);
                 }
             }
         }
@@ -387,9 +383,9 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
         segments.push(ShutdownSegment {
             end_timestamp: ts_str,
             tokens,
-            cost,
             premium_requests: sd.total_premium_requests.unwrap_or(0.0),
             api_duration_ms: sd.total_api_duration_ms.unwrap_or(0),
+            model_metrics: sd.model_metrics.clone(),
         });
     }
 

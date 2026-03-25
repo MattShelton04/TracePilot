@@ -85,9 +85,9 @@ pub(super) struct ActivityRow {
 pub(super) struct SessionShutdownMetricRow {
     pub end_timestamp: String,
     pub tokens: i64,
-    pub cost: f64,
     pub premium_requests: f64,
     pub api_duration_ms: i64,
+    pub model_metrics_json: Option<String>,
 }
 
 /// Named row for modified file data.

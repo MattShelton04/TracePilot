@@ -62,6 +62,16 @@ export interface ShutdownMetrics {
   currentModel?: string | null;
   codeChanges?: CodeChanges | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
+  shutdownSegments?: ShutdownSegment[] | null;
+}
+
+/** A single shutdown event's metrics snapshot (sub-session). */
+export interface ShutdownSegment {
+  endTimestamp: string;
+  tokens: number;
+  premiumRequests: number;
+  apiDurationMs: number;
+  modelMetrics?: Record<string, ModelMetricDetail> | null;
 }
 
 export interface CodeChanges {

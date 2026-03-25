@@ -134,8 +134,20 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             if let Some(ref segments) = metrics.shutdown_segments {
                 for seg in segments {
                     let date = seg.end_timestamp.split('T').next().unwrap_or(&seg.end_timestamp).to_string();
-                    *tokens_by_day.entry(date.clone()).or_insert(0) += seg.tokens;
-                    *cost_by_day.entry(date).or_insert(0.0) += seg.cost;
+                    let mut seg_tokens: u64 = 0;
+                    let mut seg_cost: f64 = 0.0;
+                    if let Some(ref mm) = seg.model_metrics {
+                        for detail in mm.values() {
+                            if let Some(ref usage) = detail.usage {
+                                seg_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                            }
+                            if let Some(ref req) = detail.requests {
+                                seg_cost += req.cost.unwrap_or(0.0);
+                            }
+                        }
+                    }
+                    *tokens_by_day.entry(date.clone()).or_insert(0) += seg_tokens;
+                    *cost_by_day.entry(date).or_insert(0.0) += seg_cost;
                 }
             } else if let Some(ref date) = date_key {
                 // Fallback for backwards compatibility 

@@ -216,9 +216,9 @@ impl IndexDb {
             // INSERT child rows: shutdown segments
             for row in &analytics.shutdown_metrics_rows {
                 self.conn.execute(
-                    "INSERT INTO session_shutdown_metrics (session_id, end_timestamp, total_tokens, total_cost, total_premium_requests, total_api_duration_ms)
+                    "INSERT INTO session_shutdown_metrics (session_id, end_timestamp, total_tokens, total_premium_requests, total_api_duration_ms, model_metrics_json)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![session_id, row.end_timestamp, row.tokens, row.cost, row.premium_requests, row.api_duration_ms],
+                    params![session_id, row.end_timestamp, row.tokens, row.premium_requests, row.api_duration_ms, row.model_metrics_json],
                 )?;
             }
 
@@ -464,12 +464,23 @@ pub(super) fn extract_session_analytics(
 
         if let Some(ref segments) = metrics.shutdown_segments {
             for seg in segments {
+                let mut tokens: i64 = 0;
+                if let Some(ref mm) = seg.model_metrics {
+                    for detail in mm.values() {
+                        if let Some(ref usage) = detail.usage {
+                            tokens += (usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0)) as i64;
+                        }
+                    }
+                }
+
+                let mm_json = seg.model_metrics.as_ref()
+                    .and_then(|mm| serde_json::to_string(mm).ok());
                 shutdown_metrics_rows.push(SessionShutdownMetricRow {
                     end_timestamp: seg.end_timestamp.clone(),
-                    tokens: seg.tokens as i64,
-                    cost: seg.cost,
+                    tokens,
                     premium_requests: seg.premium_requests,
                     api_duration_ms: seg.api_duration_ms as i64,
+                    model_metrics_json: mm_json,
                 });
             }
         }

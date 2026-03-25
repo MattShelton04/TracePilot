@@ -5,7 +5,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import {
   StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
-  formatNumber, formatCost, formatDuration, useSessionTabLoader,
+  formatNumber, formatCost, formatDuration, formatDate, formatTime, useSessionTabLoader,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -158,14 +158,108 @@ const modelColumns = [
         </template>
       </DataTable>
 
-      <!-- Cache Breakdown with HealthRing -->
+      <!-- Session Activity (Full Width Horizontal Tiles) -->
+      <SectionPanel v-if="metrics.shutdownSegments?.length" title="Session Activity" class="mb-6">
+        <div class="activity-horizontal">
+          <div
+            v-for="(seg, idx) in metrics.shutdownSegments"
+            :key="idx"
+            class="activity-tile"
+          >
+            <!-- Card Header -->
+            <div class="activity-tile-header">
+              <div class="flex flex-col">
+                <span class="activity-index">Segment #{{ idx + 1 }}</span>
+                <span class="activity-timestamp">{{ formatDate(seg.endTimestamp) }} {{ formatTime(seg.endTimestamp) }}</span>
+              </div>
+              <Badge v-if="idx === metrics.shutdownSegments.length - 1" variant="success" size="sm">Latest</Badge>
+            </div>
+
+            <!-- Token Hero (Compacted) -->
+            <div class="activity-hero" :class="{ 'activity-hero--empty': seg.tokens === 0 }">
+              <div v-if="seg.tokens > 0" class="hero-stats">
+                <div class="hero-main">
+                  <span class="hero-val">{{ formatNumber(seg.tokens) }}</span>
+                  <span class="hero-unit">tokens</span>
+                </div>
+              </div>
+              <div v-else class="hero-empty">
+                <span class="text-tertiary">No interaction recorded</span>
+              </div>
+            </div>
+
+            <!-- Model Breakdown Sections (Compacted) -->
+            <div v-if="seg.tokens > 0" class="activity-details">
+              <!-- Models -->
+              <div 
+                v-for="(m, name) in seg.modelMetrics" 
+                :key="name"
+                class="model-row"
+                :class="{ 'model-row--premium': (m.requests?.cost ?? 0) > 0 }"
+              >
+                <div class="row-main">
+                  <span class="model-name">{{ name }}</span>
+                  <span class="model-tokens">{{ formatNumber((m.usage?.inputTokens ?? 0) + (m.usage?.outputTokens ?? 0)) }} <small>tokens</small></span>
+                </div>
+                <div class="row-costs">
+                  <span v-if="(m.requests?.cost ?? 0) > 0" class="cost-pill amber-text" title="Copilot Cost">
+                    {{ formatCost((m.requests?.cost ?? 0) * prefs.costPerPremiumRequest) }}
+                  </span>
+                  <span class="cost-pill emerald-text" title="Wholesale Cost">
+                    {{ formatCost(prefs.computeWholesaleCost(name as string, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0) || 0) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="activity-tile-footer">
+              <div class="footer-metric">
+                <span class="label">Time</span>
+                <span class="val">{{ formatDuration(seg.apiDurationMs) }}</span>
+              </div>
+              <div class="footer-metric">
+                <span class="label">Reqs</span>
+                <span class="val">{{ seg.premiumRequests.toFixed(0) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SectionPanel>
+
+      <!-- Cache Breakdown (Full Width) -->
       <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
-        <div class="flex items-center gap-4">
-          <HealthRing :score="cacheHitRatio" size="lg" />
-          <div>
-            <div class="text-sm font-semibold text-[var(--text-primary)]">Cache Hit Rate</div>
-            <div class="text-xs text-[var(--text-tertiary)] mt-1">
-              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalInputTokens) }} total input tokens
+        <div class="flex flex-col md:flex-row items-center gap-8 py-4">
+          <div class="flex flex-col items-center gap-2">
+            <HealthRing :score="cacheHitRatio" size="lg" />
+            <div class="text-lg font-bold text-[var(--text-primary)]">{{ (cacheHitRatio * 100).toFixed(1) }}%</div>
+          </div>
+          
+          <div class="flex-grow max-w-2xl">
+            <div class="text-base font-semibold text-[var(--text-primary)] mb-1">Cache Hit Rate</div>
+            <div class="text-sm text-[var(--text-secondary)] mb-6">
+              {{ formatNumber(totalCacheReadTokens) }} cache reads out of {{ formatNumber(totalInputTokens) }} total input tokens
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div class="cache-stat-item">
+                <div class="flex justify-between text-xs mb-2">
+                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Cache Influence</span>
+                  <span class="font-semibold">{{ formatNumber(totalCacheReadTokens) }} tokens</span>
+                </div>
+                <div class="h-2 w-full bg-[var(--surface-secondary)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                  <div class="h-full bg-[var(--success-fg)] shadow-[0_0_10px_rgba(52,211,153,0.3)] transition-all duration-500" :style="{ width: `${cacheHitRatio * 100}%` }" />
+                </div>
+              </div>
+              <div class="cache-stat-item">
+                <div class="flex justify-between text-xs mb-2">
+                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Potential Overhead</span>
+                  <span class="font-semibold">{{ formatNumber(totalInputTokens - totalCacheReadTokens) }} tokens</span>
+                </div>
+                <div class="h-2 w-full bg-[var(--surface-secondary)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                  <div class="h-full bg-[var(--accent-fg)]" :style="{ width: `${(1 - cacheHitRatio) * 100}%` }" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -202,3 +296,200 @@ const modelColumns = [
     </template>
   </div>
 </template>
+
+<style scoped>
+.activity-horizontal {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 8px 16px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+  margin: 0 -8px;
+}
+
+.activity-horizontal::-webkit-scrollbar {
+  height: 4px;
+}
+
+.activity-horizontal::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 10px;
+}
+
+.activity-tile {
+  flex: 0 0 280px;
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-tile:hover {
+  border-color: var(--accent-fg);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.activity-tile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.activity-index {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-fg);
+  letter-spacing: 0.05em;
+}
+
+.activity-timestamp {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.activity-hero {
+  background: var(--canvas-inset);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-left: 2px solid var(--accent-fg);
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.activity-hero--empty {
+  border-left-color: var(--border-subtle);
+  background: var(--canvas-default);
+  opacity: 0.5;
+}
+
+.hero-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.hero-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.hero-unit {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.hero-empty {
+  font-size: 0.6875rem;
+  color: var(--text-placeholder);
+}
+
+.activity-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-grow: 1;
+  margin-bottom: 12px;
+}
+
+.model-row {
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-row--premium {
+  border-left: 2px solid var(--warning-fg);
+  background: var(--warning-subtle);
+}
+
+.row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.model-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-tokens {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.model-tokens small {
+  font-size: 0.625rem;
+  opacity: 0.7;
+}
+
+.row-costs {
+  display: flex;
+  gap: 6px;
+}
+
+.cost-pill {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.activity-tile-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.footer-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.footer-metric .label {
+  font-size: 0.625rem;
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+}
+
+.footer-metric .val {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.amber-text { color: var(--warning-fg); }
+.emerald-text { color: var(--success-fg); }
+</style>
