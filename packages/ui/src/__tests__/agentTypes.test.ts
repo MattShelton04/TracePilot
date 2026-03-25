@@ -158,6 +158,11 @@ describe("getAgentColor", () => {
     expect(getAgentColor("unknown-type")).toBe(AGENT_COLORS.main);
     expect(getAgentColor("")).toBe(AGENT_COLORS.main);
   });
+
+  it("falls back to main agent color for undefined/null-ish inputs", () => {
+    expect(getAgentColor(undefined as unknown as string)).toBe(AGENT_COLORS.main);
+    expect(getAgentColor(null as unknown as string)).toBe(AGENT_COLORS.main);
+  });
 });
 
 // ---------------------------------------------------------------------------

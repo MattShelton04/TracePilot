@@ -85,7 +85,6 @@ interface WaterfallRow {
   isParallel: boolean;
 }
 
-
 /** Total duration of current turn in ms. */
 const turnDurationMs = computed<number>(() => {
   const t = currentTurn.value;
