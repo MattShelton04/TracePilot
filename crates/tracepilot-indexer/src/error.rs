@@ -36,10 +36,6 @@ pub enum IndexerError {
     /// Session parsing error (from tracepilot-core).
     #[error(transparent)]
     SessionParse(#[from] tracepilot_core::TracePilotError),
-
-    /// Database migration failed.
-    #[error("Database migration failed: {0}")]
-    Migration(String),
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;
