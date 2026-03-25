@@ -255,4 +255,69 @@ describe("useSessionDetailStore", () => {
       expect(store.turns.length).toBe(1);
     });
   });
+
+  describe("refreshAll", () => {
+    it("sets section errors when refresh fails", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadTodos();
+      await store.loadCheckpoints();
+      await store.loadPlan();
+      await store.loadShutdownMetrics();
+      await store.loadIncidents();
+
+      mockGetSessionDetail.mockRejectedValueOnce(new Error("detail refresh failed"));
+      mockGetSessionTodos.mockRejectedValueOnce(new Error("todos refresh failed"));
+      mockGetSessionCheckpoints.mockRejectedValueOnce(new Error("checkpoints refresh failed"));
+      mockGetSessionPlan.mockRejectedValueOnce(new Error("plan refresh failed"));
+      mockGetShutdownMetrics.mockRejectedValueOnce(new Error("metrics refresh failed"));
+      mockGetSessionIncidents.mockRejectedValueOnce(new Error("incidents refresh failed"));
+
+      await store.refreshAll();
+
+      expect(store.error).toBe("detail refresh failed");
+      expect(store.todosError).toBe("todos refresh failed");
+      expect(store.checkpointsError).toBe("checkpoints refresh failed");
+      expect(store.planError).toBe("plan refresh failed");
+      expect(store.metricsError).toBe("metrics refresh failed");
+      expect(store.incidentsError).toBe("incidents refresh failed");
+    });
+
+    it("clears section errors after successful refresh", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadTodos();
+      await store.loadCheckpoints();
+      await store.loadPlan();
+      await store.loadShutdownMetrics();
+      await store.loadIncidents();
+
+      mockGetSessionDetail.mockRejectedValueOnce(new Error("detail refresh failed"));
+      mockGetSessionTodos.mockRejectedValueOnce(new Error("todos refresh failed"));
+      mockGetSessionPlan.mockRejectedValueOnce(new Error("plan refresh failed"));
+      mockGetShutdownMetrics.mockRejectedValueOnce(new Error("metrics refresh failed"));
+      mockGetSessionIncidents.mockRejectedValueOnce(new Error("incidents refresh failed"));
+      await store.refreshAll();
+
+      expect(store.error).toBe("detail refresh failed");
+      expect(store.todosError).toBe("todos refresh failed");
+      expect(store.planError).toBe("plan refresh failed");
+      expect(store.metricsError).toBe("metrics refresh failed");
+      expect(store.incidentsError).toBe("incidents refresh failed");
+
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockGetSessionTodos.mockResolvedValue(FIXTURE_TODOS);
+      mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+      mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+
+      await store.refreshAll();
+
+      expect(store.error).toBeNull();
+      expect(store.todosError).toBeNull();
+      expect(store.planError).toBeNull();
+      expect(store.metricsError).toBeNull();
+      expect(store.incidentsError).toBeNull();
+    });
+  });
 });

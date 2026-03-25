@@ -130,6 +130,29 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     };
   }
 
+  function buildRefreshPromise<T>(opts: {
+    key: string;
+    errorRef?: Ref<string | null>;
+    fetchFn: (id: string) => Promise<T>;
+    onResult: (result: T) => void;
+    logLevel?: 'error' | 'warn';
+  }, id: string, token: number): Promise<void> {
+    return (async () => {
+      if (opts.errorRef) opts.errorRef.value = null;
+
+      try {
+        const result = await opts.fetchFn(id);
+        if (requestToken !== token) return;
+        opts.onResult(result);
+      } catch (e) {
+        if (requestToken !== token) return;
+        if (opts.errorRef) opts.errorRef.value = toErrorMessage(e);
+        const logFn = opts.logLevel === 'warn' ? console.warn : console.error;
+        logFn(`Failed to refresh ${opts.key}:`, e);
+      }
+    })();
+  }
+
   async function loadDetail(id: string) {
     if (sessionId.value === id && loaded.value.has("detail")) {
       return;
@@ -308,18 +331,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     const promises: Promise<void>[] = [];
 
-    if (sections.has("detail")) {
-      promises.push(
-        getSessionDetail(id).then((result) => {
-          if (requestToken !== token) return;
-          detail.value = result;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          console.error("Failed to refresh detail:", e);
-        })
-      );
-    }
-
     if (sections.has("turns")) {
       promises.push(
         (async () => {
@@ -349,74 +360,49 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // state (currentPage, pageSize). Refreshing here would overwrite the user's
     // current page position.
 
-    if (sections.has("todos")) {
-      promises.push(
-        getSessionTodos(id).then((result) => {
-          if (requestToken !== token) return;
-          todos.value = result;
-          todosError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          todosError.value = toErrorMessage(e);
-          console.error("Failed to refresh todos:", e);
-        })
-      );
-    }
+    const sectionConfigs = [
+      {
+        key: 'detail',
+        errorRef: error,
+        fetchFn: getSessionDetail,
+        onResult: (result: SessionDetail) => { detail.value = result; },
+      },
+      {
+        key: 'todos',
+        errorRef: todosError,
+        fetchFn: getSessionTodos,
+        onResult: (result: TodosResponse) => { todos.value = result; },
+      },
+      {
+        key: 'checkpoints',
+        errorRef: checkpointsError,
+        fetchFn: getSessionCheckpoints,
+        onResult: (result: CheckpointEntry[]) => { checkpoints.value = result; },
+      },
+      {
+        key: 'plan',
+        errorRef: planError,
+        fetchFn: getSessionPlan,
+        onResult: (result: SessionPlan) => { plan.value = result; },
+      },
+      {
+        key: 'metrics',
+        errorRef: metricsError,
+        fetchFn: getShutdownMetrics,
+        onResult: (result: ShutdownMetrics) => { shutdownMetrics.value = result; },
+      },
+      {
+        key: 'incidents',
+        errorRef: incidentsError,
+        fetchFn: getSessionIncidents,
+        onResult: (result: SessionIncident[]) => { incidents.value = result; },
+        logLevel: 'warn' as const,
+      },
+    ];
 
-    if (sections.has("checkpoints")) {
-      promises.push(
-        getSessionCheckpoints(id).then((result) => {
-          if (requestToken !== token) return;
-          checkpoints.value = result;
-          checkpointsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          checkpointsError.value = toErrorMessage(e);
-          console.error("Failed to refresh checkpoints:", e);
-        })
-      );
-    }
-
-    if (sections.has("plan")) {
-      promises.push(
-        getSessionPlan(id).then((result) => {
-          if (requestToken !== token) return;
-          plan.value = result;
-          planError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          planError.value = toErrorMessage(e);
-          console.error("Failed to refresh plan:", e);
-        })
-      );
-    }
-
-    if (sections.has("metrics")) {
-      promises.push(
-        getShutdownMetrics(id).then((result) => {
-          if (requestToken !== token) return;
-          shutdownMetrics.value = result;
-          metricsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          metricsError.value = toErrorMessage(e);
-          console.error("Failed to refresh metrics:", e);
-        })
-      );
-    }
-
-    if (sections.has("incidents")) {
-      promises.push(
-        getSessionIncidents(id).then((result) => {
-          if (requestToken !== token) return;
-          incidents.value = result;
-          incidentsError.value = null;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          incidentsError.value = toErrorMessage(e);
-          console.warn("Failed to refresh incidents:", e);
-        })
-      );
+    for (const cfg of sectionConfigs) {
+      if (!sections.has(cfg.key)) continue;
+      promises.push(buildRefreshPromise(cfg, id, token));
     }
 
     await Promise.allSettled(promises);
