@@ -23,6 +23,12 @@ export function formatDate(dateStr?: string | null): string {
   return new Date(dateStr).toLocaleString();
 }
 
+/** Format an ISO date string to a compact date (e.g. "Mar 22"). */
+export function formatShortDate(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 /** Format an ISO date string to locale time only (HH:MM:SS). */
 export function formatTime(dateStr?: string | null): string {
   if (!dateStr) return '';

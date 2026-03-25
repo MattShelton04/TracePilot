@@ -2,11 +2,11 @@
 import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
-import type { ModelMetricDetail } from "@tracepilot/types";
+import type { ModelMetricDetail, SessionSegment } from "@tracepilot/types";
 import {
   StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
-  formatNumber, formatCost, formatDuration, formatTime, useSessionTabLoader,
+  formatNumber, formatCost, formatDuration, formatShortDate, formatTime, useSessionTabLoader,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -82,6 +82,29 @@ function sortedSegmentModels(modelMetrics?: Record<string, ModelMetricDetail> | 
     const tokensB = (b.usage?.inputTokens ?? 0) + (b.usage?.outputTokens ?? 0);
     return tokensB - tokensA;
   });
+}
+
+/** Activity duration in ms (end − start). */
+function segmentDurationMs(seg: SessionSegment): number | null {
+  if (!seg.startTimestamp || !seg.endTimestamp) return null;
+  return new Date(seg.endTimestamp).getTime() - new Date(seg.startTimestamp).getTime();
+}
+
+/** Total Copilot cost for a segment (sum of premium request costs across models). */
+function segmentCopilotCost(seg: SessionSegment): number {
+  if (!seg.modelMetrics) return seg.premiumRequests * prefs.costPerPremiumRequest;
+  return Object.values(seg.modelMetrics).reduce(
+    (sum, m) => sum + (m.requests?.cost ?? 0) * prefs.costPerPremiumRequest, 0,
+  );
+}
+
+/** Total wholesale cost for a segment (sum across models). */
+function segmentWholesaleCost(seg: SessionSegment): number {
+  if (!seg.modelMetrics) return 0;
+  return Object.entries(seg.modelMetrics).reduce((sum, [name, m]) => {
+    const cost = prefs.computeWholesaleCost(name, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0);
+    return sum + (cost ?? 0);
+  }, 0);
 }
 
 const modelColumns = [
@@ -171,8 +194,8 @@ const modelColumns = [
         </template>
       </DataTable>
 
-      <!-- Session Segments (Full Width Horizontal Tiles) -->
-      <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Segments" class="mb-6">
+      <!-- Session Activity (Full Width Horizontal Tiles) -->
+      <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Activity" class="mb-6">
         <div class="activity-horizontal">
           <div
             v-for="(seg, idx) in metrics.sessionSegments"
@@ -182,8 +205,12 @@ const modelColumns = [
             <!-- Card Header -->
             <div class="activity-tile-header">
               <div class="flex flex-col">
-                <span class="activity-index">Segment #{{ idx + 1 }}</span>
-                <span class="activity-timestamp">{{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}</span>
+                <span class="activity-index">Activity #{{ idx + 1 }}</span>
+                <span class="activity-date">{{ formatShortDate(seg.startTimestamp) }}</span>
+                <span class="activity-timestamp">
+                  {{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}
+                  <span v-if="segmentDurationMs(seg)" class="activity-duration">· {{ formatDuration(segmentDurationMs(seg)) }}</span>
+                </span>
               </div>
               <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
             </div>
@@ -225,18 +252,26 @@ const modelColumns = [
             </div>
 
             <!-- Card Footer -->
+            <div v-if="seg.tokens > 0" class="activity-tile-costs">
+              <span v-if="segmentCopilotCost(seg) > 0" class="cost-pill amber-text" title="Copilot Cost">
+                Copilot {{ formatCost(segmentCopilotCost(seg)) }}
+              </span>
+              <span class="cost-pill emerald-text" title="Wholesale Cost">
+                Wholesale {{ formatCost(segmentWholesaleCost(seg)) }}
+              </span>
+            </div>
             <div class="activity-tile-footer">
-              <div v-if="seg.currentModel" class="footer-metric">
-                <span class="label">Model</span>
-                <span class="val">{{ seg.currentModel }}</span>
-              </div>
               <div class="footer-metric">
-                <span class="label">Time</span>
+                <span class="label">API Time</span>
                 <span class="val">{{ formatDuration(seg.apiDurationMs) }}</span>
               </div>
               <div class="footer-metric">
                 <span class="label">Reqs</span>
                 <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
+              </div>
+              <div v-if="seg.premiumRequests > 0" class="footer-metric">
+                <span class="label">Premium</span>
+                <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
               </div>
             </div>
           </div>
@@ -245,36 +280,18 @@ const modelColumns = [
 
       <!-- Cache Breakdown (Full Width) -->
       <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
-        <div class="flex flex-col md:flex-row items-center gap-8 py-4">
-          <div class="flex flex-col items-center gap-2">
-            <HealthRing :score="cacheHitRatio" size="lg" />
-          </div>
-          
-          <div class="flex-grow max-w-2xl">
-            <div class="text-base font-semibold text-[var(--text-primary)] mb-1">Cache Hit Rate</div>
-            <div class="text-sm text-[var(--text-secondary)] mb-6">
-              {{ formatNumber(totalCacheReadTokens) }} cache reads out of {{ formatNumber(totalInputTokens) }} total input tokens
+        <div class="cache-section">
+          <HealthRing :score="cacheHitRatio" size="lg" />
+          <div class="cache-info">
+            <div class="text-sm text-[var(--text-secondary)] mb-3">
+              {{ formatNumber(totalCacheReadTokens) }} of {{ formatNumber(totalInputTokens) }} input tokens served from cache
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div class="cache-stat-item">
-                <div class="flex justify-between text-xs mb-2">
-                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Cache Hits</span>
-                  <span class="font-semibold">{{ formatNumber(totalCacheReadTokens) }} tokens</span>
-                </div>
-                <div class="h-2 w-full bg-[var(--canvas-inset)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                  <div class="h-full bg-[var(--success-fg)] transition-all duration-500" :style="{ width: `${cacheHitRatio * 100}%` }" />
-                </div>
-              </div>
-              <div class="cache-stat-item">
-                <div class="flex justify-between text-xs mb-2">
-                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Uncached Input</span>
-                  <span class="font-semibold">{{ formatNumber(totalInputTokens - totalCacheReadTokens) }} tokens</span>
-                </div>
-                <div class="h-2 w-full bg-[var(--canvas-inset)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                  <div class="h-full bg-[var(--accent-fg)]" :style="{ width: `${(1 - cacheHitRatio) * 100}%` }" />
-                </div>
-              </div>
+            <div class="cache-bar">
+              <div class="cache-bar-fill" :style="{ width: `${cacheHitRatio * 100}%` }" />
+            </div>
+            <div class="cache-bar-legend">
+              <span class="legend-cached">{{ (cacheHitRatio * 100).toFixed(1) }}% cached</span>
+              <span class="legend-uncached">{{ ((1 - cacheHitRatio) * 100).toFixed(1) }}% uncached</span>
             </div>
           </div>
         </div>
@@ -365,6 +382,13 @@ const modelColumns = [
   text-transform: uppercase;
   color: var(--accent-fg);
   letter-spacing: 0.05em;
+}
+
+.activity-date {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 2px;
 }
 
 .activity-timestamp {
@@ -480,6 +504,13 @@ const modelColumns = [
   border-radius: 3px;
 }
 
+.activity-tile-costs {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .activity-tile-footer {
   display: flex;
   justify-content: space-between;
@@ -503,6 +534,60 @@ const modelColumns = [
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.premium-val {
+  color: var(--warning-fg) !important;
+}
+
+.activity-duration {
+  color: var(--text-placeholder);
+  font-weight: 400;
+}
+
+/* Cache Breakdown */
+.cache-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 0;
+}
+
+.cache-info {
+  flex: 1;
+  max-width: 400px;
+}
+
+.cache-bar {
+  height: 6px;
+  width: 100%;
+  background: var(--neutral-muted);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cache-bar-fill {
+  height: 100%;
+  background: var(--success-fg);
+  border-radius: 3px;
+  opacity: 0.8;
+  transition: width 0.5s ease;
+}
+
+.cache-bar-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.6875rem;
+}
+
+.legend-cached {
+  color: var(--success-fg);
+  font-weight: 600;
+}
+
+.legend-uncached {
+  color: var(--text-placeholder);
 }
 
 .amber-text { color: var(--warning-fg); }

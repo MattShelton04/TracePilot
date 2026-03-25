@@ -354,31 +354,76 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
         return None;
     }
 
+    // Collect session start and resume timestamps to derive correct segment start times
+    let session_start_ts: Option<DateTime<Utc>> = events
+        .iter()
+        .find(|e| e.event_type == SessionEventType::SessionStart)
+        .and_then(|e| e.raw.timestamp);
+
+    let mut resume_timestamps: Vec<DateTime<Utc>> = events
+        .iter()
+        .filter(|e| e.event_type == SessionEventType::SessionResume)
+        .filter_map(|e| e.raw.timestamp)
+        .collect();
+    resume_timestamps.sort();
+
     let count = shutdowns.len() as u32;
 
-    Some((combine_shutdown_data(&shutdowns), count))
+    Some((combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps), count))
 }
 
 /// Combine multiple `ShutdownData` instances into a single aggregate.
-fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -> ShutdownData {
+///
+/// `session_start_ts` is the timestamp from the `session.start` event.
+/// `resume_timestamps` are sorted timestamps from `session.resume` events,
+/// used to derive accurate start times for each segment.
+fn combine_shutdown_data(
+    shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)],
+    session_start_ts: Option<DateTime<Utc>>,
+    resume_timestamps: &[DateTime<Utc>],
+) -> ShutdownData {
     let first = shutdowns.first().unwrap().0;
     let last = shutdowns.last().unwrap().0;
 
     let mut segments: Vec<SessionSegment> = Vec::new();
 
-    // Derive start timestamp for the first segment from sessionStartTime
-    let session_start_str = first
-        .session_start_time
-        .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
+    // First segment starts at session.start event timestamp, falling back to sessionStartTime epoch
+    let session_start_str = session_start_ts
         .map(|dt| dt.to_rfc3339())
+        .or_else(|| {
+            first
+                .session_start_time
+                .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
+                .map(|dt| dt.to_rfc3339())
+        })
         .unwrap_or_else(|| "unknown".to_string());
 
-    let mut prev_end_str = session_start_str;
+    let mut resume_iter = resume_timestamps.iter().peekable();
 
-    for (sd, ts) in shutdowns {
-        let ts_str = ts
+    for (i, (sd, ts)) in shutdowns.iter().enumerate() {
+        let end_str = ts
             .map(|t| t.to_rfc3339())
             .unwrap_or_else(|| "unknown".to_string());
+
+        // Determine start: first segment uses session start, others use the
+        // most recent resume event that occurred before this shutdown.
+        let start_str = if i == 0 {
+            session_start_str.clone()
+        } else {
+            // Advance the resume iterator past any resumes before this shutdown,
+            // keeping the last one seen as the start time.
+            let mut last_resume: Option<&DateTime<Utc>> = None;
+            while let Some(&&rt) = resume_iter.peek().as_ref() {
+                if ts.map_or(true, |shutdown_ts| *rt <= shutdown_ts) {
+                    last_resume = Some(resume_iter.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+            last_resume
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| end_str.clone())
+        };
 
         let mut tokens = 0u64;
         let mut total_requests = 0u64;
@@ -394,8 +439,8 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
         }
 
         segments.push(SessionSegment {
-            start_timestamp: prev_end_str.clone(),
-            end_timestamp: ts_str.clone(),
+            start_timestamp: start_str,
+            end_timestamp: end_str,
             tokens,
             total_requests,
             premium_requests: sd.total_premium_requests.unwrap_or(0.0),
@@ -403,8 +448,6 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
             current_model: sd.current_model.clone(),
             model_metrics: sd.model_metrics.clone(),
         });
-
-        prev_end_str = ts_str;
     }
 
     ShutdownData {
