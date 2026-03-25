@@ -81,12 +81,15 @@ pub(super) struct ActivityRow {
     pub tool_call_count: i64,
 }
 
-/// Named row for shutdown segment granular breakdown.
-pub(super) struct SessionShutdownMetricRow {
+/// Named row for session segment granular breakdown.
+pub(super) struct SessionSegmentRow {
+    pub start_timestamp: String,
     pub end_timestamp: String,
     pub tokens: i64,
+    pub total_requests: i64,
     pub premium_requests: f64,
     pub api_duration_ms: i64,
+    pub current_model: Option<String>,
     pub model_metrics_json: Option<String>,
 }
 
@@ -137,7 +140,7 @@ pub(super) struct SessionAnalytics {
     pub tool_call_rows: Vec<ToolCallRow>,
     pub activity_rows: Vec<ActivityRow>,
     pub modified_file_rows: Vec<ModifiedFileRow>,
-    pub shutdown_metrics_rows: Vec<SessionShutdownMetricRow>,
+    pub session_segment_rows: Vec<SessionSegmentRow>,
 
     // Incident counters
     pub error_count: i64,

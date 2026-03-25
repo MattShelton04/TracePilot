@@ -64,7 +64,7 @@ impl IndexDb {
                 [&session_id],
             )?;
             self.conn.execute(
-                "DELETE FROM session_shutdown_metrics WHERE session_id = ?1",
+                "DELETE FROM session_segments WHERE session_id = ?1",
                 [&session_id],
             )?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
@@ -213,12 +213,12 @@ impl IndexDb {
                 )?;
             }
 
-            // INSERT child rows: shutdown segments
-            for row in &analytics.shutdown_metrics_rows {
+            // INSERT child rows: session segments
+            for row in &analytics.session_segment_rows {
                 self.conn.execute(
-                    "INSERT INTO session_shutdown_metrics (session_id, end_timestamp, total_tokens, total_premium_requests, total_api_duration_ms, model_metrics_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![session_id, row.end_timestamp, row.tokens, row.premium_requests, row.api_duration_ms, row.model_metrics_json],
+                    "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    params![session_id, row.start_timestamp, row.end_timestamp, row.tokens, row.total_requests, row.premium_requests, row.api_duration_ms, row.current_model, row.model_metrics_json],
                 )?;
             }
 
@@ -389,7 +389,7 @@ pub(super) fn extract_session_analytics(
     let mut lines_removed: Option<i64> = None;
     let mut duration_ms: Option<i64> = None;
     let mut model_rows: Vec<ModelMetricsRow> = Vec::new();
-    let mut shutdown_metrics_rows: Vec<SessionShutdownMetricRow> = Vec::new();
+    let mut session_segment_rows: Vec<SessionSegmentRow> = Vec::new();
 
     let shutdown_type = summary
         .shutdown_metrics
@@ -462,7 +462,7 @@ pub(super) fn extract_session_analytics(
             lines_removed = cc.lines_removed.map(|v| v as i64);
         }
 
-        if let Some(ref segments) = metrics.shutdown_segments {
+        if let Some(ref segments) = metrics.session_segments {
             for seg in segments {
                 let mut tokens: i64 = 0;
                 if let Some(ref mm) = seg.model_metrics {
@@ -475,11 +475,14 @@ pub(super) fn extract_session_analytics(
 
                 let mm_json = seg.model_metrics.as_ref()
                     .and_then(|mm| serde_json::to_string(mm).ok());
-                shutdown_metrics_rows.push(SessionShutdownMetricRow {
+                session_segment_rows.push(SessionSegmentRow {
+                    start_timestamp: seg.start_timestamp.clone(),
                     end_timestamp: seg.end_timestamp.clone(),
                     tokens,
+                    total_requests: seg.total_requests as i64,
                     premium_requests: seg.premium_requests,
                     api_duration_ms: seg.api_duration_ms as i64,
+                    current_model: seg.current_model.clone(),
                     model_metrics_json: mm_json,
                 });
             }
@@ -741,7 +744,7 @@ pub(super) fn extract_session_analytics(
         tool_call_rows,
         activity_rows,
         modified_file_rows,
-        shutdown_metrics_rows,
+        session_segment_rows,
         error_count,
         rate_limit_count,
         warning_count,

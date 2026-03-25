@@ -21,7 +21,7 @@ use crate::models::event_types::{
     PlanChangedData, RequestMetrics, SessionContext, SessionErrorData, SessionEventType,
     SessionHandoffData, SessionImportLegacyData, SessionInfoData, SessionModeChangedData,
     SessionResumeData, SessionStartData, SessionTaskCompleteData, SessionTruncationData,
-    SessionWarningData, ShutdownData, ShutdownSegment, SkillInvokedData, SubagentCompletedData,
+    SessionWarningData, ShutdownData, SessionSegment, SkillInvokedData, SubagentCompletedData,
     SubagentDeselectedData, SubagentFailedData, SubagentSelectedData, SubagentStartedData,
     SystemMessageData, SystemNotificationData, ToolExecCompleteData, ToolExecStartData,
     ToolUserRequestedData, TurnEndData, TurnStartData, UsageMetrics, UserMessageData,
@@ -364,29 +364,47 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
     let first = shutdowns.first().unwrap().0;
     let last = shutdowns.last().unwrap().0;
 
-    let mut segments: Vec<ShutdownSegment> = Vec::new();
+    let mut segments: Vec<SessionSegment> = Vec::new();
+
+    // Derive start timestamp for the first segment from sessionStartTime
+    let session_start_str = first
+        .session_start_time
+        .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let mut prev_end_str = session_start_str;
 
     for (sd, ts) in shutdowns {
         let ts_str = ts
             .map(|t| t.to_rfc3339())
             .unwrap_or_else(|| "unknown".to_string());
 
-        let mut tokens = 0;
+        let mut tokens = 0u64;
+        let mut total_requests = 0u64;
         if let Some(ref mm) = sd.model_metrics {
             for detail in mm.values() {
                 if let Some(ref usage) = detail.usage {
                     tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
                 }
+                if let Some(ref req) = detail.requests {
+                    total_requests += req.count.unwrap_or(0) as u64;
+                }
             }
         }
 
-        segments.push(ShutdownSegment {
-            end_timestamp: ts_str,
+        segments.push(SessionSegment {
+            start_timestamp: prev_end_str.clone(),
+            end_timestamp: ts_str.clone(),
             tokens,
+            total_requests,
             premium_requests: sd.total_premium_requests.unwrap_or(0.0),
             api_duration_ms: sd.total_api_duration_ms.unwrap_or(0),
+            current_model: sd.current_model.clone(),
             model_metrics: sd.model_metrics.clone(),
         });
+
+        prev_end_str = ts_str;
     }
 
     ShutdownData {
@@ -399,7 +417,7 @@ fn combine_shutdown_data(shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)]) -
         model_metrics: Some(combine_model_metrics(
             shutdowns.iter().map(|(s, _)| s.model_metrics.as_ref()),
         )),
-        shutdown_segments: Some(segments),
+        session_segments: Some(segments),
     }
 }
 

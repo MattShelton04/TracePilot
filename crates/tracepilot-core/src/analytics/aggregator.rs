@@ -131,7 +131,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 }
             }
 
-            if let Some(ref segments) = metrics.shutdown_segments {
+            if let Some(ref segments) = metrics.session_segments {
                 for seg in segments {
                     let date = seg.end_timestamp.split('T').next().unwrap_or(&seg.end_timestamp).to_string();
                     let mut seg_tokens: u64 = 0;
@@ -678,7 +678,7 @@ mod tests {
                         ]),
                     }),
                     model_metrics,
-                    shutdown_segments: None,
+                    session_segments: None,
                     shutdown_count: None,
                 }),
             },

@@ -245,14 +245,16 @@ CREATE INDEX IF NOT EXISTS idx_search_content_type_ts ON search_content(content_
 "#;
 
 pub(super) const MIGRATION_8: &str = r#"
--- Store shutdown segments for granular temporal metric attribution
--- Includes model_metrics_json for per-model breakdown
-CREATE TABLE IF NOT EXISTS session_shutdown_metrics (
+-- Store session segments for granular temporal metric attribution
+CREATE TABLE IF NOT EXISTS session_segments (
     session_id TEXT NOT NULL,
+    start_timestamp TEXT NOT NULL,
     end_timestamp TEXT NOT NULL,
     total_tokens INTEGER DEFAULT 0,
+    total_requests INTEGER DEFAULT 0,
     total_premium_requests REAL DEFAULT 0.0,
     total_api_duration_ms INTEGER DEFAULT 0,
+    current_model TEXT,
     model_metrics_json TEXT,
     PRIMARY KEY (session_id, end_timestamp),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE

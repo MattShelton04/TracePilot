@@ -2,10 +2,11 @@
 import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
+import type { ModelMetricDetail } from "@tracepilot/types";
 import {
   StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
-  formatNumber, formatCost, formatDuration, formatDate, formatTime, useSessionTabLoader,
+  formatNumber, formatCost, formatDuration, formatTime, useSessionTabLoader,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -71,6 +72,18 @@ const cacheHitRatio = computed(() => {
   return totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0;
 });
 
+/** Sort a segment's model metrics by Copilot cost (premium requests) descending, then by token count. */
+function sortedSegmentModels(modelMetrics?: Record<string, ModelMetricDetail> | null): [string, ModelMetricDetail][] {
+  if (!modelMetrics) return [];
+  return Object.entries(modelMetrics).sort(([, a], [, b]) => {
+    const costDiff = (b.requests?.cost ?? 0) - (a.requests?.cost ?? 0);
+    if (costDiff !== 0) return costDiff;
+    const tokensA = (a.usage?.inputTokens ?? 0) + (a.usage?.outputTokens ?? 0);
+    const tokensB = (b.usage?.inputTokens ?? 0) + (b.usage?.outputTokens ?? 0);
+    return tokensB - tokensA;
+  });
+}
+
 const modelColumns = [
   { key: "name", label: "Model", align: "left" as const },
   { key: "requests", label: "Requests", align: "right" as const },
@@ -106,7 +119,7 @@ const modelColumns = [
         <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
       </div>
 
-      <div class="grid-4 mb-6">
+      <div class="grid-2 mb-6">
         <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
         <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
       </div>
@@ -158,11 +171,11 @@ const modelColumns = [
         </template>
       </DataTable>
 
-      <!-- Session Activity (Full Width Horizontal Tiles) -->
-      <SectionPanel v-if="metrics.shutdownSegments?.length" title="Session Activity" class="mb-6">
+      <!-- Session Segments (Full Width Horizontal Tiles) -->
+      <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Segments" class="mb-6">
         <div class="activity-horizontal">
           <div
-            v-for="(seg, idx) in metrics.shutdownSegments"
+            v-for="(seg, idx) in metrics.sessionSegments"
             :key="idx"
             class="activity-tile"
           >
@@ -170,9 +183,9 @@ const modelColumns = [
             <div class="activity-tile-header">
               <div class="flex flex-col">
                 <span class="activity-index">Segment #{{ idx + 1 }}</span>
-                <span class="activity-timestamp">{{ formatDate(seg.endTimestamp) }} {{ formatTime(seg.endTimestamp) }}</span>
+                <span class="activity-timestamp">{{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}</span>
               </div>
-              <Badge v-if="idx === metrics.shutdownSegments.length - 1" variant="success" size="sm">Latest</Badge>
+              <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
             </div>
 
             <!-- Token Hero (Compacted) -->
@@ -184,15 +197,14 @@ const modelColumns = [
                 </div>
               </div>
               <div v-else class="hero-empty">
-                <span class="text-tertiary">No interaction recorded</span>
+                <span class="text-[var(--text-tertiary)]">No interaction recorded</span>
               </div>
             </div>
 
-            <!-- Model Breakdown Sections (Compacted) -->
+            <!-- Model Breakdown Sections (sorted by Copilot cost) -->
             <div v-if="seg.tokens > 0" class="activity-details">
-              <!-- Models -->
               <div 
-                v-for="(m, name) in seg.modelMetrics" 
+                v-for="[name, m] in sortedSegmentModels(seg.modelMetrics)" 
                 :key="name"
                 class="model-row"
                 :class="{ 'model-row--premium': (m.requests?.cost ?? 0) > 0 }"
@@ -214,13 +226,17 @@ const modelColumns = [
 
             <!-- Card Footer -->
             <div class="activity-tile-footer">
+              <div v-if="seg.currentModel" class="footer-metric">
+                <span class="label">Model</span>
+                <span class="val">{{ seg.currentModel }}</span>
+              </div>
               <div class="footer-metric">
                 <span class="label">Time</span>
                 <span class="val">{{ formatDuration(seg.apiDurationMs) }}</span>
               </div>
               <div class="footer-metric">
                 <span class="label">Reqs</span>
-                <span class="val">{{ seg.premiumRequests.toFixed(0) }}</span>
+                <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
               </div>
             </div>
           </div>
@@ -232,7 +248,6 @@ const modelColumns = [
         <div class="flex flex-col md:flex-row items-center gap-8 py-4">
           <div class="flex flex-col items-center gap-2">
             <HealthRing :score="cacheHitRatio" size="lg" />
-            <div class="text-lg font-bold text-[var(--text-primary)]">{{ (cacheHitRatio * 100).toFixed(1) }}%</div>
           </div>
           
           <div class="flex-grow max-w-2xl">
@@ -244,19 +259,19 @@ const modelColumns = [
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="cache-stat-item">
                 <div class="flex justify-between text-xs mb-2">
-                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Cache Influence</span>
+                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Cache Hits</span>
                   <span class="font-semibold">{{ formatNumber(totalCacheReadTokens) }} tokens</span>
                 </div>
-                <div class="h-2 w-full bg-[var(--surface-secondary)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                  <div class="h-full bg-[var(--success-fg)] shadow-[0_0_10px_rgba(52,211,153,0.3)] transition-all duration-500" :style="{ width: `${cacheHitRatio * 100}%` }" />
+                <div class="h-2 w-full bg-[var(--canvas-inset)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                  <div class="h-full bg-[var(--success-fg)] transition-all duration-500" :style="{ width: `${cacheHitRatio * 100}%` }" />
                 </div>
               </div>
               <div class="cache-stat-item">
                 <div class="flex justify-between text-xs mb-2">
-                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Potential Overhead</span>
+                  <span class="text-[var(--text-tertiary)] uppercase tracking-wider">Uncached Input</span>
                   <span class="font-semibold">{{ formatNumber(totalInputTokens - totalCacheReadTokens) }} tokens</span>
                 </div>
-                <div class="h-2 w-full bg-[var(--surface-secondary)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                <div class="h-2 w-full bg-[var(--canvas-inset)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
                   <div class="h-full bg-[var(--accent-fg)]" :style="{ width: `${(1 - cacheHitRatio) * 100}%` }" />
                 </div>
               </div>
@@ -356,7 +371,7 @@ const modelColumns = [
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
 }
 
 .activity-hero {
@@ -442,7 +457,7 @@ const modelColumns = [
 
 .model-tokens {
   font-size: 0.6875rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
   color: var(--text-tertiary);
 }
 
@@ -458,9 +473,9 @@ const modelColumns = [
 
 .cost-pill {
   font-size: 0.6875rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
   font-weight: 700;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--canvas-inset);
   padding: 1px 6px;
   border-radius: 3px;
 }

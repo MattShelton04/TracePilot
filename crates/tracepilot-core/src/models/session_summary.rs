@@ -54,7 +54,7 @@ pub struct ShutdownMetrics {
     #[serde(default)]
     pub model_metrics: HashMap<String, ModelMetricDetail>,
     #[serde(default)]
-    pub shutdown_segments: Option<Vec<crate::models::event_types::ShutdownSegment>>,
+    pub session_segments: Option<Vec<crate::models::event_types::SessionSegment>>,
     /// Number of shutdown events that were combined (>1 means resumed session).
     pub shutdown_count: Option<u32>,
 }

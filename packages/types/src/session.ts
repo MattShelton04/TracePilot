@@ -62,15 +62,18 @@ export interface ShutdownMetrics {
   currentModel?: string | null;
   codeChanges?: CodeChanges | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
-  shutdownSegments?: ShutdownSegment[] | null;
+  sessionSegments?: SessionSegment[] | null;
 }
 
-/** A single shutdown event's metrics snapshot (sub-session). */
-export interface ShutdownSegment {
+/** A single session segment's metrics snapshot (one per shutdown event). */
+export interface SessionSegment {
+  startTimestamp: string;
   endTimestamp: string;
   tokens: number;
+  totalRequests: number;
   premiumRequests: number;
   apiDurationMs: number;
+  currentModel?: string | null;
   modelMetrics?: Record<string, ModelMetricDetail> | null;
 }
 
