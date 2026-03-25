@@ -5,9 +5,21 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { truncateText, formatCost, useToast, useConfirmDialog, useClipboard, ErrorAlert, pathBasename, pathDirname, sanitizeBranchForPath, SearchableSelect } from '@tracepilot/ui';
+import {
+  truncateText,
+  formatCost,
+  useToast,
+  useConfirmDialog,
+  useClipboard,
+  ErrorAlert,
+  pathBasename,
+  pathDirname,
+  sanitizeBranchForPath,
+  SearchableSelect,
+} from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
+import { getDefaultBranch, fetchRemote } from '@tracepilot/client';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
@@ -38,9 +50,7 @@ const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
 const confirmingDeleteId = ref<string | null>(null);
 
 // ── Derived ─────────────────────────────────────────────────────────
-const selectedModelInfo = computed(() =>
-  store.models.find((m) => m.id === selectedModel.value),
-);
+const selectedModelInfo = computed(() => store.models.find((m) => m.id === selectedModel.value));
 
 const selectedTemplateName = computed(() => {
   if (!selectedTemplateId.value) return 'Custom';
@@ -56,6 +66,35 @@ const envVarsRecord = computed(() => {
 });
 
 const baseBranch = ref('');
+const defaultBranch = ref('');
+const fetchingRemote = ref(false);
+
+async function loadDefaultBranch(path: string) {
+  try {
+    defaultBranch.value = await getDefaultBranch(path);
+  } catch {
+    defaultBranch.value = '';
+  }
+}
+
+async function handleFetchRemote() {
+  if (!repoPath.value) return;
+  fetchingRemote.value = true;
+  try {
+    await fetchRemote(repoPath.value);
+    await worktreeStore.loadBranches(repoPath.value);
+    toastSuccess('Fetched latest from remote');
+  } catch (e) {
+    toastError(String(e));
+  } finally {
+    fetchingRemote.value = false;
+  }
+}
+
+function resetBranch() {
+  branch.value = defaultBranch.value;
+  clearTemplateSelection();
+}
 
 const launchConfig = computed<LaunchConfig>(() => ({
   repoPath: repoPath.value,
@@ -78,7 +117,8 @@ const cliCommand = computed(() => {
   const parts = [effectiveCli.value];
   if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
   if (launchConfig.value.autoApprove) parts.push('--allow-all');
-  if (launchConfig.value.reasoningEffort) parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
+  if (launchConfig.value.reasoningEffort)
+    parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
   if (launchConfig.value.prompt) {
     parts.push(`--interactive '${launchConfig.value.prompt.replace(/'/g, "''")}'`);
   }
@@ -117,7 +157,7 @@ const estimatedCost = computed(() => {
   return `~${formatCost(cost)} (${pr}x premium requests)`;
 });
 
-const canLaunch= computed(() => {
+const canLaunch = computed(() => {
   if (!repoPath.value.trim() || store.loading) return false;
   if (createWorktree.value && !branch.value.trim()) return false;
   return true;
@@ -221,7 +261,7 @@ async function handleBrowseRepo() {
   }
 }
 
-function addEnvVar(){
+function addEnvVar() {
   envVars.push({ key: '', value: '' });
 }
 
@@ -245,7 +285,8 @@ async function handleLaunch(asHeadless = false) {
       }
       toastSuccess(`PID ${session.pid}`, {
         title: 'Session launched',
-        description: session.command + (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ''),
+        description:
+          session.command + (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ''),
         duration: 8000,
       });
     }
@@ -312,6 +353,9 @@ async function copyCommand() {
 watch(repoPath, (newPath) => {
   if (newPath) {
     worktreeStore.loadBranches(newPath);
+    loadDefaultBranch(newPath);
+  } else {
+    defaultBranch.value = '';
   }
 });
 
@@ -464,8 +508,19 @@ onUnmounted(() => {
           <div class="section-panel">
             <div class="form-grid-2col">
               <div class="form-group">
-                <label class="form-label">Repository <span class="required">*</span></label>
-                <div class="repo-picker">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                  <label class="form-label" style="margin-bottom: 0;">Repository <span class="required">*</span></label>
+                  <button
+                    v-if="repoPath"
+                    type="button"
+                    style="background: none; border: none; font-size: 0.75rem; color: var(--accent-fg); cursor: pointer;"
+                    :disabled="fetchingRemote"
+                    @click="handleFetchRemote"
+                  >
+                    {{ fetchingRemote ? 'Fetching...' : 'Fetch Latest From Remote' }}
+                  </button>
+                </div>
+                <div class="repo-picker" style="margin-top: 6px;">
                   <select
                     v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
                     class="form-input form-select repo-recent"
@@ -494,14 +549,27 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-label">Branch</label>
-                <SearchableSelect
-                  v-model="branch"
-                  :options="worktreeStore.branches"
-                  :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
-                  clearable
-                  @update:model-value="clearTemplateSelection"
-                />
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                  <label class="form-label" style="margin-bottom: 0;">Branch</label>
+                  <button
+                    v-if="defaultBranch && branch !== defaultBranch"
+                    type="button"
+                    style="background: none; border: none; font-size: 0.75rem; color: var(--accent-fg); cursor: pointer;"
+                    @click="resetBranch"
+                  >
+                    Reset to Default
+                  </button>
+                </div>
+                <div style="margin-top: 6px;">
+                  <SearchableSelect
+                    v-model="branch"
+                    :options="worktreeStore.branches"
+                    allowCustom
+                    :placeholder="createWorktree ? 'feature/my-branch (required)' : 'Leave blank to stay on current branch'"
+                    clearable
+                    @update:model-value="clearTemplateSelection"
+                  />
+                </div>
                 <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
               </div>
               <div class="form-group">

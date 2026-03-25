@@ -236,7 +236,7 @@ async function handleCreate() {
   const request: CreateWorktreeRequest = {
     repoPath,
     branch: newBranch.value.trim(),
-    baseBranch: newBaseBranch.value.trim() || undefined,
+    baseBranch: newBaseBranch.value.trim() || defaultBranch.value || undefined,
     targetDir: newTargetDir.value.trim() || undefined,
   };
   const result = await store.addWorktree(request);
@@ -945,7 +945,8 @@ watch(() => store.worktrees, () => {
                 <SearchableSelect
                   v-model="newBaseBranch"
                   :options="store.branches"
-                  placeholder="Current HEAD"
+                  :placeholder="defaultBranch || 'Current HEAD'"
+                  clearable
                 />
               </div>
 
