@@ -16,6 +16,7 @@ import {
   formatRate,
   SectionPanel,
   SkeletonLoader,
+  toErrorMessage,
 } from '@tracepilot/ui';
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
@@ -96,7 +97,7 @@ async function runComparison() {
     dataB.turns = turnsB;
     compared.value = true;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+    error.value = toErrorMessage(e);
   } finally {
     loading.value = false;
   }
