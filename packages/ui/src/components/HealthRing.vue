@@ -43,8 +43,8 @@ const fontSize = computed(() => props.size === 'lg' ? '1.5rem' : '0.75rem');
   align-items: center;
   justify-content: center;
   background: conic-gradient(
-    var(--ring-color) calc(var(--ring-pct) * 1%),
-    var(--border-muted) calc(var(--ring-pct) * 1%)
+    var(--ring-color) calc(var(--ring-pct) * 1% - 1%),
+    var(--neutral-muted) calc(var(--ring-pct) * 1% + 1%)
   );
   position: relative;
 }

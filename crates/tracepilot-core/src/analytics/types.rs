@@ -35,7 +35,7 @@ pub struct AnalyticsData {
     pub total_premium_requests: f64,
     pub average_health_score: f64,
     pub token_usage_by_day: Vec<DayTokens>,
-    pub sessions_per_day: Vec<DaySessions>,
+    pub activity_per_day: Vec<DayActivity>,
     pub model_distribution: Vec<ModelDistEntry>,
     pub cost_by_day: Vec<DayCost>,
     pub api_duration_stats: ApiDurationStats,
@@ -57,10 +57,10 @@ pub struct DayTokens {
     pub tokens: u64,
 }
 
-/// Session count for a single day.
+/// Activity (session segment) count for a single day.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DaySessions {
+pub struct DayActivity {
     pub date: String,
     pub count: u32,
 }

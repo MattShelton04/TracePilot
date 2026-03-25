@@ -16,8 +16,8 @@ export interface AnalyticsData {
   averageHealthScore: number;
   /** Token usage per day for trend charts */
   tokenUsageByDay: Array<{ date: string; tokens: number }>;
-  /** Session count per day */
-  sessionsPerDay: Array<{ date: string; count: number }>;
+  /** Activity (session segment) count per day */
+  activityPerDay: Array<{ date: string; count: number }>;
   /** Model distribution by total tokens */
   modelDistribution: Array<{
     model: string;

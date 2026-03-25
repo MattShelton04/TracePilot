@@ -2,10 +2,11 @@
 import { computed } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
+import type { ModelMetricDetail, SessionSegment } from "@tracepilot/types";
 import {
   StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
   DataTable, TokenBar, HealthRing,
-  formatNumber, formatCost, formatDuration, useSessionTabLoader,
+  formatNumber, formatCost, formatDuration, formatShortDate, formatTime, useSessionTabLoader,
 } from "@tracepilot/ui";
 
 const store = useSessionDetailStore();
@@ -71,6 +72,41 @@ const cacheHitRatio = computed(() => {
   return totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0;
 });
 
+/** Sort a segment's model metrics by Copilot cost (premium requests) descending, then by token count. */
+function sortedSegmentModels(modelMetrics?: Record<string, ModelMetricDetail> | null): [string, ModelMetricDetail][] {
+  if (!modelMetrics) return [];
+  return Object.entries(modelMetrics).sort(([, a], [, b]) => {
+    const costDiff = (b.requests?.cost ?? 0) - (a.requests?.cost ?? 0);
+    if (costDiff !== 0) return costDiff;
+    const tokensA = (a.usage?.inputTokens ?? 0) + (a.usage?.outputTokens ?? 0);
+    const tokensB = (b.usage?.inputTokens ?? 0) + (b.usage?.outputTokens ?? 0);
+    return tokensB - tokensA;
+  });
+}
+
+/** Activity duration in ms (end − start). */
+function segmentDurationMs(seg: SessionSegment): number | null {
+  if (!seg.startTimestamp || !seg.endTimestamp) return null;
+  return new Date(seg.endTimestamp).getTime() - new Date(seg.startTimestamp).getTime();
+}
+
+/** Total Copilot cost for a segment (sum of premium request costs across models). */
+function segmentCopilotCost(seg: SessionSegment): number {
+  if (!seg.modelMetrics) return seg.premiumRequests * prefs.costPerPremiumRequest;
+  return Object.values(seg.modelMetrics).reduce(
+    (sum, m) => sum + (m.requests?.cost ?? 0) * prefs.costPerPremiumRequest, 0,
+  );
+}
+
+/** Total wholesale cost for a segment (sum across models). */
+function segmentWholesaleCost(seg: SessionSegment): number {
+  if (!seg.modelMetrics) return 0;
+  return Object.entries(seg.modelMetrics).reduce((sum, [name, m]) => {
+    const cost = prefs.computeWholesaleCost(name, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0);
+    return sum + (cost ?? 0);
+  }, 0);
+}
+
 const modelColumns = [
   { key: "name", label: "Model", align: "left" as const },
   { key: "requests", label: "Requests", align: "right" as const },
@@ -106,7 +142,7 @@ const modelColumns = [
         <StatCard :value="formatCost(totalWholesaleCost)" label="Wholesale Cost" color="done" tooltip="Estimated cost if this usage went through direct API access instead of GitHub Copilot, based on per-model token pricing configured in Settings." />
       </div>
 
-      <div class="grid-4 mb-6">
+      <div class="grid-2 mb-6">
         <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
         <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
       </div>
@@ -158,14 +194,104 @@ const modelColumns = [
         </template>
       </DataTable>
 
-      <!-- Cache Breakdown with HealthRing -->
+      <!-- Session Activity (Full Width Horizontal Tiles) -->
+      <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Activity" class="mb-6">
+        <div class="activity-horizontal">
+          <div
+            v-for="(seg, idx) in metrics.sessionSegments"
+            :key="idx"
+            class="activity-tile"
+          >
+            <!-- Card Header -->
+            <div class="activity-tile-header">
+              <div class="flex flex-col">
+                <span class="activity-index">Activity #{{ idx + 1 }}</span>
+                <span class="activity-date">{{ formatShortDate(seg.startTimestamp) }}</span>
+                <span class="activity-timestamp">
+                  {{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}
+                  <span v-if="segmentDurationMs(seg)" class="activity-duration">· {{ formatDuration(segmentDurationMs(seg)) }}</span>
+                </span>
+              </div>
+              <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
+            </div>
+
+            <!-- Token Hero (Compacted) -->
+            <div class="activity-hero" :class="{ 'activity-hero--empty': seg.tokens === 0 }">
+              <div v-if="seg.tokens > 0" class="hero-stats">
+                <div class="hero-main">
+                  <span class="hero-val">{{ formatNumber(seg.tokens) }}</span>
+                  <span class="hero-unit">tokens</span>
+                </div>
+              </div>
+              <div v-else class="hero-empty">
+                <span class="text-[var(--text-tertiary)]">No interaction recorded</span>
+              </div>
+            </div>
+
+            <!-- Model Breakdown Sections (sorted by Copilot cost) -->
+            <div v-if="seg.tokens > 0" class="activity-details">
+              <div 
+                v-for="[name, m] in sortedSegmentModels(seg.modelMetrics)" 
+                :key="name"
+                class="model-row"
+                :class="{ 'model-row--premium': (m.requests?.cost ?? 0) > 0 }"
+              >
+                <div class="row-main">
+                  <span class="model-name">{{ name }}</span>
+                  <span class="model-tokens">{{ formatNumber((m.usage?.inputTokens ?? 0) + (m.usage?.outputTokens ?? 0)) }} <small>tokens</small></span>
+                </div>
+                <div class="row-costs">
+                  <span v-if="(m.requests?.cost ?? 0) > 0" class="cost-pill amber-text" title="Copilot Cost">
+                    {{ formatCost((m.requests?.cost ?? 0) * prefs.costPerPremiumRequest) }}
+                  </span>
+                  <span class="cost-pill emerald-text" title="Wholesale Cost">
+                    {{ formatCost(prefs.computeWholesaleCost(name as string, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0) || 0) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div v-if="seg.tokens > 0" class="activity-tile-costs">
+              <span v-if="segmentCopilotCost(seg) > 0" class="cost-pill amber-text" title="Copilot Cost">
+                Copilot {{ formatCost(segmentCopilotCost(seg)) }}
+              </span>
+              <span class="cost-pill emerald-text" title="Wholesale Cost">
+                Wholesale {{ formatCost(segmentWholesaleCost(seg)) }}
+              </span>
+            </div>
+            <div class="activity-tile-footer">
+              <div class="footer-metric">
+                <span class="label">API Time</span>
+                <span class="val">{{ formatDuration(seg.apiDurationMs) }}</span>
+              </div>
+              <div class="footer-metric">
+                <span class="label">Reqs</span>
+                <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
+              </div>
+              <div v-if="seg.premiumRequests > 0" class="footer-metric">
+                <span class="label">Premium</span>
+                <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SectionPanel>
+
+    <!-- Cache Breakdown (Full Width) -->
       <SectionPanel v-if="totalCacheReadTokens > 0" title="Cache Breakdown" class="mb-6">
-        <div class="flex items-center gap-4">
+        <div class="cache-section">
           <HealthRing :score="cacheHitRatio" size="lg" />
-          <div>
-            <div class="text-sm font-semibold text-[var(--text-primary)]">Cache Hit Rate</div>
-            <div class="text-xs text-[var(--text-tertiary)] mt-1">
-              {{ formatNumber(totalCacheReadTokens) }} cache reads of {{ formatNumber(totalInputTokens) }} total input tokens
+          <div class="cache-info">
+            <div class="text-sm text-[var(--text-secondary)] mb-3">
+              {{ formatNumber(totalCacheReadTokens) }} of {{ formatNumber(totalInputTokens) }} input tokens served from cache
+            </div>
+            <div class="cache-bar">
+              <div class="cache-bar-fill" :style="{ width: `${cacheHitRatio * 100}%` }" />
+            </div>
+            <div class="cache-bar-legend">
+              <span class="legend-cached">{{ (cacheHitRatio * 100).toFixed(1) }}% cached</span>
+              <span class="legend-uncached">{{ ((1 - cacheHitRatio) * 100).toFixed(1) }}% uncached</span>
             </div>
           </div>
         </div>
@@ -202,3 +328,269 @@ const modelColumns = [
     </template>
   </div>
 </template>
+
+<style scoped>
+.activity-horizontal {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 8px 16px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+  margin: 0 -8px;
+  justify-content: center;
+}
+
+.activity-horizontal::-webkit-scrollbar {
+  height: 4px;
+}
+
+.activity-horizontal::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 10px;
+}
+
+.activity-tile {
+  flex: 0 0 280px;
+  background: var(--canvas-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-tile:hover {
+  border-color: var(--accent-fg);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.activity-tile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.activity-index {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-fg);
+  letter-spacing: 0.05em;
+}
+
+.activity-date {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.activity-timestamp {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+}
+
+.activity-hero {
+  background: var(--canvas-inset);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-left: 2px solid var(--accent-fg);
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.activity-hero--empty {
+  border-left-color: var(--border-subtle);
+  background: var(--canvas-default);
+  opacity: 0.5;
+}
+
+.hero-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.hero-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.hero-unit {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.hero-empty {
+  font-size: 0.6875rem;
+  color: var(--text-placeholder);
+}
+
+.activity-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-grow: 1;
+  margin-bottom: 12px;
+}
+
+.model-row {
+  background: var(--canvas-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-row--premium {
+  border-left: 2px solid var(--warning-fg);
+  background: var(--warning-subtle);
+}
+
+.row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.model-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-tokens {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-tertiary);
+}
+
+.model-tokens small {
+  font-size: 0.625rem;
+  opacity: 0.7;
+}
+
+.row-costs {
+  display: flex;
+  gap: 6px;
+}
+
+.cost-pill {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  background: var(--canvas-inset);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.activity-tile-costs {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.activity-tile-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.footer-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.footer-metric .label {
+  font-size: 0.625rem;
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+}
+
+.footer-metric .val {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.premium-val {
+  color: var(--warning-fg) !important;
+}
+
+.activity-duration {
+  color: var(--text-placeholder);
+  font-weight: 400;
+}
+
+/* Cache Breakdown */
+.cache-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 0;
+}
+
+.cache-info {
+  flex: 1;
+  max-width: 400px;
+}
+
+.cache-bar {
+  height: 6px;
+  width: 100%;
+  background: var(--neutral-muted);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cache-bar-fill {
+  height: 100%;
+  background: var(--success-fg);
+  border-radius: 3px;
+  opacity: 0.8;
+  transition: width 0.5s ease;
+}
+
+.cache-bar-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.6875rem;
+}
+
+.legend-cached {
+  color: var(--success-fg);
+  font-weight: 600;
+}
+
+.legend-uncached {
+  color: var(--text-placeholder);
+}
+
+.amber-text { color: var(--warning-fg); }
+.emerald-text { color: var(--success-fg); }
+</style>

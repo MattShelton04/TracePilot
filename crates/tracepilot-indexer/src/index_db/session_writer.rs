@@ -63,6 +63,10 @@ impl IndexDb {
                 "DELETE FROM session_incidents WHERE session_id = ?1",
                 [&session_id],
             )?;
+            self.conn.execute(
+                "DELETE FROM session_segments WHERE session_id = ?1",
+                [&session_id],
+            )?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
             // Phase 2 may not run immediately (semaphore busy), so deleting here would
             // leave a gap where the session has no search content until the next Phase 2 cycle.
@@ -206,6 +210,15 @@ impl IndexDb {
                     "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)
                      VALUES (?1, ?2, ?3, ?4)",
                     params![session_id, row.day_of_week, row.hour, row.tool_call_count],
+                )?;
+            }
+
+            // INSERT child rows: session segments
+            for row in &analytics.session_segment_rows {
+                self.conn.execute(
+                    "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    params![session_id, row.start_timestamp, row.end_timestamp, row.tokens, row.total_requests, row.premium_requests, row.api_duration_ms, row.current_model, row.model_metrics_json],
                 )?;
             }
 
@@ -376,6 +389,7 @@ pub(super) fn extract_session_analytics(
     let mut lines_removed: Option<i64> = None;
     let mut duration_ms: Option<i64> = None;
     let mut model_rows: Vec<ModelMetricsRow> = Vec::new();
+    let mut session_segment_rows: Vec<SessionSegmentRow> = Vec::new();
 
     let shutdown_type = summary
         .shutdown_metrics
@@ -446,6 +460,32 @@ pub(super) fn extract_session_analytics(
         if let Some(ref cc) = metrics.code_changes {
             lines_added = cc.lines_added.map(|v| v as i64);
             lines_removed = cc.lines_removed.map(|v| v as i64);
+        }
+
+        if let Some(ref segments) = metrics.session_segments {
+            for seg in segments {
+                let mut tokens: i64 = 0;
+                if let Some(ref mm) = seg.model_metrics {
+                    for detail in mm.values() {
+                        if let Some(ref usage) = detail.usage {
+                            tokens += (usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0)) as i64;
+                        }
+                    }
+                }
+
+                let mm_json = seg.model_metrics.as_ref()
+                    .and_then(|mm| serde_json::to_string(mm).ok());
+                session_segment_rows.push(SessionSegmentRow {
+                    start_timestamp: seg.start_timestamp.clone(),
+                    end_timestamp: seg.end_timestamp.clone(),
+                    tokens,
+                    total_requests: seg.total_requests as i64,
+                    premium_requests: seg.premium_requests,
+                    api_duration_ms: seg.api_duration_ms as i64,
+                    current_model: seg.current_model.clone(),
+                    model_metrics_json: mm_json,
+                });
+            }
         }
     }
 
@@ -704,6 +744,7 @@ pub(super) fn extract_session_analytics(
         tool_call_rows,
         activity_rows,
         modified_file_rows,
+        session_segment_rows,
         error_count,
         rate_limit_count,
         warning_count,

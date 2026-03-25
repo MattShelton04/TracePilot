@@ -26,7 +26,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let mut total_cost: f64 = 0.0;
     let mut health_score_sum: f64 = 0.0;
     let mut tokens_by_day: BTreeMap<String, u64> = BTreeMap::new();
-    let mut sessions_by_day: BTreeMap<String, u32> = BTreeMap::new();
+    let mut activity_by_day: BTreeMap<String, u32> = BTreeMap::new();
     // model key → (input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, premium_cost, request_count)
     let mut model_tokens: HashMap<String, (u64, u64, u64, u64, f64, u64)> = HashMap::new();
     let mut cost_by_day: BTreeMap<String, f64> = BTreeMap::new();
@@ -77,7 +77,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             .map(|dt| dt.format("%Y-%m-%d").to_string());
 
         if let Some(ref date) = date_key {
-            *sessions_by_day.entry(date.clone()).or_insert(0) += 1;
+            // Count sessions for total_sessions, but activity_per_day comes from segments below
         }
 
         // Shutdown metrics aggregation
@@ -117,10 +117,6 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     total_cache_read_tokens += cache_read;
                     total_input_tokens += input_t;
 
-                    if let Some(ref date) = date_key {
-                        *tokens_by_day.entry(date.clone()).or_insert(0) += session_model_tokens;
-                    }
-
                     total_tokens_from_turns += session_model_tokens;
                 }
 
@@ -129,12 +125,51 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
                     let req_count = requests.count.map(|c| c as u64).unwrap_or(0);
-                    if let Some(ref date) = date_key {
-                        *cost_by_day.entry(date.clone()).or_insert(0.0) += cost;
-                    }
                     let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.4 += cost;
                     entry.5 += req_count;
+                }
+            }
+
+            if let Some(ref segments) = metrics.session_segments {
+                for seg in segments {
+                    let end_date = seg.end_timestamp.split('T').next().unwrap_or(&seg.end_timestamp).to_string();
+                    let start_date = seg.start_timestamp.split('T').next().unwrap_or(&seg.start_timestamp).to_string();
+                    let mut seg_tokens: u64 = 0;
+                    let mut seg_cost: f64 = 0.0;
+                    if let Some(ref mm) = seg.model_metrics {
+                        for detail in mm.values() {
+                            if let Some(ref usage) = detail.usage {
+                                seg_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                            }
+                            if let Some(ref req) = detail.requests {
+                                seg_cost += req.cost.unwrap_or(0.0);
+                            }
+                        }
+                    }
+                    *tokens_by_day.entry(end_date.clone()).or_insert(0) += seg_tokens;
+                    *cost_by_day.entry(end_date).or_insert(0.0) += seg_cost;
+                    // Count activity by segment start date
+                    *activity_by_day.entry(start_date).or_insert(0) += 1;
+                }
+            } else if let Some(ref date) = date_key {
+                // Fallback for backwards compatibility
+                *activity_by_day.entry(date.clone()).or_insert(0) += 1;
+                let mut fallback_tokens = 0;
+                let mut fallback_cost = 0.0;
+                for detail in metrics.model_metrics.values() {
+                    if let Some(ref usage) = detail.usage {
+                        fallback_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                    }
+                    if let Some(ref req) = detail.requests {
+                        fallback_cost += req.cost.unwrap_or(0.0);
+                    }
+                }
+                if fallback_tokens > 0 {
+                    *tokens_by_day.entry(date.clone()).or_insert(0) += fallback_tokens;
+                }
+                if fallback_cost > 0.0 {
+                    *cost_by_day.entry(date.clone()).or_insert(0.0) += fallback_cost;
                 }
             }
 
@@ -167,9 +202,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .map(|(date, tokens)| DayTokens { date, tokens })
         .collect();
 
-    let sessions_per_day: Vec<DaySessions> = sessions_by_day
+    let activity_per_day: Vec<DayActivity> = activity_by_day
         .into_iter()
-        .map(|(date, count)| DaySessions { date, count })
+        .map(|(date, count)| DayActivity { date, count })
         .collect();
 
     let cost_by_day_vec: Vec<DayCost> = cost_by_day
@@ -254,7 +289,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         total_premium_requests,
         average_health_score,
         token_usage_by_day,
-        sessions_per_day,
+        activity_per_day,
         model_distribution,
         cost_by_day: cost_by_day_vec,
         api_duration_stats,
@@ -647,6 +682,7 @@ mod tests {
                         ]),
                     }),
                     model_metrics,
+                    session_segments: None,
                     shutdown_count: None,
                 }),
             },
@@ -682,7 +718,7 @@ mod tests {
         assert_eq!(result.total_cost, 0.0);
         assert_eq!(result.average_health_score, 0.0);
         assert!(result.token_usage_by_day.is_empty());
-        assert!(result.sessions_per_day.is_empty());
+        assert!(result.activity_per_day.is_empty());
         assert!(result.model_distribution.is_empty());
     }
 
@@ -694,8 +730,8 @@ mod tests {
         assert_eq!(result.total_sessions, 1);
         assert_eq!(result.total_tokens, 10000);
         assert!((result.total_cost - 1.50).abs() < f64::EPSILON);
-        assert_eq!(result.sessions_per_day.len(), 1);
-        assert_eq!(result.sessions_per_day[0].date, "2026-01-15");
+        assert_eq!(result.activity_per_day.len(), 1);
+        assert_eq!(result.activity_per_day[0].date, "2026-01-15");
         assert_eq!(result.model_distribution.len(), 1);
         assert_eq!(result.model_distribution[0].model, "claude-opus-4.6");
         assert!((result.model_distribution[0].percentage - 100.0).abs() < f64::EPSILON);
@@ -713,10 +749,10 @@ mod tests {
         assert_eq!(result.total_sessions, 3);
         assert_eq!(result.total_tokens, 15000);
         assert!((result.total_cost - 2.50).abs() < 0.001);
-        assert_eq!(result.sessions_per_day.len(), 2);
+        assert_eq!(result.activity_per_day.len(), 2);
 
-        // Jan 15: 2 sessions
-        let jan15 = result.sessions_per_day.iter().find(|d| d.date == "2026-01-15").unwrap();
+        // Jan 15: 2 activities (one per session, via fallback path)
+        let jan15 = result.activity_per_day.iter().find(|d| d.date == "2026-01-15").unwrap();
         assert_eq!(jan15.count, 2);
     }
 
@@ -729,7 +765,7 @@ mod tests {
         assert_eq!(result.total_sessions, 1);
         assert_eq!(result.total_tokens, 0); // No metrics to aggregate
         assert_eq!(result.total_cost, 0.0);
-        assert_eq!(result.sessions_per_day.len(), 1); // Session still counted by day
+        assert!(result.activity_per_day.is_empty()); // No shutdown metrics → no activity
     }
 
     #[test]

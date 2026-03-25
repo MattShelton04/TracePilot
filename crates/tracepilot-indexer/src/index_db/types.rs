@@ -2,7 +2,7 @@
 
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 3;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 4;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -81,6 +81,18 @@ pub(super) struct ActivityRow {
     pub tool_call_count: i64,
 }
 
+/// Named row for session segment granular breakdown.
+pub(super) struct SessionSegmentRow {
+    pub start_timestamp: String,
+    pub end_timestamp: String,
+    pub tokens: i64,
+    pub total_requests: i64,
+    pub premium_requests: f64,
+    pub api_duration_ms: i64,
+    pub current_model: Option<String>,
+    pub model_metrics_json: Option<String>,
+}
+
 /// Named row for modified file data.
 pub(super) struct ModifiedFileRow {
     pub file_path: String,
@@ -128,6 +140,7 @@ pub(super) struct SessionAnalytics {
     pub tool_call_rows: Vec<ToolCallRow>,
     pub activity_rows: Vec<ActivityRow>,
     pub modified_file_rows: Vec<ModifiedFileRow>,
+    pub session_segment_rows: Vec<SessionSegmentRow>,
 
     // Incident counters
     pub error_count: i64,

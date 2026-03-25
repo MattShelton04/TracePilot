@@ -14,7 +14,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-lg border" style="border-color: var(--border-default);">
+  <div class="data-table-wrapper" style="border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden;">
     <table class="data-table">
       <thead>
         <tr>

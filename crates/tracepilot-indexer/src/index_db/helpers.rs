@@ -67,14 +67,14 @@ pub(super) fn query_day_tokens(
     Ok(result)
 }
 
-pub(super) fn query_day_sessions(
+pub(super) fn query_day_activity(
     conn: &Connection,
     sql: &str,
     refs: &[&dyn ToSql],
-) -> Result<Vec<DaySessions>> {
+) -> Result<Vec<DayActivity>> {
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        Ok(DaySessions {
+        Ok(DayActivity {
             date: row.get(0)?,
             count: row.get(1)?,
         })

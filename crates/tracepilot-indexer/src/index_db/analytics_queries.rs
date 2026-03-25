@@ -90,26 +90,32 @@ impl IndexDb {
 
         // Tokens by day
         let day_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_tokens), 0)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_tokens), 0)
+             FROM session_segments m
+             JOIN sessions s ON s.id = m.session_id
+             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);
         let token_usage_by_day = query_day_tokens(&self.conn, &day_sql, &refs)?;
 
-        // Sessions by day
+        // Activity (segments) by day — count segments by start date
         let sbd_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COUNT(*)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(m.start_timestamp) as d, COUNT(*)
+             FROM session_segments m
+             JOIN sessions s ON s.id = m.session_id
+             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);
-        let sessions_per_day = query_day_sessions(&self.conn, &sbd_sql, &refs)?;
+        let activity_per_day = query_day_activity(&self.conn, &sbd_sql, &refs)?;
 
         // Cost by day
         let cbd_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_cost), 0.0)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_premium_requests), 0.0)
+             FROM session_segments m
+             JOIN sessions s ON s.id = m.session_id
+             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);
@@ -223,7 +229,7 @@ impl IndexDb {
             total_premium_requests,
             average_health_score: avg_health,
             token_usage_by_day,
-            sessions_per_day,
+            activity_per_day,
             model_distribution,
             cost_by_day,
             api_duration_stats,
