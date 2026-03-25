@@ -17,7 +17,7 @@ mod session_reader;
 mod session_writer;
 mod types;
 
-use anyhow::{Context, Result};
+use crate::{error::IndexerError, Result};
 use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
@@ -36,12 +36,11 @@ impl IndexDb {
     /// Open or create the index database, running migrations as needed.
     pub fn open_or_create(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create dir: {}", parent.display()))?;
+            std::fs::create_dir_all(parent)?;
         }
 
         let conn = Connection::open(path)
-            .with_context(|| format!("Failed to open index db: {}", path.display()))?;
+            .map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
         conn.execute_batch(
@@ -50,7 +49,7 @@ impl IndexDb {
              PRAGMA foreign_keys=ON;
              PRAGMA busy_timeout=5000;",
         )
-        .with_context(|| "Failed to set database pragmas")?;
+        .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
 
         run_migrations(&conn)?;
         Ok(Self { conn })
@@ -65,10 +64,10 @@ impl IndexDb {
             path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
-        .with_context(|| format!("Failed to open index db readonly: {}", path.display()))?;
+        .map_err(|e| IndexerError::database_open(format!("{} (readonly)", path.display()), e))?;
 
         conn.execute_batch("PRAGMA busy_timeout=5000;")
-            .with_context(|| "Failed to set readonly pragmas")?;
+            .map_err(|e| IndexerError::database_config("Failed to set readonly pragmas", e))?;
 
         Ok(Self { conn })
     }

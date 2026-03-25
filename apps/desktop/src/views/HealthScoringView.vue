@@ -6,7 +6,7 @@
 import { ref, onMounted, computed } from 'vue';
 import type { HealthScoringData } from '@tracepilot/types';
 import { getHealthScores } from '@tracepilot/client';
-import { ErrorAlert, HealthRing, LoadingOverlay } from '@tracepilot/ui';
+import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from '@tracepilot/ui';
 import StubBanner from '@/components/StubBanner.vue';
 
 const data = ref<HealthScoringData | null>(null);
@@ -20,7 +20,7 @@ async function reload() {
   try {
     data.value = await getHealthScores();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load health scores';
+    error.value = toErrorMessage(e, 'Failed to load health scores');
   } finally {
     loading.value = false;
   }
@@ -44,7 +44,7 @@ function severityLabel(severity: 'warning' | 'danger'): string {
     <div class="page-content-inner">
       <StubBanner />
       <!-- Error state -->
-      <ErrorAlert v-if="error" :message="error" retryable @retry="reload" />
+      <ErrorState v-if="error" heading="Failed to load health scores" :message="error" @retry="reload" />
 
       <LoadingOverlay :loading="loading" message="Loading health data…">
       <template v-if="data">

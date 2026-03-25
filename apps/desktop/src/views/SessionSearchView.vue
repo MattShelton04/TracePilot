@@ -4,6 +4,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useSearchStore } from '@/stores/search';
 import { useSessionsStore } from '@/stores/sessions';
 import { safeListen } from '@/utils/tauriEvents';
+import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 import type { SearchContentType } from '@tracepilot/types';
 import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
 
@@ -179,8 +180,10 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
 
 // ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function handleKeydown(e: KeyboardEvent) {
+  if (shouldIgnoreGlobalShortcut(e)) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
+    e.stopImmediatePropagation();
     searchInputRef.value?.focus();
     searchInputRef.value?.select();
   }
@@ -192,7 +195,7 @@ onMounted(async () => {
   store.fetchFilterOptions();
   // Fetch initial facets (browse mode gets filter-scoped counts)
   store.fetchFacets();
-  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keydown', handleKeydown, { capture: true });
 
   // Main indexing events (local — only for showing main index progress)
   unlisteners.push(
@@ -212,7 +215,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keydown', handleKeydown, { capture: true });
   for (const unlisten of unlisteners) unlisten();
 });
 </script>
@@ -1433,12 +1436,6 @@ onUnmounted(() => {
 
 .spin-icon {
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ÔöÇÔöÇ Indexing Progress Banner ÔöÇÔöÇ */

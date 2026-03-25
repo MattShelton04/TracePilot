@@ -1,26 +1,13 @@
 <script setup lang="ts">
 import { ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { usePreferencesStore } from '@/stores/preferences';
 import { MODEL_PALETTE } from '@/utils/chartColors';
 
-const store = useAnalyticsStore();
 const prefs = usePreferencesStore();
-
-onMounted(() => {
-  store.fetchAvailableRepos();
-  store.fetchAnalytics();
-});
-
-watch(
-  [() => store.selectedRepo, () => store.dateRange],
-  () => {
-    store.fetchAnalytics({ force: true });
-  },
-  { deep: true },
-);
+const { store } = useAnalyticsPage('fetchAnalytics');
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);

@@ -14,8 +14,7 @@ import {
   formatArgsSummary,
   useToggleSet,
   extractPrompt,
-  AGENT_COLORS,
-  inferAgentTypeFromToolCall,
+  getToolCallColor,
   toTimeSpan,
   detectParallelIds,
   useTimelineNavigation,
@@ -84,16 +83,6 @@ interface WaterfallRow {
   leftPct: number;   // 0–100
   widthPct: number;  // 0–100
   isParallel: boolean;
-}
-
-function barColor(call: TurnToolCall): string {
-  if (call.isSubagent) {
-    const agentType = inferAgentTypeFromToolCall(call);
-    return AGENT_COLORS[agentType] ?? "var(--agent-color-general-purpose)";
-  }
-  if (call.success === false) return "var(--danger-fg)";
-  if (call.toolName === "read_agent") return "var(--text-tertiary)";
-  return "var(--warning-fg)";
 }
 
 /** Total duration of current turn in ms. */
@@ -596,7 +585,7 @@ function rowArgsSummary(row: WaterfallRow): string {
                   :style="{
                     left: row.leftPct + '%',
                     width: Math.min(Math.max(row.widthPct, 0.4), 100 - row.leftPct) + '%',
-                    background: barColor(row.call),
+                    background: getToolCallColor(row.call),
                     opacity: row.call.isSubagent ? 0.35 : 0.85,
                   }"
                 />

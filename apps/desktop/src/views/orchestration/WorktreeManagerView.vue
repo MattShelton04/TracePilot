@@ -1937,12 +1937,6 @@ watch(() => store.worktrees, () => {
   transform: scale(0.96) translateY(8px);
 }
 
-/* ─── Refresh Animation ──────────────────────────────────────── */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .spin-animation {
   animation: spin 0.8s linear infinite;
 }

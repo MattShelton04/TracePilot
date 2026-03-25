@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatRate,
   formatRelativeTime,
+  toErrorMessage,
 } from '../utils/formatters';
 
 describe('formatRate', () => {
@@ -177,5 +178,93 @@ describe('formatRelativeTime', () => {
   it('returns days for Unix timestamps within the week', () => {
     const threeDaysAgo = Math.floor(new Date('2026-03-20T12:00:00Z').getTime() / 1000);
     expect(formatRelativeTime(threeDaysAgo)).toBe('3d ago');
+  });
+});
+
+describe('toErrorMessage', () => {
+  it('extracts message from Error objects', () => {
+    expect(toErrorMessage(new Error('oops'))).toBe('oops');
+  });
+
+  it('returns Error.message even when empty (no fallback override)', () => {
+    expect(toErrorMessage(new Error(''))).toBe('');
+  });
+
+  it('stringifies non-Error values', () => {
+    expect(toErrorMessage('string error')).toBe('string error');
+    expect(toErrorMessage(42)).toBe('42');
+    expect(toErrorMessage(false)).toBe('false');
+  });
+
+  it('returns fallback for null and undefined', () => {
+    expect(toErrorMessage(null)).toBe('Unknown error');
+    expect(toErrorMessage(undefined)).toBe('Unknown error');
+  });
+
+  it('returns fallback for empty string', () => {
+    expect(toErrorMessage('')).toBe('Unknown error');
+  });
+
+  it('uses custom fallback when provided', () => {
+    expect(toErrorMessage(null, 'Custom fallback')).toBe('Custom fallback');
+    expect(toErrorMessage(undefined, 'Custom fallback')).toBe('Custom fallback');
+    expect(toErrorMessage('', 'Custom fallback')).toBe('Custom fallback');
+  });
+
+  it('ignores fallback when non-Error value stringifies to non-empty', () => {
+    expect(toErrorMessage('actual error', 'Custom fallback')).toBe('actual error');
+    expect(toErrorMessage(404, 'Not found')).toBe('404');
+  });
+
+  it('extracts message from error-like objects with message property', () => {
+    expect(toErrorMessage({ message: 'serialized error' })).toBe('serialized error');
+    expect(toErrorMessage({ message: '' })).toBe('Unknown error');
+    expect(toErrorMessage({ message: 'fail', code: 42 })).toBe('fail');
+  });
+
+  // Cherry-picked edge-case tests from PR #124
+  it('extracts message from Error subclasses (TypeError, RangeError)', () => {
+    expect(toErrorMessage(new TypeError('Type mismatch'))).toBe('Type mismatch');
+    expect(toErrorMessage(new RangeError('Index out of bounds'))).toBe('Index out of bounds');
+  });
+
+  it('ignores non-string message properties', () => {
+    expect(toErrorMessage({ message: 42 })).toBe('[object Object]');
+    expect(toErrorMessage({ message: true })).toBe('[object Object]');
+    expect(toErrorMessage({ message: null })).toBe('[object Object]');
+  });
+
+  it('handles objects without message property', () => {
+    expect(toErrorMessage({ code: 500, status: 'error' })).toBe('[object Object]');
+  });
+
+  it('stringifies additional number edge cases', () => {
+    expect(toErrorMessage(0)).toBe('0');
+    expect(toErrorMessage(-1)).toBe('-1');
+    expect(toErrorMessage(3.14)).toBe('3.14');
+  });
+
+  it('handles arrays', () => {
+    expect(toErrorMessage([1, 2, 3])).toBe('1,2,3');
+    expect(toErrorMessage([])).toBe('Unknown error');
+  });
+
+  it('handles nested Error objects (extracts outer message only)', () => {
+    const outerError = new Error('Outer error');
+    (outerError as any).cause = new Error('Inner error');
+    expect(toErrorMessage(outerError)).toBe('Outer error');
+  });
+
+  it('preserves multi-line error messages', () => {
+    expect(toErrorMessage(new Error('Line 1\nLine 2\nLine 3'))).toBe('Line 1\nLine 2\nLine 3');
+  });
+
+  it('handles error-like objects with non-enumerable message', () => {
+    const errorLike = Object.create(null);
+    Object.defineProperty(errorLike, 'message', {
+      value: 'Hidden message',
+      enumerable: false,
+    });
+    expect(toErrorMessage(errorLike)).toBe('Hidden message');
   });
 });

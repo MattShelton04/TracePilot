@@ -16,9 +16,8 @@ pub enum BindingsError {
     Orchestrator(#[from] tracepilot_orchestrator::OrchestratorError),
 
     /// Error from `tracepilot-indexer` (FTS, SQLite index operations).
-    /// The indexer exposes `anyhow::Result`, not a typed error.
-    #[error("Indexer: {0:#}")]
-    Indexer(#[from] anyhow::Error),
+    #[error(transparent)]
+    Indexer(#[from] tracepilot_indexer::IndexerError),
 
     /// Async task panicked or was cancelled.
     #[error(transparent)]
