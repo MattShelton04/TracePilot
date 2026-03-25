@@ -9,7 +9,7 @@
  * validation.  When adding or removing models, update both locations.
  */
 
-import type { ModelPriceEntry } from './index.js';
+import type { ModelPriceEntry } from './config.js';
 
 // ─── Tier ────────────────────────────────────────────────────────────
 

@@ -6,7 +6,7 @@
  * defaults from the same place.
  */
 
-import type { TracePilotConfig } from './index.js';
+import type { TracePilotConfig } from './config.js';
 import { DEFAULT_FAVOURITE_MODELS } from './models.js';
 
 /** Current config schema version. */
