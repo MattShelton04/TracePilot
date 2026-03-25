@@ -7,6 +7,7 @@ import {
   inferAgentTypeFromToolCall,
   agentStatusFromToolCall,
   getAgentColor,
+  getAgentIcon,
   getToolStatusColor,
   getToolCallColor,
   type AgentType,
@@ -162,6 +163,30 @@ describe("getAgentColor", () => {
   it("falls back to main agent color for undefined/null-ish inputs", () => {
     expect(getAgentColor(undefined as unknown as string)).toBe(AGENT_COLORS.main);
     expect(getAgentColor(null as unknown as string)).toBe(AGENT_COLORS.main);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAgentIcon
+// ---------------------------------------------------------------------------
+
+describe("getAgentIcon", () => {
+  it("returns correct icon for each known agent type", () => {
+    expect(getAgentIcon("main")).toBe("🤖");
+    expect(getAgentIcon("explore")).toBe("🔍");
+    expect(getAgentIcon("general-purpose")).toBe("🛠️");
+    expect(getAgentIcon("code-review")).toBe("🔎");
+    expect(getAgentIcon("task")).toBe("📋");
+  });
+
+  it("falls back to main agent icon for unknown types", () => {
+    expect(getAgentIcon("unknown-type")).toBe(AGENT_ICONS.main);
+    expect(getAgentIcon("")).toBe(AGENT_ICONS.main);
+  });
+
+  it("falls back to main agent icon for undefined/null-ish inputs", () => {
+    expect(getAgentIcon(undefined as unknown as string)).toBe(AGENT_ICONS.main);
+    expect(getAgentIcon(null as unknown as string)).toBe(AGENT_ICONS.main);
   });
 });
 
