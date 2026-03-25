@@ -34,9 +34,10 @@ const allContentTypes = ALL_CONTENT_TYPES;
 // ÔöÇÔöÇ Computed helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const activeFilterCount = computed(() => {
   let count = 0;
-  if (store.contentTypes.length > 0) count++;
+  if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) count++;
   if (store.repository) count++;
   if (store.dateFrom || store.dateTo) count++;
+  if (store.sessionId) count++;
   return count;
 });
 
@@ -58,31 +59,60 @@ const visiblePages = computed(() => {
   return pages;
 });
 
-// ÔöÇÔöÇ Content type toggle ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function toggleContentType(ct: SearchContentType) {
-  const idx = store.contentTypes.indexOf(ct);
-  if (idx >= 0) {
-    store.contentTypes.splice(idx, 1);
-  } else {
-    store.contentTypes.push(ct);
-  }
-  // If all types selected, clear array (equivalent to "no filter")
-  if (store.contentTypes.length === allContentTypes.length) {
-    store.contentTypes.splice(0);
-  }
+// ── Content type tri-state toggle ─────────────────────────────
+// States: 'off' (not filtered) → 'include' → 'exclude' → 'off'
+type FilterState = 'off' | 'include' | 'exclude';
+
+function getContentTypeState(ct: SearchContentType): FilterState {
+  if (store.contentTypes.includes(ct)) return 'include';
+  if (store.excludeContentTypes.includes(ct)) return 'exclude';
+  return 'off';
 }
 
-function isContentTypeActive(ct: SearchContentType): boolean {
-  return store.contentTypes.includes(ct);
+function cycleContentType(ct: SearchContentType) {
+  const state = getContentTypeState(ct);
+  // Remove from both arrays first
+  const incIdx = store.contentTypes.indexOf(ct);
+  if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
+  const excIdx = store.excludeContentTypes.indexOf(ct);
+  if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
+
+  // Cycle: off → include → exclude → off
+  if (state === 'off') {
+    store.contentTypes.push(ct);
+  } else if (state === 'include') {
+    store.excludeContentTypes.push(ct);
+  }
+  // 'exclude' → off: already removed above
+}
+
+function removeContentTypeFilter(ct: SearchContentType) {
+  const incIdx = store.contentTypes.indexOf(ct);
+  if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
+  const excIdx = store.excludeContentTypes.indexOf(ct);
+  if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
 }
 
 function toggleAllContentTypes() {
-  if (store.contentTypes.length > 0) {
+  if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) {
     store.contentTypes.splice(0);
+    store.excludeContentTypes.splice(0);
   } else {
     store.contentTypes.splice(0, store.contentTypes.length, ...allContentTypes);
   }
 }
+
+// Active filter chips: collect all active include/exclude filters
+const activeContentTypeChips = computed(() => {
+  const chips: { type: SearchContentType; mode: 'include' | 'exclude' }[] = [];
+  for (const ct of store.contentTypes) {
+    chips.push({ type: ct, mode: 'include' });
+  }
+  for (const ct of store.excludeContentTypes) {
+    chips.push({ type: ct, mode: 'exclude' });
+  }
+  return chips;
+});
 
 function getFacetCount(ct: string): number | null {
   const facets = store.facets?.byContentType;
@@ -100,6 +130,38 @@ function toggleExpand(id: number) {
   } else {
     expandedResults.value.add(id);
   }
+}
+
+// ── Session-grouped view: collapse/expand + filter ──────────
+const collapsedGroups = ref<Set<string>>(new Set());
+// Track the display name for the currently filtered session (set explicitly via filterBySession)
+const filteredSessionNameOverride = ref<string | null>(null);
+
+// Resolve session display name: explicit override → lookup from results → truncated ID
+const sessionDisplayName = computed(() => {
+  if (!store.sessionId) return null;
+  if (filteredSessionNameOverride.value) return filteredSessionNameOverride.value;
+  // Try to find a name from current results
+  const match = store.results.find(r => r.sessionId === store.sessionId);
+  if (match?.sessionSummary) return match.sessionSummary;
+  // Try grouped results
+  const group = store.groupedResults.find(g => g.sessionId === store.sessionId);
+  if (group?.sessionSummary) return group.sessionSummary;
+  return store.sessionId.slice(0, 12) + '…';
+});
+
+function toggleGroupCollapse(sessionId: string) {
+  if (collapsedGroups.value.has(sessionId)) {
+    collapsedGroups.value.delete(sessionId);
+  } else {
+    collapsedGroups.value.add(sessionId);
+  }
+}
+
+function filterBySession(sessionId: string, displayName: string | null) {
+  store.sessionId = sessionId;
+  filteredSessionNameOverride.value = displayName || null;
+  store.resultViewMode = 'flat';
 }
 
 // ÔöÇÔöÇ Friendly error messages ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -166,6 +228,7 @@ function setDatePreset(preset: string) {
 function handleClearFilters() {
   store.clearFilters();
   activeDatePreset.value = 'all';
+  filteredSessionNameOverride.value = null;
 }
 
 // ── Session link path ──────────────────────────────────────────────────────────
@@ -271,7 +334,43 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ÔòÉÔòÉÔòÉ Indexing Progress Banner ÔòÉÔòÉÔòÉ -->
+      <!-- ═══ Active Filter Chips ═══ -->
+      <div v-if="activeContentTypeChips.length > 0 || store.repository || store.toolName || store.sessionId" class="active-filters-bar">
+        <span class="active-filters-label">Active filters:</span>
+        <div class="active-filter-chips">
+          <span
+            v-for="chip in activeContentTypeChips"
+            :key="`ct-${chip.mode}-${chip.type}`"
+            class="filter-chip"
+            :class="chip.mode === 'exclude' ? 'filter-chip-exclude' : 'filter-chip-include'"
+          >
+            <span
+              class="filter-chip-dot"
+              :style="{ background: contentTypeConfig[chip.type]?.color }"
+            />
+            <span v-if="chip.mode === 'exclude'" class="filter-chip-prefix">NOT</span>
+            {{ contentTypeConfig[chip.type]?.label ?? chip.type }}
+            <button class="filter-chip-remove" @click="removeContentTypeFilter(chip.type)" aria-label="Remove filter">×</button>
+          </span>
+          <span v-if="store.repository" class="filter-chip filter-chip-neutral">
+            Repo: {{ store.repository }}
+            <button class="filter-chip-remove" @click="store.repository = null" aria-label="Remove filter">×</button>
+          </span>
+          <span v-if="store.toolName" class="filter-chip filter-chip-neutral">
+            Tool: {{ store.toolName }}
+            <button class="filter-chip-remove" @click="store.toolName = null" aria-label="Remove filter">×</button>
+          </span>
+          <span v-if="store.sessionId" class="filter-chip filter-chip-include">
+            Session: {{ sessionDisplayName }}
+            <button class="filter-chip-remove" @click="store.sessionId = null; filteredSessionNameOverride = null" aria-label="Remove filter">×</button>
+          </span>
+          <button v-if="activeFilterCount > 1" class="filter-chip-clear-all" @click="handleClearFilters">
+            Clear all
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══ Indexing Progress Banner ═══ -->
       <div v-if="isIndexing || store.searchIndexing || store.rebuilding" class="indexing-banner">
         <div class="indexing-banner-content">
           <svg class="indexing-banner-icon spin-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -314,28 +413,42 @@ onUnmounted(() => {
             <div class="filter-group-title">
               Content Type
               <button class="filter-select-all-btn" @click="toggleAllContentTypes">
-                {{ store.contentTypes.length > 0 ? 'Clear All' : 'Select All' }}
+                {{ (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) ? 'Clear All' : 'Select All' }}
               </button>
             </div>
             <div class="filter-group">
-              <label
+              <div
                 v-for="ct in allContentTypes"
                 :key="ct"
                 class="filter-checkbox-row"
+                @click="cycleContentType(ct)"
               >
-                <input
-                  type="checkbox"
-                  :checked="isContentTypeActive(ct)"
-                  @change="toggleContentType(ct)"
-                />
+                <span
+                  class="tri-state-box"
+                  :class="{
+                    'tri-include': getContentTypeState(ct) === 'include',
+                    'tri-exclude': getContentTypeState(ct) === 'exclude',
+                  }"
+                >
+                  <svg v-if="getContentTypeState(ct) === 'include'" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2">
+                    <polyline points="2,6 5,9 10,3" />
+                  </svg>
+                  <svg v-else-if="getContentTypeState(ct) === 'exclude'" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2">
+                    <line x1="3" y1="3" x2="9" y2="9" />
+                    <line x1="9" y1="3" x2="3" y2="9" />
+                  </svg>
+                </span>
                 <span
                   class="filter-color-dot"
                   :style="{ background: contentTypeConfig[ct].color }"
                 />
-                <span class="filter-label">{{ contentTypeConfig[ct].label }}</span>
+                <span class="filter-label" :class="{ 'filter-label-excluded': getContentTypeState(ct) === 'exclude' }">
+                  {{ contentTypeConfig[ct].label }}
+                </span>
                 <span v-if="getFacetCount(ct)" class="filter-facet-count">{{ getFacetCount(ct) }}</span>
-              </label>
+              </div>
             </div>
+            <div class="tri-state-hint">Click to cycle: off → include → exclude</div>
           </div>
 
           <!-- Repository -->
@@ -491,14 +604,37 @@ onUnmounted(() => {
               <span v-if="store.hasResults" class="results-summary-text">
                 {{ store.isBrowseMode ? 'Browsing' : 'Found' }} <strong>{{ store.totalCount.toLocaleString() }}</strong>
                 result{{ store.totalCount !== 1 ? 's' : '' }}
+                <span v-if="store.resultViewMode === 'grouped'"> across <strong>{{ store.groupedResults.length }}</strong> session{{ store.groupedResults.length !== 1 ? 's' : '' }}</span>
                 <span class="summary-speed">({{ store.latencyMs.toFixed(2) }}ms)</span>
-                <template v-if="store.totalPages > 1">
+                <template v-if="store.resultViewMode === 'flat' && store.totalPages > 1">
                   — page {{ store.page }} of {{ store.totalPages }}
                 </template>
               </span>
               <span v-else class="results-summary-text">
                 No results found
               </span>
+              <div class="view-mode-toggle">
+                <button
+                  class="view-mode-btn"
+                  :class="{ active: store.resultViewMode === 'flat' }"
+                  @click="store.resultViewMode = 'flat'"
+                  title="Flat list"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                    <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
+                  </svg>
+                </button>
+                <button
+                  class="view-mode-btn"
+                  :class="{ active: store.resultViewMode === 'grouped' }"
+                  @click="store.resultViewMode = 'grouped'"
+                  title="Grouped by session"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                    <rect x="2" y="2" width="12" height="4" rx="1" /><rect x="2" y="10" width="12" height="4" rx="1" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- No Results State -->
@@ -516,8 +652,8 @@ onUnmounted(() => {
               <button class="clear-search-btn" @click="store.clearAll()">Clear search</button>
             </div>
 
-            <!-- Results List -->
-            <div v-else class="results-list">
+            <!-- Results: Flat view -->
+            <div v-else-if="store.resultViewMode === 'flat'" class="results-list">
               <div
                 v-for="(result, idx) in store.results"
                 :key="result.id"
@@ -617,7 +753,122 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- ÔòÉÔòÉÔòÉ Pagination ÔòÉÔòÉÔòÉ -->
+            <!-- Results: Grouped by session -->
+            <div v-else class="results-grouped">
+              <div
+                v-for="(group, gIdx) in store.groupedResults"
+                :key="group.sessionId"
+                class="session-group"
+                :style="{ animationDelay: `${Math.min(gIdx, 6) * 40}ms` }"
+              >
+                <div class="session-group-header" @click="toggleGroupCollapse(group.sessionId)">
+                  <span class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }">▾</span>
+                  <div class="session-group-title">
+                    {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
+                  </div>
+                  <div class="session-group-meta">
+                    <span v-if="group.sessionRepository" class="badge badge-accent" style="font-size: 0.5625rem">{{ group.sessionRepository }}</span>
+                    <span v-if="group.sessionBranch" class="badge badge-success" style="font-size: 0.5625rem">{{ group.sessionBranch }}</span>
+                    <span class="session-group-count">{{ group.results.length }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
+                    <button
+                      class="session-group-filter-btn"
+                      title="Filter search to this session"
+                      @click.stop="filterBySession(group.sessionId, group.sessionSummary)"
+                    >
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                        <path d="M2 4h12M4 8h8M6 12h4" />
+                      </svg>
+                    </button>
+                    <router-link
+                      :to="`/session/${group.sessionId}/conversation`"
+                      class="session-group-goto-btn"
+                      title="Go to session"
+                      @click.stop
+                    >
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+                        <path d="M6 3l5 5-5 5" />
+                      </svg>
+                    </router-link>
+                  </div>
+                </div>
+                <div v-if="!collapsedGroups.has(group.sessionId)" class="session-group-results">
+                  <div
+                    v-for="result in group.results"
+                    :key="result.id"
+                    class="session-group-result"
+                    :class="{ expanded: expandedResults.has(result.id) }"
+                    @click="toggleExpand(result.id)"
+                  >
+                    <div class="session-group-result-row">
+                      <span
+                        class="ct-badge"
+                        :style="{
+                          background: contentTypeConfig[result.contentType]?.color + '20',
+                          color: contentTypeConfig[result.contentType]?.color,
+                        }"
+                      >
+                        {{ contentTypeConfig[result.contentType]?.label ?? result.contentType }}
+                      </span>
+                      <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
+                      <span class="session-group-snippet" v-html="result.snippet" />
+                      <span class="session-group-result-meta">
+                        <span v-if="result.timestampUnix != null" class="session-group-timestamp" :title="formatDateMedium(result.timestampUnix)">
+                          {{ formatRelativeTime(result.timestampUnix) }}
+                        </span>
+                        <span v-if="result.turnNumber != null">T{{ result.turnNumber }}</span>
+                        <span v-if="result.toolName" class="tool-name-badge">{{ result.toolName }}</span>
+                      </span>
+                      <router-link
+                        :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
+                        class="session-group-view-btn"
+                        @click.stop
+                      >→</router-link>
+                    </div>
+                    <!-- Expanded details -->
+                    <div v-if="expandedResults.has(result.id)" class="session-group-expanded">
+                      <!-- Full snippet (un-truncated) -->
+                      <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
+                      <div class="result-snippet" v-html="result.snippet" />
+                      <div class="expanded-grid">
+                        <div v-if="result.sessionSummary" class="expanded-item">
+                          <span class="expanded-label">Session</span>
+                          <span class="expanded-value">{{ result.sessionSummary }}</span>
+                        </div>
+                        <div class="expanded-item">
+                          <span class="expanded-label">Session ID</span>
+                          <span class="expanded-value expanded-mono">{{ result.sessionId }}</span>
+                        </div>
+                        <div v-if="result.turnNumber != null" class="expanded-item">
+                          <span class="expanded-label">Turn</span>
+                          <span class="expanded-value">{{ result.turnNumber }}</span>
+                        </div>
+                        <div v-if="result.toolName" class="expanded-item">
+                          <span class="expanded-label">Tool</span>
+                          <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
+                        </div>
+                        <div v-if="result.eventIndex != null" class="expanded-item">
+                          <span class="expanded-label">Event Index</span>
+                          <span class="expanded-value">{{ result.eventIndex }}</span>
+                        </div>
+                        <div v-if="result.timestampUnix != null" class="expanded-item">
+                          <span class="expanded-label">Timestamp</span>
+                          <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
+                        </div>
+                      </div>
+                      <router-link
+                        :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
+                        class="expanded-view-btn"
+                        @click.stop
+                      >
+                        Open in Session Viewer →
+                      </router-link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ Pagination (both views) ═══ -->
             <div v-if="store.totalPages > 1" class="pagination">
               <button
                 class="pagination-btn"
@@ -872,7 +1123,7 @@ onUnmounted(() => {
 .search-main-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0 28px;
+  padding: 0 16px 28px;
 }
 
 /* ÔöÇÔöÇ Filter Sidebar ÔöÇÔöÇ */
@@ -951,36 +1202,6 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.filter-checkbox-row input[type="checkbox"] {
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  border: 1px solid var(--border-default);
-  border-radius: 3px;
-  background: var(--canvas-default);
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-  transition: all var(--transition-fast);
-}
-
-.filter-checkbox-row input[type="checkbox"]:checked {
-  background: var(--accent-emphasis);
-  border-color: var(--accent-emphasis);
-}
-
-.filter-checkbox-row input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 5px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
 .filter-color-dot {
   width: 8px;
   height: 8px;
@@ -995,10 +1216,6 @@ onUnmounted(() => {
 }
 
 .filter-checkbox-row:hover .filter-label {
-  color: var(--text-primary);
-}
-
-.filter-checkbox-row input:checked ~ .filter-label {
   color: var(--text-primary);
 }
 
@@ -1774,5 +1991,386 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+}
+
+/* -- Tri-state filter box -- */
+.tri-state-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  background: var(--canvas-default);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.tri-state-box svg {
+  width: 10px;
+  height: 10px;
+}
+
+.tri-state-box.tri-include {
+  background: var(--accent-emphasis);
+  border-color: var(--accent-emphasis);
+}
+
+.tri-state-box.tri-exclude {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.filter-label-excluded {
+  text-decoration: line-through;
+  color: var(--text-tertiary) !important;
+  opacity: 0.7;
+}
+
+.tri-state-hint {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+/* -- Active filter chips bar -- */
+.active-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.active-filters-label {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.active-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.filter-chip-include {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent-emphasis);
+}
+
+.filter-chip-exclude {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid #ef4444;
+}
+
+.filter-chip-neutral {
+  background: var(--neutral-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.filter-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.filter-chip-prefix {
+  font-weight: 700;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.filter-chip-remove:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.filter-chip-clear-all {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition: color var(--transition-fast);
+}
+
+.filter-chip-clear-all:hover {
+  color: var(--accent-fg);
+}
+
+/* -- View mode toggle -- */
+.view-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  background: var(--canvas-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  border: 1px solid var(--border-default);
+}
+
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.view-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.view-mode-btn.active {
+  background: var(--canvas-default);
+  color: var(--accent-fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* -- Session-grouped results -- */
+.results-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.session-group {
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: resultFadeIn var(--transition-fast) ease both;
+}
+
+.session-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--canvas-subtle);
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.session-group-header:hover {
+  background: var(--canvas-overlay);
+}
+
+.session-group-chevron {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.session-group-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.session-group-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-group-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.session-group-count {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.session-group-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.session-group-filter-btn:hover {
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
+}
+
+.session-group-goto-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.session-group-goto-btn:hover {
+  border-color: var(--success-emphasis);
+  color: var(--success-fg);
+  background: var(--success-subtle);
+}
+
+.session-group-results {
+  display: flex;
+  flex-direction: column;
+}
+
+.session-group-result {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.session-group-result:last-child {
+  border-bottom: none;
+}
+
+.session-group-result:hover {
+  background: var(--canvas-subtle);
+}
+
+.session-group-result.expanded {
+  background: var(--canvas-subtle);
+}
+
+.session-group-result-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.session-group-result.expanded .session-group-snippet {
+  display: none;
+}
+
+.session-group-expanded {
+  padding: 0 16px 12px 36px;
+}
+
+.session-group-snippet {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.session-group-snippet :deep(mark) {
+  background: var(--attention-subtle);
+  color: var(--attention-fg);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.session-group-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.session-group-timestamp {
+  color: var(--text-placeholder);
+  font-size: 0.5625rem;
+}
+
+.session-group-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.session-group-view-btn:hover {
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
 }
 </style>

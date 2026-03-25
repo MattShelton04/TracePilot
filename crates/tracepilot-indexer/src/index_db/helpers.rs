@@ -227,6 +227,27 @@ pub(super) fn build_in_filter<T: ToSql + Clone + 'static>(
     format!(" AND {} IN ({})", column, placeholders)
 }
 
+/// Build a NOT IN exclusion filter (e.g., `col NOT IN (?, ?, ?)`).
+/// Returns the SQL fragment and appends parameters to the provided vector.
+///
+/// If `values` is empty, returns an empty string and adds no parameters.
+pub(super) fn build_not_in_filter<T: ToSql + Clone + 'static>(
+    column: &str,
+    values: &[T],
+    params: &mut Vec<Box<dyn ToSql>>,
+) -> String {
+    if values.is_empty() {
+        return String::new();
+    }
+
+    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    for val in values {
+        params.push(Box::new(val.clone()));
+    }
+
+    format!(" AND {} NOT IN ({})", column, placeholders)
+}
+
 /// Build an equality filter (e.g., `col = ?`).
 /// Returns the SQL fragment and appends the parameter to the provided vector.
 ///
@@ -388,5 +409,29 @@ mod tests {
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
         assert!(clause.contains("s.repository = ?"));
         assert_eq!(values.len(), 3);
+    }
+
+    #[test]
+    fn test_build_not_in_filter_empty() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_not_in_filter("col", &Vec::<String>::new(), &mut params);
+        assert_eq!(sql, "");
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_build_not_in_filter_single_value() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_not_in_filter("col", &vec!["tool_call".to_string()], &mut params);
+        assert_eq!(sql, " AND col NOT IN (?)");
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_not_in_filter_multiple_values() {
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let sql = build_not_in_filter("col", &vec!["tool_call".to_string(), "tool_error".to_string()], &mut params);
+        assert_eq!(sql, " AND col NOT IN (?, ?)");
+        assert_eq!(params.len(), 2);
     }
 }

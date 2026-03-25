@@ -242,6 +242,7 @@ export async function searchContent(
   return invoke<SearchResultsResponse>('search_content', {
     query,
     contentTypes: filters?.contentTypes,
+    excludeContentTypes: filters?.excludeContentTypes,
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
@@ -256,11 +257,12 @@ export async function searchContent(
 /** Get facet counts — pass query for result-scoped facets, omit for global. */
 export async function getSearchFacets(
   query?: string,
-  filters?: Pick<SearchFilters, 'contentTypes' | 'repositories' | 'toolNames' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
+  filters?: Pick<SearchFilters, 'contentTypes' | 'excludeContentTypes' | 'repositories' | 'toolNames' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
 ): Promise<SearchFacetsResponse> {
   return invoke<SearchFacetsResponse>('get_search_facets', {
     query,
     contentTypes: filters?.contentTypes,
+    excludeContentTypes: filters?.excludeContentTypes,
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,

@@ -36,6 +36,7 @@ pub struct SearchResult {
 #[derive(Debug, Default, Clone)]
 pub struct SearchFilters {
     pub content_types: Vec<String>,
+    pub exclude_content_types: Vec<String>,
     pub repositories: Vec<String>,
     pub tool_names: Vec<String>,
     pub session_id: Option<String>,
@@ -356,9 +357,10 @@ impl IndexDb {
 
 /// Append all filter WHERE clauses and their param values using anonymous `?` placeholders.
 fn append_filters(sql: &mut String, params: &mut Vec<Box<dyn ToSql>>, filters: &SearchFilters) {
-    use super::helpers::{build_in_filter, build_eq_filter, build_timestamp_range_filter};
+    use super::helpers::{build_in_filter, build_not_in_filter, build_eq_filter, build_timestamp_range_filter};
 
     sql.push_str(&build_in_filter("sc.content_type", &filters.content_types, params));
+    sql.push_str(&build_not_in_filter("sc.content_type", &filters.exclude_content_types, params));
     sql.push_str(&build_in_filter("s.repository", &filters.repositories, params));
     sql.push_str(&build_in_filter("sc.tool_name", &filters.tool_names, params));
 
