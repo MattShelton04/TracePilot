@@ -55,16 +55,21 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
 /// Returns the installation type: "source", "installed", or "portable".
 #[tauri::command]
 pub fn get_install_type() -> String {
-    if cfg!(debug_assertions) {
-        return "source".to_string();
-    }
     let appimage_env = std::env::var_os("APPIMAGE");
-    if let Ok(exe) = std::env::current_exe() {
-        return detect_install_type_for(&exe, appimage_env.as_deref(), PlatformKind::current())
-            .as_str()
-            .to_string();
+    let exe = std::env::current_exe().ok();
+    detect_install_type(exe.as_deref(), appimage_env.as_deref())
+        .as_str()
+        .to_string()
+}
+
+fn detect_install_type(exe: Option<&Path>, appimage_env: Option<&OsStr>) -> InstallType {
+    if cfg!(debug_assertions) {
+        return InstallType::Source;
     }
-    "portable".to_string()
+    match exe {
+        Some(exe) => detect_install_type_for(exe, appimage_env, PlatformKind::current()),
+        None => InstallType::Portable,
+    }
 }
 
 #[tauri::command]
@@ -144,6 +149,7 @@ pub async fn get_git_info() -> GitInfo {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum InstallType {
+    Source,
     Installed,
     Portable,
 }
@@ -151,6 +157,7 @@ enum InstallType {
 impl InstallType {
     fn as_str(self) -> &'static str {
         match self {
+            InstallType::Source => "source",
             InstallType::Installed => "installed",
             InstallType::Portable => "portable",
         }
@@ -228,6 +235,9 @@ fn is_windows_installed(exe: &Path) -> bool {
     }
 
     // NSIS leaves an uninstaller (unins*.exe) beside the app when installed.
+    // Heuristic: may false-positive if a portable exe sits in a directory that
+    // happens to contain another app's uninstaller. Acceptable for v1 since
+    // the path-based checks above cover the standard install locations.
     if let Some(dir) = exe.parent() {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -258,7 +268,7 @@ fn is_macos_app_bundle(exe: &Path) -> bool {
 }
 
 fn is_linux_appimage(exe: &Path, appimage_env: Option<&OsStr>) -> bool {
-    appimage_env.is_some()
+    appimage_env.is_some_and(|v| !v.is_empty())
         || exe
             .extension()
             .and_then(|e| e.to_str())
@@ -333,6 +343,66 @@ mod tests {
     fn linux_usr_install_is_installed() {
         let exe = PathBuf::from("/usr/lib/tracepilot/tracepilot");
         let install_type = detect_install_type_for(&exe, None, PlatformKind::Linux);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn linux_opt_install_is_installed() {
+        let exe = PathBuf::from("/opt/tracepilot/tracepilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Linux);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn linux_appimage_extension_only_is_portable() {
+        let exe = PathBuf::from("/home/me/TracePilot.AppImage");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Linux);
+        assert_eq!(install_type, InstallType::Portable);
+    }
+
+    #[test]
+    fn linux_home_binary_is_portable() {
+        let exe = PathBuf::from("/home/me/bin/tracepilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Linux);
+        assert_eq!(install_type, InstallType::Portable);
+    }
+
+    #[test]
+    fn empty_appimage_env_not_treated_as_appimage() {
+        let exe = PathBuf::from("/home/me/tracepilot");
+        let install_type =
+            detect_install_type_for(&exe, Some(OsStr::new("")), PlatformKind::Linux);
+        assert_eq!(install_type, InstallType::Portable);
+    }
+
+    #[test]
+    fn windows_appdata_local_programs_is_installed() {
+        let exe =
+            PathBuf::from("C:\\Users\\me\\AppData\\Local\\Programs\\TracePilot\\tracepilot.exe");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Windows);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn windows_program_files_x86_is_installed() {
+        let exe = PathBuf::from("C:\\Program Files (x86)\\TracePilot\\tracepilot.exe");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Windows);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn other_platform_is_portable() {
+        let exe = PathBuf::from("/some/path/tracepilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Other);
+        assert_eq!(install_type, InstallType::Portable);
+    }
+
+    #[test]
+    fn macos_nested_app_bundle_is_installed() {
+        let exe = PathBuf::from(
+            "/Users/me/MyApps/Wrapper.app/Contents/Helpers/TracePilot.app/Contents/MacOS/tp",
+        );
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
         assert_eq!(install_type, InstallType::Installed);
     }
 }
