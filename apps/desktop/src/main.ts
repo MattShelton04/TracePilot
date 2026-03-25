@@ -6,7 +6,6 @@ import router from "./router";
 import "./styles.css";
 import "./styles/chart-shared.css";
 import { initLogging } from "./utils/logger";
-import { toErrorMessage } from "@tracepilot/ui";
 
 // Apply persisted theme before mount to prevent flash.
 // Uses a dedicated write-through cache key so we never parse the full config

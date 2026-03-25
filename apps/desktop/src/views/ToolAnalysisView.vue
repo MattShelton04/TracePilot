@@ -7,7 +7,7 @@ import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { CHART_COLORS } from '@/utils/chartColors';
 
 const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } = useChartTooltip();
-const { store } = useAnalyticsPage((opts) => store.fetchToolAnalysis(opts));
+const { store } = useAnalyticsPage('fetchToolAnalysis');
 
 const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);

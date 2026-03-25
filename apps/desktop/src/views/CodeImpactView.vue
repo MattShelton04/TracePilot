@@ -6,7 +6,7 @@ import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { CHART_COLORS } from '@/utils/chartColors';
 
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } = useChartTooltip();
-const { store } = useAnalyticsPage((opts) => store.fetchCodeImpact(opts));
+const { store } = useAnalyticsPage('fetchCodeImpact');
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);

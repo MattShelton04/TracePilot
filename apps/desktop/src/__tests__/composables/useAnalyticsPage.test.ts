@@ -65,47 +65,46 @@ describe('useAnalyticsPage', () => {
   });
 
   it('returns the analytics store instance', () => {
-    const fetchFn = vi.fn().mockResolvedValue(undefined);
-    const { store } = useAnalyticsPage(fetchFn);
+    const { store } = useAnalyticsPage('fetchAnalytics');
     expect(store).toBe(useAnalyticsStore());
   });
 
-  it('calls fetchAvailableRepos and fetchFn on mount', async () => {
+  it('calls fetchAvailableRepos and the named fetch method on mount', async () => {
     const store = useAnalyticsStore();
-    const fetchFn = vi.fn().mockResolvedValue(undefined);
-    const spy = vi.spyOn(store, 'fetchAvailableRepos').mockResolvedValue(undefined);
+    const reposSpy = vi.spyOn(store, 'fetchAvailableRepos').mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, 'fetchAnalytics').mockResolvedValue(undefined);
 
-    useAnalyticsPage(fetchFn);
+    useAnalyticsPage('fetchAnalytics');
 
     // Simulate mount
     for (const cb of mountCallbacks) await cb();
 
-    expect(spy).toHaveBeenCalledOnce();
-    expect(fetchFn).toHaveBeenCalledOnce();
-    expect(fetchFn).toHaveBeenCalledWith();
+    expect(reposSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy).toHaveBeenCalledWith();
   });
 
-  it('calls fetchFn with force:true when selectedRepo changes', async () => {
+  it('calls the named fetch method with force:true when selectedRepo changes', async () => {
     const store = useAnalyticsStore();
-    const fetchFn = vi.fn().mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, 'fetchToolAnalysis').mockResolvedValue(undefined);
 
-    useAnalyticsPage(fetchFn);
+    useAnalyticsPage('fetchToolAnalysis');
 
     store.setRepo('my-repo');
     await nextTick();
 
-    expect(fetchFn).toHaveBeenCalledWith({ force: true });
+    expect(fetchSpy).toHaveBeenCalledWith({ force: true });
   });
 
-  it('calls fetchFn with force:true when dateRange changes', async () => {
+  it('calls the named fetch method with force:true when dateRange changes', async () => {
     const store = useAnalyticsStore();
-    const fetchFn = vi.fn().mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, 'fetchCodeImpact').mockResolvedValue(undefined);
 
-    useAnalyticsPage(fetchFn);
+    useAnalyticsPage('fetchCodeImpact');
 
     store.setTimeRange('7d');
     await nextTick();
 
-    expect(fetchFn).toHaveBeenCalledWith({ force: true });
+    expect(fetchSpy).toHaveBeenCalledWith({ force: true });
   });
 });

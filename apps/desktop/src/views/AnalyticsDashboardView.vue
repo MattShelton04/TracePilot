@@ -20,7 +20,7 @@ import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
 const prefs = usePreferencesStore();
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
-const { store } = useAnalyticsPage((opts) => store.fetchAnalytics(opts));
+const { store } = useAnalyticsPage('fetchAnalytics');
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);

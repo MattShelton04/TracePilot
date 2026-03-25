@@ -7,7 +7,7 @@ import { usePreferencesStore } from '@/stores/preferences';
 import { MODEL_PALETTE } from '@/utils/chartColors';
 
 const prefs = usePreferencesStore();
-const { store } = useAnalyticsPage((opts) => store.fetchAnalytics(opts));
+const { store } = useAnalyticsPage('fetchAnalytics');
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);

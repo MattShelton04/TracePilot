@@ -1,32 +1,29 @@
 import { onMounted, watch } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
 
+type AnalyticsFetchMethod = 'fetchAnalytics' | 'fetchToolAnalysis' | 'fetchCodeImpact';
+
 /**
  * Shared lifecycle boilerplate for analytics pages.
  *
- * Fetches available repositories on mount, invokes the given fetch function,
+ * Fetches available repositories on mount, invokes the named fetch method,
  * and re-fetches (with `force: true`) whenever the selected repository or
  * date range changes.
  *
- * **Important:** `fetchFn` is only called asynchronously (inside `onMounted`
- * and `watch` callbacks). Callers may reference variables that are assigned
- * from the return value of this function inside the callback — this is safe
- * because the callback is never invoked synchronously.
- *
- * @param fetchFn - The store fetch action to call (e.g. `store.fetchAnalytics`).
+ * @param method - The store fetch method name to call.
  * @returns The analytics store instance for convenient destructuring.
  */
-export function useAnalyticsPage(fetchFn: (opts?: { force?: boolean }) => Promise<void>) {
+export function useAnalyticsPage(method: AnalyticsFetchMethod) {
   const store = useAnalyticsStore();
 
   onMounted(() => {
     store.fetchAvailableRepos();
-    fetchFn();
+    store[method]();
   });
 
   watch(
     [() => store.selectedRepo, () => store.dateRange],
-    () => { fetchFn({ force: true }); },
+    () => { store[method]({ force: true }); },
     { deep: true },
   );
 
