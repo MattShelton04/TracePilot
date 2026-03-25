@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  formatClockTime,
   formatDateMedium,
   formatDateShort,
   formatNumberFull,
@@ -12,6 +13,39 @@ import {
   formatCost,
   formatBytes,
 } from '@tracepilot/types';
+
+describe('formatClockTime', () => {
+  it('formats zero as 00:00', () => {
+    expect(formatClockTime(0)).toBe('00:00');
+  });
+  it('formats seconds-only durations', () => {
+    expect(formatClockTime(30_000)).toBe('00:30');
+    expect(formatClockTime(59_999)).toBe('00:59');
+  });
+  it('formats minutes and seconds', () => {
+    expect(formatClockTime(60_000)).toBe('01:00');
+    expect(formatClockTime(90_000)).toBe('01:30');
+  });
+  it('shows total minutes without wrapping at 60', () => {
+    expect(formatClockTime(3_661_000)).toBe('61:01');
+  });
+  it('handles null/undefined', () => {
+    expect(formatClockTime(null)).toBe('00:00');
+    expect(formatClockTime(undefined)).toBe('00:00');
+  });
+  it('handles negative values', () => {
+    expect(formatClockTime(-1000)).toBe('00:00');
+  });
+  it('handles NaN and Infinity', () => {
+    expect(formatClockTime(NaN)).toBe('00:00');
+    expect(formatClockTime(Infinity)).toBe('00:00');
+    expect(formatClockTime(-Infinity)).toBe('00:00');
+  });
+  it('floors sub-second values', () => {
+    expect(formatClockTime(1500)).toBe('00:01');
+    expect(formatClockTime(999)).toBe('00:00');
+  });
+});
 
 describe('formatRate', () => {
   it('formats 0-1 rate as percentage', () => {

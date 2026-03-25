@@ -6,6 +6,7 @@
  */
 import { ref, computed, watch, onUnmounted, type Ref } from 'vue';
 import type { ReplayStep } from '@tracepilot/types';
+import { formatClockTime } from '@tracepilot/ui';
 
 export interface ReplayControllerOptions {
   /** Use actual step durations (scaled by speed) instead of fixed interval. Default: false. */
@@ -46,15 +47,8 @@ export function useReplayController(
     totalSteps.value > 1 ? (currentStep.value / (totalSteps.value - 1)) * 100 : 0,
   );
 
-  function fmtTime(ms: number): string {
-    const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  const formattedElapsed = computed(() => fmtTime(elapsedMs.value));
-  const formattedTotal = computed(() => fmtTime(totalDurationMs.value));
+  const formattedElapsed = computed(() => formatClockTime(elapsedMs.value));
+  const formattedTotal = computed(() => formatClockTime(totalDurationMs.value));
 
   // ── Timer management ──
 
@@ -227,6 +221,6 @@ export function useReplayController(
     scrubTo,
     onScrubberClick,
     handleKeydown,
-    fmtTime,
+    fmtTime: formatClockTime,
   };
 }

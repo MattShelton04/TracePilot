@@ -151,6 +151,17 @@ export function formatBytes(bytes?: number | null): string {
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/** Format milliseconds as a clock-style "MM:SS" string (e.g. 90000 → "01:30").
+ *  Shows total elapsed minutes — does not wrap at 60 (e.g. 3661000 → "61:01").
+ *  Intended for media-player / replay timer displays. */
+export function formatClockTime(ms?: number | null): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return '00:00';
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 /** Convert a caught value into an error message string.
  *  @param e — the caught value (may be Error, string, or anything)
  *  @param fallback — returned when `e` is null/undefined or stringifies to empty */
