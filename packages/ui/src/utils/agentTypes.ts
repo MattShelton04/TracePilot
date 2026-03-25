@@ -90,6 +90,14 @@ export function getAgentColor(type: AgentType | string): string {
 }
 
 /**
+ * Resolve the emoji icon for a given agent type.
+ * Falls back to the main agent icon for unrecognized types.
+ */
+export function getAgentIcon(type: AgentType | string): string {
+  return AGENT_ICONS[type as AgentType] ?? AGENT_ICONS.main;
+}
+
+/**
  * Determine the display color for a regular (non-subagent) tool call
  * based on its execution status.
  *
