@@ -238,6 +238,17 @@ pub struct ShutdownData {
     pub current_model: Option<String>,
     pub code_changes: Option<CodeChanges>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
+    pub shutdown_segments: Option<Vec<ShutdownSegment>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ShutdownSegment {
+    pub end_timestamp: String,
+    pub cost: f64,
+    pub tokens: u64,
+    pub premium_requests: f64,
+    pub api_duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

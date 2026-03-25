@@ -90,8 +90,10 @@ impl IndexDb {
 
         // Tokens by day
         let day_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_tokens), 0)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_tokens), 0)
+             FROM session_shutdown_metrics m
+             JOIN sessions s ON s.id = m.session_id
+             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);
@@ -108,8 +110,10 @@ impl IndexDb {
 
         // Cost by day
         let cbd_sql = format!(
-            "SELECT date(COALESCE(s.updated_at, s.created_at)) as d, COALESCE(SUM(s.total_cost), 0.0)
-             FROM sessions s{} AND d IS NOT NULL GROUP BY d ORDER BY d",
+            "SELECT date(m.end_timestamp) as d, COALESCE(SUM(m.total_cost), 0.0)
+             FROM session_shutdown_metrics m
+             JOIN sessions s ON s.id = m.session_id
+             {} AND d IS NOT NULL GROUP BY d ORDER BY d",
             where_clause
         );
         let refs = to_refs(&bind_values);

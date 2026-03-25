@@ -117,10 +117,6 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     total_cache_read_tokens += cache_read;
                     total_input_tokens += input_t;
 
-                    if let Some(ref date) = date_key {
-                        *tokens_by_day.entry(date.clone()).or_insert(0) += session_model_tokens;
-                    }
-
                     total_tokens_from_turns += session_model_tokens;
                 }
 
@@ -129,12 +125,35 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
                     let req_count = requests.count.map(|c| c as u64).unwrap_or(0);
-                    if let Some(ref date) = date_key {
-                        *cost_by_day.entry(date.clone()).or_insert(0.0) += cost;
-                    }
                     let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.4 += cost;
                     entry.5 += req_count;
+                }
+            }
+
+            if let Some(ref segments) = metrics.shutdown_segments {
+                for seg in segments {
+                    let date = seg.end_timestamp.split('T').next().unwrap_or(&seg.end_timestamp).to_string();
+                    *tokens_by_day.entry(date.clone()).or_insert(0) += seg.tokens;
+                    *cost_by_day.entry(date).or_insert(0.0) += seg.cost;
+                }
+            } else if let Some(ref date) = date_key {
+                // Fallback for backwards compatibility 
+                let mut fallback_tokens = 0;
+                let mut fallback_cost = 0.0;
+                for detail in metrics.model_metrics.values() {
+                    if let Some(ref usage) = detail.usage {
+                        fallback_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                    }
+                    if let Some(ref req) = detail.requests {
+                        fallback_cost += req.cost.unwrap_or(0.0);
+                    }
+                }
+                if fallback_tokens > 0 {
+                    *tokens_by_day.entry(date.clone()).or_insert(0) += fallback_tokens;
+                }
+                if fallback_cost > 0.0 {
+                    *cost_by_day.entry(date.clone()).or_insert(0.0) += fallback_cost;
                 }
             }
 
@@ -647,6 +666,7 @@ mod tests {
                         ]),
                     }),
                     model_metrics,
+                    shutdown_segments: None,
                     shutdown_count: None,
                 }),
             },
