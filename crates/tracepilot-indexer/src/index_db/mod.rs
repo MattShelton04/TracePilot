@@ -57,6 +57,11 @@ impl IndexDb {
 
     /// Open the index database in read-only mode (no WAL/SHM side-effects).
     ///
+    /// This method uses the same SQLite flags as `tracepilot_core::utils::sqlite::open_readonly`
+    /// for consistency across the codebase, but includes IndexDb-specific setup (pragmas, struct wrapping).
+    /// We maintain a separate implementation here to preserve `rusqlite::Error` in the error chain
+    /// for proper error context in `IndexerError`.
+    ///
     /// Use for all read operations (search, facets, analytics, listing).
     /// Skips migrations and won't create the DB if it doesn't exist.
     pub fn open_readonly(path: &Path) -> Result<Self> {
