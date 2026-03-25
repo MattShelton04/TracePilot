@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import type { TodoItem, TodoDep } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
+import { buildTodoRelations } from "@/utils/todoStats";
 
 const props = defineProps<{
   todos: TodoItem[];
@@ -48,6 +49,11 @@ const STATUS_LABEL: Record<string, string> = {
 const selectedNodeId = ref<string | null>(null);
 const hoveredNodeId = ref<string | null>(null);
 
+const todoRelations = computed(() => buildTodoRelations(props.todos, props.deps));
+const todoById = computed(() => todoRelations.value.todoById);
+const dependenciesByTodoId = computed(() => todoRelations.value.dependenciesByTodoId);
+const dependentsByTodoId = computed(() => todoRelations.value.dependentsByTodoId);
+
 // ── Filter & search state ──
 const activeStatuses = ref<Set<string>>(new Set(STATUSES));
 const searchQuery = ref("");
@@ -84,7 +90,8 @@ function toggleStatus(status: string) {
 }
 
 function statusCount(status: string): number {
-  return props.todos.filter(t => t.status === status).length;
+  const counts = statusCounts.value;
+  return counts.get(status) ?? 0;
 }
 
 const filteredTodos = computed(() =>
@@ -193,6 +200,14 @@ const edges = computed(() => {
   return props.deps
     .filter(d => todoIds.has(d.dependsOn) && todoIds.has(d.todoId))
     .map(d => ({ from: d.dependsOn, to: d.todoId }));
+});
+
+const statusCounts = computed(() => {
+  const counts = new Map<string, number>();
+  props.todos.forEach(todo => {
+    counts.set(todo.status, (counts.get(todo.status) ?? 0) + 1);
+  });
+  return counts;
 });
 
 // ── Topological layout (Kahn's algorithm) with compact grid ──
@@ -407,16 +422,18 @@ const selectedTodo = computed(() =>
 );
 
 function getDependencies(todoId: string): TodoItem[] {
-  const depIds = props.deps.filter(d => d.todoId === todoId).map(d => d.dependsOn);
+  const depIds = dependenciesByTodoId.value.get(todoId);
+  if (!depIds) return [];
   return depIds
-    .map(id => props.todos.find(t => t.id === id))
+    .map(id => todoById.value.get(id))
     .filter(Boolean) as TodoItem[];
 }
 
 function getDependents(todoId: string): TodoItem[] {
-  const depIds = props.deps.filter(d => d.dependsOn === todoId).map(d => d.todoId);
+  const depIds = dependentsByTodoId.value.get(todoId);
+  if (!depIds) return [];
   return depIds
-    .map(id => props.todos.find(t => t.id === id))
+    .map(id => todoById.value.get(id))
     .filter(Boolean) as TodoItem[];
 }
 
