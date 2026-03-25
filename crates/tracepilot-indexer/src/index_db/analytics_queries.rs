@@ -1,6 +1,6 @@
 //! Aggregate analytics queries: dashboard stats, tool analysis, code impact.
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::params_from_iter;
 use std::collections::HashMap;
 

@@ -5374,7 +5374,6 @@ dependencies = [
 name = "tracepilot-indexer"
 version = "0.5.0"
 dependencies = [
- "anyhow",
  "chrono",
  "rusqlite",
  "serde",

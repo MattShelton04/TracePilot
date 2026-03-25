@@ -1,6 +1,6 @@
 //! Session write operations: upsert, reindex detection, pruning.
 
-use anyhow::{Context, Result};
+use crate::Result;
 use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -13,13 +13,7 @@ use super::IndexDb;
 impl IndexDb {
     /// Insert or update a session in the index, computing analytics from events.
     pub fn upsert_session(&self, session_path: &Path) -> Result<SessionIndexInfo> {
-        let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)
-            .with_context(|| {
-                format!(
-                    "Failed to load session summary: {}",
-                    session_path.display()
-                )
-            })?;
+        let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)?;
         let summary = load_result.summary;
         let typed_events = load_result.typed_events;
         let diagnostics = load_result.diagnostics;

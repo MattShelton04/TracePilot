@@ -1,6 +1,6 @@
 //! SQL query helpers and statistical functions for the index database.
 
-use anyhow::Result;
+use crate::Result;
 use rusqlite::{params_from_iter, types::ToSql, Connection};
 
 use tracepilot_core::analytics::types::*;
