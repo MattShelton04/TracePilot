@@ -14,7 +14,6 @@ import {
   formatPercent,
   generateXLabels,
   generateYLabels,
-  labelStride,
   mapToLineCoords,
   toAreaPoints,
   toPolylinePoints,
