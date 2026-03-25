@@ -383,11 +383,32 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // All remaining sections follow an identical refresh pattern:
     // fetch → assign result → clear error (on success).
     const sectionConfigs: RefreshConfig[] = [
-      { key: 'todos', errorRef: todosError, fetchFn: (id) => getSessionTodos(id), onResult: (r) => { todos.value = r as TodosResponse; } },
-      { key: 'checkpoints', errorRef: checkpointsError, fetchFn: (id) => getSessionCheckpoints(id), onResult: (r) => { checkpoints.value = r as CheckpointEntry[]; } },
-      { key: 'plan', errorRef: planError, fetchFn: (id) => getSessionPlan(id), onResult: (r) => { plan.value = r as SessionPlan; } },
-      { key: 'metrics', errorRef: metricsError, fetchFn: (id) => getShutdownMetrics(id), onResult: (r) => { shutdownMetrics.value = r as ShutdownMetrics; } },
-      { key: 'incidents', errorRef: incidentsError, fetchFn: (id) => getSessionIncidents(id), onResult: (r) => { incidents.value = r as SessionIncident[]; }, logLevel: 'warn' },
+      {
+        key: 'todos', errorRef: todosError,
+        fetchFn: (id) => getSessionTodos(id),
+        onResult: (r) => { todos.value = r as TodosResponse; },
+      },
+      {
+        key: 'checkpoints', errorRef: checkpointsError,
+        fetchFn: (id) => getSessionCheckpoints(id),
+        onResult: (r) => { checkpoints.value = r as CheckpointEntry[]; },
+      },
+      {
+        key: 'plan', errorRef: planError,
+        fetchFn: (id) => getSessionPlan(id),
+        onResult: (r) => { plan.value = r as SessionPlan; },
+      },
+      {
+        key: 'metrics', errorRef: metricsError,
+        fetchFn: (id) => getShutdownMetrics(id),
+        onResult: (r) => { shutdownMetrics.value = r as ShutdownMetrics; },
+      },
+      {
+        key: 'incidents', errorRef: incidentsError,
+        fetchFn: (id) => getSessionIncidents(id),
+        onResult: (r) => { incidents.value = r as SessionIncident[]; },
+        logLevel: 'warn',
+      },
     ];
 
     for (const cfg of sectionConfigs) {
