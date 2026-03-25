@@ -11,6 +11,7 @@ import {
   useToast,
   useConfirmDialog,
   useClipboard,
+  toErrorMessage,
   ErrorAlert,
   pathBasename,
   pathDirname,
@@ -85,7 +86,7 @@ async function handleFetchRemote() {
     await worktreeStore.loadBranches(repoPath.value);
     toastSuccess('Fetched latest from remote');
   } catch (e) {
-    toastError(String(e));
+    toastError(toErrorMessage(e));
   } finally {
     fetchingRemote.value = false;
   }

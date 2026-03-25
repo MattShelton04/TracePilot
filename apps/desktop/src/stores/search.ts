@@ -15,6 +15,7 @@ import {
   getSearchToolNames,
   rebuildSearchIndex,
 } from '@tracepilot/client';
+import { toErrorMessage } from '@tracepilot/ui';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
@@ -204,7 +205,7 @@ export const useSearchStore = defineStore('search', () => {
       fetchFacets(facetQuery);
     } catch (e) {
       if (gen !== searchGeneration) return;
-      error.value = String(e);
+      error.value = toErrorMessage(e);
       results.value = [];
       totalCount.value = 0;
       hasMore.value = false;
@@ -330,7 +331,7 @@ export const useSearchStore = defineStore('search', () => {
         await executeSearch();
       }
     } catch (e) {
-      error.value = String(e);
+      error.value = toErrorMessage(e);
     } finally {
       rebuilding.value = false;
     }

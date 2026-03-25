@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
+import { toErrorMessage } from "@tracepilot/ui";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -101,7 +102,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       try {
         sessions.value = await listSessions();
       } catch (e) {
-        error.value = String(e);
+        error.value = toErrorMessage(e);
       } finally {
         fetchPromise = null;
         loading.value = false;
@@ -133,7 +134,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         await indexingPromise;
         sessions.value = await listSessions();
       } catch (e) {
-        const msg = String(e);
+        const msg = toErrorMessage(e);
         if (msg !== "ALREADY_INDEXING") {
           error.value = msg;
         }
@@ -149,7 +150,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       // After reindex completes, refresh the list from the now-updated index
       sessions.value = await listSessions();
     } catch (e) {
-      const msg = String(e);
+      const msg = toErrorMessage(e);
       if (msg !== "ALREADY_INDEXING") {
         error.value = msg;
       }
