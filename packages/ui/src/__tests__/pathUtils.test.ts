@@ -14,6 +14,9 @@ describe('normalizePath', () => {
   it('strips trailing slash', () => {
     expect(normalizePath('/home/user/project/')).toBe('/home/user/project');
   });
+  it('strips multiple trailing slashes', () => {
+    expect(normalizePath('/home/user/project///')).toBe('/home/user/project');
+  });
   it('handles mixed separators', () => {
     expect(normalizePath('C:\\Users/matt\\project/')).toBe('C:/Users/matt/project');
   });

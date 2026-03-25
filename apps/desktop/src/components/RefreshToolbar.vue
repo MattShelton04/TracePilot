@@ -133,11 +133,6 @@ onUnmounted(() => {
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .auto-toggle {
   display: inline-flex;
   align-items: center;

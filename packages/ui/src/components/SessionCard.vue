@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
 import Badge from "./Badge.vue";
+import { formatRelativeTime } from "../utils/formatters";
 
 defineProps<{
   session: SessionListItem;
@@ -9,21 +10,6 @@ defineProps<{
 const emit = defineEmits<{
   select: [sessionId: string];
 }>();
-
-function relativeTime(dateStr?: string): string {
-  if (!dateStr) return '';
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
 
 function isActive(session: SessionListItem): boolean {
   return session.isRunning === true;
@@ -71,7 +57,7 @@ function isActive(session: SessionListItem): boolean {
         ↻ {{ session.compactionCount }}
       </span>
       <span class="ml-auto" style="color: var(--text-tertiary);" :title="session.updatedAt">
-        {{ relativeTime(session.updatedAt) }}
+        {{ formatRelativeTime(session.updatedAt) }}
       </span>
     </div>
   </div>
