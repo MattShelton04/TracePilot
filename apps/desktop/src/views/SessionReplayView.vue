@@ -233,8 +233,9 @@ const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (s
         </header>
         <ErrorAlert
           :message="store.turnsError"
-          retryable
-          class="mb-3"
+          variant="inline"
+          :retryable="true"
+          class="mb-4"
           @retry="retryLoadTurns"
         />
       </template>
