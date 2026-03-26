@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionsStore, type SortOption } from "@/stores/sessions";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar, LoadingSpinner } from "@tracepilot/ui";
-import type { UnlistenFn } from '@tauri-apps/api/event';
 import type { IndexingProgressPayload } from '@tracepilot/types';
-import { safeListen } from '@/utils/tauriEvents';
 
 const router = useRouter();
 const store = useSessionsStore();
@@ -23,7 +22,12 @@ const { refreshing, refresh } = useAutoRefresh({
 });
 
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
-const unlisteners: UnlistenFn[] = [];
+
+const { setup: setupIndexingEvents } = useIndexingEvents({
+  onStarted: () => { indexingProgress.value = null; },
+  onProgress: (p) => { indexingProgress.value = p; },
+  onFinished: () => { indexingProgress.value = null; },
+});
 
 function prefetchTopSessions() {
   const PREFETCH_LIMIT = 5;
@@ -48,17 +52,7 @@ const sortOptions = [
 ];
 
 onMounted(async () => {
-  unlisteners.push(
-    await safeListen<IndexingProgressPayload>('indexing-progress', (event) => {
-      indexingProgress.value = event.payload;
-    }),
-    await safeListen('indexing-started', () => {
-      indexingProgress.value = null;
-    }),
-    await safeListen('indexing-finished', () => {
-      indexingProgress.value = null;
-    }),
-  );
+  await setupIndexingEvents();
 
   if (store.sessions.length === 0) {
     await store.fetchSessions();
@@ -78,10 +72,6 @@ onMounted(async () => {
       prefetchTopSessions();
     }
   });
-});
-
-onUnmounted(() => {
-  for (const unlisten of unlisteners) unlisten();
 });
 
 const pageRef = ref<HTMLElement | null>(null);

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useSearchStore } from '@/stores/search';
 
 import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
-import { safeListen } from '@/utils/tauriEvents';
+import { useIndexingEvents } from '@/composables/useIndexingEvents';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
-import type { SearchContentType, SearchResult } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes } from '@tracepilot/ui';
+import type { IndexingProgressPayload, SearchContentType, SearchResult } from '@tracepilot/types';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes, useToast } from '@tracepilot/ui';
 import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
 
 const store = useSearchStore();
@@ -16,17 +15,21 @@ const store = useSearchStore();
 useSearchUrlSync();
 
 // ÔöÇÔöÇ Main indexing progress (local to this view) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const indexingProgress = ref<{ current: number; total: number } | null>(null);
+const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
-const unlisteners: UnlistenFn[] = [];
 let healthRefreshInterval: number | undefined;
+
+const { setup: setupIndexingEvents } = useIndexingEvents({
+  onStarted: () => { indexingProgress.value = null; isIndexing.value = true; },
+  onProgress: (p) => { indexingProgress.value = p; },
+  onFinished: () => { indexingProgress.value = null; isIndexing.value = false; },
+});
 
 // ÔöÇÔöÇ Local UI state ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const filtersOpen = ref(true);
 const activeDatePreset = ref<string>('all');
-const copyToast = ref<string | null>(null);
-let copyToastTimer: ReturnType<typeof setTimeout> | null = null;
+const { success: toastSuccess, error: toastError } = useToast();
 const showSyntaxHelp = ref(false);
 
 // ── Keyboard navigation ─────────────────────────────────────
@@ -39,20 +42,16 @@ const resultIndexMap = computed(() => {
   return m;
 });
 
-function showCopyToast(message: string) {
-  copyToast.value = message;
-  if (copyToastTimer) clearTimeout(copyToastTimer);
-  copyToastTimer = setTimeout(() => { copyToast.value = null; }, 2000);
-}
-
 async function handleCopyResult(result: SearchResult) {
   const ok = await store.copySingleResult(result);
-  showCopyToast(ok ? 'Copied to clipboard' : 'Copy failed');
+  if (ok) toastSuccess('Copied to clipboard', { duration: 2000 });
+  else toastError('Copy failed', { duration: 2000 });
 }
 
 async function handleCopyAllResults() {
   const ok = await store.copyResultsToClipboard();
-  showCopyToast(ok ? `Copied ${store.results.length} results` : 'Copy failed');
+  if (ok) toastSuccess(`Copied ${store.results.length} results`, { duration: 2000 });
+  else toastError('Copy failed', { duration: 2000 });
 }
 
 // ÔöÇÔöÇ Content type config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -290,26 +289,13 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown, { capture: true });
 
   // Main indexing events (local — only for showing main index progress)
-  unlisteners.push(
-    await safeListen<{ current: number; total: number }>('indexing-progress', (event) => {
-      indexingProgress.value = event.payload;
-    }),
-    await safeListen('indexing-started', () => {
-      indexingProgress.value = null;
-      isIndexing.value = true;
-    }),
-    await safeListen('indexing-finished', () => {
-      indexingProgress.value = null;
-      isIndexing.value = false;
-    }),
-  );
+  await setupIndexingEvents();
   // Search indexing events are handled globally in the search store
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown, { capture: true });
   if (healthRefreshInterval) clearInterval(healthRefreshInterval);
-  for (const unlisten of unlisteners) unlisten();
 });
 </script>
 
@@ -769,16 +755,6 @@ onUnmounted(() => {
         </div>
 
       </div>
-
-      <!-- Copy Toast -->
-      <Transition name="toast-fade">
-        <div v-if="copyToast" class="copy-toast">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-            <polyline points="3 8 6.5 11.5 13 5" />
-          </svg>
-          {{ copyToast }}
-        </div>
-      </Transition>
 
       <!-- Keyboard hints (shown when results are visible) -->
       <div v-if="store.hasResults && !store.loading" class="keyboard-hints">
@@ -2027,34 +2003,6 @@ onUnmounted(() => {
   color: var(--accent-fg);
   background: var(--accent-subtle);
   border-color: var(--accent-fg);
-}
-
-/* ── Copy toast ──────────────────────────────────────────── */
-.copy-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--bg-emphasis);
-  color: var(--text-primary);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  font-size: 0.8125rem;
-  z-index: 1000;
-  pointer-events: none;
-}
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(8px);
 }
 
 /* ── Keyboard hints ──────────────────────────────────────── */

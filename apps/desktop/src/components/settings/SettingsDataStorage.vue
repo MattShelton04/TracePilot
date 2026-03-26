@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { type UnlistenFn } from '@tauri-apps/api/event';
 import {
   factoryReset as factoryResetApi,
   getConfig,
@@ -11,9 +10,9 @@ import {
 } from '@tracepilot/client';
 import type { IndexingProgressPayload } from '@tracepilot/types';
 import { ActionButton, FormInput, SectionPanel, formatBytes, toErrorMessage, useToast, useConfirmDialog } from '@tracepilot/ui';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { safeListen } from '@/utils/tauriEvents';
+import { useIndexingEvents } from '@/composables/useIndexingEvents';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
 
@@ -35,30 +34,16 @@ const searchRebuildResult = ref<string | null>(null);
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
-const unlisteners: UnlistenFn[] = [];
 
-onMounted(async () => {
-  unlisteners.push(
-    await safeListen<IndexingProgressPayload>('indexing-progress', (event) => {
-      indexingProgress.value = event.payload;
-    }),
-    await safeListen('indexing-started', () => {
-      indexingProgress.value = null;
-      isIndexing.value = true;
-    }),
-    await safeListen('indexing-finished', () => {
-      indexingProgress.value = null;
-      isIndexing.value = false;
-    }),
-  );
-});
-
-onUnmounted(() => {
-  for (const unlisten of unlisteners) unlisten();
+const { setup: setupIndexingEvents } = useIndexingEvents({
+  onStarted: () => { indexingProgress.value = null; isIndexing.value = true; },
+  onProgress: (p) => { indexingProgress.value = p; },
+  onFinished: () => { indexingProgress.value = null; isIndexing.value = false; },
 });
 
 // ── Load config data on mount ────────────────────────────────
 onMounted(async () => {
+  await setupIndexingEvents();
   try {
     const config = await getConfig();
     sessionsDirectory.value = config.paths.sessionStateDir;
