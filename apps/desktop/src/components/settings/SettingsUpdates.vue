@@ -16,7 +16,15 @@ async function handleCheckForUpdates() {
 }
 
 async function handleViewWhatsNew() {
-  await openWhatsNew('0.0.0', appVersion.value);
+  if (updateResult.value?.hasUpdate && updateResult.value.latestVersion) {
+    await openWhatsNew(
+      appVersion.value,
+      updateResult.value.latestVersion,
+      updateResult.value.releaseUrl ?? undefined,
+    );
+  } else {
+    await openWhatsNew('0.0.0', appVersion.value);
+  }
 }
 
 function handleOpenRelease() {
@@ -61,11 +69,16 @@ function handleOpenRelease() {
         <div>
           <div class="setting-label">What's New</div>
           <div class="setting-description">
-            View the release notes for your current version.
+            <template v-if="updateResult?.hasUpdate">
+              Preview the release notes for the upcoming v{{ updateResult.latestVersion }}.
+            </template>
+            <template v-else>
+              View the release notes for your current version.
+            </template>
           </div>
         </div>
         <ActionButton size="sm" @click="handleViewWhatsNew">
-          View Release Notes
+          {{ updateResult?.hasUpdate ? 'Preview Changes' : 'View Release Notes' }}
         </ActionButton>
       </div>
       <div v-if="updateResult && !updateCheckLoading" class="setting-row">

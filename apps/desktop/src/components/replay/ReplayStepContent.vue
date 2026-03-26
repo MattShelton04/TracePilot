@@ -23,7 +23,7 @@ import {
   formatDuration,
   formatTime,
   toolIcon,
-  AGENT_COLORS,
+  getAgentColor,
   useConversationSections,
   useToggleSet,
 } from '@tracepilot/ui';
@@ -279,7 +279,7 @@ const hasAssistantContent = computed(() =>
       </template>
 
       <!-- Subagent section -->
-      <div v-else class="subagent-block" :style="{ '--agent-color': AGENT_COLORS[section.agentType] ?? AGENT_COLORS.main }">
+      <div v-else class="subagent-block" :style="{ '--agent-color': getAgentColor(section.agentType) }">
         <div class="subagent-header">
           <AgentBadge
             :agent-name="section.agentDisplayName"

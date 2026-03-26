@@ -427,4 +427,422 @@ describe('useCachedFetch', () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('lifecycle hooks', () => {
+    it('calls onSuccess with fetched data for successful requests', async () => {
+      const mockData = { value: 'test' };
+      const fetcher = vi.fn().mockResolvedValue(mockData);
+      const onSuccess = vi.fn();
+      const { fetch } = useCachedFetch({ fetcher, onSuccess });
+
+      await fetch(undefined);
+
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+      expect(onSuccess).toHaveBeenCalledWith(mockData);
+    });
+
+    it('calls onError with error message for failed requests', async () => {
+      const fetcher = vi.fn().mockRejectedValue(new Error('Network error'));
+      const onError = vi.fn();
+      const { fetch } = useCachedFetch({ fetcher, onError });
+
+      await fetch(undefined);
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith('Network error');
+    });
+
+    it('calls onFinally after successful requests', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
+      const onFinally = vi.fn();
+      const { fetch } = useCachedFetch({ fetcher, onFinally });
+
+      await fetch(undefined);
+
+      expect(onFinally).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onFinally after failed requests', async () => {
+      const fetcher = vi.fn().mockRejectedValue(new Error('fail'));
+      const onFinally = vi.fn();
+      const { fetch } = useCachedFetch({ fetcher, onFinally });
+
+      await fetch(undefined);
+
+      expect(onFinally).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onSuccess for stale requests', async () => {
+      let resolvers: Array<(value: any) => void> = [];
+      const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
+      const onSuccess = vi.fn();
+      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onSuccess });
+
+      const req1 = fetch({ id: 1 });
+      const req2 = fetch({ id: 2 });
+
+      // Complete second request first
+      resolvers[1]({ value: 'second' });
+      await req2;
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+      expect(onSuccess).toHaveBeenCalledWith({ value: 'second' });
+
+      // Complete first request (stale)
+      resolvers[0]({ value: 'first' });
+      await req1;
+
+      // onSuccess should not have been called again
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onError for stale requests', async () => {
+      let resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const fetcher = vi.fn(() => new Promise((resolve, reject) => {
+        resolvers.push({ resolve, reject });
+      }));
+      const onError = vi.fn();
+      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onError });
+
+      const req1 = fetch({ id: 1 });
+      const req2 = fetch({ id: 2 });
+
+      // Second request succeeds
+      resolvers[1].resolve({ value: 'success' });
+      await req2;
+      expect(onError).not.toHaveBeenCalled();
+
+      // First request fails (stale)
+      resolvers[0].reject(new Error('stale error'));
+      await req1;
+
+      // onError should not have been called
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('does not call onFinally for stale requests', async () => {
+      let resolvers: Array<(value: any) => void> = [];
+      const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
+      const onFinally = vi.fn();
+      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onFinally });
+
+      const req1 = fetch({ id: 1 });
+      const req2 = fetch({ id: 2 });
+
+      // Complete second request
+      resolvers[1]({ value: 'second' });
+      await req2;
+      expect(onFinally).toHaveBeenCalledTimes(1);
+
+      // Complete first request (stale)
+      resolvers[0]({ value: 'first' });
+      await req1;
+
+      // onFinally should not have been called again
+      expect(onFinally).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles onSuccess throwing an error gracefully', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
+      const onSuccess = vi.fn(() => {
+        throw new Error('Callback error');
+      });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const { data, error, fetch } = useCachedFetch({ fetcher, onSuccess });
+
+      await fetch(undefined);
+
+      // Data should still be set despite callback error
+      expect(data.value).toEqual({ data: 'test' });
+      expect(error.value).toBe(null);
+      expect(onSuccess).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('onSuccess'),
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles onError throwing an error gracefully', async () => {
+      const fetcher = vi.fn().mockRejectedValue(new Error('fetch failed'));
+      const onError = vi.fn(() => {
+        throw new Error('Callback error');
+      });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const { error, fetch } = useCachedFetch({ fetcher, onError });
+
+      await fetch(undefined);
+
+      // Error should still be set despite callback error
+      expect(error.value).toBe('fetch failed');
+      expect(onError).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('onError'),
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles onFinally throwing an error gracefully', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
+      const onFinally = vi.fn(() => {
+        throw new Error('Callback error');
+      });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const { data, fetch } = useCachedFetch({ fetcher, onFinally });
+
+      await fetch(undefined);
+
+      // Data should still be set despite callback error
+      expect(data.value).toEqual({ data: 'test' });
+      expect(onFinally).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('onFinally'),
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('initialData option', () => {
+    it('initializes with provided initial data', () => {
+      const initialData = { value: 'initial' };
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+      const { data } = useCachedFetch({ fetcher, initialData });
+
+      expect(data.value).toEqual(initialData);
+    });
+
+    it('replaces initial data after successful fetch', async () => {
+      const initialData = { value: 'initial' };
+      const newData = { value: 'new' };
+      const fetcher = vi.fn().mockResolvedValue(newData);
+      const { data, fetch } = useCachedFetch({ fetcher, initialData });
+
+      expect(data.value).toEqual(initialData);
+
+      await fetch(undefined);
+
+      expect(data.value).toEqual(newData);
+    });
+
+    it('resets to initial data after reset()', async () => {
+      const initialData = { value: 'initial' };
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+      const { data, fetch, reset } = useCachedFetch({ fetcher, initialData });
+
+      await fetch(undefined);
+      expect(data.value).toEqual({ value: 'new' });
+
+      reset();
+
+      expect(data.value).toEqual(initialData);
+    });
+  });
+
+  describe('resetOnError option', () => {
+    it('clears data on error when resetOnError is true', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'success' });
+      const { data, fetch } = useCachedFetch({ fetcher, resetOnError: true });
+
+      await fetch({ id: 1 });
+      expect(data.value).toEqual({ data: 'success' });
+
+      // Reconfigure to fail
+      fetcher.mockRejectedValueOnce(new Error('fail'));
+      await fetch({ id: 2 });
+
+      expect(data.value).toBe(null);
+    });
+
+    it('preserves data on error when resetOnError is false', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'success' });
+      const { data, fetch } = useCachedFetch({ fetcher, resetOnError: false });
+
+      await fetch({ id: 1 });
+      expect(data.value).toEqual({ data: 'success' });
+
+      fetcher.mockRejectedValueOnce(new Error('fail'));
+      await fetch({ id: 2 });
+
+      // Data should still be from first successful request
+      expect(data.value).toEqual({ data: 'success' });
+    });
+
+    it('resets to initialData on error when resetOnError is true', async () => {
+      const initialData = { value: 'initial' };
+      const fetcher = vi.fn().mockRejectedValue(new Error('fail'));
+      const { data, fetch } = useCachedFetch({ fetcher, initialData, resetOnError: true });
+
+      expect(data.value).toEqual(initialData);
+
+      await fetch(undefined);
+
+      expect(data.value).toEqual(initialData);
+    });
+  });
+
+  describe('silent mode', () => {
+    it('does not update loading state when silent is true', async () => {
+      let resolvePromise: (value: any) => void;
+      const fetcher = vi.fn(() => new Promise((resolve) => { resolvePromise = resolve; }));
+      const { loading, fetch } = useCachedFetch({ fetcher, silent: true });
+
+      expect(loading.value).toBe(false);
+
+      const fetchPromise = fetch(undefined);
+      expect(loading.value).toBe(false); // Should stay false
+
+      resolvePromise!({ data: 'test' });
+      await fetchPromise;
+
+      expect(loading.value).toBe(false);
+    });
+
+    it('still updates data in silent mode', async () => {
+      const mockData = { value: 'test' };
+      const fetcher = vi.fn().mockResolvedValue(mockData);
+      const { data, fetch } = useCachedFetch({ fetcher, silent: true });
+
+      await fetch(undefined);
+
+      expect(data.value).toEqual(mockData);
+    });
+
+    it('still updates error in silent mode', async () => {
+      const fetcher = vi.fn().mockRejectedValue(new Error('Network error'));
+      const { error, fetch } = useCachedFetch({ fetcher, silent: true });
+
+      await fetch(undefined);
+
+      expect(error.value).toBe('Network error');
+    });
+
+    it('still calls callbacks in silent mode', async () => {
+      const onSuccess = vi.fn();
+      const onFinally = vi.fn();
+      const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
+      const { fetch } = useCachedFetch({ fetcher, silent: true, onSuccess, onFinally });
+
+      await fetch(undefined);
+
+      expect(onSuccess).toHaveBeenCalled();
+      expect(onFinally).toHaveBeenCalled();
+    });
+  });
+
+  describe('cache control', () => {
+    it('does not cache results when cache is false', async () => {
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce({ data: 'first' })
+        .mockResolvedValueOnce({ data: 'second' });
+      const { fetch, isCached } = useCachedFetch({ fetcher, cache: false });
+
+      await fetch({ id: 1 });
+      expect(isCached({ id: 1 })).toBe(false);
+
+      await fetch({ id: 1 }); // Should refetch
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns cached data when cache is false and force is false', async () => {
+      const mockData = { data: 'test' };
+      const fetcher = vi.fn().mockResolvedValue(mockData);
+      const { data, fetch } = useCachedFetch({ fetcher, cache: false });
+
+      await fetch(undefined);
+      expect(data.value).toEqual(mockData);
+
+      const result = await fetch(undefined);
+      expect(result).toEqual(mockData); // Returns current data
+      expect(fetcher).toHaveBeenCalledTimes(2); // But fetches again
+    });
+  });
+
+  describe('return value from fetch', () => {
+    it('returns fetched data on successful fetch', async () => {
+      const mockData = { value: 'test' };
+      const fetcher = vi.fn().mockResolvedValue(mockData);
+      const { fetch } = useCachedFetch({ fetcher });
+
+      const result = await fetch(undefined);
+
+      expect(result).toEqual(mockData);
+    });
+
+    it('returns undefined on error', async () => {
+      const fetcher = vi.fn().mockRejectedValue(new Error('fail'));
+      const { fetch } = useCachedFetch({ fetcher });
+
+      const result = await fetch(undefined);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined for stale requests', async () => {
+      let resolvers: Array<(value: any) => void> = [];
+      const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
+      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+
+      const req1 = fetch({ id: 1 });
+      const req2 = fetch({ id: 2 });
+
+      // Complete second request first
+      resolvers[1]({ value: 'second' });
+      const result2 = await req2;
+      expect(result2).toEqual({ value: 'second' });
+
+      // Complete first request (stale)
+      resolvers[0]({ value: 'first' });
+      const result1 = await req1;
+      expect(result1).toBeUndefined();
+    });
+
+    it('returns cached data when using cache hit', async () => {
+      const mockData = { value: 'test' };
+      const fetcher = vi.fn().mockResolvedValue(mockData);
+      const { fetch } = useCachedFetch({ fetcher });
+
+      await fetch(undefined);
+      const result = await fetch(undefined); // Cache hit
+
+      expect(result).toEqual(mockData);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('readonly protection', () => {
+    it('returns readonly refs that cannot be mutated directly', async () => {
+      const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
+      const { data, loading, error } = useCachedFetch({ fetcher });
+
+      // TypeScript will prevent these assignments, but let's verify at runtime
+      // that the refs are readonly wrapped
+      expect(data).toBeDefined();
+      expect(loading).toBeDefined();
+      expect(error).toBeDefined();
+
+      // These should be readonly refs (Vue's readonly() wrapper)
+      // Attempting to set .value will throw in strict mode or be silently ignored
+      const attempt = () => {
+        // @ts-expect-error Testing runtime readonly behavior
+        data.value = { data: 'hacked' };
+      };
+
+      // In development, Vue's readonly will throw
+      // In production, it might be silently ignored
+      // Either way, the value shouldn't change
+      const originalValue = data.value;
+      try {
+        attempt();
+      } catch {
+        // Expected in dev mode
+      }
+
+      // Value should not have changed
+      expect(data.value).toBe(originalValue);
+    });
+  });
 });

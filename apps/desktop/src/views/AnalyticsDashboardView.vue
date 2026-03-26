@@ -2,6 +2,9 @@
 import {
   ErrorState,
   LoadingOverlay,
+  computeBarWidth,
+  computeGridLines,
+  createChartLayout,
   formatCost,
   formatDateMedium,
   formatDateShort,
@@ -9,6 +12,11 @@ import {
   formatNumber,
   formatNumberFull,
   formatPercent,
+  generateXLabels,
+  generateYLabels,
+  mapToLineCoords,
+  toAreaPoints,
+  toPolylinePoints,
   useChartTooltip,
 } from '@tracepilot/ui';
 import { computed, ref, watch } from 'vue';
@@ -47,22 +55,11 @@ const totalWholesaleCost = computed(() => {
 });
 
 // ── Chart constants ──────────────────────────────────────────
-const CHART_LEFT = 55;
-const CHART_RIGHT = 490;
-const CHART_TOP = 20;
-const CHART_BOTTOM = 175;
-const CHART_W = CHART_RIGHT - CHART_LEFT;
-const CHART_H = CHART_BOTTOM - CHART_TOP;
+const chartLayout = createChartLayout(55, 490, 20, 175);
+const { left: CHART_LEFT, right: CHART_RIGHT, top: CHART_TOP, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
 const GRID_ROWS = 4;
 
-/** Compute stride so we show ~10 labels max. */
-function labelStride(count: number): number {
-  return Math.max(1, Math.ceil(count / 10));
-}
-
-const gridLines = computed(() =>
-  Array.from({ length: GRID_ROWS }, (_, i) => CHART_TOP + (i * CHART_H) / GRID_ROWS),
-);
+const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
 
 // ── Dynamic aria-label based on time range ───────────────────
 const timeRangeLabel = computed(() => {
@@ -89,24 +86,11 @@ const tokenChart = computed(() => {
   const pts = data.value.tokenUsageByDay;
   if (pts.length < 2) return null;
   const max = Math.max(...pts.map((p) => p.tokens), 1);
-  const step = CHART_W / (pts.length - 1);
-
-  const coords = pts.map((p, i) => ({
-    x: CHART_LEFT + i * step,
-    y: CHART_BOTTOM - (p.tokens / max) * CHART_H,
-    date: p.date,
-    tokens: p.tokens,
-  }));
-  const linePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
-  const areaPoints = `${linePoints} ${CHART_RIGHT},${CHART_BOTTOM} ${CHART_LEFT},${CHART_BOTTOM}`;
-  const yLabels = Array.from({ length: 5 }, (_, i) => ({
-    value: formatNumber((max / 4) * i),
-    y: CHART_BOTTOM - (i * CHART_H) / 4,
-  }));
-  const stride = labelStride(pts.length);
-  const xLabels = pts
-    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * step }))
-    .filter((_, i) => i % stride === 0);
+  const coords = mapToLineCoords(pts, chartLayout, (p) => p.tokens, max);
+  const linePoints = toPolylinePoints(coords);
+  const areaPoints = toAreaPoints(coords, chartLayout);
+  const yLabels = generateYLabels(max, chartLayout, 5, formatNumber);
+  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
@@ -117,21 +101,19 @@ const activityChart = computed(() => {
   if (pts.length === 0) return null;
   const max = Math.max(...pts.map((p) => p.count), 1);
   const spacing = CHART_W / pts.length;
-  const barW = Math.max(4, Math.min(20, spacing - 2));
+  const barW = computeBarWidth(CHART_W, pts.length);
 
   const bars = pts.map((p, i) => {
     const x = CHART_LEFT + i * spacing + (spacing - barW) / 2;
     const h = (p.count / max) * CHART_H;
     return { x, y: CHART_BOTTOM - h, width: barW, height: h, date: p.date, count: p.count };
   });
-  const yLabels = Array.from({ length: 5 }, (_, i) => ({
-    value: String(Math.round((max / 4) * i)),
-    y: CHART_BOTTOM - (i * CHART_H) / 4,
-  }));
-  const stride = labelStride(pts.length);
-  const xLabels = pts
-    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * spacing + spacing / 2 }))
-    .filter((_, i) => i % stride === 0);
+  const yLabels = generateYLabels(max, chartLayout, 5, (v) => String(Math.round(v)));
+  const xLabels = generateXLabels(
+    pts,
+    (_, i) => CHART_LEFT + i * spacing + spacing / 2,
+    (p) => formatDateShort(p.date),
+  );
   return { bars, yLabels, xLabels };
 });
 
@@ -179,24 +161,11 @@ const costChart = computed(() => {
   const pts = data.value.costByDay.map((p) => ({ date: p.date, cost: p.cost * rate }));
   if (pts.length < 2) return null;
   const max = Math.max(...pts.map((p) => p.cost), 0.01);
-  const step = CHART_W / (pts.length - 1);
-
-  const coords = pts.map((p, i) => ({
-    x: CHART_LEFT + i * step,
-    y: CHART_BOTTOM - (p.cost / max) * CHART_H,
-    date: p.date,
-    cost: p.cost,
-  }));
-  const linePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
-  const areaPoints = `${linePoints} ${CHART_RIGHT},${CHART_BOTTOM} ${CHART_LEFT},${CHART_BOTTOM}`;
-  const yLabels = Array.from({ length: 4 }, (_, i) => ({
-    value: formatCost((max / 3) * i),
-    y: CHART_BOTTOM - (i * CHART_H) / 3,
-  }));
-  const stride = labelStride(pts.length);
-  const xLabels = pts
-    .map((p, i) => ({ label: formatDateShort(p.date), x: CHART_LEFT + i * step }))
-    .filter((_, i) => i % stride === 0);
+  const coords = mapToLineCoords(pts, chartLayout, (p) => p.cost, max);
+  const linePoints = toPolylinePoints(coords);
+  const areaPoints = toAreaPoints(coords, chartLayout);
+  const yLabels = generateYLabels(max, chartLayout, 4, formatCost);
+  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
@@ -261,10 +230,11 @@ const incidentChart = computed(() => {
     return { value, y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
   });
 
-  const stride = labelStride(barData.length);
-  const xLabels = barData
-    .map((b, i) => ({ label: formatDateShort(b.date), x: CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W }))
-    .filter((_, i) => i % stride === 0);
+  const xLabels = generateXLabels(
+    barData,
+    (_, i) => CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W,
+    (b) => formatDateShort(b.date),
+  );
 
   return { bars, yLabels, xLabels, barW, maxVal };
 });

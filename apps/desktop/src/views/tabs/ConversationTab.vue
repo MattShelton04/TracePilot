@@ -13,7 +13,7 @@ import {
   formatDuration, formatTime, formatNumber, truncateText,
   toolIcon, toolCategory, categoryColor,
   useSessionTabLoader, useToggleSet, useConversationSections,
-  AGENT_COLORS,
+  getAgentColor,
 } from "@tracepilot/ui";
 
 const route = useRoute();
@@ -325,7 +325,7 @@ function retryLoadTurns() {
             v-else
             :id="`subagent-${turn.turnIndex}-${section.agentId}`"
             class="subagent-block"
-            :style="{ '--agent-border-color': AGENT_COLORS[section.agentType] ?? AGENT_COLORS.main }"
+            :style="{ '--agent-border-color': getAgentColor(section.agentType) }"
           >
             <button
               class="subagent-header"
@@ -361,7 +361,7 @@ function retryLoadTurns() {
                 </div>
                 <div class="turn-body">
                   <div class="turn-header">
-                    <span class="turn-author" :style="{ color: AGENT_COLORS[section.agentType] }">{{ section.agentDisplayName }}</span>
+                    <span class="turn-author" :style="{ color: getAgentColor(section.agentType) }">{{ section.agentDisplayName }}</span>
                     <Badge v-if="section.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ section.model }}</Badge>
                   </div>
                   <div class="turn-bubble assistant">
@@ -433,7 +433,7 @@ function retryLoadTurns() {
                 <span
                   v-if="section.agentId"
                   class="compact-agent-dot"
-                  :style="{ backgroundColor: AGENT_COLORS[section.agentType] }"
+                  :style="{ backgroundColor: getAgentColor(section.agentType) }"
                   :title="section.agentDisplayName"
                 />
                 {{ section.agentId ? section.agentDisplayName + ':' : 'Copilot:' }}
@@ -461,7 +461,7 @@ function retryLoadTurns() {
                   failed: tc.success === false,
                   unknown: tc.success == null,
                 }"
-                :style="section.agentId ? { borderLeft: `3px solid ${AGENT_COLORS[section.agentType]}` } : {}"
+                :style="section.agentId ? { borderLeft: `3px solid ${getAgentColor(section.agentType)}` } : {}"
                 :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
                 :title="section.agentId ? `${section.agentDisplayName} → ${tc.toolName}` : tc.toolName"
                 @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
@@ -549,7 +549,7 @@ function retryLoadTurns() {
                 />
                 <span v-if="section.durationMs" class="turn-meta">{{ formatDuration(section.durationMs) }}</span>
               </div>
-              <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${AGENT_COLORS[section.agentType]} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
+              <div :style="section.agentId ? { paddingLeft: '12px', borderLeft: `2px solid color-mix(in srgb, ${getAgentColor(section.agentType)} 25%, transparent)` } : {}" style="display: flex; flex-direction: column; gap: 6px;">
                 <ToolCallItem
                   v-for="tc in section.toolCalls"
                   :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"

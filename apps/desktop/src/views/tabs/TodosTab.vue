@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { Badge, StatusIcon, EmptyState, ErrorAlert, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
 import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
+import { buildTodoRelations, buildTodoStatusStats } from "@/utils/todoStats";
 
 const store = useSessionDetailStore();
 
@@ -19,11 +20,14 @@ function retryLoadTodos() {
 const todos = computed(() => store.todos?.todos ?? []);
 const deps = computed(() => store.todos?.deps ?? []);
 
-const completedCount = computed(() => todos.value.filter(t => t.status === 'done').length);
-const inProgressCount = computed(() => todos.value.filter(t => t.status === 'in_progress').length);
-const blockedCount = computed(() => todos.value.filter(t => t.status === 'blocked').length);
-const pendingCount = computed(() => todos.value.filter(t => t.status !== 'done' && t.status !== 'in_progress' && t.status !== 'blocked').length);
-const progressPercent = computed(() => todos.value.length > 0 ? (completedCount.value / todos.value.length) * 100 : 0);
+const todoRelations = computed(() => buildTodoRelations(todos.value, deps.value));
+const todoStats = computed(() => buildTodoStatusStats(todos.value));
+
+const completedCount = computed(() => todoStats.value.done);
+const inProgressCount = computed(() => todoStats.value.inProgress);
+const blockedCount = computed(() => todoStats.value.blocked);
+const pendingCount = computed(() => todoStats.value.pending);
+const progressPercent = computed(() => todoStats.value.progressPercent);
 
 const viewMode = ref<'list' | 'graph'>('graph');
 
@@ -37,12 +41,11 @@ function statusBadgeVariant(status: string): 'done' | 'accent' | 'danger' | 'neu
 }
 
 function getDependencies(todoId: string): string[] {
-  return deps.value.filter((dep) => dep.todoId === todoId).map((dep) => dep.dependsOn);
+  return todoRelations.value.dependenciesByTodoId.get(todoId) ?? [];
 }
 
 function getTodoTitle(id: string): string {
-  const todo = todos.value.find((item) => item.id === id);
-  return todo?.title || id;
+  return todoRelations.value.todoById.get(id)?.title ?? id;
 }
 </script>
 

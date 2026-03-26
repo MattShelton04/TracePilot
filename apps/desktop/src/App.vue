@@ -16,6 +16,7 @@ import { runUpdateCheck } from '@/composables/useUpdateCheck';
 import { useWhatsNew } from '@/composables/useWhatsNew';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
+import { openExternal } from '@/utils/openExternal';
 
 type AppPhase = 'loading' | 'setup' | 'indexing' | 'app';
 
@@ -33,6 +34,7 @@ const {
   whatsNewPreviousVersion,
   whatsNewCurrentVersion,
   whatsNewEntries,
+  whatsNewReleaseUrl,
   openWhatsNew,
   closeWhatsNew,
 } = useWhatsNew();
@@ -181,7 +183,9 @@ const breadcrumbs = computed(() => {
     :previous-version="whatsNewPreviousVersion"
     :current-version="whatsNewCurrentVersion"
     :entries="whatsNewEntries"
+    :release-url="whatsNewReleaseUrl"
     @close="closeWhatsNew"
+    @open-external="openExternal"
   />
 
   <!-- Global UI hosts — mounted once, consumed by composables everywhere -->

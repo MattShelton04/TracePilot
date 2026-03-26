@@ -69,7 +69,7 @@ export function createDefaultConfig(
       hideEmptySessions: true,
       autoRefreshEnabled: false,
       autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
-      checkForUpdates: false,
+      checkForUpdates: true,
       favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
       recentRepoPaths: [],
       contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,

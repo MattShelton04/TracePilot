@@ -1,5 +1,5 @@
 import { toErrorMessage } from '@tracepilot/ui';
-import { ref, type Ref } from 'vue';
+import { ref, readonly, type Ref } from 'vue';
 
 /**
  * Options for configuring the cached fetch composable.
@@ -15,27 +15,65 @@ export interface CachedFetchOptions<TData, TParams> {
    * Defaults to JSON.stringify(params).
    */
   cacheKeyFn?: (params: TParams) => string;
+
+  /**
+   * Optional callback fired on successful fetch (only for non-stale requests).
+   */
+  onSuccess?: (data: TData) => void;
+
+  /**
+   * Optional callback fired on error (only for non-stale requests).
+   */
+  onError?: (error: string) => void;
+
+  /**
+   * Optional callback fired after fetch completes, success or error (only for non-stale requests).
+   */
+  onFinally?: () => void;
+
+  /**
+   * Initial data value. Defaults to null.
+   */
+  initialData?: TData | null;
+
+  /**
+   * Whether to reset data to null on error. Defaults to false.
+   */
+  resetOnError?: boolean;
+
+  /**
+   * Silent mode: don't update loading state. Useful for background refreshes.
+   * Defaults to false.
+   */
+  silent?: boolean;
+
+  /**
+   * Whether to cache results. Defaults to true.
+   * Set to false for always-fresh fetches.
+   */
+  cache?: boolean;
 }
 
 /**
  * Result interface for the cached fetch composable.
  */
 export interface CachedFetchResult<TData, TParams> {
-  /** Reactive data state */
-  data: Ref<TData | null>;
+  /** Reactive data state (readonly - cannot be mutated externally) */
+  readonly data: Readonly<Ref<TData | null>>;
 
-  /** Reactive loading state */
-  loading: Ref<boolean>;
+  /** Reactive loading state (readonly - cannot be mutated externally) */
+  readonly loading: Readonly<Ref<boolean>>;
 
-  /** Reactive error state (error message string) */
-  error: Ref<string | null>;
+  /** Reactive error state (readonly - cannot be mutated externally) */
+  readonly error: Readonly<Ref<string | null>>;
 
   /**
    * Fetch data with the given parameters.
    * @param params - Parameters to pass to the fetcher function
    * @param options - Additional options (e.g., force refresh)
+   * @returns The fetched data, or undefined if the request became stale or errored
    */
-  fetch: (params: TParams, options?: { force?: boolean }) => Promise<void>;
+  fetch: (params: TParams, options?: { force?: boolean }) => Promise<TData | undefined>;
 
   /**
    * Reset all state to initial values and clear cache.
@@ -88,10 +126,20 @@ export interface CachedFetchResult<TData, TParams> {
 export function useCachedFetch<TData, TParams = void>(
   options: CachedFetchOptions<TData, TParams>,
 ): CachedFetchResult<TData, TParams> {
-  const { fetcher, cacheKeyFn = (p) => JSON.stringify(p) } = options;
+  const {
+    fetcher,
+    cacheKeyFn = (p) => JSON.stringify(p),
+    onSuccess,
+    onError,
+    onFinally,
+    initialData = null,
+    resetOnError = false,
+    silent = false,
+    cache = true,
+  } = options;
 
   // Reactive state
-  const data = ref<TData | null>(null) as Ref<TData | null>;
+  const data = ref<TData | null>(initialData) as Ref<TData | null>;
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -99,7 +147,7 @@ export function useCachedFetch<TData, TParams = void>(
   const loaded = new Set<string>();
 
   // In-flight promise tracking: deduplicate concurrent requests
-  const inflight = new Map<string, Promise<void>>();
+  const inflight = new Map<string, Promise<TData | undefined>>();
 
   // Generation counter: prevent stale async writes
   let generation = 0;
@@ -107,12 +155,12 @@ export function useCachedFetch<TData, TParams = void>(
   /**
    * Fetch data with the given parameters.
    */
-  const fetch = async (params: TParams, opts?: { force?: boolean }): Promise<void> => {
+  const fetch = async (params: TParams, opts?: { force?: boolean }): Promise<TData | undefined> => {
     const cacheKey = cacheKeyFn(params);
 
     // Return early if cached and not forced
-    if (!opts?.force && loaded.has(cacheKey)) {
-      return;
+    if (cache && !opts?.force && loaded.has(cacheKey)) {
+      return data.value ?? undefined;
     }
 
     // Deduplicate: return existing promise if already in-flight
@@ -123,7 +171,9 @@ export function useCachedFetch<TData, TParams = void>(
 
     // Start new fetch
     const gen = ++generation;
-    loading.value = true;
+    if (!silent) {
+      loading.value = true;
+    }
     error.value = null;
 
     const promise = (async () => {
@@ -131,22 +181,62 @@ export function useCachedFetch<TData, TParams = void>(
         const result = await fetcher(params);
 
         // Only update if this is still the latest request
-        if (gen !== generation) return;
+        if (gen !== generation) return undefined;
 
         data.value = result as TData;
-        loaded.add(cacheKey);
+        if (cache) {
+          loaded.add(cacheKey);
+        }
+
+        // Call onSuccess with try-catch to prevent callback errors from breaking state
+        if (onSuccess) {
+          try {
+            onSuccess(result);
+          } catch (callbackError) {
+            console.error('useCachedFetch: onSuccess callback threw an error:', callbackError);
+          }
+        }
+
+        return result;
       } catch (e) {
         // Only update error if this is still the latest request
-        if (gen !== generation) return;
+        if (gen !== generation) return undefined;
 
-        error.value = toErrorMessage(e);
+        const errorMsg = toErrorMessage(e);
+        error.value = errorMsg;
+
+        if (resetOnError) {
+          data.value = initialData;
+        }
+
+        // Call onError with try-catch
+        if (onError) {
+          try {
+            onError(errorMsg);
+          } catch (callbackError) {
+            console.error('useCachedFetch: onError callback threw an error:', callbackError);
+          }
+        }
+
+        return undefined;
       } finally {
         // Clean up inflight tracking
         inflight.delete(cacheKey);
 
-        // Only update loading if this is still the latest request
+        // Only update loading and call onFinally if this is still the latest request
         if (gen === generation) {
-          loading.value = false;
+          if (!silent) {
+            loading.value = false;
+          }
+
+          // Call onFinally with try-catch
+          if (onFinally) {
+            try {
+              onFinally();
+            } catch (callbackError) {
+              console.error('useCachedFetch: onFinally callback threw an error:', callbackError);
+            }
+          }
         }
       }
     })();
@@ -159,7 +249,7 @@ export function useCachedFetch<TData, TParams = void>(
    * Reset all state to initial values and clear cache.
    */
   const reset = () => {
-    data.value = null;
+    data.value = initialData;
     loading.value = false;
     error.value = null;
     loaded.clear();
@@ -171,7 +261,7 @@ export function useCachedFetch<TData, TParams = void>(
    * Check if data for the given parameters is cached.
    */
   const isCached = (params: TParams): boolean => {
-    return loaded.has(cacheKeyFn(params));
+    return cache && loaded.has(cacheKeyFn(params));
   };
 
   /**
@@ -182,9 +272,9 @@ export function useCachedFetch<TData, TParams = void>(
   };
 
   return {
-    data,
-    loading,
-    error,
+    data: readonly(data),
+    loading: readonly(loading),
+    error: readonly(error),
     fetch,
     reset,
     isCached,
