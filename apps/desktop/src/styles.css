@@ -1202,6 +1202,8 @@ body {
 
 /* ============================
    EMPTY STATE
+   Kept for backward compatibility with inline markup.
+   Prefer the <EmptyState> component from @tracepilot/ui.
    ============================ */
 
 .empty-state {
