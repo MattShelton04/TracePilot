@@ -80,7 +80,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   // All three analytics fetch actions share the same parameter-building logic.
 
   function buildFetchAction(
-    fetcher: { fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<void> },
+    fetcher: { fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<unknown> },
   ) {
     return async (options?: AnalyticsFetchOptions) => {
       const prefs = usePreferencesStore();

@@ -359,7 +359,7 @@ updated_at: "{updated_at}"
             ),
         )
         .unwrap();
-        // Events with tool.execution_start → tool.execution_complete pairs
+        // Events with tool.execution_start → tool.execution_complete pairs + shutdown
         fs::write(
             session_dir.join("events.jsonl"),
             concat!(
@@ -369,6 +369,7 @@ updated_at: "{updated_at}"
                 r#"{"type":"tool.execution_complete","data":{"toolCallId":"tc-1","success":true,"output":"file contents"},"id":"evt-4","timestamp":"2026-03-10T07:14:54.000Z","parentId":"evt-3"}"#, "\n",
                 r#"{"type":"tool.execution_start","data":{"toolCallId":"tc-2","toolName":"edit_file","arguments":{"path":"/test/bar.rs"}},"id":"evt-5","timestamp":"2026-03-10T07:14:55.000Z","parentId":"evt-2"}"#, "\n",
                 r#"{"type":"tool.execution_complete","data":{"toolCallId":"tc-2","success":false,"output":"permission denied"},"id":"evt-6","timestamp":"2026-03-10T07:14:56.000Z","parentId":"evt-5"}"#, "\n",
+                r#"{"type":"session.shutdown","data":{"shutdownType":"routine","totalPremiumRequests":1,"totalApiDurationMs":5000,"sessionStartTime":1773308090000,"currentModel":"claude-opus-4.6","modelMetrics":{"claude-opus-4.6":{"requests":{"count":2,"cost":0.5},"usage":{"inputTokens":500,"outputTokens":200}}}},"id":"evt-7","timestamp":"2026-03-10T07:15:00.000Z","parentId":null}"#, "\n",
             ),
         )
         .unwrap();

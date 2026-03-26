@@ -272,7 +272,7 @@ export function useCachedFetch<TData, TParams = void>(
   };
 
   return {
-    data: readonly(data),
+    data: readonly(data) as unknown as Readonly<Ref<TData | null>>,
     loading: readonly(loading),
     error: readonly(error),
     fetch,
