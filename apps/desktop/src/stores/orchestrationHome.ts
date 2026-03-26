@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
 import type { SystemDependencies, CopilotVersion, WorktreeInfo, RegisteredRepo } from '@tracepilot/types';
 import {
   checkSystemDeps,
@@ -19,7 +18,6 @@ export interface ActivityEvent {
 }
 
 export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => {
-  const prefsStore = usePreferencesStore();
   const systemDeps = ref<SystemDependencies | null>(null);
   const totalSessions = ref(0);
   const activeSessions = ref(0);
@@ -74,10 +72,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
   async function doFetch() {
     try {
-      const cliCmd = prefsStore.cliCommand || 'copilot';
       // Fast path: system deps and version info load first (< 100ms)
       const [depsResult, activeResult] = await Promise.allSettled([
-        checkSystemDeps(cliCmd),
+        checkSystemDeps(),
         getActiveCopilotVersion(),
       ]);
 

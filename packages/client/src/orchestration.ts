@@ -33,8 +33,8 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 // ─── System ───────────────────────────────────────────────────────
 
-export async function checkSystemDeps(cliCommand?: string): Promise<SystemDependencies> {
-  return invoke<SystemDependencies>('check_system_deps', { cliCommand: cliCommand ?? null });
+export async function checkSystemDeps(): Promise<SystemDependencies> {
+  return invoke<SystemDependencies>('check_system_deps');
 }
 
 // ─── Worktree Commands ────────────────────────────────────────────

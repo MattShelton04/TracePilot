@@ -356,13 +356,31 @@ pub fn available_models() -> Vec<ModelInfo> {
 // ─── Internal helpers ─────────────────────────────────────────────
 
 fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
-    match crate::process::run_hidden(name, args, None) {
-        Ok(output) if output.status.success() => {
-            let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let version = extract_version(&raw).unwrap_or(raw);
+    // Try raw first, fallback to shell on Windows to catch aliases/functions/batch files
+    let output = match crate::process::run_hidden(name, args, None) {
+        Ok(out) if out.status.success() => Some(out),
+        _ => {
+            #[cfg(windows)]
+            {
+                let full_cmd = if args.is_empty() { name.to_string() } else { format!("{} {}", name, args.join(" ")) };
+                crate::process::run_hidden_shell(&full_cmd, None).ok()
+            }
+            #[cfg(not(windows))]
+            None
+        }
+    };
+
+    match output {
+        Some(out) => {
+            let out_str = String::from_utf8_lossy(&out.stdout);
+            let err_str = String::from_utf8_lossy(&out.stderr);
+            // Search both streams for a version pattern; fallback to stdout if none found
+            let version = extract_version(&out_str)
+                .or_else(|| extract_version(&err_str))
+                .unwrap_or_else(|| out_str.trim().to_string());
             (true, Some(version))
         }
-        _ => (false, None),
+        None => (false, None),
     }
 }
 
@@ -402,7 +420,6 @@ fn extract_version(s: &str) -> Option<String> {
     }
     None
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,6 +448,7 @@ mod tests {
             Some("2.45.0".to_string())
         );
         assert_eq!(extract_version("1.0.8"), Some("1.0.8".to_string()));
+        assert_eq!(extract_version("version 10.12.3 (build abc)"), Some("10.12.3".to_string()));
         assert_eq!(extract_version("no version here"), None);
     }
 

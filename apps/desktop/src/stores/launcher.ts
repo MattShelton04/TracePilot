@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
 import type {
   LaunchConfig,
   LaunchedSession,
@@ -20,7 +19,6 @@ import {
 } from '@tracepilot/client';
 
 export const useLauncherStore = defineStore('launcher', () => {
-  const prefsStore = usePreferencesStore();
   const models = ref<ModelInfo[]>([]);
   const templates = ref<SessionTemplate[]>([]);
   const recentLaunches = ref<LaunchedSession[]>([]);
@@ -44,9 +42,8 @@ export const useLauncherStore = defineStore('launcher', () => {
     loading.value = true;
     error.value = null;
     try {
-      const cliCmd = prefsStore.cliCommand || 'copilot';
       const [depsResult, modelsResult, templatesResult] = await Promise.allSettled([
-        checkSystemDeps(cliCmd),
+        checkSystemDeps(),
         getAvailableModels(),
         listSessionTemplates(),
       ]);
