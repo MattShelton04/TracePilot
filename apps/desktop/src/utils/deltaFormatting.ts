@@ -68,7 +68,7 @@ export function formatModelDelta(
 ): ModelDelta {
   const diff = a - b;
   if (Math.abs(diff) < 0.001) return { delta: '—', direction: 'neutral', better: 'neutral' };
-  const pct = b !== 0 ? ((diff / Math.abs(b)) * 100).toFixed(1) : '∞';
+  const pct = b !== 0 ? ((diff / Math.abs(b)) * 100).toFixed(1) : (diff > 0 ? '∞' : '-∞');
   const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down';
   const better: 'a' | 'b' = higherIsBetter ? (diff > 0 ? 'a' : 'b') : diff < 0 ? 'a' : 'b';
   return { delta: `${diff > 0 ? '+' : ''}${pct}%`, direction, better };

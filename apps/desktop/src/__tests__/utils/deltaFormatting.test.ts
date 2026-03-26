@@ -92,11 +92,18 @@ describe('formatModelDelta', () => {
     expect(result.better).toBe('b');
   });
 
-  it('uses ∞ when b is zero', () => {
+  it('uses +∞ when a > 0 and b is zero', () => {
     const result = formatModelDelta(50, 0, true);
     expect(result.delta).toBe('+∞%');
     expect(result.direction).toBe('up');
     expect(result.better).toBe('a');
+  });
+
+  it('uses -∞ when a < 0 and b is zero', () => {
+    const result = formatModelDelta(-5, 0, true);
+    expect(result.delta).toBe('-∞%');
+    expect(result.direction).toBe('down');
+    expect(result.better).toBe('b');
   });
 
   it('marks lower cost as better when higherIsBetter is false', () => {
