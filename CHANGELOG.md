@@ -18,6 +18,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Fixed
 - `fts_integrity_check` always reported failure (query_row misuse with FTS5 commands)
 - Session group headers now prioritize session name over repo/branch badges
+- New sessions are now detected correctly when auto refresh is enabled
 
 ## [0.5.0] - 2026-03-24
 
