@@ -8,6 +8,10 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import yaml from 'js-yaml';
+import { formatTokens } from '@tracepilot/types';
+
+// Re-export for convenience
+export { formatTokens };
 
 /** Regex to validate a full UUID (v4-style, case-insensitive). */
 export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -100,13 +104,4 @@ export async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * Format a token count for display (e.g. 1234567 → "1.2M", 12345 → "12.3K").
- */
-export function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }

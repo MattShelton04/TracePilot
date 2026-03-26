@@ -7,7 +7,11 @@ import {
   formatRate,
   formatRelativeTime,
   toErrorMessage,
-} from '../utils/formatters';
+  formatNumber,
+  formatDuration,
+  formatCost,
+  formatBytes,
+} from '@tracepilot/types';
 
 describe('formatRate', () => {
   it('formats 0-1 rate as percentage', () => {
@@ -266,5 +270,135 @@ describe('toErrorMessage', () => {
       enumerable: false,
     });
     expect(toErrorMessage(errorLike)).toBe('Hidden message');
+  });
+});
+
+describe('formatNumber', () => {
+  it('formats large numbers with M suffix', () => {
+    expect(formatNumber(1_000_000)).toBe('1.0M');
+    expect(formatNumber(1_234_567)).toBe('1.2M');
+    expect(formatNumber(1_500_000)).toBe('1.5M');
+    expect(formatNumber(9_999_999)).toBe('10.0M');
+  });
+
+  it('formats thousands with K suffix', () => {
+    expect(formatNumber(1_000)).toBe('1.0K');
+    expect(formatNumber(1_234)).toBe('1.2K');
+    expect(formatNumber(12_345)).toBe('12.3K');
+    expect(formatNumber(999_999)).toBe('1000.0K');
+  });
+
+  it('formats numbers under 1000 without suffix', () => {
+    expect(formatNumber(0)).toBe('0');
+    expect(formatNumber(1)).toBe('1');
+    expect(formatNumber(999)).toBe('999');
+  });
+
+  it('handles null and undefined', () => {
+    expect(formatNumber(null)).toBe('0');
+    expect(formatNumber(undefined)).toBe('0');
+  });
+
+  it('handles fractional values', () => {
+    expect(formatNumber(0.5)).toBe('0.5');
+    expect(formatNumber(1_234.5)).toBe('1.2K');
+  });
+});
+
+describe('formatDuration', () => {
+  it('formats milliseconds', () => {
+    expect(formatDuration(0)).toBe('0ms'); // 0 returns '0ms', not ''
+    expect(formatDuration(1)).toBe('1ms');
+    expect(formatDuration(999)).toBe('999ms');
+    expect(formatDuration(999.99)).toBe('999.99ms'); // Rounds to 2 decimals
+  });
+
+  it('formats seconds', () => {
+    expect(formatDuration(1000)).toBe('1s');
+    expect(formatDuration(2100)).toBe('2.1s');
+    expect(formatDuration(59_000)).toBe('59s');
+    expect(formatDuration(59_999)).toBe('60.0s'); // Formats with decimal
+  });
+
+  it('formats minutes and seconds', () => {
+    expect(formatDuration(60_000)).toBe('1m 0s');
+    expect(formatDuration(125_000)).toBe('2m 5s');
+    expect(formatDuration(3_599_000)).toBe('59m 59s');
+  });
+
+  it('formats hours and minutes', () => {
+    expect(formatDuration(3_600_000)).toBe('1h 0m');
+    expect(formatDuration(7_200_000)).toBe('2h 0m');
+    expect(formatDuration(5_400_000)).toBe('1h 30m');
+  });
+
+  it('handles null and undefined', () => {
+    expect(formatDuration(null)).toBe('');
+    expect(formatDuration(undefined)).toBe('');
+  });
+
+  it('handles negative numbers', () => {
+    expect(formatDuration(-1)).toBe('');
+    expect(formatDuration(-1000)).toBe('');
+  });
+});
+
+describe('formatCost', () => {
+  it('formats zero as $0.00', () => {
+    expect(formatCost(0)).toBe('$0.00');
+  });
+
+  it('formats small costs with two decimal places', () => {
+    expect(formatCost(0.01)).toBe('$0.01');
+    expect(formatCost(1.23)).toBe('$1.23');
+    expect(formatCost(9.99)).toBe('$9.99');
+  });
+
+  it('formats large costs with comma separators', () => {
+    expect(formatCost(1_000)).toBe('$1,000.00');
+    expect(formatCost(1_234.56)).toBe('$1,234.56');
+    expect(formatCost(1_000_000)).toBe('$1,000,000.00');
+  });
+
+  it('handles null and undefined', () => {
+    expect(formatCost(null)).toBe('$0.00');
+    expect(formatCost(undefined)).toBe('$0.00');
+  });
+
+  it('rounds to two decimal places', () => {
+    expect(formatCost(0.999)).toBe('$1.00');
+    expect(formatCost(1.234)).toBe('$1.23');
+  });
+});
+
+describe('formatBytes', () => {
+  it('handles zero and negative values', () => {
+    expect(formatBytes(0)).toBe('—');
+    expect(formatBytes(-1)).toBe('—');
+    expect(formatBytes(null)).toBe('—');
+    expect(formatBytes(undefined)).toBe('—');
+  });
+
+  it('formats bytes', () => {
+    expect(formatBytes(1)).toBe('1 B');
+    expect(formatBytes(1023)).toBe('1023 B');
+  });
+
+  it('formats kilobytes', () => {
+    expect(formatBytes(1024)).toBe('1.0 KB');
+    expect(formatBytes(1536)).toBe('1.5 KB');
+  });
+
+  it('formats megabytes', () => {
+    expect(formatBytes(1_048_576)).toBe('1.0 MB');
+    expect(formatBytes(1_572_864)).toBe('1.5 MB');
+  });
+
+  it('formats gigabytes', () => {
+    expect(formatBytes(1_073_741_824)).toBe('1.0 GB');
+  });
+
+  it('formats terabytes', () => {
+    expect(formatBytes(1_099_511_627_776)).toBe('1.0 TB');
   });
 });
