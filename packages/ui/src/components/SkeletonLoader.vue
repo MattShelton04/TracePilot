@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  variant?: "text" | "badge" | "card";
+  variant?: 'text' | 'badge' | 'card';
   count?: number;
 }>();
 </script>

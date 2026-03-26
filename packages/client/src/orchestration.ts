@@ -21,7 +21,7 @@ import type {
   WorktreeInfo,
 } from '@tracepilot/types';
 
-import { isTauri, invokePlugin } from './invoke.js';
+import { invokePlugin, isTauri } from './invoke.js';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
@@ -169,7 +169,10 @@ export async function deleteConfigBackup(backupPath: string): Promise<void> {
   return invoke<void>('delete_config_backup', { backupPath });
 }
 
-export async function previewBackupRestore(backupPath: string, sourcePath: string): Promise<BackupDiffPreview> {
+export async function previewBackupRestore(
+  backupPath: string,
+  sourcePath: string,
+): Promise<BackupDiffPreview> {
   return invoke<BackupDiffPreview>('preview_backup_restore', { backupPath, sourcePath });
 }
 
@@ -353,12 +356,15 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
     get_agent_definitions: [
       {
         name: 'explore',
-        filePath: 'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\explore.agent.yaml',
+        filePath:
+          'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\explore.agent.yaml',
         model: 'claude-haiku-4.5',
-        description: 'Fast agent specialized for exploring codebases and answering questions about code.',
+        description:
+          'Fast agent specialized for exploring codebases and answering questions about code.',
         tools: ['grep', 'glob', 'view', 'bash'],
         promptExcerpt: 'Fast agent specialized for exploring codebases...',
-        rawYaml: 'name: explore\nmodel: claude-haiku-4.5\ndescription: Fast agent specialized for exploring codebases\n',
+        rawYaml:
+          'name: explore\nmodel: claude-haiku-4.5\ndescription: Fast agent specialized for exploring codebases\n',
       },
       {
         name: 'task',
@@ -371,16 +377,19 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
       },
       {
         name: 'code-review',
-        filePath: 'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\code-review.agent.yaml',
+        filePath:
+          'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\code-review.agent.yaml',
         model: 'claude-sonnet-4.6',
         description: 'Agent for reviewing code changes with extremely high signal-to-noise ratio.',
         tools: ['bash', 'grep', 'glob', 'view'],
         promptExcerpt: 'Agent for reviewing code changes...',
-        rawYaml: 'name: code-review\nmodel: claude-sonnet-4.6\ndescription: Agent for reviewing code changes\n',
+        rawYaml:
+          'name: code-review\nmodel: claude-sonnet-4.6\ndescription: Agent for reviewing code changes\n',
       },
       {
         name: 'research',
-        filePath: 'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\research.agent.yaml',
+        filePath:
+          'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\research.agent.yaml',
         model: 'claude-sonnet-4.6',
         description: 'Deep research agent for complex multi-step analysis and investigation.',
         tools: ['bash', 'grep', 'glob', 'view', 'web_search', 'web_fetch'],
@@ -389,12 +398,14 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
       },
       {
         name: 'configure-copilot',
-        filePath: 'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\configure-copilot.agent.yaml',
+        filePath:
+          'C:\\Users\\mattt\\.copilot\\pkg\\universal\\1.0.9\\definitions\\configure-copilot.agent.yaml',
         model: 'claude-sonnet-4.6',
         description: 'System agent for configuring Copilot CLI settings and preferences.',
         tools: ['bash', 'view', 'edit'],
         promptExcerpt: 'System agent for configuring Copilot CLI...',
-        rawYaml: 'name: configure-copilot\nmodel: claude-sonnet-4.6\ndescription: System configuration agent\n',
+        rawYaml:
+          'name: configure-copilot\nmodel: claude-sonnet-4.6\ndescription: System configuration agent\n',
       },
     ] satisfies AgentDefinition[],
 
@@ -551,7 +562,11 @@ function getMockData<T>(cmd: string, _args?: Record<string, unknown>): T {
     } satisfies BackupEntry,
     restore_config_backup: undefined,
     delete_config_backup: undefined,
-    diff_config_files: { fileName: 'test.yaml', diffText: '', hasChanges: false } satisfies ConfigDiff,
+    diff_config_files: {
+      fileName: 'test.yaml',
+      diffText: '',
+      hasChanges: false,
+    } satisfies ConfigDiff,
     preview_backup_restore: { backupContent: '', currentContent: '' } satisfies BackupDiffPreview,
     migrate_agent_definition: undefined,
   };

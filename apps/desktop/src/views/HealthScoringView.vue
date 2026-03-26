@@ -3,10 +3,10 @@
 // STUB: Replace with real health scoring from backend Phase 4 API.
 // STUB: SessionHealth and HealthFlag types are already defined in @tracepilot/types.
 
-import { ref, onMounted, computed } from 'vue';
-import type { HealthScoringData } from '@tracepilot/types';
 import { getHealthScores } from '@tracepilot/client';
+import type { HealthScoringData } from '@tracepilot/types';
 import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from '@tracepilot/ui';
+import { computed, onMounted, ref } from 'vue';
 import StubBanner from '@/components/StubBanner.vue';
 
 const data = ref<HealthScoringData | null>(null);

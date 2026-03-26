@@ -835,7 +835,7 @@ function showFile(key) {
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
 // ── Slide engine ──
-(function() {
+(() => {
   const slides = Array.from(document.querySelectorAll('.s'));
   const prog = document.getElementById('prog');
   const cnt = document.getElementById('cnt');
@@ -864,7 +864,7 @@ function closeModal() { document.getElementById('modal').classList.remove('open'
   }
 
   // Arrow keys only — block when modal is open
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeModal(); return; }
     if (document.getElementById('modal').classList.contains('open')) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); show(cur+1,'fwd'); }

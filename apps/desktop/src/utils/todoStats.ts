@@ -1,4 +1,4 @@
-import type { TodoDep, TodoItem } from "@tracepilot/types";
+import type { TodoDep, TodoItem } from '@tracepilot/types';
 
 export interface TodoStatusStats {
   total: number;
@@ -23,13 +23,13 @@ export function buildTodoStatusStats(todos: TodoItem[]): TodoStatusStats {
 
   for (const todo of todos) {
     switch (todo.status) {
-      case "done":
+      case 'done':
         done++;
         break;
-      case "in_progress":
+      case 'in_progress':
         inProgress++;
         break;
-      case "blocked":
+      case 'blocked':
         blocked++;
         break;
       default:

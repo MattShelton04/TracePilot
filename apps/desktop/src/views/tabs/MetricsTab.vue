@@ -1,24 +1,35 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import type { ModelMetricDetail, SessionSegment } from "@tracepilot/types";
+import type { ModelMetricDetail, SessionSegment } from '@tracepilot/types';
 import {
-  StatCard, Badge, SectionPanel, EmptyState, ErrorAlert,
-  DataTable, TokenBar, HealthRing,
-  formatNumber, formatCost, formatDuration, formatShortDate, formatTime, useSessionTabLoader,
-} from "@tracepilot/ui";
+  Badge,
+  DataTable,
+  EmptyState,
+  ErrorAlert,
+  formatCost,
+  formatDuration,
+  formatNumber,
+  formatShortDate,
+  formatTime,
+  HealthRing,
+  SectionPanel,
+  StatCard,
+  TokenBar,
+  useSessionTabLoader,
+} from '@tracepilot/ui';
+import { computed } from 'vue';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
 
 useSessionTabLoader(
   () => store.sessionId,
-  () => store.loadShutdownMetrics()
+  () => store.loadShutdownMetrics(),
 );
 
 function retryLoadMetrics() {
-  store.loaded.delete("metrics");
+  store.loaded.delete('metrics');
   store.loadShutdownMetrics();
 }
 
@@ -31,7 +42,12 @@ const modelEntries = computed(() => {
       const inputTokens = data.usage?.inputTokens ?? 0;
       const outputTokens = data.usage?.outputTokens ?? 0;
       const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
-      const wholesaleCost = prefs.computeWholesaleCost(name, inputTokens, cacheReadTokens, outputTokens);
+      const wholesaleCost = prefs.computeWholesaleCost(
+        name,
+        inputTokens,
+        cacheReadTokens,
+        outputTokens,
+      );
       const premiumRequests = data.requests?.cost ?? 0;
       return {
         name,
@@ -48,10 +64,16 @@ const modelEntries = computed(() => {
     .sort((a, b) => b.totalTokens - a.totalTokens);
 });
 
-const totalInputTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.inputTokens, 0));
-const totalOutputTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.outputTokens, 0));
+const totalInputTokens = computed(() =>
+  modelEntries.value.reduce((sum, m) => sum + m.inputTokens, 0),
+);
+const totalOutputTokens = computed(() =>
+  modelEntries.value.reduce((sum, m) => sum + m.outputTokens, 0),
+);
 const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.value);
-const totalCacheReadTokens = computed(() => modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0));
+const totalCacheReadTokens = computed(() =>
+  modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0),
+);
 const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
 
 const copilotCost = computed(() => {
@@ -73,7 +95,9 @@ const cacheHitRatio = computed(() => {
 });
 
 /** Sort a segment's model metrics by Copilot cost (premium requests) descending, then by token count. */
-function sortedSegmentModels(modelMetrics?: Record<string, ModelMetricDetail> | null): [string, ModelMetricDetail][] {
+function sortedSegmentModels(
+  modelMetrics?: Record<string, ModelMetricDetail> | null,
+): [string, ModelMetricDetail][] {
   if (!modelMetrics) return [];
   return Object.entries(modelMetrics).sort(([, a], [, b]) => {
     const costDiff = (b.requests?.cost ?? 0) - (a.requests?.cost ?? 0);
@@ -94,7 +118,8 @@ function segmentDurationMs(seg: SessionSegment): number | null {
 function segmentCopilotCost(seg: SessionSegment): number {
   if (!seg.modelMetrics) return seg.premiumRequests * prefs.costPerPremiumRequest;
   return Object.values(seg.modelMetrics).reduce(
-    (sum, m) => sum + (m.requests?.cost ?? 0) * prefs.costPerPremiumRequest, 0,
+    (sum, m) => sum + (m.requests?.cost ?? 0) * prefs.costPerPremiumRequest,
+    0,
   );
 }
 
@@ -102,21 +127,36 @@ function segmentCopilotCost(seg: SessionSegment): number {
 function segmentWholesaleCost(seg: SessionSegment): number {
   if (!seg.modelMetrics) return 0;
   return Object.entries(seg.modelMetrics).reduce((sum, [name, m]) => {
-    const cost = prefs.computeWholesaleCost(name, m.usage?.inputTokens ?? 0, m.usage?.cacheReadTokens ?? 0, m.usage?.outputTokens ?? 0);
+    const cost = prefs.computeWholesaleCost(
+      name,
+      m.usage?.inputTokens ?? 0,
+      m.usage?.cacheReadTokens ?? 0,
+      m.usage?.outputTokens ?? 0,
+    );
     return sum + (cost ?? 0);
   }, 0);
 }
 
 const modelColumns = [
-  { key: "name", label: "Model", align: "left" as const },
-  { key: "requests", label: "Requests", align: "right" as const },
-  { key: "copilotCost", label: "Copilot Cost", align: "right" as const },
-  { key: "wholesaleCost", label: "Wholesale Cost", align: "right" as const },
-  { key: "inputTokens", label: "Input Tokens", align: "right" as const },
-  { key: "outputTokens", label: "Output Tokens", align: "right" as const },
-  { key: "cacheReadTokens", label: "Cache Read", align: "right" as const, class: "hidden lg:table-cell" },
-  { key: "cacheWriteTokens", label: "Cache Write", align: "right" as const, class: "hidden lg:table-cell" },
-  { key: "totalTokens", label: "Total", align: "right" as const },
+  { key: 'name', label: 'Model', align: 'left' as const },
+  { key: 'requests', label: 'Requests', align: 'right' as const },
+  { key: 'copilotCost', label: 'Copilot Cost', align: 'right' as const },
+  { key: 'wholesaleCost', label: 'Wholesale Cost', align: 'right' as const },
+  { key: 'inputTokens', label: 'Input Tokens', align: 'right' as const },
+  { key: 'outputTokens', label: 'Output Tokens', align: 'right' as const },
+  {
+    key: 'cacheReadTokens',
+    label: 'Cache Read',
+    align: 'right' as const,
+    class: 'hidden lg:table-cell',
+  },
+  {
+    key: 'cacheWriteTokens',
+    label: 'Cache Write',
+    align: 'right' as const,
+    class: 'hidden lg:table-cell',
+  },
+  { key: 'totalTokens', label: 'Total', align: 'right' as const },
 ];
 </script>
 

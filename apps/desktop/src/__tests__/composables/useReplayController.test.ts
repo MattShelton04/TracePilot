@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref } from 'vue';
 import type { ReplayStep } from '@tracepilot/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ref } from 'vue';
 import { useReplayController } from '../../composables/useReplayController';
 
 // Mock onMounted/onUnmounted lifecycle hooks outside of components
@@ -18,7 +18,7 @@ function makeSteps(count: number): ReplayStep[] {
     index: i,
     turnIndex: i,
     title: `Step ${i}`,
-    type: i % 2 === 0 ? 'user' as const : 'assistant' as const,
+    type: i % 2 === 0 ? ('user' as const) : ('assistant' as const),
     timestamp: new Date(Date.now() + i * 5000).toISOString(),
     durationMs: 1000 + i * 500,
     tokens: 100 * (i + 1),

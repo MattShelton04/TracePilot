@@ -49,7 +49,11 @@ function dismissUpdate() {
 async function handleWhatsNewPreview() {
   const latestVersion = updateResult.value?.latestVersion;
   if (latestVersion) {
-    await openWhatsNew(appVersion.value, latestVersion, updateResult.value?.releaseUrl ?? undefined);
+    await openWhatsNew(
+      appVersion.value,
+      latestVersion,
+      updateResult.value?.releaseUrl ?? undefined,
+    );
   }
 }
 
@@ -82,11 +86,11 @@ const advancedNav: NavItem[] = [
 ];
 
 const visiblePrimaryNav = computed(() =>
-  primaryNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+  primaryNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
 );
 
 const visibleAdvancedNav = computed(() =>
-  advancedNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+  advancedNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
 );
 
 const orchestrationNav: NavItem[] = [

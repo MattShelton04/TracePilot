@@ -36,7 +36,7 @@ export function shortenPath(path: string, segments = 2): string {
 export function sanitizeBranchForPath(branch: string): string {
   return branch
     .trim()
-    .replace(/[\/\s~^:?*[\]\\<>|"]/g, '-')
+    .replace(/[/\s~^:?*[\]\\<>|"]/g, '-')
     .replace(/\.\./g, '-')
     .replace(/-+/g, '-');
 }

@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
+import type { ConversationTurn, ModelMetricDetail } from '@tracepilot/types';
 import {
-  StatCard, SectionPanel, EmptyState, ErrorAlert,
-  formatNumber, formatCost, useSessionTabLoader,
-} from "@tracepilot/ui";
-import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
+  EmptyState,
+  ErrorAlert,
+  formatCost,
+  formatNumber,
+  SectionPanel,
+  StatCard,
+  useSessionTabLoader,
+} from '@tracepilot/ui';
+import { computed, ref } from 'vue';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
@@ -20,11 +25,11 @@ useSessionTabLoader(
 
 function retryLoadTokenFlow() {
   if (store.metricsError) {
-    store.loaded.delete("metrics");
+    store.loaded.delete('metrics');
     store.loadShutdownMetrics();
   }
   if (store.turnsError) {
-    store.loaded.delete("turns");
+    store.loaded.delete('turns');
     store.loadTurns();
   }
 }
@@ -40,27 +45,40 @@ const hasTurns = computed(() => turns.value.length > 0);
 // ── Per-model entries ──
 const modelEntries = computed(() => {
   if (!metrics.value?.modelMetrics) return [];
-  return Object.entries(metrics.value.modelMetrics).map(([name, data]) => ({
-    name,
-    inputTokens: data.usage?.inputTokens ?? 0,
-    outputTokens: data.usage?.outputTokens ?? 0,
-    cacheReadTokens: data.usage?.cacheReadTokens ?? 0,
-    cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
-    requests: data.requests?.count ?? 0,
-    cost: data.requests?.cost ?? 0,
-  })).sort((a, b) => a.name.localeCompare(b.name));
+  return Object.entries(metrics.value.modelMetrics)
+    .map(([name, data]) => ({
+      name,
+      inputTokens: data.usage?.inputTokens ?? 0,
+      outputTokens: data.usage?.outputTokens ?? 0,
+      cacheReadTokens: data.usage?.cacheReadTokens ?? 0,
+      cacheWriteTokens: data.usage?.cacheWriteTokens ?? 0,
+      requests: data.requests?.count ?? 0,
+      cost: data.requests?.cost ?? 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 });
 
 // ── Aggregate stats ──
 const totalInputTokens = computed(() => modelEntries.value.reduce((s, m) => s + m.inputTokens, 0));
-const totalOutputTokens = computed(() => modelEntries.value.reduce((s, m) => s + m.outputTokens, 0));
+const totalOutputTokens = computed(() =>
+  modelEntries.value.reduce((s, m) => s + m.outputTokens, 0),
+);
 const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.value);
-const totalCacheRead = computed(() => modelEntries.value.reduce((s, m) => s + m.cacheReadTokens, 0));
-const totalCacheWrite = computed(() => modelEntries.value.reduce((s, m) => s + m.cacheWriteTokens, 0));
+const totalCacheRead = computed(() =>
+  modelEntries.value.reduce((s, m) => s + m.cacheReadTokens, 0),
+);
+const totalCacheWrite = computed(() =>
+  modelEntries.value.reduce((s, m) => s + m.cacheWriteTokens, 0),
+);
 const modelsUsed = computed(() => modelEntries.value.length);
 const wholesaleCost = computed(() =>
   modelEntries.value.reduce((s, m) => {
-    const cost = prefs.computeWholesaleCost(m.name, m.inputTokens, m.cacheReadTokens, m.outputTokens);
+    const cost = prefs.computeWholesaleCost(
+      m.name,
+      m.inputTokens,
+      m.cacheReadTokens,
+      m.outputTokens,
+    );
     return s + (cost ?? 0);
   }, 0),
 );
@@ -80,11 +98,12 @@ function charsToTokens(chars: number): number {
 
 // ── Estimate input sources from turns ──
 const estimatedUserInput = computed(() =>
-  turns.value.reduce((s, t) => s + charsToTokens((t.userMessage ?? "").length), 0),
+  turns.value.reduce((s, t) => s + charsToTokens((t.userMessage ?? '').length), 0),
 );
 const estimatedToolResults = computed(() =>
   turns.value.reduce(
-    (s, t) => s + t.toolCalls.reduce((ts, tc) => ts + charsToTokens((tc.resultContent ?? "").length), 0),
+    (s, t) =>
+      s + t.toolCalls.reduce((ts, tc) => ts + charsToTokens((tc.resultContent ?? '').length), 0),
     0,
   ),
 );
@@ -95,32 +114,34 @@ const estimatedSystemContext = computed(() => {
 
 // ── Estimate output destinations from turns ──
 const estimatedAssistantText = computed(() =>
-  turns.value.reduce((s, t) => s + charsToTokens(t.assistantMessages.join("").length), 0),
+  turns.value.reduce((s, t) => s + charsToTokens(t.assistantMessages.join('').length), 0),
 );
 const estimatedReasoning = computed(() =>
-  turns.value.reduce((s, t) => s + charsToTokens((t.reasoningTexts ?? []).join("").length), 0),
+  turns.value.reduce((s, t) => s + charsToTokens((t.reasoningTexts ?? []).join('').length), 0),
 );
 const estimatedToolCalls = computed(() => {
-  const remainder = totalOutputTokens.value - estimatedAssistantText.value - estimatedReasoning.value;
+  const remainder =
+    totalOutputTokens.value - estimatedAssistantText.value - estimatedReasoning.value;
   return Math.max(0, remainder);
 });
 
 // ── Color palette ──
 const COLORS: Record<string, string> = {
-  emerald: "#34d399",
-  amber: "#fbbf24",
-  violet: "#a78bfa",
-  neutral: "#71717a",
-  indigo: "#818cf8",
-  rose: "#fb7185",
+  emerald: '#34d399',
+  amber: '#fbbf24',
+  violet: '#a78bfa',
+  neutral: '#71717a',
+  indigo: '#818cf8',
+  rose: '#fb7185',
 };
 
 function modelColor(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes("gpt") || n.includes("o1") || n.includes("o3") || n.includes("o4")) return COLORS.emerald;
-  if (n.includes("haiku")) return COLORS.violet;
-  if (n.includes("claude") || n.includes("sonnet") || n.includes("opus")) return COLORS.indigo;
-  if (n.includes("gemini")) return COLORS.amber;
+  if (n.includes('gpt') || n.includes('o1') || n.includes('o3') || n.includes('o4'))
+    return COLORS.emerald;
+  if (n.includes('haiku')) return COLORS.violet;
+  if (n.includes('claude') || n.includes('sonnet') || n.includes('opus')) return COLORS.indigo;
+  if (n.includes('gemini')) return COLORS.amber;
   return COLORS.indigo;
 }
 
@@ -164,7 +185,8 @@ const sankeyData = computed(() => {
   if (modelEntries.value.length === 0) return null;
 
   // Build raw nodes per column
-  const rawNodes: Array<{ id: string; col: number; label: string; tokens: number; color: string }> = [];
+  const rawNodes: Array<{ id: string; col: number; label: string; tokens: number; color: string }> =
+    [];
   const rawLinks: Array<{ source: string; target: string; tokens: number; color: string }> = [];
 
   const detailed = hasTurns.value;
@@ -172,38 +194,98 @@ const sankeyData = computed(() => {
   if (detailed) {
     // Column 0: Input sources
     if (estimatedUserInput.value > 0)
-      rawNodes.push({ id: "in-user", col: 0, label: "User Input", tokens: estimatedUserInput.value, color: COLORS.emerald });
+      rawNodes.push({
+        id: 'in-user',
+        col: 0,
+        label: 'User Input',
+        tokens: estimatedUserInput.value,
+        color: COLORS.emerald,
+      });
     if (estimatedToolResults.value > 0)
-      rawNodes.push({ id: "in-tools", col: 0, label: "Tool Results", tokens: estimatedToolResults.value, color: COLORS.amber });
+      rawNodes.push({
+        id: 'in-tools',
+        col: 0,
+        label: 'Tool Results',
+        tokens: estimatedToolResults.value,
+        color: COLORS.amber,
+      });
     if (estimatedSystemContext.value > 0)
-      rawNodes.push({ id: "in-system", col: 0, label: "System / Context", tokens: estimatedSystemContext.value, color: COLORS.neutral });
+      rawNodes.push({
+        id: 'in-system',
+        col: 0,
+        label: 'System / Context',
+        tokens: estimatedSystemContext.value,
+        color: COLORS.neutral,
+      });
 
     // Column 2: Output destinations
     if (estimatedAssistantText.value > 0)
-      rawNodes.push({ id: "out-assistant", col: 2, label: "Assistant Text", tokens: estimatedAssistantText.value, color: COLORS.indigo });
+      rawNodes.push({
+        id: 'out-assistant',
+        col: 2,
+        label: 'Assistant Text',
+        tokens: estimatedAssistantText.value,
+        color: COLORS.indigo,
+      });
     if (estimatedReasoning.value > 0)
-      rawNodes.push({ id: "out-reasoning", col: 2, label: "Reasoning", tokens: estimatedReasoning.value, color: COLORS.violet });
+      rawNodes.push({
+        id: 'out-reasoning',
+        col: 2,
+        label: 'Reasoning',
+        tokens: estimatedReasoning.value,
+        color: COLORS.violet,
+      });
     if (estimatedToolCalls.value > 0)
-      rawNodes.push({ id: "out-toolcalls", col: 2, label: "Tool Calls", tokens: estimatedToolCalls.value, color: COLORS.amber });
+      rawNodes.push({
+        id: 'out-toolcalls',
+        col: 2,
+        label: 'Tool Calls',
+        tokens: estimatedToolCalls.value,
+        color: COLORS.amber,
+      });
     if (totalCacheWrite.value > 0)
-      rawNodes.push({ id: "out-cache", col: 2, label: "Cache Writes", tokens: totalCacheWrite.value, color: COLORS.neutral });
+      rawNodes.push({
+        id: 'out-cache',
+        col: 2,
+        label: 'Cache Writes',
+        tokens: totalCacheWrite.value,
+        color: COLORS.neutral,
+      });
   } else {
     // Simplified: single input/output per model
-    rawNodes.push({ id: "in-all", col: 0, label: "Input Tokens", tokens: totalInputTokens.value, color: COLORS.emerald });
-    rawNodes.push({ id: "out-all", col: 2, label: "Output Tokens", tokens: totalOutputTokens.value, color: COLORS.indigo });
+    rawNodes.push({
+      id: 'in-all',
+      col: 0,
+      label: 'Input Tokens',
+      tokens: totalInputTokens.value,
+      color: COLORS.emerald,
+    });
+    rawNodes.push({
+      id: 'out-all',
+      col: 2,
+      label: 'Output Tokens',
+      tokens: totalOutputTokens.value,
+      color: COLORS.indigo,
+    });
   }
 
   // Column 1: Models
   for (const m of modelEntries.value) {
-    rawNodes.push({ id: `model-${m.name}`, col: 1, label: m.name, tokens: m.inputTokens + m.outputTokens, color: modelColor(m.name) });
+    rawNodes.push({
+      id: `model-${m.name}`,
+      col: 1,
+      label: m.name,
+      tokens: m.inputTokens + m.outputTokens,
+      color: modelColor(m.name),
+    });
   }
 
   // Links: input sources → models (proportional to each model's input share)
   const totalIn = totalInputTokens.value || 1;
   const totalOut = totalOutputTokens.value || 1;
 
-  const inputSources = rawNodes.filter(n => n.col === 0);
-  const outputDests = rawNodes.filter(n => n.col === 2);
+  const inputSources = rawNodes.filter((n) => n.col === 0);
+  const outputDests = rawNodes.filter((n) => n.col === 2);
 
   for (const m of modelEntries.value) {
     const mId = `model-${m.name}`;
@@ -226,8 +308,8 @@ const sankeyData = computed(() => {
   }
 
   // ── Layout: compute node positions ──
-  const columns = [0, 1, 2].map(col =>
-    rawNodes.filter(n => n.col === col).sort((a, b) => a.id.localeCompare(b.id)),
+  const columns = [0, 1, 2].map((col) =>
+    rawNodes.filter((n) => n.col === col).sort((a, b) => a.id.localeCompare(b.id)),
   );
 
   // For each column, compute total tokens and scale node heights
@@ -242,7 +324,7 @@ const sankeyData = computed(() => {
     const availableH = usableHeight - totalGap;
     const minNodeH = 16;
 
-    let assignedNodes: SankeyNode[] = colNodes.map(n => {
+    let assignedNodes: SankeyNode[] = colNodes.map((n) => {
       const h = Math.max(minNodeH, (n.tokens / totalColTokens) * availableH);
       return { ...n, x: COL_X[col], y: 0, h };
     });
@@ -250,7 +332,7 @@ const sankeyData = computed(() => {
     // Rescale so total fits
     const totalNodeH = assignedNodes.reduce((s, n) => s + n.h, 0);
     const scale = availableH / totalNodeH;
-    assignedNodes = assignedNodes.map(n => ({ ...n, h: Math.max(minNodeH, n.h * scale) }));
+    assignedNodes = assignedNodes.map((n) => ({ ...n, h: Math.max(minNodeH, n.h * scale) }));
 
     // Stack vertically centered
     const finalTotalH = assignedNodes.reduce((s, n) => s + n.h, 0) + totalGap;
@@ -278,7 +360,7 @@ const sankeyData = computed(() => {
     const ta = nodeMap.get(a.target);
     const tb = nodeMap.get(b.target);
     if (!sa || !sb || !ta || !tb) return 0;
-    return (sa.y - sb.y) || (ta.y - tb.y);
+    return sa.y - sb.y || ta.y - tb.y;
   });
 
   const links: SankeyLink[] = [];
@@ -288,12 +370,14 @@ const sankeyData = computed(() => {
     if (!src || !tgt) continue;
 
     // Compute thickness proportional to the source/target nodes
-    const srcTotal = rawLinks.filter(r => r.source === l.source).reduce((s, r) => s + r.tokens, 0) || 1;
-    const tgtTotal = rawLinks.filter(r => r.target === l.target).reduce((s, r) => s + r.tokens, 0) || 1;
-    const thickness = Math.max(2, Math.min(
-      (l.tokens / srcTotal) * src.h,
-      (l.tokens / tgtTotal) * tgt.h,
-    ));
+    const srcTotal =
+      rawLinks.filter((r) => r.source === l.source).reduce((s, r) => s + r.tokens, 0) || 1;
+    const tgtTotal =
+      rawLinks.filter((r) => r.target === l.target).reduce((s, r) => s + r.tokens, 0) || 1;
+    const thickness = Math.max(
+      2,
+      Math.min((l.tokens / srcTotal) * src.h, (l.tokens / tgtTotal) * tgt.h),
+    );
 
     const srcOff = sourceOffsets.get(l.source) ?? 0;
     const tgtOff = targetOffsets.get(l.target) ?? 0;
@@ -336,8 +420,8 @@ function connectedLinkIds(nodeId: string): Set<string> {
   if (!sankeyData.value) return new Set();
   return new Set(
     sankeyData.value.links
-      .filter(l => l.source === nodeId || l.target === nodeId)
-      .map(l => l.id),
+      .filter((l) => l.source === nodeId || l.target === nodeId)
+      .map((l) => l.id),
   );
 }
 
@@ -366,7 +450,7 @@ function nodeOpacity(node: SankeyNode): number {
     return connectedNodeIds(hoveredNode.value).has(node.id) ? 1 : 0.3;
   }
   if (hoveredLink.value) {
-    const link = sankeyData.value?.links.find(l => l.id === hoveredLink.value);
+    const link = sankeyData.value?.links.find((l) => l.id === hoveredLink.value);
     if (link) {
       return node.id === link.source || node.id === link.target ? 1 : 0.3;
     }
@@ -383,12 +467,12 @@ function clearHover() {
 const tooltipVisible = ref(false);
 const tooltipX = ref(0);
 const tooltipY = ref(0);
-const tooltipText = ref("");
+const tooltipText = ref('');
 
 function showLinkTooltip(link: SankeyLink, event: MouseEvent) {
   hoveredLink.value = link.id;
-  const src = sankeyData.value?.nodes.find(n => n.id === link.source);
-  const tgt = sankeyData.value?.nodes.find(n => n.id === link.target);
+  const src = sankeyData.value?.nodes.find((n) => n.id === link.source);
+  const tgt = sankeyData.value?.nodes.find((n) => n.id === link.target);
   const total = totalTokens.value || 1;
   const pct = ((link.tokens / total) * 100).toFixed(1);
   tooltipText.value = `${src?.label ?? link.source} → ${tgt?.label ?? link.target}\n${formatNumber(link.tokens)} tokens (${pct}%)`;
@@ -424,21 +508,21 @@ function hideTooltip() {
 const legendItems = computed(() => {
   if (!hasTurns.value) {
     return [
-      { label: "Input Tokens", color: COLORS.emerald },
-      { label: "Output Tokens", color: COLORS.indigo },
+      { label: 'Input Tokens', color: COLORS.emerald },
+      { label: 'Output Tokens', color: COLORS.indigo },
     ];
   }
   return [
-    { label: "User Input", color: COLORS.emerald },
-    { label: "Tool Results / Calls", color: COLORS.amber },
-    { label: "System / Context", color: COLORS.neutral },
-    { label: "Assistant Text / Models", color: COLORS.indigo },
-    { label: "Reasoning", color: COLORS.violet },
+    { label: 'User Input', color: COLORS.emerald },
+    { label: 'Tool Results / Calls', color: COLORS.amber },
+    { label: 'System / Context', color: COLORS.neutral },
+    { label: 'Assistant Text / Models', color: COLORS.indigo },
+    { label: 'Reasoning', color: COLORS.violet },
   ];
 });
 
 // Column headers
-const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
+const colHeaders = ['INPUT SOURCES', 'MODELS', 'OUTPUT DESTINATIONS'];
 </script>
 
 <template>

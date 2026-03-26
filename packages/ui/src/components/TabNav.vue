@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
 import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 const props = defineProps<{
   tabs: Array<{ name: string; routeName: string; label: string; count?: number }>;
@@ -14,10 +14,14 @@ const activeTab = computed(() => route.name as string);
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
 const focusedIndex = ref(0);
 
-watch(activeTab, (name) => {
-  const idx = props.tabs.findIndex((t) => t.routeName === name);
-  if (idx >= 0) focusedIndex.value = idx;
-}, { immediate: true });
+watch(
+  activeTab,
+  (name) => {
+    const idx = props.tabs.findIndex((t) => t.routeName === name);
+    if (idx >= 0) focusedIndex.value = idx;
+  },
+  { immediate: true },
+);
 
 const tabRefs = ref<HTMLButtonElement[]>([]);
 

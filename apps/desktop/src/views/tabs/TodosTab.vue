@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, StatusIcon, EmptyState, ErrorAlert, SectionPanel, useSessionTabLoader } from "@tracepilot/ui";
-import TodoDependencyGraph from "@/components/TodoDependencyGraph.vue";
-import { buildTodoRelations, buildTodoStatusStats } from "@/utils/todoStats";
+import {
+  Badge,
+  EmptyState,
+  ErrorAlert,
+  SectionPanel,
+  StatusIcon,
+  useSessionTabLoader,
+} from '@tracepilot/ui';
+import { computed, ref } from 'vue';
+import TodoDependencyGraph from '@/components/TodoDependencyGraph.vue';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
+import { buildTodoRelations, buildTodoStatusStats } from '@/utils/todoStats';
 
 const store = useSessionDetailStore();
 
 useSessionTabLoader(
   () => store.sessionId,
-  () => store.loadTodos()
+  () => store.loadTodos(),
 );
 
 function retryLoadTodos() {
-  store.loaded.delete("todos");
+  store.loaded.delete('todos');
   store.loadTodos();
 }
 
@@ -33,10 +40,14 @@ const viewMode = ref<'list' | 'graph'>('graph');
 
 function statusBadgeVariant(status: string): 'done' | 'accent' | 'danger' | 'neutral' {
   switch (status) {
-    case "done": return "done";
-    case "in_progress": return "accent";
-    case "blocked": return "danger";
-    default: return "neutral";
+    case 'done':
+      return 'done';
+    case 'in_progress':
+      return 'accent';
+    case 'blocked':
+      return 'danger';
+    default:
+      return 'neutral';
   }
 }
 

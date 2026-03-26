@@ -1,4 +1,4 @@
-import { ref, watch, onBeforeUnmount, type Ref } from "vue";
+import { onBeforeUnmount, type Ref, ref, watch } from 'vue';
 
 export interface AutoRefreshOptions {
   /** Callback to invoke on each refresh tick. */
@@ -62,17 +62,21 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
       scheduleNext();
     }
   }
-  document.addEventListener("visibilitychange", handleVisibility);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   // Watch enabled flag
-  const unwatchEnabled = watch(enabled, (val) => {
-    if (disposed) return;
-    if (val) {
-      scheduleNext();
-    } else {
-      stopTimer();
-    }
-  }, { immediate: true });
+  const unwatchEnabled = watch(
+    enabled,
+    (val) => {
+      if (disposed) return;
+      if (val) {
+        scheduleNext();
+      } else {
+        stopTimer();
+      }
+    },
+    { immediate: true },
+  );
 
   // Watch interval changes — restart timer with new interval
   const unwatchInterval = watch(intervalSeconds, () => {
@@ -84,7 +88,7 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
   onBeforeUnmount(() => {
     disposed = true;
     stopTimer();
-    document.removeEventListener("visibilitychange", handleVisibility);
+    document.removeEventListener('visibilitychange', handleVisibility);
     unwatchEnabled();
     unwatchInterval();
   });

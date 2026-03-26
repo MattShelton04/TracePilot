@@ -3,11 +3,11 @@
 // STUB: Replace with real export via exportSession() when backend Phase 5 export crate is ready.
 // STUB: File download uses Blob URL — switch to Tauri save_file dialog in production.
 
-import { ref, computed, onMounted, watch } from 'vue';
-import { useSessionsStore } from '@/stores/sessions';
-import { FormSwitch, BtnGroup, formatBytes, useToast } from '@tracepilot/ui';
 import type { ExportConfig } from '@tracepilot/types';
+import { BtnGroup, FormSwitch, formatBytes, useToast } from '@tracepilot/ui';
+import { computed, onMounted, ref, watch } from 'vue';
 import StubBanner from '@/components/StubBanner.vue';
+import { useSessionsStore } from '@/stores/sessions';
 
 const sessionsStore = useSessionsStore();
 
@@ -94,8 +94,15 @@ function generateJsonPreview(): string {
   }
   if (includeEvents.value) {
     obj.events = [
-      { type: 'session.init', ...(includeTimestamps.value && { timestamp: '2025-01-15T10:29:55Z' }) },
-      { type: 'tool.execute', tool: 'edit', ...(includeTimestamps.value && { timestamp: '2025-01-15T10:30:10Z' }) },
+      {
+        type: 'session.init',
+        ...(includeTimestamps.value && { timestamp: '2025-01-15T10:29:55Z' }),
+      },
+      {
+        type: 'tool.execute',
+        tool: 'edit',
+        ...(includeTimestamps.value && { timestamp: '2025-01-15T10:30:10Z' }),
+      },
     ];
   }
   if (includeMetrics.value) {
@@ -147,7 +154,7 @@ function generateMarkdownPreview(): string {
     lines.push('');
     lines.push('**User:** Implement authentication module');
     lines.push('');
-    lines.push('**Assistant:** I\'ll create the auth module with JWT-based authentication...');
+    lines.push("**Assistant:** I'll create the auth module with JWT-based authentication...");
     if (includeTokenCounts.value) lines.push('> Tokens: 859');
     lines.push('');
   }
@@ -256,10 +263,14 @@ const previewContent = computed(() => {
 
 const previewLanguage = computed(() => {
   switch (format.value) {
-    case 'json': return 'json';
-    case 'markdown': return 'markdown';
-    case 'csv': return 'csv';
-    default: return 'text';
+    case 'json':
+      return 'json';
+    case 'markdown':
+      return 'markdown';
+    case 'csv':
+      return 'csv';
+    default:
+      return 'text';
   }
 });
 
@@ -277,7 +288,12 @@ async function handleExport() {
   await new Promise((r) => setTimeout(r, 600));
 
   const ext = format.value === 'json' ? 'json' : format.value === 'markdown' ? 'md' : 'csv';
-  const mime = format.value === 'json' ? 'application/json' : format.value === 'csv' ? 'text/csv' : 'text/markdown';
+  const mime =
+    format.value === 'json'
+      ? 'application/json'
+      : format.value === 'csv'
+        ? 'text/csv'
+        : 'text/markdown';
   const blob = new Blob([previewContent.value], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

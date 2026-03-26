@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { TurnToolCall } from "@tracepilot/types";
-import { formatDuration } from "../utils/formatters";
-import { toolIcon, toolCategory, categoryColor, formatArgsSummary } from "../utils/toolCall";
-import ExpandChevron from "./ExpandChevron.vue";
-import ToolCallDetail from "./ToolCallDetail.vue";
+import type { TurnToolCall } from '@tracepilot/types';
+import { computed } from 'vue';
+import { formatDuration } from '../utils/formatters';
+import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from '../utils/toolCall';
+import ExpandChevron from './ExpandChevron.vue';
+import ToolCallDetail from './ToolCallDetail.vue';
 
 const props = defineProps<{
   tc: TurnToolCall;
   argsSummary?: string;
   expanded: boolean;
   /** "full" = clickable row with chevron; "compact" = small row */
-  variant?: "full" | "compact";
+  variant?: 'full' | 'compact';
   /** Full (un-truncated) tool result, loaded on demand. */
   fullResult?: string;
   /** Whether the full result is currently being loaded. */
@@ -28,7 +28,9 @@ const emit = defineEmits<{
   'retry-full-result': [toolCallId: string];
 }>();
 
-const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
+const summary = computed(
+  () => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName),
+);
 </script>
 
 <template>

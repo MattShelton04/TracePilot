@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
 import { formatDuration } from '@tracepilot/ui';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
   toolCalls: Array<{
@@ -13,14 +13,12 @@ const props = defineProps<{
 }>();
 
 const isExpanded = ref(true);
-const passCount = computed(() => props.toolCalls.filter(tc => tc.success).length);
-const failCount = computed(() => props.toolCalls.filter(tc => !tc.success).length);
+const passCount = computed(() => props.toolCalls.filter((tc) => tc.success).length);
+const failCount = computed(() => props.toolCalls.filter((tc) => !tc.success).length);
 
 function toggleExpand() {
   isExpanded.value = !isExpanded.value;
 }
-
-
 </script>
 
 <template>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed } from 'vue';
 import {
-  type AgentType,
   type AgentStatus,
-  STATUS_ICONS,
+  type AgentType,
   getAgentColor,
   getAgentIcon,
-} from "../utils/agentTypes";
+  STATUS_ICONS,
+} from '../utils/agentTypes';
 
 const props = withDefaults(
   defineProps<{
@@ -17,18 +17,16 @@ const props = withDefaults(
     compact?: boolean;
   }>(),
   {
-    agentType: "main",
+    agentType: 'main',
     compact: false,
   },
 );
 
 const color = computed(() => getAgentColor(props.agentType));
 const icon = computed(() => getAgentIcon(props.agentType));
-const statusIcon = computed(() =>
-  props.status ? STATUS_ICONS[props.status] : undefined,
-);
+const statusIcon = computed(() => (props.status ? STATUS_ICONS[props.status] : undefined));
 const displayName = computed(
-  () => props.agentName ?? (props.agentType === "main" ? "Copilot" : "Subagent"),
+  () => props.agentName ?? (props.agentType === 'main' ? 'Copilot' : 'Subagent'),
 );
 </script>
 

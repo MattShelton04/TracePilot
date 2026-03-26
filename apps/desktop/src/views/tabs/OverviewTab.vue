@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
-  StatCard, Badge, SectionPanel, DefList, ErrorAlert,
-  formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
-} from "@tracepilot/ui";
+  Badge,
+  DefList,
+  ErrorAlert,
+  formatDate,
+  formatDuration,
+  formatNumberFull,
+  formatTime,
+  MarkdownContent,
+  SectionPanel,
+  StatCard,
+  truncateText,
+  useSessionTabLoader,
+} from '@tracepilot/ui';
+import { computed, ref } from 'vue';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 
@@ -15,24 +25,24 @@ useSessionTabLoader(
     store.loadPlan();
     store.loadShutdownMetrics();
     store.loadIncidents();
-  }
+  },
 );
 
-const detail= computed(() => store.detail);
+const detail = computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
 
 const sessionInfoItems = computed(() => {
   const d = detail.value;
   return [
-    { label: "Session ID", value: d?.id ?? "—" },
-    { label: "Repository", value: d?.repository ?? "—" },
-    { label: "Branch", value: d?.branch ?? "—" },
-    { label: "Model", value: metrics.value?.currentModel ?? "—" },
-    { label: "Host", value: d?.hostType ?? "—" },
-    { label: "Duration", value: formatDuration(metrics.value?.totalApiDurationMs) },
-    { label: "Created", value: formatDate(d?.createdAt) },
-    { label: "Updated", value: formatDate(d?.updatedAt) },
+    { label: 'Session ID', value: d?.id ?? '—' },
+    { label: 'Repository', value: d?.repository ?? '—' },
+    { label: 'Branch', value: d?.branch ?? '—' },
+    { label: 'Model', value: metrics.value?.currentModel ?? '—' },
+    { label: 'Host', value: d?.hostType ?? '—' },
+    { label: 'Duration', value: formatDuration(metrics.value?.totalApiDurationMs) },
+    { label: 'Created', value: formatDate(d?.createdAt) },
+    { label: 'Updated', value: formatDate(d?.updatedAt) },
   ];
 });
 
@@ -106,10 +116,18 @@ function formatDetail(detail: unknown): string {
 function retryLoadSection(section: string) {
   store.loaded.delete(section);
   switch (section) {
-    case 'checkpoints': store.loadCheckpoints(); break;
-    case 'plan': store.loadPlan(); break;
-    case 'metrics': store.loadShutdownMetrics(); break;
-    case 'incidents': store.loadIncidents(); break;
+    case 'checkpoints':
+      store.loadCheckpoints();
+      break;
+    case 'plan':
+      store.loadPlan();
+      break;
+    case 'metrics':
+      store.loadShutdownMetrics();
+      break;
+    case 'incidents':
+      store.loadIncidents();
+      break;
   }
 }
 </script>

@@ -23,7 +23,18 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   averageHealthScore: 0.8,
   tokenUsageByDay: [{ date: '2025-01-01', tokens: 50_000 }],
   activityPerDay: [{ date: '2025-01-01', count: 3 }],
-  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0, premiumRequests: 5, requestCount: 50 }],
+  modelDistribution: [
+    {
+      model: 'gpt-4',
+      tokens: 500_000,
+      percentage: 100,
+      inputTokens: 250_000,
+      outputTokens: 250_000,
+      cacheReadTokens: 0,
+      premiumRequests: 5,
+      requestCount: 50,
+    },
+  ],
   costByDay: [{ date: '2025-01-01', cost: 5.0 }],
   apiDurationStats: {
     avgMs: 1_000_000,
@@ -55,8 +66,8 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalCompactions: 5,
   totalTruncations: 1,
   incidentsByDay: [
-    { date: "2026-03-18", errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
-    { date: "2026-03-19", errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
+    { date: '2026-03-18', errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
+    { date: '2026-03-19', errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
   ],
 };
 

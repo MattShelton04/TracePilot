@@ -2,20 +2,20 @@
  * `tracepilot versions` — Analyze installed Copilot CLI versions and schema changes.
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import chalk from "chalk";
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import chalk from 'chalk';
 import {
-  discoverInstalledVersions,
-  diffVersions,
-  diffAllVersions,
+  type CopilotVersion,
   computeCoverage,
-  scanSessionVersions,
+  diffAllVersions,
+  diffVersions,
+  discoverInstalledVersions,
   findEventExamples,
   generateMarkdownReport,
-  type CopilotVersion,
   type SessionVersionInfo,
-} from "../lib/version-analyzer.js";
+  scanSessionVersions,
+} from '../lib/version-analyzer.js';
 
 // ── Shared helpers ───────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ function ensureVersions(): CopilotVersion[] {
   const versions = discoverInstalledVersions();
   if (versions.length === 0) {
     console.error(
-      chalk.red("No installed Copilot CLI versions found at ~/.copilot/pkg/universal/"),
+      chalk.red('No installed Copilot CLI versions found at ~/.copilot/pkg/universal/'),
     );
     process.exit(1);
   }
@@ -56,15 +56,15 @@ export async function versionsListCommand(opts: { json?: boolean }) {
     return;
   }
 
-  console.log(chalk.bold("\n  Installed Copilot CLI Versions\n"));
+  console.log(chalk.bold('\n  Installed Copilot CLI Versions\n'));
 
   // Header
-  const header = `  ${"Version".padEnd(12)} ${"Events".padStart(8)} ${"Methods".padStart(9)} ${"Agents".padStart(8)}  Agent Names`;
+  const header = `  ${'Version'.padEnd(12)} ${'Events'.padStart(8)} ${'Methods'.padStart(9)} ${'Agents'.padStart(8)}  Agent Names`;
   console.log(chalk.dim(header));
-  console.log(chalk.dim("  " + "─".repeat(80)));
+  console.log(chalk.dim('  ' + '─'.repeat(80)));
 
   for (const v of versions) {
-    const agentNames = v.agents.map((a) => a.name).join(", ") || chalk.dim("—");
+    const agentNames = v.agents.map((a) => a.name).join(', ') || chalk.dim('—');
     console.log(
       `  ${chalk.cyan(v.version.padEnd(12))} ${String(v.eventTypes.length).padStart(8)} ${String(v.rpcMethods.length).padStart(9)} ${String(v.agents.length).padStart(8)}  ${agentNames}`,
     );
@@ -74,22 +74,26 @@ export async function versionsListCommand(opts: { json?: boolean }) {
 
 // ── tracepilot versions diff ─────────────────────────────────────────
 
-export async function versionsDiffCommand(
-  v1?: string,
-  v2?: string,
-  opts?: { json?: boolean },
-) {
+export async function versionsDiffCommand(v1?: string, v2?: string, opts?: { json?: boolean }) {
   const versions = ensureVersions();
 
   if (v1 && v2) {
     const ver1 = findVersion(versions, v1);
     const ver2 = findVersion(versions, v2);
     if (!ver1) {
-      console.error(chalk.red(`Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
+      console.error(
+        chalk.red(
+          `Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(', ')}`,
+        ),
+      );
       process.exit(1);
     }
     if (!ver2) {
-      console.error(chalk.red(`Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
+      console.error(
+        chalk.red(
+          `Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(', ')}`,
+        ),
+      );
       process.exit(1);
     }
 
@@ -128,13 +132,12 @@ function printDiff(diff: ReturnType<typeof diffVersions>) {
   const totalChanges = countDiffChanges(diff);
 
   console.log(
-    chalk.bold(`\n  ${diff.from} → ${diff.to}`) +
-      chalk.dim(` (${totalChanges} changes)`),
+    chalk.bold(`\n  ${diff.from} → ${diff.to}`) + chalk.dim(` (${totalChanges} changes)`),
   );
-  console.log(chalk.dim("  " + "─".repeat(60)));
+  console.log(chalk.dim('  ' + '─'.repeat(60)));
 
   if (totalChanges === 0) {
-    console.log(chalk.dim("  No significant changes"));
+    console.log(chalk.dim('  No significant changes'));
     return;
   }
 
@@ -174,12 +177,12 @@ function printDiff(diff: ReturnType<typeof diffVersions>) {
   if (diff.modifiedRpcMethods.length > 0) {
     console.log(chalk.yellow(`  ~${diff.modifiedRpcMethods.length} modified RPC methods:`));
     for (const m of diff.modifiedRpcMethods) {
-      console.log(chalk.yellow(`    ~ ${m.method}: ${m.changes.join("; ")}`));
+      console.log(chalk.yellow(`    ~ ${m.method}: ${m.changes.join('; ')}`));
     }
   }
   if (diff.addedAgents.length > 0) {
     console.log(
-      chalk.green(`  +${diff.addedAgents.length} agents: ${diff.addedAgents.join(", ")}`),
+      chalk.green(`  +${diff.addedAgents.length} agents: ${diff.addedAgents.join(', ')}`),
     );
   }
   console.log();
@@ -191,7 +194,7 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
   const versions = ensureVersions();
   const latest = versions[versions.length - 1];
 
-  if (!opts.json) console.log(chalk.dim("  Scanning sessions for event examples..."));
+  if (!opts.json) console.log(chalk.dim('  Scanning sessions for event examples...'));
   const sessionInfo = await scanSessionVersions();
 
   const coverage = computeCoverage(latest, sessionInfo);
@@ -212,25 +215,17 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
     return;
   }
 
-  console.log(chalk.bold(`\n  TracePilot Event Type Coverage (vs schema v${coverage.schemaVersion})\n`));
   console.log(
-    `  Total schema events:     ${coverage.totalSchemaEvents}`,
+    chalk.bold(`\n  TracePilot Event Type Coverage (vs schema v${coverage.schemaVersion})\n`),
   );
+  console.log(`  Total schema events:     ${coverage.totalSchemaEvents}`);
   console.log(
-    `  Always ephemeral:        ${coverage.alwaysEphemeralCount} ${chalk.dim("(never on disk, no handling needed)")}`,
+    `  Always ephemeral:        ${coverage.alwaysEphemeralCount} ${chalk.dim('(never on disk, no handling needed)')}`,
   );
-  console.log(
-    `  Persisted events:        ${coverage.persistedEventCount}`,
-  );
-  console.log(
-    `  ${chalk.green("Handled by TracePilot:")}  ${coverage.handledCount}`,
-  );
-  console.log(
-    `  ${chalk.red("Unhandled (persisted):")}  ${coverage.unhandledPersistedCount}`,
-  );
-  console.log(
-    `  Coverage:                ${chalk.bold(coverage.coveragePercentage + "%")}`,
-  );
+  console.log(`  Persisted events:        ${coverage.persistedEventCount}`);
+  console.log(`  ${chalk.green('Handled by TracePilot:')}  ${coverage.handledCount}`);
+  console.log(`  ${chalk.red('Unhandled (persisted):')}  ${coverage.unhandledPersistedCount}`);
+  console.log(`  Coverage:                ${chalk.bold(coverage.coveragePercentage + '%')}`);
   console.log();
 
   // Group by category
@@ -246,19 +241,21 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
       let icon: string;
       let color: typeof chalk.green;
       if (obs.handledByTracePilot) {
-        icon = "✅";
+        icon = '✅';
         color = chalk.green;
-      } else if (obs.ephemeral === "always") {
-        icon = "👻";
+      } else if (obs.ephemeral === 'always') {
+        icon = '👻';
         color = chalk.dim;
       } else if (obs.observedLocally) {
-        icon = "⚠️ ";
+        icon = '⚠️ ';
         color = chalk.yellow;
       } else {
-        icon = "  ";
+        icon = '  ';
         color = chalk.dim;
       }
-      const suffix = obs.observedLocally ? chalk.dim(` (seen in ${obs.exampleSessions.length} session(s))`) : "";
+      const suffix = obs.observedLocally
+        ? chalk.dim(` (seen in ${obs.exampleSessions.length} session(s))`)
+        : '';
       console.log(`    ${icon} ${color(obs.eventType)}${suffix}`);
     }
     console.log();
@@ -270,22 +267,22 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
 export async function versionsReportCommand(opts: { output?: string }) {
   const versions = ensureVersions();
 
-  console.error(chalk.dim("  Scanning sessions..."));
+  console.error(chalk.dim('  Scanning sessions...'));
   const sessionInfo = await scanSessionVersions();
 
-  console.error(chalk.dim("  Computing diffs..."));
+  console.error(chalk.dim('  Computing diffs...'));
   const diffs = diffAllVersions(versions);
 
-  console.error(chalk.dim("  Computing coverage..."));
+  console.error(chalk.dim('  Computing coverage...'));
   const coverage = computeCoverage(versions[versions.length - 1], sessionInfo);
 
   const report = generateMarkdownReport(versions, diffs, coverage, sessionInfo);
 
   if (opts.output) {
     mkdirSync(dirname(opts.output), { recursive: true });
-    writeFileSync(opts.output, report, "utf-8");
+    writeFileSync(opts.output, report, 'utf-8');
     console.log(chalk.green(`\n  Report saved to ${opts.output}`));
-    console.log(chalk.dim(`  ${report.split("\n").length} lines, ${report.length} bytes\n`));
+    console.log(chalk.dim(`  ${report.split('\n').length} lines, ${report.length} bytes\n`));
   } else {
     console.log(report);
   }
@@ -293,10 +290,7 @@ export async function versionsReportCommand(opts: { output?: string }) {
 
 // ── tracepilot versions examples ─────────────────────────────────────
 
-export async function versionsExamplesCommand(opts: {
-  eventType?: string;
-  json?: boolean;
-}) {
+export async function versionsExamplesCommand(opts: { eventType?: string; json?: boolean }) {
   if (opts.eventType) {
     if (!opts.json) console.log(chalk.dim(`  Searching for "${opts.eventType}" in sessions...`));
     const examples = await findEventExamples(opts.eventType);
@@ -308,25 +302,29 @@ export async function versionsExamplesCommand(opts: {
 
     if (examples.length === 0) {
       console.log(chalk.yellow(`\n  No sessions found containing "${opts.eventType}"`));
-      console.log(chalk.dim("  This event may be ephemeral (never written to disk) or not yet triggered.\n"));
-      console.log(chalk.dim("  To generate this event, try:"));
-      console.log(chalk.dim("    - Start a new Copilot CLI session with: copilot"));
-      console.log(chalk.dim("    - Use features that might trigger this event type"));
-      console.log(chalk.dim("    - Check if this is an ephemeral event (use `versions coverage`)\n"));
+      console.log(
+        chalk.dim('  This event may be ephemeral (never written to disk) or not yet triggered.\n'),
+      );
+      console.log(chalk.dim('  To generate this event, try:'));
+      console.log(chalk.dim('    - Start a new Copilot CLI session with: copilot'));
+      console.log(chalk.dim('    - Use features that might trigger this event type'));
+      console.log(
+        chalk.dim('    - Check if this is an ephemeral event (use `versions coverage`)\n'),
+      );
       return;
     }
 
-    console.log(chalk.bold(`\n  Sessions containing "${opts.eventType}" (${examples.length} found):\n`));
+    console.log(
+      chalk.bold(`\n  Sessions containing "${opts.eventType}" (${examples.length} found):\n`),
+    );
     for (const ex of examples) {
-      const summary = ex.summary ? chalk.dim(` — ${ex.summary.slice(0, 50)}`) : "";
-      console.log(
-        `  ${chalk.cyan(ex.sessionId.slice(0, 8))}… v${ex.copilotVersion}${summary}`,
-      );
+      const summary = ex.summary ? chalk.dim(` — ${ex.summary.slice(0, 50)}`) : '';
+      console.log(`  ${chalk.cyan(ex.sessionId.slice(0, 8))}… v${ex.copilotVersion}${summary}`);
     }
     console.log();
   } else {
     // Show all event types with observation status
-    if (!opts.json) console.log(chalk.dim("  Scanning all sessions for event type examples..."));
+    if (!opts.json) console.log(chalk.dim('  Scanning all sessions for event type examples...'));
     const sessionInfo = await scanSessionVersions();
     const versions = ensureVersions();
     const latest = versions[versions.length - 1];
@@ -361,14 +359,16 @@ export async function versionsExamplesCommand(opts: {
       return;
     }
 
-    console.log(chalk.bold(`\n  Event Type Observations (${sessionInfo.length} sessions scanned)\n`));
+    console.log(
+      chalk.bold(`\n  Event Type Observations (${sessionInfo.length} sessions scanned)\n`),
+    );
 
     // Show observed types sorted by frequency
     const sorted = [...observedTypes.entries()].sort((a, b) => b[1] - a[1]);
 
-    console.log(chalk.bold("  Most common event types:"));
+    console.log(chalk.bold('  Most common event types:'));
     for (const [type, count] of sorted.slice(0, 20)) {
-      const inSchema = schemaTypes.has(type) ? "" : chalk.red(" [NOT IN SCHEMA]");
+      const inSchema = schemaTypes.has(type) ? '' : chalk.red(' [NOT IN SCHEMA]');
       console.log(`    ${String(count).padStart(6)} × ${chalk.cyan(type)}${inSchema}`);
     }
     console.log();
@@ -377,21 +377,21 @@ export async function versionsExamplesCommand(opts: {
     const unobserved = latest.eventTypes
       .filter((e) => !observedTypes.has(e.name))
       .sort((a, b) => {
-        if (a.ephemeral !== b.ephemeral) return a.ephemeral === "always" ? 1 : -1;
+        if (a.ephemeral !== b.ephemeral) return a.ephemeral === 'always' ? 1 : -1;
         return a.name.localeCompare(b.name);
       });
 
     if (unobserved.length > 0) {
-      console.log(chalk.bold("  Schema-defined but not observed locally:"));
+      console.log(chalk.bold('  Schema-defined but not observed locally:'));
       for (const e of unobserved) {
-        const eph = e.ephemeral === "always" ? chalk.dim(" 👻 ephemeral") : "";
+        const eph = e.ephemeral === 'always' ? chalk.dim(' 👻 ephemeral') : '';
         console.log(`    ${chalk.dim(e.name)}${eph}`);
       }
       console.log();
     }
 
     if (unknownTypes.length > 0) {
-      console.log(chalk.yellow.bold("  Observed but not in latest schema:"));
+      console.log(chalk.yellow.bold('  Observed but not in latest schema:'));
       for (const t of unknownTypes) {
         console.log(`    ${chalk.yellow(t)} (${observedTypes.get(t)} sessions)`);
       }

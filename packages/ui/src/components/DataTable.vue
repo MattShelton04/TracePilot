@@ -2,7 +2,7 @@
 export interface DataTableColumn {
   key: string;
   label: string;
-  align?: "left" | "center" | "right";
+  align?: 'left' | 'center' | 'right';
   class?: string;
 }
 

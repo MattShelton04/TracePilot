@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from "vue";
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps<{
   refreshing: boolean;
@@ -9,8 +9,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   refresh: [];
-  "update:autoRefreshEnabled": [value: boolean];
-  "update:intervalSeconds": [value: number];
+  'update:autoRefreshEnabled': [value: boolean];
+  'update:intervalSeconds': [value: number];
 }>();
 
 const INTERVAL_STOPS = [3, 5, 10, 30];
@@ -21,22 +21,27 @@ const showSpinner = ref(false);
 let spinStart = 0;
 let spinTimer: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => props.refreshing, (isRefreshing) => {
-  if (isRefreshing) {
-    showSpinner.value = true;
-    spinStart = Date.now();
-    if (spinTimer) clearTimeout(spinTimer);
-    spinTimer = null;
-  } else if (showSpinner.value) {
-    const elapsed = Date.now() - spinStart;
-    const remaining = MIN_SPIN_MS - elapsed;
-    if (remaining > 0) {
-      spinTimer = setTimeout(() => { showSpinner.value = false; }, remaining);
-    } else {
-      showSpinner.value = false;
+watch(
+  () => props.refreshing,
+  (isRefreshing) => {
+    if (isRefreshing) {
+      showSpinner.value = true;
+      spinStart = Date.now();
+      if (spinTimer) clearTimeout(spinTimer);
+      spinTimer = null;
+    } else if (showSpinner.value) {
+      const elapsed = Date.now() - spinStart;
+      const remaining = MIN_SPIN_MS - elapsed;
+      if (remaining > 0) {
+        spinTimer = setTimeout(() => {
+          showSpinner.value = false;
+        }, remaining);
+      } else {
+        showSpinner.value = false;
+      }
     }
-  }
-});
+  },
+);
 
 const intervalLabel = computed(() => {
   const s = props.intervalSeconds;
@@ -46,7 +51,7 @@ const intervalLabel = computed(() => {
 function cycleInterval() {
   const idx = INTERVAL_STOPS.indexOf(props.intervalSeconds);
   const nextIdx = (idx + 1) % INTERVAL_STOPS.length;
-  emit("update:intervalSeconds", INTERVAL_STOPS[nextIdx]);
+  emit('update:intervalSeconds', INTERVAL_STOPS[nextIdx]);
 }
 
 onUnmounted(() => {

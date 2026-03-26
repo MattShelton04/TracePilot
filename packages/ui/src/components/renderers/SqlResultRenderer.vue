@@ -3,9 +3,9 @@
  * SqlResultRenderer — renders SQL tool results with syntax-highlighted query,
  * striped table with semantic cell styling, and row count badge.
  */
-import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
-import { highlightSql } from "../../utils/syntaxHighlight";
+import { computed } from 'vue';
+import { highlightSql } from '../../utils/syntaxHighlight';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -17,17 +17,15 @@ const emit = defineEmits<{
   'load-full': [];
 }>();
 
-const query = computed(() =>
-  typeof props.args?.query === "string" ? props.args.query : null
-);
+const query = computed(() => (typeof props.args?.query === 'string' ? props.args.query : null));
 
 const description = computed(() =>
-  typeof props.args?.description === "string" ? props.args.description : null
+  typeof props.args?.description === 'string' ? props.args.description : null,
 );
 
 /** Highlighted SQL query (safe HTML). */
 const highlightedQuery = computed(() => {
-  if (!query.value) return "";
+  if (!query.value) return '';
   return highlightSql(query.value);
 });
 
@@ -36,11 +34,14 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
   if (!props.content) return null;
   try {
     const parsed = JSON.parse(props.content);
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && parsed[0] !== null) {
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      typeof parsed[0] === 'object' &&
+      parsed[0] !== null
+    ) {
       const headers = Object.keys(parsed[0]);
-      const rows = parsed.map(obj =>
-        headers.map(h => String(obj[h] ?? ""))
-      );
+      const rows = parsed.map((obj) => headers.map((h) => String(obj[h] ?? '')));
       return { headers, rows };
     }
   } catch {
@@ -51,11 +52,11 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
 
 /** Detect cell type for semantic coloring. */
 function cellClass(value: string): string {
-  if (value === "null" || value === "NULL" || value === "") return "sql-cell--null";
-  if (/^-?\d+(\.\d+)?$/.test(value)) return "sql-cell--number";
-  if (value === "true" || value === "false") return "sql-cell--boolean";
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return "sql-cell--date";
-  return "";
+  if (value === 'null' || value === 'NULL' || value === '') return 'sql-cell--null';
+  if (/^-?\d+(\.\d+)?$/.test(value)) return 'sql-cell--number';
+  if (value === 'true' || value === 'false') return 'sql-cell--boolean';
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return 'sql-cell--date';
+  return '';
 }
 </script>
 

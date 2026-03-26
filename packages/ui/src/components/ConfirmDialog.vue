@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
-import ModalDialog from "./ModalDialog.vue";
-import { useConfirmDialog, type ConfirmVariant } from "../composables/useConfirmDialog";
+import { nextTick, ref, watch } from 'vue';
+import { type ConfirmVariant, useConfirmDialog } from '../composables/useConfirmDialog';
+import ModalDialog from './ModalDialog.vue';
 
 const { options, visible, resolve } = useConfirmDialog();
 
@@ -30,13 +30,13 @@ function handleVisibleUpdate(val: boolean) {
 }
 
 const variantIcon: Record<ConfirmVariant, string> = {
-  danger: "🗑",
-  warning: "⚠",
-  info: "ℹ",
+  danger: '🗑',
+  warning: '⚠',
+  info: 'ℹ',
 };
 
 function variantClass(v?: ConfirmVariant): string {
-  return `confirm--${v ?? "info"}`;
+  return `confirm--${v ?? 'info'}`;
 }
 </script>
 

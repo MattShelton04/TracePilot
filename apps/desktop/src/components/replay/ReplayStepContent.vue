@@ -9,24 +9,24 @@
  * - Tool calls capped at MAX_VISIBLE_TOOLS per section, with "Show N more" toggle
  * - Long messages truncated at MAX_MESSAGE_CHARS with "Show more" toggle
  */
-import { computed, ref } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
-import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
-import type { ReplayStep } from '@tracepilot/types';
+
+import type { ConversationTurn, ReplayStep, TurnToolCall } from '@tracepilot/types';
 import {
-  Badge,
-  ToolCallItem,
-  ExpandChevron,
   AgentBadge,
-  ReasoningBlock,
-  MarkdownContent,
+  Badge,
+  ExpandChevron,
   formatDuration,
   formatTime,
-  toolIcon,
   getAgentColor,
+  MarkdownContent,
+  ReasoningBlock,
+  ToolCallItem,
+  toolIcon,
   useConversationSections,
   useToggleSet,
 } from '@tracepilot/ui';
+import { computed, ref } from 'vue';
+import { usePreferencesStore } from '@/stores/preferences';
 
 /** Max tool calls shown before requiring expand */
 const MAX_VISIBLE_TOOLS = 8;
@@ -83,9 +83,7 @@ const sections = computed(() => getSections(props.turn.turnIndex));
 // Auto-expand individual tool details when ≤ 5 tool calls in main sections only.
 // Subagent sections use compact variant and don't auto-expand.
 const mainSectionToolCount = computed(() =>
-  sections.value
-    .filter((s) => !s.agentId)
-    .reduce((sum, s) => sum + s.toolCalls.length, 0),
+  sections.value.filter((s) => !s.agentId).reduce((sum, s) => sum + s.toolCalls.length, 0),
 );
 
 function isToolDetailExpanded(key: string): boolean {

@@ -11,7 +11,7 @@
  *
  * @see docs/design/adding-tool-renderers.md for the full guide
  */
-import { defineAsyncComponent, type Component } from "vue";
+import { type Component, defineAsyncComponent } from 'vue';
 
 export interface RendererEntry {
   /** Human-friendly label shown in the settings UI. */
@@ -30,61 +30,61 @@ export interface RendererEntry {
  */
 const RENDERER_REGISTRY: Record<string, RendererEntry> = {
   edit: {
-    label: "Edit (Diff View)",
-    resultComponent: defineAsyncComponent(() => import("./EditDiffRenderer.vue")),
-    argsComponent: defineAsyncComponent(() => import("./EditArgsRenderer.vue")),
+    label: 'Edit (Diff View)',
+    resultComponent: defineAsyncComponent(() => import('./EditDiffRenderer.vue')),
+    argsComponent: defineAsyncComponent(() => import('./EditArgsRenderer.vue')),
     hideArgsWithRichResult: true,
   },
   view: {
-    label: "View (Code Highlight)",
-    resultComponent: defineAsyncComponent(() => import("./ViewCodeRenderer.vue")),
+    label: 'View (Code Highlight)',
+    resultComponent: defineAsyncComponent(() => import('./ViewCodeRenderer.vue')),
   },
   create: {
-    label: "Create (Code Highlight)",
-    resultComponent: defineAsyncComponent(() => import("./CreateFileRenderer.vue")),
-    argsComponent: defineAsyncComponent(() => import("./CreateArgsRenderer.vue")),
+    label: 'Create (Code Highlight)',
+    resultComponent: defineAsyncComponent(() => import('./CreateFileRenderer.vue')),
+    argsComponent: defineAsyncComponent(() => import('./CreateArgsRenderer.vue')),
     hideArgsWithRichResult: true,
   },
   grep: {
-    label: "Grep (Search Results)",
-    resultComponent: defineAsyncComponent(() => import("./GrepResultRenderer.vue")),
+    label: 'Grep (Search Results)',
+    resultComponent: defineAsyncComponent(() => import('./GrepResultRenderer.vue')),
   },
   glob: {
-    label: "Glob (File Tree)",
-    resultComponent: defineAsyncComponent(() => import("./GlobTreeRenderer.vue")),
+    label: 'Glob (File Tree)',
+    resultComponent: defineAsyncComponent(() => import('./GlobTreeRenderer.vue')),
   },
   powershell: {
-    label: "Shell (Terminal Output)",
-    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+    label: 'Shell (Terminal Output)',
+    resultComponent: defineAsyncComponent(() => import('./ShellOutputRenderer.vue')),
   },
   read_powershell: {
-    label: "Read Shell (Terminal Output)",
-    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+    label: 'Read Shell (Terminal Output)',
+    resultComponent: defineAsyncComponent(() => import('./ShellOutputRenderer.vue')),
   },
   write_powershell: {
-    label: "Write Shell",
-    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+    label: 'Write Shell',
+    resultComponent: defineAsyncComponent(() => import('./ShellOutputRenderer.vue')),
   },
   sql: {
-    label: "SQL (Query + Table)",
-    resultComponent: defineAsyncComponent(() => import("./SqlResultRenderer.vue")),
+    label: 'SQL (Query + Table)',
+    resultComponent: defineAsyncComponent(() => import('./SqlResultRenderer.vue')),
   },
   web_search: {
-    label: "Web Search",
-    resultComponent: defineAsyncComponent(() => import("./WebSearchRenderer.vue")),
+    label: 'Web Search',
+    resultComponent: defineAsyncComponent(() => import('./WebSearchRenderer.vue')),
   },
   store_memory: {
-    label: "Store Memory",
-    resultComponent: defineAsyncComponent(() => import("./StoreMemoryRenderer.vue")),
+    label: 'Store Memory',
+    resultComponent: defineAsyncComponent(() => import('./StoreMemoryRenderer.vue')),
   },
   report_intent: {
-    label: "Report Intent",
-    argsComponent: defineAsyncComponent(() => import("./ReportIntentRenderer.vue")),
+    label: 'Report Intent',
+    argsComponent: defineAsyncComponent(() => import('./ReportIntentRenderer.vue')),
   },
   ask_user: {
-    label: "Ask User (Q&A)",
-    resultComponent: defineAsyncComponent(() => import("./AskUserRenderer.vue")),
-    argsComponent: defineAsyncComponent(() => import("./AskUserArgsRenderer.vue")),
+    label: 'Ask User (Q&A)',
+    resultComponent: defineAsyncComponent(() => import('./AskUserRenderer.vue')),
+    argsComponent: defineAsyncComponent(() => import('./AskUserArgsRenderer.vue')),
     hideArgsWithRichResult: true,
   },
 };

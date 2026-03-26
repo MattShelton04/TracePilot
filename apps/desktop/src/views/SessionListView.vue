@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
-import { useRouter } from "vue-router";
-import { useSessionsStore, type SortOption } from "@/stores/sessions";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
-import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { formatRelativeTime } from "@tracepilot/ui";
-import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar, LoadingSpinner } from "@tracepilot/ui";
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import type { IndexingProgressPayload } from '@tracepilot/types';
+import {
+  Badge,
+  EmptyState,
+  ErrorAlert,
+  FilterSelect,
+  formatRelativeTime,
+  LoadingSpinner,
+  ProgressBar,
+  SearchInput,
+  SkeletonLoader,
+} from '@tracepilot/ui';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import RefreshToolbar from '@/components/RefreshToolbar.vue';
+import { useAutoRefresh } from '@/composables/useAutoRefresh';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
+import { type SortOption, useSessionsStore } from '@/stores/sessions';
 import { safeListen } from '@/utils/tauriEvents';
 
 const router = useRouter();
@@ -38,13 +47,13 @@ function prefetchTopSessions() {
   }
 }
 
-const repoOptions= computed(() => store.repositories as string[]);
+const repoOptions = computed(() => store.repositories as string[]);
 const branchOptions = computed(() => store.branches as string[]);
 const sortOptions = [
-  { label: "Newest first", value: "updated" },
-  { label: "Oldest first", value: "oldest" },
-  { label: "Most events", value: "events" },
-  { label: "Most turns", value: "turns" },
+  { label: 'Newest first', value: 'updated' },
+  { label: 'Oldest first', value: 'oldest' },
+  { label: 'Most events', value: 'events' },
+  { label: 'Most turns', value: 'turns' },
 ];
 
 onMounted(async () => {
@@ -87,19 +96,22 @@ onUnmounted(() => {
 const pageRef = ref<HTMLElement | null>(null);
 let driftTimeout: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => store.searchQuery, (val) => {
-  if (val === '67' && pageRef.value) {
-    if (driftTimeout) clearTimeout(driftTimeout);
-    // Force reflow to restart animation if already playing
-    pageRef.value.classList.remove('drift-active');
-    void pageRef.value.offsetWidth;
-    pageRef.value.classList.add('drift-active');
-    driftTimeout = setTimeout(() => {
-      pageRef.value?.classList.remove('drift-active');
-      driftTimeout = null;
-    }, 1800);
-  }
-});
+watch(
+  () => store.searchQuery,
+  (val) => {
+    if (val === '67' && pageRef.value) {
+      if (driftTimeout) clearTimeout(driftTimeout);
+      // Force reflow to restart animation if already playing
+      pageRef.value.classList.remove('drift-active');
+      void pageRef.value.offsetWidth;
+      pageRef.value.classList.add('drift-active');
+      driftTimeout = setTimeout(() => {
+        pageRef.value?.classList.remove('drift-active');
+        driftTimeout = null;
+      }, 1800);
+    }
+  },
+);
 </script>
 
 <template>

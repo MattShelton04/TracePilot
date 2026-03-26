@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { useLauncherStore } from "../../stores/launcher";
-import type { SessionTemplate, ModelInfo, SystemDependencies } from "@tracepilot/types";
+import type { ModelInfo, SessionTemplate, SystemDependencies } from '@tracepilot/types';
+import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLauncherStore } from '../../stores/launcher';
 
 // Mock the client module
 const mockLaunchSession = vi.fn();
@@ -13,7 +13,7 @@ const mockRestoreDefaultTemplates = vi.fn();
 const mockIncrementTemplateUsage = vi.fn();
 const mockCheckSystemDeps = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
+vi.mock('@tracepilot/client', () => ({
   launchSession: (...args: unknown[]) => mockLaunchSession(...args),
   getAvailableModels: (...args: unknown[]) => mockGetAvailableModels(...args),
   listSessionTemplates: (...args: unknown[]) => mockListSessionTemplates(...args),
@@ -25,62 +25,62 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 const MOCK_TEMPLATE: SessionTemplate = {
-  id: "default-multi-agent-review",
-  name: "Multi Agent Code Review",
-  description: "Comprehensive code review using multiple AI models",
-  icon: "🔍",
-  category: "Quality",
+  id: 'default-multi-agent-review',
+  name: 'Multi Agent Code Review',
+  description: 'Comprehensive code review using multiple AI models',
+  icon: '🔍',
+  category: 'Quality',
   config: {
-    repoPath: "",
+    repoPath: '',
     headless: false,
     envVars: {},
     createWorktree: false,
     autoApprove: false,
-    model: "claude-opus-4.6",
-    reasoningEffort: "high",
+    model: 'claude-opus-4.6',
+    reasoningEffort: 'high',
     prompt:
-      "Spin up opus 4.6, GPT 5.4, Codex 5.3, and Gemini subagents to do a comprehensive code review of the changes on this branch (git diff). Consolidate and validate their feedback, and provide a summary.",
+      'Spin up opus 4.6, GPT 5.4, Codex 5.3, and Gemini subagents to do a comprehensive code review of the changes on this branch (git diff). Consolidate and validate their feedback, and provide a summary.',
   },
-  tags: ["review", "multi-agent", "premium"],
-  createdAt: "2025-01-01T00:00:00Z",
+  tags: ['review', 'multi-agent', 'premium'],
+  createdAt: '2025-01-01T00:00:00Z',
   usageCount: 0,
 };
 
 const MOCK_TEMPLATE_WRITE_TESTS: SessionTemplate = {
-  id: "default-write-tests",
-  name: "Write Tests",
-  description: "Generate comprehensive test coverage for recent changes",
-  icon: "🧪",
-  category: "Quality",
+  id: 'default-write-tests',
+  name: 'Write Tests',
+  description: 'Generate comprehensive test coverage for recent changes',
+  icon: '🧪',
+  category: 'Quality',
   config: {
-    repoPath: "",
+    repoPath: '',
     headless: false,
     envVars: {},
     createWorktree: false,
     autoApprove: false,
-    model: "claude-sonnet-4.6",
-    reasoningEffort: "high",
+    model: 'claude-sonnet-4.6',
+    reasoningEffort: 'high',
   },
-  tags: ["testing", "coverage"],
-  createdAt: "2025-01-01T00:00:00Z",
+  tags: ['testing', 'coverage'],
+  createdAt: '2025-01-01T00:00:00Z',
   usageCount: 0,
 };
 
 const MOCK_MODELS: ModelInfo[] = [
-  { id: "claude-opus-4.6", name: "Claude Opus 4.6", tier: "premium" },
-  { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", tier: "standard" },
-  { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", tier: "fast" },
+  { id: 'claude-opus-4.6', name: 'Claude Opus 4.6', tier: 'premium' },
+  { id: 'claude-sonnet-4.6', name: 'Claude Sonnet 4.6', tier: 'standard' },
+  { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', tier: 'fast' },
 ];
 
 const MOCK_DEPS: SystemDependencies = {
   gitAvailable: true,
-  gitVersion: "2.45.0",
+  gitVersion: '2.45.0',
   copilotAvailable: true,
-  copilotVersion: "1.0.9",
+  copilotVersion: '1.0.9',
   copilotHomeExists: true,
 };
 
-describe("useLauncherStore", () => {
+describe('useLauncherStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mockLaunchSession.mockReset();
@@ -93,7 +93,7 @@ describe("useLauncherStore", () => {
     mockCheckSystemDeps.mockReset();
   });
 
-  it("initializes with empty state", () => {
+  it('initializes with empty state', () => {
     const store = useLauncherStore();
     expect(store.models).toEqual([]);
     expect(store.templates).toEqual([]);
@@ -103,8 +103,8 @@ describe("useLauncherStore", () => {
     expect(store.error).toBeNull();
   });
 
-  describe("initialize", () => {
-    it("loads models, templates, and system deps", async () => {
+  describe('initialize', () => {
+    it('loads models, templates, and system deps', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue(MOCK_MODELS);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE, MOCK_TEMPLATE_WRITE_TESTS]);
@@ -115,15 +115,15 @@ describe("useLauncherStore", () => {
       expect(store.systemDeps).toEqual(MOCK_DEPS);
       expect(store.models).toEqual(MOCK_MODELS);
       expect(store.templates).toHaveLength(2);
-      expect(store.templates[0].icon).toBe("🔍");
-      expect(store.templates[1].icon).toBe("🧪");
+      expect(store.templates[0].icon).toBe('🔍');
+      expect(store.templates[1].icon).toBe('🧪');
       expect(store.loading).toBe(false);
       expect(store.error).toBeNull();
     });
 
-    it("sets error when some requests fail", async () => {
+    it('sets error when some requests fail', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
-      mockGetAvailableModels.mockRejectedValue(new Error("Network error"));
+      mockGetAvailableModels.mockRejectedValue(new Error('Network error'));
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE]);
 
       const store = useLauncherStore();
@@ -132,17 +132,17 @@ describe("useLauncherStore", () => {
       expect(store.systemDeps).toEqual(MOCK_DEPS);
       expect(store.models).toEqual([]); // failed
       expect(store.templates).toHaveLength(1); // succeeded
-      expect(store.error).toContain("Network error");
+      expect(store.error).toContain('Network error');
     });
   });
 
-  describe("isReady", () => {
-    it("returns false when system deps not loaded", () => {
+  describe('isReady', () => {
+    it('returns false when system deps not loaded', () => {
       const store = useLauncherStore();
       expect(store.isReady).toBeFalsy();
     });
 
-    it("returns true when git and copilot available", async () => {
+    it('returns true when git and copilot available', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([]);
@@ -153,7 +153,7 @@ describe("useLauncherStore", () => {
       expect(store.isReady).toBe(true);
     });
 
-    it("returns false when git not available", async () => {
+    it('returns false when git not available', async () => {
       mockCheckSystemDeps.mockResolvedValue({ ...MOCK_DEPS, gitAvailable: false });
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([]);
@@ -165,8 +165,8 @@ describe("useLauncherStore", () => {
     });
   });
 
-  describe("modelsByTier", () => {
-    it("groups models by tier", async () => {
+  describe('modelsByTier', () => {
+    it('groups models by tier', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue(MOCK_MODELS);
       mockListSessionTemplates.mockResolvedValue([]);
@@ -175,15 +175,15 @@ describe("useLauncherStore", () => {
       await store.initialize();
 
       expect(store.modelsByTier).toEqual({
-        premium: [{ id: "claude-opus-4.6", name: "Claude Opus 4.6", tier: "premium" }],
-        standard: [{ id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", tier: "standard" }],
-        fast: [{ id: "claude-haiku-4.5", name: "Claude Haiku 4.5", tier: "fast" }],
+        premium: [{ id: 'claude-opus-4.6', name: 'Claude Opus 4.6', tier: 'premium' }],
+        standard: [{ id: 'claude-sonnet-4.6', name: 'Claude Sonnet 4.6', tier: 'standard' }],
+        fast: [{ id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', tier: 'fast' }],
       });
     });
   });
 
-  describe("templates", () => {
-    it("default templates have icon field", async () => {
+  describe('templates', () => {
+    it('default templates have icon field', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE, MOCK_TEMPLATE_WRITE_TESTS]);
@@ -193,11 +193,11 @@ describe("useLauncherStore", () => {
 
       for (const tpl of store.templates) {
         expect(tpl.icon).toBeDefined();
-        expect(typeof tpl.icon).toBe("string");
+        expect(typeof tpl.icon).toBe('string');
       }
     });
 
-    it("multi-agent review template has correct config", async () => {
+    it('multi-agent review template has correct config', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE]);
@@ -205,15 +205,15 @@ describe("useLauncherStore", () => {
       const store = useLauncherStore();
       await store.initialize();
 
-      const tpl = store.templates.find((t) => t.id === "default-multi-agent-review");
+      const tpl = store.templates.find((t) => t.id === 'default-multi-agent-review');
       expect(tpl).toBeDefined();
-      expect(tpl!.config.model).toBe("claude-opus-4.6");
-      expect(tpl!.config.reasoningEffort).toBe("high");
-      expect(tpl!.config.prompt).toContain("Spin up opus 4.6");
-      expect(tpl!.icon).toBe("🔍");
+      expect(tpl!.config.model).toBe('claude-opus-4.6');
+      expect(tpl!.config.reasoningEffort).toBe('high');
+      expect(tpl!.config.prompt).toContain('Spin up opus 4.6');
+      expect(tpl!.icon).toBe('🔍');
     });
 
-    it("write tests template has correct config", async () => {
+    it('write tests template has correct config', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE_WRITE_TESTS]);
@@ -221,23 +221,23 @@ describe("useLauncherStore", () => {
       const store = useLauncherStore();
       await store.initialize();
 
-      const tpl = store.templates.find((t) => t.id === "default-write-tests");
+      const tpl = store.templates.find((t) => t.id === 'default-write-tests');
       expect(tpl).toBeDefined();
-      expect(tpl!.config.model).toBe("claude-sonnet-4.6");
-      expect(tpl!.config.reasoningEffort).toBe("high");
+      expect(tpl!.config.model).toBe('claude-sonnet-4.6');
+      expect(tpl!.config.reasoningEffort).toBe('high');
       expect(tpl!.config.createWorktree).toBe(false);
       expect(tpl!.config.autoApprove).toBe(false);
-      expect(tpl!.icon).toBe("🧪");
+      expect(tpl!.icon).toBe('🧪');
     });
   });
 
-  describe("saveTemplate", () => {
-    it("saves template and refreshes list", async () => {
+  describe('saveTemplate', () => {
+    it('saves template and refreshes list', async () => {
       const savedTemplate: SessionTemplate = {
         ...MOCK_TEMPLATE,
-        id: "user-custom-1",
-        name: "Custom Template",
-        icon: "⭐",
+        id: 'user-custom-1',
+        name: 'Custom Template',
+        icon: '⭐',
       };
 
       mockSaveSessionTemplate.mockResolvedValue(undefined);
@@ -252,19 +252,19 @@ describe("useLauncherStore", () => {
       expect(store.templates).toHaveLength(2);
     });
 
-    it("returns false and sets error on failure", async () => {
-      mockSaveSessionTemplate.mockRejectedValue(new Error("Save failed"));
+    it('returns false and sets error on failure', async () => {
+      mockSaveSessionTemplate.mockRejectedValue(new Error('Save failed'));
 
       const store = useLauncherStore();
       const result = await store.saveTemplate(MOCK_TEMPLATE);
 
       expect(result).toBe(false);
-      expect(store.error).toContain("Save failed");
+      expect(store.error).toContain('Save failed');
     });
   });
 
-  describe("deleteTemplate", () => {
-    it("removes template from store", async () => {
+  describe('deleteTemplate', () => {
+    it('removes template from store', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE, MOCK_TEMPLATE_WRITE_TESTS]);
@@ -274,14 +274,14 @@ describe("useLauncherStore", () => {
       await store.initialize();
       expect(store.templates).toHaveLength(2);
 
-      const result = await store.deleteTemplate("default-write-tests");
+      const result = await store.deleteTemplate('default-write-tests');
       expect(result).toBe(true);
-      expect(mockDeleteSessionTemplate).toHaveBeenCalledWith("default-write-tests");
+      expect(mockDeleteSessionTemplate).toHaveBeenCalledWith('default-write-tests');
       expect(store.templates).toHaveLength(1);
-      expect(store.templates[0].id).toBe("default-multi-agent-review");
+      expect(store.templates[0].id).toBe('default-multi-agent-review');
     });
 
-    it("can delete default templates (dismiss)", async () => {
+    it('can delete default templates (dismiss)', async () => {
       mockCheckSystemDeps.mockResolvedValue(MOCK_DEPS);
       mockGetAvailableModels.mockResolvedValue([]);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE]);
@@ -290,35 +290,35 @@ describe("useLauncherStore", () => {
       const store = useLauncherStore();
       await store.initialize();
 
-      const result = await store.deleteTemplate("default-multi-agent-review");
+      const result = await store.deleteTemplate('default-multi-agent-review');
       expect(result).toBe(true);
       expect(store.templates).toHaveLength(0);
     });
 
-    it("returns false and sets error on failure", async () => {
-      mockDeleteSessionTemplate.mockRejectedValue(new Error("Delete failed"));
+    it('returns false and sets error on failure', async () => {
+      mockDeleteSessionTemplate.mockRejectedValue(new Error('Delete failed'));
 
       const store = useLauncherStore();
       store.templates = [MOCK_TEMPLATE];
-      const result = await store.deleteTemplate("default-multi-agent-review");
+      const result = await store.deleteTemplate('default-multi-agent-review');
 
       expect(result).toBe(false);
-      expect(store.error).toContain("Delete failed");
+      expect(store.error).toContain('Delete failed');
     });
   });
 
-  describe("launch", () => {
-    it("launches session and tracks in recent launches", async () => {
+  describe('launch', () => {
+    it('launches session and tracks in recent launches', async () => {
       const mockSession = {
         pid: 12345,
-        command: "copilot --model=claude-opus-4.6",
-        launchedAt: "2025-01-01T00:00:00Z",
+        command: 'copilot --model=claude-opus-4.6',
+        launchedAt: '2025-01-01T00:00:00Z',
       };
       mockLaunchSession.mockResolvedValue(mockSession);
 
       const store = useLauncherStore();
       const result = await store.launch({
-        repoPath: "C:\\git\\test",
+        repoPath: 'C:\\git\\test',
         headless: false,
         envVars: {},
         createWorktree: false,
@@ -330,23 +330,23 @@ describe("useLauncherStore", () => {
       expect(store.recentLaunches[0].pid).toBe(12345);
     });
 
-    it("caps recent launches at 10", async () => {
+    it('caps recent launches at 10', async () => {
       const store = useLauncherStore();
       store.recentLaunches = Array.from({ length: 10 }, (_, i) => ({
         pid: i,
         command: `cmd-${i}`,
-        launchedAt: "2025-01-01T00:00:00Z",
+        launchedAt: '2025-01-01T00:00:00Z',
       }));
 
       const mockSession = {
         pid: 99,
-        command: "copilot",
-        launchedAt: "2025-01-01T00:00:00Z",
+        command: 'copilot',
+        launchedAt: '2025-01-01T00:00:00Z',
       };
       mockLaunchSession.mockResolvedValue(mockSession);
 
       await store.launch({
-        repoPath: "C:\\git\\test",
+        repoPath: 'C:\\git\\test',
         headless: false,
         envVars: {},
         createWorktree: false,
@@ -357,12 +357,12 @@ describe("useLauncherStore", () => {
       expect(store.recentLaunches[0].pid).toBe(99);
     });
 
-    it("returns null and sets error on failure", async () => {
-      mockLaunchSession.mockRejectedValue(new Error("Launch failed"));
+    it('returns null and sets error on failure', async () => {
+      mockLaunchSession.mockRejectedValue(new Error('Launch failed'));
 
       const store = useLauncherStore();
       const result = await store.launch({
-        repoPath: "C:\\git\\test",
+        repoPath: 'C:\\git\\test',
         headless: false,
         envVars: {},
         createWorktree: false,
@@ -370,12 +370,12 @@ describe("useLauncherStore", () => {
       });
 
       expect(result).toBeNull();
-      expect(store.error).toContain("Launch failed");
+      expect(store.error).toContain('Launch failed');
     });
   });
 
-  describe("restoreDefaults", () => {
-    it("calls restore API and refreshes templates", async () => {
+  describe('restoreDefaults', () => {
+    it('calls restore API and refreshes templates', async () => {
       mockRestoreDefaultTemplates.mockResolvedValue(undefined);
       mockListSessionTemplates.mockResolvedValue([MOCK_TEMPLATE, MOCK_TEMPLATE_WRITE_TESTS]);
 
@@ -390,37 +390,37 @@ describe("useLauncherStore", () => {
       expect(store.templates).toHaveLength(2);
     });
 
-    it("returns false and sets error on failure", async () => {
-      mockRestoreDefaultTemplates.mockRejectedValue(new Error("Restore failed"));
+    it('returns false and sets error on failure', async () => {
+      mockRestoreDefaultTemplates.mockRejectedValue(new Error('Restore failed'));
 
       const store = useLauncherStore();
       const result = await store.restoreDefaults();
 
       expect(result).toBe(false);
-      expect(store.error).toContain("Restore failed");
+      expect(store.error).toContain('Restore failed');
     });
   });
 
-  describe("incrementUsage", () => {
-    it("increments usage count optimistically", async () => {
+  describe('incrementUsage', () => {
+    it('increments usage count optimistically', async () => {
       mockIncrementTemplateUsage.mockResolvedValue(undefined);
 
       const store = useLauncherStore();
       store.templates = [{ ...MOCK_TEMPLATE, usageCount: 3 }];
 
-      await store.incrementUsage("default-multi-agent-review");
+      await store.incrementUsage('default-multi-agent-review');
 
-      expect(mockIncrementTemplateUsage).toHaveBeenCalledWith("default-multi-agent-review");
+      expect(mockIncrementTemplateUsage).toHaveBeenCalledWith('default-multi-agent-review');
       expect(store.templates[0].usageCount).toBe(4);
     });
 
-    it("does not surface errors for usage tracking", async () => {
-      mockIncrementTemplateUsage.mockRejectedValue(new Error("Tracking failed"));
+    it('does not surface errors for usage tracking', async () => {
+      mockIncrementTemplateUsage.mockRejectedValue(new Error('Tracking failed'));
 
       const store = useLauncherStore();
       store.templates = [{ ...MOCK_TEMPLATE, usageCount: 0 }];
 
-      await store.incrementUsage("default-multi-agent-review");
+      await store.incrementUsage('default-multi-agent-review');
 
       // Error should NOT be set — usage tracking is non-critical
       expect(store.error).toBeNull();

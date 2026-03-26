@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import {
-  ErrorState,
-  LoadingOverlay,
   computeBarWidth,
   computeGridLines,
   createChartLayout,
+  ErrorState,
   formatCost,
   formatDateMedium,
   formatDateShort,
@@ -14,6 +13,7 @@ import {
   formatPercent,
   generateXLabels,
   generateYLabels,
+  LoadingOverlay,
   mapToLineCoords,
   toAreaPoints,
   toPolylinePoints,
@@ -56,7 +56,14 @@ const totalWholesaleCost = computed(() => {
 
 // ── Chart constants ──────────────────────────────────────────
 const chartLayout = createChartLayout(55, 490, 20, 175);
-const { left: CHART_LEFT, right: CHART_RIGHT, top: CHART_TOP, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
+const {
+  left: CHART_LEFT,
+  right: CHART_RIGHT,
+  top: CHART_TOP,
+  bottom: CHART_BOTTOM,
+  width: CHART_W,
+  height: CHART_H,
+} = chartLayout;
 const GRID_ROWS = 4;
 
 const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
@@ -90,7 +97,11 @@ const tokenChart = computed(() => {
   const linePoints = toPolylinePoints(coords);
   const areaPoints = toAreaPoints(coords, chartLayout);
   const yLabels = generateYLabels(max, chartLayout, 5, formatNumber);
-  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
+  const xLabels = generateXLabels(
+    coords,
+    (c) => c.x,
+    (c) => formatDateShort(c.date),
+  );
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
@@ -165,7 +176,11 @@ const costChart = computed(() => {
   const linePoints = toPolylinePoints(coords);
   const areaPoints = toAreaPoints(coords, chartLayout);
   const yLabels = generateYLabels(max, chartLayout, 4, formatCost);
-  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
+  const xLabels = generateXLabels(
+    coords,
+    (c) => c.x,
+    (c) => formatDateShort(c.date),
+  );
   return { coords, linePoints, areaPoints, yLabels, xLabels };
 });
 
@@ -184,7 +199,7 @@ const incidentChart = computed(() => {
   }
 
   // Compute values per bar — split errors into rateLimits + otherErrors
-  const barData = pts.map(p => {
+  const barData = pts.map((p) => {
     const otherErrors = Math.max(0, p.errors - p.rateLimits);
     const sessions = sessionMap.get(p.date) || 1;
     const norm = incidentNormalize.value ? sessions : 1;
@@ -202,8 +217,8 @@ const incidentChart = computed(() => {
     };
   });
 
-  const maxVal = Math.max(0.5, ...barData.map(b => b.total));
-  const barW = Math.max(4, Math.min(18, (CHART_W) / barData.length - 2));
+  const maxVal = Math.max(0.5, ...barData.map((b) => b.total));
+  const barW = Math.max(4, Math.min(18, CHART_W / barData.length - 2));
 
   const bars = barData.map((b, i) => {
     const x = CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W;
@@ -239,7 +254,17 @@ const incidentChart = computed(() => {
   return { bars, yLabels, xLabels, barW, maxVal };
 });
 
-function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErrors: number; compactions: number; truncations: number; rawRateLimits: number; rawOtherErrors: number; rawCompactions: number; rawTruncations: number }): string {
+function formatIncidentTooltip(bar: {
+  date: string;
+  rateLimits: number;
+  otherErrors: number;
+  compactions: number;
+  truncations: number;
+  rawRateLimits: number;
+  rawOtherErrors: number;
+  rawCompactions: number;
+  rawTruncations: number;
+}): string {
   const d = formatDateMedium(bar.date);
   if (incidentNormalize.value) {
     const parts: string[] = [];
@@ -250,10 +275,14 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
     return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
   }
   const parts: string[] = [];
-  if (bar.rawRateLimits > 0) parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? 's' : ''}`);
-  if (bar.rawOtherErrors > 0) parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? 's' : ''}`);
-  if (bar.rawCompactions > 0) parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
-  if (bar.rawTruncations > 0) parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
+  if (bar.rawRateLimits > 0)
+    parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? 's' : ''}`);
+  if (bar.rawOtherErrors > 0)
+    parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? 's' : ''}`);
+  if (bar.rawCompactions > 0)
+    parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
+  if (bar.rawTruncations > 0)
+    parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
   return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
 }
 </script>

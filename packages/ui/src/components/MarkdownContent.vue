@@ -2,9 +2,10 @@
 /**
  * MarkdownContent — renders markdown with markdown-it and sanitizes with DOMPurify.
  */
-import { computed } from 'vue';
-import MarkdownIt from 'markdown-it';
+
 import DOMPurify from 'dompurify';
+import MarkdownIt from 'markdown-it';
+import { computed } from 'vue';
 
 const md = new MarkdownIt({
   html: false, // Disable HTML tags in source for security
@@ -13,22 +14,25 @@ const md = new MarkdownIt({
   breaks: false, // Don't convert single newlines to <br>
 });
 
-const props = withDefaults(defineProps<{
-  /** Markdown text to render. */
-  content: string;
-  /** Maximum height before showing a scrollbar (CSS value). */
-  maxHeight?: string;
-  /** Whether to render markdown (true) or show as raw text (false). */
-  render?: boolean;
-}>(), {
-  render: true
-});
+const props = withDefaults(
+  defineProps<{
+    /** Markdown text to render. */
+    content: string;
+    /** Maximum height before showing a scrollbar (CSS value). */
+    maxHeight?: string;
+    /** Whether to render markdown (true) or show as raw text (false). */
+    render?: boolean;
+  }>(),
+  {
+    render: true,
+  },
+);
 
 const rendered = computed(() => {
   if (!props.render) {
     return escapeHtml(props.content);
   }
-  
+
   // Clean up content: trim extra newlines before rendering
   const cleanedContent = props.content.trim();
   const rawHtml = md.render(cleanedContent);
@@ -43,35 +47,36 @@ function handleLinkClick(event: MouseEvent) {
     if (href && href.startsWith('#')) {
       // Internal section link - prevent default to avoid 404 in SPA
       event.preventDefault();
-      
+
       const id = href.slice(1).toLowerCase();
-      const container = (event.currentTarget as HTMLElement);
-      
+      const container = event.currentTarget as HTMLElement;
+
       // 1. Try to find by ID (standard)
       let element = container.querySelector(`[id="${id}"], a[name="${id}"]`);
-      
+
       // 2. If not found, try to find a header that matches the slug
       if (!element) {
         const headers = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
         for (const h of Array.from(headers)) {
           const text = h.textContent || '';
           // Standard slugging: don't collapse multiple dashes if they come from multiple spaces/chars
-          const slug = text.toLowerCase()
+          const slug = text
+            .toLowerCase()
             .trim()
             .replace(/[^\w\s-]/g, '')
             .replace(/\s/g, '-')
             .replace(/_/g, '-')
             .replace(/^-+|-+$/g, '');
-          
+
           if (slug === id || slug.replace(/-+/g, '-') === id.replace(/-+/g, '-')) {
             element = h;
             break;
           }
         }
       }
-      
+
       if (element) {
-        // Use scroll-margin-top on the target element if possible, 
+        // Use scroll-margin-top on the target element if possible,
         // otherwise just use scrollIntoView which is more reliable than manual relative math
         // in complex layouts.
         (element as HTMLElement).style.scrollMarginTop = '80px';

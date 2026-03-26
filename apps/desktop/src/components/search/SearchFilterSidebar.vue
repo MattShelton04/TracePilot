@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { SearchContentType } from '@tracepilot/types';
+import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from '@tracepilot/ui';
 import { computed } from 'vue';
 import { useSearchStore } from '@/stores/search';
 import { useSessionsStore } from '@/stores/sessions';
-import type { SearchContentType } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES } from '@tracepilot/ui';
 
 defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ clearFilters: [] }>();
@@ -19,13 +19,16 @@ const visibleContentTypes = computed(() => {
   if (!stats?.contentTypeCounts) return ALL_CONTENT_TYPES;
   const withData = new Set(stats.contentTypeCounts.filter(([, n]) => n > 0).map(([t]) => t));
   // Always include types that are currently selected as filters
-  return ALL_CONTENT_TYPES.filter(ct =>
-    withData.has(ct) || store.contentTypes.includes(ct) || store.excludeContentTypes.includes(ct)
+  return ALL_CONTENT_TYPES.filter(
+    (ct) =>
+      withData.has(ct) || store.contentTypes.includes(ct) || store.excludeContentTypes.includes(ct),
   );
 });
 
 const availableRepositories = computed(() => {
-  return store.availableRepositories.length > 0 ? store.availableRepositories : sessionsStore.repositories;
+  return store.availableRepositories.length > 0
+    ? store.availableRepositories
+    : sessionsStore.repositories;
 });
 
 // ── Content type tri-state toggle ─────────────────────────────

@@ -33,21 +33,26 @@ export function teardownLogging(): void {
 // Browser-safe re-exports: no-op in browser, write to backend log file in Tauri
 export async function debug(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.debug(msg); else console.debug(msg);
+  if (log) await log.debug(msg);
+  else console.debug(msg);
 }
 export async function info(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.info(msg); else console.info(msg);
+  if (log) await log.info(msg);
+  else console.info(msg);
 }
 export async function warn(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.warn(msg); else console.warn(msg);
+  if (log) await log.warn(msg);
+  else console.warn(msg);
 }
 export async function error(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.error(msg); else console.error(msg);
+  if (log) await log.error(msg);
+  else console.error(msg);
 }
 export async function trace(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.trace(msg); else console.debug(msg);
+  if (log) await log.trace(msg);
+  else console.debug(msg);
 }

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
+import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
 import ErrorBoundary from '@/components/ErrorBoundary.vue';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
-import SearchPalette from '@/components/SearchPalette.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
+import SearchPalette from '@/components/SearchPalette.vue';
 import SetupWizard from '@/components/SetupWizard.vue';
 import UpdateInstructionsModal from '@/components/UpdateInstructionsModal.vue';
 import WhatsNewModal from '@/components/WhatsNewModal.vue';

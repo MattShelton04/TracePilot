@@ -1,4 +1,4 @@
-import { type Ref, computed, nextTick, ref } from 'vue';
+import { computed, nextTick, type Ref, ref } from 'vue';
 
 export interface WizardNavigationOptions {
   totalSteps: number;
@@ -23,9 +23,7 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
     options.totalSteps <= 1 ? 1 : currentStep.value / (options.totalSteps - 1),
   );
 
-  const transitionDuration = computed(() =>
-    options.prefersReducedMotion.value ? '0ms' : '400ms',
-  );
+  const transitionDuration = computed(() => (options.prefersReducedMotion.value ? '0ms' : '400ms'));
 
   function goTo(step: number) {
     if (step < 0 || step >= options.totalSteps || transitioning.value) return;

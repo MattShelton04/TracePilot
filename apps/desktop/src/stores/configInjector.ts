@@ -1,5 +1,17 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  createConfigBackup as createBackupApi,
+  deleteConfigBackup as deleteBackupApi,
+  discoverCopilotVersions,
+  getActiveCopilotVersion,
+  getAgentDefinitions,
+  getCopilotConfig,
+  getMigrationDiffs,
+  listConfigBackups,
+  migrateAgentDefinition as migrateAgentApi,
+  restoreConfigBackup as restoreBackupApi,
+  saveAgentDefinition as saveAgentApi,
+  saveCopilotConfig as saveCopilotApi,
+} from '@tracepilot/client';
 import type {
   AgentDefinition,
   BackupEntry,
@@ -7,21 +19,9 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from '@tracepilot/types';
-import {
-  getAgentDefinitions,
-  saveAgentDefinition as saveAgentApi,
-  getCopilotConfig,
-  saveCopilotConfig as saveCopilotApi,
-  createConfigBackup as createBackupApi,
-  deleteConfigBackup as deleteBackupApi,
-  listConfigBackups,
-  restoreConfigBackup as restoreBackupApi,
-  discoverCopilotVersions,
-  getActiveCopilotVersion,
-  getMigrationDiffs,
-  migrateAgentDefinition as migrateAgentApi,
-} from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
 import { useToastStore } from '@/stores/toast';
 
 export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
@@ -62,8 +62,9 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       if (activeRes.status === 'fulfilled') activeVersion.value = activeRes.value;
       if (backupsRes.status === 'fulfilled') backups.value = backupsRes.value;
 
-      const failures = [agentsRes, configRes, versionsRes, activeRes, backupsRes]
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const failures = [agentsRes, configRes, versionsRes, activeRes, backupsRes].filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
       if (failures.length > 0) {
         error.value = failures.map((f) => toErrorMessage(f.reason)).join('; ');
       }

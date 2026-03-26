@@ -87,60 +87,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import type { IndexingProgressPayload } from '@tracepilot/types'
-import { reindexSessions } from '@tracepilot/client'
-import LogoIcon from '@/components/icons/LogoIcon.vue'
-import OrbitalStatsPanel from '@/components/OrbitalStatsPanel.vue'
-import { useAnimatedCounters } from '@/composables/useAnimatedCounters'
-import { useIndexingEvents } from '@/composables/useIndexingEvents'
-import {
-  useOrbitalAnimation,
-  PHASE_LABELS,
-  type Phase,
-} from '@/composables/useOrbitalAnimation'
+import { reindexSessions } from '@tracepilot/client';
+import type { IndexingProgressPayload } from '@tracepilot/types';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import LogoIcon from '@/components/icons/LogoIcon.vue';
+import OrbitalStatsPanel from '@/components/OrbitalStatsPanel.vue';
+import { useAnimatedCounters } from '@/composables/useAnimatedCounters';
+import { useIndexingEvents } from '@/composables/useIndexingEvents';
+import { PHASE_LABELS, type Phase, useOrbitalAnimation } from '@/composables/useOrbitalAnimation';
 
 // ── Props & Emits ──────────────────────────────────────────────────────────────
 
 const props = defineProps<{
-  totalSessions: number
-}>()
+  totalSessions: number;
+}>();
 
 const emit = defineEmits<{
-  complete: []
-}>()
+  complete: [];
+}>();
 
 // ── UI state ───────────────────────────────────────────────────────────────────
 
-const phase = ref<Phase>('idle')
-const showLogo = ref(false)
-const dismissed = ref(false)
-const fadingOut = ref(false)
-const completionFlashActive = ref(false)
-const progressPct = ref(0)
-const sessionCounterText = ref('')
-const prefersReducedMotion = ref(false)
+const phase = ref<Phase>('idle');
+const showLogo = ref(false);
+const dismissed = ref(false);
+const fadingOut = ref(false);
+const completionFlashActive = ref(false);
+const progressPct = ref(0);
+const sessionCounterText = ref('');
+const prefersReducedMotion = ref(false);
 
 // Timer tracking for cleanup
-const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
-let safetyTimeoutId: ReturnType<typeof setTimeout> | null = null
-const SAFETY_TIMEOUT_MS = 60_000
+const pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+let safetyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const SAFETY_TIMEOUT_MS = 60_000;
 
 // Minimum display time tracking
-let mountTime = 0
-const MIN_DISPLAY_MS = 1500
-let sessionsProcessed = 0
+let mountTime = 0;
+const MIN_DISPLAY_MS = 1500;
+let sessionsProcessed = 0;
 
 // ── Template refs ──────────────────────────────────────────────────────────────
 
-const orbitalFieldRef = ref<HTMLElement>()
-const svgLayerRef = ref<SVGSVGElement>()
-const ambientContainerRef = ref<HTMLElement>()
+const orbitalFieldRef = ref<HTMLElement>();
+const svgLayerRef = ref<SVGSVGElement>();
+const ambientContainerRef = ref<HTMLElement>();
 
 // ── Composables ────────────────────────────────────────────────────────────────
 
-const counters = useAnimatedCounters()
-const { displaySessions, displayTokens, displayEvents, displayRepos } = counters
+const counters = useAnimatedCounters();
+const { displaySessions, displayTokens, displayEvents, displayRepos } = counters;
 
 const {
   visibleNodes,
@@ -167,43 +163,43 @@ const {
   phase,
   prefersReducedMotion,
   onFrame: counters.lerpCounters,
-})
+});
 
 const indexingEvents = useIndexingEvents({
   onStarted: onIndexingStarted,
   onProgress: onIndexingProgress,
   onFinished: onIndexingFinished,
-})
+});
 
 // ── Tracked timeout helper ─────────────────────────────────────────────────────
 
 /** setTimeout that auto-cleans on unmount */
 function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
   const id = setTimeout(() => {
-    pendingTimers.delete(id)
-    fn()
-  }, ms)
-  pendingTimers.add(id)
-  return id
+    pendingTimers.delete(id);
+    fn();
+  }, ms);
+  pendingTimers.add(id);
+  return id;
 }
 
 // ── Computed ───────────────────────────────────────────────────────────────────
 
-const phaseLabel = computed(() => PHASE_LABELS[phase.value])
+const phaseLabel = computed(() => PHASE_LABELS[phase.value]);
 
 // ── Phase transitions ──────────────────────────────────────────────────────────
 
 function setPhase(newPhase: Phase) {
-  phase.value = newPhase
+  phase.value = newPhase;
 
   if (newPhase === 'discovering') {
-    showLogo.value = true
-    showLaneEllipses()
+    showLogo.value = true;
+    showLaneEllipses();
   }
 
   if (newPhase === 'finalizing') {
-    setGlobalSpeedMult(0.5)
-    setLaneEllipseOpacity('0.2')
+    setGlobalSpeedMult(0.5);
+    setLaneEllipseOpacity('0.2');
   }
 }
 
@@ -211,137 +207,133 @@ function setPhase(newPhase: Phase) {
 
 async function handleCompletion() {
   // Guard against double-completion
-  if (dismissed.value || phase.value === 'complete') return
+  if (dismissed.value || phase.value === 'complete') return;
 
   // Ensure minimum display time
-  const elapsed = performance.now() - mountTime
+  const elapsed = performance.now() - mountTime;
   if (elapsed < MIN_DISPLAY_MS) {
-    await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed))
+    await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
   }
 
-  phase.value = 'complete'
+  phase.value = 'complete';
 
   // Step 1: Show "Ready" text + completion flash
-  completionFlashActive.value = true
+  completionFlashActive.value = true;
 
   // Step 2: Decelerate orbits over 300ms
-  decelerate(300)
+  decelerate(300);
 
   // Step 3: After 600ms, start fade-out
   safeTimeout(() => {
-    fadingOut.value = true
+    fadingOut.value = true;
 
     // Step 4: After fade completes (500ms), emit complete
     safeTimeout(() => {
-      dismissed.value = true
-      emit('complete')
-    }, 500)
-  }, 600)
+      dismissed.value = true;
+      emit('complete');
+    }, 500);
+  }, 600);
 }
 
 // ── Tauri event handlers ───────────────────────────────────────────────────────
 
 function onIndexingStarted() {
-  setPhase('discovering')
+  setPhase('discovering');
 }
 
 function onIndexingProgress(payload: IndexingProgressPayload) {
   if (phase.value === 'discovering' || phase.value === 'idle') {
-    setPhase('indexing')
+    setPhase('indexing');
   }
 
   // Update progress
-  const pct = payload.total > 0 ? (payload.current / payload.total) * 100 : 0
-  progressPct.value = pct
+  const pct = payload.total > 0 ? (payload.current / payload.total) * 100 : 0;
+  progressPct.value = pct;
 
   // Update counter targets
-  counters.targetSessions.value = payload.current
-  counters.targetTokens.value = payload.totalTokens
-  counters.targetEvents.value = payload.totalEvents
-  sessionCounterText.value = `${payload.current} / ${payload.total}`
+  counters.targetSessions.value = payload.current;
+  counters.targetTokens.value = payload.totalTokens;
+  counters.targetEvents.value = payload.totalEvents;
+  sessionCounterText.value = `${payload.current} / ${payload.total}`;
 
   // Create orbiting node if this event has session info
   if (payload.sessionRepo) {
-    createNode(
-      payload.sessionRepo,
-      payload.sessionBranch ?? 'main',
-      payload.sessionTokens,
-    )
-    counters.targetRepos.value = repoLegendItems.value.length
+    createNode(payload.sessionRepo, payload.sessionBranch ?? 'main', payload.sessionTokens);
+    counters.targetRepos.value = repoLegendItems.value.length;
 
-    sessionsProcessed++
+    sessionsProcessed++;
     if (sessionsProcessed % 10 === 0) {
-      emitPulse()
+      emitPulse();
     }
   }
 
   // Transition to finalizing at >90%
   if (pct > 90 && phase.value === 'indexing') {
-    setPhase('finalizing')
+    setPhase('finalizing');
   }
 }
 
 function onIndexingFinished() {
   // Snap counters to final values
-  progressPct.value = 100
-  handleCompletion()
+  progressPct.value = 100;
+  handleCompletion();
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  mountTime = performance.now()
+  mountTime = performance.now();
 
   // Detect reduced motion preference
-  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // CRITICAL: Register event listeners BEFORE triggering indexing
   // to prevent the race condition where events fire before we're listening.
-  await indexingEvents.setup()
+  await indexingEvents.setup();
 
-  await nextTick()
+  await nextTick();
 
   // Measure viewport and initialize orbital visuals
-  measureField()
-  createAmbientParticles(35)
-  drawLaneEllipses()
+  measureField();
+  createAmbientParticles(35);
+  drawLaneEllipses();
 
   // Start animation loop (also sets up resize observer)
-  startAnimation()
+  startAnimation();
 
   // Show logo after brief delay
   safeTimeout(() => {
-    showLogo.value = true
-  }, 200)
+    showLogo.value = true;
+  }, 200);
 
   // NOW trigger indexing — listeners are guaranteed to be active
   reindexSessions().catch((err) => {
-    console.error('Indexing failed (non-fatal):', err)
+    console.error('Indexing failed (non-fatal):', err);
     // Ensure we don't get stuck — transition to app
-    handleCompletion()
-  })
+    handleCompletion();
+  });
 
   // Safety timeout — if indexing-finished never arrives, auto-complete
   safetyTimeoutId = safeTimeout(() => {
     if (phase.value !== 'complete' && !dismissed.value) {
-      console.warn('Loading screen safety timeout — proceeding to app')
-      handleCompletion()
+      console.warn('Loading screen safety timeout — proceeding to app');
+      handleCompletion();
     }
-  }, SAFETY_TIMEOUT_MS)
-})
+  }, SAFETY_TIMEOUT_MS);
+});
 
 onUnmounted(() => {
   // Stop animation loop and clean up orbital DOM elements
-  stopAnimation()
+  stopAnimation();
 
   // Clean up all tracked timers
-  for (const id of pendingTimers) clearTimeout(id)
-  pendingTimers.clear()
+  for (const id of pendingTimers) clearTimeout(id);
+  pendingTimers.clear();
   if (safetyTimeoutId) {
-    clearTimeout(safetyTimeoutId)
-    safetyTimeoutId = null
+    clearTimeout(safetyTimeoutId);
+    safetyTimeoutId = null;
   }
-})
+});
 </script>
 
 <style scoped>

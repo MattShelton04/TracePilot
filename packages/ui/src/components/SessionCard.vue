@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { SessionListItem } from "@tracepilot/types";
-import Badge from "./Badge.vue";
-import { formatRelativeTime } from "../utils/formatters";
+import type { SessionListItem } from '@tracepilot/types';
+import { formatRelativeTime } from '../utils/formatters';
+import Badge from './Badge.vue';
 
 defineProps<{
   session: SessionListItem;

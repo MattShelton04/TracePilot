@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { createRouter, createMemoryHistory } from 'vue-router';
+import { describe, expect, it } from 'vitest';
+import { createMemoryHistory, createRouter } from 'vue-router';
 import BreadcrumbNav from '../../../components/layout/BreadcrumbNav.vue';
 
 const router = createRouter({
@@ -21,10 +21,7 @@ describe('BreadcrumbNav', () => {
   it('renders multiple items with links', () => {
     const wrapper = mount(BreadcrumbNav, {
       props: {
-        items: [
-          { label: 'Sessions', to: '/' },
-          { label: 'Detail' },
-        ],
+        items: [{ label: 'Sessions', to: '/' }, { label: 'Detail' }],
       },
       global: { plugins: [router] },
     });

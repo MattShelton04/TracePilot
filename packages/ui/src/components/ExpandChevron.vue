@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   expanded: boolean;
-  size?: "sm" | "md";
+  size?: 'sm' | 'md';
 }>();
 </script>
 

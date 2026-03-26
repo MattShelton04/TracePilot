@@ -1,6 +1,6 @@
-import { ref, onScopeDispose } from "vue";
-import type { Ref } from "vue";
-import { toErrorMessage } from "../utils/formatters";
+import type { Ref } from 'vue';
+import { onScopeDispose, ref } from 'vue';
+import { toErrorMessage } from '../utils/formatters';
 
 export interface UseClipboardOptions {
   /** Duration in ms to show "copied" state. Default: 2000 */
@@ -22,9 +22,7 @@ export interface UseClipboardReturn {
  * Composable for copying text to the clipboard with a temporary "copied" state.
  * Each call creates independent state — safe for multiple copy buttons.
  */
-export function useClipboard(
-  options?: UseClipboardOptions,
-): UseClipboardReturn {
+export function useClipboard(options?: UseClipboardOptions): UseClipboardReturn {
   const { duration = 2000 } = options ?? {};
 
   const copied = ref(false);

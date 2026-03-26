@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { Badge, DataTable, ActionButton, ErrorAlert, FilterSelect, formatTime, useSessionTabLoader } from "@tracepilot/ui";
+import {
+  ActionButton,
+  Badge,
+  DataTable,
+  ErrorAlert,
+  FilterSelect,
+  formatTime,
+  useSessionTabLoader,
+} from '@tracepilot/ui';
+import { computed, ref, watch } from 'vue';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 const filterType = ref<string | null>(null);
@@ -18,7 +26,7 @@ useSessionTabLoader(
       filterType.value = null;
       currentPage.value = 0;
     },
-  }
+  },
 );
 
 // Derive event types from the full unfiltered set returned by the backend
@@ -44,32 +52,34 @@ const totalCount = computed(() => store.events?.totalCount ?? 0);
 const hasMore = computed(() => store.events?.hasMore ?? false);
 const displayEvents = computed(() => store.events?.events ?? []);
 
-function eventBadgeVariant(type: string): 'accent' | 'success' | 'done' | 'warning' | 'neutral' | 'danger' {
+function eventBadgeVariant(
+  type: string,
+): 'accent' | 'success' | 'done' | 'warning' | 'neutral' | 'danger' {
   if (type === 'session.error') return 'danger';
   if (type === 'session.warning') return 'warning';
   if (type.startsWith('session.compaction')) return 'warning';
   if (type === 'session.truncation') return 'warning';
-  if (type.startsWith("session.")) return "accent";
-  if (type.startsWith("user.")) return "success";
-  if (type.startsWith("assistant.")) return "done";
-  if (type.startsWith("tool.")) return "warning";
-  if (type.startsWith("context.")) return "accent";
-  if (type.startsWith("subagent.")) return "done";
-  return "neutral";
+  if (type.startsWith('session.')) return 'accent';
+  if (type.startsWith('user.')) return 'success';
+  if (type.startsWith('assistant.')) return 'done';
+  if (type.startsWith('tool.')) return 'warning';
+  if (type.startsWith('context.')) return 'accent';
+  if (type.startsWith('subagent.')) return 'done';
+  return 'neutral';
 }
 
 const eventColumns = [
-  { key: "rowNum", label: "#", align: "left" as const },
-  { key: "eventType", label: "Type", align: "left" as const },
-  { key: "timestamp", label: "Time", align: "left" as const },
-  { key: "id", label: "ID", align: "left" as const },
+  { key: 'rowNum', label: '#', align: 'left' as const },
+  { key: 'eventType', label: 'Type', align: 'left' as const },
+  { key: 'timestamp', label: 'Time', align: 'left' as const },
+  { key: 'id', label: 'ID', align: 'left' as const },
 ];
 
 const tableRows = computed(() =>
   displayEvents.value.map((e, idx) => ({
     ...e,
     rowNum: currentPage.value * pageSize + idx + 1,
-  }))
+  })),
 );
 
 async function loadPage(page: number) {

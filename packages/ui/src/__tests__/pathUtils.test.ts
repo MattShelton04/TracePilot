@@ -3,8 +3,8 @@ import {
   normalizePath,
   pathBasename,
   pathDirname,
-  shortenPath,
   sanitizeBranchForPath,
+  shortenPath,
 } from '../utils/pathUtils';
 
 describe('normalizePath', () => {

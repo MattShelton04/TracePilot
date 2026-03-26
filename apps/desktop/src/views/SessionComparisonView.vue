@@ -84,10 +84,10 @@ async function runComparison() {
     const [detailA, metricsA, turnsA, detailB, metricsB, turnsB] = await Promise.all([
       getSessionDetail(selectedA.value),
       getShutdownMetrics(selectedA.value),
-      getSessionTurns(selectedA.value).then(r => r.turns),
+      getSessionTurns(selectedA.value).then((r) => r.turns),
       getSessionDetail(selectedB.value),
       getShutdownMetrics(selectedB.value),
-      getSessionTurns(selectedB.value).then(r => r.turns),
+      getSessionTurns(selectedB.value).then((r) => r.turns),
     ]);
     dataA.detail = detailA;
     dataA.metrics = metricsA;

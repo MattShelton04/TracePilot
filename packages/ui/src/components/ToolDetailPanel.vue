@@ -8,11 +8,11 @@
  * to the parent component.
  */
 import type { TurnToolCall } from '@tracepilot/types';
+import { formatDuration, formatTime } from '../utils/formatters';
+import { extractPrompt, toolIcon } from '../utils/toolCall';
 import Badge from './Badge.vue';
 import ToolArgsRenderer from './renderers/ToolArgsRenderer.vue';
 import ToolResultRenderer from './renderers/ToolResultRenderer.vue';
-import { toolIcon, extractPrompt } from '../utils/toolCall';
-import { formatDuration, formatTime } from '../utils/formatters';
 
 const props = defineProps<{
   tc: TurnToolCall;

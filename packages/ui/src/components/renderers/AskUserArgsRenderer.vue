@@ -7,7 +7,7 @@ defineProps<{
 }>();
 
 const question = (args: Record<string, unknown>) =>
-  typeof args.question === "string" ? args.question : null;
+  typeof args.question === 'string' ? args.question : null;
 
 const choices = (args: Record<string, unknown>) =>
   Array.isArray(args.choices) ? (args.choices as string[]) : null;

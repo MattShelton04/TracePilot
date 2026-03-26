@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
+import {
+  ErrorState,
+  formatCost,
+  formatNumber,
+  formatPercent,
+  LoadingOverlay,
+} from '@tracepilot/ui';
 import { computed, ref, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';

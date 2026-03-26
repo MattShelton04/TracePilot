@@ -3,9 +3,10 @@
  * ReplayEventTicker — scrolling horizontal event ticker at the bottom.
  * Shows session events from all steps up to the current step.
  */
-import { computed } from 'vue';
+
 import type { ReplayStep } from '@tracepilot/types';
 import { formatTime } from '@tracepilot/ui';
+import { computed } from 'vue';
 
 const props = defineProps<{
   steps: ReplayStep[];

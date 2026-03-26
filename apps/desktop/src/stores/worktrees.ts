@@ -1,29 +1,29 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  addRegisteredRepo as addRegisteredRepoApi,
+  createWorktree as createWorktreeApi,
+  discoverReposFromSessions as discoverReposApi,
+  getWorktreeDetails as getWorktreeDetailsApi,
+  getWorktreeDiskUsage,
+  listBranches as listBranchesApi,
+  listRegisteredRepos,
+  listWorktrees,
+  lockWorktree as lockWorktreeApi,
+  pruneWorktrees as pruneWorktreesApi,
+  removeRegisteredRepo as removeRegisteredRepoApi,
+  removeWorktree as removeWorktreeApi,
+  toggleRepoFavourite,
+  unlockWorktree as unlockWorktreeApi,
+} from '@tracepilot/client';
 import type {
-  WorktreeInfo,
-  WorktreeDetails,
   CreateWorktreeRequest,
   PruneResult,
   RegisteredRepo,
+  WorktreeDetails,
+  WorktreeInfo,
 } from '@tracepilot/types';
-import {
-  listWorktrees,
-  createWorktree as createWorktreeApi,
-  removeWorktree as removeWorktreeApi,
-  pruneWorktrees as pruneWorktreesApi,
-  listBranches as listBranchesApi,
-  getWorktreeDiskUsage,
-  lockWorktree as lockWorktreeApi,
-  unlockWorktree as unlockWorktreeApi,
-  getWorktreeDetails as getWorktreeDetailsApi,
-  listRegisteredRepos,
-  addRegisteredRepo as addRegisteredRepoApi,
-  removeRegisteredRepo as removeRegisteredRepoApi,
-  discoverReposFromSessions as discoverReposApi,
-  toggleRepoFavourite,
-} from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -93,7 +93,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch(() => {
+            /* ignore disk usage errors */
+          });
       }
     } catch (e) {
       if (thisGen !== loadGeneration) return;
@@ -131,7 +133,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch(() => {
+            /* ignore disk usage errors */
+          });
       }
     } catch (e) {
       if (thisGen !== loadGeneration) return;
@@ -259,7 +263,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
         }
       })
-      .catch(() => { /* ignore */ });
+      .catch(() => {
+        /* ignore */
+      });
   }
 
   // ─── Repository Registry Actions ──────────────────────────────────
@@ -323,7 +329,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     togglingFavourites.value.add(path);
     try {
       const newState = await toggleRepoFavourite(path);
-      const repo = registeredRepos.value.find(r => r.path === path);
+      const repo = registeredRepos.value.find((r) => r.path === path);
       if (repo) {
         repo.favourite = newState;
       }

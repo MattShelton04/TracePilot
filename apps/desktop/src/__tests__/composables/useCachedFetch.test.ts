@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCachedFetch } from '@/composables/useCachedFetch';
 
 describe('useCachedFetch', () => {
@@ -36,7 +36,12 @@ describe('useCachedFetch', () => {
 
     it('sets loading state during fetch', async () => {
       let resolvePromise: (value: any) => void;
-      const fetcher = vi.fn(() => new Promise((resolve) => { resolvePromise = resolve; }));
+      const fetcher = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolvePromise = resolve;
+          }),
+      );
       const { loading, fetch } = useCachedFetch({ fetcher });
 
       expect(loading.value).toBe(false);
@@ -51,7 +56,10 @@ describe('useCachedFetch', () => {
     });
 
     it('passes parameters to fetcher function', async () => {
-      interface Params { id: number; name: string }
+      interface Params {
+        id: number;
+        name: string;
+      }
       const fetcher = vi.fn().mockResolvedValue({ result: 'ok' });
       const { fetch } = useCachedFetch<any, Params>({ fetcher });
 
@@ -92,7 +100,8 @@ describe('useCachedFetch', () => {
     });
 
     it('clears previous error on successful retry', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockRejectedValueOnce(new Error('First fail'))
         .mockResolvedValueOnce({ data: 'success' });
       const { data, error, fetch } = useCachedFetch({ fetcher });
@@ -118,7 +127,8 @@ describe('useCachedFetch', () => {
     });
 
     it('fetches again for different parameters', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockResolvedValueOnce({ data: 'first' })
         .mockResolvedValueOnce({ data: 'second' });
       const { data, fetch } = useCachedFetch({ fetcher });
@@ -145,7 +155,8 @@ describe('useCachedFetch', () => {
     });
 
     it('force refetch bypasses cache', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockResolvedValueOnce({ data: 'first' })
         .mockResolvedValueOnce({ data: 'second' });
       const { data, fetch } = useCachedFetch({ fetcher });
@@ -173,7 +184,8 @@ describe('useCachedFetch', () => {
     });
 
     it('clearCache removes cache entries', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockResolvedValueOnce({ data: 'first' })
         .mockResolvedValueOnce({ data: 'second' });
       const { fetch, isCached, clearCache } = useCachedFetch({ fetcher });
@@ -192,7 +204,12 @@ describe('useCachedFetch', () => {
   describe('request deduplication', () => {
     it('deduplicates concurrent requests for same parameters', async () => {
       let resolvePromise: (value: any) => void;
-      const fetcher = vi.fn(() => new Promise((resolve) => { resolvePromise = resolve; }));
+      const fetcher = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolvePromise = resolve;
+          }),
+      );
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 
       const promise1 = fetch({ id: 1 });
@@ -208,7 +225,7 @@ describe('useCachedFetch', () => {
     });
 
     it('does not deduplicate requests for different parameters', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 
@@ -223,7 +240,8 @@ describe('useCachedFetch', () => {
     });
 
     it('allows new request after previous completes', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockResolvedValueOnce({ data: 'first' })
         .mockResolvedValueOnce({ data: 'second' });
       const { fetch } = useCachedFetch({ fetcher });
@@ -237,7 +255,7 @@ describe('useCachedFetch', () => {
 
   describe('generation-based stale request prevention', () => {
     it('prevents stale writes when newer request completes first', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 
@@ -262,10 +280,13 @@ describe('useCachedFetch', () => {
     });
 
     it('prevents stale error writes', async () => {
-      let resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
-      const fetcher = vi.fn(() => new Promise((resolve, reject) => {
-        resolvers.push({ resolve, reject });
-      }));
+      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const fetcher = vi.fn(
+        () =>
+          new Promise((resolve, reject) => {
+            resolvers.push({ resolve, reject });
+          }),
+      );
       const { error, data, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
@@ -287,7 +308,7 @@ describe('useCachedFetch', () => {
     });
 
     it('prevents stale loading state updates', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { loading, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 
@@ -314,7 +335,9 @@ describe('useCachedFetch', () => {
   describe('reset', () => {
     it('resets all state to initial values', async () => {
       const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
-      const { data, error, loading, fetch, reset } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { data, error, loading, fetch, reset } = useCachedFetch<any, { id: number }>({
+        fetcher,
+      });
 
       await fetch({ id: 1 });
       expect(data.value).toEqual({ data: 'test' });
@@ -341,7 +364,7 @@ describe('useCachedFetch', () => {
     });
 
     it('increments generation to prevent stale writes after reset', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch, reset } = useCachedFetch<any, { id: number }>({ fetcher });
 
@@ -359,7 +382,10 @@ describe('useCachedFetch', () => {
 
   describe('type safety', () => {
     it('enforces correct data type', async () => {
-      interface MyData { name: string; count: number }
+      interface MyData {
+        name: string;
+        count: number;
+      }
       const mockData: MyData = { name: 'test', count: 42 };
       const fetcher = vi.fn().mockResolvedValue(mockData);
       const { data, fetch } = useCachedFetch<MyData>({ fetcher });
@@ -371,7 +397,10 @@ describe('useCachedFetch', () => {
     });
 
     it('enforces correct parameter type', async () => {
-      interface MyParams { id: number; filter?: string }
+      interface MyParams {
+        id: number;
+        filter?: string;
+      }
       const fetcher = vi.fn().mockResolvedValue({ result: 'ok' });
       const { fetch } = useCachedFetch<any, MyParams>({ fetcher });
 
@@ -405,7 +434,10 @@ describe('useCachedFetch', () => {
     });
 
     it('handles null values in parameters', async () => {
-      interface Params { id: number | null; name?: string }
+      interface Params {
+        id: number | null;
+        name?: string;
+      }
       const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
       const { fetch } = useCachedFetch<any, Params>({ fetcher });
 
@@ -416,7 +448,10 @@ describe('useCachedFetch', () => {
     });
 
     it('handles undefined values in parameters', async () => {
-      interface Params { id?: number; name?: string }
+      interface Params {
+        id?: number;
+        name?: string;
+      }
       const fetcher = vi.fn().mockResolvedValue({ data: 'test' });
       const { fetch } = useCachedFetch<any, Params>({ fetcher });
 
@@ -473,7 +508,7 @@ describe('useCachedFetch', () => {
     });
 
     it('does not call onSuccess for stale requests', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onSuccess = vi.fn();
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onSuccess });
@@ -496,10 +531,13 @@ describe('useCachedFetch', () => {
     });
 
     it('does not call onError for stale requests', async () => {
-      let resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
-      const fetcher = vi.fn(() => new Promise((resolve, reject) => {
-        resolvers.push({ resolve, reject });
-      }));
+      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const fetcher = vi.fn(
+        () =>
+          new Promise((resolve, reject) => {
+            resolvers.push({ resolve, reject });
+          }),
+      );
       const onError = vi.fn();
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onError });
 
@@ -520,7 +558,7 @@ describe('useCachedFetch', () => {
     });
 
     it('does not call onFinally for stale requests', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onFinally = vi.fn();
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onFinally });
@@ -557,7 +595,7 @@ describe('useCachedFetch', () => {
       expect(onSuccess).toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('onSuccess'),
-        expect.any(Error)
+        expect.any(Error),
       );
 
       consoleErrorSpy.mockRestore();
@@ -578,7 +616,7 @@ describe('useCachedFetch', () => {
       expect(onError).toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('onError'),
-        expect.any(Error)
+        expect.any(Error),
       );
 
       consoleErrorSpy.mockRestore();
@@ -599,7 +637,7 @@ describe('useCachedFetch', () => {
       expect(onFinally).toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('onFinally'),
-        expect.any(Error)
+        expect.any(Error),
       );
 
       consoleErrorSpy.mockRestore();
@@ -687,7 +725,12 @@ describe('useCachedFetch', () => {
   describe('silent mode', () => {
     it('does not update loading state when silent is true', async () => {
       let resolvePromise: (value: any) => void;
-      const fetcher = vi.fn(() => new Promise((resolve) => { resolvePromise = resolve; }));
+      const fetcher = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolvePromise = resolve;
+          }),
+      );
       const { loading, fetch } = useCachedFetch({ fetcher, silent: true });
 
       expect(loading.value).toBe(false);
@@ -735,7 +778,8 @@ describe('useCachedFetch', () => {
 
   describe('cache control', () => {
     it('does not cache results when cache is false', async () => {
-      const fetcher = vi.fn()
+      const fetcher = vi
+        .fn()
         .mockResolvedValueOnce({ data: 'first' })
         .mockResolvedValueOnce({ data: 'second' });
       const { fetch, isCached } = useCachedFetch({ fetcher, cache: false });
@@ -782,7 +826,7 @@ describe('useCachedFetch', () => {
     });
 
     it('returns undefined for stale requests', async () => {
-      let resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
 

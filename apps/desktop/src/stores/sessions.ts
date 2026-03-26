@@ -1,33 +1,33 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import type { SessionListItem } from "@tracepilot/types";
-import { listSessions, reindexSessions } from "@tracepilot/client";
-import { toErrorMessage } from "@tracepilot/ui";
-import { usePreferencesStore } from "./preferences";
+import { listSessions, reindexSessions } from '@tracepilot/client';
+import type { SessionListItem } from '@tracepilot/types';
+import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
+import { usePreferencesStore } from './preferences';
 
-export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
+export type SortOption = 'updated' | 'created' | 'oldest' | 'events' | 'turns';
 
 /** Deduplicate concurrent indexing calls. */
 let indexingPromise: Promise<[number, number]> | null = null;
 /** Deduplicate concurrent fetchSessions calls. */
 let fetchPromise: Promise<void> | null = null;
 
-export const useSessionsStore = defineStore("sessions", () => {
+export const useSessionsStore = defineStore('sessions', () => {
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
   const indexing = ref(false);
   const error = ref<string | null>(null);
-  const searchQuery = ref("");
+  const searchQuery = ref('');
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
-  const sortBy = ref<SortOption>("updated");
+  const sortBy = ref<SortOption>('updated');
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
     let result = sessions.value;
 
     if (prefs.hideEmptySessions) {
-      result = result.filter(s => (s.turnCount ?? 0) !== 0);
+      result = result.filter((s) => (s.turnCount ?? 0) !== 0);
     }
 
     if (searchQuery.value) {
@@ -51,17 +51,17 @@ export const useSessionsStore = defineStore("sessions", () => {
     const sorted = [...result];
     sorted.sort((a, b) => {
       switch (sortBy.value) {
-        case "created":
-          return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
-        case "oldest":
-          return (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "");
-        case "events":
+        case 'created':
+          return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+        case 'oldest':
+          return (a.updatedAt ?? '').localeCompare(b.updatedAt ?? '');
+        case 'events':
           return (b.eventCount ?? 0) - (a.eventCount ?? 0);
-        case "turns":
+        case 'turns':
           return (b.turnCount ?? 0) - (a.turnCount ?? 0);
-        case "updated":
+        case 'updated':
         default:
-          return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+          return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
       }
     });
     return sorted;
@@ -82,14 +82,14 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const emptySessionCount = computed(() => {
-    return sessions.value.filter(s => (s.turnCount ?? 0) === 0).length;
+    return sessions.value.filter((s) => (s.turnCount ?? 0) === 0).length;
   });
 
   /** Session count respecting hideEmptySessions but not search/repo/branch filters. */
   const visibleSessionCount = computed(() => {
     const prefs = usePreferencesStore();
     if (prefs.hideEmptySessions) {
-      return sessions.value.filter(s => (s.turnCount ?? 0) !== 0).length;
+      return sessions.value.filter((s) => (s.turnCount ?? 0) !== 0).length;
     }
     return sessions.value.length;
   });
@@ -118,7 +118,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       try {
         sessions.value = await listSessions();
       } catch (e) {
-        console.error("Silent refresh failed:", e);
+        console.error('Silent refresh failed:', e);
       } finally {
         fetchPromise = null;
       }
@@ -135,7 +135,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         sessions.value = await listSessions();
       } catch (e) {
         const msg = toErrorMessage(e);
-        if (msg !== "ALREADY_INDEXING") {
+        if (msg !== 'ALREADY_INDEXING') {
           error.value = msg;
         }
       }
@@ -151,7 +151,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       sessions.value = await listSessions();
     } catch (e) {
       const msg = toErrorMessage(e);
-      if (msg !== "ALREADY_INDEXING") {
+      if (msg !== 'ALREADY_INDEXING') {
         error.value = msg;
       }
     } finally {
@@ -167,8 +167,16 @@ export const useSessionsStore = defineStore("sessions", () => {
    */
   async function ensureIndex() {
     if (indexingPromise) {
-      try { await indexingPromise; } catch { /* already running */ }
-      try { sessions.value = await listSessions(); } catch { /* silent */ }
+      try {
+        await indexingPromise;
+      } catch {
+        /* already running */
+      }
+      try {
+        sessions.value = await listSessions();
+      } catch {
+        /* silent */
+      }
       return;
     }
 

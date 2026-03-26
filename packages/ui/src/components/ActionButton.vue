@@ -1,8 +1,8 @@
 <script setup lang="ts">
 defineProps<{
   disabled?: boolean;
-  size?: "sm" | "md";
-  variant?: "primary" | "ghost" | "default";
+  size?: 'sm' | 'md';
+  variant?: 'primary' | 'ghost' | 'default';
 }>();
 </script>
 

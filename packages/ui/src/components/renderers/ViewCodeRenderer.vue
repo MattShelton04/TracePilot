@@ -2,10 +2,10 @@
 /**
  * ViewCodeRenderer — renders view tool results with line numbers and language detection.
  */
-import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
-import CodeBlock from "./CodeBlock.vue";
-import { detectLanguage } from "../../utils/languageDetection";
+import { computed } from 'vue';
+import { detectLanguage } from '../../utils/languageDetection';
+import CodeBlock from './CodeBlock.vue';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -18,7 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const filePath = computed(() =>
-  typeof props.args?.path === "string" ? props.args.path : undefined
+  typeof props.args?.path === 'string' ? props.args.path : undefined,
 );
 
 const viewRange = computed<[number, number] | null>(() => {
@@ -34,17 +34,17 @@ const startLine = computed(() => viewRange.value?.[0] ?? 1);
 /** Detect if this is a directory listing (no file extension AND not a known filename). */
 const isDirectoryListing = computed(() => {
   if (!filePath.value) return false;
-  const lastSegment = filePath.value.replace(/\\/g, "/").split("/").pop() ?? "";
+  const lastSegment = filePath.value.replace(/\\/g, '/').split('/').pop() ?? '';
   // Check against known extensionless filenames (Dockerfile, Makefile, etc.)
-  if (detectLanguage(filePath.value) !== "text") return false;
+  if (detectLanguage(filePath.value) !== 'text') return false;
   // No extension and not a recognized filename → likely a directory
-  if (!lastSegment.includes(".")) return true;
+  if (!lastSegment.includes('.')) return true;
   return false;
 });
 
 const lineCount = computed(() => {
-  const lines = props.content.split("\n");
-  return lines[lines.length - 1] === "" ? lines.length - 1 : lines.length;
+  const lines = props.content.split('\n');
+  return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
 });
 </script>
 

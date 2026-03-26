@@ -1,12 +1,12 @@
-import { onBeforeUnmount } from 'vue'
-import type { UnlistenFn } from '@tauri-apps/api/event'
-import type { IndexingProgressPayload } from '@tracepilot/types'
-import { safeListen } from '@/utils/tauriEvents'
+import type { UnlistenFn } from '@tauri-apps/api/event';
+import type { IndexingProgressPayload } from '@tracepilot/types';
+import { onBeforeUnmount } from 'vue';
+import { safeListen } from '@/utils/tauriEvents';
 
 export interface IndexingEventsCallbacks {
-  onStarted: () => void
-  onProgress: (payload: IndexingProgressPayload) => void
-  onFinished: () => void
+  onStarted: () => void;
+  onProgress: (payload: IndexingProgressPayload) => void;
+  onFinished: () => void;
 }
 
 /**
@@ -16,35 +16,35 @@ export interface IndexingEventsCallbacks {
  * - Listeners are automatically cleaned up on unmount
  */
 export function useIndexingEvents(callbacks: IndexingEventsCallbacks) {
-  let unlistenStarted: UnlistenFn | null = null
-  let unlistenProgress: UnlistenFn | null = null
-  let unlistenFinished: UnlistenFn | null = null
+  let unlistenStarted: UnlistenFn | null = null;
+  let unlistenProgress: UnlistenFn | null = null;
+  let unlistenFinished: UnlistenFn | null = null;
 
   /** Register all Tauri event listeners. Must be awaited. */
   async function setup() {
     unlistenStarted = await safeListen('indexing-started', () => {
-      callbacks.onStarted()
-    })
+      callbacks.onStarted();
+    });
 
     unlistenProgress = await safeListen<IndexingProgressPayload>('indexing-progress', (event) => {
-      callbacks.onProgress(event.payload)
-    })
+      callbacks.onProgress(event.payload);
+    });
 
     unlistenFinished = await safeListen('indexing-finished', () => {
-      callbacks.onFinished()
-    })
+      callbacks.onFinished();
+    });
   }
 
   function cleanup() {
-    unlistenStarted?.()
-    unlistenProgress?.()
-    unlistenFinished?.()
-    unlistenStarted = null
-    unlistenProgress = null
-    unlistenFinished = null
+    unlistenStarted?.();
+    unlistenProgress?.();
+    unlistenFinished?.();
+    unlistenStarted = null;
+    unlistenProgress = null;
+    unlistenFinished = null;
   }
 
-  onBeforeUnmount(cleanup)
+  onBeforeUnmount(cleanup);
 
-  return { setup, cleanup }
+  return { setup, cleanup };
 }

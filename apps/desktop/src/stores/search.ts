@@ -1,28 +1,28 @@
-import { defineStore } from 'pinia';
-import { ref, computed, watch, nextTick } from 'vue';
-import type {
-  SearchResult,
-  SearchContentType,
-  SearchFacetsResponse,
-  SearchStatsResponse,
-  SearchIndexingProgress,
-} from '@tracepilot/types';
+import type { UnlistenFn } from '@tauri-apps/api/event';
+import type { FtsHealthInfo } from '@tracepilot/client';
 import {
-  searchContent,
-  getSearchStats,
-  getSearchFacets,
-  getSearchRepositories,
-  getSearchToolNames,
-  rebuildSearchIndex,
+  ftsHealth,
   ftsIntegrityCheck,
   ftsOptimize,
-  ftsHealth,
+  getSearchFacets,
+  getSearchRepositories,
+  getSearchStats,
+  getSearchToolNames,
+  rebuildSearchIndex,
+  searchContent,
 } from '@tracepilot/client';
-import type { FtsHealthInfo } from '@tracepilot/client';
+import type {
+  SearchContentType,
+  SearchFacetsResponse,
+  SearchIndexingProgress,
+  SearchResult,
+  SearchStatsResponse,
+} from '@tracepilot/types';
 import { toErrorMessage } from '@tracepilot/ui';
-import { safeListen } from '@/utils/tauriEvents';
-import type { UnlistenFn } from '@tauri-apps/api/event';
+import { defineStore } from 'pinia';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
+import { safeListen } from '@/utils/tauriEvents';
 
 export interface SessionGroup {
   sessionId: string;
@@ -47,13 +47,20 @@ function loadRecentSearches(): RecentSearch[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_SEARCHES) : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 function saveRecentSearches(searches: RecentSearch[]) {
   try {
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)));
-  } catch { /* localStorage full or unavailable */ }
+    localStorage.setItem(
+      RECENT_SEARCHES_KEY,
+      JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)),
+    );
+  } catch {
+    /* localStorage full or unavailable */
+  }
 }
 
 /** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:` from query. */
@@ -221,13 +228,15 @@ export const useSearchStore = defineStore('search', () => {
   const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
   const hasActiveFilters = computed(() => {
-    return contentTypes.value.length > 0
-      || excludeContentTypes.value.length > 0
-      || repository.value !== null
-      || toolName.value !== null
-      || dateFrom.value !== null
-      || dateTo.value !== null
-      || sessionId.value !== null;
+    return (
+      contentTypes.value.length > 0 ||
+      excludeContentTypes.value.length > 0 ||
+      repository.value !== null ||
+      toolName.value !== null ||
+      dateFrom.value !== null ||
+      dateTo.value !== null ||
+      sessionId.value !== null
+    );
   });
 
   // Session-grouped view: group flat results by sessionId
@@ -276,9 +285,8 @@ export const useSearchStore = defineStore('search', () => {
 
   async function executeSearch() {
     // In browse mode, default to newest sort since relevance is meaningless
-    const effectiveSort = isBrowseMode.value && sortBy.value === 'relevance'
-      ? 'newest'
-      : sortBy.value;
+    const effectiveSort =
+      isBrowseMode.value && sortBy.value === 'relevance' ? 'newest' : sortBy.value;
 
     // Parse inline qualifiers (e.g. "type:error repo:myapp fix bug")
     const parsed = parseQualifiers(query.value);
@@ -286,9 +294,10 @@ export const useSearchStore = defineStore('search', () => {
     const searchQuery = parsed.cleanQuery;
 
     // Merge qualifier-derived filters with explicit UI filters
-    const mergedContentTypes = parsed.types.length > 0
-      ? [...new Set([...contentTypes.value, ...parsed.types])]
-      : contentTypes.value;
+    const mergedContentTypes =
+      parsed.types.length > 0
+        ? [...new Set([...contentTypes.value, ...parsed.types])]
+        : contentTypes.value;
     const mergedRepo = parsed.repo ?? repository.value;
     const mergedTool = parsed.tool ?? toolName.value;
     const mergedSession = parsed.session ?? sessionId.value;
@@ -310,7 +319,8 @@ export const useSearchStore = defineStore('search', () => {
 
       const response = await searchContent(searchQuery, {
         contentTypes: mergedContentTypes.length > 0 ? mergedContentTypes : undefined,
-        excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
+        excludeContentTypes:
+          excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
         repositories: mergedRepo ? [mergedRepo] : undefined,
         toolNames: mergedTool ? [mergedTool] : undefined,
         sessionId: mergedSession ?? undefined,
@@ -445,7 +455,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // ── Recent search management ──────────────────────────────
   function addRecentSearch(q: string, count: number) {
-    const existing = recentSearches.value.filter(s => s.query !== q);
+    const existing = recentSearches.value.filter((s) => s.query !== q);
     existing.unshift({ query: q, timestamp: Date.now(), resultCount: count });
     recentSearches.value = existing.slice(0, MAX_RECENT_SEARCHES);
     saveRecentSearches(recentSearches.value);
@@ -456,7 +466,7 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   function removeRecentSearch(q: string) {
-    recentSearches.value = recentSearches.value.filter(s => s.query !== q);
+    recentSearches.value = recentSearches.value.filter((s) => s.query !== q);
     saveRecentSearches(recentSearches.value);
   }
 
@@ -482,16 +492,20 @@ export const useSearchStore = defineStore('search', () => {
   async function copyResultsToClipboard(resultsToCopy?: SearchResult[]): Promise<boolean> {
     const items = resultsToCopy ?? results.value;
     if (items.length === 0) return false;
-    const text = items.map(r => {
-      const meta = [r.contentType.replace(/_/g, ' '), r.toolName].filter(Boolean).join(' · ');
-      const plainSnippet = stripHtml(r.snippet);
-      const header = r.sessionSummary ? `[${r.sessionSummary}] ${meta}` : `[${meta}]`;
-      return `${header}\n${plainSnippet}`;
-    }).join('\n\n---\n\n');
+    const text = items
+      .map((r) => {
+        const meta = [r.contentType.replace(/_/g, ' '), r.toolName].filter(Boolean).join(' · ');
+        const plainSnippet = stripHtml(r.snippet);
+        const header = r.sessionSummary ? `[${r.sessionSummary}] ${meta}` : `[${meta}]`;
+        return `${header}\n${plainSnippet}`;
+      })
+      .join('\n\n---\n\n');
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   async function copySingleResult(result: SearchResult): Promise<boolean> {
@@ -508,7 +522,9 @@ export const useSearchStore = defineStore('search', () => {
       if (result.sessionRepository) parts.push(`\nRepo: ${result.sessionRepository}`);
       await navigator.clipboard.writeText(parts.join('\n'));
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   // ── Facets & stats ───────────────────────────────────────────
@@ -529,7 +545,8 @@ export const useSearchStore = defineStore('search', () => {
 
       const result = await getSearchFacets(forQuery, {
         contentTypes: ct.length > 0 ? ct : undefined,
-        excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
+        excludeContentTypes:
+          excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
         repositories: repo ? [repo] : undefined,
         toolNames: tool ? [tool] : undefined,
         sessionId: session ?? undefined,
@@ -557,10 +574,7 @@ export const useSearchStore = defineStore('search', () => {
 
   async function fetchFilterOptions() {
     try {
-      const [repos, tools] = await Promise.all([
-        getSearchRepositories(),
-        getSearchToolNames(),
-      ]);
+      const [repos, tools] = await Promise.all([getSearchRepositories(), getSearchToolNames()]);
       availableRepositories.value = repos;
       availableToolNames.value = tools;
     } catch {
@@ -640,7 +654,9 @@ export const useSearchStore = defineStore('search', () => {
     hasMore.value = false;
     latencyMs.value = 0;
     error.value = null;
-    nextTick(() => { hydrating = false; });
+    nextTick(() => {
+      hydrating = false;
+    });
   }
 
   function setPage(p: number) {
@@ -726,8 +742,12 @@ export const useSearchStore = defineStore('search', () => {
     runIntegrityCheck,
     runOptimize,
     // Hydration control (for URL sync)
-    beginHydration: () => { hydrating = true; },
-    endHydration: () => { hydrating = false; },
+    beginHydration: () => {
+      hydrating = true;
+    },
+    endHydration: () => {
+      hydrating = false;
+    },
     // Load stats/facets without executing a search (for browse presets view)
     async fetchStatsOnly() {
       await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);

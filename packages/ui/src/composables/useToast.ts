@@ -1,17 +1,17 @@
-import { ref } from "vue";
-import type { Ref } from "vue";
+import type { Ref } from 'vue';
+import { ref } from 'vue';
 
 export interface ToastOptions {
   message: string;
   title?: string;
   description?: string;
-  type?: "success" | "error" | "warning" | "info";
+  type?: 'success' | 'error' | 'warning' | 'info';
   /** Auto-dismiss delay in ms. Default 3000. Use 0 for persistent toasts. */
   duration?: number;
   action?: { label: string; onClick: () => void };
 }
 
-export interface Toast extends Required<Pick<ToastOptions, "message" | "type">> {
+export interface Toast extends Required<Pick<ToastOptions, 'message' | 'type'>> {
   id: string;
   title?: string;
   description?: string;
@@ -105,7 +105,7 @@ export function useToast(): {
     const t: Toast = {
       id,
       message: options.message,
-      type: options.type ?? "info",
+      type: options.type ?? 'info',
       duration: options.duration ?? DEFAULT_DURATION,
       createdAt: Date.now(),
       title: options.title,
@@ -128,26 +128,26 @@ export function useToast(): {
   }
 
   function toast(options: ToastOptions | string): string {
-    if (typeof options === "string") {
+    if (typeof options === 'string') {
       return addToast({ message: options });
     }
     return addToast(options);
   }
 
   function success(message: string, options?: Partial<ToastOptions>): string {
-    return addToast({ ...options, message, type: "success" });
+    return addToast({ ...options, message, type: 'success' });
   }
 
   function error(message: string, options?: Partial<ToastOptions>): string {
-    return addToast({ ...options, message, type: "error" });
+    return addToast({ ...options, message, type: 'error' });
   }
 
   function warning(message: string, options?: Partial<ToastOptions>): string {
-    return addToast({ ...options, message, type: "warning" });
+    return addToast({ ...options, message, type: 'warning' });
   }
 
   function info(message: string, options?: Partial<ToastOptions>): string {
-    return addToast({ ...options, message, type: "info" });
+    return addToast({ ...options, message, type: 'info' });
   }
 
   function dismiss(id: string) {

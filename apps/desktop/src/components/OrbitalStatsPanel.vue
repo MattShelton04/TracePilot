@@ -39,18 +39,18 @@
 </template>
 
 <script setup lang="ts">
-import type { RepoLegendItem } from '@/composables/useOrbitalAnimation'
+import type { RepoLegendItem } from '@/composables/useOrbitalAnimation';
 
 defineProps<{
-  visible: boolean
-  displaySessions: string
-  totalSessions: number
-  displayTokens: string
-  displayEvents: string
-  displayRepos: string
-  progressPct: number
-  repoLegendItems: RepoLegendItem[]
-}>()
+  visible: boolean;
+  displaySessions: string;
+  totalSessions: number;
+  displayTokens: string;
+  displayEvents: string;
+  displayRepos: string;
+  progressPct: number;
+  repoLegendItems: RepoLegendItem[];
+}>();
 </script>
 
 <style scoped>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type UnlistenFn } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 import {
   factoryReset as factoryResetApi,
   getConfig,
@@ -10,12 +10,20 @@ import {
   saveConfig,
 } from '@tracepilot/client';
 import type { IndexingProgressPayload } from '@tracepilot/types';
-import { ActionButton, FormInput, SectionPanel, formatBytes, toErrorMessage, useToast, useConfirmDialog } from '@tracepilot/ui';
+import {
+  ActionButton,
+  FormInput,
+  formatBytes,
+  SectionPanel,
+  toErrorMessage,
+  useConfirmDialog,
+  useToast,
+} from '@tracepilot/ui';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { safeListen } from '@/utils/tauriEvents';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
+import { safeListen } from '@/utils/tauriEvents';
 
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
@@ -144,7 +152,8 @@ async function rebuildSearchIndex() {
 async function handleFactoryReset() {
   const { confirmed } = await confirm({
     title: 'Factory Reset',
-    message: 'This will permanently erase all data and restore default settings. This action cannot be undone.',
+    message:
+      'This will permanently erase all data and restore default settings. This action cannot be undone.',
     variant: 'danger',
     confirmLabel: 'Yes, Reset Everything',
   });

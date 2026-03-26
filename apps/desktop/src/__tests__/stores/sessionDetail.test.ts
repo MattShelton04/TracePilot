@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 // ── Mock client functions ──────────────────────────────────────
 const mockGetSessionDetail = vi.fn();
@@ -13,7 +13,7 @@ const mockGetShutdownMetrics = vi.fn();
 const mockGetSessionIncidents = vi.fn();
 const mockCheckSessionFreshness = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
+vi.mock('@tracepilot/client', () => ({
   getSessionDetail: (...args: unknown[]) => mockGetSessionDetail(...args),
   getSessionTurns: (...args: unknown[]) => mockGetSessionTurns(...args),
   getSessionEvents: (...args: unknown[]) => mockGetSessionEvents(...args),
@@ -26,29 +26,29 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // ── Fixtures ───────────────────────────────────────────────────
-const SESSION_ID = "abc-123";
+const SESSION_ID = 'abc-123';
 const FIXTURE_DETAIL = {
   id: SESSION_ID,
-  repository: "test-repo",
-  branch: "main",
-  createdAt: "2026-03-01T00:00:00Z",
-  updatedAt: "2026-03-01T01:00:00Z",
+  repository: 'test-repo',
+  branch: 'main',
+  createdAt: '2026-03-01T00:00:00Z',
+  updatedAt: '2026-03-01T01:00:00Z',
   eventCount: 42,
   turnCount: 10,
   checkpointCount: 2,
 };
 const FIXTURE_TURNS = {
-  turns: [{ turnIndex: 0, userMessage: "hello", assistantMessages: [], toolCalls: [] }],
+  turns: [{ turnIndex: 0, userMessage: 'hello', assistantMessages: [], toolCalls: [] }],
   eventsFileSize: 1024,
 };
 const FIXTURE_EVENTS = { events: [], totalCount: 0, hasMore: false, allEventTypes: [] };
 const FIXTURE_TODOS = { todos: [], deps: [] };
-const FIXTURE_CHECKPOINTS = [{ number: 1, content: "checkpoint" }];
-const FIXTURE_PLAN = { plan: "do the thing" };
-const FIXTURE_METRICS = { totalPremiumRequests: 5, currentModel: "gpt-4" };
-const FIXTURE_INCIDENTS = [{ severity: "warning", summary: "rate limit" }];
+const FIXTURE_CHECKPOINTS = [{ number: 1, content: 'checkpoint' }];
+const FIXTURE_PLAN = { plan: 'do the thing' };
+const FIXTURE_METRICS = { totalPremiumRequests: 5, currentModel: 'gpt-4' };
+const FIXTURE_INCIDENTS = [{ severity: 'warning', summary: 'rate limit' }];
 
-describe("useSessionDetailStore", () => {
+describe('useSessionDetailStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -65,8 +65,8 @@ describe("useSessionDetailStore", () => {
     mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
   });
 
-  describe("initial state", () => {
-    it("has null section errors on creation", () => {
+  describe('initial state', () => {
+    it('has null section errors on creation', () => {
       const store = useSessionDetailStore();
       expect(store.turnsError).toBeNull();
       expect(store.eventsError).toBeNull();
@@ -78,82 +78,82 @@ describe("useSessionDetailStore", () => {
     });
   });
 
-  describe("loadDetail", () => {
-    it("sets error when detail fetch fails", async () => {
-      mockGetSessionDetail.mockRejectedValue(new Error("Network error"));
+  describe('loadDetail', () => {
+    it('sets error when detail fetch fails', async () => {
+      mockGetSessionDetail.mockRejectedValue(new Error('Network error'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
-      expect(store.error).toBe("Network error");
+      expect(store.error).toBe('Network error');
       expect(store.detail).toBeNull();
     });
 
-    it("clears section errors when loading a new session", async () => {
+    it('clears section errors when loading a new session', async () => {
       const store = useSessionDetailStore();
       // Load first session and create a turnsError
       await store.loadDetail(SESSION_ID);
-      mockGetSessionTurns.mockRejectedValue(new Error("Turn error"));
+      mockGetSessionTurns.mockRejectedValue(new Error('Turn error'));
       await store.loadTurns();
-      expect(store.turnsError).toBe("Turn error");
+      expect(store.turnsError).toBe('Turn error');
 
       // Load a new session — section errors should clear
-      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "other-id" });
-      await store.loadDetail("other-id");
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: 'other-id' });
+      await store.loadDetail('other-id');
       expect(store.turnsError).toBeNull();
     });
   });
 
-  describe("loadTurns", () => {
-    it("sets turnsError on failure", async () => {
-      mockGetSessionTurns.mockRejectedValue(new Error("Failed to fetch turns"));
+  describe('loadTurns', () => {
+    it('sets turnsError on failure', async () => {
+      mockGetSessionTurns.mockRejectedValue(new Error('Failed to fetch turns'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadTurns();
-      expect(store.turnsError).toBe("Failed to fetch turns");
+      expect(store.turnsError).toBe('Failed to fetch turns');
       expect(store.turns).toEqual([]);
     });
 
-    it("clears turnsError before retrying", async () => {
+    it('clears turnsError before retrying', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
       // First: fail
-      mockGetSessionTurns.mockRejectedValue(new Error("Fail"));
+      mockGetSessionTurns.mockRejectedValue(new Error('Fail'));
       await store.loadTurns();
-      expect(store.turnsError).toBe("Fail");
+      expect(store.turnsError).toBe('Fail');
 
       // Retry: succeed (need to clear loaded set first, as the store would in retry)
-      store.loaded.delete("turns");
+      store.loaded.delete('turns');
       mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
       await store.loadTurns();
       expect(store.turnsError).toBeNull();
       expect(store.turns).toEqual(FIXTURE_TURNS.turns);
     });
 
-    it("handles non-Error objects in catch", async () => {
-      mockGetSessionTurns.mockRejectedValue("string error");
+    it('handles non-Error objects in catch', async () => {
+      mockGetSessionTurns.mockRejectedValue('string error');
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadTurns();
-      expect(store.turnsError).toBe("string error");
+      expect(store.turnsError).toBe('string error');
     });
   });
 
-  describe("loadEvents", () => {
-    it("sets eventsError on failure", async () => {
-      mockGetSessionEvents.mockRejectedValue(new Error("Events failed"));
+  describe('loadEvents', () => {
+    it('sets eventsError on failure', async () => {
+      mockGetSessionEvents.mockRejectedValue(new Error('Events failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadEvents();
-      expect(store.eventsError).toBe("Events failed");
+      expect(store.eventsError).toBe('Events failed');
     });
 
-    it("clears eventsError on successful reload", async () => {
+    it('clears eventsError on successful reload', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
-      mockGetSessionEvents.mockRejectedValue(new Error("Fail"));
+      mockGetSessionEvents.mockRejectedValue(new Error('Fail'));
       await store.loadEvents();
-      expect(store.eventsError).toBe("Fail");
+      expect(store.eventsError).toBe('Fail');
 
       mockGetSessionEvents.mockResolvedValue(FIXTURE_EVENTS);
       await store.loadEvents(0, 50);
@@ -161,71 +161,71 @@ describe("useSessionDetailStore", () => {
     });
   });
 
-  describe("loadTodos", () => {
-    it("sets todosError on failure", async () => {
-      mockGetSessionTodos.mockRejectedValue(new Error("Todos failed"));
+  describe('loadTodos', () => {
+    it('sets todosError on failure', async () => {
+      mockGetSessionTodos.mockRejectedValue(new Error('Todos failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadTodos();
-      expect(store.todosError).toBe("Todos failed");
+      expect(store.todosError).toBe('Todos failed');
     });
   });
 
-  describe("loadCheckpoints", () => {
-    it("sets checkpointsError on failure", async () => {
-      mockGetSessionCheckpoints.mockRejectedValue(new Error("Checkpoints failed"));
+  describe('loadCheckpoints', () => {
+    it('sets checkpointsError on failure', async () => {
+      mockGetSessionCheckpoints.mockRejectedValue(new Error('Checkpoints failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadCheckpoints();
-      expect(store.checkpointsError).toBe("Checkpoints failed");
+      expect(store.checkpointsError).toBe('Checkpoints failed');
     });
   });
 
-  describe("loadPlan", () => {
-    it("sets planError on failure", async () => {
-      mockGetSessionPlan.mockRejectedValue(new Error("Plan failed"));
+  describe('loadPlan', () => {
+    it('sets planError on failure', async () => {
+      mockGetSessionPlan.mockRejectedValue(new Error('Plan failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadPlan();
-      expect(store.planError).toBe("Plan failed");
+      expect(store.planError).toBe('Plan failed');
     });
   });
 
-  describe("loadShutdownMetrics", () => {
-    it("sets metricsError on failure", async () => {
-      mockGetShutdownMetrics.mockRejectedValue(new Error("Metrics failed"));
+  describe('loadShutdownMetrics', () => {
+    it('sets metricsError on failure', async () => {
+      mockGetShutdownMetrics.mockRejectedValue(new Error('Metrics failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadShutdownMetrics();
-      expect(store.metricsError).toBe("Metrics failed");
+      expect(store.metricsError).toBe('Metrics failed');
     });
   });
 
-  describe("loadIncidents", () => {
-    it("sets incidentsError on failure", async () => {
-      mockGetSessionIncidents.mockRejectedValue(new Error("Incidents failed"));
+  describe('loadIncidents', () => {
+    it('sets incidentsError on failure', async () => {
+      mockGetSessionIncidents.mockRejectedValue(new Error('Incidents failed'));
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadIncidents();
-      expect(store.incidentsError).toBe("Incidents failed");
+      expect(store.incidentsError).toBe('Incidents failed');
     });
   });
 
-  describe("reset", () => {
-    it("clears all section errors", async () => {
+  describe('reset', () => {
+    it('clears all section errors', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
       // Create errors in multiple sections
-      mockGetSessionTurns.mockRejectedValue(new Error("T"));
-      mockGetSessionTodos.mockRejectedValue(new Error("D"));
-      mockGetShutdownMetrics.mockRejectedValue(new Error("M"));
+      mockGetSessionTurns.mockRejectedValue(new Error('T'));
+      mockGetSessionTodos.mockRejectedValue(new Error('D'));
+      mockGetShutdownMetrics.mockRejectedValue(new Error('M'));
       await store.loadTurns();
       await store.loadTodos();
       await store.loadShutdownMetrics();
-      expect(store.turnsError).toBe("T");
-      expect(store.todosError).toBe("D");
-      expect(store.metricsError).toBe("M");
+      expect(store.turnsError).toBe('T');
+      expect(store.todosError).toBe('D');
+      expect(store.metricsError).toBe('M');
 
       store.reset();
       expect(store.turnsError).toBeNull();
@@ -238,17 +238,17 @@ describe("useSessionDetailStore", () => {
     });
   });
 
-  describe("successful load clears error", () => {
-    it("clears turnsError when turns load successfully after prior failure", async () => {
+  describe('successful load clears error', () => {
+    it('clears turnsError when turns load successfully after prior failure', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
-      mockGetSessionTurns.mockRejectedValue(new Error("First fail"));
+      mockGetSessionTurns.mockRejectedValue(new Error('First fail'));
       await store.loadTurns();
-      expect(store.turnsError).toBe("First fail");
+      expect(store.turnsError).toBe('First fail');
 
       // Simulate retry: clear loaded, retry with success
-      store.loaded.delete("turns");
+      store.loaded.delete('turns');
       mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
       await store.loadTurns();
       expect(store.turnsError).toBeNull();
@@ -256,15 +256,15 @@ describe("useSessionDetailStore", () => {
     });
   });
 
-  describe("refreshAll", () => {
-    it("refreshes all previously loaded sections", async () => {
+  describe('refreshAll', () => {
+    it('refreshes all previously loaded sections', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadTurns();
       await store.loadTodos();
       await store.loadCheckpoints();
 
-      const updatedTodos = { todos: [{ id: "new" }], deps: [] };
+      const updatedTodos = { todos: [{ id: 'new' }], deps: [] };
       mockGetSessionTodos.mockResolvedValue(updatedTodos);
       mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 1024 }); // same size — skip turns
 
@@ -276,7 +276,7 @@ describe("useSessionDetailStore", () => {
       expect(store.todos).toEqual(updatedTodos);
     });
 
-    it("does not refresh sections that were never loaded", async () => {
+    it('does not refresh sections that were never loaded', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
@@ -288,7 +288,7 @@ describe("useSessionDetailStore", () => {
       expect(mockGetSessionIncidents).not.toHaveBeenCalled();
     });
 
-    it("does not refresh events (events manage their own pagination)", async () => {
+    it('does not refresh events (events manage their own pagination)', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadEvents();
@@ -299,35 +299,35 @@ describe("useSessionDetailStore", () => {
       expect(mockGetSessionEvents).not.toHaveBeenCalled();
     });
 
-    it("sets error ref when a section refresh fails", async () => {
+    it('sets error ref when a section refresh fails', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
       await store.loadTodos();
       await store.loadPlan();
 
-      mockGetSessionTodos.mockRejectedValue(new Error("Refresh failed"));
-      mockGetSessionPlan.mockResolvedValue({ plan: "updated plan" });
+      mockGetSessionTodos.mockRejectedValue(new Error('Refresh failed'));
+      mockGetSessionPlan.mockResolvedValue({ plan: 'updated plan' });
 
       await store.refreshAll();
 
-      expect(store.todosError).toBe("Refresh failed");
+      expect(store.todosError).toBe('Refresh failed');
       // Plan succeeded — error should be cleared
       expect(store.planError).toBeNull();
-      expect(store.plan).toEqual({ plan: "updated plan" });
+      expect(store.plan).toEqual({ plan: 'updated plan' });
     });
 
-    it("clears section error on successful refresh after prior error", async () => {
+    it('clears section error on successful refresh after prior error', async () => {
       const store = useSessionDetailStore();
       await store.loadDetail(SESSION_ID);
 
       // Initial load fails
-      mockGetSessionTodos.mockRejectedValue(new Error("Initial fail"));
+      mockGetSessionTodos.mockRejectedValue(new Error('Initial fail'));
       await store.loadTodos();
-      expect(store.todosError).toBe("Initial fail");
+      expect(store.todosError).toBe('Initial fail');
 
       // Mark as loaded so refreshAll processes it
       // (buildSectionLoader doesn't add to loaded on error, so add manually)
-      store.loaded.add("todos");
+      store.loaded.add('todos');
       mockGetSessionTodos.mockResolvedValue(FIXTURE_TODOS);
       await store.refreshAll();
 

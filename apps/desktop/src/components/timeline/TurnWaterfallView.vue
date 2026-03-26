@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import {
   Badge,
+  categoryColor,
+  detectParallelIds,
   EmptyState,
   ExpandChevron,
+  extractPrompt,
+  formatArgsSummary,
   formatDuration,
   formatTime,
-  truncateText,
-  toolIcon,
-  toolCategory,
-  categoryColor,
-  formatArgsSummary,
-  useToggleSet,
-  extractPrompt,
   getToolCallColor,
-  toTimeSpan,
-  detectParallelIds,
-  useTimelineNavigation,
-  ToolDetailPanel,
   TerminologyLegend,
   type TimeSpanItem,
-} from "@tracepilot/ui";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
+  ToolDetailPanel,
+  toolCategory,
+  toolIcon,
+  toTimeSpan,
+  truncateText,
+  useTimelineNavigation,
+  useToggleSet,
+} from '@tracepilot/ui';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useToolResultLoader } from '@/composables/useToolResultLoader';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 /* ------------------------------------------------------------------ */
 /*  Store & data                                                      */
@@ -33,10 +33,9 @@ import { usePreferencesStore } from "@/stores/preferences";
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const turns = computed(() => store.turns);
-const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
-const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const allToolCalls = computed(() => store.turns.flatMap((t) => t.toolCalls));
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
+  useToolResultLoader(() => store.sessionId);
 
 /* ------------------------------------------------------------------ */
 /*  Selection refs (forward-declared for navigation escape handler)   */
@@ -55,21 +54,20 @@ function dismissDetail() {
 /* ------------------------------------------------------------------ */
 
 const rootRef = ref<HTMLElement | null>(null);
-const { turnIndex, jumpOpen, turnLabel, canPrev, canNext, prevTurn, nextTurn, jumpTo } = useTimelineNavigation({
-  turns,
-  rootRef,
-  onEscape: () => {
-    if (pinnedRowId.value) {
-      dismissDetail();
-    } else {
-      selectedRowId.value = null;
-    }
-  },
-});
+const { turnIndex, jumpOpen, turnLabel, canPrev, canNext, prevTurn, nextTurn, jumpTo } =
+  useTimelineNavigation({
+    turns,
+    rootRef,
+    onEscape: () => {
+      if (pinnedRowId.value) {
+        dismissDetail();
+      } else {
+        selectedRowId.value = null;
+      }
+    },
+  });
 
-const currentTurn = computed<ConversationTurn | undefined>(
-  () => turns.value[turnIndex.value],
-);
+const currentTurn = computed<ConversationTurn | undefined>(() => turns.value[turnIndex.value]);
 
 /* ------------------------------------------------------------------ */
 /*  Waterfall layout computation                                      */
@@ -80,8 +78,8 @@ interface WaterfallRow {
   depth: number;
   id: string;
   parentId: string | null;
-  leftPct: number;   // 0–100
-  widthPct: number;  // 0–100
+  leftPct: number; // 0–100
+  widthPct: number; // 0–100
   isParallel: boolean;
 }
 
@@ -126,8 +124,8 @@ const timelineSpanMs = computed<number>(() => {
   const relevantCalls = [
     ...t.toolCalls,
     ...allToolCalls.value.filter(
-      (tc) => tc.parentToolCallId && subagentIds.has(tc.parentToolCallId)
-        && !t.toolCalls.includes(tc),
+      (tc) =>
+        tc.parentToolCallId && subagentIds.has(tc.parentToolCallId) && !t.toolCalls.includes(tc),
     ),
   ];
 
@@ -180,7 +178,12 @@ const rows = computed<WaterfallRow[]>(() => {
 
   // Top-level = current turn's calls that are not children of any subagent
   for (const tc of calls) {
-    if (!(tc.parentToolCallId && (byId.has(tc.parentToolCallId) || allSubagentIds.has(tc.parentToolCallId)))) {
+    if (
+      !(
+        tc.parentToolCallId &&
+        (byId.has(tc.parentToolCallId) || allSubagentIds.has(tc.parentToolCallId))
+      )
+    ) {
       topLevel.push(tc);
     }
   }
@@ -203,9 +206,9 @@ const rows = computed<WaterfallRow[]>(() => {
       return { leftPct: left, widthPct: width };
     }
     const startMs = new Date(tc.startedAt).getTime() - epochStart;
-    const durMs = tc.durationMs ?? (tc.completedAt
-      ? new Date(tc.completedAt).getTime() - new Date(tc.startedAt).getTime()
-      : 0);
+    const durMs =
+      tc.durationMs ??
+      (tc.completedAt ? new Date(tc.completedAt).getTime() - new Date(tc.startedAt).getTime() : 0);
     const left = (startMs / span) * 100;
     const width = Math.max((durMs / span) * 100, 0.5);
     return { leftPct: Math.min(left, 100), widthPct: Math.min(width, 100 - left) };
@@ -255,8 +258,7 @@ const rulerTicks = computed<{ label: string; leftPct: number }[]>(() => {
 
   // Choose a nice tick interval
   const intervals = [
-    500, 1000, 2000, 5000, 10_000, 15_000, 30_000, 60_000,
-    120_000, 300_000, 600_000,
+    500, 1000, 2000, 5000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000,
   ];
   const targetTicks = 6;
   let interval = intervals[intervals.length - 1];
@@ -270,7 +272,7 @@ const rulerTicks = computed<{ label: string; leftPct: number }[]>(() => {
   const ticks: { label: string; leftPct: number }[] = [];
   for (let ms = 0; ms <= span; ms += interval) {
     ticks.push({
-      label: formatDuration(ms) || "0s",
+      label: formatDuration(ms) || '0s',
       leftPct: (ms / span) * 100,
     });
   }
@@ -283,9 +285,9 @@ const rulerTicks = computed<{ label: string; leftPct: number }[]>(() => {
 
 const turnStats = computed(() => {
   const t = currentTurn.value;
-  if (!t) return { model: "", duration: "", toolCount: 0, agentCount: 0 };
+  if (!t) return { model: '', duration: '', toolCount: 0, agentCount: 0 };
   return {
-    model: t.model ?? "",
+    model: t.model ?? '',
     duration: formatDuration(t.durationMs),
     toolCount: t.toolCalls.length,
     agentCount: t.toolCalls.filter((tc: TurnToolCall) => tc.isSubagent).length,
@@ -363,10 +365,10 @@ function onDocClick(e: MouseEvent) {
 }
 
 onMounted(() => {
-  document.addEventListener("click", onDocClick, true);
+  document.addEventListener('click', onDocClick, true);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocClick, true);
+  document.removeEventListener('click', onDocClick, true);
 });
 
 /* ------------------------------------------------------------------ */
@@ -374,10 +376,23 @@ onBeforeUnmount(() => {
 /* ------------------------------------------------------------------ */
 
 const waterfallTerms = [
-  { term: 'Waterfall', definition: 'Horizontal bars showing when each tool call started and how long it ran' },
-  { term: 'Subagent', definition: 'An autonomous agent spawned to handle a subtask (shown as wider bars containing child tools)' },
-  { term: 'Nesting', definition: 'Child tool calls made within a subagent, indented under their parent' },
-  { term: 'Parallel', definition: 'Multiple subagents running at the same time (overlapping bars)' },
+  {
+    term: 'Waterfall',
+    definition: 'Horizontal bars showing when each tool call started and how long it ran',
+  },
+  {
+    term: 'Subagent',
+    definition:
+      'An autonomous agent spawned to handle a subtask (shown as wider bars containing child tools)',
+  },
+  {
+    term: 'Nesting',
+    definition: 'Child tool calls made within a subagent, indented under their parent',
+  },
+  {
+    term: 'Parallel',
+    definition: 'Multiple subagents running at the same time (overlapping bars)',
+  },
 ];
 
 function rowDisplayName(row: WaterfallRow): string {

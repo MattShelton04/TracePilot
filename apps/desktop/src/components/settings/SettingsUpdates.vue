@@ -3,8 +3,8 @@ import { ActionButton, FormSwitch, SectionPanel } from '@tracepilot/ui';
 import { useAppVersion } from '@/composables/useAppVersion';
 import { useUpdateCheck } from '@/composables/useUpdateCheck';
 import { useWhatsNew } from '@/composables/useWhatsNew';
-import { openExternal } from '@/utils/openExternal';
 import { usePreferencesStore } from '@/stores/preferences';
+import { openExternal } from '@/utils/openExternal';
 
 const preferences = usePreferencesStore();
 const { appVersion } = useAppVersion();

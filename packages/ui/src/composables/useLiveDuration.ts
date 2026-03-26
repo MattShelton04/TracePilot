@@ -1,4 +1,4 @@
-import { ref, watch, onBeforeUnmount, type Ref } from "vue";
+import { onBeforeUnmount, type Ref, ref, watch } from 'vue';
 
 /**
  * Provides a reactive `nowMs` timestamp that ticks at 1-second boundaries.
@@ -48,7 +48,7 @@ export function useLiveDuration(hasActive: Ref<boolean>) {
       start();
     }
   }
-  document.addEventListener("visibilitychange", handleVisibility);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   const unwatchActive = watch(
     hasActive,
@@ -64,7 +64,7 @@ export function useLiveDuration(hasActive: Ref<boolean>) {
 
   onBeforeUnmount(() => {
     stop();
-    document.removeEventListener("visibilitychange", handleVisibility);
+    document.removeEventListener('visibilitychange', handleVisibility);
     unwatchActive();
   });
 

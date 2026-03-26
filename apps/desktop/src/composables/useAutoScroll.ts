@@ -1,4 +1,4 @@
-import { ref, watch, onMounted, onBeforeUnmount, nextTick, type Ref, type WatchSource } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, type Ref, ref, type WatchSource, watch } from 'vue';
 
 export interface AutoScrollOptions {
   /** Ref to the scrollable container element. */
@@ -42,7 +42,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
   // Skip auto-scroll on the first data change (initial load should not snap to bottom)
   let hasReceivedFirstData = false;
 
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function isNearBottom(el: HTMLElement, threshold: number): boolean {
     return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
@@ -50,7 +50,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
 
   function hasActiveTextSelection(): boolean {
     const sel = window.getSelection();
-    if (!sel || sel.type !== "Range") return false;
+    if (!sel || sel.type !== 'Range') return false;
     // Scope to the scroll container to avoid pausing on sidebar/header selections
     const el = containerRef.value;
     if (!el || !sel.anchorNode) return false;
@@ -81,14 +81,16 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const el = containerRef.value;
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
-    const behavior = useSmooth ? "smooth" : "auto";
+    const behavior = useSmooth ? 'smooth' : 'auto';
     // Guard: prevent scroll handler from disengaging during smooth animation
     if (useSmooth) isProgrammaticScroll = true;
     el.scrollTo({ top: el.scrollHeight, behavior });
     isLockedToBottom.value = true;
     if (useSmooth) {
       // Clear guard after animation completes (fallback timeout)
-      setTimeout(() => { isProgrammaticScroll = false; }, 500);
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 500);
     }
   }
 
@@ -96,12 +98,14 @@ export function useAutoScroll(options: AutoScrollOptions) {
     const el = containerRef.value;
     if (!el) return;
     const useSmooth = animated && !prefersReducedMotion.matches;
-    const behavior = useSmooth ? "smooth" : "auto";
+    const behavior = useSmooth ? 'smooth' : 'auto';
     if (useSmooth) isProgrammaticScroll = true;
     el.scrollTo({ top: 0, behavior });
     isLockedToBottom.value = false;
     if (useSmooth) {
-      setTimeout(() => { isProgrammaticScroll = false; }, 500);
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 500);
     }
   }
 
@@ -147,7 +151,7 @@ export function useAutoScroll(options: AutoScrollOptions) {
       nextTick(() => {
         const el = containerRef.value;
         if (!el) return;
-        el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+        el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
       });
     }
   });
@@ -161,9 +165,9 @@ export function useAutoScroll(options: AutoScrollOptions) {
 
   // Handle container element changes (rebinding listeners)
   watch(containerRef, (el, prev) => {
-    if (prev) prev.removeEventListener("scroll", handleScroll);
+    if (prev) prev.removeEventListener('scroll', handleScroll);
     if (el) {
-      el.addEventListener("scroll", handleScroll, { passive: true });
+      el.addEventListener('scroll', handleScroll, { passive: true });
       recalculateState();
     }
   });
@@ -171,13 +175,13 @@ export function useAutoScroll(options: AutoScrollOptions) {
   onMounted(() => {
     const el = containerRef.value;
     if (el) {
-      el.addEventListener("scroll", handleScroll, { passive: true });
+      el.addEventListener('scroll', handleScroll, { passive: true });
       recalculateState();
     }
   });
 
   onBeforeUnmount(() => {
-    containerRef.value?.removeEventListener("scroll", handleScroll);
+    containerRef.value?.removeEventListener('scroll', handleScroll);
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;

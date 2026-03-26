@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onErrorCaptured } from 'vue';
+import { onErrorCaptured, ref } from 'vue';
 import { error as logError } from '@/utils/logger';
 
 const error = ref<Error | null>(null);

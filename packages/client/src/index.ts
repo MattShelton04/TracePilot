@@ -29,7 +29,7 @@ import type {
 } from '@tracepilot/types';
 import { createDefaultConfig } from '@tracepilot/types';
 
-import { isTauri, invokePlugin } from './invoke.js';
+import { invokePlugin, isTauri } from './invoke.js';
 
 // Lazy-load mocks only when needed (non-Tauri / dev mode)
 let mocksModule: typeof import('./mock/index.js') | null = null;
@@ -199,7 +199,12 @@ export async function getSessionEvents(
   limit?: number,
   eventType?: string,
 ): Promise<EventsResponse> {
-  return invoke<EventsResponse>('get_session_events', { sessionId, offset, limit, eventType: eventType ?? null });
+  return invoke<EventsResponse>('get_session_events', {
+    sessionId,
+    offset,
+    limit,
+    eventType: eventType ?? null,
+  });
 }
 
 export async function getSessionTodos(sessionId: string): Promise<TodosResponse> {
@@ -257,7 +262,16 @@ export async function searchContent(
 /** Get facet counts — pass query for result-scoped facets, omit for global. */
 export async function getSearchFacets(
   query?: string,
-  filters?: Pick<SearchFilters, 'contentTypes' | 'excludeContentTypes' | 'repositories' | 'toolNames' | 'sessionId' | 'dateFromUnix' | 'dateToUnix'>,
+  filters?: Pick<
+    SearchFilters,
+    | 'contentTypes'
+    | 'excludeContentTypes'
+    | 'repositories'
+    | 'toolNames'
+    | 'sessionId'
+    | 'dateFromUnix'
+    | 'dateToUnix'
+  >,
 ): Promise<SearchFacetsResponse> {
   return invoke<SearchFacetsResponse>('get_search_facets', {
     query,
@@ -497,7 +511,6 @@ export async function exportLogs(destination: string): Promise<string> {
   return invoke<string>('export_logs', { destination });
 }
 
-export type { SessionHealth };
-
 // Re-export orchestration module
 export * from './orchestration.js';
+export type { SessionHealth };

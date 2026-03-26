@@ -2,9 +2,9 @@
 /**
  * CreateFileRenderer — renders the create tool result showing the created file.
  */
-import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
-import CodeBlock from "./CodeBlock.vue";
+import { computed } from 'vue';
+import CodeBlock from './CodeBlock.vue';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -17,18 +17,18 @@ const emit = defineEmits<{
 }>();
 
 const filePath = computed(() =>
-  typeof props.args?.path === "string" ? props.args.path : undefined
+  typeof props.args?.path === 'string' ? props.args.path : undefined,
 );
 
 /** The actual file content from args, falling back to result content. */
 const fileContent = computed(() => {
-  if (typeof props.args?.file_text === "string") return props.args.file_text;
+  if (typeof props.args?.file_text === 'string') return props.args.file_text;
   return props.content;
 });
 
 const lineCount = computed(() => {
-  const lines = fileContent.value.split("\n");
-  return lines[lines.length - 1] === "" ? lines.length - 1 : lines.length;
+  const lines = fileContent.value.split('\n');
+  return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
 });
 </script>
 

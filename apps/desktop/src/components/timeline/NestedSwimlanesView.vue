@@ -1,41 +1,40 @@
 <script setup lang="ts">
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { computed, ref, watch } from "vue";
+import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import {
   Badge,
-  ExpandChevron,
+  categoryColor,
   EmptyState,
-  LoadingSpinner,
-  ToolDetailPanel,
-  TerminologyLegend,
+  ExpandChevron,
+  extractPrompt,
+  formatArgsSummary,
   formatDuration,
   formatLiveDuration,
   formatTime,
-  truncateText,
-  toolIcon,
-  toolCategory,
-  categoryColor,
-  formatArgsSummary,
-  extractPrompt,
   getAgentColor,
   getToolStatusColor,
   inferAgentTypeFromToolCall,
-  useToggleSet,
+  LoadingSpinner,
+  TerminologyLegend,
+  ToolDetailPanel,
+  toolCategory,
+  toolIcon,
+  truncateText,
   useLiveDuration,
-} from "@tracepilot/ui";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
+  useToggleSet,
+} from '@tracepilot/ui';
+import { computed, ref, watch } from 'vue';
+import { useToolResultLoader } from '@/composables/useToolResultLoader';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
-const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
+  useToolResultLoader(() => store.sessionId);
 
 // ── Live-ticking for in-progress subagents ───────────────────
 const hasInProgressAgents = computed(() =>
-  store.turns.some(t => t.toolCalls.some(tc => tc.isSubagent && !tc.isComplete)),
+  store.turns.some((t) => t.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)),
 );
 const { nowMs } = useLiveDuration(hasInProgressAgents);
 
@@ -48,9 +47,9 @@ function agentLiveDuration(agent: TurnToolCall): number | undefined {
 
 // ── Collapse / expand state ──────────────────────────────────
 
-const phases = useToggleSet<number>();    // phase index → collapsed
-const turnSet = useToggleSet<string>();   // `${phaseIdx}-${turnIdx}` → collapsed
-const agentSet = useToggleSet<string>();  // `${turnKey}-${toolCallId}` → collapsed
+const phases = useToggleSet<number>(); // phase index → collapsed
+const turnSet = useToggleSet<string>(); // `${phaseIdx}-${turnIdx}` → collapsed
+const agentSet = useToggleSet<string>(); // `${turnKey}-${toolCallId}` → collapsed
 
 // ── Expandable swimlane messages ─────────────────────────────
 const expandedMessages = useToggleSet<string>(); // `${turnIndex}-user` or `${turnIndex}-assistant`
@@ -88,14 +87,14 @@ function closeDetail() {
   selectedTool.value = null;
 }
 
-const allToolCalls= computed(() => store.turns.flatMap(t => t.toolCalls));
+const allToolCalls = computed(() => store.turns.flatMap((t) => t.toolCalls));
 
 // Re-resolve selectedTool after data refresh so the detail panel stays open.
 // On refresh, store.turns gets a new array with new object references; we match by toolCallId.
 watch(allToolCalls, (newAll) => {
   const sel = selectedTool.value;
   if (!sel || !sel.toolCallId) return;
-  const match = newAll.find(tc => tc.toolCallId === sel.toolCallId);
+  const match = newAll.find((tc) => tc.toolCallId === sel.toolCallId);
   if (match) {
     selectedTool.value = match;
   }
@@ -113,14 +112,14 @@ function turnOwnsSelected(turn: ConversationTurn): boolean {
   // identity/ID check below, since they are rendered as lanes in their own turn.
   if (sel.parentToolCallId && !sel.isSubagent) {
     const turnSubagentIds = new Set(
-      turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
+      turn.toolCalls.filter((tc) => tc.isSubagent && tc.toolCallId).map((tc) => tc.toolCallId!),
     );
     return turnSubagentIds.has(sel.parentToolCallId);
   }
 
   // For direct tools / subagent headers, use object identity or ID match
   if (sel.toolCallId) {
-    return turn.toolCalls.some(tc => tc.toolCallId === sel.toolCallId);
+    return turn.toolCalls.some((tc) => tc.toolCallId === sel.toolCallId);
   }
   return turn.toolCalls.includes(sel);
 }
@@ -165,7 +164,7 @@ const groupedPhases = computed<Phase[]>(() => {
       // Turns before first user message → create implicit phase
       current = {
         index: result.length,
-        label: "(system)",
+        label: '(system)',
         turns: [turn],
       };
       result.push(current);
@@ -177,16 +176,20 @@ const groupedPhases = computed<Phase[]>(() => {
 
 // ── Default collapsed for large sessions ─────────────────────
 let lastPhaseCount = 0;
-watch(groupedPhases, (newPhases) => {
-  // Only auto-collapse on initial load or when phase count changes
-  // (not on soft refresh which returns the same structure)
-  if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
-    for (let i = 1; i < newPhases.length; i++) {
-      phases.set.value.add(i);
+watch(
+  groupedPhases,
+  (newPhases) => {
+    // Only auto-collapse on initial load or when phase count changes
+    // (not on soft refresh which returns the same structure)
+    if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
+      for (let i = 1; i < newPhases.length; i++) {
+        phases.set.value.add(i);
+      }
     }
-  }
-  lastPhaseCount = newPhases.length;
-}, { immediate: true });
+    lastPhaseCount = newPhases.length;
+  },
+  { immediate: true },
+);
 
 // ── Phase-level summaries ────────────────────────────────────
 
@@ -199,10 +202,7 @@ function phaseToolCount(phase: Phase): number {
 }
 
 function phaseAgentCount(phase: Phase): number {
-  return phase.turns.reduce(
-    (sum, t) => sum + t.toolCalls.filter((tc) => tc.isSubagent).length,
-    0,
-  );
+  return phase.turns.reduce((sum, t) => sum + t.toolCalls.filter((tc) => tc.isSubagent).length, 0);
 }
 
 // ── Turn-level helpers ───────────────────────────────────────
@@ -223,15 +223,17 @@ function nestedTools(turn: ConversationTurn, agent: TurnToolCall): TurnToolCall[
 }
 
 // Set of all subagent toolCallIds across all turns (for filtering cross-turn children)
-const allSubagentIds = computed(() => new Set(
-  allToolCalls.value
-    .filter((tc) => tc.isSubagent && tc.toolCallId)
-    .map((tc) => tc.toolCallId),
-));
+const allSubagentIds = computed(
+  () =>
+    new Set(
+      allToolCalls.value.filter((tc) => tc.isSubagent && tc.toolCallId).map((tc) => tc.toolCallId),
+    ),
+);
 
 function directTools(turn: ConversationTurn): TurnToolCall[] {
   return turn.toolCalls.filter(
-    (tc) => !tc.isSubagent && (!tc.parentToolCallId || !allSubagentIds.value.has(tc.parentToolCallId)),
+    (tc) =>
+      !tc.isSubagent && (!tc.parentToolCallId || !allSubagentIds.value.has(tc.parentToolCallId)),
   );
 }
 
@@ -266,9 +268,9 @@ const toolBarColor = getToolStatusColor;
 // ── Subagent status icon ─────────────────────────────────────
 
 function agentStatusIcon(agent: TurnToolCall): string {
-  if (agent.success === false) return "❌";
-  if (agent.isComplete) return "✓";
-  return "⏳";
+  if (agent.success === false) return '❌';
+  if (agent.isComplete) return '✓';
+  return '⏳';
 }
 
 // ── Tooltip text ─────────────────────────────────────────────
@@ -277,8 +279,8 @@ function toolTooltip(tc: TurnToolCall): string {
   const parts = [tc.toolName];
   if (tc.arguments) parts.push(formatArgsSummary(tc.arguments, tc.toolName));
   if (tc.durationMs != null) parts.push(formatDuration(tc.durationMs));
-  parts.push(tc.success === false ? "Failed" : tc.success === true ? "Success" : "In Progress");
-  return parts.join(" · ");
+  parts.push(tc.success === false ? 'Failed' : tc.success === true ? 'Success' : 'In Progress');
+  return parts.join(' · ');
 }
 
 // ── Agent key for toggle ─────────────────────────────────────
@@ -318,9 +320,20 @@ const parallelAgentIds = computed<Set<string>>(() => {
 // ── Terminology legend items ─────────────────────────────────
 const swimlaneTerms = [
   { term: 'Phase', definition: 'A group of turns initiated by one user prompt' },
-  { term: 'Turn', definition: 'A single assistant response cycle (may include tool calls and subagent invocations)' },
-  { term: 'Subagent', definition: 'An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)' },
-  { term: 'Direct Tools', definition: 'Tool calls made directly by the main agent (not delegated to subagents)' },
+  {
+    term: 'Turn',
+    definition:
+      'A single assistant response cycle (may include tool calls and subagent invocations)',
+  },
+  {
+    term: 'Subagent',
+    definition:
+      'An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)',
+  },
+  {
+    term: 'Direct Tools',
+    definition: 'Tool calls made directly by the main agent (not delegated to subagents)',
+  },
 ];
 </script>
 

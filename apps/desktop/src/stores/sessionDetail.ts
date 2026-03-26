@@ -1,30 +1,30 @@
-import { defineStore } from "pinia";
-import { ref, type Ref } from "vue";
+import {
+  checkSessionFreshness,
+  getSessionCheckpoints,
+  getSessionDetail,
+  getSessionEvents,
+  getSessionIncidents,
+  getSessionPlan,
+  getSessionTodos,
+  getSessionTurns,
+  getShutdownMetrics,
+} from '@tracepilot/client';
 import type {
-  SessionDetail,
+  CheckpointEntry,
   ConversationTurn,
   EventsResponse,
-  TodosResponse,
-  CheckpointEntry,
-  ShutdownMetrics,
+  SessionDetail,
   SessionIncident,
   SessionPlan,
-} from "@tracepilot/types";
-import {
-  getSessionDetail,
-  getSessionTurns,
-  checkSessionFreshness,
-  getSessionEvents,
-  getSessionTodos,
-  getSessionCheckpoints,
-  getSessionPlan,
-  getShutdownMetrics,
-  getSessionIncidents,
-} from "@tracepilot/client";
-import { toErrorMessage } from "@tracepilot/ui";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
+  ShutdownMetrics,
+  TodosResponse,
+} from '@tracepilot/types';
+import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { type Ref, ref } from 'vue';
+import { useAsyncGuard } from '@/composables/useAsyncGuard';
 
-export const useSessionDetailStore = defineStore("sessionDetail", () => {
+export const useSessionDetailStore = defineStore('sessionDetail', () => {
   const sessionId = ref<string | null>(null);
   const detail = ref<SessionDetail | null>(null);
   const turns = ref<ConversationTurn[]>([]);
@@ -159,30 +159,29 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     logLevel?: 'error' | 'warn';
   }
 
-  function buildRefreshPromise(
-    cfg: RefreshConfig,
-    id: string,
-    token: number,
-  ): Promise<void> {
-    return cfg.fetchFn(id).then((result) => {
-      if (requestToken !== token) return;
-      cfg.onResult(result);
-      cfg.errorRef.value = null;
-    }).catch((e) => {
-      if (requestToken !== token) return;
-      cfg.errorRef.value = toErrorMessage(e);
-      const logFn = cfg.logLevel === 'warn' ? console.warn : console.error;
-      logFn(`Failed to refresh ${cfg.key}:`, e);
-    });
+  function buildRefreshPromise(cfg: RefreshConfig, id: string, token: number): Promise<void> {
+    return cfg
+      .fetchFn(id)
+      .then((result) => {
+        if (requestToken !== token) return;
+        cfg.onResult(result);
+        cfg.errorRef.value = null;
+      })
+      .catch((e) => {
+        if (requestToken !== token) return;
+        cfg.errorRef.value = toErrorMessage(e);
+        const logFn = cfg.logLevel === 'warn' ? console.warn : console.error;
+        logFn(`Failed to refresh ${cfg.key}:`, e);
+      });
   }
 
   async function loadDetail(id: string) {
-    if (sessionId.value === id && loaded.value.has("detail")) {
+    if (sessionId.value === id && loaded.value.has('detail')) {
       return;
     }
 
     // Save current session before switching
-    if (sessionId.value && loaded.value.has("detail")) {
+    if (sessionId.value && loaded.value.has('detail')) {
       saveToCache(sessionId.value);
     }
 
@@ -209,23 +208,29 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       todos.value = null;
 
       // Background refresh: silently update stale data
-      getSessionDetail(id).then((result) => {
-        if (requestToken !== token) return;
-        detail.value = result;
-      }).catch(() => {});
-      checkSessionFreshness(id).then(async (freshness) => {
-        if (requestToken !== token) return;
-        if (freshness.eventsFileSize === lastEventsFileSize) return;
-        const result = await getSessionTurns(id);
-        if (requestToken !== token) return;
-        turns.value = result.turns;
-        lastEventsFileSize = result.eventsFileSize;
-      }).catch(() => {});
-      if (loaded.value.has("plan")) {
-        getSessionPlan(id).then((result) => {
+      getSessionDetail(id)
+        .then((result) => {
           if (requestToken !== token) return;
-          plan.value = result;
-        }).catch(() => {});
+          detail.value = result;
+        })
+        .catch(() => {});
+      checkSessionFreshness(id)
+        .then(async (freshness) => {
+          if (requestToken !== token) return;
+          if (freshness.eventsFileSize === lastEventsFileSize) return;
+          const result = await getSessionTurns(id);
+          if (requestToken !== token) return;
+          turns.value = result.turns;
+          lastEventsFileSize = result.eventsFileSize;
+        })
+        .catch(() => {});
+      if (loaded.value.has('plan')) {
+        getSessionPlan(id)
+          .then((result) => {
+            if (requestToken !== token) return;
+            plan.value = result;
+          })
+          .catch(() => {});
       }
       return;
     }
@@ -238,7 +243,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       const result = await getSessionDetail(id);
       if (requestToken !== token) return;
       detail.value = result;
-      loaded.value.add("detail");
+      loaded.value.add('detail');
     } catch (e) {
       if (requestToken !== token) return;
       detail.value = null;
@@ -269,11 +274,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       const result = await getSessionEvents(id, offset, limit, eventType);
       if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
       events.value = result;
-      loaded.value.add("events");
+      loaded.value.add('events');
     } catch (e) {
       if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
-      console.error("Failed to load events:", e);
+      console.error('Failed to load events:', e);
     }
   }
 
@@ -281,35 +286,45 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     key: 'todos',
     errorRef: todosError,
     fetchFn: (id) => getSessionTodos(id),
-    onResult: (result) => { todos.value = result; },
+    onResult: (result) => {
+      todos.value = result;
+    },
   });
 
   const loadCheckpoints = buildSectionLoader({
     key: 'checkpoints',
     errorRef: checkpointsError,
     fetchFn: (id) => getSessionCheckpoints(id),
-    onResult: (result) => { checkpoints.value = result; },
+    onResult: (result) => {
+      checkpoints.value = result;
+    },
   });
 
   const loadPlan = buildSectionLoader({
     key: 'plan',
     errorRef: planError,
     fetchFn: (id) => getSessionPlan(id),
-    onResult: (result) => { plan.value = result; },
+    onResult: (result) => {
+      plan.value = result;
+    },
   });
 
   const loadShutdownMetrics = buildSectionLoader({
     key: 'metrics',
     errorRef: metricsError,
     fetchFn: (id) => getShutdownMetrics(id),
-    onResult: (result) => { shutdownMetrics.value = result; },
+    onResult: (result) => {
+      shutdownMetrics.value = result;
+    },
   });
 
   const loadIncidents = buildSectionLoader({
     key: 'incidents',
     errorRef: incidentsError,
     fetchFn: (id) => getSessionIncidents(id),
-    onResult: (result) => { incidents.value = result; },
+    onResult: (result) => {
+      incidents.value = result;
+    },
     logLevel: 'warn',
   });
 
@@ -338,20 +353,22 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     // Detail uses the global `error` ref (not a section errorRef), so it
     // stays as a one-off instead of going through buildRefreshPromise.
-    if (sections.has("detail")) {
+    if (sections.has('detail')) {
       promises.push(
-        getSessionDetail(id).then((result) => {
-          if (requestToken !== token) return;
-          detail.value = result;
-        }).catch((e) => {
-          if (requestToken !== token) return;
-          console.error("Failed to refresh detail:", e);
-        })
+        getSessionDetail(id)
+          .then((result) => {
+            if (requestToken !== token) return;
+            detail.value = result;
+          })
+          .catch((e) => {
+            if (requestToken !== token) return;
+            console.error('Failed to refresh detail:', e);
+          }),
       );
     }
 
     // Turns have a freshness-check short-circuit, so they stay as a custom block.
-    if (sections.has("turns")) {
+    if (sections.has('turns')) {
       promises.push(
         (async () => {
           // Freshness check: skip full turn fetch if events.jsonl hasn't changed
@@ -371,8 +388,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         })().catch((e) => {
           if (requestToken !== token) return;
           turnsError.value = toErrorMessage(e);
-          console.error("Failed to refresh turns:", e);
-        })
+          console.error('Failed to refresh turns:', e);
+        }),
       );
     }
 
@@ -384,29 +401,44 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // fetch → assign result → clear error (on success).
     const sectionConfigs: RefreshConfig[] = [
       {
-        key: 'todos', errorRef: todosError,
+        key: 'todos',
+        errorRef: todosError,
         fetchFn: (id) => getSessionTodos(id),
-        onResult: (r) => { todos.value = r as TodosResponse; },
+        onResult: (r) => {
+          todos.value = r as TodosResponse;
+        },
       },
       {
-        key: 'checkpoints', errorRef: checkpointsError,
+        key: 'checkpoints',
+        errorRef: checkpointsError,
         fetchFn: (id) => getSessionCheckpoints(id),
-        onResult: (r) => { checkpoints.value = r as CheckpointEntry[]; },
+        onResult: (r) => {
+          checkpoints.value = r as CheckpointEntry[];
+        },
       },
       {
-        key: 'plan', errorRef: planError,
+        key: 'plan',
+        errorRef: planError,
         fetchFn: (id) => getSessionPlan(id),
-        onResult: (r) => { plan.value = r as SessionPlan; },
+        onResult: (r) => {
+          plan.value = r as SessionPlan;
+        },
       },
       {
-        key: 'metrics', errorRef: metricsError,
+        key: 'metrics',
+        errorRef: metricsError,
         fetchFn: (id) => getShutdownMetrics(id),
-        onResult: (r) => { shutdownMetrics.value = r as ShutdownMetrics; },
+        onResult: (r) => {
+          shutdownMetrics.value = r as ShutdownMetrics;
+        },
       },
       {
-        key: 'incidents', errorRef: incidentsError,
+        key: 'incidents',
+        errorRef: incidentsError,
         fetchFn: (id) => getSessionIncidents(id),
-        onResult: (r) => { incidents.value = r as SessionIncident[]; },
+        onResult: (r) => {
+          incidents.value = r as SessionIncident[];
+        },
         logLevel: 'warn',
       },
     ];

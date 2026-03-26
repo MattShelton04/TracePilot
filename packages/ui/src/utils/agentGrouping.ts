@@ -5,13 +5,13 @@
  * each representing the content produced by a specific agent (main or subagent).
  */
 
-import type { ConversationTurn, TurnToolCall, AttributedMessage } from "@tracepilot/types";
+import type { AttributedMessage, ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import {
-  type AgentType,
   type AgentStatus,
-  inferAgentType,
+  type AgentType,
   agentStatusFromToolCall,
-} from "./agentTypes";
+  inferAgentType,
+} from './agentTypes';
 
 export interface AgentSection {
   /** toolCallId of the subagent, or undefined for the main agent. */
@@ -38,9 +38,7 @@ export interface AgentSection {
  * but its child content appears in turn N+1 (after an assistant.turn_start
  * boundary), the grouping can still resolve ownership.
  */
-export function buildSubagentIndex(
-  turns: ConversationTurn[],
-): Map<string, TurnToolCall> {
+export function buildSubagentIndex(turns: ConversationTurn[]): Map<string, TurnToolCall> {
   const map = new Map<string, TurnToolCall>();
   for (const turn of turns) {
     for (const tc of turn.toolCalls) {
@@ -88,14 +86,9 @@ export function groupTurnByAgent(
   // pointing to a known subagent, or child tool calls with parentToolCallId.
   const hasSubagentContent =
     localSubagentMap.size > 0 ||
-    turn.assistantMessages.some(
-      (m) => m.parentToolCallId && resolvedMap.has(m.parentToolCallId),
-    ) ||
+    turn.assistantMessages.some((m) => m.parentToolCallId && resolvedMap.has(m.parentToolCallId)) ||
     turn.toolCalls.some(
-      (tc) =>
-        !tc.isSubagent &&
-        tc.parentToolCallId &&
-        resolvedMap.has(tc.parentToolCallId),
+      (tc) => !tc.isSubagent && tc.parentToolCallId && resolvedMap.has(tc.parentToolCallId),
     );
 
   if (!hasSubagentContent) {
@@ -178,8 +171,8 @@ export function groupTurnByAgent(
   // Main agent "before" section (always present, may be empty)
   sections.push({
     agentId: undefined,
-    agentDisplayName: "Copilot",
-    agentType: "main",
+    agentDisplayName: 'Copilot',
+    agentType: 'main',
     model: turn.model,
     messages: mainBeforeMessages,
     reasoning: mainBeforeReasoning,
@@ -200,13 +193,8 @@ export function groupTurnByAgent(
     const id = subTc.toolCallId!;
     sections.push({
       agentId: id,
-      agentDisplayName:
-        subTc.agentDisplayName ?? subTc.toolName ?? "Subagent",
-      agentType: inferAgentType(
-        subTc.agentDisplayName,
-        subTc.toolName,
-        subTc.arguments,
-      ),
+      agentDisplayName: subTc.agentDisplayName ?? subTc.toolName ?? 'Subagent',
+      agentType: inferAgentType(subTc.agentDisplayName, subTc.toolName, subTc.arguments),
       model: subTc.model,
       subagentToolCall: subTc,
       messages: agentMessages.get(id) ?? [],
@@ -218,13 +206,12 @@ export function groupTurnByAgent(
   }
 
   // Main agent "after" section (only if there's continuation content)
-  const hasAfterContent =
-    mainAfterMessages.length > 0 || mainAfterReasoning.length > 0;
+  const hasAfterContent = mainAfterMessages.length > 0 || mainAfterReasoning.length > 0;
   if (hasAfterContent) {
     sections.push({
       agentId: undefined,
-      agentDisplayName: "Copilot",
-      agentType: "main",
+      agentDisplayName: 'Copilot',
+      agentType: 'main',
       model: turn.model,
       messages: mainAfterMessages,
       reasoning: mainAfterReasoning,
@@ -252,9 +239,7 @@ function resolveParentId(
 ): string | undefined {
   if (!msg.parentToolCallId) return undefined;
   // Only attribute to a known subagent; orphans fall to main
-  return subagentMap.has(msg.parentToolCallId)
-    ? msg.parentToolCallId
-    : undefined;
+  return subagentMap.has(msg.parentToolCallId) ? msg.parentToolCallId : undefined;
 }
 
 /**
@@ -263,8 +248,8 @@ function resolveParentId(
 function buildMainSection(turn: ConversationTurn): AgentSection {
   return {
     agentId: undefined,
-    agentDisplayName: "Copilot",
-    agentType: "main",
+    agentDisplayName: 'Copilot',
+    agentType: 'main',
     model: turn.model,
     messages: turn.assistantMessages.map((m) => m.content),
     reasoning: (turn.reasoningTexts ?? []).map((r) => r.content),
@@ -292,9 +277,7 @@ export interface SubagentContent {
  *
  * @returns Map from subagent toolCallId → aggregated content.
  */
-export function buildSubagentContentIndex(
-  turns: ConversationTurn[],
-): Map<string, SubagentContent> {
+export function buildSubagentContentIndex(turns: ConversationTurn[]): Map<string, SubagentContent> {
   // Collect all known subagent tool call IDs across the session
   const subagentIds = new Set<string>();
   for (const turn of turns) {

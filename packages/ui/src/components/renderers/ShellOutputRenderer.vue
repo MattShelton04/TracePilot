@@ -4,9 +4,10 @@
  * Shows macOS-style terminal chrome, command with exit status badge,
  * and output with semantic coloring (errors, warnings, success, dim).
  */
-import { computed } from "vue";
-import type { TurnToolCall } from "@tracepilot/types";
-import RendererShell from "./RendererShell.vue";
+
+import type { TurnToolCall } from '@tracepilot/types';
+import { computed } from 'vue';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -20,27 +21,25 @@ const emit = defineEmits<{
 }>();
 
 const command = computed(() =>
-  typeof props.args?.command === "string" ? props.args.command : null
+  typeof props.args?.command === 'string' ? props.args.command : null,
 );
 
 const description = computed(() =>
-  typeof props.args?.description === "string" ? props.args.description : null
+  typeof props.args?.description === 'string' ? props.args.description : null,
 );
 
-const mode = computed(() =>
-  typeof props.args?.mode === "string" ? props.args.mode : "sync"
-);
+const mode = computed(() => (typeof props.args?.mode === 'string' ? props.args.mode : 'sync'));
 
 const statusLabel = computed(() => {
-  if (props.tc.success === true) return "exit 0";
-  if (props.tc.success === false) return "error";
-  return "running";
+  if (props.tc.success === true) return 'exit 0';
+  if (props.tc.success === false) return 'error';
+  return 'running';
 });
 
 const statusClass = computed(() => {
-  if (props.tc.success === true) return "shell-exit--success";
-  if (props.tc.success === false) return "shell-exit--error";
-  return "shell-exit--pending";
+  if (props.tc.success === true) return 'shell-exit--success';
+  if (props.tc.success === false) return 'shell-exit--error';
+  return 'shell-exit--pending';
 });
 
 /** Classify output lines for semantic coloring. */
@@ -51,37 +50,33 @@ interface OutputLine {
 
 const outputLines = computed<OutputLine[]>(() => {
   if (!props.content) return [];
-  return props.content.split("\n").map((line) => {
+  return props.content.split('\n').map((line) => {
     const lower = line.toLowerCase();
     if (
-      lower.includes("error") ||
-      lower.includes("fail") ||
-      lower.includes("fatal") ||
-      lower.includes("exception") ||
-      lower.startsWith("e ")
+      lower.includes('error') ||
+      lower.includes('fail') ||
+      lower.includes('fatal') ||
+      lower.includes('exception') ||
+      lower.startsWith('e ')
     ) {
-      return { text: line, cls: "term-error" };
+      return { text: line, cls: 'term-error' };
+    }
+    if (lower.includes('warning') || lower.includes('warn') || lower.includes('deprecat')) {
+      return { text: line, cls: 'term-warning' };
     }
     if (
-      lower.includes("warning") ||
-      lower.includes("warn") ||
-      lower.includes("deprecat")
+      lower.includes('success') ||
+      lower.includes('passed') ||
+      lower.includes('✓') ||
+      lower.includes('done') ||
+      lower.includes('complete')
     ) {
-      return { text: line, cls: "term-warning" };
+      return { text: line, cls: 'term-success' };
     }
-    if (
-      lower.includes("success") ||
-      lower.includes("passed") ||
-      lower.includes("✓") ||
-      lower.includes("done") ||
-      lower.includes("complete")
-    ) {
-      return { text: line, cls: "term-success" };
+    if (line.trim() === '' || line.startsWith('#') || line.startsWith('//')) {
+      return { text: line, cls: 'term-dim' };
     }
-    if (line.trim() === "" || line.startsWith("#") || line.startsWith("//")) {
-      return { text: line, cls: "term-dim" };
-    }
-    return { text: line, cls: "" };
+    return { text: line, cls: '' };
   });
 });
 </script>

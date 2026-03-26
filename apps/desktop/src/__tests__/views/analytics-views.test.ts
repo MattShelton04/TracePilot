@@ -32,8 +32,26 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
     { date: '2025-01-03', count: 3 },
   ],
   modelDistribution: [
-    { model: 'gpt-4', tokens: 1_500_000, percentage: 60, inputTokens: 750_000, outputTokens: 750_000, cacheReadTokens: 0, premiumRequests: 24, requestCount: 180 },
-    { model: 'claude-3', tokens: 1_000_000, percentage: 40, inputTokens: 500_000, outputTokens: 500_000, cacheReadTokens: 0, premiumRequests: 16, requestCount: 120 },
+    {
+      model: 'gpt-4',
+      tokens: 1_500_000,
+      percentage: 60,
+      inputTokens: 750_000,
+      outputTokens: 750_000,
+      cacheReadTokens: 0,
+      premiumRequests: 24,
+      requestCount: 180,
+    },
+    {
+      model: 'claude-3',
+      tokens: 1_000_000,
+      percentage: 40,
+      inputTokens: 500_000,
+      outputTokens: 500_000,
+      cacheReadTokens: 0,
+      premiumRequests: 16,
+      requestCount: 120,
+    },
   ],
   costByDay: [
     { date: '2025-01-01', cost: 1.5 },
@@ -70,8 +88,8 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalCompactions: 5,
   totalTruncations: 1,
   incidentsByDay: [
-    { date: "2026-03-18", errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
-    { date: "2026-03-19", errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
+    { date: '2026-03-18', errors: 1, rateLimits: 1, compactions: 3, truncations: 1 },
+    { date: '2026-03-19', errors: 1, rateLimits: 2, compactions: 2, truncations: 0 },
   ],
 };
 

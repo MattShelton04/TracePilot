@@ -1,5 +1,5 @@
-import { reactive, watch } from "vue";
-import { getToolResult } from "@tracepilot/client";
+import { getToolResult } from '@tracepilot/client';
+import { reactive, watch } from 'vue';
 
 /**
  * Composable for lazy-loading full (un-truncated) tool results from the backend.
@@ -17,18 +17,20 @@ import { getToolResult } from "@tracepilot/client";
  * - Otherwise → JSON.stringify for full fidelity
  */
 function formatResult(result: unknown): string {
-  if (typeof result === "string") return result;
-  if (result && typeof result === "object" && !Array.isArray(result)) {
+  if (typeof result === 'string') return result;
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
     const obj = result as Record<string, unknown>;
     const text =
-      (typeof obj.content === "string" && obj.content.trim() ? obj.content : null) ??
-      (typeof obj.detailedContent === "string" && obj.detailedContent.trim() ? obj.detailedContent : null);
+      (typeof obj.content === 'string' && obj.content.trim() ? obj.content : null) ??
+      (typeof obj.detailedContent === 'string' && obj.detailedContent.trim()
+        ? obj.detailedContent
+        : null);
     if (text) {
       // If the object only has content/detailedContent (plus optional empty counterpart), show plain text
       const keys = Object.keys(obj).filter(
-        (k) => obj[k] != null && obj[k] !== "" && obj[k] !== false,
+        (k) => obj[k] != null && obj[k] !== '' && obj[k] !== false,
       );
-      const textKeys = new Set(["content", "detailedContent"]);
+      const textKeys = new Set(['content', 'detailedContent']);
       if (keys.every((k) => textKeys.has(k))) return text;
     }
   }
@@ -42,7 +44,13 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
   let generation = 0;
 
   async function loadFullResult(toolCallId: string) {
-    if (!toolCallId || fullResults.has(toolCallId) || loadingResults.has(toolCallId) || failedResults.has(toolCallId)) return;
+    if (
+      !toolCallId ||
+      fullResults.has(toolCallId) ||
+      loadingResults.has(toolCallId) ||
+      failedResults.has(toolCallId)
+    )
+      return;
     const capturedSessionId = sessionId();
     if (!capturedSessionId) return;
     const capturedGen = generation;
@@ -56,7 +64,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
         failedResults.add(toolCallId);
       }
     } catch (e) {
-      console.error("[TracePilot] Failed to load full result:", e);
+      console.error('[TracePilot] Failed to load full result:', e);
       if (generation === capturedGen && sessionId() === capturedSessionId) {
         failedResults.add(toolCallId);
       }

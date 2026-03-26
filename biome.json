@@ -30,12 +30,12 @@
   "files": {
     "includes": [
       "**",
-      "!node_modules/**",
-      "!dist/**",
-      "!target/**",
-      "!.tauri/**",
+      "!node_modules",
+      "!dist",
+      "!target",
+      "!.tauri",
       "!**/*.d.ts",
-      "!docs/design/prototypes/**"
+      "!docs/design/prototypes"
     ]
   },
   "javascript": {

@@ -49,13 +49,15 @@ vi.mock('vue', async () => {
   const actual = await vi.importActual<typeof import('vue')>('vue');
   return {
     ...actual,
-    onMounted: (cb: () => void) => { mountCallbacks.push(cb); },
+    onMounted: (cb: () => void) => {
+      mountCallbacks.push(cb);
+    },
   };
 });
 
+import { useAnalyticsPage } from '../../composables/useAnalyticsPage';
 // ── Import after mocks are in place ───────────────────────────
 import { useAnalyticsStore } from '../../stores/analytics';
-import { useAnalyticsPage } from '../../composables/useAnalyticsPage';
 
 describe('useAnalyticsPage', () => {
   beforeEach(() => {

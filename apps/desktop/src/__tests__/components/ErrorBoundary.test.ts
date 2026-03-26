@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { describe, expect, it } from 'vitest';
 import { defineComponent, ref } from 'vue';
 import ErrorBoundary from '../../components/ErrorBoundary.vue';
 
@@ -17,7 +17,9 @@ describe('ErrorBoundary', () => {
       setup() {
         throw new Error('Test error');
       },
-      render() { return null; },
+      render() {
+        return null;
+      },
     });
 
     const wrapper = mount(ErrorBoundary, {

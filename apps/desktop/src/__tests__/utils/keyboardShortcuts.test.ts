@@ -41,7 +41,9 @@ describe('keyboardShortcuts', () => {
       ignored = shouldIgnoreGlobalShortcut(e);
     });
 
-    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true }));
+    button.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true }),
+    );
     expect(ignored).toBe(true);
   });
 

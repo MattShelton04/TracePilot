@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useSlots, onMounted, onUpdated } from 'vue';
+import { onMounted, onUpdated, ref, useSlots } from 'vue';
 
 defineProps<{
   variant?: 'default' | 'accent' | 'success' | 'warning' | 'danger' | 'done' | 'neutral';

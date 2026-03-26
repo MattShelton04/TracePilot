@@ -59,9 +59,7 @@ const groupedResults = computed<ResultGroup[]>(() => {
   return out;
 });
 
-const flatResults = computed<SearchResult[]>(() =>
-  groupedResults.value.flatMap((g) => g.results),
-);
+const flatResults = computed<SearchResult[]>(() => groupedResults.value.flatMap((g) => g.results));
 
 const hasResults = computed(() => results.value.length > 0);
 const hasQuery = computed(() => query.value.trim().length > 0);
@@ -212,8 +210,8 @@ function handlePaletteKeydown(e: KeyboardEvent) {
       if (!dialog) break;
       const focusable = Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
       );
       if (focusable.length === 0) break;
       const current = focusable.indexOf(e.target as HTMLElement);

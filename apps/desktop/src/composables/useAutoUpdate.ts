@@ -2,7 +2,13 @@ import { getInstallType } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { ref } from 'vue';
 
-export type AutoUpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'done' | 'error';
+export type AutoUpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'downloading'
+  | 'installing'
+  | 'done'
+  | 'error';
 export type InstallType = 'source' | 'installed' | 'portable' | 'unknown';
 
 const status = ref<AutoUpdateStatus>('idle');
@@ -28,9 +34,10 @@ async function detectInstallType(): Promise<InstallType> {
 async function installUpdate(): Promise<void> {
   const type = await detectInstallType();
   if (type !== 'installed') {
-    errorMessage.value = type === 'source'
-      ? 'Auto-update is not available in dev mode. Use git pull instead.'
-      : 'Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.';
+    errorMessage.value =
+      type === 'source'
+        ? 'Auto-update is not available in dev mode. Use git pull instead.'
+        : 'Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.';
     status.value = 'error';
     return;
   }

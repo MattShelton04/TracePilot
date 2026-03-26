@@ -4,15 +4,7 @@
  * Provides: index tracking, prev/next/jumpTo, keyboard handlers (ArrowLeft/Right),
  * and auto-reset when the turn list changes.
  */
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  type Ref,
-  type ComputedRef,
-} from "vue";
+import { type ComputedRef, computed, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 
 export interface TimelineNavigationOptions {
   /** Reactive list of turns to navigate through. */
@@ -52,7 +44,7 @@ export function useTimelineNavigation(
 
   const turnLabel = computed(() => {
     const len = turns.value.length;
-    return len === 0 ? "No turns" : `Turn ${turnIndex.value + 1} of ${len}`;
+    return len === 0 ? 'No turns' : `Turn ${turnIndex.value + 1} of ${len}`;
   });
 
   const canPrev = computed(() => turnIndex.value > 0);
@@ -82,25 +74,24 @@ export function useTimelineNavigation(
   function onKeyDown(e: KeyboardEvent) {
     // When rootRef is provided and mounted, only handle keys when focus is inside it.
     // When rootRef is not provided, allow global keyboard navigation.
-    if (rootRef?.value && !rootRef.value.contains(document.activeElement))
-      return;
+    if (rootRef?.value && !rootRef.value.contains(document.activeElement)) return;
     switch (e.key) {
-      case "ArrowLeft":
+      case 'ArrowLeft':
         e.preventDefault();
         prevTurn();
         break;
-      case "ArrowRight":
+      case 'ArrowRight':
         e.preventDefault();
         nextTurn();
         break;
-      case "Escape":
+      case 'Escape':
         onEscape?.();
         break;
     }
   }
 
-  onMounted(() => window.addEventListener("keydown", onKeyDown));
-  onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
+  onMounted(() => window.addEventListener('keydown', onKeyDown));
+  onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
 
   return {
     turnIndex,

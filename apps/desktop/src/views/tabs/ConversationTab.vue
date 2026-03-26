@@ -1,20 +1,35 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { useAutoScroll } from "@/composables/useAutoScroll";
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
 import {
-  StatCard, Badge, BtnGroup, EmptyState, ErrorAlert,
-  ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge, ReasoningBlock,
-  MarkdownContent,
-  formatDuration, formatTime, formatNumber, truncateText,
-  toolIcon, toolCategory, categoryColor,
-  useSessionTabLoader, useToggleSet, useConversationSections,
+  AgentBadge,
+  Badge,
+  BtnGroup,
+  categoryColor,
+  EmptyState,
+  ErrorAlert,
+  ExpandChevron,
+  formatDuration,
+  formatNumber,
+  formatTime,
   getAgentColor,
-} from "@tracepilot/ui";
+  MarkdownContent,
+  ReasoningBlock,
+  StatCard,
+  ToolCallDetail,
+  ToolCallItem,
+  toolCategory,
+  toolIcon,
+  truncateText,
+  useConversationSections,
+  useSessionTabLoader,
+  useToggleSet,
+} from '@tracepilot/ui';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useAutoScroll } from '@/composables/useAutoScroll';
+import { useToolResultLoader } from '@/composables/useToolResultLoader';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const route = useRoute();
 const store = useSessionDetailStore();
@@ -23,11 +38,15 @@ const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
 const collapsedSubagents = useToggleSet<string>();
-const activeView = ref("chat");
+const activeView = ref('chat');
 
-const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const {
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult: handleLoadFullResult,
+  retryFullResult: handleRetryResult,
+} = useToolResultLoader(() => store.sessionId);
 
 // Shared derived data from turns
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
@@ -38,11 +57,12 @@ const scrollContainer = ref<HTMLElement | null>(null);
 onMounted(() => {
   scrollContainer.value = document.querySelector('.page-content');
 });
-const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } = useAutoScroll({
-  containerRef: scrollContainer,
-  watchSource: () => store.turns,
-  viewModeSource: () => activeView.value,
-});
+const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
+  useAutoScroll({
+    containerRef: scrollContainer,
+    watchSource: () => store.turns,
+    viewModeSource: () => activeView.value,
+  });
 
 // Scroll to a specific element when navigated from search.
 // Tries event-level first (via ?event=N), falls back to turn-level (via ?turn=N).
@@ -105,15 +125,15 @@ watch(
     const eventIndex = eventParam ? Number(eventParam) : null;
     const key = `${turnIndex}-${eventIndex}`;
     if (key === lastScrolledKey) return;
-    if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
+    if (!store.turns.some((t) => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
     // Defer expansion to nextTick so useSessionTabLoader's onClear() runs first
     nextTick(() => {
       if (eventIndex != null) {
         if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
-        const turn = store.turns.find(t => t.turnIndex === turnIndex);
+        const turn = store.turns.find((t) => t.turnIndex === turnIndex);
         if (turn) {
-          const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
+          const tc = turn.toolCalls.find((t) => t.eventIndex === eventIndex);
           if (tc) {
             if (tc.parentToolCallId) {
               const subKey = `${turnIndex}-${tc.parentToolCallId}`;
@@ -132,9 +152,9 @@ watch(
 );
 
 const viewModes = [
-  { value: "chat", label: "Chat" },
-  { value: "compact", label: "Compact" },
-  { value: "timeline", label: "Timeline" },
+  { value: 'chat', label: 'Chat' },
+  { value: 'compact', label: 'Compact' },
+  { value: 'timeline', label: 'Timeline' },
 ];
 
 useSessionTabLoader(
@@ -148,11 +168,16 @@ useSessionTabLoader(
       collapsedSubagents.clear();
       lastScrolledKey = null;
     },
-  }
+  },
 );
 
 /** Build prop object for ToolCallItem — eliminates repeated 10-prop bindings. */
-function tcProps(turn: ConversationTurn, tc: TurnToolCall, prefix = "", variant: "full" | "compact" = "full") {
+function tcProps(
+  turn: ConversationTurn,
+  tc: TurnToolCall,
+  prefix = '',
+  variant: 'full' | 'compact' = 'full',
+) {
   const idx = findToolCallIndex(turn, tc);
   const key = `${prefix}${turn.turnIndex}-${idx}`;
   return {
@@ -168,14 +193,14 @@ function tcProps(turn: ConversationTurn, tc: TurnToolCall, prefix = "", variant:
   };
 }
 
-function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "") {
+function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = '') {
   const idx = findToolCallIndex(turn, tc);
   expandedToolDetails.toggle(`${prefix}${turn.turnIndex}-${idx}`);
 }
 
 // ── Session event helpers ──
 
-import type { SessionEventSeverity } from "@tracepilot/types";
+import type { SessionEventSeverity } from '@tracepilot/types';
 
 function severityVariant(severity: SessionEventSeverity): 'danger' | 'warning' | 'neutral' {
   if (severity === 'error') return 'danger';
@@ -204,7 +229,7 @@ function eventTypeLabel(eventType: string): string {
 }
 
 function retryLoadTurns() {
-  store.loaded.delete("turns");
+  store.loaded.delete('turns');
   store.loadTurns();
 }
 </script>

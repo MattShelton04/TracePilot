@@ -2,7 +2,7 @@
 /**
  * CreateArgsRenderer — shows create tool arguments (path + file content preview).
  */
-import CodeBlock from "./CodeBlock.vue";
+import CodeBlock from './CodeBlock.vue';
 
 defineProps<{
   args: Record<string, unknown>;

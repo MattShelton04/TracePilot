@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-import { useSearchStore } from '@/stores/search';
-
-import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
-import { safeListen } from '@/utils/tauriEvents';
-import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 import type { SearchContentType, SearchResult } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes } from '@tracepilot/ui';
-import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
+import {
+  CONTENT_TYPE_CONFIG,
+  formatBytes,
+  formatDateMedium,
+  formatRelativeTime,
+} from '@tracepilot/ui';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import {
+  SearchBrowsePresets,
+  SearchFilterSidebar,
+  SearchResultCard,
+  SearchSyntaxHelpModal,
+} from '@/components/search';
+import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
+import { useSearchStore } from '@/stores/search';
+import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
+import { safeListen } from '@/utils/tauriEvents';
 
 const store = useSearchStore();
 
@@ -42,7 +51,9 @@ const resultIndexMap = computed(() => {
 function showCopyToast(message: string) {
   copyToast.value = message;
   if (copyToastTimer) clearTimeout(copyToastTimer);
-  copyToastTimer = setTimeout(() => { copyToast.value = null; }, 2000);
+  copyToastTimer = setTimeout(() => {
+    copyToast.value = null;
+  }, 2000);
 }
 
 async function handleCopyResult(result: SearchResult) {
@@ -129,10 +140,10 @@ const sessionDisplayName = computed(() => {
   if (!store.sessionId) return null;
   if (filteredSessionNameOverride.value) return filteredSessionNameOverride.value;
   // Try to find a name from current results
-  const match = store.results.find(r => r.sessionId === store.sessionId);
+  const match = store.results.find((r) => r.sessionId === store.sessionId);
   if (match?.sessionSummary) return match.sessionSummary;
   // Try grouped results
-  const group = store.groupedResults.find(g => g.sessionId === store.sessionId);
+  const group = store.groupedResults.find((g) => g.sessionId === store.sessionId);
   if (group?.sessionSummary) return group.sessionSummary;
   return store.sessionId.slice(0, 12) + '…';
 });
@@ -185,7 +196,11 @@ function handleClearFilters() {
 }
 
 // ── Session link path ──────────────────────────────────────────────────────────
-function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: number | null = null): string {
+function sessionLink(
+  sessionId: string,
+  turnNumber: number | null,
+  eventIndex: number | null = null,
+): string {
   const base = `/session/${sessionId}/conversation`;
   const params = new URLSearchParams();
   if (turnNumber != null) params.set('turn', String(turnNumber));

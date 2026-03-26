@@ -1,18 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  formatBytes,
   formatClockTime,
+  formatCost,
   formatDateMedium,
   formatDateShort,
+  formatDuration,
+  formatNumber,
   formatNumberFull,
   formatPercent,
   formatRate,
   formatRelativeTime,
   toErrorMessage,
-  formatNumber,
-  formatDuration,
-  formatCost,
-  formatBytes,
 } from '@tracepilot/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('formatClockTime', () => {
   it('formats zero as 00:00', () => {

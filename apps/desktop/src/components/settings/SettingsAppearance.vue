@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { SectionPanel, BtnGroup, FormSwitch } from '@tracepilot/ui';
+import { DEFAULT_CONTENT_MAX_WIDTH, DEFAULT_UI_SCALE } from '@tracepilot/types';
+import { BtnGroup, FormSwitch, SectionPanel } from '@tracepilot/ui';
 import { computed } from 'vue';
 import { usePreferencesStore } from '@/stores/preferences';
-import {
-  DEFAULT_CONTENT_MAX_WIDTH,
-  DEFAULT_UI_SCALE,
-} from '@tracepilot/types';
 
 const preferences = usePreferencesStore();
 

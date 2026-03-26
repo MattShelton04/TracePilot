@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ExpandChevron from "./ExpandChevron.vue";
+import ExpandChevron from './ExpandChevron.vue';
 
 defineProps<{
   /** Reasoning text blocks to display. */

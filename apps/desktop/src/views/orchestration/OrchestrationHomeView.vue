@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ErrorState, formatBytes, formatRelativeTime, LoadingOverlay } from '@tracepilot/ui';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
-import { ErrorState, LoadingOverlay } from '@tracepilot/ui';
 import { useOrchestrationHomeStore } from '@/stores/orchestrationHome';
 
 const store = useOrchestrationHomeStore();
@@ -56,22 +55,64 @@ const feedIconLabel = (type: string) => {
 };
 
 const mockFeed = [
-  { id: 'mock-1', type: 'session_launched', message: 'Session started in tracepilot', timestamp: new Date(Date.now() - 300_000).toISOString() },
-  { id: 'mock-2', type: 'batch_completed', message: 'Batch run completed (3 sessions)', timestamp: new Date(Date.now() - 900_000).toISOString() },
-  { id: 'mock-3', type: 'budget_alert', message: 'Budget threshold reached 60%', timestamp: new Date(Date.now() - 3_600_000).toISOString() },
-  { id: 'mock-4', type: 'config_changed', message: 'Agent config updated', timestamp: new Date(Date.now() - 7_200_000).toISOString() },
+  {
+    id: 'mock-1',
+    type: 'session_launched',
+    message: 'Session started in tracepilot',
+    timestamp: new Date(Date.now() - 300_000).toISOString(),
+  },
+  {
+    id: 'mock-2',
+    type: 'batch_completed',
+    message: 'Batch run completed (3 sessions)',
+    timestamp: new Date(Date.now() - 900_000).toISOString(),
+  },
+  {
+    id: 'mock-3',
+    type: 'budget_alert',
+    message: 'Budget threshold reached 60%',
+    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-4',
+    type: 'config_changed',
+    message: 'Agent config updated',
+    timestamp: new Date(Date.now() - 7_200_000).toISOString(),
+  },
 ];
 
-const feedItems = computed(() =>
-  store.activityFeed.length > 0 ? store.activityFeed : mockFeed,
-);
+const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activityFeed : mockFeed));
 
 // ── Quick Actions ───────────────────────────────────────────
 const quickActions = [
-  { emoji: '🚀', title: 'Launch Session', desc: 'Start a new Copilot CLI session', to: '/orchestration/launcher', disabled: false },
-  { emoji: '📊', title: 'Open Mission Control', desc: 'Real-time session dashboard', to: '', disabled: true },
-  { emoji: '🔧', title: 'Configure Agents', desc: 'Edit agent definitions & configs', to: '/orchestration/config', disabled: false },
-  { emoji: '🌳', title: 'Manage Worktrees', desc: 'Create, list, and prune worktrees', to: '/orchestration/worktrees', disabled: false },
+  {
+    emoji: '🚀',
+    title: 'Launch Session',
+    desc: 'Start a new Copilot CLI session',
+    to: '/orchestration/launcher',
+    disabled: false,
+  },
+  {
+    emoji: '📊',
+    title: 'Open Mission Control',
+    desc: 'Real-time session dashboard',
+    to: '',
+    disabled: true,
+  },
+  {
+    emoji: '🔧',
+    title: 'Configure Agents',
+    desc: 'Edit agent definitions & configs',
+    to: '/orchestration/config',
+    disabled: false,
+  },
+  {
+    emoji: '🌳',
+    title: 'Manage Worktrees',
+    desc: 'Create, list, and prune worktrees',
+    to: '/orchestration/worktrees',
+    disabled: false,
+  },
 ];
 
 function navigateAction(action: (typeof quickActions)[0]) {

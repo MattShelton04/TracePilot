@@ -47,9 +47,7 @@ export function formatTime(dateStr?: string | null): string {
 export function formatRelativeTime(value?: string | number | null): string {
   if (value == null || value === '') return '';
   if (typeof value === 'number' && !Number.isFinite(value)) return '';
-  const ms = typeof value === 'number'
-    ? value * 1000
-    : new Date(value).getTime();
+  const ms = typeof value === 'number' ? value * 1000 : new Date(value).getTime();
   if (Number.isNaN(ms)) return '';
   const diff = Date.now() - ms;
   if (diff < 0) return 'just now';
@@ -124,9 +122,7 @@ export function formatDateShort(iso?: string | null): string {
 export function formatDateMedium(value?: string | number | null): string {
   if (value == null || value === '') return '';
   if (typeof value === 'number' && !Number.isFinite(value)) return '';
-  const d = typeof value === 'number'
-    ? new Date(value * 1000)
-    : new Date(value);
+  const d = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', {
     month: 'short',
@@ -147,7 +143,7 @@ export function formatBytes(bytes?: number | null): string {
   if (bytes == null || bytes <= 0) return '—';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
+  const value = bytes / 1024 ** i;
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 

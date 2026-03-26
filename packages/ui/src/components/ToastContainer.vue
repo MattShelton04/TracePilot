@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { reactive } from "vue";
-import { useToast } from "../composables/useToast";
+import { reactive } from 'vue';
+import { useToast } from '../composables/useToast';
 
 const { toasts, dismiss, pauseTimer, resumeTimer } = useToast();
 
 const hovered = reactive(new Set<string>());
 
 const iconMap: Record<string, string> = {
-  success: "✓",
-  error: "✕",
-  warning: "⚠",
-  info: "ℹ",
+  success: '✓',
+  error: '✕',
+  warning: '⚠',
+  info: 'ℹ',
 };
 
 function onEnter(id: string) {

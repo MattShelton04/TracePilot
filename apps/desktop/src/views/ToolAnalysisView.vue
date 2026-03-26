@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from '@tracepilot/types';
-import { ErrorState, formatDuration, formatNumberFull, formatRate, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
+import {
+  ErrorState,
+  formatDuration,
+  formatNumberFull,
+  formatRate,
+  LoadingOverlay,
+  useChartTooltip,
+} from '@tracepilot/ui';
 import { computed } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { CHART_COLORS } from '@/utils/chartColors';
 
-const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } = useChartTooltip();
+const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } =
+  useChartTooltip();
 const { store } = useAnalyticsPage('fetchToolAnalysis');
 
 const loading = computed(() => store.toolAnalysisLoading);
@@ -34,7 +42,10 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   pt.x = event.clientX;
   pt.y = event.clientY;
   const svgPt = pt.matrixTransform(ctm.inverse());
-  const bestIdx = findNearestIndex(chart.rows.map(r => r.y + BAR_HEIGHT / 2), svgPt.y);
+  const bestIdx = findNearestIndex(
+    chart.rows.map((r) => r.y + BAR_HEIGHT / 2),
+    svgPt.y,
+  );
   if (bestIdx < 0) return;
   const row = chart.rows[bestIdx];
   const total = row.successCount + row.failureCount;

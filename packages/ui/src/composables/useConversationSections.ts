@@ -4,10 +4,11 @@
  * Pure computed data — no UI state, no side effects. Extracts the shared
  * data-derivation logic used by ConversationTab's three view modes.
  */
-import { computed, type ComputedRef } from "vue";
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { formatArgsSummary } from "../utils/toolCall";
-import { buildSubagentIndex, groupTurnByAgent, type AgentSection } from "../utils/agentGrouping";
+
+import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
+import { type ComputedRef, computed } from 'vue';
+import { type AgentSection, buildSubagentIndex, groupTurnByAgent } from '../utils/agentGrouping';
+import { formatArgsSummary } from '../utils/toolCall';
 
 export interface ConversationSectionsReturn {
   /** Get agent-grouped sections for a given turn. */
@@ -71,7 +72,7 @@ export function useConversationSections(
   }
 
   function getArgsSummary(turnIndex: number, tcIdx: number): string {
-    return argsSummaryCache.value.get(`${turnIndex}-${tcIdx}`) || "";
+    return argsSummaryCache.value.get(`${turnIndex}-${tcIdx}`) || '';
   }
 
   function findToolCallIndex(turn: ConversationTurn, tc: TurnToolCall): number {
@@ -86,12 +87,10 @@ export function useConversationSections(
       const idx = turn.toolCalls.findIndex((t) => t.toolCallId === tc.toolCallId);
       if (idx >= 0) return idx;
     }
-    return turn.toolCalls.indexOf(tc as typeof turn.toolCalls[0]);
+    return turn.toolCalls.indexOf(tc as (typeof turn.toolCalls)[0]);
   }
 
-  const totalToolCalls = computed(() =>
-    getTurns().reduce((sum, t) => sum + t.toolCalls.length, 0),
-  );
+  const totalToolCalls = computed(() => getTurns().reduce((sum, t) => sum + t.toolCalls.length, 0));
 
   const totalDurationMs = computed(() =>
     getTurns().reduce((sum, t) => sum + (t.durationMs ?? 0), 0),

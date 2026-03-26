@@ -57,7 +57,7 @@ export function renderMarkdown(text: string): string {
   // Step 1: Extract fenced code blocks from raw text BEFORE escaping
   // so that code content is only escaped once (by highlightLine).
   const codeBlocks: string[] = [];
-  let raw = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
+  const raw = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
     const detectedLang = lang || 'text';
     const highlighted = highlightCode(code.replace(/\n$/, ''), detectedLang);
     const placeholder = `%%CODEBLOCK_${codeBlocks.length}%%`;
@@ -79,13 +79,10 @@ export function renderMarkdown(text: string): string {
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
   // Step 5: Links — with URL sanitization
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    (_match, linkText: string, url: string) => {
-      const safeUrl = sanitizeUrl(url);
-      return `<a href="${safeUrl}" class="md-link" target="_blank" rel="noopener">${linkText}</a>`;
-    },
-  );
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText: string, url: string) => {
+    const safeUrl = sanitizeUrl(url);
+    return `<a href="${safeUrl}" class="md-link" target="_blank" rel="noopener">${linkText}</a>`;
+  });
 
   // Step 6: Process lines for block elements
   const lines = html.split('\n');
@@ -99,8 +96,14 @@ export function renderMarkdown(text: string): string {
 
     // Check for code block placeholders — pass through as-is
     if (line.match(/%%CODEBLOCK_\d+%%/)) {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (inBlockquote) { processed.push('</blockquote>'); inBlockquote = false; }
+      if (inList) {
+        processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+      }
+      if (inBlockquote) {
+        processed.push('</blockquote>');
+        inBlockquote = false;
+      }
       processed.push(line);
       continue;
     }
@@ -108,8 +111,14 @@ export function renderMarkdown(text: string): string {
     // Headings
     const headingMatch = line.match(/^(#{1,4})\s+(.+)$/);
     if (headingMatch) {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (inBlockquote) { processed.push('</blockquote>'); inBlockquote = false; }
+      if (inList) {
+        processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+      }
+      if (inBlockquote) {
+        processed.push('</blockquote>');
+        inBlockquote = false;
+      }
       const level = headingMatch[1].length;
       processed.push(`<h${level} class="md-heading md-h${level}">${headingMatch[2]}</h${level}>`);
       continue;
@@ -117,8 +126,14 @@ export function renderMarkdown(text: string): string {
 
     // Blockquotes
     if (line.startsWith('&gt; ') || line === '&gt;') {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (!inBlockquote) { processed.push('<blockquote class="md-blockquote">'); inBlockquote = true; }
+      if (inList) {
+        processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+      }
+      if (!inBlockquote) {
+        processed.push('<blockquote class="md-blockquote">');
+        inBlockquote = true;
+      }
       processed.push(`${line.replace(/^&gt;\s?/, '')}<br>`);
       continue;
     } else if (inBlockquote) {

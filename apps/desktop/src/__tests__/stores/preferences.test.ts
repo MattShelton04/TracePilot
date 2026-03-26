@@ -1,58 +1,58 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { usePreferencesStore } from "../../stores/preferences";
+import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { usePreferencesStore } from '../../stores/preferences';
 
-describe("usePreferencesStore", () => {
+describe('usePreferencesStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     localStorage.clear();
   });
 
-  it("initializes with dark theme by default", () => {
+  it('initializes with dark theme by default', () => {
     const store = usePreferencesStore();
-    expect(store.theme).toBe("dark");
+    expect(store.theme).toBe('dark');
   });
 
-  it("initializes with no last viewed session", () => {
+  it('initializes with no last viewed session', () => {
     const store = usePreferencesStore();
     expect(store.lastViewedSession).toBeNull();
   });
 
-  it("can update theme", () => {
+  it('can update theme', () => {
     const store = usePreferencesStore();
-    store.theme = "light";
-    expect(store.theme).toBe("light");
+    store.theme = 'light';
+    expect(store.theme).toBe('light');
   });
 
-  it("can set lastViewedSession", () => {
+  it('can set lastViewedSession', () => {
     const store = usePreferencesStore();
-    store.lastViewedSession = "session-123";
-    expect(store.lastViewedSession).toBe("session-123");
+    store.lastViewedSession = 'session-123';
+    expect(store.lastViewedSession).toBe('session-123');
   });
 
-  it("initializes contentMaxWidth with default (1600)", () => {
+  it('initializes contentMaxWidth with default (1600)', () => {
     const store = usePreferencesStore();
     expect(store.contentMaxWidth).toBe(1600);
   });
 
-  it("initializes uiScale with default (1.0)", () => {
+  it('initializes uiScale with default (1.0)', () => {
     const store = usePreferencesStore();
     expect(store.uiScale).toBe(1.0);
   });
 
-  it("can update contentMaxWidth", () => {
+  it('can update contentMaxWidth', () => {
     const store = usePreferencesStore();
     store.contentMaxWidth = 1600;
     expect(store.contentMaxWidth).toBe(1600);
   });
 
-  it("can set contentMaxWidth to 0 for full width", () => {
+  it('can set contentMaxWidth to 0 for full width', () => {
     const store = usePreferencesStore();
     store.contentMaxWidth = 0;
     expect(store.contentMaxWidth).toBe(0);
   });
 
-  it("can update uiScale", () => {
+  it('can update uiScale', () => {
     const store = usePreferencesStore();
     store.uiScale = 1.2;
     expect(store.uiScale).toBe(1.2);

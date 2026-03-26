@@ -1,56 +1,56 @@
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import FilterSelect from "../components/FilterSelect.vue";
+import { mount } from '@vue/test-utils';
+import { describe, expect, it } from 'vitest';
+import FilterSelect from '../components/FilterSelect.vue';
 
-describe("FilterSelect", () => {
-  const options = ["cli", "vscode", "jetbrains"];
+describe('FilterSelect', () => {
+  const options = ['cli', 'vscode', 'jetbrains'];
 
-  it("renders options from prop", () => {
+  it('renders options from prop', () => {
     const wrapper = mount(FilterSelect, {
       props: { options },
     });
-    const optionEls = wrapper.findAll("option");
+    const optionEls = wrapper.findAll('option');
     // placeholder + 3 options
     expect(optionEls).toHaveLength(4);
-    expect(optionEls[1].text()).toBe("cli");
-    expect(optionEls[2].text()).toBe("vscode");
-    expect(optionEls[3].text()).toBe("jetbrains");
+    expect(optionEls[1].text()).toBe('cli');
+    expect(optionEls[2].text()).toBe('vscode');
+    expect(optionEls[3].text()).toBe('jetbrains');
   });
 
-  it("shows placeholder as first option", () => {
+  it('shows placeholder as first option', () => {
     const wrapper = mount(FilterSelect, {
-      props: { options, placeholder: "Host type" },
+      props: { options, placeholder: 'Host type' },
     });
-    const firstOption = wrapper.find("option");
-    expect(firstOption.text()).toBe("Host type");
-    expect(firstOption.attributes("value")).toBe("");
+    const firstOption = wrapper.find('option');
+    expect(firstOption.text()).toBe('Host type');
+    expect(firstOption.attributes('value')).toBe('');
   });
 
-  it("shows default placeholder when none provided", () => {
-    const wrapper = mount(FilterSelect, {
-      props: { options },
-    });
-    const firstOption = wrapper.find("option");
-    expect(firstOption.text()).toBe("All");
-  });
-
-  it("emits update:modelValue on change", async () => {
+  it('shows default placeholder when none provided', () => {
     const wrapper = mount(FilterSelect, {
       props: { options },
     });
-    await wrapper.find("select").setValue("vscode");
-    expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
-    expect(emitted[emitted.length - 1]).toEqual(["vscode"]);
+    const firstOption = wrapper.find('option');
+    expect(firstOption.text()).toBe('All');
+  });
+
+  it('emits update:modelValue on change', async () => {
+    const wrapper = mount(FilterSelect, {
+      props: { options },
+    });
+    await wrapper.find('select').setValue('vscode');
+    expect(wrapper.emitted('update:modelValue')).toBeTruthy();
+    const emitted = wrapper.emitted('update:modelValue')!;
+    expect(emitted[emitted.length - 1]).toEqual(['vscode']);
   });
 
   it("emits null when 'All' selected", async () => {
     const wrapper = mount(FilterSelect, {
-      props: { options, modelValue: "cli" },
+      props: { options, modelValue: 'cli' },
     });
-    await wrapper.find("select").setValue("");
-    expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
+    await wrapper.find('select').setValue('');
+    expect(wrapper.emitted('update:modelValue')).toBeTruthy();
+    const emitted = wrapper.emitted('update:modelValue')!;
     expect(emitted[emitted.length - 1]).toEqual([null]);
   });
 });

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import type { ConversationTurn } from '@tracepilot/types';
+import { describe, expect, it } from 'vitest';
 import { turnsToReplaySteps } from '../../utils/replayTransform';
 
 function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {

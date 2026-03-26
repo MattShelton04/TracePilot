@@ -1,19 +1,29 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { SystemDependencies, CopilotVersion, WorktreeInfo, RegisteredRepo } from '@tracepilot/types';
 import {
   checkSystemDeps,
-  listSessions,
   discoverCopilotVersions,
   getActiveCopilotVersion,
-  listWorktrees,
   listRegisteredRepos,
+  listSessions,
+  listWorktrees,
 } from '@tracepilot/client';
+import type {
+  CopilotVersion,
+  RegisteredRepo,
+  SystemDependencies,
+  WorktreeInfo,
+} from '@tracepilot/types';
 import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
 
 export interface ActivityEvent {
   id: string;
-  type: 'session_launched' | 'session_error' | 'batch_completed' | 'budget_alert' | 'config_changed';
+  type:
+    | 'session_launched'
+    | 'session_error'
+    | 'batch_completed'
+    | 'budget_alert'
+    | 'config_changed';
   message: string;
   timestamp: string;
 }
@@ -39,7 +49,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     return systemDeps.value.gitAvailable && systemDeps.value.copilotAvailable;
   });
 
-  const copilotVersionStr = computed(() => activeVersion.value?.version ?? systemDeps.value?.copilotVersion ?? 'unknown');
+  const copilotVersionStr = computed(
+    () => activeVersion.value?.version ?? systemDeps.value?.copilotVersion ?? 'unknown',
+  );
 
   // Show cached data immediately if initialized within the last 5 minutes
   const hasCachedData = computed(() => lastInitialized.value > 0);
@@ -47,7 +59,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
   async function initialize() {
     const now = Date.now();
-    const isFresh = lastInitialized.value > 0 && (now - lastInitialized.value) < CACHE_TTL_MS;
+    const isFresh = lastInitialized.value > 0 && now - lastInitialized.value < CACHE_TTL_MS;
 
     if (isFresh) {
       // Data is fresh — refresh silently in the background
@@ -60,7 +72,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     if (hasCachedData.value) {
       // Stale cache — show it immediately but refresh in background
       refreshing.value = true;
-      doFetch().finally(() => { refreshing.value = false; });
+      doFetch().finally(() => {
+        refreshing.value = false;
+      });
       return;
     }
 
@@ -113,7 +127,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       // Generate activity feed from recent sessions
       activityFeed.value = sessions.slice(0, 6).map((s, i) => ({
         id: `feed-${i}`,
-        type: s.isRunning ? 'session_launched' as const : 'batch_completed' as const,
+        type: s.isRunning ? ('session_launched' as const) : ('batch_completed' as const),
         message: s.isRunning
           ? `Session started in ${s.repository ?? 'unknown'}`
           : `Session completed in ${s.repository ?? 'unknown'}`,
@@ -161,9 +175,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       let staleWt = 0;
       let totalDisk = 0;
 
-      const results = await Promise.allSettled(
-        repos.map((r) => listWorktrees(r.path)),
-      );
+      const results = await Promise.allSettled(repos.map((r) => listWorktrees(r.path)));
       for (const result of results) {
         if (result.status === 'fulfilled') {
           const stats = computeWorktreeStats(result.value);

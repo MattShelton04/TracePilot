@@ -1,5 +1,13 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  checkSystemDeps,
+  deleteSessionTemplate as deleteTemplateApi,
+  getAvailableModels,
+  incrementTemplateUsage as incrementUsageApi,
+  launchSession as launchSessionApi,
+  listSessionTemplates,
+  restoreDefaultTemplates as restoreDefaultsApi,
+  saveSessionTemplate as saveTemplateApi,
+} from '@tracepilot/client';
 import type {
   LaunchConfig,
   LaunchedSession,
@@ -7,17 +15,9 @@ import type {
   SessionTemplate,
   SystemDependencies,
 } from '@tracepilot/types';
-import {
-  launchSession as launchSessionApi,
-  getAvailableModels,
-  listSessionTemplates,
-  saveSessionTemplate as saveTemplateApi,
-  deleteSessionTemplate as deleteTemplateApi,
-  restoreDefaultTemplates as restoreDefaultsApi,
-  incrementTemplateUsage as incrementUsageApi,
-  checkSystemDeps,
-} from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
 
 export const useLauncherStore = defineStore('launcher', () => {
   const models = ref<ModelInfo[]>([]);

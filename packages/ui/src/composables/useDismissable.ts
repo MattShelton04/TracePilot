@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref } from 'vue';
 
 /**
  * Reusable composable for persisting dismiss state in localStorage.
@@ -8,10 +8,10 @@ import { ref } from "vue";
  */
 export function useDismissable(key: string) {
   const storageKey = `tracepilot-dismissed-${key}`;
-  const isDismissed = ref(localStorage.getItem(storageKey) === "true");
+  const isDismissed = ref(localStorage.getItem(storageKey) === 'true');
 
   function dismiss() {
-    localStorage.setItem(storageKey, "true");
+    localStorage.setItem(storageKey, 'true');
     isDismissed.value = true;
   }
 

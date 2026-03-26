@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
+import SettingsAbout from '@/components/settings/SettingsAbout.vue';
 import SettingsAppearance from '@/components/settings/SettingsAppearance.vue';
-import SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
+import type SettingsDataStorage from '@/components/settings/SettingsDataStorage.vue';
+import SettingsExperimental from '@/components/settings/SettingsExperimental.vue';
+import SettingsGeneral from '@/components/settings/SettingsGeneral.vue';
 import SettingsLogging from '@/components/settings/SettingsLogging.vue';
 import SettingsPricing from '@/components/settings/SettingsPricing.vue';
 import SettingsToolVisualization from '@/components/settings/SettingsToolVisualization.vue';
 import SettingsUpdates from '@/components/settings/SettingsUpdates.vue';
-import SettingsExperimental from '@/components/settings/SettingsExperimental.vue';
-import SettingsAbout from '@/components/settings/SettingsAbout.vue';
 import { useSessionsStore } from '@/stores/sessions';
 
 const sessionsStore = useSessionsStore();

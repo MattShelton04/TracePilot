@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { BtnGroup, formatNumberFull, LoadingOverlay } from '@tracepilot/ui';
 import { ref, watch } from 'vue';
-import { BtnGroup, LoadingOverlay, formatNumberFull } from '@tracepilot/ui';
-import { useSessionDetailStore } from '@/stores/sessionDetail';
+import AgentTreeView from '@/components/timeline/AgentTreeView.vue';
 import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
 import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
-import AgentTreeView from '@/components/timeline/AgentTreeView.vue';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const store = useSessionDetailStore();
 

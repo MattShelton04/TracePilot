@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue';
+import { fetchRemote, getDefaultBranch } from '@tracepilot/client';
+import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
+import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
+import {
+  ErrorAlert,
+  formatCost,
+  pathBasename,
+  pathDirname,
+  SearchableSelect,
+  sanitizeBranchForPath,
+  toErrorMessage,
+  truncateText,
+  useClipboard,
+  useConfirmDialog,
+  useToast,
+} from '@tracepilot/ui';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
-import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import {
-  truncateText,
-  formatCost,
-  toErrorMessage,
-  useToast,
-  useConfirmDialog,
-  useClipboard,
-  ErrorAlert,
-  pathBasename,
-  pathDirname,
-  sanitizeBranchForPath,
-  SearchableSelect,
-} from '@tracepilot/ui';
-import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
-import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
-import { getDefaultBranch, fetchRemote } from '@tracepilot/client';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();

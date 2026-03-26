@@ -3,9 +3,9 @@
  * GrepResultRenderer — renders grep tool results with grouped file matches,
  * amber pattern highlighting, context/match distinction, and separator gaps.
  */
-import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
-import { normalizePath } from "../../utils/pathUtils";
+import { computed } from 'vue';
+import { normalizePath } from '../../utils/pathUtils';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -18,11 +18,11 @@ const emit = defineEmits<{
 }>();
 
 const pattern = computed(() =>
-  typeof props.args?.pattern === "string" ? props.args.pattern : null
+  typeof props.args?.pattern === 'string' ? props.args.pattern : null,
 );
 
 const outputMode = computed(() =>
-  typeof props.args?.output_mode === "string" ? props.args.output_mode : "files_with_matches"
+  typeof props.args?.output_mode === 'string' ? props.args.output_mode : 'files_with_matches',
 );
 
 interface GrepMatch {
@@ -35,13 +35,16 @@ interface GrepMatch {
 /** Parse grep output into structured matches. */
 const parsedMatches = computed<GrepMatch[]>(() => {
   if (!props.content) return [];
-  const lines = props.content.split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.trim());
+  const lines = props.content
+    .split('\n')
+    .map((l) => l.replace(/\r$/, ''))
+    .filter((l) => l.trim());
 
   const results: GrepMatch[] = [];
 
   for (const line of lines) {
     // Skip ripgrep group separators
-    if (line === "--") continue;
+    if (line === '--') continue;
 
     // Windows match: C:\path:lineNum:text (drive letter prefix)
     const winMatchLine = line.match(/^([A-Za-z]:\\.+?):(\d+):(.*)$/);
@@ -81,7 +84,7 @@ const parsedMatches = computed<GrepMatch[]>(() => {
 
     // Unix context: path-lineNum-text (require path separator to avoid false positives)
     const unixCtxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
-    if (unixCtxLine && (unixCtxLine[1].includes("/") || unixCtxLine[1].includes("\\"))) {
+    if (unixCtxLine && (unixCtxLine[1].includes('/') || unixCtxLine[1].includes('\\'))) {
       results.push({
         file: unixCtxLine[1],
         lineNum: parseInt(unixCtxLine[2]),
@@ -100,13 +103,13 @@ const parsedMatches = computed<GrepMatch[]>(() => {
 
     // Unix path:text (count mode) — require path separator in file
     const unixBare = line.match(/^(.+?):(.+)$/);
-    if (unixBare && (unixBare[1].includes("/") || unixBare[1].includes("\\"))) {
+    if (unixBare && (unixBare[1].includes('/') || unixBare[1].includes('\\'))) {
       results.push({ file: unixBare[1], text: unixBare[2] });
       continue;
     }
 
     // Bare file path (files_with_matches mode or fallback)
-    results.push({ file: line.trim(), text: "", isContext: false });
+    results.push({ file: line.trim(), text: '', isContext: false });
   }
 
   return results;
@@ -125,13 +128,13 @@ const groupedByFile = computed(() => {
 
 const fileCount = computed(() => Object.keys(groupedByFile.value).length);
 const matchCount = computed(() => {
-  if (outputMode.value === "count") {
+  if (outputMode.value === 'count') {
     return parsedMatches.value.reduce((sum, m) => {
       const n = parseInt(m.text);
       return sum + (isNaN(n) ? 1 : n);
     }, 0);
   }
-  return parsedMatches.value.filter(m => !m.isContext).length;
+  return parsedMatches.value.filter((m) => !m.isContext).length;
 });
 
 /** Highlight pattern matches in text with amber spans (safe — escapes HTML first). */
@@ -139,8 +142,8 @@ function highlightPattern(text: string): string {
   if (!pattern.value) return escapeHtml(text);
   try {
     return escapeHtml(text).replace(
-      new RegExp(`(${escapeRegex(escapeHtml(pattern.value))})`, "gi"),
-      '<span class="grep-highlight">$1</span>'
+      new RegExp(`(${escapeRegex(escapeHtml(pattern.value))})`, 'gi'),
+      '<span class="grep-highlight">$1</span>',
     );
   } catch {
     return escapeHtml(text);
@@ -148,11 +151,15 @@ function highlightPattern(text: string): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** Check if there's a gap in line numbers (for separator rendering). */

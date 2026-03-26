@@ -23,7 +23,9 @@ export function useAnalyticsPage(method: AnalyticsFetchMethod) {
 
   watch(
     [() => store.selectedRepo, () => store.dateRange],
-    () => { store[method]({ force: true }); },
+    () => {
+      store[method]({ force: true });
+    },
     { deep: true },
   );
 

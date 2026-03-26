@@ -59,11 +59,7 @@ export function createChartLayout(
  *   number of lines differs from the number of divisions (e.g. 5 lines
  *   across 4 divisions to include both the top and bottom edges).
  */
-export function computeGridLines(
-  layout: ChartLayout,
-  count: number,
-  divisions?: number,
-): number[] {
+export function computeGridLines(layout: ChartLayout, count: number, divisions?: number): number[] {
   const div = divisions ?? count;
   return Array.from({ length: count }, (_, i) => layout.top + (i * layout.height) / div);
 }

@@ -1,31 +1,44 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, useDismissable, truncateText, ErrorAlert, LoadingSpinner, shortenPath, normalizePath } from '@tracepilot/ui';
-import type { AgentDefinition } from '@tracepilot/types';
 import { previewBackupRestore } from '@tracepilot/client';
+import type { AgentDefinition } from '@tracepilot/types';
 import {
-  MODEL_REGISTRY,
-  getModelsByTier,
+  DEFAULT_PREMIUM_MODEL_ID,
   getAllModelIds,
+  getModelsByTier,
   getModelTier,
   getTierLabel,
-  DEFAULT_PREMIUM_MODEL_ID,
+  MODEL_REGISTRY,
 } from '@tracepilot/types';
+import {
+  ErrorAlert,
+  LoadingSpinner,
+  normalizePath,
+  shortenPath,
+  truncateText,
+  useDismissable,
+  useToast,
+} from '@tracepilot/ui';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { type ConfigTab, useConfigInjectorStore } from '@/stores/configInjector';
 
 const store = useConfigInjectorStore();
 const toast = useToast();
 
 // ── Dismissible Warning ─────────────────────────────────────────────────────
-const { isDismissed: warningDismissed, dismiss: dismissWarning } = useDismissable('config-injector-warning');
+const { isDismissed: warningDismissed, dismiss: dismissWarning } =
+  useDismissable('config-injector-warning');
 
 // ── Agent Metadata ──────────────────────────────────────────────────────────
 const AGENT_META: Record<string, { emoji: string; colorVar: string; motto: string }> = {
-  explore:             { emoji: '🔍', colorVar: '--accent-emphasis',   motto: 'Fast & thorough explorer' },
-  task:                { emoji: '⚡', colorVar: '--warning-emphasis',  motto: 'Reliable command runner' },
-  'code-review':       { emoji: '📝', colorVar: '--success-emphasis',  motto: 'High signal-to-noise reviewer' },
-  research:            { emoji: '🔬', colorVar: '--done-emphasis',     motto: 'Deep analysis specialist' },
-  'configure-copilot': { emoji: '⚙️', colorVar: '--neutral-emphasis',  motto: 'System configurator' },
+  explore: { emoji: '🔍', colorVar: '--accent-emphasis', motto: 'Fast & thorough explorer' },
+  task: { emoji: '⚡', colorVar: '--warning-emphasis', motto: 'Reliable command runner' },
+  'code-review': {
+    emoji: '📝',
+    colorVar: '--success-emphasis',
+    motto: 'High signal-to-noise reviewer',
+  },
+  research: { emoji: '🔬', colorVar: '--done-emphasis', motto: 'Deep analysis specialist' },
+  'configure-copilot': { emoji: '⚙️', colorVar: '--neutral-emphasis', motto: 'System configurator' },
 };
 
 function agentMeta(name: string) {
@@ -34,9 +47,9 @@ function agentMeta(name: string) {
 
 // ── Available Models (derived from shared registry) ─────────────────────────
 const ALL_MODELS = getAllModelIds();
-const PREMIUM_MODELS = getModelsByTier('premium').map(m => m.id);
-const STANDARD_MODELS = getModelsByTier('standard').map(m => m.id);
-const FAST_MODELS = getModelsByTier('fast').map(m => m.id);
+const PREMIUM_MODELS = getModelsByTier('premium').map((m) => m.id);
+const STANDARD_MODELS = getModelsByTier('standard').map((m) => m.id);
+const FAST_MODELS = getModelsByTier('fast').map((m) => m.id);
 
 function modelTier(model: string): 'premium' | 'standard' | 'fast' {
   return getModelTier(model);
@@ -48,10 +61,10 @@ function tierLabel(tier: string): string {
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 const tabs: { key: ConfigTab; label: string; emoji: string }[] = [
-  { key: 'agents',   label: 'Agent Models',  emoji: '🤖' },
-  { key: 'global',   label: 'Global Config', emoji: '📋' },
-  { key: 'versions', label: 'Environment',   emoji: '🔧' },
-  { key: 'backups',  label: 'Backups',       emoji: '💾' },
+  { key: 'agents', label: 'Agent Models', emoji: '🤖' },
+  { key: 'global', label: 'Global Config', emoji: '📋' },
+  { key: 'versions', label: 'Environment', emoji: '🔧' },
+  { key: 'backups', label: 'Backups', emoji: '💾' },
 ];
 
 function tabCount(key: ConfigTab): number | null {
@@ -61,8 +74,10 @@ function tabCount(key: ConfigTab): number | null {
 }
 
 // ── Stat Cards (Agents Tab) ─────────────────────────────────────────────────
-const uniqueModelCount = computed(() => new Set(store.agents.map(a => a.model)).size);
-const premiumAgentCount = computed(() => store.agents.filter(a => PREMIUM_MODELS.includes(a.model)).length);
+const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
+const premiumAgentCount = computed(
+  () => store.agents.filter((a) => PREMIUM_MODELS.includes(a.model)).length,
+);
 
 // ── Agent Tools Expand State ────────────────────────────────────────────────
 const TOOLS_COLLAPSE_LIMIT = 5;
@@ -70,7 +85,8 @@ const expandedTools = reactive<Record<string, boolean>>({});
 
 function visibleTools(agent: AgentDefinition): string[] {
   if (!agent.tools?.length) return [];
-  if (expandedTools[agent.filePath] || agent.tools.length <= TOOLS_COLLAPSE_LIMIT) return agent.tools;
+  if (expandedTools[agent.filePath] || agent.tools.length <= TOOLS_COLLAPSE_LIMIT)
+    return agent.tools;
   return agent.tools.slice(0, TOOLS_COLLAPSE_LIMIT);
 }
 
@@ -86,17 +102,23 @@ let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function flashAutoSaved(filePath: string) {
   autoSavedAgent.value = filePath;
   if (autoSaveTimer) clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(() => { autoSavedAgent.value = null; }, 2000);
+  autoSaveTimer = setTimeout(() => {
+    autoSavedAgent.value = null;
+  }, 2000);
 }
 
 // ── Agent Model State ───────────────────────────────────────────────────────
 const agentModels = ref<Record<string, string>>({});
 
-watch(() => store.agents, (agents) => {
-  const map: Record<string, string> = {};
-  for (const a of agents) map[a.filePath] = a.model;
-  agentModels.value = map;
-}, { immediate: true });
+watch(
+  () => store.agents,
+  (agents) => {
+    const map: Record<string, string> = {};
+    for (const a of agents) map[a.filePath] = a.model;
+    agentModels.value = map;
+  },
+  { immediate: true },
+);
 
 async function handleModelChange(agent: AgentDefinition, newModel: string) {
   store.selectAgent(agent);
@@ -130,7 +152,7 @@ const batchUpgrading = ref(false);
 async function upgradeAllToOpus() {
   batchUpgrading.value = true;
   try {
-    const toUpgrade = store.agents.filter(a => a.model !== DEFAULT_PREMIUM_MODEL_ID);
+    const toUpgrade = store.agents.filter((a) => a.model !== DEFAULT_PREMIUM_MODEL_ID);
     for (const agent of toUpgrade) {
       agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
       await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
@@ -181,9 +203,21 @@ function removeFolder(index: number) {
 }
 
 const configDiffLines = computed(() => {
-  if (!store.copilotConfig) return { left: [] as { text: string; changed: boolean }[], right: [] as { text: string; changed: boolean }[] };
-  const current = { model: store.copilotConfig.model ?? '', reasoningEffort: store.copilotConfig.reasoningEffort ?? '', trustedFolders: store.copilotConfig.trustedFolders ?? [] };
-  const modified = { model: editModel.value, reasoningEffort: editReasoningEffort.value, trustedFolders: editTrustedFolders.value };
+  if (!store.copilotConfig)
+    return {
+      left: [] as { text: string; changed: boolean }[],
+      right: [] as { text: string; changed: boolean }[],
+    };
+  const current = {
+    model: store.copilotConfig.model ?? '',
+    reasoningEffort: store.copilotConfig.reasoningEffort ?? '',
+    trustedFolders: store.copilotConfig.trustedFolders ?? [],
+  };
+  const modified = {
+    model: editModel.value,
+    reasoningEffort: editReasoningEffort.value,
+    trustedFolders: editTrustedFolders.value,
+  };
   const curLines = JSON.stringify(current, null, 2).split('\n');
   const modLines = JSON.stringify(modified, null, 2).split('\n');
   const maxLen = Math.max(curLines.length, modLines.length);
@@ -199,7 +233,7 @@ const configDiffLines = computed(() => {
   return { left, right };
 });
 
-const hasConfigChanges = computed(() => configDiffLines.value.left.some(l => l.changed));
+const hasConfigChanges = computed(() => configDiffLines.value.left.some((l) => l.changed));
 
 function handleSaveGlobalConfig() {
   store.saveGlobalConfig({
@@ -238,7 +272,10 @@ const backupableFiles = computed(() => {
     const copilotHome = parts.slice(0, -3).join(parts[0].includes(':') ? '\\' : '/');
     if (copilotHome) {
       const sep = store.activeVersion.path.includes('\\') ? '\\' : '/';
-      files.push({ label: '📋 Global Config (config.json)', path: `${copilotHome}${sep}config.json` });
+      files.push({
+        label: '📋 Global Config (config.json)',
+        path: `${copilotHome}${sep}config.json`,
+      });
     }
   }
   for (const agent of store.agents) {
@@ -287,7 +324,11 @@ function backupEmoji(path: string): string {
   return '📋';
 }
 
-function formatBackupLabel(backup: { label: string; backupPath: string; sourcePath: string }): string {
+function formatBackupLabel(backup: {
+  label: string;
+  backupPath: string;
+  sourcePath: string;
+}): string {
   // Prefer the sidecar label if it's descriptive
   const label = backup.label || '';
   const fileName = backup.backupPath.split(/[/\\]/).pop() || 'Unknown';
@@ -298,7 +339,7 @@ function formatBackupLabel(backup: { label: string; backupPath: string; sourcePa
   const stem = stemMatch?.[1] || fileName.replace(/-\d{8}-.*$/, '');
 
   // Build human-readable name
-  const prefix = stem.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const prefix = stem.replace(/\./g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   if (label === 'batch') return `${prefix} (batch)`;
   if (label === 'manual') return `${prefix} (manual)`;
   if (label.startsWith('pre-migrate')) return `${prefix} (pre-migrate)`;
@@ -320,7 +361,10 @@ async function toggleDeleteBackup(backup: { id: string; backupPath: string }) {
 // ── Backup Diff Preview ─────────────────────────────────────────────────────
 const previewingBackupId = ref<string | null>(null);
 const backupDiffLoading = ref(false);
-const backupDiffData = ref<{ left: { text: string; changed: boolean }[]; right: { text: string; changed: boolean }[] } | null>(null);
+const backupDiffData = ref<{
+  left: { text: string; changed: boolean }[];
+  right: { text: string; changed: boolean }[];
+} | null>(null);
 
 async function toggleBackupPreview(backup: { id: string; backupPath: string; sourcePath: string }) {
   if (previewingBackupId.value === backup.id) {

@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ref, nextTick } from "vue";
-import { useConversationSections } from "../composables/useConversationSections";
-import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall } from '@tracepilot/types';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { nextTick, ref } from 'vue';
+import { useConversationSections } from '../composables/useConversationSections';
 
 function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
-    toolName: "view",
+    toolName: 'view',
     isComplete: true,
     ...overrides,
   };
@@ -21,14 +21,14 @@ function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
   };
 }
 
-describe("useConversationSections", () => {
-  describe("getSections", () => {
-    it("returns sections for a turn with no subagents", () => {
+describe('useConversationSections', () => {
+  describe('getSections', () => {
+    it('returns sections for a turn with no subagents', () => {
       const turns = ref<ConversationTurn[]>([
         makeTurn({
           turnIndex: 0,
-          assistantMessages: [{ content: "Hello" }],
-          toolCalls: [makeToolCall({ toolCallId: "tc1" })],
+          assistantMessages: [{ content: 'Hello' }],
+          toolCalls: [makeToolCall({ toolCallId: 'tc1' })],
         }),
       ]);
       const { getSections } = useConversationSections(() => turns.value);
@@ -36,21 +36,21 @@ describe("useConversationSections", () => {
       const sections = getSections(0);
       expect(sections).toHaveLength(1);
       expect(sections[0].agentId).toBeUndefined();
-      expect(sections[0].messages).toEqual(["Hello"]);
+      expect(sections[0].messages).toEqual(['Hello']);
       expect(sections[0].toolCalls).toHaveLength(1);
     });
 
-    it("returns sections grouped by subagent", () => {
+    it('returns sections grouped by subagent', () => {
       const turns = ref<ConversationTurn[]>([
         makeTurn({
           turnIndex: 0,
           assistantMessages: [
-            { content: "Main message" },
-            { content: "Sub message", parentToolCallId: "sub-1" },
+            { content: 'Main message' },
+            { content: 'Sub message', parentToolCallId: 'sub-1' },
           ],
           toolCalls: [
-            makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
-            makeToolCall({ toolCallId: "child-1", parentToolCallId: "sub-1" }),
+            makeToolCall({ toolCallId: 'sub-1', toolName: 'task', isSubagent: true }),
+            makeToolCall({ toolCallId: 'child-1', parentToolCallId: 'sub-1' }),
           ],
         }),
       ]);
@@ -61,50 +61,50 @@ describe("useConversationSections", () => {
 
       const mainSection = sections.find((s) => !s.agentId);
       expect(mainSection).toBeDefined();
-      expect(mainSection!.messages).toEqual(["Main message"]);
+      expect(mainSection!.messages).toEqual(['Main message']);
 
-      const subSection = sections.find((s) => s.agentId === "sub-1");
+      const subSection = sections.find((s) => s.agentId === 'sub-1');
       expect(subSection).toBeDefined();
-      expect(subSection!.messages).toEqual(["Sub message"]);
+      expect(subSection!.messages).toEqual(['Sub message']);
     });
 
-    it("returns empty array for unknown turn index", () => {
+    it('returns empty array for unknown turn index', () => {
       const turns = ref<ConversationTurn[]>([]);
       const { getSections } = useConversationSections(() => turns.value);
       expect(getSections(999)).toEqual([]);
     });
   });
 
-  describe("getArgsSummary", () => {
-    it("returns formatted args summary for tool calls", () => {
+  describe('getArgsSummary', () => {
+    it('returns formatted args summary for tool calls', () => {
       const turns = ref<ConversationTurn[]>([
         makeTurn({
           turnIndex: 0,
           toolCalls: [
             makeToolCall({
-              toolCallId: "tc1",
-              toolName: "view",
-              arguments: { path: "/some/file.ts" },
+              toolCallId: 'tc1',
+              toolName: 'view',
+              arguments: { path: '/some/file.ts' },
             }),
           ],
         }),
       ]);
       const { getArgsSummary } = useConversationSections(() => turns.value);
-      expect(getArgsSummary(0, 0)).toContain("/some/file.ts");
+      expect(getArgsSummary(0, 0)).toContain('/some/file.ts');
     });
 
-    it("returns empty string for non-existent indices", () => {
+    it('returns empty string for non-existent indices', () => {
       const turns = ref<ConversationTurn[]>([]);
       const { getArgsSummary } = useConversationSections(() => turns.value);
-      expect(getArgsSummary(0, 0)).toBe("");
+      expect(getArgsSummary(0, 0)).toBe('');
     });
   });
 
-  describe("findToolCallIndex", () => {
-    it("finds index by toolCallId via pre-computed map", () => {
-      const tc1 = makeToolCall({ toolCallId: "tc-a", toolName: "grep" });
-      const tc2 = makeToolCall({ toolCallId: "tc-b", toolName: "edit" });
-      const tc3 = makeToolCall({ toolCallId: "tc-c", toolName: "view" });
+  describe('findToolCallIndex', () => {
+    it('finds index by toolCallId via pre-computed map', () => {
+      const tc1 = makeToolCall({ toolCallId: 'tc-a', toolName: 'grep' });
+      const tc2 = makeToolCall({ toolCallId: 'tc-b', toolName: 'edit' });
+      const tc3 = makeToolCall({ toolCallId: 'tc-c', toolName: 'view' });
       const turn = makeTurn({
         turnIndex: 0,
         toolCalls: [tc1, tc2, tc3],
@@ -117,9 +117,9 @@ describe("useConversationSections", () => {
       expect(findToolCallIndex(turn, tc3)).toBe(2);
     });
 
-    it("falls back to linear scan when toolCallId missing", () => {
-      const tc1 = makeToolCall({ toolName: "grep" });
-      const tc2 = makeToolCall({ toolName: "edit" });
+    it('falls back to linear scan when toolCallId missing', () => {
+      const tc1 = makeToolCall({ toolName: 'grep' });
+      const tc2 = makeToolCall({ toolName: 'edit' });
       const turn = makeTurn({
         turnIndex: 0,
         toolCalls: [tc1, tc2],
@@ -132,8 +132,8 @@ describe("useConversationSections", () => {
     });
   });
 
-  describe("totalToolCalls", () => {
-    it("sums tool calls across all turns", () => {
+  describe('totalToolCalls', () => {
+    it('sums tool calls across all turns', () => {
       const turns = ref<ConversationTurn[]>([
         makeTurn({ turnIndex: 0, toolCalls: [makeToolCall(), makeToolCall(), makeToolCall()] }),
         makeTurn({ turnIndex: 1, toolCalls: [makeToolCall()] }),
@@ -143,15 +143,15 @@ describe("useConversationSections", () => {
       expect(totalToolCalls.value).toBe(4);
     });
 
-    it("returns 0 for empty turns", () => {
+    it('returns 0 for empty turns', () => {
       const turns = ref<ConversationTurn[]>([]);
       const { totalToolCalls } = useConversationSections(() => turns.value);
       expect(totalToolCalls.value).toBe(0);
     });
   });
 
-  describe("totalDurationMs", () => {
-    it("sums duration across all turns", () => {
+  describe('totalDurationMs', () => {
+    it('sums duration across all turns', () => {
       const turns = ref<ConversationTurn[]>([
         makeTurn({ turnIndex: 0, durationMs: 1000 }),
         makeTurn({ turnIndex: 1, durationMs: 2500 }),
@@ -161,15 +161,15 @@ describe("useConversationSections", () => {
       expect(totalDurationMs.value).toBe(3500);
     });
 
-    it("returns 0 for empty turns", () => {
+    it('returns 0 for empty turns', () => {
       const turns = ref<ConversationTurn[]>([]);
       const { totalDurationMs } = useConversationSections(() => turns.value);
       expect(totalDurationMs.value).toBe(0);
     });
   });
 
-  describe("reactivity", () => {
-    it("updates sections when turns change", async () => {
+  describe('reactivity', () => {
+    it('updates sections when turns change', async () => {
       const turns = ref<ConversationTurn[]>([]);
       const { getSections, totalToolCalls } = useConversationSections(() => turns.value);
 
@@ -179,8 +179,8 @@ describe("useConversationSections", () => {
       turns.value = [
         makeTurn({
           turnIndex: 0,
-          assistantMessages: [{ content: "New" }],
-          toolCalls: [makeToolCall({ toolCallId: "tc1" })],
+          assistantMessages: [{ content: 'New' }],
+          toolCalls: [makeToolCall({ toolCallId: 'tc1' })],
         }),
       ];
       await nextTick();

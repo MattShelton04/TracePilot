@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  score: number;  // 0-1
-  size?: 'sm' | 'lg';
-}>(), { size: 'sm' });
+const props = withDefaults(
+  defineProps<{
+    score: number; // 0-1
+    size?: 'sm' | 'lg';
+  }>(),
+  { size: 'sm' },
+);
 
 const percentage = computed(() => Math.round(props.score * 100));
 const color = computed(() => {
@@ -12,8 +15,8 @@ const color = computed(() => {
   if (props.score >= 0.5) return 'var(--warning-fg)';
   return 'var(--danger-fg)';
 });
-const ringSize = computed(() => props.size === 'lg' ? '120px' : '44px');
-const fontSize = computed(() => props.size === 'lg' ? '1.5rem' : '0.75rem');
+const ringSize = computed(() => (props.size === 'lg' ? '120px' : '44px'));
+const fontSize = computed(() => (props.size === 'lg' ? '1.5rem' : '0.75rem'));
 </script>
 
 <template>

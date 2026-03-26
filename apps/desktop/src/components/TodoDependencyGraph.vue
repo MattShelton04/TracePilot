@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
-import type { TodoItem, TodoDep } from "@tracepilot/types";
-import { truncateText } from "@tracepilot/ui";
-import { buildTodoRelations } from "@/utils/todoStats";
+import type { TodoDep, TodoItem } from '@tracepilot/types';
+import { truncateText } from '@tracepilot/ui';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { buildTodoRelations } from '@/utils/todoStats';
 
 const props = defineProps<{
   todos: TodoItem[];
@@ -23,26 +23,26 @@ const ZOOM_MAX = 5.0;
 const FIT_PADDING = 0.9;
 
 const STATUS_ICON: Record<string, string> = {
-  done: "✓",
-  in_progress: "●",
-  pending: "○",
-  blocked: "⊘",
+  done: '✓',
+  in_progress: '●',
+  pending: '○',
+  blocked: '⊘',
 };
 
 const STATUS_COLOR: Record<string, { stroke: string; fill: string; text: string }> = {
-  done: { stroke: "#34d399", fill: "rgba(52,211,153,0.12)", text: "#34d399" },
-  in_progress: { stroke: "#818cf8", fill: "rgba(99,102,241,0.12)", text: "#818cf8" },
-  pending: { stroke: "rgba(255,255,255,0.15)", fill: "rgba(161,161,170,0.08)", text: "#a1a1aa" },
-  blocked: { stroke: "#fb7185", fill: "rgba(251,113,133,0.08)", text: "#fb7185" },
+  done: { stroke: '#34d399', fill: 'rgba(52,211,153,0.12)', text: '#34d399' },
+  in_progress: { stroke: '#818cf8', fill: 'rgba(99,102,241,0.12)', text: '#818cf8' },
+  pending: { stroke: 'rgba(255,255,255,0.15)', fill: 'rgba(161,161,170,0.08)', text: '#a1a1aa' },
+  blocked: { stroke: '#fb7185', fill: 'rgba(251,113,133,0.08)', text: '#fb7185' },
 };
 
-const STATUSES = ["done", "in_progress", "pending", "blocked"] as const;
+const STATUSES = ['done', 'in_progress', 'pending', 'blocked'] as const;
 
 const STATUS_LABEL: Record<string, string> = {
-  done: "Done",
-  in_progress: "In progress",
-  pending: "Pending",
-  blocked: "Blocked",
+  done: 'Done',
+  in_progress: 'In progress',
+  pending: 'Pending',
+  blocked: 'Blocked',
 };
 
 // ── State ──
@@ -56,27 +56,33 @@ const dependentsByTodoId = computed(() => todoRelations.value.dependentsByTodoId
 
 // ── Filter & search state ──
 const activeStatuses = ref<Set<string>>(new Set(STATUSES));
-const searchQuery = ref("");
+const searchQuery = ref('');
 const pendingFitFromFilter = ref(false);
 
 // All distinct statuses present in the data (includes non-canonical)
 const allStatuses = computed(() => {
   const known = new Set<string>(STATUSES);
   const extra = new Set<string>();
-  props.todos.forEach(t => { if (!known.has(t.status)) extra.add(t.status); });
+  props.todos.forEach((t) => {
+    if (!known.has(t.status)) extra.add(t.status);
+  });
   return [...STATUSES, ...extra];
 });
 
 // Ensure non-canonical statuses are active by default when first seen
-watch(() => props.todos, () => {
-  const next = new Set(activeStatuses.value);
-  props.todos.forEach(t => {
-    if (!next.has(t.status) && !(STATUSES as readonly string[]).includes(t.status)) {
-      next.add(t.status);
-    }
-  });
-  if (next.size !== activeStatuses.value.size) activeStatuses.value = next;
-}, { immediate: true });
+watch(
+  () => props.todos,
+  () => {
+    const next = new Set(activeStatuses.value);
+    props.todos.forEach((t) => {
+      if (!next.has(t.status) && !(STATUSES as readonly string[]).includes(t.status)) {
+        next.add(t.status);
+      }
+    });
+    if (next.size !== activeStatuses.value.size) activeStatuses.value = next;
+  },
+  { immediate: true },
+);
 
 function toggleStatus(status: string) {
   const next = new Set(activeStatuses.value);
@@ -94,21 +100,20 @@ function statusCount(status: string): number {
   return counts.get(status) ?? 0;
 }
 
-const filteredTodos = computed(() =>
-  props.todos.filter(t => activeStatuses.value.has(t.status))
-);
+const filteredTodos = computed(() => props.todos.filter((t) => activeStatuses.value.has(t.status)));
 
 const searchLower = computed(() => searchQuery.value.toLowerCase().trim());
 const searchMatchIds = computed<Set<string> | null>(() => {
   if (!searchLower.value) return null;
   return new Set(
     filteredTodos.value
-      .filter(t =>
-        t.title.toLowerCase().includes(searchLower.value) ||
-        (t.description ?? "").toLowerCase().includes(searchLower.value) ||
-        t.id.toLowerCase().includes(searchLower.value)
+      .filter(
+        (t) =>
+          t.title.toLowerCase().includes(searchLower.value) ||
+          (t.description ?? '').toLowerCase().includes(searchLower.value) ||
+          t.id.toLowerCase().includes(searchLower.value),
       )
-      .map(t => t.id)
+      .map((t) => t.id),
   );
 });
 
@@ -127,8 +132,8 @@ function onPanStart(e: PointerEvent) {
   panStartY.value = e.clientY - panY.value;
   // Use window listeners so drag continues outside viewport without
   // setPointerCapture (which would swallow click events on SVG nodes)
-  window.addEventListener("pointermove", onPanMove);
-  window.addEventListener("pointerup", onPanEnd);
+  window.addEventListener('pointermove', onPanMove);
+  window.addEventListener('pointerup', onPanEnd);
 }
 
 function onPanMove(e: PointerEvent) {
@@ -140,8 +145,8 @@ function onPanMove(e: PointerEvent) {
 function onPanEnd() {
   if (!isPanning.value) return;
   isPanning.value = false;
-  window.removeEventListener("pointermove", onPanMove);
-  window.removeEventListener("pointerup", onPanEnd);
+  window.removeEventListener('pointermove', onPanMove);
+  window.removeEventListener('pointerup', onPanEnd);
 }
 
 function applyZoom(newZoom: number, anchorX: number, anchorY: number) {
@@ -196,23 +201,31 @@ const zoomPercent = computed(() => Math.round(zoomLevel.value * 100));
 
 // ── Edges normalised to { from, to } (dependsOn → todoId) ──
 const edges = computed(() => {
-  const todoIds = new Set(filteredTodos.value.map(t => t.id));
+  const todoIds = new Set(filteredTodos.value.map((t) => t.id));
   return props.deps
-    .filter(d => todoIds.has(d.dependsOn) && todoIds.has(d.todoId))
-    .map(d => ({ from: d.dependsOn, to: d.todoId }));
+    .filter((d) => todoIds.has(d.dependsOn) && todoIds.has(d.todoId))
+    .map((d) => ({ from: d.dependsOn, to: d.todoId }));
 });
 
 const statusCounts = computed(() => {
   const counts = new Map<string, number>();
-  props.todos.forEach(todo => {
+  props.todos.forEach((todo) => {
     counts.set(todo.status, (counts.get(todo.status) ?? 0) + 1);
   });
   return counts;
 });
 
 // ── Topological layout (Kahn's algorithm) with compact grid ──
-interface NodePos { x: number; y: number; w: number; h: number }
-interface LayoutResult { positions: Record<string, NodePos>; hasCycle: boolean }
+interface NodePos {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+interface LayoutResult {
+  positions: Record<string, NodePos>;
+  hasCycle: boolean;
+}
 
 const layoutResult = computed<LayoutResult>(() => {
   const todos = filteredTodos.value;
@@ -220,18 +233,18 @@ const layoutResult = computed<LayoutResult>(() => {
 
   const inDeg: Record<string, number> = {};
   const adj: Record<string, string[]> = {};
-  todos.forEach(t => {
+  todos.forEach((t) => {
     inDeg[t.id] = 0;
     adj[t.id] = [];
   });
-  edgeList.forEach(e => {
+  edgeList.forEach((e) => {
     adj[e.from].push(e.to);
     inDeg[e.to]++;
   });
 
   const levels: Record<string, number> = {};
   const queue: string[] = [];
-  todos.forEach(t => {
+  todos.forEach((t) => {
     if (inDeg[t.id] === 0) {
       queue.push(t.id);
       levels[t.id] = 0;
@@ -248,14 +261,16 @@ const layoutResult = computed<LayoutResult>(() => {
     }
   }
 
-  const cycleNodes = todos.filter(t => levels[t.id] === undefined);
+  const cycleNodes = todos.filter((t) => levels[t.id] === undefined);
   const detectedCycle = cycleNodes.length > 0;
   const maxLevel = Math.max(0, ...Object.values(levels));
   const cycleLevel = cycleNodes.length > 0 ? maxLevel + 1 : maxLevel;
-  cycleNodes.forEach(t => { levels[t.id] = cycleLevel; });
+  cycleNodes.forEach((t) => {
+    levels[t.id] = cycleLevel;
+  });
 
   const byLevel: Record<number, TodoItem[]> = {};
-  todos.forEach(t => {
+  todos.forEach((t) => {
     const lv = levels[t.id] ?? 0;
     if (!byLevel[lv]) byLevel[lv] = [];
     byLevel[lv].push(t);
@@ -305,49 +320,57 @@ const hasCycle = computed(() => layoutResult.value.hasCycle);
 const viewBox = computed(() => {
   const positions = Object.values(layout.value);
   if (positions.length === 0) return { minX: 0, minY: 0, width: 400, height: 200 };
-  const minX = Math.min(...positions.map(p => p.x)) - 30;
-  const maxX = Math.max(...positions.map(p => p.x + p.w)) + 30;
-  const minY = Math.min(...positions.map(p => p.y)) - 20;
-  const maxY = Math.max(...positions.map(p => p.y + p.h)) + 20;
+  const minX = Math.min(...positions.map((p) => p.x)) - 30;
+  const maxX = Math.max(...positions.map((p) => p.x + p.w)) + 30;
+  const minY = Math.min(...positions.map((p) => p.y)) - 20;
+  const maxY = Math.max(...positions.map((p) => p.y + p.h)) + 20;
   return { minX, minY, width: maxX - minX, height: maxY - minY };
 });
 
 // ── Edge paths ──
-const edgePaths = computed(() =>
-  edges.value.map((e, i) => {
-    const from = layout.value[e.from];
-    const to = layout.value[e.to];
-    if (!from || !to) return null;
-    const x1 = from.x + from.w / 2;
-    const y1 = from.y + from.h;
-    const x2 = to.x + to.w / 2;
-    const y2 = to.y;
-    const cy1 = y1 + (y2 - y1) * 0.4;
-    const cy2 = y1 + (y2 - y1) * 0.6;
-    // Retain horizontal offset in last control point so the arrow
-    // tangent reflects the actual approach angle instead of always
-    // pointing straight down.
-    const cx2 = x2 + (x1 - x2) * 0.25;
-    const targetTodo = filteredTodos.value.find(t => t.id === e.to);
-    const status = targetTodo?.status || "pending";
-    const color = STATUS_COLOR[status]?.stroke ?? STATUS_COLOR.pending.stroke;
-    return {
-      id: `edge-${i}`,
-      d: `M${x1},${y1} C${x1},${cy1} ${cx2},${cy2} ${x2},${y2}`,
-      color,
-      status,
-      from: e.from,
-      to: e.to,
-    };
-  }).filter(Boolean) as {
-    id: string; d: string; color: string; status: string; from: string; to: string;
-  }[]
+const edgePaths = computed(
+  () =>
+    edges.value
+      .map((e, i) => {
+        const from = layout.value[e.from];
+        const to = layout.value[e.to];
+        if (!from || !to) return null;
+        const x1 = from.x + from.w / 2;
+        const y1 = from.y + from.h;
+        const x2 = to.x + to.w / 2;
+        const y2 = to.y;
+        const cy1 = y1 + (y2 - y1) * 0.4;
+        const cy2 = y1 + (y2 - y1) * 0.6;
+        // Retain horizontal offset in last control point so the arrow
+        // tangent reflects the actual approach angle instead of always
+        // pointing straight down.
+        const cx2 = x2 + (x1 - x2) * 0.25;
+        const targetTodo = filteredTodos.value.find((t) => t.id === e.to);
+        const status = targetTodo?.status || 'pending';
+        const color = STATUS_COLOR[status]?.stroke ?? STATUS_COLOR.pending.stroke;
+        return {
+          id: `edge-${i}`,
+          d: `M${x1},${y1} C${x1},${cy1} ${cx2},${cy2} ${x2},${y2}`,
+          color,
+          status,
+          from: e.from,
+          to: e.to,
+        };
+      })
+      .filter(Boolean) as {
+      id: string;
+      d: string;
+      color: string;
+      status: string;
+      from: string;
+      to: string;
+    }[],
 );
 
 // ── Hover / selection helpers ──
 function getConnectedNodeIds(todoId: string): Set<string> {
   const set = new Set<string>([todoId]);
-  edges.value.forEach(e => {
+  edges.value.forEach((e) => {
     if (e.from === todoId || e.to === todoId) {
       set.add(e.from);
       set.add(e.to);
@@ -361,41 +384,41 @@ function isEdgeConnected(edge: { from: string; to: string }, todoId: string): bo
 }
 
 function nodeClass(todo: TodoItem): string {
-  const classes = ["dag-node"];
-  if (todo.status === "done") classes.push("done-node");
-  if (selectedNodeId.value === todo.id) classes.push("selected");
+  const classes = ['dag-node'];
+  if (todo.status === 'done') classes.push('done-node');
+  if (selectedNodeId.value === todo.id) classes.push('selected');
 
   // Determine which node drives highlighting: hover takes priority, then selection
   const activeId = hoveredNodeId.value ?? selectedNodeId.value;
 
   if (searchMatchIds.value) {
-    classes.push(searchMatchIds.value.has(todo.id) ? "search-match" : "search-dim");
+    classes.push(searchMatchIds.value.has(todo.id) ? 'search-match' : 'search-dim');
   } else if (activeId) {
     const connected = getConnectedNodeIds(activeId);
     if (connected.has(todo.id)) {
-      classes.push("highlighted");
+      classes.push('highlighted');
     } else if (selectedNodeId.value !== todo.id) {
-      classes.push("faded");
+      classes.push('faded');
     }
   }
-  return classes.join(" ");
+  return classes.join(' ');
 }
 
 function edgeClass(edge: { from: string; to: string }): string {
-  const classes = ["dag-edge"];
+  const classes = ['dag-edge'];
   const activeId = hoveredNodeId.value ?? selectedNodeId.value;
   if (searchMatchIds.value) {
     const hasMatch = searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to);
-    classes.push(hasMatch ? "search-match" : "search-dim");
+    classes.push(hasMatch ? 'search-match' : 'search-dim');
   } else if (activeId) {
-    classes.push(isEdgeConnected(edge, activeId) ? "highlighted" : "faded");
+    classes.push(isEdgeConnected(edge, activeId) ? 'highlighted' : 'faded');
   }
-  return classes.join(" ");
+  return classes.join(' ');
 }
 
 function edgeOpacity(edge: { from: string; to: string }): number {
   if (searchMatchIds.value) {
-    return (searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to)) ? 0.6 : 0.08;
+    return searchMatchIds.value.has(edge.from) || searchMatchIds.value.has(edge.to) ? 0.6 : 0.08;
   }
   const activeId = hoveredNodeId.value ?? selectedNodeId.value;
   if (!activeId) return 0.35;
@@ -418,40 +441,39 @@ function closeDetail() {
 
 // ── Selected todo detail ──
 const selectedTodo = computed(() =>
-  selectedNodeId.value ? props.todos.find(t => t.id === selectedNodeId.value) ?? null : null
+  selectedNodeId.value ? (props.todos.find((t) => t.id === selectedNodeId.value) ?? null) : null,
 );
 
 function getDependencies(todoId: string): TodoItem[] {
   const depIds = dependenciesByTodoId.value.get(todoId);
   if (!depIds) return [];
-  return depIds
-    .map(id => todoById.value.get(id))
-    .filter(Boolean) as TodoItem[];
+  return depIds.map((id) => todoById.value.get(id)).filter(Boolean) as TodoItem[];
 }
 
 function getDependents(todoId: string): TodoItem[] {
   const depIds = dependentsByTodoId.value.get(todoId);
   if (!depIds) return [];
-  return depIds
-    .map(id => todoById.value.get(id))
-    .filter(Boolean) as TodoItem[];
+  return depIds.map((id) => todoById.value.get(id)).filter(Boolean) as TodoItem[];
 }
 
 // Preserve selection across refreshes — clear if node is removed or filtered out
-watch(() => props.todos, (newTodos) => {
-  if (selectedNodeId.value && !newTodos.some(t => t.id === selectedNodeId.value)) {
-    selectedNodeId.value = null;
-  }
-  if (hoveredNodeId.value && !newTodos.some(t => t.id === hoveredNodeId.value)) {
-    hoveredNodeId.value = null;
-  }
-});
+watch(
+  () => props.todos,
+  (newTodos) => {
+    if (selectedNodeId.value && !newTodos.some((t) => t.id === selectedNodeId.value)) {
+      selectedNodeId.value = null;
+    }
+    if (hoveredNodeId.value && !newTodos.some((t) => t.id === hoveredNodeId.value)) {
+      hoveredNodeId.value = null;
+    }
+  },
+);
 
 watch(filteredTodos, (visible) => {
-  if (selectedNodeId.value && !visible.some(t => t.id === selectedNodeId.value)) {
+  if (selectedNodeId.value && !visible.some((t) => t.id === selectedNodeId.value)) {
     selectedNodeId.value = null;
   }
-  if (hoveredNodeId.value && !visible.some(t => t.id === hoveredNodeId.value)) {
+  if (hoveredNodeId.value && !visible.some((t) => t.id === hoveredNodeId.value)) {
     hoveredNodeId.value = null;
   }
 });
@@ -482,8 +504,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
-  window.removeEventListener("pointermove", onPanMove);
-  window.removeEventListener("pointerup", onPanEnd);
+  window.removeEventListener('pointermove', onPanMove);
+  window.removeEventListener('pointerup', onPanEnd);
 });
 
 // Only re-fit when the user explicitly toggles a filter, not on auto-refresh

@@ -2,14 +2,14 @@
 withDefaults(
   defineProps<{
     message?: string;
-    severity?: "error" | "warning" | "info";
-    variant?: "inline" | "banner" | "compact";
+    severity?: 'error' | 'warning' | 'info';
+    variant?: 'inline' | 'banner' | 'compact';
     dismissible?: boolean;
     retryable?: boolean;
   }>(),
   {
-    severity: "error",
-    variant: "inline",
+    severity: 'error',
+    variant: 'inline',
     dismissible: false,
     retryable: false,
   },

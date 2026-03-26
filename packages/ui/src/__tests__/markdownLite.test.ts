@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { renderMarkdown } from '../utils/markdownLite';
 
 describe('markdownLite — renderMarkdown', () => {
@@ -33,8 +33,12 @@ describe('markdownLite — renderMarkdown', () => {
   it('renders headings (h1-h4)', () => {
     expect(renderMarkdown('# Heading 1')).toContain('<h1 class="md-heading md-h1">Heading 1</h1>');
     expect(renderMarkdown('## Heading 2')).toContain('<h2 class="md-heading md-h2">Heading 2</h2>');
-    expect(renderMarkdown('### Heading 3')).toContain('<h3 class="md-heading md-h3">Heading 3</h3>');
-    expect(renderMarkdown('#### Heading 4')).toContain('<h4 class="md-heading md-h4">Heading 4</h4>');
+    expect(renderMarkdown('### Heading 3')).toContain(
+      '<h3 class="md-heading md-h3">Heading 3</h3>',
+    );
+    expect(renderMarkdown('#### Heading 4')).toContain(
+      '<h4 class="md-heading md-h4">Heading 4</h4>',
+    );
   });
 
   it('renders unordered lists', () => {
@@ -55,7 +59,9 @@ describe('markdownLite — renderMarkdown', () => {
 
   it('renders links', () => {
     const html = renderMarkdown('Visit [GitHub](https://github.com) for more');
-    expect(html).toContain('<a href="https://github.com" class="md-link" target="_blank" rel="noopener">GitHub</a>');
+    expect(html).toContain(
+      '<a href="https://github.com" class="md-link" target="_blank" rel="noopener">GitHub</a>',
+    );
   });
 
   it('renders blockquotes', () => {
@@ -126,7 +132,8 @@ describe('markdownLite — renderMarkdown', () => {
 
   // Complex content
   it('handles mixed content correctly', () => {
-    const input = '# Title\n\nSome **bold** and *italic* text.\n\n- List item 1\n- List item 2\n\n```javascript\nconst x = 1;\n```';
+    const input =
+      '# Title\n\nSome **bold** and *italic* text.\n\n- List item 1\n- List item 2\n\n```javascript\nconst x = 1;\n```';
     const html = renderMarkdown(input);
 
     expect(html).toContain('<h1');

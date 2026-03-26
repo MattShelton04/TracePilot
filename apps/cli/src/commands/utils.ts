@@ -7,8 +7,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import yaml from 'js-yaml';
 import { formatTokens } from '@tracepilot/types';
+import yaml from 'js-yaml';
 
 // Re-export for convenience
 export { formatTokens };

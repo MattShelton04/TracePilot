@@ -1,5 +1,5 @@
 import { toErrorMessage } from '@tracepilot/ui';
-import { ref, readonly, type Ref } from 'vue';
+import { type Ref, readonly, ref } from 'vue';
 
 /**
  * Options for configuring the cached fetch composable.

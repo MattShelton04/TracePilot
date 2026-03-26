@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   title?: string;
-  padding?: "sm" | "md";
+  padding?: 'sm' | 'md';
 }>();
 </script>
 

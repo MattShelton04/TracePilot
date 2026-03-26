@@ -1,5 +1,4 @@
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
-import { normalizePath } from '@tracepilot/ui';
 import type {
   ModelPriceEntry,
   RichRenderableToolName,
@@ -7,16 +6,17 @@ import type {
   TracePilotConfig,
 } from '@tracepilot/types';
 import {
-  DEFAULT_TOOL_RENDERING_PREFS,
-  getDefaultWholesalePrices,
-  DEFAULT_FAVOURITE_MODELS,
   createDefaultConfig,
-  DEFAULT_COST_PER_PREMIUM_REQUEST,
-  DEFAULT_CLI_COMMAND,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
+  DEFAULT_COST_PER_PREMIUM_REQUEST,
+  DEFAULT_FAVOURITE_MODELS,
+  DEFAULT_TOOL_RENDERING_PREFS,
   DEFAULT_UI_SCALE,
+  getDefaultWholesalePrices,
 } from '@tracepilot/types';
+import { normalizePath } from '@tracepilot/ui';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 
@@ -33,15 +33,15 @@ export const DEFAULT_WHOLESALE_PRICES: ModelPriceEntry[] = getDefaultWholesalePr
 export const BASE_FONT_SIZE_PX = 16;
 
 function applyTheme(theme: ThemeOption) {
-  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute('data-theme', theme);
   // Write-through cache for instant theme on next launch (no flash)
-  localStorage.setItem("tracepilot-theme", theme);
+  localStorage.setItem('tracepilot-theme', theme);
 }
 
 function applyContentMaxWidth(value: number) {
   // 0 means no limit (full width)
-  const cssVal = value <= 0 ? "none" : `${value}px`;
-  document.documentElement.style.setProperty("--content-max-width", cssVal);
+  const cssVal = value <= 0 ? 'none' : `${value}px`;
+  document.documentElement.style.setProperty('--content-max-width', cssVal);
 }
 
 function applyUiScale(scale: number) {
@@ -51,13 +51,13 @@ function applyUiScale(scale: number) {
   document.documentElement.style.fontSize = `${BASE_FONT_SIZE_PX * clamped}px`;
 }
 
-export const usePreferencesStore = defineStore("preferences", () => {
+export const usePreferencesStore = defineStore('preferences', () => {
   // ── Reactive state ──────────────────────────────────────────
 
   // Initialize theme from write-through cache to match main.ts (prevents flash)
-  const cachedTheme = localStorage.getItem("tracepilot-theme");
-  const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
-  const sessionStateDir = ref("");
+  const cachedTheme = localStorage.getItem('tracepilot-theme');
+  const theme = ref<ThemeOption>(cachedTheme === 'light' ? 'light' : 'dark');
+  const sessionStateDir = ref('');
   const hideEmptySessions = ref(true);
   const cliCommand = ref(DEFAULT_CLI_COMMAND);
   const autoRefreshEnabled = ref(false);
@@ -82,12 +82,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const logLevel = ref('info');
 
   // Ephemeral state — stays in localStorage only
-  const lastViewedSession = ref<string | null>(
-    localStorage.getItem("tracepilot-last-session"),
-  );
-  const lastSeenVersion = ref<string | null>(
-    localStorage.getItem("tracepilot-last-seen-version"),
-  );
+  const lastViewedSession = ref<string | null>(localStorage.getItem('tracepilot-last-session'));
+  const lastSeenVersion = ref<string | null>(localStorage.getItem('tracepilot-last-seen-version'));
 
   // ── Hydration gate ──────────────────────────────────────────
   // Prevents reactive watches from persisting default values to disk
@@ -103,32 +99,42 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // On first load after upgrade, pull old prefs into config.toml
   // and remove the legacy key.
   function migrateFromLocalStorage(config: TracePilotConfig): TracePilotConfig {
-    const raw = localStorage.getItem("tracepilot-prefs");
+    const raw = localStorage.getItem('tracepilot-prefs');
     if (!raw) return config;
 
     try {
       const old = JSON.parse(raw);
 
       // UI section
-      if (old.theme === "dark" || old.theme === "light") config.ui.theme = old.theme;
-      if (typeof old.hideEmptySessions === "boolean") config.ui.hideEmptySessions = old.hideEmptySessions;
-      if (typeof old.autoRefreshEnabled === "boolean") config.ui.autoRefreshEnabled = old.autoRefreshEnabled;
-      if (typeof old.autoRefreshIntervalSeconds === "number") config.ui.autoRefreshIntervalSeconds = old.autoRefreshIntervalSeconds;
-      if (typeof old.checkForUpdates === "boolean") config.ui.checkForUpdates = old.checkForUpdates;
+      if (old.theme === 'dark' || old.theme === 'light') config.ui.theme = old.theme;
+      if (typeof old.hideEmptySessions === 'boolean')
+        config.ui.hideEmptySessions = old.hideEmptySessions;
+      if (typeof old.autoRefreshEnabled === 'boolean')
+        config.ui.autoRefreshEnabled = old.autoRefreshEnabled;
+      if (typeof old.autoRefreshIntervalSeconds === 'number')
+        config.ui.autoRefreshIntervalSeconds = old.autoRefreshIntervalSeconds;
+      if (typeof old.checkForUpdates === 'boolean') config.ui.checkForUpdates = old.checkForUpdates;
       if (Array.isArray(old.favouriteModels)) config.ui.favouriteModels = old.favouriteModels;
       if (Array.isArray(old.recentRepoPaths)) config.ui.recentRepoPaths = old.recentRepoPaths;
 
       // General
-      if (typeof old.cliCommand === "string") config.general.cliCommand = old.cliCommand;
+      if (typeof old.cliCommand === 'string') config.general.cliCommand = old.cliCommand;
 
       // Pricing
-      if (typeof old.costPerPremiumRequest === "number") config.pricing.costPerPremiumRequest = old.costPerPremiumRequest;
+      if (typeof old.costPerPremiumRequest === 'number')
+        config.pricing.costPerPremiumRequest = old.costPerPremiumRequest;
       if (Array.isArray(old.modelWholesalePrices)) {
         // Merge with defaults: preserve user customizations, backfill new fields
         const saved = old.modelWholesalePrices as ModelPriceEntry[];
         config.pricing.models = DEFAULT_WHOLESALE_PRICES.map((def) => {
           const existing = saved.find((s) => s.model === def.model);
-          return existing ? { ...def, ...existing, premiumRequests: existing.premiumRequests ?? def.premiumRequests } : def;
+          return existing
+            ? {
+                ...def,
+                ...existing,
+                premiumRequests: existing.premiumRequests ?? def.premiumRequests,
+              }
+            : def;
         });
         // Include any user-added models not in defaults
         for (const s of saved) {
@@ -139,24 +145,27 @@ export const usePreferencesStore = defineStore("preferences", () => {
       }
 
       // Tool rendering
-      if (old.toolRendering && typeof old.toolRendering === "object") {
-        config.toolRendering.enabled = typeof old.toolRendering.enabled === "boolean" ? old.toolRendering.enabled : true;
+      if (old.toolRendering && typeof old.toolRendering === 'object') {
+        config.toolRendering.enabled =
+          typeof old.toolRendering.enabled === 'boolean' ? old.toolRendering.enabled : true;
         config.toolRendering.toolOverrides = old.toolRendering.toolOverrides ?? {};
       }
 
       // Features
-      if (old.featureFlags && typeof old.featureFlags === "object") {
+      if (old.featureFlags && typeof old.featureFlags === 'object') {
         for (const key of Object.keys(config.features)) {
           const k = key as keyof typeof config.features;
-          if (typeof old.featureFlags[key] === "boolean") {
+          if (typeof old.featureFlags[key] === 'boolean') {
             (config.features as Record<string, boolean>)[k] = old.featureFlags[key] as boolean;
           }
         }
       }
 
       // Migrate ephemeral fields
-      if (old.lastViewedSession) localStorage.setItem("tracepilot-last-session", old.lastViewedSession);
-      if (old.lastSeenVersion) localStorage.setItem("tracepilot-last-seen-version", old.lastSeenVersion);
+      if (old.lastViewedSession)
+        localStorage.setItem('tracepilot-last-session', old.lastViewedSession);
+      if (old.lastSeenVersion)
+        localStorage.setItem('tracepilot-last-seen-version', old.lastSeenVersion);
     } catch {
       // Corrupt localStorage — leave key in place; it'll be retried next launch
     }
@@ -166,7 +175,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Apply config → reactive refs ───────────────────────────
   function applyConfig(config: TracePilotConfig) {
-    theme.value = (config.ui.theme === "light" ? "light" : "dark") as ThemeOption;
+    theme.value = (config.ui.theme === 'light' ? 'light' : 'dark') as ThemeOption;
     sessionStateDir.value = config.paths.sessionStateDir;
     hideEmptySessions.value = config.ui.hideEmptySessions;
     autoRefreshEnabled.value = config.ui.autoRefreshEnabled;
@@ -187,9 +196,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
     cliCommand.value = config.general.cliCommand;
     costPerPremiumRequest.value = config.pricing.costPerPremiumRequest;
-    modelWholesalePrices.value = config.pricing.models.length > 0
-      ? [...config.pricing.models]
-      : [...DEFAULT_WHOLESALE_PRICES];
+    modelWholesalePrices.value =
+      config.pricing.models.length > 0 ? [...config.pricing.models] : [...DEFAULT_WHOLESALE_PRICES];
     toolRendering.value = {
       enabled: config.toolRendering.enabled,
       toolOverrides: { ...config.toolRendering.toolOverrides },
@@ -255,14 +263,16 @@ export const usePreferencesStore = defineStore("preferences", () => {
         backendConfig = config;
       } catch (e) {
         if (gen !== saveGeneration) return;
-        console.warn("[preferences] Failed to persist config:", e);
+        console.warn('[preferences] Failed to persist config:', e);
       }
     }, 300);
   }
 
   // ── Hydrate from backend on store creation ─────────────────
   let hydrateResolve: () => void;
-  const hydratePromise = new Promise<void>((resolve) => { hydrateResolve = resolve; });
+  const hydratePromise = new Promise<void>((resolve) => {
+    hydrateResolve = resolve;
+  });
 
   async function hydrate() {
     try {
@@ -276,13 +286,13 @@ export const usePreferencesStore = defineStore("preferences", () => {
       }
 
       let config = await getConfig();
-      const hadLegacyPrefs = !!localStorage.getItem("tracepilot-prefs");
+      const hadLegacyPrefs = !!localStorage.getItem('tracepilot-prefs');
       // One-time migration from localStorage
       if (hadLegacyPrefs) {
         config = migrateFromLocalStorage(config);
         await saveConfig(config);
         // Only clear legacy key after save succeeds
-        localStorage.removeItem("tracepilot-prefs");
+        localStorage.removeItem('tracepilot-prefs');
       }
       backendConfig = config;
       applyConfig(config);
@@ -298,22 +308,40 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Persist ephemeral state to localStorage ────────────────
   watch(lastViewedSession, (v) => {
-    if (v) localStorage.setItem("tracepilot-last-session", v);
-    else localStorage.removeItem("tracepilot-last-session");
+    if (v) localStorage.setItem('tracepilot-last-session', v);
+    else localStorage.removeItem('tracepilot-last-session');
   });
   watch(lastSeenVersion, (v) => {
-    if (v) localStorage.setItem("tracepilot-last-seen-version", v);
-    else localStorage.removeItem("tracepilot-last-seen-version");
+    if (v) localStorage.setItem('tracepilot-last-seen-version', v);
+    else localStorage.removeItem('tracepilot-last-seen-version');
   });
 
   // Watch theme changes: update DOM + write-through cache
-  watch(theme, (newTheme) => { applyTheme(newTheme); }, { immediate: true });
+  watch(
+    theme,
+    (newTheme) => {
+      applyTheme(newTheme);
+    },
+    { immediate: true },
+  );
 
   // Watch content max-width: update CSS variable
-  watch(contentMaxWidth, (v) => { applyContentMaxWidth(v); }, { immediate: true });
+  watch(
+    contentMaxWidth,
+    (v) => {
+      applyContentMaxWidth(v);
+    },
+    { immediate: true },
+  );
 
   // Watch UI scale: update root font-size
-  watch(uiScale, (v) => { applyUiScale(v); }, { immediate: true });
+  watch(
+    uiScale,
+    (v) => {
+      applyUiScale(v);
+    },
+    { immediate: true },
+  );
 
   // Watch all config-backed refs → debounced save to backend
   watch(
@@ -343,14 +371,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
   /** Look up wholesale price for a model name (fuzzy match on prefix). */
   function getWholesalePrice(modelName: string): ModelPriceEntry | undefined {
     const lower = modelName.toLowerCase();
-    const sorted = [...modelWholesalePrices.value].sort(
-      (a, b) => b.model.length - a.model.length,
-    );
+    const sorted = [...modelWholesalePrices.value].sort((a, b) => b.model.length - a.model.length);
     return (
       sorted.find((p) => lower.includes(p.model.toLowerCase())) ??
-      sorted.find((p) =>
-        lower.startsWith(p.model.toLowerCase().split("-").slice(0, 2).join("-")),
-      )
+      sorted.find((p) => lower.startsWith(p.model.toLowerCase().split('-').slice(0, 2).join('-')))
     );
   }
 
@@ -376,9 +400,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   }
 
   function removeWholesalePrice(model: string) {
-    modelWholesalePrices.value = modelWholesalePrices.value.filter(
-      (p) => p.model !== model,
-    );
+    modelWholesalePrices.value = modelWholesalePrices.value.filter((p) => p.model !== model);
   }
 
   function resetWholesalePrices() {
@@ -388,16 +410,12 @@ export const usePreferencesStore = defineStore("preferences", () => {
   /** Check if rich rendering is enabled for a specific tool. */
   function isRichRenderingEnabled(toolName: string): boolean {
     if (!toolRendering.value.enabled) return false;
-    const override =
-      toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
+    const override = toolRendering.value.toolOverrides[toolName as RichRenderableToolName];
     return override ?? true;
   }
 
   /** Set the per-tool rendering override. */
-  function setToolRenderingOverride(
-    toolName: RichRenderableToolName,
-    enabled: boolean,
-  ) {
+  function setToolRenderingOverride(toolName: RichRenderableToolName, enabled: boolean) {
     toolRendering.value.toolOverrides[toolName] = enabled;
   }
 

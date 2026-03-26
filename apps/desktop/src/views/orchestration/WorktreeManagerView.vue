@@ -1,12 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { fetchRemote, getDefaultBranch, openInExplorer, openInTerminal } from '@tracepilot/client';
+import type { CreateWorktreeRequest, WorktreeDetails, WorktreeInfo } from '@tracepilot/types';
+import {
+  formatBytes,
+  formatRelativeTime,
+  LoadingSpinner,
+  normalizePath,
+  pathBasename,
+  pathDirname,
+  SearchableSelect,
+  sanitizeBranchForPath,
+  useConfirmDialog,
+  useToast,
+} from '@tracepilot/ui';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
-import { openInExplorer, openInTerminal, getDefaultBranch, fetchRemote } from '@tracepilot/client';
-import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog, normalizePath, pathBasename, pathDirname, sanitizeBranchForPath, SearchableSelect } from '@tracepilot/ui';
-import { useWorktreesStore } from '@/stores/worktrees';
-import { usePreferencesStore } from '@/stores/preferences';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useWorktreesStore } from '@/stores/worktrees';
 
 const router = useRouter();
 const store = useWorktreesStore();
@@ -32,8 +43,6 @@ const newBaseBranch = ref('');
 const newTargetDir = ref('');
 const createModalRepoPath = ref('');
 
-
-
 // Default branch + fetch state
 const defaultBranch = ref('');
 const fetchingRemote = ref(false);
@@ -58,9 +67,7 @@ const staleDiskUsage = computed(() =>
     .reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
 );
 
-const staleWorktrees = computed(() =>
-  store.worktrees.filter((w) => w.status === 'stale'),
-);
+const staleWorktrees = computed(() => store.worktrees.filter((w) => w.status === 'stale'));
 
 const maxWorktreeDisk = computed(() =>
   Math.max(...filteredWorktrees.value.map((w) => w.diskUsageBytes ?? 0), 1),
@@ -342,14 +349,20 @@ async function handleUnlock(wt: WorktreeInfo) {
   const ok = await store.unlockWorktree(wt.path, wt.repoRoot);
   if (ok) {
     if (selectedWorktree.value?.path === wt.path) {
-      selectedWorktree.value = { ...selectedWorktree.value, isLocked: false, lockedReason: undefined };
+      selectedWorktree.value = {
+        ...selectedWorktree.value,
+        isLocked: false,
+        lockedReason: undefined,
+      };
     }
     toastSuccess('Worktree unlocked');
   }
 }
 
 async function handleFetchRemote() {
-  const repoPath = showCreateModal.value ? createModalRepoPath.value : (selectedRepoPath.value || store.currentRepoPath);
+  const repoPath = showCreateModal.value
+    ? createModalRepoPath.value
+    : selectedRepoPath.value || store.currentRepoPath;
   if (!repoPath) return;
   fetchingRemote.value = true;
   try {
@@ -411,17 +424,21 @@ async function handleOpenTerminal(path: string) {
 }
 
 /* ─── Watchers ────────────────────────────────────────────────── */
-watch(() => store.worktrees, () => {
-  if (selectedWorktree.value) {
-    const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
-    if (!still) {
-      selectedWorktree.value = null;
-      worktreeDetails.value = null;
-    } else {
-      selectedWorktree.value = still;
+watch(
+  () => store.worktrees,
+  () => {
+    if (selectedWorktree.value) {
+      const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
+      if (!still) {
+        selectedWorktree.value = null;
+        worktreeDetails.value = null;
+      } else {
+        selectedWorktree.value = still;
+      }
     }
-  }
-}, { deep: true });
+  },
+  { deep: true },
+);
 </script>
 
 <template>

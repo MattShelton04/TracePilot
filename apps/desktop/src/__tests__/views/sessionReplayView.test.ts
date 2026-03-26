@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { nextTick, reactive, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick, reactive, ref } from 'vue';
 import SessionReplayView from '../../views/SessionReplayView.vue';
 
 const mockRouterPush = vi.fn();
@@ -62,22 +62,50 @@ vi.mock('@/utils/replayTransform', () => ({
 const stubs = {
   ReplayTransportBar: {
     template: '<div class="transport-stub" />',
-    props: ['currentStep', 'totalSteps', 'isPlaying', 'speed', 'elapsedFormatted', 'totalFormatted', 'scrubberPercent'],
+    props: [
+      'currentStep',
+      'totalSteps',
+      'isPlaying',
+      'speed',
+      'elapsedFormatted',
+      'totalFormatted',
+      'scrubberPercent',
+    ],
   },
   ReplayStepContent: {
     template: '<div class="step-stub" />',
-    props: ['step', 'turn', 'allTurns', 'isCurrent', 'isPast', 'isFuture', 'fullResults', 'loadingResults', 'failedResults', 'isRichEnabled'],
+    props: [
+      'step',
+      'turn',
+      'allTurns',
+      'isCurrent',
+      'isPast',
+      'isFuture',
+      'fullResults',
+      'loadingResults',
+      'failedResults',
+      'isRichEnabled',
+    ],
   },
   ReplaySidebar: {
     template: '<div class="sidebar-stub" />',
     props: ['step', 'steps', 'currentStepIndex', 'totalSteps', 'detail', 'shutdownMetrics'],
   },
-  ModelSwitchBanner: { template: '<div class="banner-stub" />', props: ['previousModel', 'newModel'] },
+  ModelSwitchBanner: {
+    template: '<div class="banner-stub" />',
+    props: ['previousModel', 'newModel'],
+  },
   ReplayEventTicker: { template: '<div class="ticker-stub" />', props: ['steps', 'currentStep'] },
   SessionCard: { template: '<div class="session-card-stub" />', props: ['session'] },
   Badge: { template: '<span class="badge-stub"><slot /></span>' },
-  EmptyState: { template: '<div class="empty-stub"><slot /></div>', props: ['icon', 'title', 'description', 'message'] },
-  SkeletonLoader: { template: '<div class="skeleton-stub" />', props: ['lines', 'variant', 'count'] },
+  EmptyState: {
+    template: '<div class="empty-stub"><slot /></div>',
+    props: ['icon', 'title', 'description', 'message'],
+  },
+  SkeletonLoader: {
+    template: '<div class="skeleton-stub" />',
+    props: ['lines', 'variant', 'count'],
+  },
   ErrorAlert: {
     name: 'ErrorAlert',
     props: {
@@ -85,7 +113,8 @@ const stubs = {
       retryable: { type: Boolean, default: false },
     },
     emits: ['retry'],
-    template: '<div class="error-alert-stub">{{ message }}<button v-if="retryable" class="retry-btn" @click="$emit(\'retry\')">retry</button></div>',
+    template:
+      '<div class="error-alert-stub">{{ message }}<button v-if="retryable" class="retry-btn" @click="$emit(\'retry\')">retry</button></div>',
   },
 };
 

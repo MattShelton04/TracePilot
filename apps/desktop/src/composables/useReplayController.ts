@@ -4,9 +4,10 @@
  * Accepts a reactive list of ReplaySteps and provides transport controls
  * (play, pause, step, scrub, speed) with optional proportional timing.
  */
-import { ref, computed, watch, onUnmounted, type Ref } from 'vue';
+
 import type { ReplayStep } from '@tracepilot/types';
 import { formatClockTime } from '@tracepilot/ui';
+import { computed, onUnmounted, type Ref, ref, watch } from 'vue';
 
 export interface ReplayControllerOptions {
   /** Use actual step durations (scaled by speed) instead of fixed interval. Default: false. */
@@ -21,11 +22,7 @@ export function useReplayController(
   steps: Ref<ReplayStep[]>,
   options: ReplayControllerOptions = {},
 ) {
-  const {
-    proportionalTiming = false,
-    maxStepDelayMs = 3000,
-    fixedIntervalMs = 1500,
-  } = options;
+  const { proportionalTiming = false, maxStepDelayMs = 3000, fixedIntervalMs = 1500 } = options;
 
   const currentStep = ref(0);
   const isPlaying = ref(false);
@@ -35,9 +32,7 @@ export function useReplayController(
   const totalSteps = computed(() => steps.value.length);
   const currentStepData = computed(() => steps.value[currentStep.value] ?? null);
 
-  const totalDurationMs = computed(() =>
-    steps.value.reduce((sum, s) => sum + s.durationMs, 0),
-  );
+  const totalDurationMs = computed(() => steps.value.reduce((sum, s) => sum + s.durationMs, 0));
 
   const elapsedMs = computed(() =>
     steps.value.slice(0, currentStep.value + 1).reduce((sum, s) => sum + s.durationMs, 0),

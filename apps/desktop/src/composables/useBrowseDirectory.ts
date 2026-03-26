@@ -19,10 +19,7 @@ export async function browseForDirectory(options?: {
   defaultPath?: string;
 }): Promise<string | null> {
   if (!('__TAURI_INTERNALS__' in window)) {
-    const input = prompt(
-      options?.title ?? 'Select directory:',
-      options?.defaultPath ?? '',
-    );
+    const input = prompt(options?.title ?? 'Select directory:', options?.defaultPath ?? '');
     return sanitizePath(input);
   }
   try {
@@ -34,10 +31,7 @@ export async function browseForDirectory(options?: {
     });
     return selected ?? null;
   } catch {
-    const input = prompt(
-      options?.title ?? 'Select directory:',
-      options?.defaultPath ?? '',
-    );
+    const input = prompt(options?.title ?? 'Select directory:', options?.defaultPath ?? '');
     return sanitizePath(input);
   }
 }
@@ -51,10 +45,7 @@ export async function browseForSavePath(options?: {
   defaultPath?: string;
 }): Promise<string | null> {
   if (!('__TAURI_INTERNALS__' in window)) {
-    const input = prompt(
-      options?.title ?? 'Select file path:',
-      options?.defaultPath ?? '',
-    );
+    const input = prompt(options?.title ?? 'Select file path:', options?.defaultPath ?? '');
     return sanitizePath(input);
   }
   try {
@@ -65,10 +56,7 @@ export async function browseForSavePath(options?: {
     });
     return selected ?? null;
   } catch {
-    const input = prompt(
-      options?.title ?? 'Select file path:',
-      options?.defaultPath ?? '',
-    );
+    const input = prompt(options?.title ?? 'Select file path:', options?.defaultPath ?? '');
     return sanitizePath(input);
   }
 }

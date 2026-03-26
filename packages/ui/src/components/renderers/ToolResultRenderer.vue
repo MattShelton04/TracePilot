@@ -9,12 +9,13 @@
  *  - no renderer is registered for this tool
  *  - content is empty/null
  */
-import { computed, type Component } from "vue";
-import type { TurnToolCall } from "@tracepilot/types";
-import { getRendererEntry } from "./registry";
-import PlainTextRenderer from "./PlainTextRenderer.vue";
-import MarkdownContent from "../MarkdownContent.vue";
-import RendererShell from "./RendererShell.vue";
+
+import type { TurnToolCall } from '@tracepilot/types';
+import { type Component, computed } from 'vue';
+import MarkdownContent from '../MarkdownContent.vue';
+import PlainTextRenderer from './PlainTextRenderer.vue';
+import RendererShell from './RendererShell.vue';
+import { getRendererEntry } from './registry';
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -40,7 +41,7 @@ const activeComponent = computed<Component | null>(() => {
 });
 
 const parsedArgs = computed(() => {
-  if (!props.tc.arguments || typeof props.tc.arguments !== "object") return {};
+  if (!props.tc.arguments || typeof props.tc.arguments !== 'object') return {};
   return props.tc.arguments as Record<string, unknown>;
 });
 </script>

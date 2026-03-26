@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import type { SearchResult } from '@tracepilot/types';
 import type { ContextSnippet } from '@tracepilot/client';
 import { getResultContext } from '@tracepilot/client';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import type { SearchResult } from '@tracepilot/types';
+import { CONTENT_TYPE_CONFIG, formatDateMedium, formatRelativeTime } from '@tracepilot/ui';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
   result: SearchResult;
@@ -27,7 +27,9 @@ function handleCopy() {
   emit('copy');
   copied.value = true;
   if (copiedTimer) clearTimeout(copiedTimer);
-  copiedTimer = setTimeout(() => { copied.value = false; }, 1500);
+  copiedTimer = setTimeout(() => {
+    copied.value = false;
+  }, 1500);
 }
 
 const ctConfig = CONTENT_TYPE_CONFIG;
@@ -38,7 +40,8 @@ function ctLookup(type: string) {
 
 // Timeline position: what fraction through the session is this result?
 const timelinePosition = computed(() => {
-  if (props.result.eventIndex == null || !props.sessionEventCount || props.sessionEventCount < 2) return null;
+  if (props.result.eventIndex == null || !props.sessionEventCount || props.sessionEventCount < 2)
+    return null;
   return Math.min(1, Math.max(0, props.result.eventIndex / props.sessionEventCount));
 });
 
@@ -47,18 +50,21 @@ const contextBefore = ref<ContextSnippet[]>([]);
 const contextAfter = ref<ContextSnippet[]>([]);
 const contextLoaded = ref(false);
 
-watch(() => props.expanded, async (isExpanded) => {
-  if (isExpanded && !contextLoaded.value) {
-    try {
-      const [before, after] = await getResultContext(props.result.id, 2);
-      contextBefore.value = before;
-      contextAfter.value = after;
-      contextLoaded.value = true;
-    } catch {
-      // Allow retry on next expand — don't latch contextLoaded on failure
+watch(
+  () => props.expanded,
+  async (isExpanded) => {
+    if (isExpanded && !contextLoaded.value) {
+      try {
+        const [before, after] = await getResultContext(props.result.id, 2);
+        contextBefore.value = before;
+        contextAfter.value = after;
+        contextLoaded.value = true;
+      } catch {
+        // Allow retry on next expand — don't latch contextLoaded on failure
+      }
     }
-  }
-});
+  },
+);
 </script>
 
 <template>

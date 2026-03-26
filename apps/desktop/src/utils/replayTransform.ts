@@ -85,9 +85,7 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   }
 
   // Check for report_intent tool call
-  const intentCall = turn.toolCalls.find(
-    (tc) => tc.toolName === 'report_intent' && tc.arguments,
-  );
+  const intentCall = turn.toolCalls.find((tc) => tc.toolName === 'report_intent' && tc.arguments);
   if (intentCall) {
     const args = intentCall.arguments as Record<string, unknown> | undefined;
     if (args?.intent && typeof args.intent === 'string') {
@@ -116,7 +114,15 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
 
 /** Extract file paths from mutating tool call arguments only. */
 function extractFilesModified(toolCalls: TurnToolCall[]): string[] {
-  const MUTATING_TOOLS = new Set(['edit', 'create', 'apply_patch', 'delete', 'move', 'rename', 'write']);
+  const MUTATING_TOOLS = new Set([
+    'edit',
+    'create',
+    'apply_patch',
+    'delete',
+    'move',
+    'rename',
+    'write',
+  ]);
   const files = new Set<string>();
 
   for (const tc of toolCalls) {

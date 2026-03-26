@@ -3,8 +3,8 @@
  * AskUserRenderer — renders ask_user tool results showing the question,
  * available choices, and which option was selected (or freeform response).
  */
-import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
+import { computed } from 'vue';
+import RendererShell from './RendererShell.vue';
 
 const props = defineProps<{
   content: string;
@@ -17,29 +17,27 @@ const emit = defineEmits<{
 }>();
 
 const question = computed(() =>
-  typeof props.args?.question === "string" ? props.args.question : null
+  typeof props.args?.question === 'string' ? props.args.question : null,
 );
 
 const choices = computed<string[]>(() =>
-  Array.isArray(props.args?.choices) ? (props.args.choices as string[]) : []
+  Array.isArray(props.args?.choices) ? (props.args.choices as string[]) : [],
 );
 
-const allowFreeform = computed(() =>
-  props.args?.allow_freeform !== false
-);
+const allowFreeform = computed(() => props.args?.allow_freeform !== false);
 
 /** The user's response (the tool result content). */
-const response = computed(() => props.content?.trim() ?? "");
+const response = computed(() => props.content?.trim() ?? '');
 
 /** Check if the response matches one of the predefined choices. */
 const selectedChoiceIdx = computed(() => {
   if (!response.value || choices.value.length === 0) return -1;
   const resp = response.value.toLowerCase();
-  return choices.value.findIndex(c => c.toLowerCase() === resp);
+  return choices.value.findIndex((c) => c.toLowerCase() === resp);
 });
 
-const isFreeformResponse = computed(() =>
-  choices.value.length > 0 && selectedChoiceIdx.value === -1
+const isFreeformResponse = computed(
+  () => choices.value.length > 0 && selectedChoiceIdx.value === -1,
 );
 </script>
 

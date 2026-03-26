@@ -1,10 +1,10 @@
 import { getAnalytics, getCodeImpact, getToolAnalysis } from '@tracepilot/client';
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from '@tracepilot/types';
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
-import { useSessionsStore } from './sessions';
-import { usePreferencesStore } from './preferences';
+import { computed, ref, watch } from 'vue';
 import { useCachedFetch } from '@/composables/useCachedFetch';
+import { usePreferencesStore } from './preferences';
+import { useSessionsStore } from './sessions';
 
 /** Parameters for analytics fetch operations */
 interface AnalyticsFetchParams {
@@ -15,7 +15,12 @@ interface AnalyticsFetchParams {
 }
 
 /** Options accepted by all analytics fetch actions. */
-export interface AnalyticsFetchOptions { fromDate?: string; toDate?: string; repo?: string; force?: boolean }
+export interface AnalyticsFetchOptions {
+  fromDate?: string;
+  toDate?: string;
+  repo?: string;
+  force?: boolean;
+}
 
 export const useAnalyticsStore = defineStore('analytics', () => {
   // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
@@ -44,7 +49,11 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return { fromDate: `${yyyy}-${mm}-${dd}` };
   });
 
-  function setTimeRange(range: 'all' | '7d' | '30d' | '90d' | 'custom', from?: string, to?: string) {
+  function setTimeRange(
+    range: 'all' | '7d' | '30d' | '90d' | 'custom',
+    from?: string,
+    to?: string,
+  ) {
     selectedTimeRange.value = range;
     if (range === 'custom') {
       customFromDate.value = from;
@@ -55,17 +64,20 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   // Create cached fetch instances for each data type
   const analyticsFetcher = useCachedFetch<AnalyticsData, AnalyticsFetchParams>({
     fetcher: (params) => getAnalytics(params),
-    cacheKeyFn: (params) => `analytics:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+    cacheKeyFn: (params) =>
+      `analytics:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
   });
 
   const toolAnalysisFetcher = useCachedFetch<ToolAnalysisData, AnalyticsFetchParams>({
     fetcher: (params) => getToolAnalysis(params),
-    cacheKeyFn: (params) => `toolAnalysis:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+    cacheKeyFn: (params) =>
+      `toolAnalysis:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
   });
 
   const codeImpactFetcher = useCachedFetch<CodeImpactData, AnalyticsFetchParams>({
     fetcher: (params) => getCodeImpact(params),
-    cacheKeyFn: (params) => `codeImpact:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
+    cacheKeyFn: (params) =>
+      `codeImpact:${params.fromDate ?? ''}:${params.toDate ?? ''}:${params.repo ?? ''}:${params.hideEmpty ?? ''}`,
   });
 
   /** Ensure the sessions store is populated so availableRepos has data. */
@@ -79,9 +91,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   // ── Shared fetch factory ──────────────────────────────────────
   // All three analytics fetch actions share the same parameter-building logic.
 
-  function buildFetchAction(
-    fetcher: { fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<unknown> },
-  ) {
+  function buildFetchAction(fetcher: {
+    fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<unknown>;
+  }) {
     return async (options?: AnalyticsFetchOptions) => {
       const prefs = usePreferencesStore();
       const merged = { ...dateRange.value, ...options };
@@ -125,9 +137,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   // Invalidate analytics cache when hideEmptySessions preference changes
   const allFetchers = [analyticsFetcher, toolAnalysisFetcher, codeImpactFetcher];
   const prefs = usePreferencesStore();
-  watch(() => prefs.hideEmptySessions, () => {
-    for (const f of allFetchers) f.clearCache();
-  });
+  watch(
+    () => prefs.hideEmptySessions,
+    () => {
+      for (const f of allFetchers) f.clearCache();
+    },
+  );
 
   return {
     // State - use fetcher refs directly

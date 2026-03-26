@@ -4,8 +4,12 @@
  */
 import type { ReplayStep, SessionDetail, ShutdownMetrics } from '@tracepilot/types';
 import {
-  StatCard, Badge, MiniTimeline,
-  formatDuration, formatNumber, formatTime,
+  Badge,
+  formatDuration,
+  formatNumber,
+  formatTime,
+  MiniTimeline,
+  StatCard,
   toolIcon,
 } from '@tracepilot/ui';
 

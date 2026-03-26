@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { useAsyncGuard } from '../useAsyncGuard';
 
 describe('useAsyncGuard', () => {
@@ -97,7 +97,7 @@ describe('useAsyncGuard', () => {
   describe('race condition simulation', () => {
     it('prevents late-completing first request from overwriting second', async () => {
       const guard = useAsyncGuard();
-      let state = { data: null as string | null };
+      const state = { data: null as string | null };
 
       // Simulate async operations with explicit timing control
       let resolveFirst: (value: string) => void;
@@ -135,7 +135,7 @@ describe('useAsyncGuard', () => {
 
     it('handles three overlapping requests with mixed completion order', async () => {
       const guard = useAsyncGuard();
-      let state = { data: null as string | null };
+      const state = { data: null as string | null };
 
       const resolvers: Array<(value: string) => void> = [];
       const requests = Array(3)
@@ -172,7 +172,7 @@ describe('useAsyncGuard', () => {
 
     it('guards work correctly across microtask boundaries', async () => {
       const guard = useAsyncGuard();
-      let state = { value: 0 };
+      const state = { value: 0 };
 
       const token1 = guard.start();
 
@@ -195,7 +195,7 @@ describe('useAsyncGuard', () => {
 
     it('guards work correctly with setTimeout macrotasks', async () => {
       const guard = useAsyncGuard();
-      let state = { value: 0 };
+      const state = { value: 0 };
 
       const token1 = guard.start();
 
@@ -270,7 +270,7 @@ describe('useAsyncGuard', () => {
   describe('error handling patterns', () => {
     it('token check in catch block prevents stale error display', async () => {
       const guard = useAsyncGuard();
-      let errorState = { error: null as string | null };
+      const errorState = { error: null as string | null };
 
       const token1 = guard.start();
       const promise1 = Promise.reject('error-1').catch((e) => {
@@ -285,7 +285,7 @@ describe('useAsyncGuard', () => {
 
     it('token check in finally block prevents stale cleanup', async () => {
       const guard = useAsyncGuard();
-      let loadingState = { loading: false };
+      const loadingState = { loading: false };
 
       const token1 = guard.start();
       loadingState.loading = true;

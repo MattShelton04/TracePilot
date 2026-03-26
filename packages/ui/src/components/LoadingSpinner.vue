@@ -1,19 +1,19 @@
 <script setup lang="ts">
 const props = withDefaults(
   defineProps<{
-    size?: "sm" | "md" | "lg";
+    size?: 'sm' | 'md' | 'lg';
     color?: string;
   }>(),
   {
-    size: "md",
-    color: "var(--accent-fg)",
+    size: 'md',
+    color: 'var(--accent-fg)',
   },
 );
 
 const sizeMap: Record<string, number> = { sm: 16, md: 24, lg: 32 };
 const px = computed(() => sizeMap[props.size]);
 
-import { computed } from "vue";
+import { computed } from 'vue';
 </script>
 
 <template>

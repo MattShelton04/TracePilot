@@ -62,11 +62,7 @@ function onToBlur(e: Event) {
 
 function commitDates() {
   if (!isCustom.value) return;
-  store.setTimeRange(
-    'custom',
-    committedFrom.value || undefined,
-    committedTo.value || undefined,
-  );
+  store.setTimeRange('custom', committedFrom.value || undefined, committedTo.value || undefined);
 }
 </script>
 

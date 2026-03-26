@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
-import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
-import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@tracepilot/client";
+import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from '@tracepilot/client';
+import { Badge, ErrorAlert, SkeletonLoader, TabNav, useClipboard } from '@tracepilot/ui';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import RefreshToolbar from '@/components/RefreshToolbar.vue';
+import { useAutoRefresh } from '@/composables/useAutoRefresh';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const route = useRoute();
 const router = useRouter();
@@ -85,18 +85,26 @@ function cancelResume() {
 }
 
 const tabs = computed(() => [
-  { name: "overview", routeName: "session-overview", label: "Overview" },
-  { name: "conversation", routeName: "session-conversation", label: "Conversation", count: store.detail?.turnCount ?? undefined },
-  { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount ?? undefined },
-  { name: "todos", routeName: "session-todos", label: "Todos" },
-  { name: "metrics", routeName: "session-metrics", label: "Metrics" },
-  { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },
-  { name: "timeline", routeName: "session-timeline", label: "Timeline" },
+  { name: 'overview', routeName: 'session-overview', label: 'Overview' },
+  {
+    name: 'conversation',
+    routeName: 'session-conversation',
+    label: 'Conversation',
+    count: store.detail?.turnCount ?? undefined,
+  },
+  {
+    name: 'events',
+    routeName: 'session-events',
+    label: 'Events',
+    count: store.detail?.eventCount ?? undefined,
+  },
+  { name: 'todos', routeName: 'session-todos', label: 'Todos' },
+  { name: 'metrics', routeName: 'session-metrics', label: 'Metrics' },
+  { name: 'token-flow', routeName: 'session-token-flow', label: 'Token Flow' },
+  { name: 'timeline', routeName: 'session-timeline', label: 'Timeline' },
 ]);
 
-const currentModel = computed(() =>
-  store.detail?.shutdownMetrics?.currentModel ?? "",
-);
+const currentModel = computed(() => store.detail?.shutdownMetrics?.currentModel ?? '');
 
 onMounted(async () => {
   store.loadDetail(sessionId.value);
