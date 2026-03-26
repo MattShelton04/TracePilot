@@ -2,34 +2,61 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useSearchStore } from '@/stores/search';
-import { useSessionsStore } from '@/stores/sessions';
+
+import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
 import { safeListen } from '@/utils/tauriEvents';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
-import type { SearchContentType } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import type { SearchContentType, SearchResult } from '@tracepilot/types';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
 
 const store = useSearchStore();
-const sessionsStore = useSessionsStore();
+
+// Sync search state ↔ URL query params
+useSearchUrlSync();
 
 // ÔöÇÔöÇ Main indexing progress (local to this view) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const indexingProgress = ref<{ current: number; total: number } | null>(null);
 const isIndexing = ref(false);
 const unlisteners: UnlistenFn[] = [];
 
-// Repo list: prefer search facets if available, fall back to sessions store
-const availableRepositories = computed(() => {
-  return store.availableRepositories.length > 0 ? store.availableRepositories : sessionsStore.repositories;
-});
-
 // ÔöÇÔöÇ Local UI state ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const filtersOpen = ref(true);
 const activeDatePreset = ref<string>('all');
+const copyToast = ref<string | null>(null);
+let copyToastTimer: ReturnType<typeof setTimeout> | null = null;
+const showSyntaxHelp = ref(false);
+
+// ── Keyboard navigation ─────────────────────────────────────
+const focusedResultIndex = ref(-1);
+
+// Map result.id → flat index for keyboard nav in grouped view
+const resultIndexMap = computed(() => {
+  const m = new Map<number, number>();
+  store.results.forEach((r, i) => m.set(r.id, i));
+  return m;
+});
+
+function showCopyToast(message: string) {
+  copyToast.value = message;
+  if (copyToastTimer) clearTimeout(copyToastTimer);
+  copyToastTimer = setTimeout(() => { copyToast.value = null; }, 2000);
+}
+
+async function handleCopyResult(result: SearchResult) {
+  const ok = await store.copySingleResult(result);
+  showCopyToast(ok ? 'Copied to clipboard' : 'Copy failed');
+}
+
+async function handleCopyAllResults() {
+  const ok = await store.copyResultsToClipboard();
+  showCopyToast(ok ? `Copied ${store.results.length} results` : 'Copy failed');
+}
 
 // ÔöÇÔöÇ Content type config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 // ── Content type config (shared) ─────────────────────────────
 const contentTypeConfig = CONTENT_TYPE_CONFIG;
-const allContentTypes = ALL_CONTENT_TYPES;
 
 // ÔöÇÔöÇ Computed helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const activeFilterCount = computed(() => {
@@ -61,45 +88,11 @@ const visiblePages = computed(() => {
 
 // ── Content type tri-state toggle ─────────────────────────────
 // States: 'off' (not filtered) → 'include' → 'exclude' → 'off'
-type FilterState = 'off' | 'include' | 'exclude';
-
-function getContentTypeState(ct: SearchContentType): FilterState {
-  if (store.contentTypes.includes(ct)) return 'include';
-  if (store.excludeContentTypes.includes(ct)) return 'exclude';
-  return 'off';
-}
-
-function cycleContentType(ct: SearchContentType) {
-  const state = getContentTypeState(ct);
-  // Remove from both arrays first
-  const incIdx = store.contentTypes.indexOf(ct);
-  if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
-  const excIdx = store.excludeContentTypes.indexOf(ct);
-  if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
-
-  // Cycle: off → include → exclude → off
-  if (state === 'off') {
-    store.contentTypes.push(ct);
-  } else if (state === 'include') {
-    store.excludeContentTypes.push(ct);
-  }
-  // 'exclude' → off: already removed above
-}
-
 function removeContentTypeFilter(ct: SearchContentType) {
   const incIdx = store.contentTypes.indexOf(ct);
   if (incIdx >= 0) store.contentTypes.splice(incIdx, 1);
   const excIdx = store.excludeContentTypes.indexOf(ct);
   if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
-}
-
-function toggleAllContentTypes() {
-  if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) {
-    store.contentTypes.splice(0);
-    store.excludeContentTypes.splice(0);
-  } else {
-    store.contentTypes.splice(0, store.contentTypes.length, ...allContentTypes);
-  }
 }
 
 // Active filter chips: collect all active include/exclude filters
@@ -113,13 +106,6 @@ const activeContentTypeChips = computed(() => {
   }
   return chips;
 });
-
-function getFacetCount(ct: string): number | null {
-  const facets = store.facets?.byContentType;
-  if (!facets) return null;
-  const entry = facets.find(([type]) => type === ct);
-  return entry ? entry[1] : null;
-}
 
 // ÔöÇÔöÇ Expandable result cards ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const expandedResults = ref<Set<number>>(new Set());
@@ -190,40 +176,6 @@ const statsContentTypeFacets = computed(() => {
 });
 
 // ÔöÇÔöÇ Date presets ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function setDatePreset(preset: string) {
-  activeDatePreset.value = preset;
-  const now = new Date();
-  switch (preset) {
-    case 'today': {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      store.dateFrom = today.toISOString();
-      store.dateTo = null;
-      break;
-    }
-    case 'week': {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      store.dateFrom = weekAgo.toISOString();
-      store.dateTo = null;
-      break;
-    }
-    case 'month': {
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      store.dateFrom = monthAgo.toISOString();
-      store.dateTo = null;
-      break;
-    }
-    case '3months': {
-      const threeMonths = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      store.dateFrom = threeMonths.toISOString();
-      store.dateTo = null;
-      break;
-    }
-    default:
-      store.dateFrom = null;
-      store.dateTo = null;
-  }
-}
-
 // ÔöÇÔöÇ Clear all filters ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function handleClearFilters() {
   store.clearFilters();
@@ -243,12 +195,85 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
 
 // ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function handleKeydown(e: KeyboardEvent) {
-  if (shouldIgnoreGlobalShortcut(e)) return;
+  // Ctrl+K: focus search input (global)
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     e.stopImmediatePropagation();
     searchInputRef.value?.focus();
     searchInputRef.value?.select();
+    return;
+  }
+
+  const isSearchInput = e.target === searchInputRef.value;
+
+  // From search input: allow arrow keys to navigate into results,
+  // and Enter/Esc when a result is already focused
+  if (isSearchInput) {
+    const isArrow = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+    const isEnterOnFocused = e.key === 'Enter' && focusedResultIndex.value >= 0;
+    const isEscOnFocused = e.key === 'Escape' && focusedResultIndex.value >= 0;
+    if (!isArrow && !isEnterOnFocused && !isEscOnFocused) return;
+  }
+
+  if (!isSearchInput && shouldIgnoreGlobalShortcut(e)) return;
+
+  const resultCount = store.results.length;
+  if (resultCount === 0) return;
+
+  switch (e.key) {
+    case 'ArrowDown':
+    case 'j':
+      e.preventDefault();
+      focusedResultIndex.value = Math.min(focusedResultIndex.value + 1, resultCount - 1);
+      if (isSearchInput) searchInputRef.value?.blur();
+      scrollToFocusedResult();
+      break;
+    case 'ArrowUp':
+    case 'k':
+      e.preventDefault();
+      focusedResultIndex.value = Math.max(focusedResultIndex.value - 1, -1);
+      if (isSearchInput && focusedResultIndex.value >= 0) searchInputRef.value?.blur();
+      scrollToFocusedResult();
+      break;
+    case 'Enter':
+      if (focusedResultIndex.value >= 0) {
+        e.preventDefault();
+        const result = store.results[focusedResultIndex.value];
+        if (result) toggleExpand(result.id);
+      }
+      break;
+    case 'Escape':
+      if (focusedResultIndex.value >= 0) {
+        e.preventDefault();
+        focusedResultIndex.value = -1;
+        searchInputRef.value?.focus();
+      } else if (store.hasQuery) {
+        store.clearAll();
+      }
+      break;
+  }
+}
+
+function scrollToFocusedResult() {
+  if (focusedResultIndex.value < 0) return;
+  const el = document.querySelector(`[data-result-index="${focusedResultIndex.value}"]`);
+  if (!el) return;
+  // Account for sticky summary bar when scrolling.
+  // 'nearest' with 'auto' (instant) avoids animation queueing when holding arrow keys.
+  const scrollParent = el.closest('.search-main-scroll');
+  if (scrollParent) {
+    const parentRect = scrollParent.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const stickyOffset = 56;
+    if (elRect.top < parentRect.top + stickyOffset) {
+      // Element is hidden behind sticky header — scroll it into view
+      el.scrollIntoView({ block: 'start', behavior: 'auto' });
+      scrollParent.scrollTop -= stickyOffset;
+    } else if (elRect.bottom > parentRect.bottom) {
+      el.scrollIntoView({ block: 'end', behavior: 'auto' });
+    }
+  } else {
+    el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
 }
 
@@ -306,9 +331,15 @@ onUnmounted(() => {
         <div class="search-hints">
           <span class="search-hint"><code>"phrase"</code> exact match</span>
           <span class="search-hint"><code>prefix*</code> prefix search</span>
-          <span class="search-hint"><code>AND</code> / <code>OR</code> boolean</span>
-          <span class="search-hint"><code>NOT</code> exclude terms</span>
-          <span class="search-hint">Leave empty to browse by filters</span>
+          <span class="search-hint"><code>type:error</code> filter by type</span>
+          <span class="search-hint"><code>repo:name</code> filter by repo</span>
+          <span class="search-hint"><code>tool:grep</code> filter by tool</span>
+          <button class="search-hint syntax-help-btn" @click="showSyntaxHelp = true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+              <circle cx="8" cy="8" r="6" /><path d="M6 6a2 2 0 1 1 2 2v1" /><circle cx="8" cy="11.5" r="0.5" fill="currentColor" />
+            </svg>
+            More syntax
+          </button>
         </div>
 
         <!-- Controls Row -->
@@ -407,117 +438,11 @@ onUnmounted(() => {
       <div class="search-page-layout">
 
         <!-- Filter Sidebar -->
-        <aside class="filter-sidebar" :class="{ collapsed: !filtersOpen }">
-          <!-- Content Types -->
-          <div>
-            <div class="filter-group-title">
-              Content Type
-              <button class="filter-select-all-btn" @click="toggleAllContentTypes">
-                {{ (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) ? 'Clear All' : 'Select All' }}
-              </button>
-            </div>
-            <div class="filter-group">
-              <div
-                v-for="ct in allContentTypes"
-                :key="ct"
-                class="filter-checkbox-row"
-                @click="cycleContentType(ct)"
-              >
-                <span
-                  class="tri-state-box"
-                  :class="{
-                    'tri-include': getContentTypeState(ct) === 'include',
-                    'tri-exclude': getContentTypeState(ct) === 'exclude',
-                  }"
-                >
-                  <svg v-if="getContentTypeState(ct) === 'include'" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2">
-                    <polyline points="2,6 5,9 10,3" />
-                  </svg>
-                  <svg v-else-if="getContentTypeState(ct) === 'exclude'" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2">
-                    <line x1="3" y1="3" x2="9" y2="9" />
-                    <line x1="9" y1="3" x2="3" y2="9" />
-                  </svg>
-                </span>
-                <span
-                  class="filter-color-dot"
-                  :style="{ background: contentTypeConfig[ct].color }"
-                />
-                <span class="filter-label" :class="{ 'filter-label-excluded': getContentTypeState(ct) === 'exclude' }">
-                  {{ contentTypeConfig[ct].label }}
-                </span>
-                <span v-if="getFacetCount(ct)" class="filter-facet-count">{{ getFacetCount(ct) }}</span>
-              </div>
-            </div>
-            <div class="tri-state-hint">Click to cycle: off → include → exclude</div>
-          </div>
-
-          <!-- Repository -->
-          <div>
-            <div class="filter-group-title">Repository</div>
-            <select
-              class="filter-select-full"
-              :value="store.repository ?? ''"
-              @change="store.repository = ($event.target as HTMLSelectElement).value || null"
-            >
-              <option value="">All Repositories</option>
-              <option
-                v-for="repo in availableRepositories"
-                :key="repo"
-                :value="repo"
-              >
-                {{ repo }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Tool Name -->
-          <div v-if="store.availableToolNames.length > 0">
-            <div class="filter-group-title">Tool</div>
-            <select
-              class="filter-select-full"
-              :value="store.toolName ?? ''"
-              @change="store.toolName = ($event.target as HTMLSelectElement).value || null"
-            >
-              <option value="">All Tools</option>
-              <option
-                v-for="tool in store.availableToolNames"
-                :key="tool"
-                :value="tool"
-              >
-                {{ tool }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Date Range -->
-          <div>
-            <div class="filter-group-title">Date Range</div>
-            <div class="date-preset-group">
-              <button
-                v-for="preset in [
-                  { key: 'today', label: 'Today' },
-                  { key: 'week', label: 'This Week' },
-                  { key: 'month', label: 'This Month' },
-                  { key: '3months', label: 'Last 3 Months' },
-                  { key: 'all', label: 'All Time' },
-                ]"
-                :key="preset.key"
-                class="date-preset-btn"
-                :class="{ active: activeDatePreset === preset.key }"
-                @click="setDatePreset(preset.key)"
-              >
-                {{ preset.label }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Clear Filters -->
-          <div>
-            <button class="filter-clear-btn" @click="handleClearFilters">
-              ✕ Clear all filters
-            </button>
-          </div>
-        </aside>
+        <SearchFilterSidebar
+          :collapsed="!filtersOpen"
+          v-model:active-date-preset="activeDatePreset"
+          @clear-filters="handleClearFilters"
+        />
 
         <!-- Results Area -->
         <div class="search-main">
@@ -555,45 +480,29 @@ onUnmounted(() => {
 
           <!-- ÔòÉÔòÉÔòÉ Empty State: No Query ÔòÉÔòÉÔòÉ -->
           <div v-else-if="!store.hasQuery && !store.hasResults && !store.hasActiveFilters" class="search-main-scroll">
-            <!-- Browse Mode: Quick Presets -->
-            <div class="browse-presets">
-              <div class="browse-title">Browse your sessions</div>
-              <div class="browse-subtitle">
-                Use filters or try a quick preset to explore your session content.
+
+            <!-- First-run: No sessions indexed yet -->
+            <div v-if="store.stats && store.stats.totalSessions === 0" class="first-run-state">
+              <svg class="first-run-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="20" cy="20" r="14" /><line x1="30" y1="30" x2="44" y2="44" />
+                <circle cx="20" cy="20" r="4" stroke-dasharray="3 2" />
+              </svg>
+              <div class="first-run-title">No sessions indexed yet</div>
+              <div class="first-run-subtitle">
+                Open a coding session and TracePilot will automatically index it for search.
+                You can also rebuild the index manually to pick up existing sessions.
               </div>
-              <div class="browse-preset-grid">
-                <button class="browse-preset-btn browse-preset-errors" @click="store.browseErrors()">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
-                    <circle cx="8" cy="8" r="6" /><line x1="8" y1="5" x2="8" y2="9" /><circle cx="8" cy="11" r="0.5" fill="currentColor" />
-                  </svg>
-                  <span class="preset-label">All Errors</span>
-                  <span class="preset-desc">Errors &amp; tool failures</span>
-                </button>
-                <button class="browse-preset-btn browse-preset-user" @click="store.browseUserMessages()">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
-                    <circle cx="8" cy="5" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-                  </svg>
-                  <span class="preset-label">User Messages</span>
-                  <span class="preset-desc">Your prompts &amp; requests</span>
-                </button>
-                <button class="browse-preset-btn browse-preset-tools" @click="store.browseToolCalls()">
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
-                    <path d="M4 2v12M12 2v12M2 6h12M2 10h12" />
-                  </svg>
-                  <span class="preset-label">Tool Calls</span>
-                  <span class="preset-desc">All tool invocations</span>
-                </button>
-              </div>
-              <div v-if="store.stats" class="empty-stats">
-                <span class="empty-stat">
-                  <strong>{{ store.stats.totalSessions.toLocaleString() }}</strong> sessions indexed
-                </span>
-                <span class="empty-stat-sep">·</span>
-                <span class="empty-stat">
-                  <strong>{{ store.stats.totalRows.toLocaleString() }}</strong> content rows
-                </span>
-              </div>
+              <button class="first-run-rebuild-btn" @click="store.rebuild()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                  <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                  <polyline points="12.5 1 12.5 4 9.5 4" /><polyline points="3.5 15 3.5 12 6.5 12" />
+                </svg>
+                Build Search Index
+              </button>
             </div>
+
+            <!-- Browse Mode: Quick Presets -->
+            <SearchBrowsePresets v-else />
           </div>
 
           <!-- ÔòÉÔòÉÔòÉ Results ÔòÉÔòÉÔòÉ -->
@@ -614,6 +523,16 @@ onUnmounted(() => {
                 No results found
               </span>
               <div class="view-mode-toggle">
+                <button
+                  v-if="store.hasResults"
+                  class="view-mode-btn"
+                  title="Copy all results"
+                  @click="handleCopyAllResults()"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                    <rect x="5" y="5" width="9" height="9" rx="1" /><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
+                  </svg>
+                </button>
                 <button
                   class="view-mode-btn"
                   :class="{ active: store.resultViewMode === 'flat' }"
@@ -654,103 +573,17 @@ onUnmounted(() => {
 
             <!-- Results: Flat view -->
             <div v-else-if="store.resultViewMode === 'flat'" class="results-list">
-              <div
+              <SearchResultCard
                 v-for="(result, idx) in store.results"
                 :key="result.id"
-                class="result-card"
-                :class="{ expanded: expandedResults.has(result.id) }"
-                :style="{ animationDelay: `${Math.min(idx, 8) * 30}ms` }"
-                @click="toggleExpand(result.id)"
-              >
-                <div class="result-header">
-                  <span
-                    v-if="result.sessionRepository"
-                    class="badge badge-accent"
-                    style="font-size: 0.625rem"
-                  >
-                    {{ result.sessionRepository }}
-                  </span>
-                  <span
-                    v-if="result.sessionBranch"
-                    class="badge badge-success"
-                    style="font-size: 0.625rem"
-                  >
-                    {{ result.sessionBranch }}
-                  </span>
-                  <span v-if="result.timestampUnix != null" class="result-date" :title="formatDateMedium(result.timestampUnix)">
-                    {{ formatRelativeTime(result.timestampUnix) }}
-                  </span>
-                  <span
-                    class="ct-badge"
-                    :style="{
-                      background: contentTypeConfig[result.contentType]?.color + '20',
-                      color: contentTypeConfig[result.contentType]?.color,
-                    }"
-                    style="margin-left: auto"
-                  >
-                    {{ contentTypeConfig[result.contentType]?.label ?? result.contentType }}
-                  </span>
-                </div>
-
-                <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
-                <div class="result-snippet" v-html="result.snippet" />
-
-                <div class="result-meta">
-                  <span v-if="result.sessionSummary" class="result-session-summary" :title="result.sessionSummary">{{ result.sessionSummary.length > 50 ? result.sessionSummary.slice(0, 50) + '…' : result.sessionSummary }}</span>
-                  <span v-if="result.sessionSummary" class="result-meta-sep">·</span>
-                  <span v-if="result.turnNumber != null">Turn {{ result.turnNumber }}</span>
-                  <span v-if="result.turnNumber != null" class="result-meta-sep">·</span>
-                  <span>{{ result.contentType.replace(/_/g, ' ') }}</span>
-                  <template v-if="result.toolName">
-                    <span class="result-meta-sep">·</span>
-                    <span class="tool-name-badge">{{ result.toolName }}</span>
-                  </template>
-                  <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-                    class="result-view-btn"
-                    @click.stop
-                  >
-                    View in session
-                  </router-link>
-                </div>
-
-                <!-- Expanded Details -->
-                <div v-if="expandedResults.has(result.id)" class="result-expanded">
-                  <div class="expanded-grid">
-                    <div v-if="result.sessionSummary" class="expanded-item">
-                      <span class="expanded-label">Session</span>
-                      <span class="expanded-value">{{ result.sessionSummary }}</span>
-                    </div>
-                    <div class="expanded-item">
-                      <span class="expanded-label">Session ID</span>
-                      <span class="expanded-value expanded-mono">{{ result.sessionId }}</span>
-                    </div>
-                    <div v-if="result.turnNumber != null" class="expanded-item">
-                      <span class="expanded-label">Turn</span>
-                      <span class="expanded-value">{{ result.turnNumber }}</span>
-                    </div>
-                    <div v-if="result.toolName" class="expanded-item">
-                      <span class="expanded-label">Tool</span>
-                      <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
-                    </div>
-                    <div v-if="result.eventIndex != null" class="expanded-item">
-                      <span class="expanded-label">Event Index</span>
-                      <span class="expanded-value">{{ result.eventIndex }}</span>
-                    </div>
-                    <div v-if="result.timestampUnix != null" class="expanded-item">
-                      <span class="expanded-label">Timestamp</span>
-                      <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
-                    </div>
-                  </div>
-                  <router-link
-                    :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-                    class="expanded-view-btn"
-                    @click.stop
-                  >
-                    Open in Session Viewer →
-                  </router-link>
-                </div>
-              </div>
+                :result="result"
+                :index="idx"
+                :expanded="expandedResults.has(result.id)"
+                :focused="focusedResultIndex === idx"
+                :session-link="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
+                @toggle="toggleExpand(result.id)"
+                @copy="handleCopyResult(result)"
+              />
             </div>
 
             <!-- Results: Grouped by session -->
@@ -769,7 +602,7 @@ onUnmounted(() => {
                   <div class="session-group-meta">
                     <span v-if="group.sessionRepository" class="badge badge-accent" style="font-size: 0.5625rem">{{ group.sessionRepository }}</span>
                     <span v-if="group.sessionBranch" class="badge badge-success" style="font-size: 0.5625rem">{{ group.sessionBranch }}</span>
-                    <span class="session-group-count">{{ group.results.length }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
+                    <span class="session-group-count">{{ group.results.length }}{{ store.hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
                     <button
                       class="session-group-filter-btn"
                       title="Filter search to this session"
@@ -796,7 +629,8 @@ onUnmounted(() => {
                     v-for="result in group.results"
                     :key="result.id"
                     class="session-group-result"
-                    :class="{ expanded: expandedResults.has(result.id) }"
+                    :class="{ expanded: expandedResults.has(result.id), 'result-focused': resultIndexMap.get(result.id) === focusedResultIndex }"
+                    :data-result-index="resultIndexMap.get(result.id)"
                     @click="toggleExpand(result.id)"
                   >
                     <div class="session-group-result-row">
@@ -904,6 +738,26 @@ onUnmounted(() => {
         </div>
 
       </div>
+
+      <!-- Copy Toast -->
+      <Transition name="toast-fade">
+        <div v-if="copyToast" class="copy-toast">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <polyline points="3 8 6.5 11.5 13 5" />
+          </svg>
+          {{ copyToast }}
+        </div>
+      </Transition>
+
+      <!-- Keyboard hints (shown when results are visible) -->
+      <div v-if="store.hasResults && !store.loading" class="keyboard-hints">
+        <kbd>↑↓</kbd> navigate
+        <kbd>Enter</kbd> expand
+        <kbd>Esc</kbd> back to search
+      </div>
+
+      <!-- Syntax Help Modal -->
+      <SearchSyntaxHelpModal :visible="showSyntaxHelp" @close="showSyntaxHelp = false" />
     </div>
 </template>
 
@@ -1126,172 +980,6 @@ onUnmounted(() => {
   padding: 0 16px 28px;
 }
 
-/* ÔöÇÔöÇ Filter Sidebar ÔöÇÔöÇ */
-.filter-sidebar {
-  width: 260px;
-  min-width: 260px;
-  background: var(--canvas-subtle);
-  border-right: 1px solid var(--border-default);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  overflow-y: auto;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: width var(--transition-slow), min-width var(--transition-slow),
-    padding var(--transition-slow), opacity var(--transition-slow);
-}
-
-.filter-sidebar.collapsed {
-  width: 0;
-  min-width: 0;
-  padding: 0;
-  opacity: 0;
-  overflow: hidden;
-  border-right: none;
-}
-
-.filter-group-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 10px;
-}
-
-.filter-select-all-btn {
-  background: none;
-  border: none;
-  color: var(--text-link);
-  font-size: 0.625rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  text-transform: none;
-  letter-spacing: normal;
-  padding: 0;
-  opacity: 0.8;
-  transition: opacity var(--transition-fast);
-}
-
-.filter-select-all-btn:hover {
-  opacity: 1;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.filter-checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  cursor: pointer;
-  user-select: none;
-  transition: color var(--transition-fast);
-}
-
-.filter-checkbox-row:hover {
-  color: var(--text-primary);
-}
-
-.filter-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.filter-label {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.filter-checkbox-row:hover .filter-label {
-  color: var(--text-primary);
-}
-
-.filter-select-full {
-  width: 100%;
-  padding: 7px 28px 7px 10px;
-  background: var(--canvas-default);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  transition: border-color var(--transition-fast);
-}
-
-.filter-select-full:focus {
-  border-color: var(--accent-emphasis);
-  box-shadow: var(--shadow-glow-accent);
-}
-
-.date-preset-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.date-preset-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--canvas-default);
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.date-preset-btn:hover {
-  border-color: var(--border-accent);
-  color: var(--text-primary);
-}
-
-.date-preset-btn.active {
-  background: var(--accent-subtle);
-  border-color: var(--border-accent);
-  color: var(--accent-fg);
-}
-
-.filter-clear-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 0;
-  background: none;
-  border: none;
-  color: var(--text-link);
-  font-size: 0.75rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity var(--transition-fast);
-}
-
-.filter-clear-btn:hover {
-  opacity: 1;
-}
-
 /* ÔöÇÔöÇ Error ÔöÇÔöÇ */
 .search-error {
   display: flex;
@@ -1316,10 +1004,16 @@ onUnmounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-default);
-  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  margin: 0 0 16px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--canvas-default);
+  z-index: 10;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .results-summary-text {
@@ -1888,102 +1582,16 @@ onUnmounted(() => {
 
 /* ÔöÇÔöÇ Responsive ÔöÇÔöÇ */
 @media (max-width: 900px) {
-  .filter-sidebar {
-    display: none;
-  }
-
   .search-hero {
     padding: 16px 0 0;
   }
 }
 
-/* -- Browse Presets -- */
-.browse-presets {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 24px 24px;
-  text-align: center;
-}
+/* -- Browse Presets (moved to SearchBrowsePresets component) -- */
 
-.browse-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
+/* -- Filter facet count badges (moved to SearchFilterSidebar) -- */
 
-.browse-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  max-width: 460px;
-  line-height: 1.5;
-  margin-bottom: 24px;
-}
-
-.browse-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  max-width: 520px;
-  width: 100%;
-  margin-bottom: 24px;
-}
-
-.browse-preset-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 20px 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-default);
-  background: var(--canvas-subtle);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-  text-align: center;
-}
-
-.browse-preset-btn:hover {
-  border-color: var(--border-accent);
-  background: var(--canvas-overlay);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.browse-preset-errors { color: #ef4444; }
-.browse-preset-errors:hover { border-color: #ef4444; }
-.browse-preset-user { color: #4ade80; }
-.browse-preset-user:hover { border-color: #4ade80; }
-.browse-preset-tools { color: #f59e0b; }
-.browse-preset-tools:hover { border-color: #f59e0b; }
-
-.preset-label {
-  font-weight: 600;
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-}
-
-.preset-desc {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-/* -- Filter facet count badges -- */
-.filter-facet-count {
-  margin-left: auto;
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  background: var(--neutral-subtle);
-  padding: 0 5px;
-  border-radius: 8px;
-  min-width: 18px;
-  text-align: center;
-}
-
-/* -- Session summary in meta -- */
+/* -- Session summary in meta (moved to SearchResultCard) -- */
 .result-session-summary {
   font-weight: 500;
   color: var(--text-secondary);
@@ -1993,48 +1601,7 @@ onUnmounted(() => {
   max-width: 200px;
 }
 
-/* -- Tri-state filter box -- */
-.tri-state-box {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border: 1px solid var(--border-default);
-  border-radius: 3px;
-  background: var(--canvas-default);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-
-.tri-state-box svg {
-  width: 10px;
-  height: 10px;
-}
-
-.tri-state-box.tri-include {
-  background: var(--accent-emphasis);
-  border-color: var(--accent-emphasis);
-}
-
-.tri-state-box.tri-exclude {
-  background: #ef4444;
-  border-color: #ef4444;
-}
-
-.filter-label-excluded {
-  text-decoration: line-through;
-  color: var(--text-tertiary) !important;
-  opacity: 0.7;
-}
-
-.tri-state-hint {
-  font-size: 0.625rem;
-  color: var(--text-tertiary);
-  margin-top: 6px;
-  padding-left: 2px;
-}
+/* -- Tri-state filter, filter sidebar, filter clear moved to SearchFilterSidebar -- */
 
 /* -- Active filter chips bar -- */
 .active-filters-bar {
@@ -2335,8 +1902,8 @@ onUnmounted(() => {
 }
 
 .session-group-snippet :deep(mark) {
-  background: var(--attention-subtle);
-  color: var(--attention-fg);
+  background: rgba(251, 191, 36, 0.22);
+  color: var(--warning-fg);
   border-radius: 2px;
   padding: 0 2px;
 }
@@ -2373,4 +1940,96 @@ onUnmounted(() => {
   color: var(--accent-fg);
   background: var(--accent-subtle);
 }
+
+/* ── Keyboard focus indicator ────────────────────────────── */
+.result-focused {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
+}
+
+/* ── Copy button ─────────────────────────────────────────── */
+.result-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 0.675rem;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.result-copy-btn:hover {
+  color: var(--accent-fg);
+  background: var(--accent-subtle);
+  border-color: var(--accent-fg);
+}
+
+/* ── Copy toast ──────────────────────────────────────────── */
+.copy-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-emphasis);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 0.8125rem;
+  z-index: 1000;
+  pointer-events: none;
+}
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+}
+
+/* ── Keyboard hints ──────────────────────────────────────── */
+.keyboard-hints {
+  position: fixed;
+  bottom: 16px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  opacity: 0.85;
+  pointer-events: none;
+  background: var(--canvas-subtle);
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-muted);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.keyboard-hints kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 7px;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ── Recent searches (moved to SearchBrowsePresets) ──────── */
+
+/* ── Preset colors, syntax help, modal, first-run moved to child components ── */
 </style>

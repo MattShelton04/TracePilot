@@ -14,7 +14,11 @@ import {
   getSearchRepositories,
   getSearchToolNames,
   rebuildSearchIndex,
+  ftsIntegrityCheck,
+  ftsOptimize,
+  ftsHealth,
 } from '@tracepilot/client';
+import type { FtsHealthInfo } from '@tracepilot/client';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
@@ -24,6 +28,102 @@ export interface SessionGroup {
   sessionRepository: string | null;
   sessionBranch: string | null;
   results: SearchResult[];
+}
+
+export interface RecentSearch {
+  query: string;
+  timestamp: number;
+  resultCount: number;
+}
+
+const RECENT_SEARCHES_KEY = 'tracepilot-recent-searches';
+const MAX_RECENT_SEARCHES = 10;
+
+function loadRecentSearches(): RecentSearch[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_SEARCHES) : [];
+  } catch { return []; }
+}
+
+function saveRecentSearches(searches: RecentSearch[]) {
+  try {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)));
+  } catch { /* localStorage full or unavailable */ }
+}
+
+/** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:` from query. */
+export interface ParsedQualifiers {
+  cleanQuery: string;
+  types: SearchContentType[];
+  repo: string | null;
+  tool: string | null;
+  session: string | null;
+  sort: 'relevance' | 'newest' | 'oldest' | null;
+}
+
+const QUALIFIER_RE = /\b(type|repo|tool|session|sort):(?:"([^"]+)"|(\S+))/gi;
+
+export function parseQualifiers(raw: string): ParsedQualifiers {
+  const result: ParsedQualifiers = {
+    cleanQuery: raw,
+    types: [],
+    repo: null,
+    tool: null,
+    session: null,
+    sort: null,
+  };
+
+  let match: RegExpExecArray | null;
+  const consumed: [number, number][] = [];
+
+  while ((match = QUALIFIER_RE.exec(raw)) !== null) {
+    const key = match[1].toLowerCase();
+    const val = match[2] ?? match[3]; // quoted value or unquoted
+    consumed.push([match.index, match.index + match[0].length]);
+    switch (key) {
+      case 'type':
+        result.types.push(val as SearchContentType);
+        break;
+      case 'repo':
+        result.repo = val;
+        break;
+      case 'tool':
+        result.tool = val;
+        break;
+      case 'session':
+        result.session = val;
+        break;
+      case 'sort':
+        if (['relevance', 'newest', 'oldest'].includes(val)) {
+          result.sort = val as 'relevance' | 'newest' | 'oldest';
+        }
+        break;
+    }
+  }
+
+  // Strip consumed qualifiers from query
+  if (consumed.length > 0) {
+    let clean = '';
+    let pos = 0;
+    for (const [start, end] of consumed) {
+      clean += raw.slice(pos, start);
+      pos = end;
+    }
+    clean += raw.slice(pos);
+    result.cleanQuery = clean.replace(/\s+/g, ' ').trim();
+  }
+
+  return result;
+}
+
+export interface FacetOverrides {
+  contentTypes?: string[];
+  repo?: string | null;
+  tool?: string | null;
+  session?: string | null;
 }
 
 export const useSearchStore = defineStore('search', () => {
@@ -39,6 +139,9 @@ export const useSearchStore = defineStore('search', () => {
   const sortBy = ref<'relevance' | 'newest' | 'oldest'>('relevance');
   const page = ref(1);
   const pageSize = ref(50);
+
+  // When true, watcher-triggered searches are suppressed (URL hydration in progress)
+  let hydrating = false;
 
   // ── Results state ────────────────────────────────────────────
   const results = ref<SearchResult[]>([]);
@@ -62,6 +165,14 @@ export const useSearchStore = defineStore('search', () => {
   const rebuilding = ref(false);
   const searchIndexing = ref(false);
   const searchIndexingProgress = ref<SearchIndexingProgress | null>(null);
+
+  // ── FTS health / maintenance ────────────────────────────────
+  const healthInfo = ref<FtsHealthInfo | null>(null);
+  const healthLoading = ref(false);
+  const maintenanceMessage = ref<string | null>(null);
+
+  // ── Recent searches ────────────────────────────────────────
+  const recentSearches = ref<RecentSearch[]>(loadRecentSearches());
 
   // Global event listeners — initialized once, persist across route navigation
   let listenersInitialized = false;
@@ -148,6 +259,7 @@ export const useSearchStore = defineStore('search', () => {
    * - debounce: add delay (true for typing, false for filter clicks)
    */
   function scheduleSearch(resetPage: boolean, debounce = false) {
+    if (hydrating) return; // Suppress during URL hydration
     if (searchTimer) clearTimeout(searchTimer);
     if (resetPage) page.value = 1;
 
@@ -165,6 +277,20 @@ export const useSearchStore = defineStore('search', () => {
       ? 'newest'
       : sortBy.value;
 
+    // Parse inline qualifiers (e.g. "type:error repo:myapp fix bug")
+    const parsed = parseQualifiers(query.value);
+    // Always use parsed.cleanQuery — empty string means "no text, filter only"
+    const searchQuery = parsed.cleanQuery;
+
+    // Merge qualifier-derived filters with explicit UI filters
+    const mergedContentTypes = parsed.types.length > 0
+      ? [...new Set([...contentTypes.value, ...parsed.types])]
+      : contentTypes.value;
+    const mergedRepo = parsed.repo ?? repository.value;
+    const mergedTool = parsed.tool ?? toolName.value;
+    const mergedSession = parsed.session ?? sessionId.value;
+    const mergedSort = parsed.sort ?? effectiveSort;
+
     const gen = ++searchGeneration;
     loading.value = true;
     error.value = null;
@@ -179,17 +305,17 @@ export const useSearchStore = defineStore('search', () => {
         dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
       }
 
-      const response = await searchContent(query.value, {
-        contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+      const response = await searchContent(searchQuery, {
+        contentTypes: mergedContentTypes.length > 0 ? mergedContentTypes : undefined,
         excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
-        repositories: repository.value ? [repository.value] : undefined,
-        toolNames: toolName.value ? [toolName.value] : undefined,
-        sessionId: sessionId.value ?? undefined,
+        repositories: mergedRepo ? [mergedRepo] : undefined,
+        toolNames: mergedTool ? [mergedTool] : undefined,
+        sessionId: mergedSession ?? undefined,
         dateFromUnix,
         dateToUnix,
         limit: pageSize.value,
         offset: (page.value - 1) * pageSize.value,
-        sortBy: effectiveSort !== 'relevance' ? effectiveSort : undefined,
+        sortBy: mergedSort !== 'relevance' ? mergedSort : undefined,
       });
 
       if (gen !== searchGeneration) return;
@@ -199,9 +325,21 @@ export const useSearchStore = defineStore('search', () => {
       hasMore.value = response.hasMore;
       latencyMs.value = response.latencyMs;
 
-      // Fetch facets alongside results
-      const facetQuery = hasQuery.value ? query.value : undefined;
-      fetchFacets(facetQuery);
+      // Record to recent searches (only for text queries, not browse mode)
+      if (query.value.trim().length > 0 && response.totalCount > 0) {
+        addRecentSearch(query.value.trim(), response.totalCount);
+      }
+
+      // Fetch facets using the same parsed query and merged filters as the search.
+      // Use searchQuery directly (empty string = browse mode); don't fall back to raw
+      // query.value which may contain qualifier syntax like "type:error".
+      const facetQuery = searchQuery || undefined;
+      fetchFacets(facetQuery, {
+        contentTypes: mergedContentTypes,
+        repo: mergedRepo,
+        tool: mergedTool,
+        session: mergedSession,
+      });
     } catch (e) {
       if (gen !== searchGeneration) return;
       error.value = String(e);
@@ -266,10 +404,114 @@ export const useSearchStore = defineStore('search', () => {
     sortBy.value = 'newest';
   }
 
+  function browseReasoning() {
+    query.value = '';
+    contentTypes.value = ['reasoning'];
+    excludeContentTypes.value = [];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
+  }
+
+  function browseToolResults() {
+    query.value = '';
+    contentTypes.value = ['tool_result'];
+    excludeContentTypes.value = [];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
+  }
+
+  function browseSubagents() {
+    query.value = '';
+    contentTypes.value = ['subagent'];
+    excludeContentTypes.value = [];
+    repository.value = null;
+    toolName.value = null;
+    dateFrom.value = null;
+    dateTo.value = null;
+    sessionId.value = null;
+    sortBy.value = 'newest';
+  }
+
+  // ── Recent search management ──────────────────────────────
+  function addRecentSearch(q: string, count: number) {
+    const existing = recentSearches.value.filter(s => s.query !== q);
+    existing.unshift({ query: q, timestamp: Date.now(), resultCount: count });
+    recentSearches.value = existing.slice(0, MAX_RECENT_SEARCHES);
+    saveRecentSearches(recentSearches.value);
+  }
+
+  function applyRecentSearch(q: string) {
+    query.value = q;
+  }
+
+  function removeRecentSearch(q: string) {
+    recentSearches.value = recentSearches.value.filter(s => s.query !== q);
+    saveRecentSearches(recentSearches.value);
+  }
+
+  function clearRecentSearches() {
+    recentSearches.value = [];
+    saveRecentSearches([]);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  /** Safely extract text from an HTML snippet (handles code like `a < b && c > d`). */
+  function stripHtml(html: string): string {
+    if (!html) return '';
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return doc.body.textContent ?? '';
+    } catch {
+      // Fallback: only strip known safe tags (<mark>, </mark>)
+      return html.replace(/<\/?mark>/gi, '');
+    }
+  }
+
+  // ── Export / copy ─────────────────────────────────────────
+  async function copyResultsToClipboard(resultsToCopy?: SearchResult[]): Promise<boolean> {
+    const items = resultsToCopy ?? results.value;
+    if (items.length === 0) return false;
+    const text = items.map(r => {
+      const meta = [r.contentType.replace(/_/g, ' '), r.toolName].filter(Boolean).join(' · ');
+      const plainSnippet = stripHtml(r.snippet);
+      const header = r.sessionSummary ? `[${r.sessionSummary}] ${meta}` : `[${meta}]`;
+      return `${header}\n${plainSnippet}`;
+    }).join('\n\n---\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch { return false; }
+  }
+
+  async function copySingleResult(result: SearchResult): Promise<boolean> {
+    try {
+      const plainSnippet = stripHtml(result.snippet);
+      const parts: string[] = [];
+      if (result.sessionSummary) parts.push(`Session: ${result.sessionSummary}`);
+      const meta = [result.contentType.replace(/_/g, ' ')];
+      if (result.toolName) meta.push(`tool: ${result.toolName}`);
+      if (result.turnNumber != null) meta.push(`turn ${result.turnNumber}`);
+      parts.push(meta.join(' · '));
+      parts.push('');
+      parts.push(plainSnippet);
+      if (result.sessionRepository) parts.push(`\nRepo: ${result.sessionRepository}`);
+      await navigator.clipboard.writeText(parts.join('\n'));
+      return true;
+    } catch { return false; }
+  }
+
   // ── Facets & stats ───────────────────────────────────────────
   let facetGeneration = 0;
 
-  async function fetchFacets(forQuery?: string) {
+  async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
     const gen = ++facetGeneration;
     try {
       let dateFromUnix: number | undefined;
@@ -277,12 +519,17 @@ export const useSearchStore = defineStore('search', () => {
       if (dateFrom.value) dateFromUnix = Math.floor(new Date(dateFrom.value).getTime() / 1000);
       if (dateTo.value) dateToUnix = Math.floor(new Date(dateTo.value).getTime() / 1000);
 
+      const ct = overrides?.contentTypes ?? contentTypes.value;
+      const repo = overrides?.repo ?? repository.value;
+      const tool = overrides?.tool ?? toolName.value;
+      const session = overrides?.session !== undefined ? overrides.session : sessionId.value;
+
       const result = await getSearchFacets(forQuery, {
-        contentTypes: contentTypes.value.length > 0 ? contentTypes.value : undefined,
+        contentTypes: ct.length > 0 ? ct : undefined,
         excludeContentTypes: excludeContentTypes.value.length > 0 ? excludeContentTypes.value : undefined,
-        repositories: repository.value ? [repository.value] : undefined,
-        toolNames: toolName.value ? [toolName.value] : undefined,
-        sessionId: sessionId.value ?? undefined,
+        repositories: repo ? [repo] : undefined,
+        toolNames: tool ? [tool] : undefined,
+        sessionId: session ?? undefined,
         dateFromUnix,
         dateToUnix,
       });
@@ -333,6 +580,37 @@ export const useSearchStore = defineStore('search', () => {
       error.value = String(e);
     } finally {
       rebuilding.value = false;
+    }
+  }
+
+  // ── FTS Maintenance ─────────────────────────────────────────
+  async function fetchHealth() {
+    healthLoading.value = true;
+    try {
+      healthInfo.value = await ftsHealth();
+    } catch (e) {
+      healthInfo.value = null;
+    } finally {
+      healthLoading.value = false;
+    }
+  }
+
+  async function runIntegrityCheck() {
+    maintenanceMessage.value = null;
+    try {
+      maintenanceMessage.value = await ftsIntegrityCheck();
+    } catch (e) {
+      maintenanceMessage.value = `Error: ${String(e)}`;
+    }
+  }
+
+  async function runOptimize() {
+    maintenanceMessage.value = null;
+    try {
+      maintenanceMessage.value = await ftsOptimize();
+      await fetchHealth(); // refresh health after optimize
+    } catch (e) {
+      maintenanceMessage.value = `Error: ${String(e)}`;
     }
   }
 
@@ -403,6 +681,8 @@ export const useSearchStore = defineStore('search', () => {
     rebuilding,
     searchIndexing,
     searchIndexingProgress,
+    // Recent searches
+    recentSearches,
     // Computed
     hasResults,
     hasQuery,
@@ -424,5 +704,27 @@ export const useSearchStore = defineStore('search', () => {
     browseErrors,
     browseUserMessages,
     browseToolCalls,
+    browseReasoning,
+    browseToolResults,
+    browseSubagents,
+    applyRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches,
+    copyResultsToClipboard,
+    copySingleResult,
+    // FTS maintenance
+    healthInfo,
+    healthLoading,
+    maintenanceMessage,
+    fetchHealth,
+    runIntegrityCheck,
+    runOptimize,
+    // Hydration control (for URL sync)
+    beginHydration: () => { hydrating = true; },
+    endHydration: () => { hydrating = false; },
+    // Load stats/facets without executing a search (for browse presets view)
+    async fetchStatsOnly() {
+      await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);
+    },
   };
 });

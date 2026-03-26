@@ -15,14 +15,48 @@ use super::IndexDb;
 
 /// Bump when extraction logic changes (new content types, field mapping, etc.)
 /// to force re-indexing even when events.jsonl hasn't changed.
-pub const CURRENT_EXTRACTOR_VERSION: i64 = 1;
+pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 
 /// Maximum bytes for individual content fields.
-const MAX_TOOL_CALL_BYTES: usize = 10_000;
-const MAX_TOOL_ERROR_BYTES: usize = 5_000;
-const MAX_ERROR_BYTES: usize = 5_000;
-const MAX_COMPACTION_BYTES: usize = 10_000;
-const MAX_SYSTEM_MESSAGE_BYTES: usize = 10_000;
+const MAX_TOOL_CALL_BYTES: usize = 2_000;
+const MAX_TOOL_RESULT_BYTES: usize = 800;
+const MAX_TOOL_ERROR_BYTES: usize = 2_000;
+const MAX_ERROR_BYTES: usize = 2_000;
+const MAX_COMPACTION_BYTES: usize = 3_000;
+const MAX_SYSTEM_MESSAGE_BYTES: usize = 3_000;
+const MAX_ASSISTANT_MESSAGE_BYTES: usize = 5_000;
+const MAX_REASONING_BYTES: usize = 4_000;
+
+/// Per-extractor internal limits for tool result fields.
+const EXTRACT_VIEW_CONTENT: usize = 400;
+const EXTRACT_VIEW_PATH_PLUS: usize = 500;
+const EXTRACT_SHELL_OUTPUT: usize = 400;
+const EXTRACT_SHELL_FALLBACK: usize = 500;
+const EXTRACT_SHELL_STDERR: usize = 600;
+const EXTRACT_GREP_BYTES: usize = 600;
+const EXTRACT_EDIT_CONTENT: usize = 300;
+const EXTRACT_EDIT_FALLBACK: usize = 400;
+const EXTRACT_GENERIC_BYTES: usize = 400;
+
+/// Tools whose results add negligible search value (session management, status).
+/// Both tool_call and tool_result are skipped for these tools.
+const SKIP_TOOLS: &[&str] = &[
+    "list_agents",
+    "list_powershell",
+    "stop_powershell",
+    "write_powershell",
+    "read_powershell",
+    "read_agent",
+    "fetch_copilot_cli_documentation",
+];
+
+/// Tools where the call contains useful info but the result is boilerplate.
+/// tool_call is indexed, tool_result is skipped.
+const SKIP_RESULT_ONLY_TOOLS: &[&str] = &[
+    "store_memory",
+    "report_intent",
+    "task",
+];
 
 /// A single row to be inserted into `search_content`.
 #[derive(Debug)]
@@ -116,8 +150,8 @@ impl IndexDb {
             let mut stmt = self.conn.prepare(
                 "INSERT INTO search_content
                     (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                     timestamp_unix, tool_name, content, content_fts, metadata_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             )?;
 
             let mut inserted = 0;
@@ -125,6 +159,12 @@ impl IndexDb {
                 if row.content.is_empty() {
                     continue;
                 }
+                let camel_extra = expand_camel_case(&row.content);
+                let content_fts: Option<&str> = if camel_extra.is_empty() {
+                    None
+                } else {
+                    Some(&camel_extra)
+                };
                 stmt.execute(params![
                     row.session_id,
                     row.content_type,
@@ -133,6 +173,7 @@ impl IndexDb {
                     row.timestamp_unix,
                     row.tool_name,
                     row.content,
+                    content_fts,
                     row.metadata_json,
                 ])?;
                 inserted += 1;
@@ -223,6 +264,7 @@ pub fn extract_search_content(
             TypedEventData::AssistantMessage(d) => {
                 if let Some(ref content) = d.content {
                     if !content.is_empty() {
+                        let truncated = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
                             content_type: "assistant_message",
@@ -230,7 +272,7 @@ pub fn extract_search_content(
                             event_index: idx,
                             timestamp_unix: ts_unix,
                             tool_name: None,
-                            content: content.clone(),
+                            content: truncated.to_string(),
                             metadata_json: None,
                         });
                     }
@@ -238,6 +280,7 @@ pub fn extract_search_content(
                 // Also index reasoning text if present
                 if let Some(ref reasoning) = d.reasoning_text {
                     if !reasoning.is_empty() {
+                        let truncated = truncate_utf8(reasoning, MAX_REASONING_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
                             content_type: "reasoning",
@@ -245,7 +288,7 @@ pub fn extract_search_content(
                             event_index: idx,
                             timestamp_unix: ts_unix,
                             tool_name: None,
-                            content: reasoning.clone(),
+                            content: truncated.to_string(),
                             metadata_json: None,
                         });
                     }
@@ -255,6 +298,7 @@ pub fn extract_search_content(
             TypedEventData::AssistantReasoning(d) => {
                 if let Some(ref content) = d.content {
                     if !content.is_empty() {
+                        let truncated = truncate_utf8(content, MAX_REASONING_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
                             content_type: "reasoning",
@@ -262,7 +306,7 @@ pub fn extract_search_content(
                             event_index: idx,
                             timestamp_unix: ts_unix,
                             tool_name: None,
-                            content: content.clone(),
+                            content: truncated.to_string(),
                             metadata_json: None,
                         });
                     }
@@ -278,6 +322,12 @@ pub fn extract_search_content(
                 // Remember tool name for completion events
                 if let Some(ref id) = d.tool_call_id {
                     tool_names.insert(id.clone(), name.clone());
+                }
+
+                // Skip tools that add negligible search value
+                let name_lower = name.to_lowercase();
+                if SKIP_TOOLS.iter().any(|s| s.to_lowercase() == name_lower) {
+                    continue;
                 }
 
                 // Serialize arguments to searchable text
@@ -300,15 +350,25 @@ pub fn extract_search_content(
             }
 
             TypedEventData::ToolExecutionComplete(d) => {
+                let tool_name = d
+                    .tool_call_id
+                    .as_ref()
+                    .and_then(|id| tool_names.get(id))
+                    .cloned();
+                let name_lower = tool_name
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_lowercase();
+
+                // Skip tools that add negligible search value
+                if SKIP_TOOLS.iter().any(|s| s.to_lowercase() == name_lower) {
+                    continue;
+                }
+
                 // Index tool errors
                 if let Some(ref error) = d.error {
                     let error_text = flatten_json_value(error);
                     if !error_text.is_empty() {
-                        let tool_name = d
-                            .tool_call_id
-                            .as_ref()
-                            .and_then(|id| tool_names.get(id))
-                            .cloned();
                         let truncated = truncate_utf8(&error_text, MAX_TOOL_ERROR_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
@@ -316,7 +376,31 @@ pub fn extract_search_content(
                             turn_number: Some(current_turn),
                             event_index: idx,
                             timestamp_unix: ts_unix,
-                            tool_name,
+                            tool_name: tool_name.clone(),
+                            content: truncated.to_string(),
+                            metadata_json: None,
+                        });
+                    }
+                    continue;
+                }
+
+                // Skip result-only tools (call is indexed, result is boilerplate)
+                if SKIP_RESULT_ONLY_TOOLS.iter().any(|s| s.to_lowercase() == name_lower) {
+                    continue;
+                }
+
+                // Index successful tool results
+                if let Some(ref result) = d.result {
+                    let content = extract_tool_result(&name_lower, result);
+                    if !content.is_empty() {
+                        let truncated = truncate_utf8(&content, MAX_TOOL_RESULT_BYTES);
+                        rows.push(SearchContentRow {
+                            session_id: session_id.to_string(),
+                            content_type: "tool_result",
+                            turn_number: Some(current_turn),
+                            event_index: idx,
+                            timestamp_unix: ts_unix,
+                            tool_name: tool_name.clone(),
                             content: truncated.to_string(),
                             metadata_json: None,
                         });
@@ -396,9 +480,6 @@ pub fn extract_search_content(
                 if let Some(ref display) = d.agent_display_name {
                     parts.push(display.clone());
                 }
-                if let Some(ref desc) = d.agent_description {
-                    parts.push(desc.clone());
-                }
                 let content = parts.join(" — ");
                 if !content.is_empty() {
                     rows.push(SearchContentRow {
@@ -442,6 +523,133 @@ fn flatten_json_value(value: &serde_json::Value) -> String {
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>()
             .join("\n"),
+    }
+}
+
+/// Flatten a serde_json::Value preserving keys as "key: value" pairs.
+fn flatten_json_with_keys(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => String::new(),
+        serde_json::Value::Array(arr) => arr
+            .iter()
+            .map(flatten_json_with_keys)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        serde_json::Value::Object(map) => map
+            .iter()
+            .filter_map(|(k, v)| {
+                let val = flatten_json_with_keys(v);
+                if val.is_empty() {
+                    None
+                } else {
+                    Some(format!("{}: {}", k, val))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+    }
+}
+
+/// Split camelCase/PascalCase identifiers into space-separated words.
+/// Returns ONLY the expansion terms (not the original text).
+fn expand_camel_case(text: &str) -> String {
+    let mut expansions = Vec::new();
+
+    for word in text.split(|c: char| !c.is_alphanumeric() && c != '_') {
+        if word.len() < 4 {
+            continue;
+        }
+        let chars: Vec<char> = word.chars().collect();
+        let mut parts = Vec::new();
+        let mut start = 0;
+
+        for i in 1..chars.len() {
+            let split = chars[i].is_uppercase() && (i + 1 >= chars.len() || !chars[i + 1].is_uppercase() || chars[i - 1].is_lowercase());
+            if split {
+                let part: String = chars[start..i].iter().collect();
+                if part.len() >= 2 {
+                    parts.push(part.to_lowercase());
+                }
+                start = i;
+            }
+        }
+        let last: String = chars[start..].iter().collect();
+        if last.len() >= 2 {
+            parts.push(last.to_lowercase());
+        }
+
+        if parts.len() >= 2 {
+            expansions.push(parts.join(" "));
+        }
+    }
+
+    expansions.join(" ")
+}
+
+/// Extract the most searchable content from a tool result, using tool-specific extractors.
+fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Value) -> String {
+    match tool_name_lower {
+        "view" | "github-mcp-server-get_file_contents" => {
+            // Extract path + abbreviated content
+            let mut parts = Vec::new();
+            if let Some(path) = result.get("path").and_then(|v| v.as_str()) {
+                parts.push(path.to_string());
+            }
+            if let Some(content) = result.get("content").and_then(|v| v.as_str()) {
+                let t = truncate_utf8(content, EXTRACT_VIEW_CONTENT);
+                parts.push(t.to_string());
+            }
+            let joined = parts.join("\n");
+            if joined.is_empty() {
+                let full = flatten_json_with_keys(result);
+                truncate_utf8(&full, EXTRACT_VIEW_PATH_PLUS).to_string()
+            } else {
+                joined
+            }
+        }
+        "edit" | "create" => {
+            let mut parts = Vec::new();
+            if let Some(path) = result.get("path").and_then(|v| v.as_str()) {
+                parts.push(path.to_string());
+            }
+            if let Some(new_str) = result.get("new_str").and_then(|v| v.as_str()) {
+                let t = truncate_utf8(new_str, EXTRACT_EDIT_CONTENT);
+                parts.push(t.to_string());
+            }
+            let joined = parts.join("\n");
+            if joined.is_empty() {
+                let full = flatten_json_with_keys(result);
+                truncate_utf8(&full, EXTRACT_EDIT_FALLBACK).to_string()
+            } else {
+                joined
+            }
+        }
+        "powershell" | "bash" | "shell" => {
+            if let Some(output) = result.get("output").and_then(|v| v.as_str()) {
+                let t = truncate_utf8(output, EXTRACT_SHELL_OUTPUT);
+                return t.to_string();
+            }
+            if let Some(stderr) = result.get("stderr").and_then(|v| v.as_str()) {
+                if !stderr.is_empty() {
+                    let t = truncate_utf8(stderr, EXTRACT_SHELL_STDERR);
+                    return t.to_string();
+                }
+            }
+            let full = flatten_json_with_keys(result);
+            truncate_utf8(&full, EXTRACT_SHELL_FALLBACK).to_string()
+        }
+        "grep" | "glob" | "github-mcp-server-search_code" => {
+            let full = flatten_json_with_keys(result);
+            truncate_utf8(&full, EXTRACT_GREP_BYTES).to_string()
+        }
+        _ => {
+            let full = flatten_json_with_keys(result);
+            truncate_utf8(&full, EXTRACT_GENERIC_BYTES).to_string()
+        }
     }
 }
 

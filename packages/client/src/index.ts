@@ -291,6 +291,51 @@ export async function rebuildSearchIndex(): Promise<[number, number]> {
   return invoke<[number, number]>('rebuild_search_index');
 }
 
+/** Run FTS integrity check. Returns a status message. */
+export async function ftsIntegrityCheck(): Promise<string> {
+  return invoke<string>('fts_integrity_check');
+}
+
+/** Optimize the FTS index for better query performance. */
+export async function ftsOptimize(): Promise<string> {
+  return invoke<string>('fts_optimize');
+}
+
+/** FTS health information. */
+export interface FtsHealthInfo {
+  totalContentRows: number;
+  ftsIndexRows: number;
+  indexedSessions: number;
+  totalSessions: number;
+  pendingSessions: number;
+  inSync: boolean;
+  dbSizeBytes: number;
+}
+
+/** Get detailed FTS health information. */
+export async function ftsHealth(): Promise<FtsHealthInfo> {
+  return invoke<FtsHealthInfo>('fts_health');
+}
+
+/** Adjacent context snippet around a search result. */
+export interface ContextSnippet {
+  contentType: string;
+  turnNumber: number | null;
+  toolName: string | null;
+  preview: string;
+}
+
+/** Get surrounding context for a search result (adjacent rows). */
+export async function getResultContext(
+  resultId: number,
+  radius?: number,
+): Promise<[ContextSnippet[], ContextSnippet[]]> {
+  return invoke<[ContextSnippet[], ContextSnippet[]]>('get_result_context', {
+    resultId,
+    radius,
+  });
+}
+
 /** Get aggregated analytics data across all sessions. */
 export async function getAnalytics(options?: {
   fromDate?: string;

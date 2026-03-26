@@ -25,6 +25,7 @@ export const CONTENT_TYPE_CONFIG: Record<SearchContentType, ContentTypeStyle> = 
   assistant_message:  { label: "Assistant Message",  color: "#60a5fa" },
   reasoning:          { label: "Reasoning",          color: "#a78bfa" },
   tool_call:          { label: "Tool Call",          color: "#f59e0b" },
+  tool_result:        { label: "Tool Result",        color: "#fb923c" },
   tool_error:         { label: "Tool Error",         color: "#ef4444" },
   error:              { label: "Error",              color: "#ef4444" },
   compaction_summary: { label: "Compaction",         color: "#818cf8" },

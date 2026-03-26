@@ -76,7 +76,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
             .or(summary.created_at)
             .map(|dt| dt.format("%Y-%m-%d").to_string());
 
-        if let Some(ref date) = date_key {
+        if let Some(ref _date) = date_key {
             // Count sessions for total_sessions, but activity_per_day comes from segments below
         }
 

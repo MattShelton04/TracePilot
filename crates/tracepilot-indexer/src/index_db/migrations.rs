@@ -261,6 +261,71 @@ CREATE TABLE IF NOT EXISTS session_segments (
 );
 "#;
 
+pub(super) const MIGRATION_9: &str = r#"
+-- ═══ Recreate search_content with tool_result, content_fts, and quality guard ═══
+DROP TRIGGER IF EXISTS search_content_ai;
+DROP TRIGGER IF EXISTS search_content_au;
+DROP TRIGGER IF EXISTS search_content_ad;
+DROP TABLE IF EXISTS search_fts;
+DROP TABLE IF EXISTS search_content;
+
+CREATE TABLE search_content (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    content_type TEXT NOT NULL CHECK(content_type IN (
+        'user_message', 'assistant_message', 'reasoning',
+        'tool_call', 'tool_result', 'tool_error', 'error',
+        'compaction_summary', 'system_message', 'subagent', 'checkpoint'
+    )),
+    turn_number INTEGER,
+    event_index INTEGER,
+    timestamp_unix INTEGER,
+    tool_name TEXT,
+    content TEXT NOT NULL CHECK(length(trim(content)) > 0),
+    content_fts TEXT,
+    metadata_json TEXT,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+-- Indexes (timestamp, tool, type+ts, composite session+ts+type)
+CREATE INDEX idx_search_content_timestamp ON search_content(timestamp_unix);
+CREATE INDEX idx_search_content_tool ON search_content(tool_name);
+CREATE INDEX idx_search_content_type_ts ON search_content(content_type, timestamp_unix);
+CREATE INDEX idx_search_content_session_ts_type ON search_content(session_id, timestamp_unix, content_type);
+
+-- FTS5 virtual table with content_fts column for camelCase expansions
+CREATE VIRTUAL TABLE search_fts USING fts5(
+    content,
+    content_fts,
+    content='search_content',
+    content_rowid='id',
+    tokenize='unicode61'
+);
+
+-- Sync triggers
+CREATE TRIGGER search_content_ai AFTER INSERT ON search_content BEGIN
+    INSERT INTO search_fts(rowid, content, content_fts) VALUES (new.id, new.content, new.content_fts);
+END;
+
+CREATE TRIGGER search_content_au AFTER UPDATE ON search_content BEGIN
+    INSERT INTO search_fts(search_fts, rowid, content, content_fts) VALUES ('delete', old.id, old.content, old.content_fts);
+    INSERT INTO search_fts(rowid, content, content_fts) VALUES (new.id, new.content, new.content_fts);
+END;
+
+CREATE TRIGGER search_content_ad AFTER DELETE ON search_content BEGIN
+    INSERT INTO search_fts(search_fts, rowid, content, content_fts) VALUES ('delete', old.id, old.content, old.content_fts);
+END;
+
+-- Drop redundant index (prefix of composite)
+DROP INDEX IF EXISTS idx_search_content_session;
+
+-- Enable FTS5 automerge
+INSERT INTO search_fts(search_fts, rank) VALUES('automerge', 8);
+
+-- Reset search indexing to force re-extraction with new schema
+UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;
+"#;
+
 
 /// Run all pending schema migrations in order.
 pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
@@ -286,11 +351,17 @@ pub(super) fn run_migrations(conn: &Connection) -> Result<()> {
         ("Migration 6: deep FTS search", MIGRATION_6),
         ("Migration 7: browse indexes", MIGRATION_7),
         ("Migration 8: daily metric tracking", MIGRATION_8),
+        ("Migration 9: tool_result, content_fts, quality guard", MIGRATION_9),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
         let version = (i + 1) as i64;
         if version > current_version {
+            // Ensure search columns exist before migrations that reference them
+            if version >= 9 {
+                add_column_if_missing(conn, "sessions", "search_indexed_at", "TEXT")?;
+                add_column_if_missing(conn, "sessions", "search_extractor_version", "INTEGER DEFAULT 0")?;
+            }
             tracing::info!(version, name, "Running migration");
             let tx = conn.unchecked_transaction()?;
             tx.execute_batch(sql)?;

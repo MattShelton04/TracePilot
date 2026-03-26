@@ -49,7 +49,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_shutdown_metrics,
             commands::session::get_tool_result,
             commands::session::resume_session_in_terminal,
-            // Search commands (9)
+            // Search commands (12)
             commands::search::search_sessions,
             commands::search::search_content,
             commands::search::get_search_facets,
@@ -59,6 +59,10 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::search::rebuild_search_index,
             commands::search::reindex_sessions,
             commands::search::reindex_sessions_full,
+            commands::search::fts_integrity_check,
+            commands::search::fts_optimize,
+            commands::search::fts_health,
+            commands::search::get_result_context,
             // Analytics commands (3)
             commands::analytics::get_analytics,
             commands::analytics::get_tool_analysis,
