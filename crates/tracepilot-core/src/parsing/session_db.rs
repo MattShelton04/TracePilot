@@ -5,7 +5,6 @@
 
 use crate::error::Result;
 use crate::utils::sqlite::{open_readonly_if_exists, table_exists};
-use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -180,6 +179,7 @@ fn sqlite_value_to_json(row: &rusqlite::Row<'_>, idx: usize) -> serde_json::Valu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Connection;
 
     /// Helper: create a temporary SQLite database and return its path.
     fn create_test_db(dir: &tempfile::TempDir) -> std::path::PathBuf {

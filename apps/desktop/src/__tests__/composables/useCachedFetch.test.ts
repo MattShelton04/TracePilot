@@ -546,7 +546,7 @@ describe('useCachedFetch', () => {
       const onSuccess = vi.fn(() => {
         throw new Error('Callback error');
       });
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { data, error, fetch } = useCachedFetch({ fetcher, onSuccess });
 
       await fetch(undefined);
@@ -568,7 +568,7 @@ describe('useCachedFetch', () => {
       const onError = vi.fn(() => {
         throw new Error('Callback error');
       });
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { error, fetch } = useCachedFetch({ fetcher, onError });
 
       await fetch(undefined);
@@ -589,7 +589,7 @@ describe('useCachedFetch', () => {
       const onFinally = vi.fn(() => {
         throw new Error('Callback error');
       });
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { data, fetch } = useCachedFetch({ fetcher, onFinally });
 
       await fetch(undefined);

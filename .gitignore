@@ -43,3 +43,6 @@ desktop.ini
 
 # Playwright
 .playwright-cli/
+
+# Agent planning artifacts
+.agent/
