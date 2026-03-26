@@ -8,17 +8,30 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ## [Unreleased]
 
 ### Added
-- **Search content coverage**: tool results now indexed (2.5× more searchable content), including grep output, file reads, and command results
-- **Session-grouped results**: collapsible session headers with repo, branch, and match count
-- **FTS health status bar**: compact footer on search page showing indexed sessions, row count, DB size, and sync status
 
 ### Changed
-- Wildcard queries normalized safely (`*foo`, `foo**`, bare `*` no longer crash FTS5)
 
 ### Fixed
-- `fts_integrity_check` always reported failure (query_row misuse with FTS5 commands)
-- Session group headers now prioritize session name over repo/branch badges
-- New sessions are now detected correctly when auto refresh is enabled
+
+## [0.5.1] - 2026-03-26
+
+### Added
+- **Search overhaul**: tool results indexing (2.5× more searchable content), session-grouped results with collapsible headers, and FTS health status bar
+- **Token/cost attribution improvements** with session activity display (#133)
+- **BranchSelector** with inline search, custom values, and default reset (#128)
+- Replay turn-load failure surfacing with retry support (#115)
+
+### Changed
+- Consolidated shared utilities (formatters, chart geometry, SQLite helpers, error handling) into `@tracepilot/types` (#136, #140, #149, #118)
+- Typed `IndexerError` replaces `anyhow::Result` in tracepilot-indexer (#110)
+- Extracted `useAsyncGuard` composable for race-condition-safe async (#152)
+- Split monolithic test file and `types/index.ts` into focused modules (#116, #106)
+
+### Fixed
+- FTS wildcard queries and integrity checks (#155)
+- Session start detection (#156) and Copilot path warnings (#159)
+- Ctrl+K no longer hijacks focus while typing in inputs (#111)
+- Timeline overlap detection (#109)
 
 ## [0.5.0] - 2026-03-24
 

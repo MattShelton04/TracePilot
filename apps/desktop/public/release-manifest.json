@@ -1,6 +1,30 @@
 {
   "versions": [
     {
+      "version": "0.5.1",
+      "date": "2026-03-26",
+      "notes": {
+        "added": [
+          "Search overhaul: tool results indexing (2.5× more content), session-grouped results, FTS health status bar",
+          "Token/cost attribution improvements with session activity display",
+          "BranchSelector with inline search, custom values, and default reset",
+          "Replay turn-load failure surfacing with retry support"
+        ],
+        "changed": [
+          "Consolidated shared utilities (formatters, chart geometry, SQLite helpers) into @tracepilot/types",
+          "Typed IndexerError replaces anyhow::Result in tracepilot-indexer",
+          "Split monolithic test file and types/index.ts into focused modules"
+        ],
+        "fixed": [
+          "FTS wildcard queries and integrity checks",
+          "Session start detection and Copilot path warnings",
+          "Ctrl+K focus hijack while typing in inputs",
+          "Timeline overlap detection"
+        ]
+      },
+      "requiresReindex": true
+    },
+    {
       "version": "0.5.0",
       "date": "2026-03-24",
       "notes": {
