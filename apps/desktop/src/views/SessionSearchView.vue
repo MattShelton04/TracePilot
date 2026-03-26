@@ -29,7 +29,8 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const filtersOpen = ref(true);
 const activeDatePreset = ref<string>('all');
-const { success: toastSuccess, error: toastError } = useToast();
+const { success: toastSuccess, error: toastError, dismiss: toastDismiss } = useToast();
+let lastCopyToastId: string | null = null;
 const showSyntaxHelp = ref(false);
 
 // ── Keyboard navigation ─────────────────────────────────────
@@ -42,16 +43,21 @@ const resultIndexMap = computed(() => {
   return m;
 });
 
+function showCopyToast(ok: boolean, message: string) {
+  if (lastCopyToastId) toastDismiss(lastCopyToastId);
+  lastCopyToastId = ok
+    ? toastSuccess(message, { duration: 2000 })
+    : toastError(message, { duration: 2000 });
+}
+
 async function handleCopyResult(result: SearchResult) {
   const ok = await store.copySingleResult(result);
-  if (ok) toastSuccess('Copied to clipboard', { duration: 2000 });
-  else toastError('Copy failed', { duration: 2000 });
+  showCopyToast(ok, ok ? 'Copied to clipboard' : 'Copy failed');
 }
 
 async function handleCopyAllResults() {
   const ok = await store.copyResultsToClipboard();
-  if (ok) toastSuccess(`Copied ${store.results.length} results`, { duration: 2000 });
-  else toastError('Copy failed', { duration: 2000 });
+  showCopyToast(ok, ok ? `Copied ${store.results.length} results` : 'Copy failed');
 }
 
 // ÔöÇÔöÇ Content type config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
