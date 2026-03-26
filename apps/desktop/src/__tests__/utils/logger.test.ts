@@ -62,6 +62,18 @@ describe('stringifyExtra', () => {
     const result = stringifyExtra(obj);
     expect(typeof result).toBe('string');
   });
+
+  it('handles objects with throwing toString()', () => {
+    const evil = { toString() { throw new Error('boom'); }, toJSON() { throw new Error('boom'); } };
+    // Must not throw — logging should never crash the caller
+    const result = stringifyExtra(evil);
+    expect(result).toBe('[unserializable]');
+  });
+
+  it('serializes symbols via String() fallback', () => {
+    const result = stringifyExtra(Symbol('test'));
+    expect(result).toBe('Symbol(test)');
+  });
 });
 
 describe('logError / logWarn / logInfo / logDebug (non-Tauri)', () => {
@@ -74,7 +86,6 @@ describe('logError / logWarn / logInfo / logDebug (non-Tauri)', () => {
   });
 
   it('logError calls console.error with all arguments', async () => {
-    // Dynamic import to get the non-Tauri version
     const { logError } = await import('@/utils/logger');
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const err = new Error('test');

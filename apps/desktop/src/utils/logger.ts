@@ -66,7 +66,13 @@ export function stringifyExtra(v: unknown): string {
   if (v instanceof Error) return v.stack ?? v.message;
   if (typeof v === 'string') return v;
   if (v === undefined) return 'undefined';
-  try { return JSON.stringify(v) ?? String(v); } catch { return String(v); }
+  try {
+    const json = JSON.stringify(v);
+    // JSON.stringify returns undefined for symbols, functions, etc.
+    return json !== undefined ? json : String(v);
+  } catch {
+    try { return String(v); } catch { return '[unserializable]'; }
+  }
 }
 
 function buildLogMessage(msg: string, extra: unknown[]): string {
