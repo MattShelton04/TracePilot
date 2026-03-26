@@ -358,6 +358,7 @@ pub fn rebuild_search_content(
 ) -> Result<(usize, usize)> {
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
     db.clear_search_content()?;
+    let _ = db.conn.execute_batch("VACUUM;");
     drop(db);
 
     reindex_search_content(session_state_dir, index_db_path, on_progress, is_cancelled)

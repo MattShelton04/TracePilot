@@ -23,7 +23,7 @@ use std::path::Path;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
 pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
-pub use search_reader::{SearchFacets, SearchFilters, SearchResult, SearchStats};
+pub use search_reader::{ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats};
 pub use search_writer::CURRENT_EXTRACTOR_VERSION;
 
 use migrations::run_migrations;
@@ -148,8 +148,8 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v1, 8);
-        assert_eq!(count1, 8);
+        assert_eq!(v1, 9);
+        assert_eq!(count1, 9);
         drop(db1);
 
         let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -157,7 +157,7 @@ updated_at: "2026-03-10T07:15:00Z"
             .conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count2, 8);
+        assert_eq!(count2, 9);
     }
 
     #[test]

@@ -67,6 +67,32 @@ pub struct SearchStats {
     pub content_type_counts: Vec<(String, i64)>,
 }
 
+/// Detailed FTS health information.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FtsHealthInfo {
+    pub total_content_rows: i64,
+    pub fts_index_rows: i64,
+    pub indexed_sessions: i64,
+    pub total_sessions: i64,
+    pub pending_sessions: i64,
+    pub in_sync: bool,
+    pub content_types: Vec<(String, i64)>,
+    pub db_size_bytes: i64,
+}
+
+/// A context snippet for surrounding results.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSnippet {
+    pub id: i64,
+    pub content_type: String,
+    pub turn_number: Option<i64>,
+    pub event_index: Option<i64>,
+    pub tool_name: Option<String>,
+    pub preview: String,
+}
+
 impl IndexDb {
     // ── Unified query methods ───────────────────────────────────────
 
@@ -117,7 +143,19 @@ impl IndexDb {
         match filters.sort_by.as_deref() {
             Some("newest") => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
             Some("oldest") => sql.push_str(" ORDER BY sc.timestamp_unix ASC NULLS LAST"),
-            _ if is_fts => sql.push_str(" ORDER BY rank"),
+            _ if is_fts => sql.push_str(
+                " ORDER BY CASE sc.content_type \
+                    WHEN 'user_message' THEN rank * 2.0 \
+                    WHEN 'error' THEN rank * 2.0 \
+                    WHEN 'tool_error' THEN rank * 1.8 \
+                    WHEN 'assistant_message' THEN rank * 1.5 \
+                    WHEN 'reasoning' THEN rank * 1.3 \
+                    WHEN 'compaction_summary' THEN rank * 1.1 \
+                    WHEN 'subagent' THEN rank * 1.1 \
+                    WHEN 'system_message' THEN rank * 1.0 \
+                    WHEN 'tool_call' THEN rank * 0.6 \
+                    WHEN 'tool_result' THEN rank * 0.7 \
+                    ELSE rank END"),
             _ => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
         }
 
@@ -351,6 +389,176 @@ impl IndexDb {
         Ok(names)
     }
 
+    /// Get content type facet counts (without a search query).
+    pub fn query_content_type_facets(&self) -> Result<Vec<(String, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC",
+        )?;
+        let results: Vec<(String, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(results)
+    }
+
+    /// Get repository facet counts (without a search query).
+    pub fn query_repository_facets(&self) -> Result<Vec<(String, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.repository, COUNT(*) FROM search_content sc \
+             JOIN sessions s ON s.id = sc.session_id \
+             WHERE s.repository IS NOT NULL \
+             GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT 20",
+        )?;
+        let results: Vec<(String, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(results)
+    }
+
+    /// Get tool name facet counts (without a search query).
+    pub fn query_tool_name_facets(&self) -> Result<Vec<(String, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT tool_name, COUNT(*) FROM search_content \
+             WHERE tool_name IS NOT NULL \
+             GROUP BY tool_name ORDER BY COUNT(*) DESC LIMIT 20",
+        )?;
+        let results: Vec<(String, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(results)
+    }
+
+    /// Get aggregate search statistics.
+    pub fn query_search_stats(&self) -> Result<SearchStats> {
+        self.search_stats()
+    }
+
+    /// Run FTS5 optimize and WAL checkpoint for maintenance.
+    pub fn fts_optimize(&self) -> Result<String> {
+        self.conn.execute_batch(
+            "INSERT INTO search_fts(search_fts) VALUES('optimize');
+             PRAGMA wal_checkpoint(TRUNCATE);",
+        )?;
+        Ok("FTS index optimized and WAL checkpointed".to_string())
+    }
+
+    /// Run FTS5 integrity check.
+    pub fn fts_integrity_check(&self) -> Result<String> {
+        match self.conn.execute_batch(
+            "INSERT INTO search_fts(search_fts) VALUES('integrity-check')"
+        ) {
+            Ok(()) => Ok("ok".to_string()),
+            Err(e) => Ok(format!("Integrity check failed: {}", e)),
+        }
+    }
+
+    /// Get detailed FTS health information.
+    pub fn fts_health(&self) -> Result<FtsHealthInfo> {
+        let total_content_rows: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM search_content", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let fts_index_rows: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM search_fts", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let indexed_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let total_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let pending_sessions = total_sessions - indexed_sessions;
+        let in_sync = total_content_rows == fts_index_rows && pending_sessions == 0;
+        let content_types: Vec<(String, i64)> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC"
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        let db_size: i64 = self.conn.query_row(
+            "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |r| r.get(0)
+        ).unwrap_or(0);
+        Ok(FtsHealthInfo {
+            total_content_rows,
+            fts_index_rows,
+            indexed_sessions,
+            total_sessions,
+            pending_sessions,
+            in_sync,
+            content_types,
+            db_size_bytes: db_size,
+        })
+    }
+
+    /// Get surrounding context for a search result (adjacent rows in the same session).
+    pub fn get_result_context(&self, result_id: i64, radius: usize) -> Result<(Vec<ContextSnippet>, Vec<ContextSnippet>)> {
+        let radius = radius.min(10); // clamp to prevent excessive queries
+
+        // Get the session_id and event_index for this result
+        let (session_id, event_index): (String, Option<i64>) = self.conn.query_row(
+            "SELECT session_id, event_index FROM search_content WHERE id = ?1",
+            [result_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let event_idx = event_index.unwrap_or(0);
+
+        // Get rows before
+        let mut before_stmt = self.conn.prepare(
+            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
+             FROM search_content
+             WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL
+             ORDER BY event_index DESC LIMIT ?3"
+        )?;
+        let before: Vec<ContextSnippet> = before_stmt.query_map(
+            params_from_iter([
+                Box::new(session_id.clone()) as Box<dyn ToSql>,
+                Box::new(event_idx),
+                Box::new(radius as i64),
+            ]),
+            |row| Ok(ContextSnippet {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                turn_number: row.get(2)?,
+                event_index: row.get(3)?,
+                tool_name: row.get(4)?,
+                preview: row.get(5)?,
+            }),
+        )?.filter_map(|r| r.ok()).collect::<Vec<_>>().into_iter().rev().collect();
+
+        // Get rows after
+        let mut after_stmt = self.conn.prepare(
+            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
+             FROM search_content
+             WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL
+             ORDER BY event_index ASC LIMIT ?3"
+        )?;
+        let after: Vec<ContextSnippet> = after_stmt.query_map(
+            params_from_iter([
+                Box::new(session_id) as Box<dyn ToSql>,
+                Box::new(event_idx),
+                Box::new(radius as i64),
+            ]),
+            |row| Ok(ContextSnippet {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                turn_number: row.get(2)?,
+                event_index: row.get(3)?,
+                tool_name: row.get(4)?,
+                preview: row.get(5)?,
+            }),
+        )?.filter_map(|r| r.ok()).collect();
+
+        Ok((before, after))
+    }
+
+    /// Alias for clear_search_content — clears all and resets indexing state.
+    pub fn rebuild_search_content(&self) -> Result<()> {
+        self.clear_search_content()
+    }
 }
 
 // ── Shared helpers ──────────────────────────────────────────────
@@ -511,10 +719,21 @@ pub fn sanitize_fts_query(query: &str) -> String {
             continue;
         }
 
-        // Regular term — strip any remaining quotes
+        // Regular term — strip any remaining quotes and normalize wildcards
         let clean = token.replace('"', "");
-        if !clean.is_empty() {
-            result_tokens.push(clean);
+        // Only allow a single trailing * on terms with at least one alphanumeric char
+        let normalized = if clean.contains('*') {
+            let base: String = clean.chars().filter(|c| *c != '*').collect();
+            if base.chars().any(|c| c.is_alphanumeric()) {
+                format!("{}*", base)
+            } else {
+                continue; // bare * or ** with no real content
+            }
+        } else {
+            clean
+        };
+        if !normalized.is_empty() {
+            result_tokens.push(normalized);
             last_was_operator = false;
         }
     }
@@ -637,6 +856,20 @@ mod tests {
     fn test_sanitize_prefix_preserved() {
         assert_eq!(sanitize_fts_query("auth*"), "auth*");
         assert_eq!(sanitize_fts_query("config*"), "config*");
+    }
+
+    #[test]
+    fn test_sanitize_invalid_wildcards() {
+        // Leading wildcard — normalized to trailing
+        assert_eq!(sanitize_fts_query("*foo"), "foo*");
+        // Double wildcard — collapsed to single trailing
+        assert_eq!(sanitize_fts_query("foo**"), "foo*");
+        // Bare wildcard — dropped entirely
+        assert_eq!(sanitize_fts_query("*"), "");
+        // Double bare wildcard — dropped
+        assert_eq!(sanitize_fts_query("**"), "");
+        // Wildcard with valid context preserved
+        assert_eq!(sanitize_fts_query("err* AND warn*"), "err* AND warn*");
     }
 
     #[test]

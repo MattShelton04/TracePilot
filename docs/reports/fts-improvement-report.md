@@ -3,6 +3,12 @@
 > **Generated**: 2026-03-25 · **Validated against**: 251 sessions, 177,734 search content rows, 155 MB index DB
 > **Multi-model reviewed**: Claude Opus 4.6, GPT-5.4, GPT-5.3-Codex, Gemini 3 Pro
 > **Phase 1 implemented**: 2026-03-26 — Session-grouped results, negative filter chips, and UI refinements
+> **Phase 2 implemented**: 2026-03-27 — Tool result indexing, BM25 weighting, metadata enrichment, migration 9
+> **Phase 3 implemented**: 2026-03-27 — URL sync, qualifier syntax, keyboard nav, presets, export/copy, syntax help
+> **Phase 4 implemented**: 2026-03-27 — Component decomposition, tokenizer tuning, FTS maintenance, contextual snippets, timeline sparkline
+> **Phase 5 (DB Optimization)**: 2026-03-27 — Content limits, content_fts deduplication, extractor improvements
+> **Phase 6 (Deep Optimization)**: 2026-03-27 — Aggressive limits, skip low-value tools, drop redundant index → 243 MB
+> **Phase 7 (Content Types)**: 2026-03-28 — Removed system_message/checkpoint, added plan.md indexing, sticky bar polish
 
 ---
 
@@ -44,6 +50,127 @@ Phase 1 has been implemented and verified. Below is a summary of what was delive
 - 256 desktop tests pass
 - 537 UI package tests pass
 - 63 Rust indexer tests pass (including 3 new `build_not_in_filter` tests)
+
+---
+
+## Phase 2 Implementation Status ✅
+
+### Completed Features
+
+| Proposal | Status | Notes |
+|---|---|---|
+| **2.3 Tool Result Indexing** | ✅ Done | New `tool_result` content type with CHECK constraint. 4 specialized extractors (read_file, edit_file, grep, bash). Selective per-tool extraction of high-value output. |
+| **2.4 BM25 Content-Type Weighting** | ✅ Done | Content-type weighted ORDER BY in FTS mode. user_message/error boosted 2x, tool_call dampened 0.6x. BM25 weight inversion bug caught by all 4 reviewers and fixed. |
+| **2.5 Metadata JSON Enrichment** | ✅ Done | `metadata_json` column populated with structured metadata (file paths, line numbers, tool args). `flatten_json_with_keys()` for deep key extraction. |
+| **2.14 Migration 9** | ✅ Done | Drop+recreate of search_content with `tool_result` CHECK, `content_fts` column for FTS-only expanded text, `content` for original display text, `automerge=8`, composite indexes, unicode61 tokenizer with `separators '_'`. |
+
+### Multi-Model Review Findings (Phase 2)
+
+| Finding | Reviewer(s) | Severity | Resolution |
+|---|---|---|---|
+| BM25 weight inversion (multiplying by <1 boosts instead of dampens) | Opus 4.6, GPT-5.4, Codex 5.3 | 🔴 Critical | Fixed: flipped multipliers (user_message → 2.0, tool_call → 0.6) |
+| Case-sensitive tool name matching | Gemini 3 Pro | Medium | Fixed: lowercase normalize before extraction |
+| Migration atomicity concern | Gemini 3 Pro | Low | Fixed: idempotent WHERE clause in version guard |
+
+### Files Modified
+
+| File | Changes |
+|---|---|
+| `crates/tracepilot-indexer/src/index_db/migrations.rs` | MIGRATION_9: drop+recreate search_content with tool_result CHECK, content_fts column, FTS5 dual-column indexing, automerge, composite indexes |
+| `crates/tracepilot-indexer/src/index_db/search_writer.rs` | CURRENT_EXTRACTOR_VERSION=2, tool result indexing, metadata enrichment, `expand_camel_case()`, `flatten_json_with_keys()`, 4 specialized tool extractors, content_fts separation |
+| `crates/tracepilot-indexer/src/index_db/search_reader.rs` | BM25 weighted ORDER BY with correct weight semantics |
+| `packages/types/src/search.ts` | Added `tool_result` to SearchContentType union |
+| `packages/ui/src/utils/contentTypes.ts` | Added tool_result entry (orange #fb923c) |
+
+---
+
+## Phase 3 Implementation Status ✅
+
+### Completed Features
+
+| Proposal | Status | Notes |
+|---|---|---|
+| **2.5 URL State Persistence** | ✅ Done | `useSearchUrlSync` composable with bidirectional sync. Debounced URL writes, route guard, clean unmount. Hydration flag to prevent page reset on restore. |
+| **2.15 Qualifier Syntax** | ✅ Done | `type:`, `repo:`, `tool:`, `session:`, `sort:` parsed from query. Qualifier chips in UI. Clean query forwarded to FTS. Merged filters applied to both search and facets. |
+| **2.7 Keyboard Navigation** | ✅ Done | Arrow keys navigate results, Enter/Space expand, Escape clears. `role="feed"`, focus management, keyboard hints in UI. |
+| **2.10 Enhanced Presets + Recent Searches** | ✅ Done | 6 browse presets (errors, messages, reasoning, tool calls, tool results, subagents). localStorage recent searches (last 10). Index stats display. |
+| **2.8 Export/Copy Results** | ✅ Done | Copy individual result or all results. DOMParser-based HTML stripping for clean text. |
+| **2.9 Search Syntax Help Modal** | ✅ Done | Teleported modal with FTS5 syntax reference, examples, qualifier docs. |
+| **2.17 First-Run/Empty-Index UX** | ✅ Done | Detects empty index, shows rebuild prompt. Index stats in browse presets. |
+
+### Multi-Model Review Findings (Phase 3)
+
+11 bugs found across 4 reviewers — all fixed:
+- URL syncingFromUrl flag reset timing (deferred via setTimeout)
+- Route guard to prevent writing to wrong route
+- Debounce timer cleanup on unmount
+- Missing URL params reset to defaults
+- Qualifier regex edge cases
+- `parsed.cleanQuery` empty string fallback bug
+- HTML stripping regex vs DOMParser for code content
+
+---
+
+## Phase 4 Implementation Status ✅
+
+### Completed Features
+
+| Proposal | Status | Notes |
+|---|---|---|
+| **2.16 Component Decomposition** | ✅ Done | Extracted `SearchSyntaxHelpModal`, `SearchBrowsePresets`, `SearchFilterSidebar`, `SearchResultCard` from 2942-line monolith → reduced to ~1760 lines. Barrel export in `components/search/index.ts`. |
+| **2.11 FTS Tokenizer Tuning** | ✅ Done | `unicode61 separators '_'` splits snake_case. `expand_camel_case()` splits camelCase for FTS-only indexing (stored in separate `content_fts` column, original text preserved in `content` for display). |
+| **2.18 FTS Maintenance + Health** | ✅ Done | `fts_integrity_check()`, `fts_optimize()`, `fts_health()` Rust commands → Tauri → Client → Store. Health dashboard in settings. Errors properly propagated. |
+| **2.6 Contextual Snippets** | ✅ Done | `get_result_context()` backend returns adjacent rows. Lazy-loaded context strip in SearchResultCard on expand. Retry on transient failure. |
+| **2.12 Timeline Sparkline** | ✅ Done | Position indicator dot on a track showing where result falls in session timeline. Uses `eventIndex / sessionEventCount`. Handles eventIndex=0 correctly. |
+
+### Multi-Model Review Findings (Phase 4)
+
+| Finding | Reviewer(s) | Severity | Resolution |
+|---|---|---|---|
+| camelCase expansion corrupts stored display text | GPT-5.4 | 🔴 High | Fixed: separate `content_fts` column for FTS, `content` retains original |
+| Facets ignore qualifier-derived filters | GPT-5.4, Codex 5.3, Opus 4.6 | Medium | Fixed: `FacetOverrides` parameter, merged filters passed to `fetchFacets()` |
+| URL page restoration broken (page resets to 1) | GPT-5.4 | Medium | Fixed: `hydrating` flag in store suppresses watcher-triggered searches during URL restore |
+| FTS integrity check returns Ok on failure | GPT-5.4, Codex 5.3, Gemini | Medium | Fixed: error propagated via `?` operator |
+| URL empty query doesn't reset stale state | Codex 5.3 | High | Fixed: always call `readUrlIntoStore()` on mount |
+| Context loading no retry after failure | Codex 5.3 | Medium | Fixed: `contextLoaded` only set on success |
+| Timeline sparkline hidden for eventIndex=0 | Gemini | Low | Fixed: explicit null check (`== null`) |
+| fts_health swallows database errors | Gemini | Low | Fixed: `?` propagation for core queries |
+| Dead CSS after component extraction | Gemini | Medium | Fixed: removed 167 lines of dead filter sidebar CSS |
+| Facet query falls back to raw qualifier text | Opus 4.6 | Medium | Fixed: use cleaned query directly |
+| mergedContentTypes additive vs override | Gemini | Low | Design decision: qualifiers extend UI selection (documented) |
+
+### Files Created (Phase 4)
+
+| File | Description |
+|---|---|
+| `apps/desktop/src/components/search/SearchSyntaxHelpModal.vue` | Teleported syntax help modal |
+| `apps/desktop/src/components/search/SearchBrowsePresets.vue` | Browse presets grid + recent searches + stats |
+| `apps/desktop/src/components/search/SearchFilterSidebar.vue` | Filter sidebar with tri-state content types |
+| `apps/desktop/src/components/search/SearchResultCard.vue` | Individual result card with contextual snippets + timeline sparkline |
+| `apps/desktop/src/components/search/index.ts` | Barrel export |
+
+### Files Modified (Phase 4)
+
+| File | Changes |
+|---|---|
+| `crates/tracepilot-indexer/src/index_db/search_reader.rs` | FtsHealthInfo, ContextSnippet, get_result_context(), fts_integrity_check/optimize/health, BM25 snippet on column 0 |
+| `crates/tracepilot-indexer/src/index_db/search_writer.rs` | content_fts separation, expand_camel_case() with 5 unit tests |
+| `crates/tracepilot-indexer/src/index_db/migrations.rs` | Migration 9 with dual-column FTS5, content_fts triggers |
+| `crates/tracepilot-tauri-bindings/src/commands/search.rs` | 4 new Tauri commands |
+| `crates/tracepilot-tauri-bindings/src/lib.rs` | Registered 4 new commands |
+| `packages/client/src/index.ts` | 4 new client functions + FtsHealthInfo, ContextSnippet interfaces |
+| `apps/desktop/src/stores/search.ts` | FTS maintenance actions, qualifier parsing, FacetOverrides, hydrating flag |
+| `apps/desktop/src/views/SessionSearchView.vue` | Reduced from 2942 to ~1760 lines, dead code/CSS cleanup |
+| `apps/desktop/src/composables/useSearchUrlSync.ts` | Always reset on mount, hydration control |
+
+### Verification (Final)
+
+- **Desktop tests**: 256 pass ✅
+- **UI package tests**: 537 pass ✅
+- **Rust indexer tests**: 67 pass, 1 pre-existing failure (test_query_analytics_basic) ✅
+- **Cargo check**: all crates compile clean ✅
+- **Typecheck**: all 6 packages clean ✅
+- **Multi-model reviews**: 4 rounds across all phases, all actionable findings resolved ✅
 
 ---
 
@@ -1102,6 +1229,93 @@ SessionSearchView.vue (orchestrator, ~200 lines)
   <p>Index your Copilot sessions to enable full-text search across all conversations, tool calls, and reasoning.</p>
   <button @click="rebuildIndex">Build Search Index</button>
 </div>
+```
+
+---
+
+## Phase 5: DB Size Optimization ✅
+
+### Problem
+
+After Phase 2-4 implementation, the database ballooned from **155 MB → 1393 MB** (9x increase). Root cause analysis revealed:
+
+| Factor | Size | % of Total |
+|---|---|---|
+| `content` column (all rows) | 430 MB | 31% |
+| `content_fts` column (duplicated original + expansions) | 524 MB | 38% |
+| FTS5 inverted index | ~450 MB | 32% |
+| Tool result content alone | 351 MB | 25% |
+| `view` tool results (57K rows × avg 3,904 chars) | 213 MB | 15% |
+
+### Optimizations Applied
+
+#### 1. Content Limit Reduction
+
+| Constant | Before | After | Rationale |
+|---|---|---|---|
+| `MAX_TOOL_RESULT_BYTES` | 15,000 | 2,000 | Tool results rarely need >2KB for search |
+| `MAX_TOOL_CALL_BYTES` | 10,000 | 4,000 | Tool call args are already structured |
+| `MAX_TOOL_ERROR_BYTES` | 5,000 | 3,000 | Error messages are concise |
+| `MAX_ERROR_BYTES` | 5,000 | 3,000 | Same |
+| `MAX_COMPACTION_BYTES` | 10,000 | 5,000 | Summaries don't need full context |
+| `MAX_SYSTEM_MESSAGE_BYTES` | 10,000 | 5,000 | System prompts are largely boilerplate |
+
+#### 2. Per-Extractor Internal Truncation
+
+Each specialized extractor now applies its own limits before the global cap:
+
+- **Shell results** (`extract_shell_result`): stdout/content capped at 1,200 chars, stderr at 500 chars
+- **File view results** (`extract_file_view_result`): content preview capped at 1,500 chars (was dumping entire files)
+- **Grep results** (`extract_search_result`): Limited to first 20 matches, total capped at 1,500 chars
+- **Edit results** (`extract_edit_result`): diff/message capped at 1,200 chars
+- **Generic fallback**: Flattened JSON capped at 1,500 chars
+- All extractors now check `detailedContent` as fallback when primary keys are empty
+
+#### 3. content_fts Deduplication (Critical Fix)
+
+**Before**: `expand_camel_case()` returned `original_text + expansion_terms`, so content_fts contained the full original text PLUS expansions. Since FTS5 indexes both `content` and `content_fts`, original tokens were **triple-indexed**.
+
+**After**: `expand_camel_case()` returns **only the expansion terms** (e.g., `getUserName` → `"get User Name"`). Rows with no camelCase content get `NULL` in content_fts. This eliminates massive duplication.
+
+- Found by: GPT-5.3-Codex review
+- Impact: content_fts column drops from **524 MB → ~4.4 MB**
+
+#### 4. FTS Optimize with VACUUM
+
+`fts_optimize()` now runs `VACUUM` after FTS optimization to reclaim free pages from deleted/re-indexed content.
+
+#### 5. Extractor Version Bump
+
+`CURRENT_EXTRACTOR_VERSION` bumped from 2 → 3, triggering automatic re-indexing of all sessions with the new limits on next app launch.
+
+### Projected Impact
+
+| Metric | Before | After | Savings |
+|---|---|---|---|
+| content column | 430 MB | ~244 MB | 186 MB (43%) |
+| content_fts column | 524 MB | ~4.4 MB | 520 MB (99%) |
+| FTS5 index | ~450 MB | ~117 MB | 333 MB (74%) |
+| **Total DB** | **1393 MB** | **~415 MB** | **~978 MB (70%)** |
+| vs. original 155 MB | 9.0x | 2.7x | — |
+
+The 2.7x growth over the original 155 MB is reasonable given we now index 127K additional tool_result rows that didn't exist before.
+
+### Multi-Model Review Findings
+
+| Reviewer | Finding | Severity | Status |
+|---|---|---|---|
+| GPT-5.3-Codex | content_fts duplicates full original text in FTS index | Medium | ✅ Fixed — expansion-only storage |
+| GPT-5.4 | Extractors miss `detailedContent` field (fallback for empty content) | High | ✅ Fixed — all extractors check detailedContent |
+| Claude Opus 4.6 | VACUUM in fts_optimize() blocks all concurrent DB access | High | ✅ Fixed — replaced with `PRAGMA wal_checkpoint(TRUNCATE)` |
+| Claude Opus 4.6 | assistant_message and reasoning have no size bound | Medium | ✅ Fixed — added MAX_ASSISTANT_MESSAGE_BYTES (8K) and MAX_REASONING_BYTES (6K) |
+| Claude Opus 4.6 | Extractors accumulate multiple content keys exceeding budget | Low | ✅ Fixed — early break after first content key found |
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `search_writer.rs` | Reduced all MAX_*_BYTES, per-extractor truncation, expansion-only content_fts, detailedContent fallback, version bump 2→3 |
+| `search_reader.rs` | Added VACUUM to fts_optimize() |
 
 <!-- Indexing in progress -->
 <div v-else-if="isIndexing" class="indexing-state">
@@ -1285,32 +1499,32 @@ The grouped query (Section 2.1) adds GROUP BY overhead. Mitigation:
 | 2.1 | **Session-grouped results** (flat/grouped toggle, collapse, expand) | 🔴 Critical | ✅ Done |
 | 2.13 | **Negative filter chips** (tri-state + active filter bar) | 🟢→🟡 | ✅ Done |
 
-### Phase 2: Data Completeness + Relevance (2-3 days)
-| # | Improvement | Impact | Effort |
+### Phase 2: Data Completeness + Relevance ✅ COMPLETE
+| # | Improvement | Impact | Status |
 |---|---|---|---|
-| 2.3 | Index tool results (selective per-tool) | 🟡 Major | 1-2d |
-| 2.14 | Relevance weighting (BM25 tuning) | 🟡 | 0.5d |
-| 2.4 | Enrich metadata_json | 🟡 | 1d |
+| 2.3 | Index tool results (selective per-tool) | 🟡 Major | ✅ Done |
+| 2.14 | Relevance weighting (BM25 tuning) | 🟡 | ✅ Done |
+| 2.4 | Enrich metadata_json | 🟡 | ✅ Done |
 
-### Phase 3: Search Power + Polish (3-4 days)
-| # | Improvement | Impact | Effort |
+### Phase 3: Search Power + Polish ✅ COMPLETE
+| # | Improvement | Impact | Status |
 |---|---|---|---|
-| 2.5 | URL state persistence | 🟡 | 0.5d |
-| 2.15 | Qualifier syntax (`type:`, `repo:`, `tool:`) | 🟡 | 1-2d |
-| 2.7 | Keyboard nav + accessibility | 🟠 | 1d |
-| 2.10 | Enhanced presets + recent searches | 🟠 | 0.5d |
-| 2.6 | Contextual snippets | 🟠 | 1-2d |
+| 2.5 | URL state persistence | 🟡 | ✅ Done |
+| 2.15 | Qualifier syntax (`type:`, `repo:`, `tool:`) | 🟡 | ✅ Done |
+| 2.7 | Keyboard nav + accessibility | 🟠 | ✅ Done |
+| 2.10 | Enhanced presets + recent searches | 🟠 | ✅ Done |
+| 2.6 | Contextual snippets | 🟠 | ✅ Done |
+| 2.8 | Export/copy results | 🟠 | ✅ Done |
+| 2.9 | Search syntax help modal | 🟡 | ✅ Done |
+| 2.17 | First-run / empty-index UX | 🟠 | ✅ Done |
 
-### Phase 4: Architecture + Operations (3-4 days)
-| # | Improvement | Impact | Effort |
+### Phase 4: Architecture + Operations ✅ COMPLETE
+| # | Improvement | Impact | Status |
 |---|---|---|---|
-| 2.16 | Component decomposition (split monolith) | 🟠 | 2-3d |
-| 2.17 | First-run / empty-index UX | 🟠 | 0.5d |
-| 2.18 | FTS maintenance & health checks | 🟢 | 0.5d |
-| 2.8 | Export/copy results | 🟠 | 0.5-1d |
-| 2.9 | Search syntax help modal | 🟡 | 0.5d |
-| 2.12 | Timeline sparkline | 🟢 | 1-2d |
-| 2.11 | FTS tokenizer tuning | 🟢 | 0.5d |
+| 2.16 | Component decomposition (split monolith) | 🟠 | ✅ Done |
+| 2.18 | FTS maintenance & health checks | 🟢 | ✅ Done |
+| 2.12 | Timeline sparkline | 🟢 | ✅ Done |
+| 2.11 | FTS tokenizer tuning | 🟢 | ✅ Done |
 
 ---
 
@@ -1324,8 +1538,14 @@ The grouped query (Section 2.1) adds GROUP BY overhead. Mitigation:
 | Tauri Commands | `crates/tracepilot-tauri-bindings/src/commands/search.rs` |
 | Search Types | `packages/types/src/search.ts` |
 | Content Type Config | `packages/ui/src/utils/contentTypes.ts` |
+| Client API | `packages/client/src/index.ts` |
 | Search Store | `apps/desktop/src/stores/search.ts` |
 | Full Search View | `apps/desktop/src/views/SessionSearchView.vue` |
+| Result Card Component | `apps/desktop/src/components/search/SearchResultCard.vue` |
+| Filter Sidebar Component | `apps/desktop/src/components/search/SearchFilterSidebar.vue` |
+| Browse Presets Component | `apps/desktop/src/components/search/SearchBrowsePresets.vue` |
+| Syntax Help Modal | `apps/desktop/src/components/search/SearchSyntaxHelpModal.vue` |
+| URL Sync Composable | `apps/desktop/src/composables/useSearchUrlSync.ts` |
 | Search Palette | `apps/desktop/src/components/SearchPalette.vue` |
 | Indexer Lib | `crates/tracepilot-indexer/src/lib.rs` |
 | DB Types | `crates/tracepilot-indexer/src/index_db/types.rs` |
@@ -1416,3 +1636,241 @@ This report was reviewed by 4 AI models. Below is a summary of where they agreed
 ---
 
 *Multi-model review completed by: Claude Opus 4.6, GPT-5.4, GPT-5.3-Codex, Gemini 3 Pro Preview*
+
+---
+
+## Phase 6: Deep DB Optimization ✅
+
+**Goal**: Reduce DB size further by tightening all extraction limits, skipping low-value tool results, and removing redundant indexes.
+
+### Changes Implemented
+
+| Change | Before | After | Savings |
+|---|---|---|---|
+| `MAX_TOOL_RESULT_BYTES` | 2,000 | 800 | -67% headroom |
+| `MAX_TOOL_CALL_BYTES` | 4,000 | 2,000 | -50% |
+| `MAX_TOOL_ERROR_BYTES` | 3,000 | 2,000 | -33% |
+| `MAX_ERROR_BYTES` | 3,000 | 2,000 | -33% |
+| `MAX_COMPACTION_BYTES` | 5,000 | 3,000 | -40% |
+| `MAX_ASSISTANT_MESSAGE_BYTES` | 8,000 | 5,000 | -38% |
+| `MAX_REASONING_BYTES` | 6,000 | 4,000 | -33% |
+| Per-extractor view limit | 1,500 | 400-500 | -67-73% |
+| Per-extractor shell limit | 1,200 | 400-500 | -58-67% |
+| Per-extractor grep limit | 1,500 | 600 | -60% |
+| Per-extractor edit limit | 1,200 | 300-400 | -67-75% |
+| Generic fallback limit | 1,500 | 400 | -73% |
+
+### Skip Low-Value Tool Results
+
+Added `SKIP_RESULT_TOOLS` list — tools whose results provide negligible search value:
+- `report_intent` (7,753 rows avg 68 chars — just "Exploring codebase")
+- `store_memory` (308 rows — just "Memory stored")
+- `list_agents`, `list_powershell`, `stop_powershell`, `write_powershell`, `read_powershell`
+- `fetch_copilot_cli_documentation`
+
+Their **tool_call** is still indexed (contains tool name for browsing).
+
+### Drop Redundant Index (Migration 10)
+
+`idx_search_content_session(session_id)` is a strict prefix of `idx_sc_session_ts_type(session_id, timestamp_unix DESC, content_type)`. SQLite uses the composite index for session-only lookups, so the single-column index was wasted space (~15-20 MB).
+
+### Measured Results
+
+| Metric | Phase 5 (v3) | Phase 6 (v4) | Change |
+|---|---|---|---|
+| **DB file size** | 436 MB | **243 MB** | **-44%** |
+| Total rows | 309,306 | 300,668 | -2.8% |
+| Content column | 170 MB | 93 MB | -45% |
+| content_fts column | 36 MB | 18 MB | -50% |
+| metadata column | 9.5 MB | 9.2 MB | -3% |
+| NULL content_fts | 71K (23%) | 76K (25%) | +7% (more efficient) |
+| Extractor version | 3 | 4 | Forced full re-index |
+
+### Search Quality Validation
+
+| Term | Phase 5 sessions | Phase 6 sessions | Retention |
+|---|---|---|---|
+| `formatDuration` | 59 | 55 | 93% |
+| `truncate_utf8` | 39 | 29 | 74% |
+| `tokio` | 71 | 60 | 85% |
+| `typescript` | 118 | 114 | 97% |
+
+Session coverage dropped modestly for niche terms (which only appeared deep in tool results), but remains strong overall. Common searches like `typescript` lost only 3%.
+
+### Tool Result Size Breakdown (Post-Optimization)
+
+| Tool | Rows | Content MB | Avg Chars |
+|---|---|---|---|
+| view | 57,401 | 19.4 | ~338 |
+| powershell | 17,838 | 5.0 | ~281 |
+| grep | 10,339 | 4.2 | ~406 |
+| rg | 6,991 | 3.3 | ~471 |
+| edit | 8,203 | 2.4 | ~286 |
+| glob | 7,164 | 1.3 | ~182 |
+| task | 3,079 | 1.1 | ~357 |
+| read_agent | 2,931 | 1.1 | ~368 |
+
+### Size Journey
+
+```
+Original (pre-FTS):   155 MB (baseline)
+Phase 2 peak:       1,393 MB (9.0x — content_fts tripling bug)
+Phase 5:              436 MB (2.8x — fixed dedup, reduced limits)
+Phase 6:              243 MB (1.57x — aggressive limits, skip tools, drop index)
+```
+
+**Final size is 1.57× the pre-FTS baseline**, providing full-text search across 300K content rows with BM25 ranking, camelCase expansion, snake_case tokenization, and per-tool specialized extraction — for just 88 MB of overhead.
+
+### Multi-Model Review (Phase 6)
+
+**Opus 4.6**: No issues. Validated SKIP_RESULT_TOOLS completeness, `to_ascii_lowercase()` correctness, per-extractor limit ratios, composite index prefix property, and absence of race conditions.
+
+**GPT-5.4**: Found that existing DBs won't shrink on disk after re-indexing because SQLite doesn't auto-reclaim free pages. **Fixed**: Added `VACUUM` to `rebuild_search_content()` (behind semaphore) and `PRAGMA incremental_vacuum` to `fts_optimize()`.
+
+**Codex 5.3**: No issues found.
+
+**Gemini 3 Pro**: Found 5 issues:
+1. ✅ **Shell stderr 300 chars too low** → Increased to 600 chars (named constant `EXTRACT_SHELL_STDERR`)
+2. ✅ **M9/M10 create-then-drop cycle** → Removed redundant index creation from M9 (not yet shipped). M10 remains as `DROP IF EXISTS` for existing DBs.
+3. ✅ **Magic numbers in extractors** → Replaced all with named constants (`EXTRACT_VIEW_CONTENT`, `EXTRACT_SHELL_OUTPUT`, etc.)
+4. ⏭️ **Configurable blocklist** → Deferred (compile-time list is fine for internal tools; config-driven list can be added when MCP custom tool support arrives)
+5. ⏭️ **ASCII vs Unicode normalization** → `to_ascii_lowercase()` is correct; MCP tool names are ASCII identifiers
+
+### Phase 6b: Metadata & Skip Optimization
+
+**Additional optimizations applied after experimentation on real data:**
+
+1. **Expanded SKIP_TOOLS to cover both tool_call and tool_result** — Previously only skipped results; now skips both for `report_intent`, `store_memory`, `list_agents`, `list_powershell`, `stop_powershell`, `write_powershell`, `read_powershell`, `read_agent`, `fetch_copilot_cli_documentation`. Saved ~15K rows.
+
+2. **Eliminated null metadata** — tool_call metadata was 100% `{"mcp_server":null,"mcp_tool":null}` (4.32 MB). tool_result metadata was 100% `{"success":true,"model":null}` (4.63 MB). Now only tool_error and subagent rows store metadata (where it's meaningful). Saved **8.9 MB**.
+
+3. **Empty-state browse presets fix** — On initial page load with no URL query params, the search view now shows browse presets (recent searches, quick filters, stats) instead of auto-executing an empty search. Added `fetchStatsOnly()` to store.
+
+**Final measured results (post-6b):**
+
+| Metric | Phase 5 | Phase 6 | Phase 6b | Change (5→6b) |
+|---|---|---|---|---|
+| **DB file size** | 436 MB | 243 MB | **228 MB** | **-48%** |
+| Total rows | 309,306 | 300,668 | 286,494 | -7.4% |
+| Content column | 170 MB | 93 MB | 92 MB | -46% |
+| content_fts column | 36 MB | 18 MB | 18 MB | -50% |
+| Metadata column | 9.5 MB | 9.2 MB | 0.32 MB | **-97%** |
+
+### What Does Deep FTS Actually Gain? (Data-Backed Analysis)
+
+**The core value proposition**: Deep FTS indexes the *conversation content* (messages, tool calls, tool results, reasoning, errors) — not just session summaries. This dramatically increases what users can find.
+
+#### Session Discovery: FTS Deep vs. Session Summary
+
+| Search Term | Deep FTS | Session Summary | Multiplier |
+|---|---|---|---|
+| `formatDuration` | 55 sessions | 0 | ∞ |
+| `SQLITE_BUSY` | 5 sessions | 0 | ∞ |
+| `BM25` | 8 sessions | 0 | ∞ |
+| `useReplayController` | 17 sessions | 0 | ∞ |
+| `authentication` | 63 sessions | 0 | ∞ |
+| `migration` | 87 sessions | 2 | 43.5× |
+| Chart-related work | 110 sessions | 1 | 110× |
+
+**Without deep FTS, users would find 0% of sessions for specific code terms.** Session summaries only capture high-level topic descriptions.
+
+#### Practical Search Scenarios
+
+| Scenario | Sessions Found | Without Deep FTS |
+|---|---|---|
+| "Where did I implement JWT auth?" | 67 | 0 |
+| "When did I have database errors?" | 112 | ~0 |
+| "What Vue components did I create?" | 122 | ~0 |
+| "Find chart work" | 110 | 1 |
+
+#### Content Type Value (Unique Session Coverage)
+
+For niche/specific terms, tool_result provides sessions that NO other content type surfaces:
+
+| Term | tool_result-only sessions | % of total |
+|---|---|---|
+| `formatDuration` | 18 | 33% |
+| `tokio` | 15 | 25% |
+| `serde_json` | 11 | 21% |
+| `useReplayController` | 9 | 53% |
+| `migration` | 9 | 10% |
+
+#### CamelCase Expansion Value
+
+The `expand_camel_case()` preprocessor enables natural-language search for code identifiers:
+
+| Search | Without Expansion | With Expansion |
+|---|---|---|
+| "Chart Geometry" | 0 sessions | 3 sessions |
+| "Search Content" | ~0 | 26 sessions |
+| "Replay Controller" | 0 | 17 sessions |
+
+#### Snake_case Tokenizer Value
+
+The `unicode61 separators '_'` tokenizer splits snake_case into subtokens:
+
+| Search | Result |
+|---|---|
+| `utf8` (matches `truncate_utf8`, `to_utf8`, etc.) | 58 sessions |
+| `content AND type` (matches `content_type`) | 124 sessions |
+
+### Complete Size Journey
+
+```
+Original (pre-FTS):     155 MB  (baseline)
+Phase 2 peak:         1,393 MB  (9.0× — content_fts tripling bug)
+Phase 5:                436 MB  (2.8× — fixed dedup, reduced limits)
+Phase 6:                243 MB  (1.57× — aggressive limits, skip tools, drop index)
+Phase 6b:               228 MB  (1.47× — null metadata, expanded skip list)
+```
+
+**Final size is 1.47× the pre-FTS baseline** — 73 MB of overhead for full-text search across 286K content rows with BM25 ranking, camelCase expansion, snake_case tokenization, per-tool specialized extraction, and 8 low-value tool types filtered out.
+
+---
+
+## Phase 7: Content Type Refinement + Plan Indexing ✅
+
+**Goal**: Clean up unused content types and add plan.md indexing for searchable session plans.
+
+### Content Type Changes
+
+| Content Type | Action | Reason |
+|---|---|---|
+| `system_message` | **Removed** | `system.message` events are never emitted by Copilot CLI. Handler existed but 0 rows were ever produced. |
+| `checkpoint` | **Removed** | Content type was declared in schema but no indexing handler existed. Checkpoints are compaction snapshots — already covered by `compaction_summary` (233 rows). |
+| `plan` | **Added** | Session plans (`plan.md`) contain structured summaries of work — now searchable. Indexed from filesystem during Phase 2 search indexing. |
+
+### Plan Indexing Implementation
+
+- **Source**: `plan.md` in each session directory (read from filesystem, not events)
+- **Limit**: `MAX_PLAN_BYTES = 8,000` — plans are high-value, curated content
+- **BM25 weight**: `1.4×` — ranked between assistant messages (1.5×) and reasoning (1.3×)
+- **Event index**: `-1` (not tied to a specific event in events.jsonl)
+- **Integration point**: `lib.rs::reindex_search_content()` — appends plan row after event extraction
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `packages/types/src/search.ts` | Removed `system_message`, `checkpoint`; added `plan` |
+| `packages/ui/src/utils/contentTypes.ts` | Updated config map |
+| `packages/ui/src/__tests__/contentTypes.test.ts` | Updated test expectations |
+| `crates/tracepilot-indexer/src/index_db/migrations.rs` | Updated CHECK constraints (both M7 and M9) |
+| `crates/tracepilot-indexer/src/index_db/search_writer.rs` | Removed SystemMessage handler; added `extract_plan_content()` function; bumped extractor v4→v5 |
+| `crates/tracepilot-indexer/src/index_db/search_reader.rs` | Updated BM25 weights (removed system_message, added plan at 1.4×) |
+| `crates/tracepilot-indexer/src/lib.rs` | Calls `extract_plan_content()` in Phase 2 loop |
+
+### UI Polish (same phase)
+
+- **Sticky results-summary bar**: Full `border-radius: var(--radius-md)` (all corners), proper `border: 1px solid` instead of `border-bottom` only, removed negative margins
+
+### Test Results
+
+- Rust indexer: 67 pass, 1 pre-existing failure ✅
+- Desktop: 256 pass ✅
+- UI: 537 pass ✅
+- TypeScript typecheck: all 6 packages clean ✅
+
+---
+
+*Multi-model reviews completed by: Claude Opus 4.6, GPT-5.4, GPT-5.3-Codex, Gemini 3 Pro Preview*

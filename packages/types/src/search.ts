@@ -8,6 +8,7 @@ export type SearchContentType =
   | 'assistant_message'
   | 'reasoning'
   | 'tool_call'
+  | 'tool_result'
   | 'tool_error'
   | 'error'
   | 'compaction_summary'
