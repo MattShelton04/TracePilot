@@ -51,3 +51,50 @@ export async function trace(msg: string): Promise<void> {
   const log = await ensureLog();
   if (log) await log.trace(msg); else console.debug(msg);
 }
+
+// ── Synchronous logging facades ─────────────────────────────────
+// Drop-in replacements for console.{debug,info,warn,error}.
+//
+// 1. Always forward to the original console method so devtools
+//    experience (stack traces, object inspection) is fully preserved.
+// 2. In Tauri, fire-and-forget the message to the backend log file.
+//    In non-Tauri (browser-only), skip the async path to avoid
+//    double-logging (the async wrappers above fall back to console.*).
+
+/** Serialize extra arguments for the backend log (string-only). */
+export function stringifyExtra(v: unknown): string {
+  if (v instanceof Error) return v.stack ?? v.message;
+  if (typeof v === 'string') return v;
+  if (v === undefined) return 'undefined';
+  try { return JSON.stringify(v) ?? String(v); } catch { return String(v); }
+}
+
+function buildLogMessage(msg: string, extra: unknown[]): string {
+  return extra.length
+    ? `${msg} ${extra.map(stringifyExtra).join(' ')}`
+    : msg;
+}
+
+export function logDebug(msg: string, ...extra: unknown[]): void {
+  console.debug(msg, ...extra);
+  if (!isTauri) return;
+  void debug(buildLogMessage(msg, extra)).catch(() => {});
+}
+
+export function logInfo(msg: string, ...extra: unknown[]): void {
+  console.info(msg, ...extra);
+  if (!isTauri) return;
+  void info(buildLogMessage(msg, extra)).catch(() => {});
+}
+
+export function logWarn(msg: string, ...extra: unknown[]): void {
+  console.warn(msg, ...extra);
+  if (!isTauri) return;
+  void warn(buildLogMessage(msg, extra)).catch(() => {});
+}
+
+export function logError(msg: string, ...extra: unknown[]): void {
+  console.error(msg, ...extra);
+  if (!isTauri) return;
+  void error(buildLogMessage(msg, extra)).catch(() => {});
+}

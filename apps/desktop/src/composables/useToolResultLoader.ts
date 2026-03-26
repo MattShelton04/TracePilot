@@ -1,5 +1,6 @@
 import { reactive, watch } from "vue";
 import { getToolResult } from "@tracepilot/client";
+import { logError } from "@/utils/logger";
 
 /**
  * Composable for lazy-loading full (un-truncated) tool results from the backend.
@@ -59,7 +60,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
         failedResults.add(toolCallId);
       }
     } catch (e) {
-      console.error("[TracePilot] Failed to load full result:", e);
+      logError("[TracePilot] Failed to load full result:", e);
       if (generation === capturedGen && sessionId() === capturedSessionId) {
         failedResults.add(toolCallId);
       }

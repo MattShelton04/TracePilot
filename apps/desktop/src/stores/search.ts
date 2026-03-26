@@ -20,6 +20,7 @@ import {
 } from '@tracepilot/client';
 import type { FtsHealthInfo } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
@@ -558,7 +559,7 @@ export const useSearchStore = defineStore('search', () => {
       facets.value = result;
     } catch (e) {
       if (!facetGuard.isValid(token)) return;
-      console.warn('Failed to fetch search facets:', e);
+      logWarn('[search] Failed to fetch search facets:', e);
     }
   }
 
@@ -567,7 +568,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       stats.value = await getSearchStats();
     } catch (e) {
-      console.warn('Failed to fetch search stats:', e);
+      logWarn('[search] Failed to fetch search stats:', e);
     } finally {
       statsLoading.value = false;
     }

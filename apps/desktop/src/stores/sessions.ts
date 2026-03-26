@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
+import { logError } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -118,7 +119,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       try {
         sessions.value = await listSessions();
       } catch (e) {
-        console.error("Silent refresh failed:", e);
+        logError("[sessions] Silent refresh failed:", e);
       } finally {
         fetchPromise = null;
       }

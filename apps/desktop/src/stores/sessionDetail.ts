@@ -22,6 +22,7 @@ import {
   getSessionIncidents,
 } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
+import { logError, logWarn } from "@/utils/logger";
 import { useAsyncGuard, type AsyncGuardToken } from "@/composables/useAsyncGuard";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
@@ -140,8 +141,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       } catch (e) {
         if (!sessionGuard.isValid(token)) return;
         opts.errorRef.value = toErrorMessage(e);
-        const logFn = opts.logLevel === 'warn' ? console.warn : console.error;
-        logFn(`Failed to load ${opts.key}:`, e);
+        const logFn = opts.logLevel === 'warn' ? logWarn : logError;
+        logFn(`[sessionDetail] Failed to load ${opts.key}:`, e);
       }
     };
   }
@@ -171,8 +172,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }).catch((e) => {
       if (!sessionGuard.isValid(token)) return;
       cfg.errorRef.value = toErrorMessage(e);
-      const logFn = cfg.logLevel === 'warn' ? console.warn : console.error;
-      logFn(`Failed to refresh ${cfg.key}:`, e);
+      const logFn = cfg.logLevel === 'warn' ? logWarn : logError;
+      logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
     });
   }
 
@@ -273,7 +274,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     } catch (e) {
       if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
-      console.error("Failed to load events:", e);
+      logError("[sessionDetail] Failed to load events:", e);
     }
   }
 
@@ -345,7 +346,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           detail.value = result;
         }).catch((e) => {
           if (!sessionGuard.isValid(token)) return;
-          console.error("Failed to refresh detail:", e);
+          logError("[sessionDetail] Failed to refresh detail:", e);
         })
       );
     }
@@ -371,7 +372,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         })().catch((e) => {
           if (!sessionGuard.isValid(token)) return;
           turnsError.value = toErrorMessage(e);
-          console.error("Failed to refresh turns:", e);
+          logError("[sessionDetail] Failed to refresh turns:", e);
         })
       );
     }

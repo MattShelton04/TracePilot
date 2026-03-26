@@ -90,6 +90,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import type { IndexingProgressPayload } from '@tracepilot/types'
 import { reindexSessions } from '@tracepilot/client'
+import { logError, logWarn } from '@/utils/logger'
 import LogoIcon from '@/components/icons/LogoIcon.vue'
 import OrbitalStatsPanel from '@/components/OrbitalStatsPanel.vue'
 import { useAnimatedCounters } from '@/composables/useAnimatedCounters'
@@ -316,7 +317,7 @@ onMounted(async () => {
 
   // NOW trigger indexing — listeners are guaranteed to be active
   reindexSessions().catch((err) => {
-    console.error('Indexing failed (non-fatal):', err)
+    logError('[indexing] Indexing failed (non-fatal):', err)
     // Ensure we don't get stuck — transition to app
     handleCompletion()
   })
@@ -324,7 +325,7 @@ onMounted(async () => {
   // Safety timeout — if indexing-finished never arrives, auto-complete
   safetyTimeoutId = safeTimeout(() => {
     if (phase.value !== 'complete' && !dismissed.value) {
-      console.warn('Loading screen safety timeout — proceeding to app')
+      logWarn('[indexing] Loading screen safety timeout — proceeding to app')
       handleCompletion()
     }
   }, SAFETY_TIMEOUT_MS)
