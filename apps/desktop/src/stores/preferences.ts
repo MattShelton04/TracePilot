@@ -62,7 +62,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const cliCommand = ref(DEFAULT_CLI_COMMAND);
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS);
-  const checkForUpdates = ref(false);
+  const checkForUpdates = ref(true);
   const favouriteModels = ref<string[]>([...DEFAULT_FAVOURITE_MODELS]);
   const recentRepoPaths = ref<string[]>([]);
   const contentMaxWidth = ref(DEFAULT_CONTENT_MAX_WIDTH);

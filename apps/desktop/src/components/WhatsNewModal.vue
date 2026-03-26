@@ -6,10 +6,12 @@ const props = defineProps<{
   previousVersion: string;
   currentVersion: string;
   entries: ReleaseManifestEntry[];
+  releaseUrl?: string;
 }>();
 
 const emit = defineEmits<{
   close: [];
+  'open-external': [url: string];
 }>();
 
 /** Compare two semver strings numerically. Returns -1, 0, or 1. */
@@ -89,6 +91,15 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 
           <div v-if="relevantEntries.length === 0" class="no-notes">
             <p>No detailed release notes available for this update.</p>
+            <p v-if="releaseUrl">
+              <a
+                href="#"
+                class="release-notes-link"
+                @click.prevent="emit('open-external', releaseUrl)"
+              >
+                View release notes on GitHub →
+              </a>
+            </p>
           </div>
         </div>
 
@@ -229,6 +240,16 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
   padding: 20px;
   color: var(--color-fg-muted, #94a3b8);
   font-size: 14px;
+}
+
+.release-notes-link {
+  color: var(--color-accent-fg, #818cf8);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.release-notes-link:hover {
+  text-decoration: underline;
 }
 
 .modal-footer {

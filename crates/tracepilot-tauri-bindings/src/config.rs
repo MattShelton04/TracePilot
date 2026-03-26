@@ -84,7 +84,7 @@ pub struct UiConfig {
     pub auto_refresh_enabled: bool,
     #[serde(default = "default_auto_refresh_interval")]
     pub auto_refresh_interval_seconds: u32,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub check_for_updates: bool,
     #[serde(default = "default_favourite_models")]
     pub favourite_models: Vec<String>,
@@ -103,7 +103,7 @@ impl Default for UiConfig {
             hide_empty_sessions: true,
             auto_refresh_enabled: false,
             auto_refresh_interval_seconds: 5,
-            check_for_updates: false,
+            check_for_updates: true,
             favourite_models: default_favourite_models(),
             recent_repo_paths: Vec::new(),
             content_max_width: 1600,

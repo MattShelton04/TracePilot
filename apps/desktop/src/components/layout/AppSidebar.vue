@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LogoIcon from '@/components/icons/LogoIcon.vue';
 import { useAppVersion } from '@/composables/useAppVersion';
@@ -7,6 +7,8 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck';
 import { useWhatsNew } from '@/composables/useWhatsNew';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
+
+const DISMISSED_KEY = 'tracepilot-dismissed-update';
 
 const emit = defineEmits<{
   'view-update-details': [];
@@ -29,9 +31,27 @@ function toggleTheme() {
   prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
 }
 
+const dismissedVersion = ref(localStorage.getItem(DISMISSED_KEY));
+
 const hasUpdate = computed(() => {
-  return updateResult.value?.hasUpdate === true;
+  if (updateResult.value?.hasUpdate !== true) return false;
+  return updateResult.value.latestVersion !== dismissedVersion.value;
 });
+
+function dismissUpdate() {
+  if (updateResult.value?.latestVersion) {
+    const version = updateResult.value.latestVersion;
+    localStorage.setItem(DISMISSED_KEY, version);
+    dismissedVersion.value = version;
+  }
+}
+
+async function handleWhatsNewPreview() {
+  const latestVersion = updateResult.value?.latestVersion;
+  if (latestVersion) {
+    await openWhatsNew(appVersion.value, latestVersion, updateResult.value?.releaseUrl ?? undefined);
+  }
+}
 
 async function handleVersionClick() {
   await openWhatsNew('0.0.0', appVersion.value);
@@ -192,15 +212,29 @@ const orchestrationNav: NavItem[] = [
       <!-- Update available notification -->
       <Transition name="sidebar-update-slide">
         <div v-if="hasUpdate" class="sidebar-update-notice">
-          <div class="sidebar-update-content">
-            <span class="sidebar-update-icon">🎉</span>
-            <span class="sidebar-update-text">
-              <strong>v{{ updateResult?.latestVersion }}</strong> available
-            </span>
+          <div class="sidebar-update-header">
+            <div class="sidebar-update-content">
+              <span class="sidebar-update-icon">🎉</span>
+              <span class="sidebar-update-text">
+                <strong>v{{ updateResult?.latestVersion }}</strong> available
+              </span>
+            </div>
+            <button
+              class="sidebar-update-dismiss"
+              aria-label="Dismiss update notification"
+              @click="dismissUpdate"
+            >
+              ×
+            </button>
           </div>
-          <button class="sidebar-update-btn" @click="emit('view-update-details')">
-            Update
-          </button>
+          <div class="sidebar-update-actions">
+            <button class="sidebar-update-btn" @click="emit('view-update-details')">
+              Update
+            </button>
+            <button class="sidebar-update-btn-secondary" @click="handleWhatsNewPreview">
+              What's New
+            </button>
+          </div>
         </div>
       </Transition>
 
