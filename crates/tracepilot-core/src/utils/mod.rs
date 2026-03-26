@@ -1,5 +1,7 @@
 //! Shared utility functions used across TracePilot crates.
 
+pub mod sqlite;
+
 use std::path::PathBuf;
 
 /// Truncate a string to a maximum byte length, respecting UTF-8 char boundaries.

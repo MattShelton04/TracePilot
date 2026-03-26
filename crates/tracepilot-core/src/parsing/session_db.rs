@@ -1,6 +1,10 @@
 //! Parser for `session.db` — the SQLite database containing todos and custom tables.
+//!
+//! This module uses shared SQLite utilities from `crate::utils::sqlite` for
+//! consistent connection handling and error management across the codebase.
 
-use crate::error::{Result, TracePilotError};
+use crate::error::Result;
+use crate::utils::sqlite::{open_readonly_if_exists, table_exists};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -35,36 +39,12 @@ pub struct CustomTableInfo {
     pub rows: Vec<HashMap<String, serde_json::Value>>,
 }
 
-/// Open a session database in read-only mode.
-fn open_readonly(db_path: &Path) -> Result<Connection> {
-    Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| TracePilotError::ParseError {
-        context: format!("Failed to open session db: {}", db_path.display()),
-        source: Some(Box::new(e)),
-    })
-}
-
-/// Check whether a table exists in a SQLite database.
-fn table_exists(conn: &Connection, table_name: &str) -> bool {
-    conn.query_row(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-        [table_name],
-        |row| row.get::<_, bool>(0),
-    )
-    .unwrap_or(false)
-}
-
 /// Read all todo items from a session database (opened read-only).
 /// Returns an empty list if the database file does not exist.
 pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
-    if !db_path.exists() {
+    let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(Vec::new());
-    }
-
-    let conn = open_readonly(db_path)?;
+    };
 
     if !table_exists(&conn, "todos") {
         return Ok(Vec::new());
@@ -92,11 +72,9 @@ pub fn read_todos(db_path: &Path) -> Result<Vec<TodoItem>> {
 /// Read all todo dependencies from a session database (opened read-only).
 /// Returns an empty list if the database file does not exist.
 pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
-    if !db_path.exists() {
+    let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(Vec::new());
-    }
-
-    let conn = open_readonly(db_path)?;
+    };
 
     if !table_exists(&conn, "todo_deps") {
         return Ok(Vec::new());
@@ -118,11 +96,9 @@ pub fn read_todo_deps(db_path: &Path) -> Result<Vec<TodoDep>> {
 /// List all table names in a session database (opened read-only).
 /// Returns an empty list if the database file does not exist.
 pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
-    if !db_path.exists() {
+    let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(Vec::new());
-    }
-
-    let conn = open_readonly(db_path)?;
+    };
 
     let mut stmt =
         conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
@@ -142,15 +118,13 @@ pub fn list_tables(db_path: &Path) -> Result<Vec<String>> {
 /// - NULL → Null
 /// - BLOB → skipped (set to Null)
 pub fn read_custom_table(db_path: &Path, table_name: &str) -> Result<CustomTableInfo> {
-    if !db_path.exists() {
+    let Some(conn) = open_readonly_if_exists(db_path)? else {
         return Ok(CustomTableInfo {
             name: table_name.to_string(),
             columns: Vec::new(),
             rows: Vec::new(),
         });
-    }
-
-    let conn = open_readonly(db_path)?;
+    };
 
     if !table_exists(&conn, table_name) {
         return Ok(CustomTableInfo {
