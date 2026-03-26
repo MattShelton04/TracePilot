@@ -369,78 +369,58 @@ export const useSearchStore = defineStore('search', () => {
   watch(page, () => scheduleSearch(false));
 
   // ── Quick browse presets ─────────────────────────────────────
-  // These set multiple refs synchronously. nextTick in scheduleSearch
-  // coalesces them into a single executeSearch call.
-  function browseErrors() {
+  /**
+   * Shared implementation for all browse presets.
+   *
+   * Atomically updates search state to browse specific content types.
+   * Sets multiple refs synchronously; the existing watchers (lines 359-369)
+   * automatically coalesce the changes into a single search execution via
+   * scheduleSearch's nextTick mechanism.
+   *
+   * @param types - Single content type or array of types to browse
+   *
+   * @example
+   * applyBrowsePreset('user_message');
+   * applyBrowsePreset(['error', 'tool_error']);
+   */
+  function applyBrowsePreset(types: SearchContentType | SearchContentType[]) {
+    // Clear query and filters
     query.value = '';
-    contentTypes.value = ['error', 'tool_error'];
     excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
     dateFrom.value = null;
     dateTo.value = null;
     sessionId.value = null;
-    sortBy.value = 'newest';
+    page.value = 1;
+
+    // Set content types and sort
+    contentTypes.value = Array.isArray(types) ? types : [types];
+    sortBy.value = 'newest';  // Browse mode: newest is more useful than relevance
+  }
+
+  function browseErrors() {
+    applyBrowsePreset(['error', 'tool_error']);
   }
 
   function browseUserMessages() {
-    query.value = '';
-    contentTypes.value = ['user_message'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset('user_message');
   }
 
   function browseToolCalls() {
-    query.value = '';
-    contentTypes.value = ['tool_call'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset('tool_call');
   }
 
   function browseReasoning() {
-    query.value = '';
-    contentTypes.value = ['reasoning'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset('reasoning');
   }
 
   function browseToolResults() {
-    query.value = '';
-    contentTypes.value = ['tool_result'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset('tool_result');
   }
 
   function browseSubagents() {
-    query.value = '';
-    contentTypes.value = ['subagent'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset('subagent');
   }
 
   // ── Recent search management ──────────────────────────────
