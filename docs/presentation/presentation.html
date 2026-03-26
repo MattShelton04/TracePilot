@@ -204,7 +204,7 @@
 <!-- ══ FILE PREVIEW MODAL ══ -->
 <div class="modal-overlay" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal()" aria-label="Close preview">&times;</button>
+    <button type="button" class="modal-close" onclick="closeModal()" aria-label="Close preview">&times;</button>
     <h3 id="modal-title"></h3>
     <pre><code id="modal-body"></code></pre>
   </div>
@@ -303,12 +303,12 @@
   <div class="two">
     <div class="ft ai d2">
       <span class="f">~/.copilot/session-state/{UUID}/</span><br>
-      ├── <button class="clickable fi" onclick="showFile('workspace')">workspace.yaml</button> <span class="an">✅ always</span><br>
-      ├── <button class="clickable hot" onclick="showFile('events')">events.jsonl</button> <span class="an">~70%</span><br>
-      ├── <button class="clickable fi" onclick="showFile('sessiondb')">session.db</button> <span class="an">~50%</span><br>
-      ├── <button class="clickable fi" onclick="showFile('plan')">plan.md</button> <span class="an">~30%</span><br>
-      ├── <button class="clickable f" onclick="showFile('checkpoints')">checkpoints/</button> <span class="an">✅ always</span><br>
-      ├── <button class="clickable f" onclick="showFile('rewind')">rewind-snapshots/</button> <span class="an">~60%</span><br>
+      ├── <button type="button" class="clickable fi" onclick="showFile('workspace')">workspace.yaml</button> <span class="an">✅ always</span><br>
+      ├── <button type="button" class="clickable hot" onclick="showFile('events')">events.jsonl</button> <span class="an">~70%</span><br>
+      ├── <button type="button" class="clickable fi" onclick="showFile('sessiondb')">session.db</button> <span class="an">~50%</span><br>
+      ├── <button type="button" class="clickable fi" onclick="showFile('plan')">plan.md</button> <span class="an">~30%</span><br>
+      ├── <button type="button" class="clickable f" onclick="showFile('checkpoints')">checkpoints/</button> <span class="an">✅ always</span><br>
+      ├── <button type="button" class="clickable f" onclick="showFile('rewind')">rewind-snapshots/</button> <span class="an">~60%</span><br>
       ├── <span class="f">files/</span> <span class="an">✅ always</span><br>
       └── <span class="fi">inuse.{PID}.lock</span> <span class="an">← active sessions only</span>
     </div>

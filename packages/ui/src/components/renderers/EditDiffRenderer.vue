@@ -130,8 +130,12 @@ const diffLines = computed<DiffLine[]>(() => {
 
   if (m * n > 1_000_000) {
     // Too large — just show all old as removed, all new as added
-    oldLines.forEach((l, i) => lines.push({ type: 'removed', oldNum: i + 1, content: l }));
-    newLines.forEach((l, i) => lines.push({ type: 'added', newNum: i + 1, content: l }));
+    for (let i = 0; i < oldLines.length; i++) {
+      lines.push({ type: 'removed', oldNum: i + 1, content: oldLines[i] });
+    }
+    for (let i = 0; i < newLines.length; i++) {
+      lines.push({ type: 'added', newNum: i + 1, content: newLines[i] });
+    }
     return lines;
   }
 

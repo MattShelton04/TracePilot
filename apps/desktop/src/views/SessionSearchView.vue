@@ -44,7 +44,9 @@ const focusedResultIndex = ref(-1);
 // Map result.id → flat index for keyboard nav in grouped view
 const resultIndexMap = computed(() => {
   const m = new Map<number, number>();
-  store.results.forEach((r, i) => m.set(r.id, i));
+  for (let i = 0; i < store.results.length; i++) {
+    m.set(store.results[i].id, i);
+  }
   return m;
 });
 
