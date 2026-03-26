@@ -16,9 +16,8 @@ const router = useRouter();
 const store = useSessionsStore();
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
-
 const { refreshing, refresh } = useAutoRefresh({
-  onRefresh: () => store.refreshSessions(),
+  onRefresh: () => store.ensureIndex(),
   enabled: computed(() => prefs.autoRefreshEnabled),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });
