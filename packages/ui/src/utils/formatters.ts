@@ -22,5 +22,7 @@ export {
   formatDateMedium,
   formatNumberFull,
   formatBytes,
+  formatClockTime,
   toErrorMessage,
 } from '@tracepilot/types';
+

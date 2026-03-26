@@ -255,4 +255,84 @@ describe("useSessionDetailStore", () => {
       expect(store.turns.length).toBe(1);
     });
   });
+
+  describe("refreshAll", () => {
+    it("refreshes all previously loaded sections", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadTurns();
+      await store.loadTodos();
+      await store.loadCheckpoints();
+
+      const updatedTodos = { todos: [{ id: "new" }], deps: [] };
+      mockGetSessionTodos.mockResolvedValue(updatedTodos);
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 1024 }); // same size — skip turns
+
+      await store.refreshAll();
+
+      expect(mockGetSessionDetail).toHaveBeenCalledTimes(2); // initial + refresh
+      expect(mockGetSessionTodos).toHaveBeenCalledTimes(2);
+      expect(mockGetSessionCheckpoints).toHaveBeenCalledTimes(2);
+      expect(store.todos).toEqual(updatedTodos);
+    });
+
+    it("does not refresh sections that were never loaded", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      await store.refreshAll();
+
+      // Plan was never loaded, so getSessionPlan should not have been called
+      expect(mockGetSessionPlan).not.toHaveBeenCalled();
+      // Incidents was never loaded, so getSessionIncidents should not have been called
+      expect(mockGetSessionIncidents).not.toHaveBeenCalled();
+    });
+
+    it("does not refresh events (events manage their own pagination)", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadEvents();
+
+      mockGetSessionEvents.mockClear();
+      await store.refreshAll();
+
+      expect(mockGetSessionEvents).not.toHaveBeenCalled();
+    });
+
+    it("sets error ref when a section refresh fails", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadTodos();
+      await store.loadPlan();
+
+      mockGetSessionTodos.mockRejectedValue(new Error("Refresh failed"));
+      mockGetSessionPlan.mockResolvedValue({ plan: "updated plan" });
+
+      await store.refreshAll();
+
+      expect(store.todosError).toBe("Refresh failed");
+      // Plan succeeded — error should be cleared
+      expect(store.planError).toBeNull();
+      expect(store.plan).toEqual({ plan: "updated plan" });
+    });
+
+    it("clears section error on successful refresh after prior error", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      // Initial load fails
+      mockGetSessionTodos.mockRejectedValue(new Error("Initial fail"));
+      await store.loadTodos();
+      expect(store.todosError).toBe("Initial fail");
+
+      // Mark as loaded so refreshAll processes it
+      // (buildSectionLoader doesn't add to loaded on error, so add manually)
+      store.loaded.add("todos");
+      mockGetSessionTodos.mockResolvedValue(FIXTURE_TODOS);
+      await store.refreshAll();
+
+      expect(store.todosError).toBeNull();
+      expect(store.todos).toEqual(FIXTURE_TODOS);
+    });
+  });
 });
