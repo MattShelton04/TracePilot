@@ -68,7 +68,8 @@ export function stringifyExtra(v: unknown): string {
   if (v === undefined) return 'undefined';
   try {
     const json = JSON.stringify(v);
-    // JSON.stringify returns undefined for symbols, functions, etc.
+    // JSON.stringify returns undefined for top-level symbols, functions,
+    // and undefined values — fall back to String() for those.
     return json !== undefined ? json : String(v);
   } catch {
     try { return String(v); } catch { return '[unserializable]'; }

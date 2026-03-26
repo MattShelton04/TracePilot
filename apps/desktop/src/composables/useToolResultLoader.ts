@@ -60,7 +60,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
         failedResults.add(toolCallId);
       }
     } catch (e) {
-      logError("[TracePilot] Failed to load full result:", e);
+      logError("[toolResultLoader] Failed to load full result:", e);
       if (generation === capturedGen && sessionId() === capturedSessionId) {
         failedResults.add(toolCallId);
       }

@@ -58,9 +58,9 @@ describe('stringifyExtra', () => {
   it('handles circular references gracefully', () => {
     const obj: Record<string, unknown> = {};
     obj.self = obj;
-    // JSON.stringify will throw, should fall back to String()
+    // JSON.stringify will throw, should fall back to String() → '[object Object]'
     const result = stringifyExtra(obj);
-    expect(typeof result).toBe('string');
+    expect(result).toBe('[object Object]');
   });
 
   it('handles objects with throwing toString()', () => {
