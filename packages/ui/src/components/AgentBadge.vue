@@ -3,9 +3,9 @@ import { computed } from "vue";
 import {
   type AgentType,
   type AgentStatus,
-  AGENT_COLORS,
-  AGENT_ICONS,
   STATUS_ICONS,
+  getAgentColor,
+  getAgentIcon,
 } from "../utils/agentTypes";
 
 const props = withDefaults(
@@ -22,8 +22,8 @@ const props = withDefaults(
   },
 );
 
-const color = computed(() => AGENT_COLORS[props.agentType] ?? AGENT_COLORS.main);
-const icon = computed(() => AGENT_ICONS[props.agentType] ?? AGENT_ICONS.main);
+const color = computed(() => getAgentColor(props.agentType));
+const icon = computed(() => getAgentIcon(props.agentType));
 const statusIcon = computed(() =>
   props.status ? STATUS_ICONS[props.status] : undefined,
 );

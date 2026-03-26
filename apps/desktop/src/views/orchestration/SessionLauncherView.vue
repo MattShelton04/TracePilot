@@ -8,6 +8,7 @@ import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import {
   truncateText,
   formatCost,
+  toErrorMessage,
   useToast,
   useConfirmDialog,
   useClipboard,
@@ -85,7 +86,7 @@ async function handleFetchRemote() {
     await worktreeStore.loadBranches(repoPath.value);
     toastSuccess('Fetched latest from remote');
   } catch (e) {
-    toastError(String(e));
+    toastError(toErrorMessage(e));
   } finally {
     fetchingRemote.value = false;
   }
