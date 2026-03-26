@@ -86,33 +86,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  /** Clear all per-section error refs (used on session switch / reset). */
-  function clearSectionErrors() {
-    turnsError.value = null;
-    eventsError.value = null;
-    todosError.value = null;
-    checkpointsError.value = null;
-    planError.value = null;
-    metricsError.value = null;
-    incidentsError.value = null;
-  }
-
-  /** Reset all section data refs to their initial (empty) state.
-   *  Used on full session switch (cache miss) and on store reset.
-   *  Do NOT use in the cache-hit path — that restores specific fields. */
-  function resetSectionData() {
-    detail.value = null;
-    turns.value = [];
-    events.value = null;
-    todos.value = null;
-    checkpoints.value = [];
-    plan.value = null;
-    shutdownMetrics.value = null;
-    incidents.value = [];
-    loaded.value.clear();
-    lastEventsFileSize = 0;
-  }
-
   // Guard against stale async responses when user switches sessions quickly
   const sessionGuard = useAsyncGuard();
   const eventsGuard = useAsyncGuard();
@@ -152,16 +125,14 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // fetch → assign result → clear error (on success).
   // Unlike buildSectionLoader, this clears errorRef on *success* (not before
   // the fetch), preserving the previous error during the refresh attempt.
-  interface RefreshConfig {
-    key: string;
-    errorRef: Ref<string | null>;
-    fetchFn: (id: string) => Promise<unknown>;
-    onResult: (result: unknown) => void;
-    logLevel?: 'error' | 'warn';
-  }
-
   function buildRefreshPromise(
-    cfg: RefreshConfig,
+    cfg: {
+      key: string;
+      errorRef: Ref<string | null>;
+      fetchFn: (id: string) => Promise<unknown>;
+      onResult: (result: unknown) => void;
+      logLevel?: 'error' | 'warn';
+    },
     id: string,
     token: AsyncGuardToken,
   ): Promise<void> {
@@ -175,6 +146,108 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       const logFn = cfg.logLevel === 'warn' ? logWarn : logError;
       logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
     });
+  }
+
+  // ── Section registry ────────────────────────────────────────────────
+  // Defines standard section config ONCE. Used by loaders, refreshAll,
+  // clearSectionErrors, and resetSectionData — eliminating duplicate
+  // key/errorRef/fetchFn/onResult mappings.
+  //
+  // Sections NOT in this registry (require custom logic):
+  //   detail — uses global `error` ref + loading spinner + cache
+  //   turns  — has lastEventsFileSize side-effect + freshness check
+  //   events — uses eventsGuard + pagination args
+  //
+  // NOTE: Cache save/restore paths (saveToCache, loadDetail cache-hit,
+  // prefetchSession) still enumerate fields manually because CachedSession
+  // has a different shape. Update those when adding a new cached section.
+  function defineSection<T>(config: {
+    key: string;
+    errorRef: Ref<string | null>;
+    dataRef: Ref<T>;
+    defaultValue: () => T;
+    fetchFn: (id: string) => Promise<T>;
+    logLevel?: 'error' | 'warn';
+  }) {
+    const load = buildSectionLoader({
+      key: config.key,
+      errorRef: config.errorRef,
+      fetchFn: config.fetchFn,
+      onResult: (result) => { config.dataRef.value = result; },
+      logLevel: config.logLevel,
+    });
+
+    return {
+      key: config.key,
+      errorRef: config.errorRef,
+      load,
+      clearError: () => { config.errorRef.value = null; },
+      resetData: () => { config.dataRef.value = config.defaultValue(); },
+      buildRefresh: (id: string, token: number) =>
+        buildRefreshPromise({
+          key: config.key,
+          errorRef: config.errorRef,
+          fetchFn: config.fetchFn,
+          onResult: (r) => { config.dataRef.value = r as T; },
+          logLevel: config.logLevel,
+        }, id, token),
+    };
+  }
+
+  const todosDef = defineSection({
+    key: 'todos', errorRef: todosError, dataRef: todos,
+    defaultValue: () => null as TodosResponse | null,
+    fetchFn: (id) => getSessionTodos(id),
+  });
+
+  const checkpointsDef = defineSection({
+    key: 'checkpoints', errorRef: checkpointsError, dataRef: checkpoints,
+    defaultValue: () => [] as CheckpointEntry[],
+    fetchFn: (id) => getSessionCheckpoints(id),
+  });
+
+  const planDef = defineSection({
+    key: 'plan', errorRef: planError, dataRef: plan,
+    defaultValue: () => null as SessionPlan | null,
+    fetchFn: (id) => getSessionPlan(id),
+  });
+
+  const metricsDef = defineSection({
+    key: 'metrics', errorRef: metricsError, dataRef: shutdownMetrics,
+    defaultValue: () => null as ShutdownMetrics | null,
+    fetchFn: (id) => getShutdownMetrics(id),
+  });
+
+  const incidentsDef = defineSection({
+    key: 'incidents', errorRef: incidentsError, dataRef: incidents,
+    defaultValue: () => [] as SessionIncident[],
+    fetchFn: (id) => getSessionIncidents(id),
+    logLevel: 'warn',
+  });
+
+  const standardSections = [todosDef, checkpointsDef, planDef, metricsDef, incidentsDef];
+
+  /** Clear all per-section error refs (used on session switch / reset). */
+  function clearSectionErrors() {
+    turnsError.value = null;   // special case: custom loader with lastEventsFileSize
+    eventsError.value = null;  // special case: uses eventsGuard + pagination
+    for (const sec of standardSections) {
+      sec.clearError();
+    }
+  }
+
+  /** Reset all section data refs to their initial (empty) state.
+   *  Used on full session switch (cache miss) and on store reset.
+   *  Do NOT use in the cache-hit path — that restores specific fields. */
+  function resetSectionData() {
+    detail.value = null;
+    turns.value = [];
+    events.value = null;
+    for (const sec of standardSections) {
+      sec.resetData();
+    }
+    loaded.value.clear();
+    lastEventsFileSize = 0;
   }
 
   async function loadDetail(id: string) {
@@ -278,41 +351,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  const loadTodos = buildSectionLoader({
-    key: 'todos',
-    errorRef: todosError,
-    fetchFn: (id) => getSessionTodos(id),
-    onResult: (result) => { todos.value = result; },
-  });
-
-  const loadCheckpoints = buildSectionLoader({
-    key: 'checkpoints',
-    errorRef: checkpointsError,
-    fetchFn: (id) => getSessionCheckpoints(id),
-    onResult: (result) => { checkpoints.value = result; },
-  });
-
-  const loadPlan = buildSectionLoader({
-    key: 'plan',
-    errorRef: planError,
-    fetchFn: (id) => getSessionPlan(id),
-    onResult: (result) => { plan.value = result; },
-  });
-
-  const loadShutdownMetrics = buildSectionLoader({
-    key: 'metrics',
-    errorRef: metricsError,
-    fetchFn: (id) => getShutdownMetrics(id),
-    onResult: (result) => { shutdownMetrics.value = result; },
-  });
-
-  const loadIncidents = buildSectionLoader({
-    key: 'incidents',
-    errorRef: incidentsError,
-    fetchFn: (id) => getSessionIncidents(id),
-    onResult: (result) => { incidents.value = result; },
-    logLevel: 'warn',
-  });
 
   function reset() {
     sessionGuard.invalidate();
@@ -381,40 +419,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // state (currentPage, pageSize). Refreshing here would overwrite the user's
     // current page position.
 
-    // All remaining sections follow an identical refresh pattern:
-    // fetch → assign result → clear error (on success).
-    const sectionConfigs: RefreshConfig[] = [
-      {
-        key: 'todos', errorRef: todosError,
-        fetchFn: (id) => getSessionTodos(id),
-        onResult: (r) => { todos.value = r as TodosResponse; },
-      },
-      {
-        key: 'checkpoints', errorRef: checkpointsError,
-        fetchFn: (id) => getSessionCheckpoints(id),
-        onResult: (r) => { checkpoints.value = r as CheckpointEntry[]; },
-      },
-      {
-        key: 'plan', errorRef: planError,
-        fetchFn: (id) => getSessionPlan(id),
-        onResult: (r) => { plan.value = r as SessionPlan; },
-      },
-      {
-        key: 'metrics', errorRef: metricsError,
-        fetchFn: (id) => getShutdownMetrics(id),
-        onResult: (r) => { shutdownMetrics.value = r as ShutdownMetrics; },
-      },
-      {
-        key: 'incidents', errorRef: incidentsError,
-        fetchFn: (id) => getSessionIncidents(id),
-        onResult: (r) => { incidents.value = r as SessionIncident[]; },
-        logLevel: 'warn',
-      },
-    ];
-
-    for (const cfg of sectionConfigs) {
-      if (sections.has(cfg.key)) {
-        promises.push(buildRefreshPromise(cfg, id, token));
+    // All remaining standard sections use the section registry — config is
+    // defined once in defineSection(), eliminating duplicate mappings.
+    for (const sec of standardSections) {
+      if (sections.has(sec.key)) {
+        promises.push(sec.buildRefresh(id, token));
       }
     }
 
@@ -482,11 +491,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadDetail,
     loadTurns,
     loadEvents,
-    loadTodos,
-    loadCheckpoints,
-    loadPlan,
-    loadShutdownMetrics,
-    loadIncidents,
+    loadTodos: todosDef.load,
+    loadCheckpoints: checkpointsDef.load,
+    loadPlan: planDef.load,
+    loadShutdownMetrics: metricsDef.load,
+    loadIncidents: incidentsDef.load,
     reset,
     refreshAll,
     prefetchSession,
