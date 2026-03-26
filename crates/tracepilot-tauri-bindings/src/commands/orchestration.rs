@@ -5,8 +5,10 @@ use crate::error::CmdResult;
 use crate::helpers::read_config;
 
 #[tauri::command]
-pub async fn check_system_deps() -> CmdResult<tracepilot_orchestrator::SystemDependencies> {
-    Ok(tokio::task::spawn_blocking(tracepilot_orchestrator::launcher::check_dependencies).await?)
+pub async fn check_system_deps(
+    cli_command: Option<String>,
+) -> CmdResult<tracepilot_orchestrator::SystemDependencies> {
+    Ok(tokio::task::spawn_blocking(move || tracepilot_orchestrator::launcher::check_dependencies(cli_command.as_deref())).await?)
 }
 
 // -- Worktree commands --

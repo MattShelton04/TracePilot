@@ -21,9 +21,10 @@ pub fn copilot_home() -> Result<std::path::PathBuf> {
 }
 
 /// Check system dependencies (git, copilot CLI).
-pub fn check_dependencies() -> SystemDependencies {
+pub fn check_dependencies(copilot_cmd: Option<&str>) -> SystemDependencies {
     let git = check_tool("git", &["--version"]);
-    let copilot = check_tool("copilot", &["--version"]);
+    let cmd = copilot_cmd.unwrap_or("copilot");
+    let copilot = check_tool(cmd, &["--version"]);
     let copilot_home_exists = tracepilot_core::utils::home_dir_opt()
         .map(|h| h.join(".copilot").exists())
         .unwrap_or(false);
