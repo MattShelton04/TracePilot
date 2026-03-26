@@ -147,7 +147,7 @@ export interface AsyncGuard {
  * }
  * ```
  *
- * @returns AsyncGuard instance with start(), isValid(), and invalidate() methods
+ * @returns AsyncGuard instance with start(), current(), isValid(), and invalidate() methods
  */
 export function useAsyncGuard(): AsyncGuard {
   let generation = 0;
