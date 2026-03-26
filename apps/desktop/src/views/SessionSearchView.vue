@@ -7,7 +7,7 @@ import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
 import { safeListen } from '@/utils/tauriEvents';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 import type { SearchContentType, SearchResult } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes } from '@tracepilot/ui';
 import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
 
 const store = useSearchStore();
@@ -19,6 +19,7 @@ useSearchUrlSync();
 const indexingProgress = ref<{ current: number; total: number } | null>(null);
 const isIndexing = ref(false);
 const unlisteners: UnlistenFn[] = [];
+let healthRefreshInterval: number | undefined;
 
 // ÔöÇÔöÇ Local UI state ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const searchInputRef = ref<HTMLInputElement | null>(null);
@@ -283,6 +284,9 @@ onMounted(async () => {
   store.fetchFilterOptions();
   // Fetch initial facets (browse mode gets filter-scoped counts)
   store.fetchFacets();
+  store.fetchHealth();
+  // Refresh health every 5s for live progress during indexing
+  healthRefreshInterval = window.setInterval(() => store.fetchHealth(), 5_000);
   window.addEventListener('keydown', handleKeydown, { capture: true });
 
   // Main indexing events (local — only for showing main index progress)
@@ -304,6 +308,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown, { capture: true });
+  if (healthRefreshInterval) clearInterval(healthRefreshInterval);
   for (const unlisten of unlisteners) unlisten();
 });
 </script>
@@ -481,6 +486,21 @@ onUnmounted(() => {
           <!-- ÔòÉÔòÉÔòÉ Empty State: No Query ÔòÉÔòÉÔòÉ -->
           <div v-else-if="!store.hasQuery && !store.hasResults && !store.hasActiveFilters" class="search-main-scroll">
 
+            <!-- Search index health status -->
+            <div v-if="store.healthInfo" class="search-health-bar">
+              <span class="health-stat">
+                <span class="health-dot" :class="store.healthInfo.inSync ? 'synced' : 'pending'" />
+                {{ store.healthInfo.indexedSessions }}/{{ store.healthInfo.totalSessions }} sessions indexed
+              </span>
+              <span class="health-separator">·</span>
+              <span class="health-stat">{{ store.healthInfo.totalContentRows.toLocaleString() }} rows</span>
+              <span class="health-separator">·</span>
+              <span class="health-stat">{{ formatBytes(store.healthInfo.dbSizeBytes) }}</span>
+              <span v-if="store.healthInfo.pendingSessions > 0" class="health-stat health-pending">
+                · {{ store.healthInfo.pendingSessions }} pending
+              </span>
+            </div>
+
             <!-- First-run: No sessions indexed yet -->
             <div v-if="store.stats && store.stats.totalSessions === 0" class="first-run-state">
               <svg class="first-run-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -523,6 +543,15 @@ onUnmounted(() => {
                 No results found
               </span>
               <div class="view-mode-toggle">
+                <button
+                  class="view-mode-btn"
+                  title="Clear search"
+                  @click="store.clearAll()"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+                    <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
+                  </svg>
+                </button>
                 <button
                   v-if="store.hasResults"
                   class="view-mode-btn"
@@ -1806,7 +1835,7 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   flex: 0 0 auto;
-  max-width: 60%;
+  max-width: 55%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1816,7 +1845,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -1825,7 +1854,6 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 120px;
   flex-shrink: 1;
   min-width: 0;
 }
@@ -2065,4 +2093,45 @@ onUnmounted(() => {
 /* ── Recent searches (moved to SearchBrowsePresets) ──────── */
 
 /* ── Preset colors, syntax help, modal, first-run moved to child components ── */
+
+/* ── Health status bar ──────────────────────────────────────── */
+.search-health-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  padding: 10px 16px;
+  margin-top: 4px;
+}
+
+.health-separator {
+  color: var(--border-muted);
+}
+
+.health-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.health-dot.synced {
+  background: var(--success-fg, #3fb950);
+}
+
+.health-dot.pending {
+  background: var(--attention-fg, #d29922);
+}
+
+.health-pending {
+  color: var(--attention-fg, #d29922);
+}
 </style>

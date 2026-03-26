@@ -196,6 +196,7 @@ export const useSearchStore = defineStore('search', () => {
           searchIndexingProgress.value = null;
           fetchStats();
           fetchFilterOptions();
+          fetchHealth();
           // Re-run current search if results are showing
           if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
             scheduleSearch(false);
@@ -628,6 +629,8 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   function clearAll() {
+    // Suppress watchers during multi-ref reset
+    hydrating = true;
     query.value = '';
     clearFilters();
     results.value = [];
@@ -635,6 +638,7 @@ export const useSearchStore = defineStore('search', () => {
     hasMore.value = false;
     latencyMs.value = 0;
     error.value = null;
+    nextTick(() => { hydrating = false; });
   }
 
   function setPage(p: number) {

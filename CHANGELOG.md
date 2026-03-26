@@ -9,9 +9,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 - **Search content coverage**: tool results now indexed (2.5× more searchable content), including grep output, file reads, and command results
-- **Search browse presets**: quick-access cards for common content-type filters
 - **Session-grouped results**: collapsible session headers with repo, branch, and match count
-- **FTS health diagnostics**: integrity check, row counts, and sync status available via backend commands
+- **FTS health status bar**: compact footer on search page showing indexed sessions, row count, DB size, and sync status
 
 ### Changed
 - Wildcard queries normalized safely (`*foo`, `foo**`, bare `*` no longer crash FTS5)
