@@ -12,7 +12,7 @@ defineProps<{
     <div v-if="icon && !compact" class="empty-state-icon">{{ icon }}</div>
     <div v-if="title && !compact" class="empty-state-title">{{ title }}</div>
     <div class="empty-state-desc">
-      <slot>{{ message || "No data found." }}</slot>
+      <slot>{{ message ?? "No data found." }}</slot>
     </div>
     <div v-if="$slots.actions" class="empty-state-actions">
       <slot name="actions" />
