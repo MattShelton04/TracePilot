@@ -54,6 +54,33 @@ pub fn run_hidden(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<Ou
     cmd.output().map_err(Into::into)
 }
 
+/// Run a command string through a shell invisibly, capturing stdout and stderr.
+///
+/// On Windows, uses `powershell -Command` to ensure aliases and batch files are found.
+/// On Unix, uses `sh -c`.
+pub fn run_hidden_shell(full_command: &str, cwd: Option<&Path>) -> Result<Output> {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", full_command]);
+        if let Some(dir) = cwd {
+            cmd.current_dir(dir);
+        }
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.output().map_err(Into::into)
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", full_command]);
+        if let Some(dir) = cwd {
+            cmd.current_dir(dir);
+        }
+        cmd.output().map_err(Into::into)
+    }
+}
+
 /// Convenience wrapper: run a hidden command and return trimmed stdout on success.
 ///
 /// Returns `OrchestratorError::Launch` if the command exits with non-zero status,
