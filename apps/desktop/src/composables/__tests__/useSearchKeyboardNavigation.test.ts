@@ -72,6 +72,20 @@ describe('useSearchKeyboardNavigation', () => {
       await nextTick();
       expect(result.focusedResultIndex.value).toBe(-1);
     });
+
+    it('resets to -1 when results are replaced with same-length array', async () => {
+      const opts = createOptions();
+      const result = useSearchKeyboardNavigation(opts);
+
+      // Move focus down
+      result.handleKeydown(fireKey('ArrowDown'));
+      expect(result.focusedResultIndex.value).toBe(0);
+
+      // Replace with same-length but different array (e.g. page change)
+      opts._resultsRef.value = createMockResults(5).map(r => ({ id: r.id + 100 }));
+      await nextTick();
+      expect(result.focusedResultIndex.value).toBe(-1);
+    });
   });
 
   describe('ArrowDown / j navigation', () => {

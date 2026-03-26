@@ -13,6 +13,11 @@ function setup(page: number, pageSize: number, totalCount: number, totalPages: n
 
 describe('useSearchPagination', () => {
   describe('pageStart', () => {
+    it('returns 0 for the first page when there are no results', () => {
+      const { pageStart } = setup(1, 50, 0, 0);
+      expect(pageStart.value).toBe(0);
+    });
+
     it('returns 1 for the first page', () => {
       const { pageStart } = setup(1, 50, 200, 4);
       expect(pageStart.value).toBe(1);

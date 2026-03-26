@@ -33,9 +33,9 @@ export function useSearchKeyboardNavigation(options: UseSearchKeyboardNavigation
   /** Index of the currently focused result (-1 = none). */
   const focusedResultIndex = ref(-1);
 
-  // Reset focus when results change (e.g. new search, page change)
+  // Reset focus when results change (e.g. new search, page change, different results same length)
   watch(
-    () => results.value.length,
+    () => results.value,
     () => { focusedResultIndex.value = -1; },
   );
 

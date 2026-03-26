@@ -23,8 +23,10 @@ export interface UseSearchPaginationOptions {
 export function useSearchPagination(options: UseSearchPaginationOptions) {
   const { page, pageSize, totalCount, totalPages } = options;
 
-  /** 1-based index of the first result on the current page. */
-  const pageStart = computed(() => (page.value - 1) * pageSize.value + 1);
+  /** 1-based index of the first result on the current page (0 when no results). */
+  const pageStart = computed(() =>
+    totalCount.value === 0 ? 0 : (page.value - 1) * pageSize.value + 1,
+  );
 
   /** 1-based index of the last result on the current page. */
   const pageEnd = computed(() => Math.min(page.value * pageSize.value, totalCount.value));

@@ -41,9 +41,16 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
   // Track the display name for the currently filtered session (set explicitly via filterBySession)
   const filteredSessionNameOverride = ref<string | null>(null);
 
-  // Clear override when sessionId changes externally (e.g. URL sync, chip removal)
-  watch(sessionId, (newId) => {
-    if (!newId) filteredSessionNameOverride.value = null;
+  // Clear override when sessionId changes externally (e.g. URL sync, chip removal, route restore).
+  // filterBySession suppresses the next clear to avoid losing its own override.
+  let suppressNextOverrideClear = false;
+
+  watch(sessionId, () => {
+    if (suppressNextOverrideClear) {
+      suppressNextOverrideClear = false;
+      return;
+    }
+    filteredSessionNameOverride.value = null;
   });
 
   // Resolve session display name: explicit override → lookup from results → truncated ID
@@ -60,6 +67,7 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
   });
 
   function filterBySession(sid: string, displayName: string | null) {
+    suppressNextOverrideClear = true;
     sessionId.value = sid;
     filteredSessionNameOverride.value = displayName || null;
     resultViewMode.value = 'flat';

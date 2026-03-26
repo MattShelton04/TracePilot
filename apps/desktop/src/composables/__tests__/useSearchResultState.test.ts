@@ -138,15 +138,26 @@ describe('useSearchResultState', () => {
       expect(state.filteredSessionNameOverride.value).toBeNull();
     });
 
-    it('preserves override when sessionId changes to another value', async () => {
+    it('clears override when sessionId changes to a different non-null value externally', async () => {
       const sessionId = ref<string | null>('abc');
       const state = useSearchResultState(createOptions({ sessionId }));
 
       state.filteredSessionNameOverride.value = 'Override Name';
       sessionId.value = 'xyz';
       await nextTick();
-      // Override is only cleared when sessionId becomes null
-      expect(state.filteredSessionNameOverride.value).toBe('Override Name');
+      // Override should be cleared since this is an external change
+      expect(state.filteredSessionNameOverride.value).toBeNull();
+    });
+
+    it('preserves override when filterBySession sets a new sessionId', async () => {
+      const sessionId = ref<string | null>(null);
+      const state = useSearchResultState(createOptions({ sessionId }));
+
+      state.filterBySession('new-session', 'My New Session');
+      await nextTick();
+      // Override should be preserved since filterBySession suppresses the watcher
+      expect(state.filteredSessionNameOverride.value).toBe('My New Session');
+      expect(sessionId.value).toBe('new-session');
     });
   });
 });
