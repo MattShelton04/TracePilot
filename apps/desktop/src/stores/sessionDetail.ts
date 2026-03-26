@@ -22,6 +22,7 @@ import {
   getSessionIncidents,
 } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -112,9 +113,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   }
 
   // Guard against stale async responses when user switches sessions quickly
-  let requestToken = 0;
-  // Separate token for events requests (filter/pagination within same session)
-  let eventsRequestToken = 0;
+  let requestToken = 0; // Keep for buildSectionLoader compatibility
+  const eventsGuard = useAsyncGuard();
 
   // ── Section loader factory ───────────────────────────────────────────
   // Eliminates boilerplate across load functions that share identical
@@ -262,16 +262,16 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     const id = sessionId.value;
     if (!id) return;
     const sessionToken = requestToken;
-    const eventsToken = ++eventsRequestToken;
+    const eventsToken = eventsGuard.start();
     eventsError.value = null;
 
     try {
       const result = await getSessionEvents(id, offset, limit, eventType);
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
+      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
       events.value = result;
       loaded.value.add("events");
     } catch (e) {
-      if (requestToken !== sessionToken || eventsRequestToken !== eventsToken) return;
+      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
       console.error("Failed to load events:", e);
     }
@@ -315,7 +315,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   function reset() {
     requestToken++;
-    eventsRequestToken++;
+    eventsGuard.invalidate();
     sessionId.value = null;
     resetSectionData();
     loading.value = false;

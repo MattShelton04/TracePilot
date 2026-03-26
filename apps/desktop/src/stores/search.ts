@@ -22,6 +22,7 @@ import type { FtsHealthInfo } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
+import { useAsyncGuard } from '@/composables/useAsyncGuard';
 
 export interface SessionGroup {
   sessionId: string;
@@ -252,7 +253,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // ── Single search scheduler (replaces multiple watchers) ────
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let searchGeneration = 0;
+  const searchGuard = useAsyncGuard();
   const DEBOUNCE_MS = 150;
 
   /**
@@ -293,7 +294,7 @@ export const useSearchStore = defineStore('search', () => {
     const mergedSession = parsed.session ?? sessionId.value;
     const mergedSort = parsed.sort ?? effectiveSort;
 
-    const gen = ++searchGeneration;
+    const token = searchGuard.start();
     loading.value = true;
     error.value = null;
 
@@ -320,7 +321,7 @@ export const useSearchStore = defineStore('search', () => {
         sortBy: mergedSort !== 'relevance' ? mergedSort : undefined,
       });
 
-      if (gen !== searchGeneration) return;
+      if (!searchGuard.isValid(token)) return;
 
       results.value = response.results;
       totalCount.value = response.totalCount;
@@ -343,14 +344,14 @@ export const useSearchStore = defineStore('search', () => {
         session: mergedSession,
       });
     } catch (e) {
-      if (gen !== searchGeneration) return;
+      if (!searchGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
       results.value = [];
       totalCount.value = 0;
       hasMore.value = false;
       latencyMs.value = 0;
     } finally {
-      if (gen === searchGeneration) loading.value = false;
+      if (searchGuard.isValid(token)) loading.value = false;
     }
   }
 
@@ -511,10 +512,10 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   // ── Facets & stats ───────────────────────────────────────────
-  let facetGeneration = 0;
+  const facetGuard = useAsyncGuard();
 
   async function fetchFacets(forQuery?: string, overrides?: FacetOverrides) {
-    const gen = ++facetGeneration;
+    const token = facetGuard.start();
     try {
       let dateFromUnix: number | undefined;
       let dateToUnix: number | undefined;
@@ -535,10 +536,10 @@ export const useSearchStore = defineStore('search', () => {
         dateFromUnix,
         dateToUnix,
       });
-      if (gen !== facetGeneration) return;
+      if (!facetGuard.isValid(token)) return;
       facets.value = result;
     } catch (e) {
-      if (gen !== facetGeneration) return;
+      if (!facetGuard.isValid(token)) return;
       console.warn('Failed to fetch search facets:', e);
     }
   }
