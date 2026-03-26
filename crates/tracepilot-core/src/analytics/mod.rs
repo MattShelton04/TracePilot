@@ -9,11 +9,18 @@
 //! - [`load_session_summaries`] — Fast: workspace.yaml only (for analytics + code impact)
 //! - [`load_full_sessions`] — Slower: includes turn reconstruction (for tool analysis)
 
-pub mod aggregator;
+mod code_impact;
+mod dashboard;
+mod tools;
 pub mod loader;
 pub mod types;
 
-pub use aggregator::{compute_analytics, compute_code_impact, compute_tool_analysis};
+#[cfg(test)]
+mod test_helpers;
+
+pub use code_impact::compute_code_impact;
+pub use dashboard::compute_analytics;
+pub use tools::compute_tool_analysis;
 pub use loader::{
     load_full_sessions, load_full_sessions_filtered, load_session_summaries,
     load_session_summaries_filtered,
