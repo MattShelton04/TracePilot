@@ -309,6 +309,7 @@ export interface FtsHealthInfo {
   totalSessions: number;
   pendingSessions: number;
   inSync: boolean;
+  contentTypes: [string, number][];
   dbSizeBytes: number;
 }
 

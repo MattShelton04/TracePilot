@@ -15,7 +15,7 @@ use super::IndexDb;
 
 /// Bump when extraction logic changes (new content types, field mapping, etc.)
 /// to force re-indexing even when events.jsonl hasn't changed.
-pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
+pub const CURRENT_EXTRACTOR_VERSION: i64 = 2;
 
 /// Maximum bytes for individual content fields.
 const MAX_TOOL_CALL_BYTES: usize = 2_000;
@@ -33,7 +33,7 @@ const EXTRACT_VIEW_PATH_PLUS: usize = 500;
 const EXTRACT_SHELL_OUTPUT: usize = 400;
 const EXTRACT_SHELL_FALLBACK: usize = 500;
 const EXTRACT_SHELL_STDERR: usize = 600;
-const EXTRACT_GREP_BYTES: usize = 600;
+const EXTRACT_GREP_BYTES: usize = 2000;
 const EXTRACT_EDIT_CONTENT: usize = 300;
 const EXTRACT_EDIT_FALLBACK: usize = 400;
 const EXTRACT_GENERIC_BYTES: usize = 400;
@@ -45,7 +45,6 @@ const SKIP_TOOLS: &[&str] = &[
     "list_powershell",
     "stop_powershell",
     "write_powershell",
-    "read_powershell",
     "read_agent",
     "fetch_copilot_cli_documentation",
 ];
@@ -150,8 +149,8 @@ impl IndexDb {
             let mut stmt = self.conn.prepare(
                 "INSERT INTO search_content
                     (session_id, content_type, turn_number, event_index,
-                     timestamp_unix, tool_name, content, content_fts, metadata_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                     timestamp_unix, tool_name, content, metadata_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             )?;
 
             let mut inserted = 0;
@@ -159,12 +158,6 @@ impl IndexDb {
                 if row.content.is_empty() {
                     continue;
                 }
-                let camel_extra = expand_camel_case(&row.content);
-                let content_fts: Option<&str> = if camel_extra.is_empty() {
-                    None
-                } else {
-                    Some(&camel_extra)
-                };
                 stmt.execute(params![
                     row.session_id,
                     row.content_type,
@@ -173,7 +166,6 @@ impl IndexDb {
                     row.timestamp_unix,
                     row.tool_name,
                     row.content,
-                    content_fts,
                     row.metadata_json,
                 ])?;
                 inserted += 1;
@@ -556,6 +548,9 @@ fn flatten_json_with_keys(value: &serde_json::Value) -> String {
 
 /// Split camelCase/PascalCase identifiers into space-separated words.
 /// Returns ONLY the expansion terms (not the original text).
+/// Expand camelCase and PascalCase identifiers into space-separated words.
+/// Kept for potential future use in search enrichment.
+#[cfg(test)]
 fn expand_camel_case(text: &str) -> String {
     let mut expansions = Vec::new();
 
@@ -568,7 +563,9 @@ fn expand_camel_case(text: &str) -> String {
         let mut start = 0;
 
         for i in 1..chars.len() {
-            let split = chars[i].is_uppercase() && (i + 1 >= chars.len() || !chars[i + 1].is_uppercase() || chars[i - 1].is_lowercase());
+            let split = chars[i].is_uppercase()
+                && (chars[i - 1].is_lowercase()
+                    || (i + 1 < chars.len() && chars[i + 1].is_lowercase()));
             if split {
                 let part: String = chars[start..i].iter().collect();
                 if part.len() >= 2 {
@@ -683,5 +680,185 @@ mod tests {
     fn test_flatten_json_null() {
         let v = serde_json::Value::Null;
         assert_eq!(flatten_json_value(&v), "");
+    }
+
+    // ── expand_camel_case tests ─────────────────────────────────
+
+    #[test]
+    fn test_expand_camel_case_simple() {
+        assert_eq!(expand_camel_case("parseJSON"), "parse json");
+    }
+
+    #[test]
+    fn test_expand_camel_case_http_client() {
+        assert_eq!(expand_camel_case("getHTTPClient"), "get http client");
+    }
+
+    #[test]
+    fn test_expand_camel_case_basic() {
+        assert_eq!(expand_camel_case("camelCase"), "camel case");
+    }
+
+    #[test]
+    fn test_expand_camel_case_multi() {
+        assert_eq!(expand_camel_case("searchContentType"), "search content type");
+    }
+
+    #[test]
+    fn test_expand_camel_case_leading_acronym() {
+        assert_eq!(expand_camel_case("XMLParser"), "xml parser");
+    }
+
+    #[test]
+    fn test_expand_camel_case_short_words_skipped() {
+        // Words < 4 chars are skipped entirely
+        assert_eq!(expand_camel_case("the"), "");
+        assert_eq!(expand_camel_case("is"), "");
+    }
+
+    #[test]
+    fn test_expand_camel_case_no_splits() {
+        // Words that are all lowercase or all uppercase produce < 2 parts → empty
+        assert_eq!(expand_camel_case("lowercase"), "");
+        assert_eq!(expand_camel_case("ALLCAPS"), "");
+    }
+
+    #[test]
+    fn test_expand_camel_case_snake_case_passthrough() {
+        // Snake case splits on _ but produces single-part words → empty
+        assert_eq!(expand_camel_case("already_snake"), "");
+    }
+
+    #[test]
+    fn test_expand_camel_case_mixed_identifiers() {
+        let result = expand_camel_case("parseJSON getHTTPClient");
+        assert!(result.contains("parse json"));
+        assert!(result.contains("get http client"));
+    }
+
+    #[test]
+    fn test_expand_camel_case_open_url() {
+        assert_eq!(expand_camel_case("openURL"), "open url");
+    }
+
+    // ── extract_tool_result tests ───────────────────────────────
+
+    #[test]
+    fn test_extract_tool_result_view() {
+        let result = serde_json::json!({
+            "path": "/src/main.rs",
+            "content": "fn main() {\n    println!(\"hello\");\n}"
+        });
+        let extracted = extract_tool_result("view", &result);
+        assert!(extracted.contains("/src/main.rs"));
+        assert!(extracted.contains("fn main()"));
+    }
+
+    #[test]
+    fn test_extract_tool_result_edit() {
+        let result = serde_json::json!({
+            "path": "/src/lib.rs",
+            "old_str": "old code",
+            "new_str": "new code"
+        });
+        let extracted = extract_tool_result("edit", &result);
+        assert!(extracted.contains("/src/lib.rs"));
+    }
+
+    #[test]
+    fn test_extract_tool_result_shell() {
+        let result = serde_json::json!({
+            "stdout": "test passed\nall good",
+            "stderr": "",
+            "exit_code": 0
+        });
+        let extracted = extract_tool_result("powershell", &result);
+        assert!(extracted.contains("test passed"));
+    }
+
+    #[test]
+    fn test_extract_tool_result_grep() {
+        let result = serde_json::json!({
+            "matches": "src/main.rs:10:fn main() {}\nsrc/lib.rs:5:pub fn init()"
+        });
+        let extracted = extract_tool_result("grep", &result);
+        assert!(!extracted.is_empty());
+    }
+
+    #[test]
+    fn test_extract_tool_result_generic_fallback() {
+        let result = serde_json::json!({"data": "some value", "count": 42});
+        let extracted = extract_tool_result("unknown_tool", &result);
+        assert!(extracted.contains("some value"));
+    }
+
+    // ── SKIP_TOOLS tests ────────────────────────────────────────
+
+    #[test]
+    fn test_skip_tools_list() {
+        // Verify read_powershell is NOT in skip list (we want async output indexed)
+        assert!(!SKIP_TOOLS.contains(&"read_powershell"));
+        // These should be skipped
+        assert!(SKIP_TOOLS.contains(&"list_agents"));
+        assert!(SKIP_TOOLS.contains(&"list_powershell"));
+        assert!(SKIP_TOOLS.contains(&"stop_powershell"));
+        assert!(SKIP_TOOLS.contains(&"write_powershell"));
+        assert!(SKIP_TOOLS.contains(&"read_agent"));
+        assert!(SKIP_TOOLS.contains(&"fetch_copilot_cli_documentation"));
+    }
+
+    #[test]
+    fn test_skip_result_only_tools() {
+        assert!(SKIP_RESULT_ONLY_TOOLS.contains(&"store_memory"));
+        assert!(SKIP_RESULT_ONLY_TOOLS.contains(&"report_intent"));
+        assert!(SKIP_RESULT_ONLY_TOOLS.contains(&"task"));
+    }
+
+    // ── truncate_utf8 tests ─────────────────────────────────────
+
+    #[test]
+    fn test_truncate_utf8_short() {
+        assert_eq!(truncate_utf8("hello", 10), "hello");
+    }
+
+    #[test]
+    fn test_truncate_utf8_exact() {
+        assert_eq!(truncate_utf8("hello", 5), "hello");
+    }
+
+    #[test]
+    fn test_truncate_utf8_cuts() {
+        assert_eq!(truncate_utf8("hello world", 5), "hello");
+    }
+
+    #[test]
+    fn test_truncate_utf8_unicode() {
+        // Multi-byte chars should not be split mid-character
+        let text = "héllo wörld";
+        let result = truncate_utf8(text, 6);
+        assert!(result.len() <= 6);
+        assert!(result.is_char_boundary(result.len()));
+    }
+
+    // ── flatten_json_with_keys tests ────────────────────────────
+
+    #[test]
+    fn test_flatten_json_with_keys_simple() {
+        let v = serde_json::json!({"path": "/src/main.rs", "content": "fn main() {}"});
+        let text = flatten_json_with_keys(&v);
+        assert!(text.contains("path: /src/main.rs"));
+        assert!(text.contains("content: fn main() {}"));
+    }
+
+    #[test]
+    fn test_flatten_json_with_keys_string() {
+        let v = serde_json::json!("just a string");
+        assert_eq!(flatten_json_with_keys(&v), "just a string");
+    }
+
+    #[test]
+    fn test_flatten_json_with_keys_null() {
+        let v = serde_json::Value::Null;
+        assert_eq!(flatten_json_with_keys(&v), "");
     }
 }

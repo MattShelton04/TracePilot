@@ -69,22 +69,28 @@ pub struct SearchStats {
 
 /// Detailed FTS health information.
 #[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FtsHealthInfo {
-    pub total_rows: i64,
-    pub fts_rows: i64,
+    pub total_content_rows: i64,
+    pub fts_index_rows: i64,
+    pub indexed_sessions: i64,
+    pub total_sessions: i64,
+    pub pending_sessions: i64,
+    pub in_sync: bool,
     pub content_types: Vec<(String, i64)>,
     pub db_size_bytes: i64,
 }
 
 /// A context snippet for surrounding results.
 #[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ContextSnippet {
     pub id: i64,
     pub content_type: String,
     pub turn_number: Option<i64>,
     pub event_index: Option<i64>,
     pub tool_name: Option<String>,
-    pub snippet: String,
+    pub preview: String,
 }
 
 impl IndexDb {
@@ -440,22 +446,30 @@ impl IndexDb {
 
     /// Run FTS5 integrity check.
     pub fn fts_integrity_check(&self) -> Result<String> {
-        let result: String = self.conn.query_row(
-            "INSERT INTO search_fts(search_fts) VALUES('integrity-check'); SELECT 'ok'",
-            [],
-            |row| row.get(0),
-        ).unwrap_or_else(|e| format!("Integrity check failed: {}", e));
-        Ok(result)
+        match self.conn.execute_batch(
+            "INSERT INTO search_fts(search_fts) VALUES('integrity-check')"
+        ) {
+            Ok(()) => Ok("ok".to_string()),
+            Err(e) => Ok(format!("Integrity check failed: {}", e)),
+        }
     }
 
     /// Get detailed FTS health information.
     pub fn fts_health(&self) -> Result<FtsHealthInfo> {
-        let total_rows: i64 = self.conn.query_row(
+        let total_content_rows: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM search_content", [], |r| r.get(0)
         ).unwrap_or(0);
-        let fts_rows: i64 = self.conn.query_row(
+        let fts_index_rows: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM search_fts", [], |r| r.get(0)
         ).unwrap_or(0);
+        let indexed_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let total_sessions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM sessions", [], |r| r.get(0)
+        ).unwrap_or(0);
+        let pending_sessions = total_sessions - indexed_sessions;
+        let in_sync = total_content_rows == fts_index_rows && pending_sessions == 0;
         let content_types: Vec<(String, i64)> = {
             let mut stmt = self.conn.prepare(
                 "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC"
@@ -468,8 +482,12 @@ impl IndexDb {
             "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |r| r.get(0)
         ).unwrap_or(0);
         Ok(FtsHealthInfo {
-            total_rows,
-            fts_rows,
+            total_content_rows,
+            fts_index_rows,
+            indexed_sessions,
+            total_sessions,
+            pending_sessions,
+            in_sync,
             content_types,
             db_size_bytes: db_size,
         })
@@ -477,6 +495,8 @@ impl IndexDb {
 
     /// Get surrounding context for a search result (adjacent rows in the same session).
     pub fn get_result_context(&self, result_id: i64, radius: usize) -> Result<(Vec<ContextSnippet>, Vec<ContextSnippet>)> {
+        let radius = radius.min(10); // clamp to prevent excessive queries
+
         // Get the session_id and event_index for this result
         let (session_id, event_index): (String, Option<i64>) = self.conn.query_row(
             "SELECT session_id, event_index FROM search_content WHERE id = ?1",
@@ -505,7 +525,7 @@ impl IndexDb {
                 turn_number: row.get(2)?,
                 event_index: row.get(3)?,
                 tool_name: row.get(4)?,
-                snippet: row.get(5)?,
+                preview: row.get(5)?,
             }),
         )?.filter_map(|r| r.ok()).collect::<Vec<_>>().into_iter().rev().collect();
 
@@ -528,7 +548,7 @@ impl IndexDb {
                 turn_number: row.get(2)?,
                 event_index: row.get(3)?,
                 tool_name: row.get(4)?,
-                snippet: row.get(5)?,
+                preview: row.get(5)?,
             }),
         )?.filter_map(|r| r.ok()).collect();
 
@@ -537,13 +557,7 @@ impl IndexDb {
 
     /// Alias for clear_search_content — clears all and resets indexing state.
     pub fn rebuild_search_content(&self) -> Result<()> {
-        self.conn.execute_batch(
-            "BEGIN;
-             DELETE FROM search_content;
-             UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;
-             COMMIT;",
-        )?;
-        Ok(())
+        self.clear_search_content()
     }
 }
 
@@ -705,10 +719,21 @@ pub fn sanitize_fts_query(query: &str) -> String {
             continue;
         }
 
-        // Regular term — strip any remaining quotes
+        // Regular term — strip any remaining quotes and normalize wildcards
         let clean = token.replace('"', "");
-        if !clean.is_empty() {
-            result_tokens.push(clean);
+        // Only allow a single trailing * on terms with at least one alphanumeric char
+        let normalized = if clean.contains('*') {
+            let base: String = clean.chars().filter(|c| *c != '*').collect();
+            if base.chars().any(|c| c.is_alphanumeric()) {
+                format!("{}*", base)
+            } else {
+                continue; // bare * or ** with no real content
+            }
+        } else {
+            clean
+        };
+        if !normalized.is_empty() {
+            result_tokens.push(normalized);
             last_was_operator = false;
         }
     }
@@ -831,6 +856,20 @@ mod tests {
     fn test_sanitize_prefix_preserved() {
         assert_eq!(sanitize_fts_query("auth*"), "auth*");
         assert_eq!(sanitize_fts_query("config*"), "config*");
+    }
+
+    #[test]
+    fn test_sanitize_invalid_wildcards() {
+        // Leading wildcard — normalized to trailing
+        assert_eq!(sanitize_fts_query("*foo"), "foo*");
+        // Double wildcard — collapsed to single trailing
+        assert_eq!(sanitize_fts_query("foo**"), "foo*");
+        // Bare wildcard — dropped entirely
+        assert_eq!(sanitize_fts_query("*"), "");
+        // Double bare wildcard — dropped
+        assert_eq!(sanitize_fts_query("**"), "");
+        // Wildcard with valid context preserved
+        assert_eq!(sanitize_fts_query("err* AND warn*"), "err* AND warn*");
     }
 
     #[test]

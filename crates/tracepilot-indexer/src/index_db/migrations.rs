@@ -262,7 +262,7 @@ CREATE TABLE IF NOT EXISTS session_segments (
 "#;
 
 pub(super) const MIGRATION_9: &str = r#"
--- ═══ Recreate search_content with tool_result, content_fts, and quality guard ═══
+-- ═══ Recreate search_content with tool_result and quality guard ═══
 DROP TRIGGER IF EXISTS search_content_ai;
 DROP TRIGGER IF EXISTS search_content_au;
 DROP TRIGGER IF EXISTS search_content_ad;
@@ -282,21 +282,20 @@ CREATE TABLE search_content (
     timestamp_unix INTEGER,
     tool_name TEXT,
     content TEXT NOT NULL CHECK(length(trim(content)) > 0),
-    content_fts TEXT,
     metadata_json TEXT,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
--- Indexes (timestamp, tool, type+ts, composite session+ts+type)
+-- Indexes (timestamp, tool, type+ts, composite session+ts+type, session+event for context)
 CREATE INDEX idx_search_content_timestamp ON search_content(timestamp_unix);
 CREATE INDEX idx_search_content_tool ON search_content(tool_name);
 CREATE INDEX idx_search_content_type_ts ON search_content(content_type, timestamp_unix);
 CREATE INDEX idx_search_content_session_ts_type ON search_content(session_id, timestamp_unix, content_type);
+CREATE INDEX idx_search_content_session_event ON search_content(session_id, event_index);
 
--- FTS5 virtual table with content_fts column for camelCase expansions
+-- FTS5 virtual table (content-sync with search_content)
 CREATE VIRTUAL TABLE search_fts USING fts5(
     content,
-    content_fts,
     content='search_content',
     content_rowid='id',
     tokenize='unicode61'
@@ -304,16 +303,16 @@ CREATE VIRTUAL TABLE search_fts USING fts5(
 
 -- Sync triggers
 CREATE TRIGGER search_content_ai AFTER INSERT ON search_content BEGIN
-    INSERT INTO search_fts(rowid, content, content_fts) VALUES (new.id, new.content, new.content_fts);
+    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
 END;
 
 CREATE TRIGGER search_content_au AFTER UPDATE ON search_content BEGIN
-    INSERT INTO search_fts(search_fts, rowid, content, content_fts) VALUES ('delete', old.id, old.content, old.content_fts);
-    INSERT INTO search_fts(rowid, content, content_fts) VALUES (new.id, new.content, new.content_fts);
+    INSERT INTO search_fts(search_fts, rowid, content) VALUES ('delete', old.id, old.content);
+    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
 END;
 
 CREATE TRIGGER search_content_ad AFTER DELETE ON search_content BEGIN
-    INSERT INTO search_fts(search_fts, rowid, content, content_fts) VALUES ('delete', old.id, old.content, old.content_fts);
+    INSERT INTO search_fts(search_fts, rowid, content) VALUES ('delete', old.id, old.content);
 END;
 
 -- Drop redundant index (prefix of composite)

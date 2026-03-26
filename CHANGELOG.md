@@ -3,9 +3,22 @@
 All notable changes to TracePilot will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project loosely adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+- **Search content coverage**: tool results now indexed (2.5× more searchable content), including grep output, file reads, and command results
+- **Search browse presets**: quick-access cards for common content-type filters
+- **Session-grouped results**: collapsible session headers with repo, branch, and match count
+- **FTS health diagnostics**: integrity check, row counts, and sync status available via backend commands
+
+### Changed
+- Wildcard queries normalized safely (`*foo`, `foo**`, bare `*` no longer crash FTS5)
+
+### Fixed
+- `fts_integrity_check` always reported failure (query_row misuse with FTS5 commands)
+- Session group headers now prioritize session name over repo/branch badges
 
 ## [0.5.0] - 2026-03-24
 

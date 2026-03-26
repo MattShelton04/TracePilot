@@ -599,9 +599,11 @@ onUnmounted(() => {
                   <div class="session-group-title">
                     {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
                   </div>
-                  <div class="session-group-meta">
+                  <div v-if="group.sessionRepository || group.sessionBranch" class="session-group-badges">
                     <span v-if="group.sessionRepository" class="badge badge-accent" style="font-size: 0.5625rem">{{ group.sessionRepository }}</span>
                     <span v-if="group.sessionBranch" class="badge badge-success" style="font-size: 0.5625rem">{{ group.sessionBranch }}</span>
+                  </div>
+                  <div class="session-group-actions">
                     <span class="session-group-count">{{ group.results.length }}{{ store.hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
                     <button
                       class="session-group-filter-btn"
@@ -868,6 +870,18 @@ onUnmounted(() => {
   background: var(--accent-subtle);
   padding: 0 4px;
   border-radius: 3px;
+}
+
+.syntax-help-btn {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  color: var(--accent-fg);
+}
+
+.syntax-help-btn:hover {
+  color: var(--accent-emphasis);
+  background: var(--accent-subtle);
 }
 
 /* ÔöÇÔöÇ Controls Row ÔöÇÔöÇ */
@@ -1791,13 +1805,32 @@ onUnmounted(() => {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 0;
+  flex: 0 0 auto;
+  max-width: 60%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.session-group-meta {
+.session-group-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.session-group-badges :deep(.badge) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.session-group-actions {
   display: flex;
   align-items: center;
   gap: 6px;
