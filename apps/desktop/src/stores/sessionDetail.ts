@@ -125,12 +125,12 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // fetch → assign result → clear error (on success).
   // Unlike buildSectionLoader, this clears errorRef on *success* (not before
   // the fetch), preserving the previous error during the refresh attempt.
-  function buildRefreshPromise(
+  function buildRefreshPromise<T>(
     cfg: {
       key: string;
       errorRef: Ref<string | null>;
-      fetchFn: (id: string) => Promise<unknown>;
-      onResult: (result: unknown) => void;
+      fetchFn: (id: string) => Promise<T>;
+      onResult: (result: T) => void;
       logLevel?: 'error' | 'warn';
     },
     id: string,
@@ -188,7 +188,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           key: config.key,
           errorRef: config.errorRef,
           fetchFn: config.fetchFn,
-          onResult: (r) => { config.dataRef.value = r as T; },
+          onResult: (r) => { config.dataRef.value = r; },
           logLevel: config.logLevel,
         }, id, token),
     };
@@ -196,31 +196,31 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   const todosDef = defineSection({
     key: 'todos', errorRef: todosError, dataRef: todos,
-    defaultValue: () => null as TodosResponse | null,
+    defaultValue: () => null,
     fetchFn: (id) => getSessionTodos(id),
   });
 
   const checkpointsDef = defineSection({
     key: 'checkpoints', errorRef: checkpointsError, dataRef: checkpoints,
-    defaultValue: () => [] as CheckpointEntry[],
+    defaultValue: (): CheckpointEntry[] => [],
     fetchFn: (id) => getSessionCheckpoints(id),
   });
 
   const planDef = defineSection({
     key: 'plan', errorRef: planError, dataRef: plan,
-    defaultValue: () => null as SessionPlan | null,
+    defaultValue: () => null,
     fetchFn: (id) => getSessionPlan(id),
   });
 
   const metricsDef = defineSection({
     key: 'metrics', errorRef: metricsError, dataRef: shutdownMetrics,
-    defaultValue: () => null as ShutdownMetrics | null,
+    defaultValue: () => null,
     fetchFn: (id) => getShutdownMetrics(id),
   });
 
   const incidentsDef = defineSection({
     key: 'incidents', errorRef: incidentsError, dataRef: incidents,
-    defaultValue: () => [] as SessionIncident[],
+    defaultValue: (): SessionIncident[] => [],
     fetchFn: (id) => getSessionIncidents(id),
     logLevel: 'warn',
   });
