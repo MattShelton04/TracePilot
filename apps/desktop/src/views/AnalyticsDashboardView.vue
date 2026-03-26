@@ -240,6 +240,10 @@ const incidentChart = computed(() => {
   return { bars, yLabels, xLabels, barW, maxVal };
 });
 
+const incidentGridLines = computed(() =>
+  incidentChart.value?.yLabels.map(yl => yl.y) ?? [],
+);
+
 function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErrors: number; compactions: number; truncations: number; rawRateLimits: number; rawOtherErrors: number; rawCompactions: number; rawTruncations: number }): string {
   const d = formatDateMedium(bar.date);
   if (incidentNormalize.value) {
@@ -662,7 +666,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             <div class="section-panel-body">
               <ChartFrame
                 :chart-layout="chartLayout"
-                :grid-lines="incidentChart.yLabels.map(yl => yl.y)"
+                :grid-lines="incidentGridLines"
                 :y-labels="incidentChart.yLabels"
                 :x-labels="incidentChart.xLabels"
                 :ariaLabel="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
@@ -837,9 +841,6 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
 /* ── Chart interaction styles ─────────────────────────────────── */
 /* Shared chart styles (tooltip, overlay, bar, grid, axis, label, etc.)
    are in styles/chart-shared.css — imported globally via main.ts. */
-.chart-container {
-  position: relative;
-}
 
 .more-info-link {
   font-size: 0.75rem;
