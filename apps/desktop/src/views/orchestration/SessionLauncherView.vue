@@ -1751,14 +1751,14 @@ onUnmounted(() => {
   margin-top: 6px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent-fg) 6%, transparent);
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .wt-preview-label { white-space: nowrap; }
 .wt-preview-path {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--fg-default);
+  color: var(--text-primary);
   word-break: break-all;
 }
 

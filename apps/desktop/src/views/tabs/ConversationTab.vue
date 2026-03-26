@@ -776,7 +776,7 @@ function retryLoadTurns() {
 }
 .session-event-summary {
   flex: 1;
-  color: var(--fg-secondary, #a0a0a0);
+  color: var(--text-secondary);
 }
 
 /* ── Compact view: distinct user message container ─ */

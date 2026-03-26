@@ -444,7 +444,7 @@ const successFailureChart = computed(() => {
 .heatmap-count {
   font-size: 0.5625rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-on-emphasis);
   pointer-events: none;
 }
 

@@ -105,7 +105,7 @@ const viewModes = [
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
-  color: var(--fg-muted, #8b949e);
+  color: var(--text-secondary);
 }
 
 .pill-label {
@@ -113,6 +113,6 @@ const viewModes = [
   text-transform: uppercase;
   font-size: 0.625rem;
   letter-spacing: 0.04em;
-  color: var(--fg-subtle, #6e7681);
+  color: var(--text-tertiary);
 }
 </style>
