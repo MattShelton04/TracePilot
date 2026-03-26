@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ChartFrame,
   ErrorState,
   LoadingOverlay,
   computeBarWidth,
@@ -227,7 +228,7 @@ const incidentChart = computed(() => {
   const step = maxVal <= 1 ? 0.2 : Math.ceil(maxVal / (yTicks - 1));
   const yLabels = Array.from({ length: yTicks }, (_, i) => {
     const value = maxVal <= 1 ? +(i * step).toFixed(1) : Math.round(i * step);
-    return { value, y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
+    return { value: String(value), y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
   });
 
   const xLabels = generateXLabels(
@@ -377,46 +378,26 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             <!-- Token Usage Over Time -->
             <div class="section-panel">
               <div class="section-panel-header">Token Usage Over Time</div>
-              <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
-                <svg
+              <div class="section-panel-body">
+                <ChartFrame
                   v-if="tokenChart"
-                  viewBox="0 0 500 200"
-                  width="100%"
-                  role="img"
-                  :aria-label="`Line chart showing token usage over ${timeRangeLabel}`"
+                  :chart-layout="chartLayout"
+                  :grid-lines="gridLines"
+                  :y-labels="tokenChart.yLabels"
+                  :x-labels="tokenChart.xLabels"
+                  :ariaLabel="`Line chart showing token usage over ${timeRangeLabel}`"
+                  chart-id="tokens"
+                  :tooltip="tooltip"
                   @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
                   @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
+                  @dismiss-tooltip="dismissTooltip"
                 >
-                  <defs>
+                  <template #defs>
                     <linearGradient id="tokenAreaGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.25" />
                       <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
                     </linearGradient>
-                  </defs>
-                  <!-- Grid lines -->
-                  <line
-                    v-for="(gy, gi) in gridLines"
-                    :key="`tg-${gi}`"
-                    :x1="CHART_LEFT"
-                    :y1="gy"
-                    :x2="CHART_RIGHT"
-                    :y2="gy"
-                    class="chart-grid-line"
-                    stroke-dasharray="4,3"
-                  />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <!-- Y labels -->
-                  <text
-                    v-for="(yl, yi) in tokenChart.yLabels"
-                    :key="`ty-${yi}`"
-                    :x="CHART_LEFT - 7"
-                    :y="yl.y + 3"
-                    text-anchor="end"
-                    font-size="9"
-                    class="chart-label"
-                  >{{ yl.value }}</text>
+                  </template>
                   <!-- Area -->
                   <polygon :points="tokenChart.areaPoints" fill="url(#tokenAreaGrad)" />
                   <!-- Line -->
@@ -449,79 +430,33 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     stroke-width="2"
                     class="chart-highlight-ring"
                   />
-                  <!-- Invisible overlay to capture mouse events across entire chart area -->
-                  <rect
-                    :x="CHART_LEFT"
-                    :y="CHART_TOP"
-                    :width="CHART_W"
-                    :height="CHART_H"
-                    fill="transparent"
-                    class="chart-overlay"
-                  />
-                  <!-- X labels -->
-                  <text
-                    v-for="(xl, xi) in tokenChart.xLabels"
-                    :key="`tx-${xi}`"
-                    :x="xl.x"
-                    y="192"
-                    text-anchor="middle"
-                    font-size="8"
-                    class="chart-label"
-                  >{{ xl.label }}</text>
-                </svg>
-                <!-- Tooltip overlay -->
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'tokens'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                </ChartFrame>
               </div>
             </div>
 
             <!-- Session Activity Per Day -->
             <div class="section-panel">
               <div class="section-panel-header">Session Activity Per Day</div>
-              <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
-                <svg
+              <div class="section-panel-body">
+                <ChartFrame
                   v-if="activityChart"
-                  viewBox="0 0 500 200"
-                  width="100%"
-                  role="img"
-                  :aria-label="`Bar chart showing session activity per day over ${timeRangeLabel}`"
+                  :chart-layout="chartLayout"
+                  :grid-lines="gridLines"
+                  :y-labels="activityChart.yLabels"
+                  :x-labels="activityChart.xLabels"
+                  :ariaLabel="`Bar chart showing session activity per day over ${timeRangeLabel}`"
+                  chart-id="activity"
+                  :tooltip="tooltip"
                   @mousemove="onChartMouseMove($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
                   @click="onChartClick($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
+                  @dismiss-tooltip="dismissTooltip"
                 >
-                  <defs>
+                  <template #defs>
                     <linearGradient id="sessionBarGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" :stop-color="CHART_COLORS.primaryLight" />
                       <stop offset="100%" :stop-color="CHART_COLORS.primary" />
                     </linearGradient>
-                  </defs>
-                  <!-- Grid lines -->
-                  <line
-                    v-for="(gy, gi) in gridLines"
-                    :key="`sg-${gi}`"
-                    :x1="CHART_LEFT"
-                    :y1="gy"
-                    :x2="CHART_RIGHT"
-                    :y2="gy"
-                    class="chart-grid-line"
-                    stroke-dasharray="4,3"
-                  />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <!-- Y labels -->
-                  <text
-                    v-for="(yl, yi) in activityChart.yLabels"
-                    :key="`sy-${yi}`"
-                    :x="CHART_LEFT - 7"
-                    :y="yl.y + 3"
-                    text-anchor="end"
-                    font-size="9"
-                    class="chart-label"
-                  >{{ yl.value }}</text>
+                  </template>
                   <!-- Bars -->
                   <rect
                     v-for="(bar, bi) in activityChart.bars"
@@ -535,32 +470,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
                   />
-                  <!-- Overlay for mouse capture -->
-                  <rect
-                    :x="CHART_LEFT"
-                    :y="CHART_TOP"
-                    :width="CHART_W"
-                    :height="CHART_H"
-                    fill="transparent"
-                    class="chart-overlay"
-                  />
-                  <!-- X labels -->
-                  <text
-                    v-for="(xl, xi) in activityChart.xLabels"
-                    :key="`sx-${xi}`"
-                    :x="xl.x"
-                    y="192"
-                    text-anchor="middle"
-                    font-size="8"
-                    class="chart-label"
-                  >{{ xl.label }}</text>
-                </svg>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'activity'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                </ChartFrame>
               </div>
             </div>
           </div>
@@ -619,46 +529,26 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             <!-- Cost Trend -->
             <div class="section-panel">
               <div class="section-panel-header">Cost Trend</div>
-              <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
-                <svg
+              <div class="section-panel-body">
+                <ChartFrame
                   v-if="costChart"
-                  viewBox="0 0 500 200"
-                  width="100%"
-                  role="img"
-                  :aria-label="`Area chart showing daily cost trend over ${timeRangeLabel}`"
+                  :chart-layout="chartLayout"
+                  :grid-lines="gridLines"
+                  :y-labels="costChart.yLabels"
+                  :x-labels="costChart.xLabels"
+                  :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
+                  chart-id="cost"
+                  :tooltip="tooltip"
                   @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
                   @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
+                  @dismiss-tooltip="dismissTooltip"
                 >
-                  <defs>
+                  <template #defs>
                     <linearGradient id="costAreaGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.35" />
                       <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
                     </linearGradient>
-                  </defs>
-                  <!-- Grid lines -->
-                  <line
-                    v-for="(gy, gi) in gridLines"
-                    :key="`cg-${gi}`"
-                    :x1="CHART_LEFT"
-                    :y1="gy"
-                    :x2="CHART_RIGHT"
-                    :y2="gy"
-                    class="chart-grid-line"
-                    stroke-dasharray="4,3"
-                  />
-                  <!-- Axes -->
-                  <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
-                  <!-- Y labels -->
-                  <text
-                    v-for="(yl, yi) in costChart.yLabels"
-                    :key="`cy-${yi}`"
-                    :x="CHART_LEFT - 7"
-                    :y="yl.y + 3"
-                    text-anchor="end"
-                    font-size="9"
-                    class="chart-label"
-                  >{{ yl.value }}</text>
+                  </template>
                   <!-- Area -->
                   <polygon :points="costChart.areaPoints" fill="url(#costAreaGrad)" />
                   <!-- Line -->
@@ -691,32 +581,7 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     stroke-width="2"
                     class="chart-highlight-ring"
                   />
-                  <!-- Overlay for mouse capture -->
-                  <rect
-                    :x="CHART_LEFT"
-                    :y="CHART_TOP"
-                    :width="CHART_W"
-                    :height="CHART_H"
-                    fill="transparent"
-                    class="chart-overlay"
-                  />
-                  <!-- X labels -->
-                  <text
-                    v-for="(xl, xi) in costChart.xLabels"
-                    :key="`cx-${xi}`"
-                    :x="xl.x"
-                    y="192"
-                    text-anchor="middle"
-                    font-size="8"
-                    class="chart-label"
-                  >{{ xl.label }}</text>
-                </svg>
-                <div
-                  v-if="tooltip.visible && tooltip.chartId === 'cost'"
-                  class="chart-tooltip"
-                  :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                  :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-                >{{ tooltip.content }}</div>
+                </ChartFrame>
               </div>
             </div>
           </div>
@@ -794,39 +659,19 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                 <span>Per Session</span>
               </label>
             </div>
-            <div class="section-panel-body chart-container" @mouseleave="dismissTooltip">
-              <svg
-                viewBox="0 0 500 200"
-                width="100%"
-                role="img"
-                :aria-label="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
+            <div class="section-panel-body">
+              <ChartFrame
+                :chart-layout="chartLayout"
+                :grid-lines="incidentChart.yLabels.map(yl => yl.y)"
+                :y-labels="incidentChart.yLabels"
+                :x-labels="incidentChart.xLabels"
+                :ariaLabel="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
+                chart-id="incidents"
+                :tooltip="tooltip"
                 @mousemove="onChartMouseMove($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
                 @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
+                @dismiss-tooltip="dismissTooltip"
               >
-                <!-- Grid lines -->
-                <line
-                  v-for="(yl, yi) in incidentChart.yLabels"
-                  :key="`ig-${yi}`"
-                  :x1="CHART_LEFT"
-                  :y1="yl.y"
-                  :x2="CHART_RIGHT"
-                  :y2="yl.y"
-                  class="chart-grid-line"
-                  stroke-dasharray="4,3"
-                />
-                <!-- Axes -->
-                <line :x1="CHART_LEFT" :y1="CHART_TOP" :x2="CHART_LEFT" :y2="CHART_BOTTOM" class="chart-axis" />
-                <line :x1="CHART_LEFT" :y1="CHART_BOTTOM" :x2="CHART_RIGHT" :y2="CHART_BOTTOM" class="chart-axis" />
-                <!-- Y labels -->
-                <text
-                  v-for="(yl, yi) in incidentChart.yLabels"
-                  :key="`iy-${yi}`"
-                  :x="CHART_LEFT - 7"
-                  :y="yl.y + 3"
-                  text-anchor="end"
-                  font-size="9"
-                  class="chart-label"
-                >{{ yl.value }}</text>
                 <!-- Stacked bars -->
                 <g v-for="(bar, i) in incidentChart.bars" :key="`ib-${i}`">
                   <!-- Truncations (bottom) -->
@@ -878,40 +723,17 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
                   />
                 </g>
-                <!-- Invisible overlay for mouse capture -->
-                <rect
-                  :x="CHART_LEFT"
-                  :y="CHART_TOP"
-                  :width="CHART_W"
-                  :height="CHART_H"
-                  fill="transparent"
-                  class="chart-overlay"
-                />
-                <!-- X labels -->
-                <text
-                  v-for="(xl, xi) in incidentChart.xLabels"
-                  :key="`ix-${xi}`"
-                  :x="xl.x"
-                  y="192"
-                  text-anchor="middle"
-                  font-size="8"
-                  class="chart-label"
-                >{{ xl.label }}</text>
-              </svg>
-              <!-- Tooltip -->
-              <div
-                v-if="tooltip.visible && tooltip.chartId === 'incidents'"
-                class="chart-tooltip"
-                :class="{ 'chart-tooltip--pinned': tooltip.pinned }"
-                :style="{ left: tooltip.x + 'px', top: (tooltip.y - 36) + 'px' }"
-              >{{ tooltip.content }}</div>
-              <!-- Legend -->
-              <div class="incident-chart-legend">
-                <span class="legend-item"><span class="legend-dot" style="background: var(--warning-fg);"></span> Rate Limits</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--danger-fg);"></span> Other Errors</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary);"></span> Compactions</span>
-                <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary);"></span> Truncations</span>
-              </div>
+
+                <template #footer>
+                  <!-- Legend -->
+                  <div class="incident-chart-legend">
+                    <span class="legend-item"><span class="legend-dot" style="background: var(--warning-fg);"></span> Rate Limits</span>
+                    <span class="legend-item"><span class="legend-dot" style="background: var(--danger-fg);"></span> Other Errors</span>
+                    <span class="legend-item"><span class="legend-dot" style="background: var(--chart-secondary);"></span> Compactions</span>
+                    <span class="legend-item"><span class="legend-dot" style="background: var(--text-tertiary);"></span> Truncations</span>
+                  </div>
+                </template>
+              </ChartFrame>
             </div>
           </div>
 
