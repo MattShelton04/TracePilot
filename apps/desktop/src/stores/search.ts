@@ -253,6 +253,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // ── Single search scheduler (replaces multiple watchers) ────
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressPageWatcher = false;
   const searchGuard = useAsyncGuard();
   const DEBOUNCE_MS = 150;
 
@@ -263,14 +264,25 @@ export const useSearchStore = defineStore('search', () => {
    */
   function scheduleSearch(resetPage: boolean, debounce = false) {
     if (hydrating) return; // Suppress during URL hydration
-    if (searchTimer) clearTimeout(searchTimer);
-    if (resetPage) page.value = 1;
+
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+
+    if (resetPage && page.value !== 1) {
+      suppressPageWatcher = true;
+      page.value = 1;
+    }
 
     if (debounce) {
-      searchTimer = setTimeout(executeSearch, DEBOUNCE_MS);
+      searchTimer = setTimeout(() => {
+        searchTimer = null;
+        executeSearch();
+      }, DEBOUNCE_MS);
     } else {
       // Use nextTick to coalesce synchronous state changes (e.g. presets)
-      nextTick(executeSearch);
+      nextTick(() => executeSearch());
     }
   }
 
@@ -366,7 +378,13 @@ export const useSearchStore = defineStore('search', () => {
   );
 
   // Page changes → immediate search (no page reset)
-  watch(page, () => scheduleSearch(false));
+  watch(page, () => {
+    if (suppressPageWatcher) {
+      suppressPageWatcher = false;
+      return;
+    }
+    scheduleSearch(false);
+  });
 
   // ── Quick browse presets ─────────────────────────────────────
   // These set multiple refs synchronously. nextTick in scheduleSearch
