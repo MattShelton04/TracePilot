@@ -121,6 +121,39 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
   return result;
 }
 
+/**
+ * Available browse presets for quick content filtering.
+ * Each preset clears all filters and applies specific content type selections.
+ */
+export type BrowsePreset =
+  | 'errors'
+  | 'userMessages'
+  | 'toolCalls'
+  | 'reasoning'
+  | 'toolResults'
+  | 'subagents';
+
+/**
+ * Configuration for a browse preset.
+ * Future enhancements could add sortBy, defaultFilters, etc.
+ */
+export interface BrowsePresetConfig {
+  readonly contentTypes: readonly SearchContentType[];
+}
+
+/**
+ * Browse preset configurations mapping preset names to their filter settings.
+ * Uses `satisfies` to ensure exhaustiveness - all presets in the type must be defined.
+ */
+const BROWSE_PRESETS = {
+  errors: { contentTypes: ['error', 'tool_error'] },
+  userMessages: { contentTypes: ['user_message'] },
+  toolCalls: { contentTypes: ['tool_call'] },
+  reasoning: { contentTypes: ['reasoning'] },
+  toolResults: { contentTypes: ['tool_result'] },
+  subagents: { contentTypes: ['subagent'] },
+} as const satisfies Record<BrowsePreset, BrowsePresetConfig>;
+
 export interface FacetOverrides {
   contentTypes?: string[];
   repo?: string | null;
@@ -369,11 +402,31 @@ export const useSearchStore = defineStore('search', () => {
   watch(page, () => scheduleSearch(false));
 
   // ── Quick browse presets ─────────────────────────────────────
-  // These set multiple refs synchronously. nextTick in scheduleSearch
-  // coalesces them into a single executeSearch call.
-  function browseErrors() {
+  /**
+   * Apply a browse preset: resets all search filters and sets specific content types.
+   *
+   * Presets are designed for quick browsing of session content by type. They:
+   * - Clear the search query
+   * - Set specific content type filters
+   * - Clear all other filters (repo, tool, date, session)
+   * - Set sort to "newest" (most recent first)
+   * - Reset to page 1 (fixes bug where page wasn't reset)
+   *
+   * The nextTick mechanism in scheduleSearch ensures multiple reactive state
+   * changes are coalesced into a single executeSearch call, preventing
+   * duplicate API requests.
+   *
+   * @param preset - The preset identifier (e.g., 'errors', 'toolCalls')
+   * @see BROWSE_PRESETS for available preset configurations
+   */
+  function applyBrowsePreset(preset: BrowsePreset) {
+    const config = BROWSE_PRESETS[preset];
+    if (!config) {
+      console.warn(`[search] Unknown browse preset: ${preset}`);
+      return;
+    }
     query.value = '';
-    contentTypes.value = ['error', 'tool_error'];
+    contentTypes.value = [...config.contentTypes]; // Spread to avoid mutations
     excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
@@ -381,67 +434,16 @@ export const useSearchStore = defineStore('search', () => {
     dateTo.value = null;
     sessionId.value = null;
     sortBy.value = 'newest';
+    page.value = 1; // REQUIRED: Reset to first page (fixes bug)
   }
 
-  function browseUserMessages() {
-    query.value = '';
-    contentTypes.value = ['user_message'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
-  }
-
-  function browseToolCalls() {
-    query.value = '';
-    contentTypes.value = ['tool_call'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
-  }
-
-  function browseReasoning() {
-    query.value = '';
-    contentTypes.value = ['reasoning'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
-  }
-
-  function browseToolResults() {
-    query.value = '';
-    contentTypes.value = ['tool_result'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
-  }
-
-  function browseSubagents() {
-    query.value = '';
-    contentTypes.value = ['subagent'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
-  }
+  // Maintain backward compatibility with named exports
+  function browseErrors() { applyBrowsePreset('errors'); }
+  function browseUserMessages() { applyBrowsePreset('userMessages'); }
+  function browseToolCalls() { applyBrowsePreset('toolCalls'); }
+  function browseReasoning() { applyBrowsePreset('reasoning'); }
+  function browseToolResults() { applyBrowsePreset('toolResults'); }
+  function browseSubagents() { applyBrowsePreset('subagents'); }
 
   // ── Recent search management ──────────────────────────────
   function addRecentSearch(q: string, count: number) {
@@ -707,6 +709,7 @@ export const useSearchStore = defineStore('search', () => {
     nextPage,
     prevPage,
     initEventListeners,
+    applyBrowsePreset,
     browseErrors,
     browseUserMessages,
     browseToolCalls,
