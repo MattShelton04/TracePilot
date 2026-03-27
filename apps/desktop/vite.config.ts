@@ -31,7 +31,6 @@ export default defineConfig(({ mode }) => ({
             '@tauri-apps/plugin-process',
             '@tauri-apps/plugin-updater',
           ],
-          'markdown': ['markdown-it', 'dompurify'],
         },
       },
       plugins: mode === "analyze"

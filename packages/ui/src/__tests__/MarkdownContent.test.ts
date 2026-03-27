@@ -8,7 +8,7 @@ beforeAll(async () => {
 });
 
 /** Mount and wait for the lazy markdown-it/dompurify load + Vue re-render. */
-async function mountAndWait(props: Record<string, unknown>) {
+async function mountAndWait(props: { content: string; maxHeight?: string; render?: boolean }) {
   const wrapper = mount(MarkdownContent, { props });
   // Flush import promise → reactive update → Vue re-render chain
   for (let i = 0; i < 4; i++) await flushPromises();
