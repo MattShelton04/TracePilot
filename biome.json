@@ -28,8 +28,8 @@
         "useImportType": "error"
       },
       "correctness": {
-        "noUnusedVariables": "off",
-        "noUnusedImports": "off"
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn"
       },
       "a11y": {
         "useButtonType": "error"
@@ -53,5 +53,18 @@
       "quoteStyle": "single",
       "trailingCommas": "all"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "off",
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }

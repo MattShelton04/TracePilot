@@ -46,3 +46,4 @@ desktop.ini
 
 # Agent planning artifacts
 .agent/
+.session/
