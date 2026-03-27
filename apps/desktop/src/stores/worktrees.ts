@@ -25,6 +25,8 @@ import {
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
+import { withAsyncState, catchError, safeAsync } from '@/utils/errorHandler';
+import { logWarn } from '@/utils/logger';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -94,11 +96,13 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch((err: unknown) => {
+            logWarn('[loadWorktrees] Failed to load disk usage:', err);
+          });
       }
-    } catch (e) {
+    } catch (err: unknown) {
       if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
+      error.value = catchError(err, 'loadWorktrees');
     } finally {
       if (loadGuard.isValid(token)) loading.value = false;
     }
@@ -115,8 +119,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         try {
           const repoWorktrees = await listWorktrees(repo.path);
           allWorktrees.push(...repoWorktrees);
-        } catch {
+        } catch (err: unknown) {
           // Skip repos that fail (e.g., deleted from disk)
+          logWarn(`[loadAllWorktrees] Skipping repo ${repo.path}:`, err);
         }
       }
       if (!loadGuard.isValid(token)) return;
@@ -132,11 +137,13 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch((err: unknown) => {
+            logWarn('[loadAllWorktrees] Failed to load disk usage:', err);
+          });
       }
-    } catch (e) {
+    } catch (err: unknown) {
       if (!loadGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
+      error.value = catchError(err, 'loadAllWorktrees');
     } finally {
       if (loadGuard.isValid(token)) loading.value = false;
     }
@@ -150,9 +157,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       const result = await listBranchesApi(repoPath);
       if (!branchGuard.isValid(token)) return;
       branches.value = result;
-    } catch {
+    } catch (err: unknown) {
       if (!branchGuard.isValid(token)) return;
       branches.value = [];
+      logWarn('[loadBranches] Failed to load branches:', err);
     }
   }
 
@@ -162,8 +170,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       const wt = await createWorktreeApi(request);
       worktrees.value = [...worktrees.value, wt];
       return wt;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'addWorktree');
       return null;
     }
   }
@@ -179,8 +187,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       await removeWorktreeApi(repo, worktreePath, force);
       worktrees.value = worktrees.value.filter((w) => w.path !== worktreePath);
       return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'deleteWorktree');
       return false;
     }
   }
@@ -194,8 +202,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         await loadWorktrees(repo);
       }
       return result;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'prune');
       return null;
     }
   }
@@ -218,8 +226,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         };
       }
       return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'lockWorktree');
       return false;
     }
   }
@@ -238,18 +246,17 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         };
       }
       return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'unlockWorktree');
       return false;
     }
   }
 
   async function fetchWorktreeDetails(worktreePath: string): Promise<WorktreeDetails | null> {
-    try {
-      return await getWorktreeDetailsApi(worktreePath);
-    } catch {
-      return null;
-    }
+    return safeAsync(
+      () => getWorktreeDetailsApi(worktreePath),
+      { fallback: null, errorContext: 'fetchWorktreeDetails' }
+    );
   }
 
   function hydrateDiskUsage(worktreePath: string) {
@@ -260,7 +267,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
         }
       })
-      .catch(() => { /* ignore */ });
+      .catch((err: unknown) => {
+        logWarn('[hydrateDiskUsage] Failed to load disk usage:', err);
+      });
   }
 
   // ─── Repository Registry Actions ──────────────────────────────────
@@ -269,8 +278,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     reposLoading.value = true;
     try {
       registeredRepos.value = await listRegisteredRepos();
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'loadRegisteredRepos');
     } finally {
       reposLoading.value = false;
     }
@@ -283,8 +292,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       // Refresh the list to ensure consistency
       await loadRegisteredRepos();
       return repo;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'addRepo');
       return null;
     }
   }
@@ -297,8 +306,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       // Also remove worktrees belonging to this repo
       worktrees.value = worktrees.value.filter((w) => w.repoRoot !== path);
       return true;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'removeRepo');
       return false;
     }
   }
@@ -311,8 +320,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         await loadRegisteredRepos();
       }
       return newRepos;
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'discoverRepos');
       return [];
     }
   }
@@ -328,8 +337,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       if (repo) {
         repo.favourite = newState;
       }
-    } catch (e) {
-      error.value = toErrorMessage(e);
+    } catch (err: unknown) {
+      error.value = catchError(err, 'toggleFavourite');
     } finally {
       togglingFavourites.value.delete(path);
     }
