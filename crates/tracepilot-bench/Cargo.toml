@@ -5,6 +5,9 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+[features]
+dhat-heap = ["tracepilot-core/dhat-heap"]
+
 [dependencies]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }

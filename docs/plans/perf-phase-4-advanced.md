@@ -780,16 +780,35 @@ if (Test-Path $distPath) {
 
 | Task | Status | Effort | Risk |
 |------|--------|--------|------|
-| 4.1 — Parallel indexing (rayon) | ⬜ | 3-5 days | High |
-| 4.2 — Owned Value refactor | ⬜ | 1-2 days | Medium |
+| 4.1 — Parallel indexing (rayon) | ✅ Done | 3-5 days | High |
+| 4.2 — Owned Value refactor | ⏸️ Deferred | 1-2 days | Medium |
 | 4.3 — Tagged enum deserialization | ⬜ | 3-5 days | High |
-| 4.4 — iai-callgrind CI | ⬜ | 1 day | Low |
-| 4.5 — dhat-rs profiling | ⬜ | 1 day | Low |
+| 4.4 — Benchmark modernization | ✅ Done | 1 day | Low |
+| 4.5 — dhat-rs profiling | ✅ Done | 1 day | Low |
 | 4.6 — Frontend perf tests | ⬜ | 2 days | Low |
-| 4.7 — Virtual scroll (conversation) | ⬜ | 2-3 days | High |
+| 4.7 — Virtual scroll (conversation) | ⏸️ Deferred | 2-3 days | High |
 | 4.8 — Turn pagination IPC | ⬜ | 2-3 days | Medium |
-| 4.9 — SQLite ANALYZE | ⬜ | 2 hours | Very Low |
-| 4.10 — Perf budget CI | ⬜ | 1 day | Low |
+| 4.9 — SQLite ANALYZE | ✅ Done | 2 hours | Very Low |
+| 4.10 — Perf budget CI | ✅ Done | 1 day | Low |
+
+### Implementation Notes
+
+**4.1 — Rayon parallel indexing:**
+- Split `upsert_session` into `prepare_session_data` (pure, parallelizable) and `write_prepared_session` (DB, sequential)
+- `reindex_all_with_rich_progress`: uses `par_iter` to parse all sessions, then writes sequentially in one transaction. Emits initial 0/total progress so loading screen initializes immediately.
+- `reindex_incremental_with_rich_progress`: Sequential loop (original approach preserved for smooth progress reporting). Rayon not used here as most sessions are skipped.
+- `reindex_search_content`: 3-phase pipeline — check staleness (sequential DB reads), parse events + extract content (parallel via Rayon), write (sequential). This is the biggest win since events.jsonl parsing is CPU/IO-heavy.
+- Visibility of internal types widened from `pub(super)` to `pub(crate)` for `SessionAnalytics`, row types, `SessionFileMeta`, `extract_session_analytics`
+
+**4.2 — Deferred:** Clone in `typed_data_from_raw` is architecturally required because `TypedEvent` stores both `raw.data` (original JSON) and `typed_data` (deserialized form). Eliminating the clone requires removing that duplication, which is a larger refactor.
+
+**4.5 — dhat-rs profiling:** Feature flag `dhat-heap` on tracepilot-core and tracepilot-bench. Enable with `cargo test --features dhat-heap`. Writes `dhat-heap.json` viewable at https://nnethercote.github.io/dh_view/dh_view.html
+
+**4.7 — Deferred:** Virtual scrolling attempted and reverted in Phase 3. At current scale (~173 sessions, moderate turns), the overhead of absolute positioning and ResizeObserver made scrolling worse.
+
+**4.9 — SQLite ANALYZE:** Added `IndexDb::analyze()` method. Called after `reindex_all`, `reindex_incremental` (when `indexed > 0`), and `reindex_search_content` (when `indexed > 0`).
+
+**4.10 — Perf budget CI:** Enhanced `benchmark.yml` to trigger on PRs touching `crates/**`. Added Python-based budget check step comparing Criterion output against `perf-budget.json` thresholds. `benchmark-action/github-action-benchmark` push only on workflow_dispatch to avoid noise.
 
 **Parallelization opportunities:**
 - Tasks 4.4, 4.5, 4.6, 4.9 can all be done in parallel (independent)

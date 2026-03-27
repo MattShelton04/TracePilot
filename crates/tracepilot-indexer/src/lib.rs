@@ -7,6 +7,8 @@
 
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
+
 pub mod error;
 pub mod index_db;
 
@@ -54,12 +56,16 @@ pub fn reindex_all_with_progress(
 }
 
 /// Full reindex with enriched progress callback including per-session data.
+///
+/// Uses Rayon to parse sessions in parallel (CPU/IO-bound), then writes
+/// results to SQLite sequentially (rusqlite::Connection is !Send).
 #[tracing::instrument(skip_all)]
 pub fn reindex_all_with_rich_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
     mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
+    let reindex_start = std::time::Instant::now();
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
 
@@ -67,25 +73,52 @@ pub fn reindex_all_with_rich_progress(
         sessions.iter().map(|s| s.id.clone()).collect();
 
     let total = sessions.len();
+
+    // Emit initial progress so UI loading screen initializes immediately
+    on_progress(&IndexingProgress {
+        current: 0,
+        total,
+        session_info: None,
+        running_tokens: 0,
+        running_events: 0,
+        running_repos: 0,
+    });
+
+    // Phase 1: Parse all sessions in parallel (file I/O + JSON, no DB access)
+    let prepared: Vec<_> = sessions
+        .par_iter()
+        .map(|session| {
+            let result = index_db::session_writer::prepare_session_data(&session.path);
+            (session.id.clone(), result)
+        })
+        .collect();
+
+    // Phase 2: Write results to DB sequentially with per-session progress
     let mut running_tokens: u64 = 0;
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
+    let mut indexed = 0;
 
     db.begin_transaction()?;
-    let mut indexed = 0;
-    for (i, session) in sessions.iter().enumerate() {
-        let info = match db.upsert_session(&session.path) {
-            Ok(info) => {
-                indexed += 1;
-                running_tokens += info.total_tokens;
-                running_events += info.event_count as u64;
-                if let Some(ref repo) = info.repository {
-                    seen_repos.insert(repo.clone());
+    for (i, (session_id, parse_result)) in prepared.into_iter().enumerate() {
+        let info = match parse_result {
+            Ok(data) => match db.write_prepared_session(&data) {
+                Ok(info) => {
+                    indexed += 1;
+                    running_tokens += info.total_tokens;
+                    running_events += info.event_count as u64;
+                    if let Some(ref repo) = info.repository {
+                        seen_repos.insert(repo.clone());
+                    }
+                    Some(info)
                 }
-                Some(info)
-            }
+                Err(e) => {
+                    tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                    None
+                }
+            },
             Err(e) => {
-                tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
+                tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
                 None
             }
         };
@@ -99,6 +132,13 @@ pub fn reindex_all_with_rich_progress(
         });
     }
     db.commit_transaction()?;
+
+    tracing::debug!(
+        indexed,
+        total,
+        elapsed_ms = reindex_start.elapsed().as_millis(),
+        "Full reindex complete"
+    );
 
     // Remove stale entries for sessions that no longer exist on disk
     match db.prune_deleted(&live_ids) {
@@ -134,6 +174,10 @@ pub fn reindex_incremental_with_progress(
 }
 
 /// Incremental reindex with enriched progress callback including per-session data.
+///
+/// Emits progress for every session (including skipped ones) so the loading
+/// screen tracks smoothly. Stale sessions are parsed in parallel via Rayon,
+/// then written sequentially.
 #[tracing::instrument(skip_all)]
 pub fn reindex_incremental_with_rich_progress(
     session_state_dir: &Path,
@@ -142,25 +186,46 @@ pub fn reindex_incremental_with_rich_progress(
 ) -> Result<(usize, usize)> {
     let phase1_start = std::time::Instant::now();
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
-    let discover_elapsed = phase1_start.elapsed();
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
-    let db_open_elapsed = phase1_start.elapsed() - discover_elapsed;
-    tracing::debug!(
-        sessions = sessions.len(),
-        discover_ms = discover_elapsed.as_millis(),
-        db_open_ms = db_open_elapsed.as_millis(),
-        "Phase 1: discovered sessions and opened DB"
-    );
 
     let live_ids: std::collections::HashSet<String> =
         sessions.iter().map(|s| s.id.clone()).collect();
 
     let total = sessions.len();
-    let mut indexed = 0;
-    let mut skipped = 0;
     let mut running_tokens: u64 = 0;
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
+
+    // Step 1: Check staleness (sequential DB reads), emit progress for skipped
+    let mut stale_sessions = Vec::new();
+    let mut skipped = 0;
+    for session in &sessions {
+        if db.needs_reindex(&session.id, &session.path) {
+            stale_sessions.push(session);
+        } else {
+            skipped += 1;
+            on_progress(&IndexingProgress {
+                current: skipped + stale_sessions.len(),
+                total,
+                session_info: None,
+                running_tokens,
+                running_events,
+                running_repos: seen_repos.len(),
+            });
+        }
+    }
+
+    // Step 2: Parse stale sessions in parallel (no DB access)
+    let prepared: Vec<_> = stale_sessions
+        .par_iter()
+        .map(|session| {
+            let result = index_db::session_writer::prepare_session_data(&session.path);
+            (session.id.clone(), result)
+        })
+        .collect();
+
+    // Step 3: Write results sequentially with progress
+    let mut indexed = 0;
 
     // Batch size for transaction grouping — amortizes WAL fsyncs while keeping
     // lock duration reasonable for concurrent readers.
@@ -168,44 +233,46 @@ pub fn reindex_incremental_with_rich_progress(
     let mut batch_count = 0;
     let mut in_transaction = false;
 
-    for (i, session) in sessions.iter().enumerate() {
-        let info = if db.needs_reindex(&session.id, &session.path) {
-            // Start a new batch transaction if needed
-            if !in_transaction {
-                db.begin_transaction()?;
-                in_transaction = true;
-                batch_count = 0;
-            }
-
-            match db.upsert_session(&session.path) {
-                Ok(info) => {
-                    indexed += 1;
-                    batch_count += 1;
-                    running_tokens += info.total_tokens;
-                    running_events += info.event_count as u64;
-                    if let Some(ref repo) = info.repository {
-                        seen_repos.insert(repo.clone());
-                    }
-
-                    // Commit batch when reaching BATCH_SIZE
-                    if batch_count >= BATCH_SIZE {
-                        db.commit_transaction()?;
-                        in_transaction = false;
-                    }
-
-                    Some(info)
+    for (i, (session_id, parse_result)) in prepared.into_iter().enumerate() {
+        let info = match parse_result {
+            Ok(data) => {
+                if !in_transaction {
+                    db.begin_transaction()?;
+                    in_transaction = true;
+                    batch_count = 0;
                 }
-                Err(e) => {
-                    tracing::warn!(session_id = %session.id, error = %e, "Failed to index session");
-                    None
+
+                match db.write_prepared_session(&data) {
+                    Ok(info) => {
+                        indexed += 1;
+                        batch_count += 1;
+                        running_tokens += info.total_tokens;
+                        running_events += info.event_count as u64;
+                        if let Some(ref repo) = info.repository {
+                            seen_repos.insert(repo.clone());
+                        }
+
+                        // Commit batch when reaching BATCH_SIZE
+                        if batch_count >= BATCH_SIZE {
+                            db.commit_transaction()?;
+                            in_transaction = false;
+                        }
+
+                        Some(info)
+                    }
+                    Err(e) => {
+                        tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
+                        None
+                    }
                 }
             }
-        } else {
-            skipped += 1;
-            None
+            Err(e) => {
+                tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
+                None
+            }
         };
         on_progress(&IndexingProgress {
-            current: i + 1,
+            current: skipped + i + 1,
             total,
             session_info: info,
             running_tokens,
@@ -224,7 +291,7 @@ pub fn reindex_incremental_with_rich_progress(
         skipped,
         total,
         elapsed_ms = phase1_start.elapsed().as_millis(),
-        "Phase 1 complete"
+        "Incremental reindex complete"
     );
 
     // Prune sessions that no longer exist on disk
@@ -251,7 +318,8 @@ pub struct SearchIndexingProgress {
 /// Index search content for sessions that need it (Phase 2 — background).
 ///
 /// This should be called AFTER Phase 1 (main reindex) completes.
-/// Parses events OUTSIDE transactions, writes INSIDE (brief lock per session).
+/// Collects sessions needing reindex, parses events in parallel with Rayon,
+/// then writes search content sequentially.
 /// Returns (indexed_count, skipped_count).
 #[tracing::instrument(skip_all)]
 pub fn reindex_search_content(
@@ -266,23 +334,41 @@ pub fn reindex_search_content(
     tracing::debug!(sessions = sessions.len(), "Phase 2: starting search content indexing");
 
     let total = sessions.len();
-    let mut indexed = 0;
+
+    // Step 1: Collect sessions needing search reindex (sequential DB reads)
+    let mut to_index = Vec::new();
     let mut skipped = 0;
 
-    for (i, session) in sessions.iter().enumerate() {
-        // Check cancellation at session boundaries
+    for session in &sessions {
         if is_cancelled() {
-            tracing::info!(indexed, skipped, "Search indexing cancelled");
-            return Ok((indexed, skipped));
+            tracing::info!(skipped, "Search indexing cancelled during staleness check");
+            return Ok((0, skipped));
         }
-
-        if !db.needs_search_reindex(&session.id, &session.path) {
-            skipped += 1;
+        if db.needs_search_reindex(&session.id, &session.path) {
+            to_index.push(session);
         } else {
-            let session_start = std::time::Instant::now();
-            // Parse OUTSIDE transaction (CPU-bound, no DB lock)
+            skipped += 1;
+        }
+    }
+
+    tracing::debug!(
+        to_index = to_index.len(),
+        skipped,
+        total,
+        "Search reindex: staleness check complete"
+    );
+
+    if to_index.is_empty() {
+        on_progress(&SearchIndexingProgress { current: total, total });
+        return Ok((0, skipped));
+    }
+
+    // Step 2: Parse events + extract search content in parallel (no DB access)
+    let prepared: Vec<_> = to_index
+        .par_iter()
+        .map(|session| {
             let events_path = session.path.join("events.jsonl");
-            let content_rows = if events_path.exists() {
+            let content = if events_path.exists() {
                 match tracepilot_core::parsing::events::parse_typed_events(&events_path) {
                     Ok(parsed) => {
                         Some(index_db::search_writer::extract_search_content(
@@ -294,7 +380,7 @@ pub fn reindex_search_content(
                         tracing::warn!(
                             session_id = %session.id,
                             error = %e,
-                            "Failed to parse events for search indexing — skipping (preserving existing index)"
+                            "Failed to parse events for search indexing — skipping"
                         );
                         None
                     }
@@ -302,43 +388,61 @@ pub fn reindex_search_content(
             } else {
                 Some(Vec::new())
             };
+            (session.id.clone(), content)
+        })
+        .collect();
 
-            // Only write if parsing succeeded — don't wipe existing index on transient errors
-            if let Some(ref rows) = content_rows {
-                match db.upsert_search_content(&session.id, rows) {
-                    Ok(_) => {
-                        indexed += 1;
-                        let elapsed = session_start.elapsed();
-                        if elapsed.as_millis() > 100 {
-                            tracing::debug!(
-                                session_id = %session.id,
-                                rows = rows.len(),
-                                elapsed_ms = elapsed.as_millis(),
-                                "Phase 2: slow session indexing"
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            session_id = %session.id,
-                            error = %e,
-                            "Failed to write search content"
+    // Check cancellation after parallel phase
+    if is_cancelled() {
+        tracing::info!("Search indexing cancelled after parse phase");
+        return Ok((0, skipped));
+    }
+
+    // Step 3: Write search content to DB sequentially
+    let mut indexed = 0;
+    let prepared_count = prepared.len();
+    for (i, (session_id, content)) in prepared.into_iter().enumerate() {
+        if is_cancelled() {
+            tracing::info!(indexed, skipped, "Search indexing cancelled during write");
+            return Ok((indexed, skipped));
+        }
+
+        if let Some(ref rows) = content {
+            let session_start = std::time::Instant::now();
+            match db.upsert_search_content(&session_id, rows) {
+                Ok(_) => {
+                    indexed += 1;
+                    let elapsed = session_start.elapsed();
+                    if elapsed.as_millis() > 100 {
+                        tracing::debug!(
+                            session_id = %session_id,
+                            rows = rows.len(),
+                            elapsed_ms = elapsed.as_millis(),
+                            "Phase 2: slow session write"
                         );
                     }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        session_id = %session_id,
+                        error = %e,
+                        "Failed to write search content"
+                    );
                 }
             }
         }
 
-        // Throttle progress events (every 5 sessions)
-        if (i + 1) % 5 == 0 || i + 1 == total {
+        // Throttle progress events (every 5 sessions or at end)
+        let progress_idx = skipped + i + 1;
+        if (i + 1) % 5 == 0 || i + 1 == prepared_count || progress_idx == total {
             on_progress(&SearchIndexingProgress {
-                current: i + 1,
+                current: progress_idx,
                 total,
             });
         }
     }
 
-    // Optimize after bulk writes
+    // Let SQLite optimize statistics if it deems necessary
     let _ = db.conn.execute_batch("PRAGMA optimize");
 
     tracing::debug!(

@@ -54,7 +54,7 @@ pub struct IndexedIncident {
 // ── Internal types used by the session writer ─────────────────────────
 
 /// Named row for per-model metrics.
-pub(super) struct ModelMetricsRow {
+pub(crate) struct ModelMetricsRow {
     pub model: String,
     pub input_tokens: i64,
     pub output_tokens: i64,
@@ -65,7 +65,7 @@ pub(super) struct ModelMetricsRow {
 }
 
 /// Named row for per-tool call stats.
-pub(super) struct ToolCallRow {
+pub(crate) struct ToolCallRow {
     pub name: String,
     pub calls: i64,
     pub success: i64,
@@ -75,14 +75,14 @@ pub(super) struct ToolCallRow {
 }
 
 /// Named row for activity heatmap data.
-pub(super) struct ActivityRow {
+pub(crate) struct ActivityRow {
     pub day_of_week: i64,
     pub hour: i64,
     pub tool_call_count: i64,
 }
 
 /// Named row for session segment granular breakdown.
-pub(super) struct SessionSegmentRow {
+pub(crate) struct SessionSegmentRow {
     pub start_timestamp: String,
     pub end_timestamp: String,
     pub tokens: i64,
@@ -94,14 +94,14 @@ pub(super) struct SessionSegmentRow {
 }
 
 /// Named row for modified file data.
-pub(super) struct ModifiedFileRow {
+pub(crate) struct ModifiedFileRow {
     pub file_path: String,
     pub extension: Option<String>,
 }
 
 /// Row for the session_incidents table.
 #[derive(Debug)]
-pub(super) struct IncidentRow {
+pub(crate) struct IncidentRow {
     pub event_type: String,
     pub source_event_type: String,
     pub timestamp: Option<String>,
@@ -114,7 +114,7 @@ pub(super) struct IncidentRow {
 /// This is a pure data struct produced by `extract_session_analytics`
 /// without any database interaction, making analytics computation
 /// independently testable.
-pub(super) struct SessionAnalytics {
+pub(crate) struct SessionAnalytics {
     // Aggregate token/cost metrics
     pub total_tokens: i64,
     pub total_cost: f64,
@@ -156,7 +156,7 @@ pub(super) struct SessionAnalytics {
 }
 
 /// Return value from `IndexDb::get_file_metadata`.
-pub(super) struct SessionFileMeta {
+pub(crate) struct SessionFileMeta {
     pub workspace_mtime: Option<String>,
     pub events_mtime: Option<String>,
     pub events_size: Option<i64>,

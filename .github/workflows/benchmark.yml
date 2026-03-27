@@ -7,9 +7,17 @@ on:
         description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
         required: false
         type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'perf-budget.json'
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   benchmark:
@@ -53,6 +61,57 @@ jobs:
               print(f'  {r[\"name\"]}: {r[\"value\"]:.2f} ns/iter')
           "
 
+      - name: Check Rust perf budget
+        if: always()
+        run: |
+          python3 -c "
+          import json, glob, os, sys
+
+          if not os.path.exists('perf-budget.json'):
+              print('No perf-budget.json — skipping')
+              sys.exit(0)
+
+          with open('perf-budget.json') as f:
+              budget = json.load(f)
+
+          rust_budget = budget.get('rust', {})
+          if not rust_budget:
+              print('No rust budgets defined — skipping')
+              sys.exit(0)
+
+          base = os.path.join('target', 'criterion')
+          results = {}
+          for path in glob.glob(os.path.join(base, '**', 'new', 'estimates.json'), recursive=True):
+              rel = os.path.relpath(path, base)
+              name = os.path.dirname(os.path.dirname(rel)).replace(os.sep, '/')
+              with open(path) as f:
+                  data = json.load(f)
+              results[name] = data['mean']['point_estimate']
+
+          # Map budget keys to benchmark names
+          mapping = {
+              'parseEventsJsonl100kbNs': 'parse_typed_events/1000',
+              'computeAnalytics100sessionsNs': 'compute_analytics/100',
+          }
+
+          violations = []
+          for budget_key, bench_name in mapping.items():
+              limit = rust_budget.get(budget_key)
+              actual = results.get(bench_name)
+              if limit is None or actual is None:
+                  continue
+              if actual > limit:
+                  violations.append(f'{bench_name}: {actual:.0f} ns > budget {limit} ns')
+                  print(f'⚠️  {bench_name}: {actual:.0f} ns exceeds budget {limit} ns')
+              else:
+                  print(f'✅ {bench_name}: {actual:.0f} ns within budget {limit} ns')
+
+          if violations:
+              print(f'::warning::{len(violations)} benchmark(s) exceed perf budget')
+          else:
+              print('All benchmarks within budget')
+          "
+
       - name: Upload Criterion HTML reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -62,6 +121,7 @@ jobs:
           retention-days: 90
 
       - name: Store benchmark results
+        if: github.event_name == 'workflow_dispatch'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: 'customSmallerIsBetter'
