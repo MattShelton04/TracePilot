@@ -11,6 +11,7 @@ use crate::types::{
 };
 
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn list_sessions(
     state: tauri::State<'_, SharedConfig>,
     limit: Option<u32>,
@@ -113,6 +114,7 @@ pub async fn list_sessions(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_detail(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -159,6 +161,7 @@ pub async fn get_session_incidents(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_turns(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, TurnCache>,
@@ -178,11 +181,12 @@ pub async fn get_session_turns(
             .map(|m| m.len())
             .unwrap_or(0);
 
-        // Check LRU cache — return if file size unchanged (append-only)
-        {
+        // Check LRU cache — return if file size unchanged (append-only).
+        // Clone cache data and release lock before running prepare_turns_for_ipc
+        // to minimise Mutex hold time on concurrent IPC requests.
+        let cached_turns = {
             let Ok(mut lru) = cache.lock() else {
                 tracing::warn!("Turn cache Mutex poisoned — skipping cache read");
-                // Fall through to disk parse below
                 let events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
                     .events;
                 let turns = tracepilot_core::turns::reconstruct_turns(&events);
@@ -193,16 +197,17 @@ pub async fn get_session_turns(
                     events_file_size: file_size,
                 });
             };
-            if let Some(cached) = lru.get(&session_id) {
-                if cached.events_file_size == file_size {
-                    let mut turns = cached.turns.clone();
-                    tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
-                    return Ok(TurnsResponse {
-                        turns,
-                        events_file_size: file_size,
-                    });
-                }
-            }
+            lru.get(&session_id)
+                .filter(|cached| cached.events_file_size == file_size)
+                .map(|cached| cached.turns.clone())
+        };
+
+        if let Some(mut turns) = cached_turns {
+            tracepilot_core::turns::prepare_turns_for_ipc(&mut turns);
+            return Ok(TurnsResponse {
+                turns,
+                events_file_size: file_size,
+            });
         }
 
         // Cache miss or stale — parse from disk
@@ -254,6 +259,7 @@ pub async fn check_session_freshness(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_events(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,

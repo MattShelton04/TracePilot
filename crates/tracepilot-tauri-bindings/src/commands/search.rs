@@ -12,6 +12,7 @@ use tauri::Emitter;
 use tokio::sync::Semaphore;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%query))]
 pub async fn search_sessions(
     state: tauri::State<'_, SharedConfig>,
     query: String,
@@ -59,6 +60,7 @@ pub async fn search_sessions(
 
 /// Returns (updated, total) session counts.
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn reindex_sessions(
     state: tauri::State<'_, SharedConfig>,
     semaphore: tauri::State<'_, Arc<Semaphore>>,
@@ -237,6 +239,7 @@ pub async fn reindex_sessions_full(
 
 /// Search session content with full-text search or browse mode.
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%query))]
 pub async fn search_content(
     state: tauri::State<'_, SharedConfig>,
     query: String,

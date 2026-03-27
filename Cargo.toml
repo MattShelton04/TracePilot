@@ -36,6 +36,7 @@ tempfile = "3"
 strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 semver = "1"
+rayon = "1.10"
 
 # Internal crates
 tracepilot-core = { path = "crates/tracepilot-core" }
@@ -47,4 +48,4 @@ tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
 lto = "thin"
 strip = true
 codegen-units = 1
-opt-level = "s"
+opt-level = 2

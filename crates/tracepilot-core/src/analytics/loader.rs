@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::session::discovery::{discover_sessions, DiscoveredSession};
 use crate::summary::{load_session_summary, load_session_summary_with_events};
@@ -15,8 +15,10 @@ use super::types::SessionAnalyticsInput;
 
 /// Load session summaries only (no turn reconstruction).
 ///
+/// PERF: I/O bound — reads workspace.yaml for each discovered session.
 /// Fast path for `compute_analytics()` and `compute_code_impact()`.
 /// Skips sessions that fail to parse, logging a warning.
+#[instrument(skip_all, fields(dir = %sessions_dir.display()))]
 pub fn load_session_summaries(sessions_dir: &Path) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let discovered = discover_sessions(sessions_dir)?;
     let mut inputs = Vec::with_capacity(discovered.len());
@@ -43,8 +45,13 @@ pub fn load_session_summaries(sessions_dir: &Path) -> crate::Result<Vec<SessionA
 
 /// Load full session data including conversation turns.
 ///
+/// PERF: Most expensive loader — reads workspace.yaml AND parses events.jsonl
+/// for each session. Required for `compute_tool_analysis()`.
+/// For 100+ sessions this can take several seconds.
+///
 /// Slower path required for `compute_tool_analysis()`.
 /// Skips sessions that fail to parse, logging a warning.
+#[instrument(skip_all, fields(dir = %sessions_dir.display()))]
 pub fn load_full_sessions(sessions_dir: &Path) -> crate::Result<Vec<SessionAnalyticsInput>> {
     let discovered = discover_sessions(sessions_dir)?;
     let mut inputs = Vec::with_capacity(discovered.len());

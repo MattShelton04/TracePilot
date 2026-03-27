@@ -3,7 +3,7 @@ use tracepilot_bench::generate_analytics_inputs;
 
 fn bench_compute_analytics(c: &mut Criterion) {
     let mut group = c.benchmark_group("compute_analytics");
-    for count in [10, 50, 100] {
+    for count in [10, 50, 100, 200] {
         let (inputs, _dir) = generate_analytics_inputs(count, 10, 2);
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(
@@ -19,7 +19,7 @@ fn bench_compute_analytics(c: &mut Criterion) {
 
 fn bench_compute_tool_analysis(c: &mut Criterion) {
     let mut group = c.benchmark_group("compute_tool_analysis");
-    for count in [10, 50, 100] {
+    for count in [10, 50, 100, 200] {
         let (inputs, _dir) = generate_analytics_inputs(count, 10, 2);
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(
@@ -35,7 +35,7 @@ fn bench_compute_tool_analysis(c: &mut Criterion) {
 
 fn bench_compute_code_impact(c: &mut Criterion) {
     let mut group = c.benchmark_group("compute_code_impact");
-    for count in [10, 50, 100] {
+    for count in [10, 50, 100, 200] {
         let (inputs, _dir) = generate_analytics_inputs(count, 10, 2);
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(

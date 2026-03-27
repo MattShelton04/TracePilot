@@ -66,6 +66,18 @@ pub mod summary;
 pub mod turns;
 pub mod utils;
 
+/// Heap profiling with dhat-rs (opt-in via `dhat-heap` feature).
+///
+/// Enable with: `cargo test -p tracepilot-core --features dhat-heap`
+/// or `cargo run --features dhat-heap`
+///
+/// When enabled, the `#[global_allocator]` is replaced with dhat's profiling
+/// allocator. On drop, it writes `dhat-heap.json` in the current directory,
+/// which can be viewed in Firefox at <https://nnethercote.github.io/dh_view/dh_view.html>.
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 #[cfg(test)]
 pub mod testing;
 
