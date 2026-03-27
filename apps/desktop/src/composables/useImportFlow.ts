@@ -11,6 +11,7 @@ import type {
 } from '@tracepilot/types';
 import { previewImport, importSessions } from '@tracepilot/client';
 import { logError, logInfo } from '@/utils/logger';
+import { catchError } from '@/utils/errorHandler';
 
 // ── Step Type ──────────────────────────────────────────────────
 
@@ -124,9 +125,9 @@ export function useImportFlow(): ImportFlowState {
       if (selected) {
         await selectFile(typeof selected === 'string' ? selected : selected[0]);
       }
-    } catch (e) {
+    } catch (err: unknown) {
       // Dialog failed — fall back to prompt
-      logError('[useImportFlow] File dialog failed, falling back to prompt:', e);
+      logError('[useImportFlow] File dialog failed, falling back to prompt:', err);
       const input = prompt('Enter .tpx.json file path:');
       if (input) await selectFile(input.trim());
     }
@@ -152,12 +153,10 @@ export function useImportFlow(): ImportFlowState {
       selectedSessions.value = result.sessions.map((s) => s.id);
       step.value = 'review';
       logInfo(`[useImportFlow] Validated ${result.sessions.length} session(s) from ${fileName.value}`);
-    } catch (e) {
+    } catch (err: unknown) {
       if (thisRequest !== validateRequestId) return;
-      const msg = e instanceof Error ? e.message : String(e);
-      error.value = msg;
+      error.value = catchError(err, 'validateFile');
       step.value = 'select';
-      logError('[useImportFlow] Validation failed:', msg);
     }
   }
 
@@ -197,14 +196,12 @@ export function useImportFlow(): ImportFlowState {
       logInfo(
         `[useImportFlow] Import complete: ${result.importedCount} imported, ${result.skippedCount} skipped`,
       );
-    } catch (e) {
+    } catch (err: unknown) {
       if (activeProgressTimer) clearInterval(activeProgressTimer);
       activeProgressTimer = null;
-      const msg = e instanceof Error ? e.message : String(e);
-      error.value = msg;
+      error.value = catchError(err, 'executeImport');
       importProgress.value = 0;
       step.value = 'review';
-      logError('[useImportFlow] Import failed:', msg);
     }
   }
 
