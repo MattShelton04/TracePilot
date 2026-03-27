@@ -24,6 +24,7 @@ import {
   toggleRepoFavourite,
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { useAsyncGuard } from '@/composables/useAsyncGuard';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const currentRepoPath = ref('');
-  let loadGeneration = 0; // guards against out-of-order async overwrites
+  const loadGuard = useAsyncGuard(); // guards against out-of-order async overwrites
 
   // Repository registry
   const registeredRepos = ref<RegisteredRepo[]>([]);
@@ -74,20 +75,20 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── Worktree Actions ─────────────────────────────────────────────
 
   async function loadWorktrees(repoPath: string) {
-    const thisGen = ++loadGeneration;
+    const token = loadGuard.start();
     loading.value = true;
     error.value = null;
     currentRepoPath.value = repoPath;
     try {
       const result = await listWorktrees(repoPath);
-      if (thisGen !== loadGeneration) return; // stale response — discard
+      if (!loadGuard.isValid(token)) return; // stale response — discard
       worktrees.value = result;
       // Load disk usage async — capture snapshot to avoid race conditions
       const snapshot = [...result];
       for (const wt of snapshot) {
         getWorktreeDiskUsage(wt.path)
           .then((bytes) => {
-            if (thisGen !== loadGeneration) return;
+            if (!loadGuard.isValid(token)) return;
             const idx = worktrees.value.findIndex((w) => w.path === wt.path);
             if (idx >= 0) {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
@@ -96,21 +97,21 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           .catch(() => { /* ignore disk usage errors */ });
       }
     } catch (e) {
-      if (thisGen !== loadGeneration) return;
+      if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     } finally {
-      if (thisGen === loadGeneration) loading.value = false;
+      if (loadGuard.isValid(token)) loading.value = false;
     }
   }
 
   async function loadAllWorktrees() {
-    const thisGen = ++loadGeneration;
+    const token = loadGuard.start();
     loading.value = true;
     error.value = null;
     try {
       const allWorktrees: WorktreeInfo[] = [];
       for (const repo of registeredRepos.value) {
-        if (thisGen !== loadGeneration) return; // stale — abort
+        if (!loadGuard.isValid(token)) return; // stale — abort
         try {
           const repoWorktrees = await listWorktrees(repo.path);
           allWorktrees.push(...repoWorktrees);
@@ -118,14 +119,14 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           // Skip repos that fail (e.g., deleted from disk)
         }
       }
-      if (thisGen !== loadGeneration) return;
+      if (!loadGuard.isValid(token)) return;
       worktrees.value = allWorktrees;
       // Hydrate disk usage asynchronously (same as loadWorktrees)
       const snapshot = [...allWorktrees];
       for (const wt of snapshot) {
         getWorktreeDiskUsage(wt.path)
           .then((bytes) => {
-            if (thisGen !== loadGeneration) return;
+            if (!loadGuard.isValid(token)) return;
             const idx = worktrees.value.findIndex((w) => w.path === wt.path);
             if (idx >= 0) {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
@@ -134,23 +135,23 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           .catch(() => { /* ignore disk usage errors */ });
       }
     } catch (e) {
-      if (thisGen !== loadGeneration) return;
+      if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
     } finally {
-      if (thisGen === loadGeneration) loading.value = false;
+      if (loadGuard.isValid(token)) loading.value = false;
     }
   }
 
-  let branchGeneration = 0;
+  const branchGuard = useAsyncGuard();
 
   async function loadBranches(repoPath: string) {
-    const gen = ++branchGeneration;
+    const token = branchGuard.start();
     try {
       const result = await listBranchesApi(repoPath);
-      if (gen !== branchGeneration) return;
+      if (!branchGuard.isValid(token)) return;
       branches.value = result;
     } catch {
-      if (gen !== branchGeneration) return;
+      if (!branchGuard.isValid(token)) return;
       branches.value = [];
     }
   }

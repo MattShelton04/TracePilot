@@ -22,7 +22,7 @@ import {
   getSessionIncidents,
 } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
+import { useAsyncGuard, type AsyncGuardToken } from "@/composables/useAsyncGuard";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -113,7 +113,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   }
 
   // Guard against stale async responses when user switches sessions quickly
-  let requestToken = 0; // Keep for buildSectionLoader compatibility
+  const sessionGuard = useAsyncGuard();
   const eventsGuard = useAsyncGuard();
 
   // ── Section loader factory ───────────────────────────────────────────
@@ -129,16 +129,16 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     return async () => {
       const id = sessionId.value;
       if (!id || loaded.value.has(opts.key)) return;
-      const token = requestToken;
+      const token = sessionGuard.current();
       opts.errorRef.value = null;
 
       try {
         const result = await opts.fetchFn(id);
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         opts.onResult(result);
         loaded.value.add(opts.key);
       } catch (e) {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         opts.errorRef.value = toErrorMessage(e);
         const logFn = opts.logLevel === 'warn' ? console.warn : console.error;
         logFn(`Failed to load ${opts.key}:`, e);
@@ -162,14 +162,14 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   function buildRefreshPromise(
     cfg: RefreshConfig,
     id: string,
-    token: number,
+    token: AsyncGuardToken,
   ): Promise<void> {
     return cfg.fetchFn(id).then((result) => {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       cfg.onResult(result);
       cfg.errorRef.value = null;
     }).catch((e) => {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       cfg.errorRef.value = toErrorMessage(e);
       const logFn = cfg.logLevel === 'warn' ? console.warn : console.error;
       logFn(`Failed to refresh ${cfg.key}:`, e);
@@ -186,7 +186,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       saveToCache(sessionId.value);
     }
 
-    const token = ++requestToken;
+    const token = sessionGuard.start();
     sessionId.value = id;
     error.value = null;
     clearSectionErrors();
@@ -210,20 +210,20 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
       // Background refresh: silently update stale data
       getSessionDetail(id).then((result) => {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         detail.value = result;
       }).catch(() => {});
       checkSessionFreshness(id).then(async (freshness) => {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         if (freshness.eventsFileSize === lastEventsFileSize) return;
         const result = await getSessionTurns(id);
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         turns.value = result.turns;
         lastEventsFileSize = result.eventsFileSize;
       }).catch(() => {});
       if (loaded.value.has("plan")) {
         getSessionPlan(id).then((result) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           plan.value = result;
         }).catch(() => {});
       }
@@ -236,15 +236,15 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     try {
       const result = await getSessionDetail(id);
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       detail.value = result;
       loaded.value.add("detail");
     } catch (e) {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       detail.value = null;
       error.value = toErrorMessage(e);
     } finally {
-      if (requestToken === token) loading.value = false;
+      if (sessionGuard.isValid(token)) loading.value = false;
     }
   }
 
@@ -261,17 +261,17 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   async function loadEvents(offset = 0, limit = 100, eventType?: string) {
     const id = sessionId.value;
     if (!id) return;
-    const sessionToken = requestToken;
+    const sessionToken = sessionGuard.current();
     const eventsToken = eventsGuard.start();
     eventsError.value = null;
 
     try {
       const result = await getSessionEvents(id, offset, limit, eventType);
-      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
+      if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       events.value = result;
       loaded.value.add("events");
     } catch (e) {
-      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
+      if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
       console.error("Failed to load events:", e);
     }
@@ -314,7 +314,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   });
 
   function reset() {
-    requestToken++;
+    sessionGuard.invalidate();
     eventsGuard.invalidate();
     sessionId.value = null;
     resetSectionData();
@@ -331,7 +331,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   async function refreshAll() {
     const id = sessionId.value;
     if (!id) return;
-    const token = requestToken;
+    const token = sessionGuard.current();
     const sections = new Set(loaded.value);
 
     const promises: Promise<void>[] = [];
@@ -341,10 +341,10 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     if (sections.has("detail")) {
       promises.push(
         getSessionDetail(id).then((result) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           detail.value = result;
         }).catch((e) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           console.error("Failed to refresh detail:", e);
         })
       );
@@ -357,19 +357,19 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           // Freshness check: skip full turn fetch if events.jsonl hasn't changed
           try {
             const freshness = await checkSessionFreshness(id);
-            if (requestToken !== token) return;
+            if (!sessionGuard.isValid(token)) return;
             if (freshness.eventsFileSize === lastEventsFileSize) return;
           } catch {
             // Freshness check failed — fall through to full fetch
           }
 
           const result = await getSessionTurns(id);
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           turns.value = result.turns;
           turnsError.value = null;
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           turnsError.value = toErrorMessage(e);
           console.error("Failed to refresh turns:", e);
         })
