@@ -13,16 +13,28 @@ let detach: (() => void) | null = null;
 /**
  * Initialize logging — call once from main.ts AFTER mount.
  *
- * - Subscribes to Rust-side log events and forwards them to the
- *   webview devtools console (via `attachConsole`).
+ * Note: We intentionally do NOT call `attachConsole()` here.
+ * The synchronous facades (`logError`, `logWarn`, etc.) already write to
+ * `console.*` for devtools AND fire-and-forget to the Tauri backend log
+ * file. Attaching the console would cause Tauri to mirror backend log
+ * events back to the webview, producing duplicate entries for every
+ * frontend-originated message.
+ *
+ * Rust-originated log messages are still written to stdout and the log
+ * file (via the Stdout + LogDir targets in main.rs). If you need them
+ * in the browser console during development, temporarily uncomment the
+ * `attachConsole` call below.
  */
 export async function initLogging(): Promise<void> {
+  // Eagerly resolve the Tauri log module so facade calls don't pay the
+  // first-import penalty.
   try {
-    const log = await ensureLog();
-    if (log) detach = await log.attachConsole();
+    await ensureLog();
+    // To also see Rust-originated logs in the browser console, uncomment:
+    // const log = await ensureLog();
+    // if (log) detach = await log.attachConsole();
   } catch (e) {
-    // Plugin may not be ready (e.g., browser-only dev mode)
-    console.warn('[TracePilot] Failed to attach log console:', e);
+    console.warn('[TracePilot] Failed to initialize logging:', e);
   }
 }
 
