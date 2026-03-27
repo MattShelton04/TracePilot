@@ -32,6 +32,10 @@ mod model_tracking;
 mod session_events;
 mod performance;
 
+// Test utilities
+pub(super) mod builders;
+pub(super) use builders::*;
+
 // ============================================================================
 // Common Test Helpers
 // ============================================================================
