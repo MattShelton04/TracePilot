@@ -5411,6 +5411,7 @@ name = "tracepilot-tauri-bindings"
 version = "0.5.1"
 dependencies = [
  "anyhow",
+ "chrono",
  "lru",
  "reqwest 0.12.28",
  "semver",
@@ -5422,6 +5423,7 @@ dependencies = [
  "tokio",
  "toml 0.8.2",
  "tracepilot-core",
+ "tracepilot-export",
  "tracepilot-indexer",
  "tracepilot-orchestrator",
  "tracing",
