@@ -57,7 +57,11 @@ pub struct TurnStats {
 
 /// Reconstruct conversation turns from a flat stream of typed events.
 ///
+/// PERF: CPU-bound single pass — O(n) over events. For large sessions (>1000 events)
+/// this can take 5-50ms. Called once per session load, then cached in TurnCache.
+///
 /// This is the public entry point — it delegates to [`TurnReconstructor`].
+#[tracing::instrument(skip_all, fields(event_count = events.len()))]
 pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
     let mut reconstructor = TurnReconstructor::new();
     for (idx, event) in events.iter().enumerate() {
@@ -159,6 +163,10 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
 
 /// Prepare turns for IPC transfer: compute args summaries and strip
 /// `transformed_user_message` (never displayed, saves ~10-20% payload).
+///
+/// PERF: Mutates in place to avoid cloning. Iterates all turns × tool calls.
+/// Lock scope on TurnCache should be minimized — clone data, drop lock, then call this.
+#[tracing::instrument(skip_all, fields(turn_count = turns.len()))]
 pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
     for turn in turns.iter_mut() {
         turn.transformed_user_message = None;

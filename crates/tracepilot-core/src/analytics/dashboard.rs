@@ -11,7 +11,11 @@ use super::types::*;
 
 /// Compute aggregate analytics across all sessions.
 ///
+/// PERF: CPU-bound — iterates all sessions once. O(n) where n = session count.
+/// For 100+ sessions, consider caching results in the index DB (Phase 3).
+///
 /// Only requires `SessionSummary` data (no turns needed).
+#[tracing::instrument(skip_all, fields(session_count = sessions.len()))]
 pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
     let total_sessions = sessions.len() as u32;
 

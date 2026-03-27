@@ -10,32 +10,65 @@ use tracepilot_core::parsing::events::TypedEventData;
 use super::types::*;
 use super::IndexDb;
 
+/// Pre-computed session data ready for DB insertion.
+///
+/// Produced by [`prepare_session_data`] (pure, no DB access — safe to run in parallel),
+/// consumed by [`IndexDb::write_prepared_session`] (requires DB — must run sequentially).
+pub(crate) struct PreparedSessionData {
+    pub session_path: std::path::PathBuf,
+    pub summary: tracepilot_core::SessionSummary,
+    pub analytics: SessionAnalytics,
+    pub index_info: SessionIndexInfo,
+}
+
+/// Parse and compute analytics for a session without any database interaction.
+///
+/// This is the CPU/IO-bound portion of indexing that can be safely parallelized
+/// with Rayon since it only reads files and runs pure computation.
+pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessionData> {
+    let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)?;
+    let summary = load_result.summary;
+    let typed_events = load_result.typed_events;
+    let diagnostics = load_result.diagnostics;
+
+    let file_meta = SessionFileMeta::from_session_path(session_path);
+
+    let analytics = extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
+
+    let index_info = SessionIndexInfo {
+        repository: summary.repository.clone(),
+        branch: summary.branch.clone(),
+        current_model: analytics.current_model.clone(),
+        total_tokens: analytics.total_tokens.max(0) as u64,
+        event_count: summary.event_count.unwrap_or(0),
+        turn_count: summary.turn_count.unwrap_or(0),
+    };
+
+    Ok(PreparedSessionData {
+        session_path: session_path.to_path_buf(),
+        summary,
+        analytics,
+        index_info,
+    })
+}
+
 impl IndexDb {
     /// Insert or update a session in the index, computing analytics from events.
     pub fn upsert_session(&self, session_path: &Path) -> Result<SessionIndexInfo> {
-        let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)?;
-        let summary = load_result.summary;
-        let typed_events = load_result.typed_events;
-        let diagnostics = load_result.diagnostics;
+        let prepared = prepare_session_data(session_path)?;
+        self.write_prepared_session(&prepared)
+    }
 
-        let file_meta = SessionFileMeta::from_session_path(session_path);
+    /// Write pre-computed session data to the index database.
+    ///
+    /// This is the DB-bound portion of indexing that must run sequentially
+    /// (rusqlite::Connection is !Send).
+    pub(crate) fn write_prepared_session(&self, prepared: &PreparedSessionData) -> Result<SessionIndexInfo> {
+        let summary = &prepared.summary;
+        let analytics = &prepared.analytics;
+        let session_path = &prepared.session_path;
 
-        let analytics = extract_session_analytics(
-            &summary,
-            &typed_events,
-            diagnostics.as_ref(),
-            &file_meta,
-        );
-
-        let index_info = SessionIndexInfo {
-            repository: summary.repository.clone(),
-            branch: summary.branch.clone(),
-            current_model: analytics.current_model.clone(),
-            total_tokens: analytics.total_tokens.max(0) as u64,
-            event_count: summary.event_count.unwrap_or(0),
-            turn_count: summary.turn_count.unwrap_or(0),
-        };
-
+        let index_info = prepared.index_info.clone();
         let session_id = summary.id.clone();
 
         // ── Write everything in a SAVEPOINT transaction ──────────────
@@ -377,7 +410,7 @@ impl IndexDb {
 /// Extract all analytics from a session's summary and events without any
 /// database interaction. This is the core computation that powers
 /// `upsert_session`, extracted as a pure function for testability.
-pub(super) fn extract_session_analytics(
+pub(crate) fn extract_session_analytics(
     summary: &tracepilot_core::SessionSummary,
     typed_events: &Option<Vec<tracepilot_core::parsing::events::TypedEvent>>,
     diagnostics: Option<&tracepilot_core::parsing::diagnostics::ParseDiagnostics>,

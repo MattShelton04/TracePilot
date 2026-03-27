@@ -1,17 +1,37 @@
 <script setup lang="ts">
 /**
  * MarkdownContent — renders markdown with markdown-it and sanitizes with DOMPurify.
+ *
+ * PERF: markdown-it + dompurify are lazy-loaded on first render to keep them
+ * off the critical path (~150KB). While loading, raw text is shown as fallback.
  */
-import { computed } from 'vue';
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
+import { computed, ref, watchEffect } from 'vue';
 
-const md = new MarkdownIt({
-  html: false, // Disable HTML tags in source for security
-  linkify: false,
-  typographer: true,
-  breaks: false, // Don't convert single newlines to <br>
-});
+// Module-level lazy singleton — shared across all instances, loaded once
+let mdInstance: InstanceType<typeof import('markdown-it').default> | null = null;
+let purifyFn: ((dirty: string) => string) | null = null;
+const mdReady = ref(false);
+let loadPromise: Promise<void> | null = null;
+
+function ensureMarkdownLoaded(): Promise<void> {
+  if (mdReady.value) return Promise.resolve();
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    const [{ default: MarkdownIt }, { default: DOMPurify }] = await Promise.all([
+      import('markdown-it'),
+      import('dompurify'),
+    ]);
+    mdInstance = new MarkdownIt({
+      html: false,
+      linkify: false,
+      typographer: true,
+      breaks: false,
+    });
+    purifyFn = (dirty: string) => DOMPurify.sanitize(dirty);
+    mdReady.value = true;
+  })();
+  return loadPromise;
+}
 
 const props = withDefaults(defineProps<{
   /** Markdown text to render. */
@@ -24,15 +44,23 @@ const props = withDefaults(defineProps<{
   render: true
 });
 
+// Trigger lazy load when render is true
+watchEffect(() => {
+  if (props.render) ensureMarkdownLoaded();
+});
+
 const rendered = computed(() => {
   if (!props.render) {
     return escapeHtml(props.content);
   }
-  
-  // Clean up content: trim extra newlines before rendering
+
+  if (!mdReady.value || !mdInstance || !purifyFn) {
+    return escapeHtml(props.content);
+  }
+
   const cleanedContent = props.content.trim();
-  const rawHtml = md.render(cleanedContent);
-  return DOMPurify.sanitize(rawHtml);
+  const rawHtml = mdInstance.render(cleanedContent);
+  return purifyFn(rawHtml);
 });
 
 function handleLinkClick(event: MouseEvent) {

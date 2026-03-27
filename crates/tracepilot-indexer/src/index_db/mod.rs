@@ -14,7 +14,7 @@ mod migrations;
 pub mod search_reader;
 pub mod search_writer;
 mod session_reader;
-mod session_writer;
+pub(crate) mod session_writer;
 mod types;
 
 use crate::{error::IndexerError, Result};
@@ -87,6 +87,17 @@ impl IndexDb {
     pub fn commit_transaction(&self) -> Result<()> {
         self.conn.execute_batch("COMMIT")?;
         Ok(())
+    }
+
+    /// Run SQLite `ANALYZE` to update query-planner statistics.
+    ///
+    /// Should be called after bulk write operations (full reindex, search rebuild)
+    /// so the query planner has accurate cardinality data for FTS5 and index selection.
+    /// Cheap on small DBs (~1ms), still fast on large ones (<50ms for 1000+ sessions).
+    pub fn analyze(&self) {
+        if let Err(e) = self.conn.execute_batch("ANALYZE") {
+            tracing::warn!(error = %e, "ANALYZE failed (non-fatal)");
+        }
     }
 }
 

@@ -37,6 +37,9 @@ import { createDefaultConfig } from '@tracepilot/types';
 
 import { isTauri, invokePlugin } from './invoke.js';
 
+// Re-export IPC performance instrumentation utilities
+export { getIpcPerfLog, clearIpcPerfLog } from './invoke.js';
+
 // Lazy-load mocks only when needed (non-Tauri / dev mode)
 let mocksModule: typeof import('./mock/index.js') | null = null;
 async function getMocks() {
@@ -106,6 +109,9 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
       paths: {
         sessionStateDir: '~/.copilot/session-state',
         indexDbPath: '~/.copilot/tracepilot/index.db',
+      },
+      general: {
+        setupComplete: true,
       },
     }),
     save_config: undefined,

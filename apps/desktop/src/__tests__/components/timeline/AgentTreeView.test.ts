@@ -563,7 +563,7 @@ describe("AgentTreeView", () => {
     await reasoningToggle.trigger("click");
     await nextTick();
     expect(detailPanel.find(".reasoning-content").exists()).toBe(true);
-    expect(detailPanel.find(".reasoning-content").text()).toContain("Let me think about this…");
+    expect(detailPanel.find(".reasoning-content").text()).toContain("Let me think about this...");
   });
 
   it("main agent node excludes subagent-attributed messages", async () => {

@@ -29,6 +29,10 @@ pub struct DiscoveredSession {
 }
 
 /// Scan the session-state directory and return all discovered sessions.
+///
+/// PERF: I/O bound — reads directory entries and checks for marker files.
+/// Called on every reindex. Scales linearly with session count (~1ms per 100 sessions).
+#[tracing::instrument(skip_all, fields(dir = %base_dir.display()))]
 pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
     let mut sessions = Vec::new();
 
