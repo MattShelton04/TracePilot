@@ -512,7 +512,8 @@ export const MOCK_HEALTH_SCORING: HealthScoringData = {
 };
 
 export const MOCK_EXPORT_RESULT: ExportResult = {
-  success: true,
-  filePath: "/tmp/tracepilot-export.json",
   sessionsExported: 1,
+  filePath: '/tmp/tracepilot-export.json',
+  fileSizeBytes: 12345,
+  exportedAt: new Date().toISOString(),
 };

@@ -125,6 +125,12 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // Logging commands (2)
             commands::logging::get_log_path,
             commands::logging::export_logs,
+            // Export / Import commands (5)
+            commands::export_import::export_sessions,
+            commands::export_import::preview_export,
+            commands::export_import::get_session_sections,
+            commands::export_import::preview_import,
+            commands::export_import::import_sessions,
         ])
         .build()
 }
