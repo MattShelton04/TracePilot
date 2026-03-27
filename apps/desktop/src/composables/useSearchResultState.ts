@@ -42,14 +42,15 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
   const filteredSessionNameOverride = ref<string | null>(null);
 
   // Clear override when sessionId changes externally (e.g. URL sync, chip removal, route restore).
-  // filterBySession suppresses the next clear to avoid losing its own override.
-  let suppressNextOverrideClear = false;
+  // filterBySession records the session ID it set so the watcher can skip its own update.
+  let lastFilterBySessionId: string | null = null;
 
-  watch(sessionId, () => {
-    if (suppressNextOverrideClear) {
-      suppressNextOverrideClear = false;
+  watch(sessionId, (newVal) => {
+    if (lastFilterBySessionId !== null && newVal === lastFilterBySessionId) {
+      lastFilterBySessionId = null;
       return;
     }
+    lastFilterBySessionId = null;
     filteredSessionNameOverride.value = null;
   });
 
@@ -67,7 +68,7 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
   });
 
   function filterBySession(sid: string, displayName: string | null) {
-    suppressNextOverrideClear = true;
+    lastFilterBySessionId = sid;
     sessionId.value = sid;
     filteredSessionNameOverride.value = displayName || null;
     resultViewMode.value = 'flat';
