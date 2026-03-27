@@ -101,6 +101,9 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
         sessionStateDir: '~/.copilot/session-state',
         indexDbPath: '~/.copilot/tracepilot/index.db',
       },
+      general: {
+        setupComplete: true,
+      },
     }),
     save_config: undefined,
     validate_session_dir: { valid: true, sessionCount: 47 },
