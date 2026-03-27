@@ -174,6 +174,7 @@ export function useTimelineToolState(
 	 * Re-resolve selected tool after data refresh.
 	 * This keeps the detail panel open when the store refreshes and creates new object references.
 	 * We match by toolCallId to find the equivalent tool in the new data.
+	 * If the tool is no longer present, the selection is cleared.
 	 */
 	watch(allToolCalls, (newAll) => {
 		const sel = selectedTool.value;
@@ -181,6 +182,9 @@ export function useTimelineToolState(
 		const match = newAll.find((tc) => tc.toolCallId === sel.toolCallId);
 		if (match) {
 			selectedTool.value = match;
+		} else {
+			// Tool was removed from store, clear the stale selection
+			selectedTool.value = null;
 		}
 	});
 

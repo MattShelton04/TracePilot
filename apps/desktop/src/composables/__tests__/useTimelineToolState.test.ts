@@ -362,6 +362,42 @@ describe("useTimelineToolState", () => {
 			expect(wrapper.vm.selectedTool?.arguments).toBe('{"command":"pwd"}');
 		});
 
+		it("clears selection when selected tool is removed from store", async () => {
+			const wrapper = mount(TestComponent);
+			const store = wrapper.vm.store;
+
+			const mockTool: TurnToolCall = {
+				name: "bash",
+				arguments: '{"command":"ls"}',
+				status: "success",
+				isSubagent: false,
+				isComplete: true,
+				toolCallId: "tc-1",
+			};
+
+			const mockTurn: ConversationTurn = {
+				turnIndex: 0,
+				timestamp: "2024-01-01T00:00:00Z",
+				userMessage: "test",
+				assistantMessages: [],
+				toolCalls: [mockTool],
+				subagentSections: [],
+			};
+
+			store.turns = [mockTurn];
+			await nextTick();
+
+			wrapper.vm.selectTool(mockTool);
+			expect(wrapper.vm.selectedTool?.toolCallId).toBe("tc-1");
+
+			// Remove the tool from the store
+			store.turns = [];
+			await nextTick();
+
+			// Selection should be cleared when tool is removed
+			expect(wrapper.vm.selectedTool).toBe(null);
+		});
+
 		it("does not re-resolve if selected tool has no ID", async () => {
 			const wrapper = mount(TestComponent);
 			const store = wrapper.vm.store;
