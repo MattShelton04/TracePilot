@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onErrorCaptured } from 'vue';
-import { error as logError } from '@/utils/logger';
+import { logError } from '@/utils/logger';
 
 const error = ref<Error | null>(null);
 const errorInfo = ref<string>('');
@@ -9,8 +9,7 @@ onErrorCaptured((err: Error, _instance, info) => {
   error.value = err;
   errorInfo.value = info;
   const msg = `[ErrorBoundary] ${err.message} (${info})`;
-  console.error(msg, err);
-  logError(msg).catch(() => {});
+  logError(msg, err);
   return false; // prevent propagation
 });
 

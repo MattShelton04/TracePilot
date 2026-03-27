@@ -1,5 +1,6 @@
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import { normalizePath } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
 import type {
   ModelPriceEntry,
   RichRenderableToolName,
@@ -255,7 +256,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         backendConfig = config;
       } catch (e) {
         if (gen !== saveGeneration) return;
-        console.warn("[preferences] Failed to persist config:", e);
+        logWarn("[preferences] Failed to persist config:", e);
       }
     }, 300);
   }

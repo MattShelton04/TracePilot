@@ -3,6 +3,7 @@ import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
+import { logError } from '@/utils/logger';
 import ErrorBoundary from '@/components/ErrorBoundary.vue';
 import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
 import SearchPalette from '@/components/SearchPalette.vue';
@@ -107,7 +108,7 @@ async function onIndexingComplete() {
     cfg.general.setupComplete = true;
     await saveConfig(cfg);
   } catch (e) {
-    console.error('Failed to save setupComplete flag:', e);
+    logError('[app] Failed to save setupComplete flag:', e);
   }
   phase.value = 'app';
   sessionsStore.fetchSessions();

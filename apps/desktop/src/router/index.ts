@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 import type {} from "./types";
 import { usePreferencesStore } from "@/stores/preferences";
+import { logError } from "@/utils/logger";
 
 // Lazy-loaded view imports for code splitting
 const SessionListView = () => import("@/views/SessionListView.vue");
@@ -255,10 +256,10 @@ router.onError((error, to) => {
     const now = Date.now();
     if (now - last > 10_000) {
       sessionStorage.setItem(key, String(now));
-      console.error(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
+      logError(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
       window.location.reload();
     } else {
-      console.error(`[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`, error);
+      logError(`[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`, error);
       router.replace({ name: 'sessions' });
     }
   }
