@@ -24,7 +24,7 @@ export function useExportPreview(
 
   async function fetchPreview() {
     const sid = sessionId.value;
-    if (!sid || sections.value.length === 0) {
+    if (!sid) {
       preview.value = null;
       error.value = null;
       return;

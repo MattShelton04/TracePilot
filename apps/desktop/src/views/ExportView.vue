@@ -7,6 +7,7 @@ import {
   BtnGroup,
   Badge,
   EmptyState,
+  MarkdownContent,
   ProgressBar,
   formatBytes,
   useToast,
@@ -22,6 +23,7 @@ import {
   SECTION_GROUPS,
   SECTION_ICONS,
   FORMAT_DESCRIPTIONS,
+  type ExportPreset,
 } from '@/composables/useExportConfig';
 import { useExportPreview } from '@/composables/useExportPreview';
 import { useImportFlow } from '@/composables/useImportFlow';
@@ -38,10 +40,14 @@ const {
   enabledSections,
   activePreset,
   sectionsArray,
+  allPresets,
+  customPresets,
   applyPreset,
   toggleSection,
   selectAll,
   selectNone,
+  saveAsPreset,
+  deleteCustomPreset,
 } = useExportConfig();
 
 const {
@@ -113,6 +119,38 @@ async function handleExport() {
 
 type PreviewView = 'raw' | 'rendered';
 const previewView = ref<PreviewView>('raw');
+
+// ── Save Preset Dialog ──────────────────────────────────────
+
+const showSavePreset = ref(false);
+const newPresetName = ref('');
+
+function handleSavePreset() {
+  const name = newPresetName.value.trim();
+  if (!name) return;
+  saveAsPreset(name);
+  newPresetName.value = '';
+  showSavePreset.value = false;
+  toastSuccess(`Saved preset "${name}"`);
+}
+
+// ── Rendered Preview ────────────────────────────────────────
+
+/** Whether the current format supports a rendered view */
+const canRenderPreview = computed(() => format.value === 'markdown');
+
+/** For JSON, pretty-print for the raw view */
+const formattedPreviewContent = computed(() => {
+  if (!preview.value?.content) return '';
+  if (format.value === 'json') {
+    try {
+      return JSON.stringify(JSON.parse(preview.value.content), null, 2);
+    } catch {
+      return preview.value.content;
+    }
+  }
+  return preview.value.content;
+});
 
 // ── Format Options ──────────────────────────────────────────
 
@@ -203,7 +241,7 @@ function copiedToClipboard() {
           <!-- Presets -->
           <div class="preset-bar">
             <button
-              v-for="preset in EXPORT_PRESETS"
+              v-for="preset in allPresets"
               :key="preset.id"
               class="preset-btn"
               :class="{ active: activePreset === preset.id }"
@@ -212,7 +250,33 @@ function copiedToClipboard() {
             >
               <span>{{ preset.icon }}</span>
               {{ preset.label }}
+              <span
+                v-if="customPresets.some((c: ExportPreset) => c.id === preset.id)"
+                class="preset-delete"
+                title="Delete custom preset"
+                @click.stop="deleteCustomPreset(preset.id)"
+              >×</span>
             </button>
+            <button
+              class="preset-btn preset-save-btn"
+              title="Save current configuration as a preset"
+              @click="showSavePreset = !showSavePreset"
+            >
+              <span>💾</span>
+              Save Preset
+            </button>
+          </div>
+          <div v-if="showSavePreset" class="save-preset-row">
+            <input
+              v-model="newPresetName"
+              class="save-preset-input"
+              placeholder="Preset name…"
+              @keyup.enter="handleSavePreset"
+            />
+            <button class="btn btn-primary btn-sm" :disabled="!newPresetName.trim()" @click="handleSavePreset">
+              Save
+            </button>
+            <button class="link-btn" @click="showSavePreset = false">Cancel</button>
           </div>
 
           <!-- Session Selector -->
@@ -254,7 +318,7 @@ function copiedToClipboard() {
               <span class="section-actions">
                 <button class="link-btn" @click="selectAll">Select All</button>
                 ·
-                <button class="link-btn" @click="selectNone">None</button>
+                <button class="link-btn" @click="selectNone">Clear</button>
               </span>
             </div>
             <div v-for="group in SECTION_GROUPS" :key="group.label">
@@ -320,8 +384,10 @@ function copiedToClipboard() {
                   </button>
                   <button
                     class="view-toggle-btn"
-                    :class="{ active: previewView === 'rendered' }"
-                    @click="previewView = 'rendered'"
+                    :class="{ active: previewView === 'rendered', disabled: !canRenderPreview }"
+                    :disabled="!canRenderPreview"
+                    :title="canRenderPreview ? 'Rendered preview' : 'Rendered view is only available for Markdown'"
+                    @click="canRenderPreview && (previewView = 'rendered')"
                   >
                     Rendered
                   </button>
@@ -350,9 +416,15 @@ function copiedToClipboard() {
               </div>
               <div v-else-if="preview">
                 <!-- Raw view -->
-                <pre v-if="previewView === 'raw'" class="preview-code"><code>{{ preview.content }}</code></pre>
-                <!-- Rendered view (renders raw content with basic formatting) -->
-                <div v-else class="rendered-view" v-html="preview.content" />
+                <pre v-if="previewView === 'raw'" class="preview-code"><code>{{ formattedPreviewContent }}</code></pre>
+                <!-- Rendered view: Markdown via MarkdownContent component -->
+                <MarkdownContent
+                  v-else-if="canRenderPreview"
+                  :content="preview.content"
+                  :render="true"
+                />
+                <!-- Rendered view fallback: formats without a renderer -->
+                <pre v-else class="preview-code"><code>{{ formattedPreviewContent }}</code></pre>
               </div>
             </div>
 
@@ -633,6 +705,9 @@ function copiedToClipboard() {
   scrollbar-width: thin;
   scrollbar-color: var(--border-default) transparent;
 }
+.config-col {
+  padding: 0 8px;
+}
 .config-col::-webkit-scrollbar,
 .preview-col::-webkit-scrollbar {
   width: 5px;
@@ -674,6 +749,44 @@ function copiedToClipboard() {
   border-color: var(--accent-emphasis);
   color: var(--accent-fg);
   background: var(--accent-muted);
+}
+.preset-save-btn {
+  border-style: dashed;
+}
+.preset-delete {
+  font-size: 0.875rem;
+  line-height: 1;
+  opacity: 0.5;
+  margin-left: 2px;
+  cursor: pointer;
+}
+.preset-delete:hover {
+  opacity: 1;
+  color: var(--danger-fg, #f85149);
+}
+.save-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.save-preset-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-default);
+  color: var(--text-primary);
+  outline: none;
+}
+.save-preset-input:focus {
+  border-color: var(--accent-emphasis);
+}
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 0.75rem;
 }
 
 /* ── Config Sections ───────────────────────────────────────── */
@@ -860,6 +973,10 @@ function copiedToClipboard() {
   color: var(--accent-fg);
   font-weight: 600;
 }
+.view-toggle-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .preview-body {
   flex: 1;
   overflow: auto;
@@ -888,18 +1005,6 @@ function copiedToClipboard() {
   word-break: break-word;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
-.rendered-view {
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--text-primary);
-}
-.rendered-view :deep(h1) { font-size: 1.25rem; margin: 0 0 12px; color: var(--text-primary); }
-.rendered-view :deep(h2) { font-size: 1rem; margin: 16px 0 8px; color: var(--accent-fg); }
-.rendered-view :deep(h3) { font-size: 0.875rem; margin: 12px 0 6px; color: var(--text-secondary); }
-.rendered-view :deep(table) { width: 100%; border-collapse: collapse; margin: 8px 0; }
-.rendered-view :deep(th),
-.rendered-view :deep(td) { padding: 4px 8px; border: 1px solid var(--border-muted); font-size: 0.8rem; }
-.rendered-view :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
 .preview-footer {
   display: flex;
   align-items: center;

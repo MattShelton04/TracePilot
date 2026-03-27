@@ -250,7 +250,8 @@ fn render_events_csv(events: &[RawEvent]) -> Result<Vec<u8>> {
         let preview = {
             let s = event.data.to_string();
             if s.len() > 200 {
-                format!("{}…", &s[..200])
+                let boundary = s.floor_char_boundary(200);
+                format!("{}…", &s[..boundary])
             } else {
                 s
             }

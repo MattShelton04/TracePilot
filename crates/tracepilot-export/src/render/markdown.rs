@@ -213,16 +213,15 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         write_block(md, label, &msg.content);
     }
 
-    // Reasoning (collapsed by convention)
+    // Reasoning (rendered as a blockquote section)
     if !turn.reasoning_texts.is_empty() {
-        md.push_str("<details>\n<summary>Reasoning</summary>\n\n");
+        let _ = writeln!(md, "**Reasoning**\n");
         for msg in &turn.reasoning_texts {
             for line in msg.content.lines() {
                 let _ = writeln!(md, "> {}", line);
             }
             md.push('\n');
         }
-        md.push_str("</details>\n\n");
     }
 
     // Tool calls

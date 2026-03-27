@@ -96,11 +96,20 @@ export function useExportConfig() {
   const enabledSections = ref(new Set<SectionId>([...ALL_SECTION_IDS]));
   const activePreset = ref<string | null>('full');
 
+  // Custom user-saved presets (session-scoped)
+  const customPresets = ref<ExportPreset[]>([]);
+
+  /** All available presets: built-in + custom */
+  const allPresets = computed<ExportPreset[]>(() => [
+    ...EXPORT_PRESETS,
+    ...customPresets.value,
+  ]);
+
   // Track whether preset is being applied to suppress clearing it
   let applyingPreset = false;
 
   function applyPreset(presetId: string) {
-    const preset = EXPORT_PRESETS.find((p) => p.id === presetId);
+    const preset = allPresets.value.find((p) => p.id === presetId);
     if (!preset) return;
 
     applyingPreset = true;
@@ -131,6 +140,29 @@ export function useExportConfig() {
     activePreset.value = null;
   }
 
+  function saveAsPreset(name: string) {
+    const id = `custom-${Date.now()}`;
+    customPresets.value = [
+      ...customPresets.value,
+      {
+        id,
+        label: name,
+        icon: '⭐',
+        description: `Custom preset: ${name}`,
+        format: format.value,
+        sections: [...enabledSections.value],
+      },
+    ];
+    activePreset.value = id;
+  }
+
+  function deleteCustomPreset(presetId: string) {
+    customPresets.value = customPresets.value.filter((p) => p.id !== presetId);
+    if (activePreset.value === presetId) {
+      activePreset.value = null;
+    }
+  }
+
   // Clear active preset when format changes manually
   watch(format, () => {
     if (!applyingPreset) activePreset.value = null;
@@ -144,9 +176,13 @@ export function useExportConfig() {
     enabledSections,
     activePreset,
     sectionsArray,
+    allPresets,
+    customPresets,
     applyPreset,
     toggleSection,
     selectAll,
     selectNone,
+    saveAsPreset,
+    deleteCustomPreset,
   };
 }
