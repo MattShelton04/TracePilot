@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { BtnGroup, LoadingOverlay, formatNumberFull } from '@tracepilot/ui';
+import { BtnGroup, EmptyState, LoadingOverlay, formatNumberFull } from '@tracepilot/ui';
 import { useSessionDetailStore } from '@/stores/sessionDetail';
 import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
 import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
@@ -32,11 +32,7 @@ const viewModes = [
     <LoadingOverlay :loading="store.loading" message="Loading session…">
 
     <!-- Empty state -->
-    <div v-if="!store.loading && !store.turns.length" class="empty-state">
-      <div class="empty-state-icon">📊</div>
-      <h2 class="empty-state-title">No Timeline Data</h2>
-      <p class="empty-state-desc">This session has no conversation turns to visualize.</p>
-    </div>
+    <EmptyState v-if="!store.loading && !store.turns.length" icon="📊" title="No Timeline Data" message="This session has no conversation turns to visualize." />
 
     <template v-if="store.turns.length">
       <!-- Header: title + view toggle -->

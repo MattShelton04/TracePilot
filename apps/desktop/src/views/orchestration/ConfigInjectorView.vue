@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, useDismissable, truncateText, ErrorAlert, LoadingSpinner, shortenPath, normalizePath } from '@tracepilot/ui';
+import { useToast, useDismissable, truncateText, EmptyState, ErrorAlert, LoadingSpinner, shortenPath, normalizePath } from '@tracepilot/ui';
 import type { AgentDefinition } from '@tracepilot/types';
 import { previewBackupRestore } from '@tracepilot/client';
 import {
@@ -527,9 +527,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-if="!store.agents.length" class="empty-state-small">
-            No agent definitions found.
-          </div>
+          <EmptyState v-if="!store.agents.length" compact message="No agent definitions found." />
         </div>
 
         <!-- Batch Actions -->
@@ -634,9 +632,7 @@ onMounted(() => {
                   <span class="folder-path">{{ folder }}</span>
                   <button class="btn-icon-sm" title="Remove" @click="removeFolder(i)">✕</button>
                 </div>
-                <div v-if="!editTrustedFolders.length" class="empty-state-small">
-                  No trusted folders configured.
-                </div>
+                <EmptyState v-if="!editTrustedFolders.length" compact message="No trusted folders configured." />
               </div>
               <div class="folder-add">
                 <input
@@ -698,9 +694,7 @@ onMounted(() => {
               <span class="meta-tag">🔒 {{ ver.lockCount ?? 0 }}</span>
             </div>
           </div>
-          <div v-if="!store.versions.length" class="empty-state-small">
-            No Copilot CLI versions discovered.
-          </div>
+          <EmptyState v-if="!store.versions.length" compact message="No Copilot CLI versions discovered." />
         </div>
 
         <!-- Migration Panel -->
@@ -852,13 +846,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else class="empty-state">
-          <div class="empty-state-icon">📦</div>
-          <h2 class="empty-state-title">No Backups Yet</h2>
-          <p class="empty-state-desc">
-            Create a backup above to safeguard your configuration before making changes.
-          </p>
-        </div>
+        <EmptyState v-else icon="📦" title="No Backups Yet" message="Create a backup above to safeguard your configuration before making changes." />
       </div>
     </div>
   </div>
@@ -1920,37 +1908,6 @@ onMounted(() => {
   font-weight: 600;
   margin: 0;
   color: var(--text-primary);
-}
-
-/* ── Empty States ────────────────────────────────────────────────────────── */
-.empty-state {
-  text-align: center;
-  padding: 48px 20px;
-}
-
-.empty-state-icon {
-  font-size: 2.5rem;
-  margin-bottom: 12px;
-}
-
-.empty-state-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 6px;
-  color: var(--text-primary);
-}
-
-.empty-state-desc {
-  color: var(--text-tertiary);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.empty-state-small {
-  padding: 16px;
-  text-align: center;
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */

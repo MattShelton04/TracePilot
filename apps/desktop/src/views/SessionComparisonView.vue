@@ -37,6 +37,7 @@ import {
 import { usePreferencesStore } from '@/stores/preferences';
 import { useSessionsStore } from '@/stores/sessions';
 import { CHART_COLORS } from '@/utils/chartColors';
+import { formatSessionDelta } from '@/utils/deltaFormatting';
 
 // ── State ───────────────────────────────────────────────────────────
 
@@ -116,23 +117,6 @@ interface MetricRow {
   arrow: string;
 }
 
-function computeDelta(
-  a: number,
-  b: number,
-  higherIsBetter: boolean,
-): { delta: string; deltaClass: string; arrow: string } {
-  if (a === 0 && b === 0) return { delta: '—', deltaClass: 'delta-neutral', arrow: '' };
-  const diff = b - a;
-  if (Math.abs(diff) < 0.001) return { delta: '—', deltaClass: 'delta-neutral', arrow: '' };
-  const base = Math.max(Math.abs(a), 1);
-  const pct = Math.abs(diff / base) * 100;
-  const isBetter = higherIsBetter ? diff > 0 : diff < 0;
-  const arrow = diff > 0 ? '↑' : '↓';
-  const cls = isBetter ? 'delta-positive' : 'delta-negative';
-  const label = pct > 1 ? `${pct.toFixed(0)}%` : `${Math.abs(diff).toFixed(1)}`;
-  return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
-}
-
 const metricsRows = computed<MetricRow[]>(() => {
   if (!compared.value) return [];
   const durA = sessionDurationMs(dataA.detail);
@@ -178,7 +162,7 @@ const metricsRows = computed<MetricRow[]>(() => {
     fmt: (v: number) => string,
     hib: boolean,
   ): MetricRow {
-    const d = computeDelta(va, vb, hib);
+    const d = formatSessionDelta(va, vb, hib);
     return { label, valueA: fmt(va), valueB: fmt(vb), rawA: va, rawB: vb, ...d };
   }
 
@@ -537,7 +521,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
           <div class="chart-box">
             <div class="chart-box-header">Model Distribution — Session A</div>
             <div class="chart-box-body chart-body-center">
-              <div v-if="donutA.length === 0" class="no-data">No model data</div>
+              <EmptyState v-if="donutA.length === 0" compact message="No model data" />
               <div v-else class="donut-wrap">
                 <svg width="160" height="160" viewBox="0 0 160 160">
                   <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
@@ -565,7 +549,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
           <div class="chart-box">
             <div class="chart-box-header">Model Distribution — Session B</div>
             <div class="chart-box-body chart-body-center">
-              <div v-if="donutB.length === 0" class="no-data">No model data</div>
+              <EmptyState v-if="donutB.length === 0" compact message="No model data" />
               <div v-else class="donut-wrap">
                 <svg width="160" height="160" viewBox="0 0 160 160">
                   <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
@@ -594,7 +578,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
 
         <!-- ═══════ Tool Usage Comparison ═══════ -->
         <SectionPanel title="Tool Usage Comparison">
-          <div v-if="toolCompRows.length === 0" class="no-data">No tool usage data</div>
+          <EmptyState v-if="toolCompRows.length === 0" compact message="No tool usage data" />
           <template v-else>
             <div class="tool-legend">
               <div class="tool-legend-item">
@@ -621,7 +605,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
           <div class="chart-box">
             <div class="chart-box-header">Message Length by Turn — Session A</div>
             <div class="chart-box-body">
-              <div v-if="waveA.length === 0" class="no-data">No turns</div>
+              <EmptyState v-if="waveA.length === 0" compact message="No turns" />
               <div v-else class="waveform-container">
                 <div
                   v-for="(h, i) in waveA"
@@ -636,7 +620,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
           <div class="chart-box">
             <div class="chart-box-header">Message Length by Turn — Session B</div>
             <div class="chart-box-body">
-              <div v-if="waveB.length === 0" class="no-data">No turns</div>
+              <EmptyState v-if="waveB.length === 0" compact message="No turns" />
               <div v-else class="waveform-container">
                 <div
                   v-for="(h, i) in waveB"
@@ -1173,14 +1157,6 @@ function exitLabel(m: ShutdownMetrics | null): string {
   background: var(--canvas-subtle);
   color: var(--text-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-
-/* ── Utilities ── */
-.no-data {
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-  text-align: center;
-  padding: 20px;
 }
 
 /* ── Responsive ── */
