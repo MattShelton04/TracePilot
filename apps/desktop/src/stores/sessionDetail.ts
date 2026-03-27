@@ -111,7 +111,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         if (!sessionGuard.isValid(token)) return;
         opts.onResult(result);
         loaded.value.add(opts.key);
-      } catch (e) {
+      } catch (err: unknown) {
         if (!sessionGuard.isValid(token)) return;
         opts.errorRef.value = toErrorMessage(e);
         const logFn = opts.logLevel === 'warn' ? logWarn : logError;
@@ -313,7 +313,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (!sessionGuard.isValid(token)) return;
       detail.value = result;
       loaded.value.add("detail");
-    } catch (e) {
+    } catch (err: unknown) {
       if (!sessionGuard.isValid(token)) return;
       detail.value = null;
       error.value = toErrorMessage(e);
@@ -344,7 +344,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       events.value = result;
       loaded.value.add("events");
-    } catch (e) {
+    } catch (err: unknown) {
       if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
       logError("[sessionDetail] Failed to load events:", e);

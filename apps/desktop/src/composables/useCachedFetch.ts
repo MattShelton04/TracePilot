@@ -199,7 +199,7 @@ export function useCachedFetch<TData, TParams = void>(
         }
 
         return result;
-      } catch (e) {
+      } catch (err: unknown) {
         // Only update error if this is still the latest request
         if (gen !== generation) return undefined;
 

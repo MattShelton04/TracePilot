@@ -55,7 +55,7 @@ export const useLauncherStore = defineStore('launcher', () => {
         .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
         .map((r) => toErrorMessage(r.reason));
       if (failures.length) error.value = failures.join('; ');
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
     } finally {
       loading.value = false;
@@ -68,7 +68,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       const session = await launchSessionApi(config);
       recentLaunches.value = [session, ...recentLaunches.value.slice(0, 9)];
       return session;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return null;
     }
@@ -79,7 +79,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       await saveTemplateApi(template);
       templates.value = await listSessionTemplates();
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }
@@ -90,7 +90,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       await deleteTemplateApi(id);
       templates.value = templates.value.filter((t) => t.id !== id);
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }
@@ -101,7 +101,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       await restoreDefaultsApi();
       templates.value = await listSessionTemplates();
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }

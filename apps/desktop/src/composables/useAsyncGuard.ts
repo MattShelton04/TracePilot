@@ -141,7 +141,7 @@ export interface AsyncGuard {
  *   const data = await fetchData();
  *   if (!guard.isValid(token)) return;
  *   state.value = data;
- * } catch (e) {
+ * } catch (err: unknown) {
  *   if (!guard.isValid(token)) return; // Don't show stale errors
  *   error.value = String(e);
  * }

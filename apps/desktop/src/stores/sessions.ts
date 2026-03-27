@@ -118,7 +118,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     fetchPromise = (async () => {
       try {
         sessions.value = await listSessions();
-      } catch (e) {
+      } catch (err: unknown) {
         error.value = toErrorMessage(e);
       } finally {
         fetchPromise = null;
@@ -134,7 +134,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     fetchPromise = (async () => {
       try {
         sessions.value = await listSessions();
-      } catch (e) {
+      } catch (err: unknown) {
         logError("[sessions] Silent refresh failed:", e);
       } finally {
         fetchPromise = null;
@@ -150,7 +150,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       try {
         await indexingPromise;
         sessions.value = await listSessions();
-      } catch (e) {
+      } catch (err: unknown) {
         const msg = toErrorMessage(e);
         if (msg !== "ALREADY_INDEXING") {
           error.value = msg;
@@ -166,7 +166,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       await indexingPromise;
       // After reindex completes, refresh the list from the now-updated index
       sessions.value = await listSessions();
-    } catch (e) {
+    } catch (err: unknown) {
       const msg = toErrorMessage(e);
       if (msg !== "ALREADY_INDEXING") {
         error.value = msg;

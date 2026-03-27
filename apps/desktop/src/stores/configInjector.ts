@@ -67,7 +67,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       if (failures.length > 0) {
         error.value = failures.map((f) => toErrorMessage(f.reason)).join('; ');
       }
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
     } finally {
       loading.value = false;
@@ -89,7 +89,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       // Reload agents to reflect changes
       agents.value = await getAgentDefinitions();
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     } finally {
@@ -105,7 +105,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       copilotConfig.value = await getCopilotConfig();
       toastStore.success('Global config saved');
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     } finally {
@@ -121,7 +121,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
         toastStore.success('Backup created');
       }
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       if (!silent) error.value = toErrorMessage(e);
       return false;
     }
@@ -133,7 +133,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       toastStore.success('Backup restored');
       await initialize(); // Reload everything
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }
@@ -145,7 +145,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       backups.value = await listConfigBackups();
       toastStore.success('Backup deleted');
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }
@@ -154,7 +154,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function loadMigrationDiffs(from: string, to: string) {
     try {
       migrationDiffs.value = await getMigrationDiffs(from, to);
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
     }
   }
@@ -164,7 +164,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await migrateAgentApi(fileName, from, to);
       toastStore.success(`Migrated ${fileName}`);
       return true;
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       return false;
     }

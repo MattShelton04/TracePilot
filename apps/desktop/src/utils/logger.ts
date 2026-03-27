@@ -33,8 +33,8 @@ export async function initLogging(): Promise<void> {
     // To also see Rust-originated logs in the browser console, uncomment:
     // const log = await ensureLog();
     // if (log) detach = await log.attachConsole();
-  } catch (e) {
-    console.warn('[TracePilot] Failed to initialize logging:', e);
+  } catch (err: unknown) {
+    console.warn('[TracePilot] Failed to initialize logging:', err);
   }
 }
 

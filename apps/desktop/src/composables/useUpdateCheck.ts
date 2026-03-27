@@ -54,7 +54,7 @@ export async function runUpdateCheck(force = false): Promise<void> {
       JSON.stringify({ timestamp: Date.now(), result, forVersion: currentVersion }),
     );
     updateResult.value = result;
-  } catch (e) {
+  } catch (err: unknown) {
     updateCheckError.value = toErrorMessage(e, 'Update check failed');
   } finally {
     updateCheckLoading.value = false;

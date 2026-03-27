@@ -356,7 +356,7 @@ export const useSearchStore = defineStore('search', () => {
         tool: mergedTool,
         session: mergedSession,
       });
-    } catch (e) {
+    } catch (err: unknown) {
       if (!searchGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
       results.value = [];
@@ -525,7 +525,7 @@ export const useSearchStore = defineStore('search', () => {
       });
       if (!facetGuard.isValid(token)) return;
       facets.value = result;
-    } catch (e) {
+    } catch (err: unknown) {
       if (!facetGuard.isValid(token)) return;
       logWarn('[search] Failed to fetch search facets:', e);
     }
@@ -535,7 +535,7 @@ export const useSearchStore = defineStore('search', () => {
     statsLoading.value = true;
     try {
       stats.value = await getSearchStats();
-    } catch (e) {
+    } catch (err: unknown) {
       logWarn('[search] Failed to fetch search stats:', e);
     } finally {
       statsLoading.value = false;
@@ -566,7 +566,7 @@ export const useSearchStore = defineStore('search', () => {
       if (hasQuery.value || hasActiveFilters.value || hasResults.value) {
         await executeSearch();
       }
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
     } finally {
       rebuilding.value = false;
@@ -578,7 +578,7 @@ export const useSearchStore = defineStore('search', () => {
     healthLoading.value = true;
     try {
       healthInfo.value = await ftsHealth();
-    } catch (e) {
+    } catch (err: unknown) {
       healthInfo.value = null;
     } finally {
       healthLoading.value = false;
@@ -589,7 +589,7 @@ export const useSearchStore = defineStore('search', () => {
     maintenanceMessage.value = null;
     try {
       maintenanceMessage.value = await ftsIntegrityCheck();
-    } catch (e) {
+    } catch (err: unknown) {
       maintenanceMessage.value = `Error: ${String(e)}`;
     }
   }
@@ -599,7 +599,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       maintenanceMessage.value = await ftsOptimize();
       await fetchHealth(); // refresh health after optimize
-    } catch (e) {
+    } catch (err: unknown) {
       maintenanceMessage.value = `Error: ${String(e)}`;
     }
   }

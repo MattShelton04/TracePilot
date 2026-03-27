@@ -124,7 +124,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       await loadWorktreeStatsFromRegistry();
 
       lastInitialized.value = Date.now();
-    } catch (e) {
+    } catch (err: unknown) {
       error.value = toErrorMessage(e);
       loading.value = false;
     }
