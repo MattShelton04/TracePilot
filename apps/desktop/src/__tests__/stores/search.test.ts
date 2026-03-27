@@ -184,6 +184,14 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 
+  const presetMethods = {
+    browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
+    browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
+    browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),
+    browseToolResults: (s: ReturnType<typeof useSearchStore>) => s.browseToolResults(),
+    browseSubagents: (s: ReturnType<typeof useSearchStore>) => s.browseSubagents(),
+  } as const;
+
   it.each([
     ["browseErrors", ["error", "tool_error"]],
     ["browseUserMessages", ["user_message"]],
