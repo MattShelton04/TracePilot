@@ -766,7 +766,7 @@ watch(filteredTodos, () => {
 .filter-chip.active { opacity: 1; }
 .filter-chip.active.done { background: rgba(52, 211, 153, 0.1); border-color: #34d399; color: #34d399; }
 .filter-chip.active.in_progress { background: rgba(99, 102, 241, 0.1); border-color: #818cf8; color: #818cf8; }
-.filter-chip.active.pending { background: rgba(161, 161, 170, 0.08); border-color: rgba(255, 255, 255, 0.2); color: #a1a1aa; }
+.filter-chip.active.pending { background: rgba(161, 161, 170, 0.08); border-color: var(--border-default); color: #a1a1aa; }
 .filter-chip.active.blocked { background: rgba(251, 113, 133, 0.08); border-color: #fb7185; color: #fb7185; }
 
 .filter-icon { font-size: 0.75rem; }
@@ -961,7 +961,7 @@ watch(filteredTodos, () => {
 }
 .legend-swatch.done { background: rgba(52, 211, 153, 0.15); border-color: #34d399; }
 .legend-swatch.in_progress { background: rgba(99, 102, 241, 0.15); border-color: #818cf8; }
-.legend-swatch.pending { background: rgba(161, 161, 170, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+.legend-swatch.pending { background: rgba(161, 161, 170, 0.08); border-color: var(--border-default); }
 .legend-swatch.blocked { background: rgba(251, 113, 133, 0.08); border-color: #fb7185; border-style: dashed; }
 
 /* Detail panel */

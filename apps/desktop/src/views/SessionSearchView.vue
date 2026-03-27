@@ -1293,7 +1293,7 @@ onUnmounted(() => {
 
 .indexing-banner-text {
   font-size: 0.8125rem;
-  color: var(--fg-secondary, #8b949e);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -1609,7 +1609,7 @@ onUnmounted(() => {
 
 .filter-chip-remove:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--state-hover-overlay);
 }
 
 .filter-chip-clear-all {
