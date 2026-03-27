@@ -18,9 +18,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
   }
 }
