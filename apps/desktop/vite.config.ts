@@ -20,6 +20,20 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-tauri': [
+            '@tauri-apps/api',
+            '@tauri-apps/plugin-dialog',
+            '@tauri-apps/plugin-log',
+            '@tauri-apps/plugin-opener',
+            '@tauri-apps/plugin-process',
+            '@tauri-apps/plugin-updater',
+          ],
+          'markdown': ['markdown-it', 'dompurify'],
+        },
+      },
       plugins: mode === "analyze"
         ? [
             // Dynamic import because rollup-plugin-visualizer is ESM-only

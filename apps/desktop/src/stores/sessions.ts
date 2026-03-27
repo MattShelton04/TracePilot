@@ -23,23 +23,42 @@ export const useSessionsStore = defineStore("sessions", () => {
   const filterBranch = ref<string | null>(null);
   const sortBy = ref<SortOption>("updated");
 
+  // Pre-compute lowercased search fields — rebuilt only when session list changes,
+  // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
+  const searchFieldCache = computed(() => {
+    const cache = new Map<string, { id: string; summary: string; repository: string; branch: string }>();
+    for (const s of sessions.value) {
+      cache.set(s.id, {
+        id: s.id.toLowerCase(),
+        summary: (s.summary ?? '').toLowerCase(),
+        repository: (s.repository ?? '').toLowerCase(),
+        branch: (s.branch ?? '').toLowerCase(),
+      });
+    }
+    return cache;
+  });
+
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
     const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     const repo = filterRepo.value;
     const branch = filterBranch.value;
     const hideEmpty = prefs.hideEmptySessions;
+    const cache = searchFieldCache.value;
 
     // Single-pass filter: combine all predicates into one loop
     const result = sessions.value.filter((s) => {
       if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
 
-      if (q && !(
-        s.summary?.toLowerCase().includes(q) ||
-        s.repository?.toLowerCase().includes(q) ||
-        s.branch?.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q)
-      )) return false;
+      if (q) {
+        const fields = cache.get(s.id);
+        if (!fields || !(
+          fields.summary.includes(q) ||
+          fields.repository.includes(q) ||
+          fields.branch.includes(q) ||
+          fields.id.includes(q)
+        )) return false;
+      }
 
       if (repo && s.repository !== repo) return false;
       if (branch && s.branch !== branch) return false;

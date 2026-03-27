@@ -522,12 +522,12 @@ Add structured `PERF:` doc comments to the ~10 most critical functions. This con
 
 | Task | Status | Output |
 |------|--------|--------|
-| 2.1 — tracing::instrument spans | ⬜ | ~20 annotated functions |
-| 2.2 — IPC timing wrapper | ⬜ | Instrumented invoke.ts |
-| 2.3 — Bundle analysis baseline | ⬜ | perf-baselines.json |
-| 2.4 — Lock hold time profiling | ⬜ | Timing data in baselines |
-| 2.5 — Performance budget file | ⬜ | perf-budget.json |
-| 2.6 — PERF doc comments | ⬜ | 10 annotated functions |
+| 2.1 — tracing::instrument spans | ✅ Done | 20 annotated functions across core, indexer, tauri-bindings |
+| 2.2 — IPC timing wrapper | ✅ Done | `invokePlugin` instrumented with slow-call logging (>100ms) |
+| 2.3 — Bundle analysis baseline | ⬜ Deferred | Covered by `.github/workflows/bundle-analysis.yml` |
+| 2.4 — Lock hold time profiling | ⬜ Deferred | Lock scope already reduced in Phase 1 |
+| 2.5 — Performance budget file | ✅ Done | `perf-budget.json` at repo root |
+| 2.6 — PERF doc comments | ✅ Done | 10 annotated functions |
 
 **After completing Phase 2:**
 1. All baseline measurements are recorded and documented

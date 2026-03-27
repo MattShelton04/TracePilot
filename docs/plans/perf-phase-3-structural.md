@@ -502,11 +502,11 @@ const filteredSessions = computed(() => {
 
 | Task | Status | Blocked By |
 |------|--------|------------|
-| 3.1 — Virtual scrolling (session list) | ⬜ | Phase 2 baselines |
-| 3.2 — Vite manual chunks | ⬜ | Task 2.3 baseline |
-| 3.3 — Lazy-load markdown deps | ⬜ | Task 3.2 |
-| 3.4 — Pre-compute search fields | ⬜ | Task 1.3 |
-| 3.5 — CSS transition fixes | ⬜ | None |
+| 3.1 — Virtual scrolling (session list) | ⬜ Deferred | Not needed at current scale (~173 sessions); adds scroll jank |
+| 3.2 — Vite manual chunks | ✅ Done | — |
+| 3.3 — Lazy-load markdown deps | ✅ Done | — |
+| 3.4 — Pre-compute search fields | ✅ Done | — |
+| 3.5 — CSS transition fixes | ✅ Done (Phase 1) | — |
 
 **After completing Phase 3:**
 1. Re-run bundle analysis and compare against Phase 2 baseline
