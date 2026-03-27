@@ -21,9 +21,17 @@ import {
 import type { FtsHealthInfo } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { logWarn } from '@/utils/logger';
+import { parseQualifiers } from '@/utils/parseQualifiers';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
+import { useRecentSearches } from '@/composables/useRecentSearches';
+import { useSearchClipboard } from '@/composables/useSearchClipboard';
+
+// Re-export types and utilities that consumers may depend on
+export type { RecentSearch } from '@/composables/useRecentSearches';
+export type { ParsedQualifiers } from '@/utils/parseQualifiers';
+export { parseQualifiers } from '@/utils/parseQualifiers';
 
 export interface SessionGroup {
   sessionId: string;
@@ -33,94 +41,17 @@ export interface SessionGroup {
   results: SearchResult[];
 }
 
-export interface RecentSearch {
-  query: string;
-  timestamp: number;
-  resultCount: number;
-}
+/** Content-type presets for the browse-mode quick filters. */
+export const BROWSE_PRESETS = {
+  errors: ['error', 'tool_error'] as SearchContentType[],
+  userMessages: ['user_message'] as SearchContentType[],
+  toolCalls: ['tool_call'] as SearchContentType[],
+  reasoning: ['reasoning'] as SearchContentType[],
+  toolResults: ['tool_result'] as SearchContentType[],
+  subagents: ['subagent'] as SearchContentType[],
+} as const;
 
-const RECENT_SEARCHES_KEY = 'tracepilot-recent-searches';
-const MAX_RECENT_SEARCHES = 10;
-
-function loadRecentSearches(): RecentSearch[] {
-  try {
-    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_SEARCHES) : [];
-  } catch { return []; }
-}
-
-function saveRecentSearches(searches: RecentSearch[]) {
-  try {
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)));
-  } catch { /* localStorage full or unavailable */ }
-}
-
-/** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:` from query. */
-export interface ParsedQualifiers {
-  cleanQuery: string;
-  types: SearchContentType[];
-  repo: string | null;
-  tool: string | null;
-  session: string | null;
-  sort: 'relevance' | 'newest' | 'oldest' | null;
-}
-
-const QUALIFIER_RE = /\b(type|repo|tool|session|sort):(?:"([^"]+)"|(\S+))/gi;
-
-export function parseQualifiers(raw: string): ParsedQualifiers {
-  const result: ParsedQualifiers = {
-    cleanQuery: raw,
-    types: [],
-    repo: null,
-    tool: null,
-    session: null,
-    sort: null,
-  };
-
-  let match: RegExpExecArray | null;
-  const consumed: [number, number][] = [];
-
-  while ((match = QUALIFIER_RE.exec(raw)) !== null) {
-    const key = match[1].toLowerCase();
-    const val = match[2] ?? match[3]; // quoted value or unquoted
-    consumed.push([match.index, match.index + match[0].length]);
-    switch (key) {
-      case 'type':
-        result.types.push(val as SearchContentType);
-        break;
-      case 'repo':
-        result.repo = val;
-        break;
-      case 'tool':
-        result.tool = val;
-        break;
-      case 'session':
-        result.session = val;
-        break;
-      case 'sort':
-        if (['relevance', 'newest', 'oldest'].includes(val)) {
-          result.sort = val as 'relevance' | 'newest' | 'oldest';
-        }
-        break;
-    }
-  }
-
-  // Strip consumed qualifiers from query
-  if (consumed.length > 0) {
-    let clean = '';
-    let pos = 0;
-    for (const [start, end] of consumed) {
-      clean += raw.slice(pos, start);
-      pos = end;
-    }
-    clean += raw.slice(pos);
-    result.cleanQuery = clean.replace(/\s+/g, ' ').trim();
-  }
-
-  return result;
-}
+export type BrowsePresetKey = keyof typeof BROWSE_PRESETS;
 
 export interface FacetOverrides {
   contentTypes?: string[];
@@ -174,8 +105,16 @@ export const useSearchStore = defineStore('search', () => {
   const healthLoading = ref(false);
   const maintenanceMessage = ref<string | null>(null);
 
-  // ── Recent searches ────────────────────────────────────────
-  const recentSearches = ref<RecentSearch[]>(loadRecentSearches());
+  // ── Recent searches (delegated to composable) ──────────────
+  const {
+    recentSearches,
+    addRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches,
+  } = useRecentSearches();
+
+  // ── Clipboard (delegated to composable) ────────────────────
+  const { copyResultsToClipboard: clipboardCopyResults, copySingleResult: clipboardCopySingle } = useSearchClipboard();
 
   // Global event listeners — initialized once, persist across route navigation
   let listenersInitialized = false;
@@ -406,96 +345,26 @@ export const useSearchStore = defineStore('search', () => {
     });
   }
 
-  function browseErrors() {
-    applyBrowsePreset(['error', 'tool_error']);
-  }
+  // Thin wrappers kept for backward compatibility with existing consumers and tests.
+  function browseErrors() { applyBrowsePreset(BROWSE_PRESETS.errors); }
+  function browseUserMessages() { applyBrowsePreset(BROWSE_PRESETS.userMessages); }
+  function browseToolCalls() { applyBrowsePreset(BROWSE_PRESETS.toolCalls); }
+  function browseReasoning() { applyBrowsePreset(BROWSE_PRESETS.reasoning); }
+  function browseToolResults() { applyBrowsePreset(BROWSE_PRESETS.toolResults); }
+  function browseSubagents() { applyBrowsePreset(BROWSE_PRESETS.subagents); }
 
-  function browseUserMessages() {
-    applyBrowsePreset(['user_message']);
-  }
-
-  function browseToolCalls() {
-    applyBrowsePreset(['tool_call']);
-  }
-
-  function browseReasoning() {
-    applyBrowsePreset(['reasoning']);
-  }
-
-  function browseToolResults() {
-    applyBrowsePreset(['tool_result']);
-  }
-
-  function browseSubagents() {
-    applyBrowsePreset(['subagent']);
-  }
-
-  // ── Recent search management ──────────────────────────────
-  function addRecentSearch(q: string, count: number) {
-    const existing = recentSearches.value.filter(s => s.query !== q);
-    existing.unshift({ query: q, timestamp: Date.now(), resultCount: count });
-    recentSearches.value = existing.slice(0, MAX_RECENT_SEARCHES);
-    saveRecentSearches(recentSearches.value);
-  }
-
+  // ── Recent search helpers (store-level orchestration) ──────
   function applyRecentSearch(q: string) {
     query.value = q;
   }
 
-  function removeRecentSearch(q: string) {
-    recentSearches.value = recentSearches.value.filter(s => s.query !== q);
-    saveRecentSearches(recentSearches.value);
-  }
-
-  function clearRecentSearches() {
-    recentSearches.value = [];
-    saveRecentSearches([]);
-  }
-
-  // ── Helpers ───────────────────────────────────────────────
-  /** Safely extract text from an HTML snippet (handles code like `a < b && c > d`). */
-  function stripHtml(html: string): string {
-    if (!html) return '';
-    try {
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      return doc.body.textContent ?? '';
-    } catch {
-      // Fallback: only strip known safe tags (<mark>, </mark>)
-      return html.replace(/<\/?mark>/gi, '');
-    }
-  }
-
-  // ── Export / copy ─────────────────────────────────────────
+  // ── Clipboard helpers (delegate to composable, keep store API) ──
   async function copyResultsToClipboard(resultsToCopy?: SearchResult[]): Promise<boolean> {
-    const items = resultsToCopy ?? results.value;
-    if (items.length === 0) return false;
-    const text = items.map(r => {
-      const meta = [r.contentType.replace(/_/g, ' '), r.toolName].filter(Boolean).join(' · ');
-      const plainSnippet = stripHtml(r.snippet);
-      const header = r.sessionSummary ? `[${r.sessionSummary}] ${meta}` : `[${meta}]`;
-      return `${header}\n${plainSnippet}`;
-    }).join('\n\n---\n\n');
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch { return false; }
+    return clipboardCopyResults(resultsToCopy ?? results.value);
   }
 
   async function copySingleResult(result: SearchResult): Promise<boolean> {
-    try {
-      const plainSnippet = stripHtml(result.snippet);
-      const parts: string[] = [];
-      if (result.sessionSummary) parts.push(`Session: ${result.sessionSummary}`);
-      const meta = [result.contentType.replace(/_/g, ' ')];
-      if (result.toolName) meta.push(`tool: ${result.toolName}`);
-      if (result.turnNumber != null) meta.push(`turn ${result.turnNumber}`);
-      parts.push(meta.join(' · '));
-      parts.push('');
-      parts.push(plainSnippet);
-      if (result.sessionRepository) parts.push(`\nRepo: ${result.sessionRepository}`);
-      await navigator.clipboard.writeText(parts.join('\n'));
-      return true;
-    } catch { return false; }
+    return clipboardCopySingle(result);
   }
 
   // ── Facets & stats ───────────────────────────────────────────
@@ -694,6 +563,7 @@ export const useSearchStore = defineStore('search', () => {
     nextPage,
     prevPage,
     initEventListeners,
+    applyBrowsePreset,
     browseErrors,
     browseUserMessages,
     browseToolCalls,
