@@ -23,15 +23,44 @@ import {
   useToggleSet,
   useLiveDuration,
 } from "@tracepilot/ui";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
+import { useTimelineToolState } from "@/composables/useTimelineToolState";
 
-const store = useSessionDetailStore();
-const prefs = usePreferencesStore();
-const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
-  () => store.sessionId
-);
+// Define the turn ownership check logic for the composable
+const turnOwnershipCheck = (turn: ConversationTurn, tool: TurnToolCall): boolean => {
+  // If this is a non-subagent child tool of a subagent, only match the turn that owns the parent subagent.
+  // This prevents double-matching when the tool object physically lives in a different
+  // turn's toolCalls array but is rendered under the subagent's turn via nestedTools().
+  // Note: nested subagents (isSubagent && parentToolCallId) should fall through to the
+  // identity/ID check below, since they are rendered as lanes in their own turn.
+  if (tool.parentToolCallId && !tool.isSubagent) {
+    const turnSubagentIds = new Set(
+      turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
+    );
+    return turnSubagentIds.has(tool.parentToolCallId);
+  }
+
+  // For direct tools / subagent headers, use object identity or ID match
+  if (tool.toolCallId) {
+    return turn.toolCalls.some(tc => tc.toolCallId === tool.toolCallId);
+  }
+  return turn.toolCalls.includes(tool);
+};
+
+const {
+  store,
+  prefs,
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult,
+  retryFullResult,
+  allToolCalls,
+  selectedTool,
+  selectTool,
+  isToolSelected: isSelected,
+  clearSelection: closeDetail,
+  turnOwnsSelected,
+} = useTimelineToolState({ turnOwnershipCheck });
 
 // ── Live-ticking for in-progress subagents ───────────────────
 const hasInProgressAgents = computed(() =>
@@ -61,68 +90,6 @@ function getAssistantMsgIdx(turnIndex: number): number {
 }
 function setAssistantMsgIdx(turnIndex: number, idx: number) {
   assistantMsgIndex.value.set(turnIndex, idx);
-}
-
-// ── Click-to-select detail panel ─────────────────────────────
-const selectedTool = ref<TurnToolCall | null>(null);
-
-function selectTool(tc: TurnToolCall) {
-  if (selectedTool.value?.toolCallId === tc.toolCallId && tc.toolCallId) {
-    selectedTool.value = null;
-  } else if (selectedTool.value === tc && !tc.toolCallId) {
-    selectedTool.value = null;
-  } else {
-    selectedTool.value = tc;
-  }
-}
-
-function isSelected(tc: TurnToolCall): boolean {
-  if (!selectedTool.value) return false;
-  if (tc.toolCallId && selectedTool.value.toolCallId) {
-    return tc.toolCallId === selectedTool.value.toolCallId;
-  }
-  return selectedTool.value === tc;
-}
-
-function closeDetail() {
-  selectedTool.value = null;
-}
-
-const allToolCalls= computed(() => store.turns.flatMap(t => t.toolCalls));
-
-// Re-resolve selectedTool after data refresh so the detail panel stays open.
-// On refresh, store.turns gets a new array with new object references; we match by toolCallId.
-watch(allToolCalls, (newAll) => {
-  const sel = selectedTool.value;
-  if (!sel || !sel.toolCallId) return;
-  const match = newAll.find(tc => tc.toolCallId === sel.toolCallId);
-  if (match) {
-    selectedTool.value = match;
-  }
-});
-
-/** Check if the selected tool belongs to this turn (directly or as a nested child of a subagent). */
-function turnOwnsSelected(turn: ConversationTurn): boolean {
-  const sel = selectedTool.value;
-  if (!sel) return false;
-
-  // If this is a non-subagent child tool of a subagent, only match the turn that owns the parent subagent.
-  // This prevents double-matching when the tool object physically lives in a different
-  // turn's toolCalls array but is rendered under the subagent's turn via nestedTools().
-  // Note: nested subagents (isSubagent && parentToolCallId) should fall through to the
-  // identity/ID check below, since they are rendered as lanes in their own turn.
-  if (sel.parentToolCallId && !sel.isSubagent) {
-    const turnSubagentIds = new Set(
-      turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
-    );
-    return turnSubagentIds.has(sel.parentToolCallId);
-  }
-
-  // For direct tools / subagent headers, use object identity or ID match
-  if (sel.toolCallId) {
-    return turn.toolCalls.some(tc => tc.toolCallId === sel.toolCallId);
-  }
-  return turn.toolCalls.includes(sel);
 }
 
 function countNestedTools(agent: TurnToolCall): number {

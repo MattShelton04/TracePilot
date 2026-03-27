@@ -12,7 +12,6 @@ import {
   toolCategory,
   categoryColor,
   formatArgsSummary,
-  useToggleSet,
   extractPrompt,
   getToolCallColor,
   toTimeSpan,
@@ -22,21 +21,28 @@ import {
   TerminologyLegend,
   type TimeSpanItem,
 } from "@tracepilot/ui";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
+import { useTimelineToolState } from "@/composables/useTimelineToolState";
 
 /* ------------------------------------------------------------------ */
 /*  Store & data                                                      */
 /* ------------------------------------------------------------------ */
 
-const store = useSessionDetailStore();
-const prefs = usePreferencesStore();
+const {
+  store,
+  prefs,
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult,
+  retryFullResult,
+  allToolCalls,
+  expandedToolCalls,
+  expandedReasoning,
+  expandedOutputs,
+  clearAllState,
+} = useTimelineToolState();
+
 const turns = computed(() => store.turns);
-const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
-const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
-  () => store.sessionId
-);
 
 /* ------------------------------------------------------------------ */
 /*  Selection refs (forward-declared for navigation escape handler)   */
