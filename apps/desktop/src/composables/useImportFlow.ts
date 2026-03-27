@@ -76,6 +76,10 @@ export function useImportFlow(): ImportFlowState {
   const skippedCount = ref(0);
   const importErrors = ref<string[]>([]);
 
+  // Timer and request tracking
+  let activeProgressTimer: ReturnType<typeof setInterval> | null = null;
+  let validateRequestId = 0;
+
   // ── Computed ──
 
   const hasErrors = computed(() =>
@@ -131,12 +135,17 @@ export function useImportFlow(): ImportFlowState {
   async function validateFile(): Promise<void> {
     if (!filePath.value) return;
 
+    const thisRequest = ++validateRequestId;
     step.value = 'validating';
     error.value = null;
     preview.value = null;
 
     try {
       const result = await previewImport(filePath.value);
+
+      // Guard against stale responses from rapid file selections
+      if (thisRequest !== validateRequestId) return;
+
       preview.value = result;
 
       // Auto-select all sessions from the preview
@@ -144,6 +153,7 @@ export function useImportFlow(): ImportFlowState {
       step.value = 'review';
       logInfo(`[useImportFlow] Validated ${result.sessions.length} session(s) from ${fileName.value}`);
     } catch (e) {
+      if (thisRequest !== validateRequestId) return;
       const msg = e instanceof Error ? e.message : String(e);
       error.value = msg;
       step.value = 'select';
@@ -162,7 +172,7 @@ export function useImportFlow(): ImportFlowState {
     importErrors.value = [];
 
     // Simulate progress while waiting for the backend
-    const progressTimer = setInterval(() => {
+    activeProgressTimer = setInterval(() => {
       if (importProgress.value < 90) {
         importProgress.value += Math.random() * 15;
         if (importProgress.value > 90) importProgress.value = 90;
@@ -176,18 +186,20 @@ export function useImportFlow(): ImportFlowState {
         sessionFilter: selectedSessions.value,
       });
 
-      clearInterval(progressTimer);
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
+      activeProgressTimer = null;
       importProgress.value = 100;
       importedCount.value = result.importedCount;
       skippedCount.value = result.skippedCount;
-      importErrors.value = result.errors;
+      importErrors.value = result.warnings;
       step.value = 'complete';
 
       logInfo(
         `[useImportFlow] Import complete: ${result.importedCount} imported, ${result.skippedCount} skipped`,
       );
     } catch (e) {
-      clearInterval(progressTimer);
+      if (activeProgressTimer) clearInterval(activeProgressTimer);
+      activeProgressTimer = null;
       const msg = e instanceof Error ? e.message : String(e);
       error.value = msg;
       importProgress.value = 0;
@@ -197,6 +209,9 @@ export function useImportFlow(): ImportFlowState {
   }
 
   function reset(): void {
+    if (activeProgressTimer) clearInterval(activeProgressTimer);
+    activeProgressTimer = null;
+    validateRequestId++;
     step.value = 'select';
     filePath.value = '';
     fileName.value = '';

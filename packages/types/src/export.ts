@@ -54,7 +54,7 @@ export type ExportFormat = 'json' | 'markdown' | 'csv';
 
 // ── Conflict Strategy (for import) ──────────────────────────────
 
-export type ConflictStrategy = 'skip' | 'overwrite' | 'rename';
+export type ConflictStrategy = 'skip' | 'replace' | 'duplicate';
 
 // ── Export Configuration ────────────────────────────────────────
 
@@ -89,7 +89,7 @@ export interface ExportPreviewRequest {
   sessionId: string;
   format: ExportFormat;
   sections: SectionId[];
-  /** Max characters to return. Defaults to 50_000 on the backend. */
+  /** Max bytes to return in the preview. Defaults to 512KB on the backend. */
   maxLength?: number;
 }
 
@@ -172,7 +172,7 @@ export interface ImportConfig {
 export interface ImportResult {
   importedCount: number;
   skippedCount: number;
-  errors: string[];
+  warnings: string[];
 }
 
 // ─── Comparison ───────────────────────────────────────────────────

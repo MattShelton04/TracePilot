@@ -61,24 +61,39 @@ pub async fn export_sessions(
         // Build archive and render
         let files = tracepilot_export::export_sessions_batch(&path_refs, &options)?;
 
-        let primary = files
-            .first()
-            .ok_or_else(|| BindingsError::Validation("Export produced no output".into()))?;
+        if files.is_empty() {
+            return Err(BindingsError::Validation("Export produced no output".into()));
+        }
 
         // Write to destination
         let out = PathBuf::from(&output_path);
         if let Some(parent) = out.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(&out, &primary.content)?;
 
-        let file_size = primary.content.len() as u64;
+        // For multi-file exports (CSV, multi-session Markdown), write all files
+        // alongside the primary path in the same directory.
+        let mut total_size: u64 = 0;
+        if files.len() == 1 {
+            std::fs::write(&out, &files[0].content)?;
+            total_size = files[0].content.len() as u64;
+        } else {
+            let parent_dir = out
+                .parent()
+                .ok_or_else(|| BindingsError::Validation("Invalid output path".into()))?;
+            for file in &files {
+                let dest = parent_dir.join(&file.filename);
+                std::fs::write(&dest, &file.content)?;
+                total_size += file.content.len() as u64;
+            }
+        }
+
         let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
         Ok(ExportSessionsResult {
             sessions_exported: session_ids.len(),
             file_path: output_path,
-            file_size_bytes: file_size,
+            file_size_bytes: total_size,
             exported_at: now.to_rfc3339(),
         })
     })
@@ -273,17 +288,7 @@ pub async fn import_sessions(
         Ok(ImportSessionsResult {
             imported_count: result.imported.len(),
             skipped_count: result.skipped.len(),
-            errors: result
-                .warnings
-                .into_iter()
-                .chain(
-                    result
-                        .skipped
-                        .iter()
-                        .filter(|s| matches!(s.reason, tracepilot_export::import::SkipReason::ValidationError(_)))
-                        .map(|s| format!("Session {}: validation error", s.id)),
-                )
-                .collect(),
+            warnings: result.warnings,
         })
     })
     .await?

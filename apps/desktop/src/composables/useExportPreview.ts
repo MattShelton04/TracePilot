@@ -3,7 +3,7 @@
  * Watches sessionId, format, and sections — re-fetches on any change.
  */
 
-import { ref, watch, type Ref, type ComputedRef } from 'vue';
+import { ref, watch, onUnmounted, type Ref, type ComputedRef } from 'vue';
 import type { ExportFormat, SectionId, ExportPreviewResult } from '@tracepilot/types';
 import { previewExport } from '@tracepilot/client';
 import { logError } from '@/utils/logger';
@@ -63,6 +63,11 @@ export function useExportPreview(
   }
 
   watch([sessionId, format, sections], scheduleFetch, { deep: true });
+
+  onUnmounted(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    requestId++; // Invalidate any in-flight request
+  });
 
   return { preview, loading, error, refresh: fetchPreview };
 }

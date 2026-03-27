@@ -94,10 +94,20 @@ fn validate_session(session: &PortableSession) -> Result<()> {
         )));
     }
 
-    // Security: check checkpoint filenames
+    // Security: check checkpoint filenames and content sizes
     if let Some(checkpoints) = &session.checkpoints {
         for cp in checkpoints {
             validate_filename(&cp.filename)?;
+            if let Some(content) = &cp.content {
+                if content.len() > MAX_SECTION_SIZE {
+                    return Err(validation_err(&format!(
+                        "checkpoint '{}' content too large: {} bytes (max {})",
+                        cp.filename,
+                        content.len(),
+                        MAX_SECTION_SIZE
+                    )));
+                }
+            }
         }
     }
 

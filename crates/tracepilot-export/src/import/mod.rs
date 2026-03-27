@@ -213,8 +213,8 @@ pub fn import_sessions(
     // 3. Migrate if needed (currently a no-op at v1.0)
     // In the future, this would transform the archive in-place
 
-    // 4. Ensure target directory exists
-    if !target_dir.exists() {
+    // 4. Ensure target directory exists (skip in dry-run mode)
+    if !options.dry_run && !target_dir.exists() {
         std::fs::create_dir_all(target_dir)
             .map_err(|e| ExportError::io(target_dir, e))?;
     }
@@ -281,6 +281,23 @@ pub fn import_sessions(
         }
     }
 
+    // Warn about sections present in the archive that can't be fully round-tripped.
+    // These are preserved in the JSON archive format but the writer doesn't reconstruct them.
+    for session in &archive.sessions {
+        let id = &session.metadata.id;
+        if session.rewind_snapshots.is_some() {
+            warnings.push(format!("Session {}: rewind_snapshots section not persisted during import", id));
+        }
+        if let Some(tables) = &session.custom_tables {
+            if !tables.is_empty() {
+                warnings.push(format!("Session {}: custom_tables section not persisted during import", id));
+            }
+        }
+        if session.parse_diagnostics.is_some() {
+            warnings.push(format!("Session {}: parse_diagnostics section not persisted during import", id));
+        }
+    }
+
     Ok(ImportResult {
         imported,
         skipped,
@@ -294,14 +311,17 @@ fn generate_duplicate_id(original_id: &str) -> String {
     format!("{}-imported-{}", original_id, short_suffix)
 }
 
-/// Generate a short unique suffix for duplicate IDs.
+/// Generate a short unique suffix using timestamp + atomic counter.
 fn uuid_suffix() -> String {
+    use std::sync::atomic::{AtomicU32, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos();
-    format!("{:08x}", nanos)
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{:08x}{:04x}", nanos, count)
 }
 
 #[cfg(test)]

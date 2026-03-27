@@ -272,5 +272,5 @@ pub struct ImportSessionPreview {
 pub struct ImportSessionsResult {
     pub imported_count: usize,
     pub skipped_count: usize,
-    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
 }

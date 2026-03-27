@@ -551,8 +551,8 @@ function copiedToClipboard() {
               v-model="importFlow.conflictStrategy.value"
               :options="[
                 { value: 'skip', label: 'Skip' },
-                { value: 'overwrite', label: 'Overwrite' },
-                { value: 'rename', label: 'Rename' },
+                { value: 'replace', label: 'Replace' },
+                { value: 'duplicate', label: 'Duplicate' },
               ]"
             />
           </section>

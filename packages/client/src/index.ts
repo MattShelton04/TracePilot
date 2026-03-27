@@ -418,7 +418,7 @@ export async function previewExport(request: ExportPreviewRequest): Promise<Expo
     sessionId: request.sessionId,
     format: request.format,
     sections: request.sections,
-    maxLength: request.maxLength,
+    maxBytes: request.maxLength,
   });
 }
 

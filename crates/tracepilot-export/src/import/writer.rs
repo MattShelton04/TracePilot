@@ -47,15 +47,35 @@ pub fn write_session(
     }
 
     // Atomic rename from staging to final location
-    // On Windows, rename fails if target exists — remove first if replacing
+    // Uses a backup strategy: rename existing → backup, rename staging → final,
+    // then delete backup. On failure, restore backup to recover original data.
     if final_dir.exists() {
-        fs::remove_dir_all(&final_dir).map_err(|e| ExportError::io(&final_dir, e))?;
+        let backup_dir = target_parent.join(format!(".import-backup-{}", session_id));
+        // Clean up any leftover backup from a previous failed attempt
+        if backup_dir.exists() {
+            let _ = fs::remove_dir_all(&backup_dir);
+        }
+        // Step 1: move existing aside to backup
+        fs::rename(&final_dir, &backup_dir).map_err(|e| ExportError::io(&final_dir, e))?;
+        // Step 2: move staging into place
+        match fs::rename(&staging_dir, &final_dir) {
+            Ok(()) => {
+                // Step 3: clean up backup
+                let _ = fs::remove_dir_all(&backup_dir);
+            }
+            Err(e) => {
+                // Rollback: restore backup
+                let _ = fs::rename(&backup_dir, &final_dir);
+                let _ = fs::remove_dir_all(&staging_dir);
+                return Err(ExportError::io(&final_dir, e));
+            }
+        }
+    } else {
+        fs::rename(&staging_dir, &final_dir).map_err(|e| {
+            let _ = fs::remove_dir_all(&staging_dir);
+            ExportError::io(&final_dir, e)
+        })?;
     }
-    fs::rename(&staging_dir, &final_dir).map_err(|e| {
-        // If rename fails, clean up staging
-        let _ = fs::remove_dir_all(&staging_dir);
-        ExportError::io(&final_dir, e)
-    })?;
 
     Ok(final_dir)
 }

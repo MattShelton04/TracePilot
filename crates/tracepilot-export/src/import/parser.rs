@@ -75,6 +75,17 @@ pub fn parse_archive(path: &Path) -> Result<SessionArchive> {
 /// Useful for testing and for in-memory imports (e.g., clipboard paste).
 /// Optionally verifies the content hash if present in the header.
 pub fn parse_archive_str(json: &str) -> Result<SessionArchive> {
+    // Guard against unbounded input (matches file-based MAX_IMPORT_SIZE)
+    if json.len() as u64 > MAX_IMPORT_SIZE {
+        return Err(ExportError::Validation {
+            message: format!(
+                "input too large: {} bytes (max {} bytes)",
+                json.len(),
+                MAX_IMPORT_SIZE
+            ),
+        });
+    }
+
     let archive: SessionArchive = serde_json::from_str(json).map_err(|e| {
         ExportError::Validation {
             message: format!("invalid JSON structure: {}", e),
