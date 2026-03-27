@@ -72,7 +72,7 @@ async function installUpdate(): Promise<void> {
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   } catch (err: unknown) {
-    errorMessage.value = toErrorMessage(e, 'Auto-update failed');
+    errorMessage.value = toErrorMessage(err, 'Auto-update failed');
     status.value = 'error';
   }
 }

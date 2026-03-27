@@ -253,10 +253,11 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   }
 
   async function fetchWorktreeDetails(worktreePath: string): Promise<WorktreeDetails | null> {
-    return safeAsync(
+    const result = await safeAsync(
       () => getWorktreeDetailsApi(worktreePath),
       { fallback: null, errorContext: 'fetchWorktreeDetails' }
     );
+    return result ?? null;
   }
 
   function hydrateDiskUsage(worktreePath: string) {

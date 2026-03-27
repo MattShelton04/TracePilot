@@ -56,7 +56,7 @@ export const useLauncherStore = defineStore('launcher', () => {
         .map((r) => toErrorMessage(r.reason));
       if (failures.length) error.value = failures.join('; ');
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
     } finally {
       loading.value = false;
     }
@@ -69,7 +69,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       recentLaunches.value = [session, ...recentLaunches.value.slice(0, 9)];
       return session;
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       return null;
     }
   }
@@ -80,7 +80,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = await listSessionTemplates();
       return true;
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       return false;
     }
   }
@@ -91,7 +91,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = templates.value.filter((t) => t.id !== id);
       return true;
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       return false;
     }
   }
@@ -102,7 +102,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       templates.value = await listSessionTemplates();
       return true;
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       return false;
     }
   }

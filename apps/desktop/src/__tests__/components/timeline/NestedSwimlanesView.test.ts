@@ -100,7 +100,7 @@ describe("NestedSwimlanesView", () => {
   it("groups turns into phases by user messages correctly", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, userMessage: "First question" }),
-      makeTurn({ turnIndex: 1, userMessage: null }),
+      makeTurn({ turnIndex: 1, userMessage: undefined }),
       makeTurn({ turnIndex: 2, userMessage: "Second question" }),
     ];
     store.loading = false;
@@ -209,7 +209,7 @@ describe("NestedSwimlanesView", () => {
 
   it("creates implicit phase for turns before first user message", () => {
     store.turns = [
-      makeTurn({ turnIndex: 0, userMessage: null }),
+      makeTurn({ turnIndex: 0, userMessage: undefined }),
       makeTurn({ turnIndex: 1, userMessage: "Hello" }),
     ];
     store.loading = false;

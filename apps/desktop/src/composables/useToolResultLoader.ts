@@ -60,7 +60,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
         failedResults.add(toolCallId);
       }
     } catch (err: unknown) {
-      logError("[toolResultLoader] Failed to load full result:", e);
+      logError("[toolResultLoader] Failed to load full result:", err);
       if (generation === capturedGen && sessionId() === capturedSessionId) {
         failedResults.add(toolCallId);
       }

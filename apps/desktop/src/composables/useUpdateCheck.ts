@@ -55,7 +55,7 @@ export async function runUpdateCheck(force = false): Promise<void> {
     );
     updateResult.value = result;
   } catch (err: unknown) {
-    updateCheckError.value = toErrorMessage(e, 'Update check failed');
+    updateCheckError.value = toErrorMessage(err, 'Update check failed');
   } finally {
     updateCheckLoading.value = false;
   }

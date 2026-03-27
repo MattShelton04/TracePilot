@@ -256,7 +256,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         backendConfig = config;
       } catch (err: unknown) {
         if (gen !== saveGeneration) return;
-        logWarn("[preferences] Failed to persist config:", e);
+        logWarn("[preferences] Failed to persist config:", err);
       }
     }, 300);
   }

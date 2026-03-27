@@ -125,7 +125,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
       lastInitialized.value = Date.now();
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       loading.value = false;
     }
   }

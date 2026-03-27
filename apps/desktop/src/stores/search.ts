@@ -358,7 +358,7 @@ export const useSearchStore = defineStore('search', () => {
       });
     } catch (err: unknown) {
       if (!searchGuard.isValid(token)) return;
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
       results.value = [];
       totalCount.value = 0;
       hasMore.value = false;
@@ -527,7 +527,7 @@ export const useSearchStore = defineStore('search', () => {
       facets.value = result;
     } catch (err: unknown) {
       if (!facetGuard.isValid(token)) return;
-      logWarn('[search] Failed to fetch search facets:', e);
+      logWarn('[search] Failed to fetch search facets:', err);
     }
   }
 
@@ -536,7 +536,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       stats.value = await getSearchStats();
     } catch (err: unknown) {
-      logWarn('[search] Failed to fetch search stats:', e);
+      logWarn('[search] Failed to fetch search stats:', err);
     } finally {
       statsLoading.value = false;
     }
@@ -567,7 +567,7 @@ export const useSearchStore = defineStore('search', () => {
         await executeSearch();
       }
     } catch (err: unknown) {
-      error.value = toErrorMessage(e);
+      error.value = toErrorMessage(err);
     } finally {
       rebuilding.value = false;
     }
@@ -590,7 +590,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       maintenanceMessage.value = await ftsIntegrityCheck();
     } catch (err: unknown) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${String(err)}`;
     }
   }
 
@@ -600,7 +600,7 @@ export const useSearchStore = defineStore('search', () => {
       maintenanceMessage.value = await ftsOptimize();
       await fetchHealth(); // refresh health after optimize
     } catch (err: unknown) {
-      maintenanceMessage.value = `Error: ${String(e)}`;
+      maintenanceMessage.value = `Error: ${String(err)}`;
     }
   }
 

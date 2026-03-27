@@ -203,7 +203,7 @@ export function useCachedFetch<TData, TParams = void>(
         // Only update error if this is still the latest request
         if (gen !== generation) return undefined;
 
-        const errorMsg = toErrorMessage(e);
+        const errorMsg = toErrorMessage(err);
         error.value = errorMsg;
 
         if (resetOnError) {
