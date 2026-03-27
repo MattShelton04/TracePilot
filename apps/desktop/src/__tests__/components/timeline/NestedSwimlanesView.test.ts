@@ -4,7 +4,7 @@ import { setActivePinia, createPinia } from "pinia";
 import { nextTick } from "vue";
 import NestedSwimlanesView from "../../../components/timeline/NestedSwimlanesView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
-import type { TurnToolCall, ConversationTurn } from "@tracepilot/types";
+import { makeTurnToolCall, makeTurn } from "../../helpers/testFixtures";
 
 // ── Mock @tracepilot/client (store imports it) ──────────────────────
 vi.mock("@tracepilot/client", () => ({
@@ -17,33 +17,6 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-function makeTurnToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
-  return {
-    toolName: "view",
-    success: true,
-    isComplete: true,
-    durationMs: 100,
-    toolCallId: `tc-${Math.random().toString(36).slice(2, 8)}`,
-    startedAt: "2025-01-01T00:00:00.000Z",
-    completedAt: "2025-01-01T00:00:00.100Z",
-    ...overrides,
-  };
-}
-
-function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
-  return {
-    turnIndex: 0,
-    userMessage: "Fix the bug",
-    assistantMessages: [{ content: "I'll fix the bug." }],
-    model: "gpt-4.1",
-    toolCalls: [makeTurnToolCall()],
-    durationMs: 5000,
-    isComplete: true,
-    timestamp: "2025-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 function mountComponent() {
   return mount(NestedSwimlanesView, {

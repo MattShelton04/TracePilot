@@ -191,7 +191,7 @@ export async function safeAsync<T>(
 export function catchError(err: unknown, context?: string): string {
   const message = toErrorMessage(err);
   if (context) {
-    logWarn(`[${context}]`, err);
+    logError(`[${context}] Operation failed:`, err);
   }
   return message;
 }

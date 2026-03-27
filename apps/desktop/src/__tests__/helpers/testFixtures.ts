@@ -74,7 +74,7 @@ export function makeTurn(overrides: Partial<ConversationTurn> = {}): Conversatio
     assistantMessages: [
       {
         content: 'Test assistant response',
-        agentName: 'main',
+        agentDisplayName: 'main',
       } as AttributedMessage,
     ],
     model: 'gpt-4.1',
@@ -123,7 +123,7 @@ export function makeTurns(
  * ```typescript
  * const msg = makeAttributedMessage({
  *   content: 'Custom message',
- *   agentName: 'explore'
+ *   agentDisplayName: 'explore'
  * });
  * ```
  */
@@ -132,7 +132,7 @@ export function makeAttributedMessage(
 ): AttributedMessage {
   return {
     content: 'Test message',
-    agentName: 'main',
+    agentDisplayName: 'main',
     ...overrides,
   } as AttributedMessage;
 }
