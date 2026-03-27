@@ -88,7 +88,9 @@ pub fn render_markdown(
         }
         if !metrics.model_metrics.is_empty() {
             md.push_str("  - Model metrics:\n");
-            for (model, detail) in metrics.model_metrics.iter() {
+            let mut sorted_models: Vec<_> = metrics.model_metrics.iter().collect();
+            sorted_models.sort_by_key(|(k, _)| k.as_str());
+            for (model, detail) in sorted_models {
                 let request_count = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0);
                 let input_tokens = detail
                     .usage
@@ -208,6 +210,12 @@ fn write_turn(out: &mut String, turn: &tracepilot_core::models::ConversationTurn
                     write_indented_code_block(out, "json", &pretty, 4);
                 }
             }
+            if let Some(err) = tool.error.as_deref() {
+                let _ = writeln!(out, "  - Error: {}", err);
+            }
+            if let Some(mcp_name) = tool.mcp_tool_name.as_deref() {
+                let _ = writeln!(out, "  - MCP tool: {}", mcp_name);
+            }
             if let Some(result) = tool.result_content.as_deref() {
                 out.push_str("  - Result:\n");
                 write_indented_block(out, result, 4, "> ");
@@ -253,7 +261,7 @@ fn write_indented_code_block(out: &mut String, lang: &str, text: &str, indent_sp
     for line in text.lines() {
         let _ = writeln!(out, "{}{}", indent, line);
     }
-    let _ = writeln!(out, "{} ```", indent);
+    let _ = writeln!(out, "{}```", indent);
 }
 
 #[cfg(test)]
