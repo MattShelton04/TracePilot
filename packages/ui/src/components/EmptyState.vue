@@ -10,10 +10,10 @@ defineProps<{
 <template>
   <div :class="['empty-state', { 'empty-state--compact': compact }]">
     <div v-if="icon && !compact" class="empty-state-icon">{{ icon }}</div>
-    <div v-if="title && !compact" class="empty-state-title">{{ title }}</div>
-    <div class="empty-state-desc">
+    <h2 v-if="title && !compact" class="empty-state-title">{{ title }}</h2>
+    <p class="empty-state-desc">
       <slot>{{ message ?? "No data found." }}</slot>
-    </div>
+    </p>
     <div v-if="$slots.actions" class="empty-state-actions">
       <slot name="actions" />
     </div>
@@ -41,12 +41,13 @@ defineProps<{
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-tertiary);
-  margin-bottom: 6px;
+  margin: 0 0 6px;
 }
 
 .empty-state-desc {
   font-size: 0.8125rem;
   color: var(--text-placeholder);
+  margin: 0;
 }
 
 .empty-state--compact .empty-state-desc {
