@@ -392,8 +392,8 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   :ariaLabel="`Line chart showing token usage over ${timeRangeLabel}`"
                   chart-id="tokens"
                   :tooltip="tooltip"
-                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
-                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-container')"
+                  @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
+                  @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 >
                   <template #defs>
@@ -451,8 +451,8 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   :ariaLabel="`Bar chart showing session activity per day over ${timeRangeLabel}`"
                   chart-id="activity"
                   :tooltip="tooltip"
-                  @mousemove="onChartMouseMove($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
-                  @click="onChartClick($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-container')"
+                  @mousemove="onChartMouseMove($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-frame')"
+                  @click="onChartClick($event, activityChart.bars.map(b => ({ x: b.x + b.width / 2, date: b.date })), (i) => `${formatDateMedium(activityChart!.bars[i].date)} — ${activityChart!.bars[i].count} activit${activityChart!.bars[i].count !== 1 ? 'ies' : 'y'}`, 'activity', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 >
                   <template #defs>
@@ -543,8 +543,8 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                   :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
                   chart-id="cost"
                   :tooltip="tooltip"
-                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
-                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-container')"
+                  @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
+                  @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 >
                   <template #defs>
@@ -672,8 +672,8 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
                 :ariaLabel="`Stacked bar chart showing incidents over time${incidentNormalize ? ' (normalized per session)' : ''}`"
                 chart-id="incidents"
                 :tooltip="tooltip"
-                @mousemove="onChartMouseMove($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
-                @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-container')"
+                @mousemove="onChartMouseMove($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-frame')"
+                @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-frame')"
                 @dismiss-tooltip="dismissTooltip"
               >
                 <!-- Stacked bars -->
