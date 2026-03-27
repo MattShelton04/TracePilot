@@ -4,6 +4,7 @@ import { setActivePinia, createPinia } from "pinia";
 import { nextTick } from "vue";
 import TurnWaterfallView from "../../../components/timeline/TurnWaterfallView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
+import type { TurnToolCall, ConversationTurn } from "@tracepilot/types";
 
 // ── Mock @tracepilot/client ─────────────────────────────────────────
 vi.mock("@tracepilot/client", () => ({
@@ -17,7 +18,7 @@ vi.mock("@tracepilot/client", () => ({
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function makeTurnToolCall(overrides: Record<string, unknown> = {}) {
+function makeTurnToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
     toolName: "view",
     success: true,
@@ -30,7 +31,7 @@ function makeTurnToolCall(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeTurn(overrides: Record<string, unknown> = {}) {
+function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
   return {
     turnIndex: 0,
     userMessage: "Fix the bug",
@@ -85,7 +86,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("shows turn navigation (prev/next buttons)", () => {
-    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })];
 
     const wrapper = mountComponent();
     const navBtns = wrapper.findAll(".nav-btn");
@@ -95,7 +96,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("prev button disabled on first turn", () => {
-    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })];
 
     const wrapper = mountComponent();
     const prevBtn = wrapper.find('button[aria-label="Previous turn"]');
@@ -103,7 +104,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("next button disabled on last turn", () => {
-    store.turns = [makeTurn({ turnIndex: 0 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 })];
 
     const wrapper = mountComponent();
     const nextBtn = wrapper.find('button[aria-label="Next turn"]');
@@ -114,7 +115,7 @@ describe("TurnWaterfallView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, userMessage: "First message" }),
       makeTurn({ turnIndex: 1, userMessage: "Second message" }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Turn 1 of 2");
@@ -144,7 +145,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [tc1, tc2] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const rows = wrapper.findAll(".wf-row");
@@ -165,7 +166,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [subagentTc] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Explore Agent");
@@ -192,7 +193,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [parentTc, childTc] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const childRows = wrapper.findAll(".wf-row.child");
@@ -215,7 +216,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [tc] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // No detail panel initially
@@ -241,7 +242,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [tc] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const rows = wrapper.findAll('.wf-row:not(.message-row)');
@@ -258,7 +259,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("terminology legend toggles on click", async () => {
-    store.turns = [makeTurn({ turnIndex: 0 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 })];
 
     const wrapper = mountComponent();
     const toggle = wrapper.find(".terminology-toggle");
@@ -301,7 +302,7 @@ describe("TurnWaterfallView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
       makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // The waterfall should show the child tool nested under the subagent
@@ -322,7 +323,7 @@ describe("TurnWaterfallView", () => {
 
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // Click the waterfall row to pin detail
