@@ -949,6 +949,62 @@ onUnmounted(() => {
   color: var(--success-fg);
 }
 
+/* ── First-run state (no sessions indexed) ── */
+.first-run-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.first-run-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.35;
+}
+
+.first-run-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.first-run-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  max-width: 380px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.first-run-rebuild-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent-emphasis);
+  color: var(--text-on-emphasis);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.first-run-rebuild-btn:hover {
+  background: var(--accent-fg);
+}
+
+.first-run-rebuild-btn svg {
+  opacity: 0.8;
+}
+
 /* ÔöÇÔöÇ Empty State ÔöÇÔöÇ */
 .search-empty-state {
   display: flex;
