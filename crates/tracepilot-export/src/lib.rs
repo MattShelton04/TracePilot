@@ -12,6 +12,7 @@
 //! to produce format-specific output.
 
 pub mod builder;
+pub mod content_filter;
 pub mod document;
 pub mod error;
 pub mod import;
@@ -29,7 +30,7 @@ pub(crate) mod test_helpers;
 // Re-export key types for ergonomic API usage.
 pub use document::{SessionArchive, PortableSession, SectionId};
 pub use error::{ExportError, Result};
-pub use options::{ExportFormat, ExportOptions, OutputTarget};
+pub use options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget};
 pub use render::{ExportFile, ExportRenderer};
 
 use std::path::Path;
@@ -41,7 +42,8 @@ pub fn export_session(
     session_dir: &Path,
     options: &ExportOptions,
 ) -> Result<Vec<ExportFile>> {
-    let archive = builder::build_session_archive(session_dir, options)?;
+    let mut archive = builder::build_session_archive(session_dir, options)?;
+    content_filter::apply_content_filters(&mut archive, &options.content_detail);
     let renderer = render::create_renderer(options.format);
     renderer.render(&archive)
 }
@@ -51,7 +53,8 @@ pub fn export_sessions_batch(
     session_dirs: &[&Path],
     options: &ExportOptions,
 ) -> Result<Vec<ExportFile>> {
-    let archive = builder::build_session_archive_batch(session_dirs, options)?;
+    let mut archive = builder::build_session_archive_batch(session_dirs, options)?;
+    content_filter::apply_content_filters(&mut archive, &options.content_detail);
     let renderer = render::create_renderer(options.format);
     renderer.render(&archive)
 }
@@ -64,7 +67,8 @@ pub fn preview_export(
     options: &ExportOptions,
     max_bytes: Option<usize>,
 ) -> Result<String> {
-    let archive = builder::build_session_archive(session_dir, options)?;
+    let mut archive = builder::build_session_archive(session_dir, options)?;
+    content_filter::apply_content_filters(&mut archive, &options.content_detail);
     let renderer = render::create_renderer(options.format);
     let files = renderer.render(&archive)?;
 

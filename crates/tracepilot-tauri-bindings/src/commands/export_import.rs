@@ -15,7 +15,7 @@ use crate::types::{
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
 };
 
-use tracepilot_export::options::{ExportFormat, ExportOptions, OutputTarget};
+use tracepilot_export::options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget};
 use tracepilot_export::SectionId;
 
 // ── Export Commands ────────────────────────────────────────────────────────
@@ -28,6 +28,8 @@ pub async fn export_sessions(
     format: String,
     sections: Vec<String>,
     output_path: String,
+    include_subagent_internals: Option<bool>,
+    include_tool_details: Option<bool>,
 ) -> CmdResult<ExportSessionsResult> {
     if session_ids.is_empty() {
         return Err(BindingsError::Validation("No sessions selected".into()));
@@ -43,6 +45,10 @@ pub async fn export_sessions(
             format: export_format,
             sections: section_set,
             output: OutputTarget::File(PathBuf::from(&output_path)),
+            content_detail: ContentDetailOptions {
+                include_subagent_internals: include_subagent_internals.unwrap_or(true),
+                include_tool_details: include_tool_details.unwrap_or(true),
+            },
         };
 
         // Resolve session directories
@@ -108,6 +114,8 @@ pub async fn preview_export(
     format: String,
     sections: Vec<String>,
     max_bytes: Option<usize>,
+    include_subagent_internals: Option<bool>,
+    include_tool_details: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -119,6 +127,10 @@ pub async fn preview_export(
             format: export_format,
             sections: section_set.clone(),
             output: OutputTarget::String,
+            content_detail: ContentDetailOptions {
+                include_subagent_internals: include_subagent_internals.unwrap_or(true),
+                include_tool_details: include_tool_details.unwrap_or(true),
+            },
         };
 
         let session_path = tracepilot_core::session::discovery::resolve_session_path_in(

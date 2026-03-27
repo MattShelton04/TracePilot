@@ -205,6 +205,7 @@ fn export_section_filtering() {
         format: ExportFormat::Json,
         sections,
         output: OutputTarget::String,
+        content_detail: ContentDetailOptions::default(),
     };
 
     let files = export_session(dir.path(), &options).unwrap();
@@ -322,6 +323,7 @@ fn export_options_record_reflects_config() {
         format: ExportFormat::Json,
         sections,
         output: OutputTarget::String,
+        content_detail: ContentDetailOptions::default(),
     };
 
     let files = export_session(dir.path(), &options).unwrap();
@@ -803,7 +805,9 @@ fn import_conflict_duplicate() {
 
     assert_eq!(result2.imported.len(), 1);
     assert!(result2.imported[0].was_duplicate);
-    assert!(result2.imported[0].id.contains("imported"));
+    // New ID should be a fresh UUID (36 chars: 8-4-4-4-12), different from original
+    assert_eq!(result2.imported[0].id.len(), 36);
+    assert!(result2.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
 }
 
 #[test]

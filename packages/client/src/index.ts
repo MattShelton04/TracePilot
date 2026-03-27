@@ -409,6 +409,8 @@ export async function exportSessions(config: ExportConfig): Promise<ExportResult
     format: config.format,
     sections: config.sections,
     outputPath: config.outputPath,
+    includeSubagentInternals: config.contentDetail?.includeSubagentInternals,
+    includeToolDetails: config.contentDetail?.includeToolDetails,
   });
 }
 
@@ -419,6 +421,8 @@ export async function previewExport(request: ExportPreviewRequest): Promise<Expo
     format: request.format,
     sections: request.sections,
     maxBytes: request.maxLength,
+    includeSubagentInternals: request.contentDetail?.includeSubagentInternals,
+    includeToolDetails: request.contentDetail?.includeToolDetails,
   });
 }
 

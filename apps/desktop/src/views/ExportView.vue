@@ -42,6 +42,7 @@ const {
   sectionsArray,
   allPresets,
   customPresets,
+  contentDetail,
   applyPreset,
   toggleSection,
   selectAll,
@@ -54,7 +55,7 @@ const {
   preview,
   loading: previewLoading,
   error: previewError,
-} = useExportPreview(selectedSessionId, format, sectionsArray);
+} = useExportPreview(selectedSessionId, format, sectionsArray, contentDetail);
 
 const importFlow = useImportFlow();
 
@@ -102,6 +103,7 @@ async function handleExport() {
       format: format.value,
       sections: sectionsArray.value,
       outputPath,
+      contentDetail: contentDetail.value,
     });
     toastSuccess(
       `Exported ${result.sessionsExported} session (${formatBytes(result.fileSizeBytes)})`,
@@ -341,6 +343,33 @@ function copiedToClipboard() {
                   @update:model-value="toggleSection(sectionId)"
                 />
               </div>
+            </div>
+          </section>
+
+          <!-- Detail Level -->
+          <section v-if="enabledSections.has('conversation')" class="config-section">
+            <h3 class="config-section-title">Detail Level</h3>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">🤖</span>
+              <span class="toggle-row-label">
+                Agent internals
+                <span class="detail-hint">Include subagent reasoning &amp; tool calls</span>
+              </span>
+              <FormSwitch
+                :model-value="contentDetail.includeSubagentInternals"
+                @update:model-value="contentDetail = { ...contentDetail, includeSubagentInternals: $event }"
+              />
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">🔧</span>
+              <span class="toggle-row-label">
+                Tool call details
+                <span class="detail-hint">Include arguments &amp; result content</span>
+              </span>
+              <FormSwitch
+                :model-value="contentDetail.includeToolDetails"
+                @update:model-value="contentDetail = { ...contentDetail, includeToolDetails: $event }"
+              />
             </div>
           </section>
 
@@ -654,12 +683,12 @@ function copiedToClipboard() {
 /* ── Tab Pills ─────────────────────────────────────────────── */
 .tab-pills {
   display: flex;
-  gap: 4px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
 .tab-pill {
+  flex: 1;
   padding: 6px 16px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -888,6 +917,13 @@ function copiedToClipboard() {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   font-weight: 400;
+}
+.detail-hint {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 /* ── Link Button ───────────────────────────────────────────── */

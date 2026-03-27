@@ -4,7 +4,7 @@
  */
 
 import { ref, watch, onUnmounted, type Ref, type ComputedRef } from 'vue';
-import type { ExportFormat, SectionId, ExportPreviewResult } from '@tracepilot/types';
+import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions } from '@tracepilot/types';
 import { previewExport } from '@tracepilot/client';
 import { logError } from '@/utils/logger';
 
@@ -14,6 +14,7 @@ export function useExportPreview(
   sessionId: Ref<string>,
   format: Ref<ExportFormat>,
   sections: Ref<SectionId[]> | ComputedRef<SectionId[]>,
+  contentDetail?: Ref<ContentDetailOptions>,
 ) {
   const preview = ref<ExportPreviewResult | null>(null);
   const loading = ref(false);
@@ -39,6 +40,7 @@ export function useExportPreview(
         sessionId: sid,
         format: format.value,
         sections: sections.value,
+        contentDetail: contentDetail?.value,
       });
 
       // Guard against stale responses
@@ -62,7 +64,10 @@ export function useExportPreview(
     debounceTimer = setTimeout(fetchPreview, DEBOUNCE_MS);
   }
 
-  watch([sessionId, format, sections], scheduleFetch, { deep: true });
+  const watchSources = contentDetail
+    ? [sessionId, format, sections, contentDetail]
+    : [sessionId, format, sections];
+  watch(watchSources, scheduleFetch, { deep: true });
 
   onUnmounted(() => {
     if (debounceTimer) clearTimeout(debounceTimer);

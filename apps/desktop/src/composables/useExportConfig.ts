@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, watch } from 'vue';
-import type { SectionId, ExportFormat } from '@tracepilot/types';
+import type { SectionId, ExportFormat, ContentDetailOptions } from '@tracepilot/types';
 import { ALL_SECTION_IDS, SECTION_LABELS } from '@tracepilot/types';
 
 // ── Preset Definitions ──────────────────────────────────────────
@@ -96,6 +96,12 @@ export function useExportConfig() {
   const enabledSections = ref(new Set<SectionId>([...ALL_SECTION_IDS]));
   const activePreset = ref<string | null>('full');
 
+  // Content detail options
+  const contentDetail = ref<ContentDetailOptions>({
+    includeSubagentInternals: true,
+    includeToolDetails: true,
+  });
+
   // Custom user-saved presets (session-scoped)
   const customPresets = ref<ExportPreset[]>([]);
 
@@ -178,6 +184,7 @@ export function useExportConfig() {
     sectionsArray,
     allPresets,
     customPresets,
+    contentDetail,
     applyPreset,
     toggleSection,
     selectAll,

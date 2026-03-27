@@ -305,23 +305,12 @@ pub fn import_sessions(
     })
 }
 
-/// Generate a unique ID for a duplicate import.
-fn generate_duplicate_id(original_id: &str) -> String {
-    let short_suffix: String = uuid_suffix();
-    format!("{}-imported-{}", original_id, short_suffix)
-}
-
-/// Generate a short unique suffix using timestamp + atomic counter.
-fn uuid_suffix() -> String {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    use std::time::{SystemTime, UNIX_EPOCH};
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("{:08x}{:04x}", nanos, count)
+/// Generate a new unique session ID for a duplicate import.
+///
+/// Uses a fresh UUID v4 so imported duplicates are indistinguishable from
+/// natively-created sessions.
+fn generate_duplicate_id(_original_id: &str) -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 #[cfg(test)]
@@ -440,7 +429,11 @@ mod tests {
 
         assert_eq!(result.imported.len(), 1);
         assert!(result.imported[0].was_duplicate);
-        assert!(result.imported[0].id.contains("imported"));
+        // New ID should be a fresh UUID, different from the original
+        assert_ne!(result.imported[0].id, "test-12345678");
+        // Validate it looks like a UUID (8-4-4-4-12 hex format)
+        assert_eq!(result.imported[0].id.len(), 36);
+        assert!(result.imported[0].id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
     }
 
     #[test]

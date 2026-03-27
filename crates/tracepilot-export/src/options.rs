@@ -56,6 +56,33 @@ pub enum OutputTarget {
     String,
 }
 
+/// Controls how much detail is included for conversation content.
+///
+/// These toggles let users reduce export verbosity without removing entire
+/// sections.  For example, a "team report" might collapse subagent internals
+/// while still showing the conversation flow.
+#[derive(Debug, Clone)]
+pub struct ContentDetailOptions {
+    /// When `true`, subagent tool calls include their full internal tool calls,
+    /// reasoning, and assistant messages.  When `false`, only the subagent's
+    /// top-level entry (name + final result) is kept.
+    pub include_subagent_internals: bool,
+
+    /// When `true`, tool calls include their full `arguments` and
+    /// `result_content`.  When `false`, only tool name, status, duration,
+    /// and summary are preserved.
+    pub include_tool_details: bool,
+}
+
+impl Default for ContentDetailOptions {
+    fn default() -> Self {
+        Self {
+            include_subagent_internals: true,
+            include_tool_details: true,
+        }
+    }
+}
+
 /// Complete export configuration provided by the user.
 #[derive(Debug, Clone)]
 pub struct ExportOptions {
@@ -65,15 +92,18 @@ pub struct ExportOptions {
     pub sections: HashSet<SectionId>,
     /// Where to write the output.
     pub output: OutputTarget,
+    /// Controls verbosity of conversation content.
+    pub content_detail: ContentDetailOptions,
 }
 
 impl ExportOptions {
-    /// Create options with all sections included.
+    /// Create options with all sections included and full detail.
     pub fn all(format: ExportFormat) -> Self {
         Self {
             format,
             sections: SectionId::ALL.iter().copied().collect(),
             output: OutputTarget::String,
+            content_detail: ContentDetailOptions::default(),
         }
     }
 
@@ -83,6 +113,7 @@ impl ExportOptions {
             format,
             sections: HashSet::new(),
             output: OutputTarget::String,
+            content_detail: ContentDetailOptions::default(),
         }
     }
 
@@ -101,6 +132,7 @@ impl ExportOptions {
             format,
             sections,
             output: OutputTarget::String,
+            content_detail: ContentDetailOptions::default(),
         }
     }
 
@@ -113,5 +145,24 @@ impl ExportOptions {
 impl Default for ExportOptions {
     fn default() -> Self {
         Self::all(ExportFormat::Json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_detail_defaults_include_everything() {
+        let opts = ContentDetailOptions::default();
+        assert!(opts.include_subagent_internals);
+        assert!(opts.include_tool_details);
+    }
+
+    #[test]
+    fn export_options_all_has_default_detail() {
+        let opts = ExportOptions::all(ExportFormat::Json);
+        assert!(opts.content_detail.include_subagent_internals);
+        assert!(opts.content_detail.include_tool_details);
     }
 }

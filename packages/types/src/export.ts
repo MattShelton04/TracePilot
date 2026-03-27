@@ -56,6 +56,16 @@ export type ExportFormat = 'json' | 'markdown' | 'csv';
 
 export type ConflictStrategy = 'skip' | 'replace' | 'duplicate';
 
+// ── Content Detail Options ─────────────────────────────────────
+
+/** Controls verbosity of exported conversation content. */
+export interface ContentDetailOptions {
+  /** Include full subagent tool calls, reasoning, and messages. Default: true. */
+  includeSubagentInternals: boolean;
+  /** Include tool call arguments and result content. Default: true. */
+  includeToolDetails: boolean;
+}
+
 // ── Export Configuration ────────────────────────────────────────
 
 /** Export configuration sent to the Tauri `export_sessions` command. */
@@ -68,6 +78,8 @@ export interface ExportConfig {
   sections: SectionId[];
   /** Filesystem path to write the export to. */
   outputPath: string;
+  /** Content detail options. Omit for full detail. */
+  contentDetail?: ContentDetailOptions;
 }
 
 /** Result returned from `export_sessions`. Matches Rust `ExportSessionsResult`. */
@@ -91,6 +103,8 @@ export interface ExportPreviewRequest {
   sections: SectionId[];
   /** Max bytes to return in the preview. Defaults to 512KB on the backend. */
   maxLength?: number;
+  /** Content detail options. Omit for full detail. */
+  contentDetail?: ContentDetailOptions;
 }
 
 /** Result returned from `preview_export`. Matches Rust `ExportPreviewResult`. */
