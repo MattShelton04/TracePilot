@@ -37,6 +37,18 @@ pub struct SessionSummary {
     pub shutdown_metrics: Option<ShutdownMetrics>,
 }
 
+impl SessionSummary {
+    /// Returns the UTC date key (`YYYY-MM-DD`) for this session.
+    ///
+    /// Prefers `updated_at`; falls back to `created_at`. Returns `None`
+    /// when neither timestamp is available.
+    pub fn date_key(&self) -> Option<String> {
+        self.updated_at
+            .or(self.created_at)
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+    }
+}
+
 /// Metrics extracted from `session.shutdown` events.
 ///
 /// When a session is resumed, multiple shutdown events exist with per-instance
@@ -57,4 +69,60 @@ pub struct ShutdownMetrics {
     pub session_segments: Option<Vec<crate::models::event_types::SessionSegment>>,
     /// Number of shutdown events that were combined (>1 means resumed session).
     pub shutdown_count: Option<u32>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+
+    fn make_summary(
+        updated: Option<&str>,
+        created: Option<&str>,
+    ) -> SessionSummary {
+        let parse = |s: &str| {
+            let dt = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap();
+            Utc.from_utc_datetime(&dt)
+        };
+
+        SessionSummary {
+            id: "test".to_string(),
+            summary: None,
+            repository: None,
+            branch: None,
+            cwd: None,
+            host_type: None,
+            created_at: created.map(parse),
+            updated_at: updated.map(parse),
+            event_count: None,
+            has_events: false,
+            has_session_db: false,
+            has_plan: false,
+            has_checkpoints: false,
+            checkpoint_count: None,
+            turn_count: None,
+            shutdown_metrics: None,
+        }
+    }
+
+    #[test]
+    fn date_key_prefers_updated_at() {
+        let s = make_summary(Some("2026-03-20"), Some("2026-03-15"));
+        assert_eq!(s.date_key(), Some("2026-03-20".to_string()));
+    }
+
+    #[test]
+    fn date_key_falls_back_to_created_at() {
+        let s = make_summary(None, Some("2026-03-15"));
+        assert_eq!(s.date_key(), Some("2026-03-15".to_string()));
+    }
+
+    #[test]
+    fn date_key_returns_none_when_both_absent() {
+        let s = make_summary(None, None);
+        assert_eq!(s.date_key(), None);
+    }
 }

@@ -127,11 +127,7 @@ fn filter_by_date_range(
     inputs
         .into_iter()
         .filter(|input| {
-            let date_str = input
-                .summary
-                .updated_at
-                .or(input.summary.created_at)
-                .map(|dt| dt.format("%Y-%m-%d").to_string());
+            let date_str = input.summary.date_key();
 
             let date_str = match date_str {
                 Some(d) => d,
