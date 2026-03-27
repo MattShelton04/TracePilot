@@ -15,7 +15,13 @@ import type {
 
 // Deterministic timestamps keep tests and snapshots stable.
 const NOW = "2026-03-20T12:00:00.000Z";
+const NOW_MS = new Date(NOW).getTime();
 const ONE_HOUR = 3_600_000;
+
+/** Offset NOW by `ms` milliseconds and return an ISO string. */
+function ts(ms: number): string {
+  return new Date(NOW_MS + ms).toISOString();
+}
 
 export const MOCK_SESSIONS: SessionListItem[] = [
   {
@@ -90,14 +96,17 @@ export const MOCK_TURNS: ConversationTurn[] = [
     ],
     model: "gpt-5.4",
     isComplete: true,
+    reasoningTexts: [
+      { content: "The auth module has tight coupling between JWT refresh logic and the login handler. I should extract a plugin interface so providers can be swapped without touching the core refresh flow." },
+    ],
     toolCalls: [
       {
         toolCallId: "edit-auth",
         toolName: "edit",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(0),
+        completedAt: ts(320),
         durationMs: 320,
         intentionSummary: "Refactor auth login to use plugin",
         arguments: { path: "src/auth/login.ts", intention: "convert to plugin" },
@@ -108,8 +117,8 @@ export const MOCK_TURNS: ConversationTurn[] = [
         toolName: "grep",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(400),
+        completedAt: ts(440),
         durationMs: 40,
         intentionSummary: "Find OAuth usage",
         arguments: { pattern: "oauth", path: "src/auth" },
@@ -131,8 +140,8 @@ export const MOCK_TURNS: ConversationTurn[] = [
         toolName: "edit",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(5000),
+        completedAt: ts(5280),
         durationMs: 280,
         intentionSummary: "Consolidate presets",
         arguments: { path: "apps/desktop/src/stores/search.ts" },
@@ -143,8 +152,8 @@ export const MOCK_TURNS: ConversationTurn[] = [
         toolName: "powershell",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(5400),
+        completedAt: ts(6600),
         durationMs: 1200,
         intentionSummary: "Run search tests",
         arguments: { command: "pnpm --filter @tracepilot/desktop test -- search" },
@@ -166,8 +175,8 @@ export const MOCK_TURNS: ConversationTurn[] = [
         toolName: "task",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(10000),
+        completedAt: ts(10900),
         durationMs: 900,
         intentionSummary: "Render markdown export",
         arguments: { sessionId: "sess-export-markdown" },
@@ -178,12 +187,64 @@ export const MOCK_TURNS: ConversationTurn[] = [
         toolName: "sql",
         success: true,
         isComplete: true,
-        startedAt: NOW,
-        completedAt: NOW,
+        startedAt: ts(11000),
+        completedAt: ts(11050),
         durationMs: 50,
         intentionSummary: "Verify session count",
         arguments: { query: "select count(*) from sessions" },
         resultContent: "| count |\n| --- |\n| 47 |",
+      },
+    ],
+  },
+  {
+    turnIndex: 3,
+    userMessage: "Explore the test suite and verify nothing is broken.",
+    assistantMessages: [
+      { content: "Launching an explore agent to scan the test suite." },
+    ],
+    model: "gpt-5.4",
+    isComplete: true,
+    toolCalls: [
+      {
+        toolCallId: "explore-agent",
+        toolName: "task",
+        isSubagent: true,
+        agentDisplayName: "Explore Agent",
+        agentDescription: "Fast codebase exploration agent",
+        success: true,
+        isComplete: true,
+        startedAt: ts(15000),
+        completedAt: ts(23500),
+        durationMs: 8500,
+        intentionSummary: "Scan test suite for regressions",
+        arguments: { prompt: "Check all test files for failures" },
+        resultContent: "All 47 test files pass. No regressions found.",
+      },
+      {
+        toolCallId: "explore-grep",
+        toolName: "grep",
+        parentToolCallId: "explore-agent",
+        success: true,
+        isComplete: true,
+        startedAt: ts(15200),
+        completedAt: ts(15500),
+        durationMs: 300,
+        intentionSummary: "Find test files",
+        arguments: { pattern: "\\.test\\.ts$", path: "src" },
+        resultContent: "Found 47 test files",
+      },
+      {
+        toolCallId: "explore-run-tests",
+        toolName: "powershell",
+        parentToolCallId: "explore-agent",
+        success: true,
+        isComplete: true,
+        startedAt: ts(15600),
+        completedAt: ts(23000),
+        durationMs: 7400,
+        intentionSummary: "Run full test suite",
+        arguments: { command: "pnpm test" },
+        resultContent: "47 test suites passed, 0 failed",
       },
     ],
   },
@@ -192,24 +253,27 @@ export const MOCK_TURNS: ConversationTurn[] = [
 export const MOCK_EVENTS: EventsResponse = {
   events: [
     {
-      eventType: "session.started",
-      timestamp: new Date(new Date(NOW).getTime() - ONE_HOUR * 3).toISOString(),
+      id: "evt-1",
+      eventType: "session.start",
+      timestamp: new Date(NOW_MS - ONE_HOUR * 3).toISOString(),
       data: { summary: "Session launched", severity: "info" },
     },
     {
+      id: "evt-2",
       eventType: "session.error",
-      timestamp: new Date(new Date(NOW).getTime() - ONE_HOUR * 2).toISOString(),
+      timestamp: new Date(NOW_MS - ONE_HOUR * 2).toISOString(),
       data: { summary: "Refresh token invalid", severity: "error", code: "INVALID_REFRESH" },
     },
     {
+      id: "evt-3",
       eventType: "session.compaction_complete",
-      timestamp: new Date(new Date(NOW).getTime() - ONE_HOUR).toISOString(),
+      timestamp: new Date(NOW_MS - ONE_HOUR).toISOString(),
       data: { summary: "Compaction reduced tokens 42000 → 12000", severity: "info" },
     },
   ],
   totalCount: 3,
   hasMore: false,
-  allEventTypes: ["session.started", "session.error", "session.compaction_complete"],
+  allEventTypes: ["session.start", "session.error", "session.compaction_complete"],
 };
 
 export const MOCK_TODOS: TodosResponse = {
