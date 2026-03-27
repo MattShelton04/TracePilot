@@ -43,6 +43,7 @@ export { default as TerminologyLegend } from "./components/TerminologyLegend.vue
 export { default as MarkdownContent } from "./components/MarkdownContent.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as ToastContainer } from "./components/ToastContainer.vue";
+export { default as ChartFrame } from "./components/ChartFrame.vue";
 
 // Utilities
 export * from "./utils/formatters";
