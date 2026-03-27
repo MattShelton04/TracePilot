@@ -2,13 +2,13 @@
  * Shared formatting utilities for TracePilot.
  * This is the canonical implementation - both UI and CLI import from here.
  *
- * All utilities handle null/undefined inputs gracefully and return
+ * All utilities handle null/undefined/non-finite inputs gracefully and return
  * empty strings or zero values as appropriate.
  */
 
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
-  if (ms == null || ms < 0) return '';
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return '';
   if (ms < 1000) return `${Math.round(ms * 100) / 100}ms`;
   const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
@@ -67,7 +67,7 @@ export function formatRelativeTime(value?: string | number | null): string {
 
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
 export function formatNumber(n?: number | null): string {
-  if (n == null) return '0';
+  if (n == null || !Number.isFinite(n)) return '0';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
@@ -81,7 +81,7 @@ export function formatTokens(n?: number | null): string {
 
 /** Format a cost value as USD with comma separators. */
 export function formatCost(cost?: number | null): string {
-  if (cost == null) return '$0.00';
+  if (cost == null || !Number.isFinite(cost)) return '$0.00';
   return `$${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -94,7 +94,7 @@ export function truncateText(text: string, maxLen = 1000): string {
 /** Format a live duration (in-progress timer) as clean whole seconds.
  *  Floors to nearest second to avoid fractional ticking. */
 export function formatLiveDuration(ms?: number | null): string {
-  if (ms == null || ms < 0) return '';
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return '';
   // Floor to whole seconds for clean second-by-second ticking
   const floored = Math.floor(ms / 1000) * 1000;
   return formatDuration(floored);
@@ -102,13 +102,13 @@ export function formatLiveDuration(ms?: number | null): string {
 
 /** Format a rate (0–1) as a percentage string (e.g. 0.95 → "95.0%"). */
 export function formatRate(rate?: number | null): string {
-  if (rate == null) return '0.0%';
+  if (rate == null || !Number.isFinite(rate)) return '0.0%';
   return `${(rate * 100).toFixed(1)}%`;
 }
 
 /** Format a percentage value (0–100) as a string (e.g. 95.1 → "95.1%"). */
 export function formatPercent(value?: number | null): string {
-  if (value == null) return '0.0%';
+  if (value == null || !Number.isFinite(value)) return '0.0%';
   return `${value.toFixed(1)}%`;
 }
 
@@ -138,13 +138,13 @@ export function formatDateMedium(value?: string | number | null): string {
 
 /** Format a number with locale thousand separators (e.g. 1234 → "1,234"). */
 export function formatNumberFull(n?: number | null): string {
-  if (n == null) return '0';
+  if (n == null || !Number.isFinite(n)) return '0';
   return n.toLocaleString('en-US');
 }
 
 /** Format a byte count as a human-readable string (e.g. 1536 → "1.5 KB"). */
 export function formatBytes(bytes?: number | null): string {
-  if (bytes == null || bytes <= 0) return '—';
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return '—';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / Math.pow(1024, i);
