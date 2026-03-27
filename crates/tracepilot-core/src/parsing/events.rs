@@ -123,8 +123,13 @@ fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
         context: format!("Failed to open {}", path.display()),
         source: Some(Box::new(e)),
     })?;
+    // Estimate event count from file size (~1KB per event) to reduce Vec reallocations
+    let estimated_events = file
+        .metadata()
+        .map(|m| m.len() as usize / 1000)
+        .unwrap_or(0);
     let reader = BufReader::new(file);
-    let mut events = Vec::new();
+    let mut events = Vec::with_capacity(estimated_events.max(16));
     let mut malformed = 0usize;
 
     for (line_num, line) in reader.lines().enumerate() {

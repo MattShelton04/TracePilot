@@ -47,4 +47,4 @@ tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
 lto = "thin"
 strip = true
 codegen-units = 1
-opt-level = "s"
+opt-level = 2

@@ -25,32 +25,29 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
-    let result = sessions.value;
+    const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
+    const repo = filterRepo.value;
+    const branch = filterBranch.value;
+    const hideEmpty = prefs.hideEmptySessions;
 
-    if (prefs.hideEmptySessions) {
-      result = result.filter(s => (s.turnCount ?? 0) !== 0);
-    }
+    // Single-pass filter: combine all predicates into one loop
+    const result = sessions.value.filter((s) => {
+      if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
 
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.summary?.toLowerCase().includes(q) ||
-          s.repository?.toLowerCase().includes(q) ||
-          s.branch?.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q),
-      );
-    }
+      if (q && !(
+        s.summary?.toLowerCase().includes(q) ||
+        s.repository?.toLowerCase().includes(q) ||
+        s.branch?.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q)
+      )) return false;
 
-    if (filterRepo.value) {
-      result = result.filter((s) => s.repository === filterRepo.value);
-    }
-    if (filterBranch.value) {
-      result = result.filter((s) => s.branch === filterBranch.value);
-    }
+      if (repo && s.repository !== repo) return false;
+      if (branch && s.branch !== branch) return false;
 
-    const sorted = [...result];
-    sorted.sort((a, b) => {
+      return true;
+    });
+
+    result.sort((a, b) => {
       switch (sortBy.value) {
         case "created":
           return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
@@ -65,7 +62,7 @@ export const useSessionsStore = defineStore("sessions", () => {
           return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
       }
     });
-    return sorted;
+    return result;
   });
 
   const repositories = computed(() => {
