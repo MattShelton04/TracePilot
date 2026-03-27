@@ -54,6 +54,7 @@ pub fn reindex_all_with_progress(
 }
 
 /// Full reindex with enriched progress callback including per-session data.
+#[tracing::instrument(skip_all)]
 pub fn reindex_all_with_rich_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
@@ -133,6 +134,7 @@ pub fn reindex_incremental_with_progress(
 }
 
 /// Incremental reindex with enriched progress callback including per-session data.
+#[tracing::instrument(skip_all)]
 pub fn reindex_incremental_with_rich_progress(
     session_state_dir: &Path,
     index_db_path: &Path,
@@ -251,6 +253,7 @@ pub struct SearchIndexingProgress {
 /// This should be called AFTER Phase 1 (main reindex) completes.
 /// Parses events OUTSIDE transactions, writes INSIDE (brief lock per session).
 /// Returns (indexed_count, skipped_count).
+#[tracing::instrument(skip_all)]
 pub fn reindex_search_content(
     session_state_dir: &Path,
     index_db_path: &Path,
@@ -350,6 +353,7 @@ pub fn reindex_search_content(
 }
 
 /// Full rebuild of search content: clears everything and re-indexes all sessions.
+#[tracing::instrument(skip_all)]
 pub fn rebuild_search_content(
     session_state_dir: &Path,
     index_db_path: &Path,

@@ -31,6 +31,9 @@ import { createDefaultConfig } from '@tracepilot/types';
 
 import { isTauri, invokePlugin } from './invoke.js';
 
+// Re-export IPC performance instrumentation utilities
+export { getIpcPerfLog, clearIpcPerfLog } from './invoke.js';
+
 // Lazy-load mocks only when needed (non-Tauri / dev mode)
 let mocksModule: typeof import('./mock/index.js') | null = null;
 async function getMocks() {

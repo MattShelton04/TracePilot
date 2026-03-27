@@ -9,7 +9,11 @@ use super::types::*;
 
 /// Compute code impact analysis across all sessions.
 ///
+/// PERF: CPU-bound — iterates all sessions once. O(n) where n = session count.
+/// Lighter than compute_tool_analysis since it only needs summary data.
+///
 /// Only requires `SessionSummary` data (no turns needed).
+#[tracing::instrument(skip_all, fields(session_count = sessions.len()))]
 pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData {
     let mut total_lines_added: u64 = 0;
     let mut total_lines_removed: u64 = 0;

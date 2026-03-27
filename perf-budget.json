@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "TracePilot performance budgets — CI enforced. Update when architecture changes intentionally increase a budget.",
+  "frontend": {
+    "totalBundleSizeKb": 500,
+    "largestChunkKb": 250,
+    "initialLoadChunks": 3,
+    "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total includes JS + CSS assets."
+  },
+  "ipc": {
+    "listSessionsMs": 200,
+    "getSessionDetailMs": 100,
+    "getSessionTurnsMs": 300,
+    "searchContentMs": 500,
+    "reindexSessionsMs": 30000,
+    "notes": "Measured on a corpus of ~100 sessions. These are P95 targets."
+  },
+  "rust": {
+    "parseEventsJsonl100kbNs": 5000000,
+    "computeAnalytics100sessionsNs": 10000000,
+    "searchContent100sessionsMs": 200,
+    "notes": "Measured via `cargo bench -p tracepilot-bench`. Values are P95 of mean estimate."
+  }
+}

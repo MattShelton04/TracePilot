@@ -5,6 +5,7 @@ use crate::error::CmdResult;
 use crate::helpers::{open_index_db, read_config};
 
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn get_analytics(
     state: tauri::State<'_, SharedConfig>,
     from_date: Option<String>,
@@ -42,6 +43,7 @@ pub async fn get_analytics(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn get_tool_analysis(
     state: tauri::State<'_, SharedConfig>,
     from_date: Option<String>,
@@ -79,6 +81,7 @@ pub async fn get_tool_analysis(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn get_code_impact(
     state: tauri::State<'_, SharedConfig>,
     from_date: Option<String>,

@@ -20,8 +20,13 @@ struct ToolAccumulator {
 
 /// Compute tool usage analysis across all sessions.
 ///
+/// PERF: CPU-bound — iterates all sessions × turns × tool_calls. Slowest of the
+/// three analytics functions because it requires full turn reconstruction.
+/// For 100+ sessions, this can take 100-500ms.
+///
 /// Requires `turns` to be loaded in each `SessionAnalyticsInput`.
 /// Sessions without turns are silently skipped.
+#[tracing::instrument(skip_all, fields(session_count = sessions.len()))]
 pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysisData {
     let mut tool_stats: HashMap<String, ToolAccumulator> = HashMap::new();
     // Heatmap: (day_of_week 0=Mon..6=Sun, hour 0..23) → count

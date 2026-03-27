@@ -1,0 +1,100 @@
+name: Bundle Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Analysis run label (e.g. "pre-refactor", "v0.5.1")'
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bundle-analysis:
+    name: Analyze Frontend Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build with bundle analysis
+        run: pnpm --filter @tracepilot/desktop build --mode analyze
+
+      - name: Extract bundle sizes
+        id: sizes
+        run: |
+          # Collect JS chunk sizes from the dist output
+          DIST="apps/desktop/dist"
+          echo "## Bundle Sizes" > bundle-report.md
+          echo "" >> bundle-report.md
+          echo "| File | Size (KB) | Gzipped (KB) |" >> bundle-report.md
+          echo "|------|-----------|--------------|" >> bundle-report.md
+
+          TOTAL=0
+          for f in $(find "$DIST/assets" -name "*.js" -o -name "*.css" | sort); do
+            NAME=$(basename "$f")
+            SIZE=$(stat --format=%s "$f")
+            SIZE_KB=$(echo "scale=1; $SIZE / 1024" | bc)
+            GZIP_SIZE=$(gzip -c "$f" | wc -c)
+            GZIP_KB=$(echo "scale=1; $GZIP_SIZE / 1024" | bc)
+            TOTAL=$(echo "$TOTAL + $SIZE" | bc)
+            echo "| $NAME | $SIZE_KB | $GZIP_KB |" >> bundle-report.md
+          done
+
+          TOTAL_KB=$(echo "scale=1; $TOTAL / 1024" | bc)
+          echo "" >> bundle-report.md
+          echo "**Total JS+CSS: ${TOTAL_KB} KB**" >> bundle-report.md
+          echo "total_kb=$TOTAL_KB" >> "$GITHUB_OUTPUT"
+
+          cat bundle-report.md
+
+      - name: Check against perf budget
+        run: |
+          if [ -f perf-budget.json ]; then
+            BUDGET=$(python3 -c "import json; print(json.load(open('perf-budget.json'))['frontend']['totalBundleSizeKb'])")
+            ACTUAL="${{ steps.sizes.outputs.total_kb }}"
+            echo "Budget: ${BUDGET} KB, Actual: ${ACTUAL} KB"
+            if python3 -c "exit(0 if float('$ACTUAL') <= float('$BUDGET') else 1)"; then
+              echo "✅ Bundle size within budget"
+            else
+              echo "⚠️ Bundle size exceeds budget by $(python3 -c "print(f'{float(\"$ACTUAL\") - float(\"$BUDGET\"):.1f}')")KB"
+              echo "::warning::Bundle size ($ACTUAL KB) exceeds budget ($BUDGET KB)"
+            fi
+          else
+            echo "No perf-budget.json found — skipping budget check"
+          fi
+
+      - name: Upload bundle analysis report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis${{ inputs.name && format('-{0}', inputs.name) || '' }}-${{ github.run_number }}
+          path: |
+            apps/desktop/dist/bundle-stats.html
+            bundle-report.md
+          retention-days: 90
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-analysis
+          path: bundle-report.md

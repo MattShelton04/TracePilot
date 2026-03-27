@@ -11,6 +11,7 @@ use crate::types::{
 };
 
 #[tauri::command]
+#[tracing::instrument(skip_all)]
 pub async fn list_sessions(
     state: tauri::State<'_, SharedConfig>,
     limit: Option<u32>,
@@ -113,6 +114,7 @@ pub async fn list_sessions(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_detail(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
@@ -159,6 +161,7 @@ pub async fn get_session_incidents(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_turns(
     state: tauri::State<'_, SharedConfig>,
     cache: tauri::State<'_, TurnCache>,
@@ -256,6 +259,7 @@ pub async fn check_session_freshness(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_session_events(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
