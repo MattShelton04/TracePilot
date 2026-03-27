@@ -1,386 +1,550 @@
 <script setup lang="ts">
-// STUB: Export currently generates mock preview content.
-// STUB: Replace with real export via exportSession() when backend Phase 5 export crate is ready.
-// STUB: File download uses Blob URL — switch to Tauri save_file dialog in production.
-
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useSessionsStore } from '@/stores/sessions';
-import { FormSwitch, BtnGroup, formatBytes, useToast } from '@tracepilot/ui';
-import type { ExportConfig } from '@tracepilot/types';
-import StubBanner from '@/components/StubBanner.vue';
+import {
+  FormSwitch,
+  BtnGroup,
+  Badge,
+  EmptyState,
+  ProgressBar,
+  formatBytes,
+  useToast,
+} from '@tracepilot/ui';
+import type { ExportFormat, SectionId, SessionSectionsInfo } from '@tracepilot/types';
+import { SECTION_LABELS } from '@tracepilot/types';
+import { exportSessions, getSessionSections } from '@tracepilot/client';
+import { browseForSavePath } from '@/composables/useBrowseDirectory';
+import { logError, logInfo } from '@/utils/logger';
+import {
+  useExportConfig,
+  EXPORT_PRESETS,
+  SECTION_GROUPS,
+  SECTION_ICONS,
+  FORMAT_DESCRIPTIONS,
+} from '@/composables/useExportConfig';
+import { useExportPreview } from '@/composables/useExportPreview';
+import { useImportFlow } from '@/composables/useImportFlow';
+
+// ── Stores & Composables ─────────────────────────────────────
 
 const sessionsStore = useSessionsStore();
+const router = useRouter();
+const { success: toastSuccess, error: toastError } = useToast();
 
-onMounted(() => {
-  sessionsStore.fetchSessions();
-});
+const {
+  selectedSessionId,
+  format,
+  enabledSections,
+  activePreset,
+  sectionsArray,
+  applyPreset,
+  toggleSection,
+  selectAll,
+  selectNone,
+} = useExportConfig();
 
-// ── Config state ─────────────────────────────────────────────
-const selectedSessionId = ref('');
-const format = ref<ExportConfig['format']>('json');
+const {
+  preview,
+  loading: previewLoading,
+  error: previewError,
+} = useExportPreview(selectedSessionId, format, sectionsArray);
 
-const formatOptions = [
+const importFlow = useImportFlow();
+
+// ── Tab State ────────────────────────────────────────────────
+
+type TabId = 'export' | 'import';
+const activeTab = ref<TabId>('export');
+
+// ── Session Sections Info (which sections actually have data) ─
+
+const sectionsInfo = ref<SessionSectionsInfo | null>(null);
+
+async function loadSectionsInfo(sessionId: string) {
+  if (!sessionId) {
+    sectionsInfo.value = null;
+    return;
+  }
+  try {
+    sectionsInfo.value = await getSessionSections(sessionId);
+  } catch {
+    sectionsInfo.value = null;
+  }
+}
+
+// ── Export Action ────────────────────────────────────────────
+
+const exporting = ref(false);
+
+async function handleExport() {
+  if (!selectedSessionId.value) return;
+
+  const ext = format.value === 'json' ? 'tpx.json' : format.value === 'markdown' ? 'md' : 'csv';
+  const defaultName = `session-export.${ext}`;
+
+  const outputPath = await browseForSavePath({
+    title: 'Save export as',
+    defaultPath: defaultName,
+  });
+  if (!outputPath) return;
+
+  exporting.value = true;
+  try {
+    const result = await exportSessions({
+      sessionIds: [selectedSessionId.value],
+      format: format.value,
+      sections: sectionsArray.value,
+      outputPath,
+    });
+    toastSuccess(
+      `Exported ${result.sessionsExported} session (${formatBytes(result.fileSizeBytes)})`,
+    );
+    logInfo(`[export] Saved to ${result.filePath}`);
+  } catch (err) {
+    logError('[export] Failed:', err);
+    toastError(err instanceof Error ? err.message : 'Export failed');
+  } finally {
+    exporting.value = false;
+  }
+}
+
+// ── Preview View Toggle ─────────────────────────────────────
+
+type PreviewView = 'raw' | 'rendered';
+const previewView = ref<PreviewView>('raw');
+
+// ── Format Options ──────────────────────────────────────────
+
+const formatOptions: { value: ExportFormat; label: string }[] = [
   { value: 'json', label: 'JSON' },
   { value: 'markdown', label: 'Markdown' },
   { value: 'csv', label: 'CSV' },
 ];
 
-// Include sections
-const includeConversation = ref(true);
-const includeEvents = ref(true);
-const includeMetrics = ref(true);
-const includeToolCalls = ref(true);
-const includeTodos = ref(true);
-const includeCheckpoints = ref(false);
-const includeRawData = ref(false);
+// ── Selected Session Info ───────────────────────────────────
 
-// Options
-const includeTimestamps = ref(true);
-const includeTokenCounts = ref(true);
-const anonymizePaths = ref(false);
-
-const exporting = ref(false);
-const { success } = useToast();
-
-// ── Selected session info ────────────────────────────────────
 const selectedSession = computed(() =>
   sessionsStore.sessions.find((s) => s.id === selectedSessionId.value),
 );
 
-// ── Mock preview generation ──────────────────────────────────
-const enabledSections = computed(() => {
-  const sections: string[] = [];
-  if (includeConversation.value) sections.push('conversation');
-  if (includeEvents.value) sections.push('events');
-  if (includeMetrics.value) sections.push('metrics');
-  if (includeToolCalls.value) sections.push('toolCalls');
-  if (includeTodos.value) sections.push('todos');
-  if (includeCheckpoints.value) sections.push('checkpoints');
-  if (includeRawData.value) sections.push('rawData');
-  return sections;
+// ── Lifecycle ───────────────────────────────────────────────
+
+onMounted(() => {
+  sessionsStore.fetchSessions();
 });
 
-function generateJsonPreview(): string {
-  const session = selectedSession.value;
-  const obj: Record<string, unknown> = {
-    exportMeta: {
-      format: 'json',
-      exportedAt: new Date().toISOString(),
-      sessionId: session?.id ?? 'no-session-selected',
-      options: {
-        timestamps: includeTimestamps.value,
-        tokenCounts: includeTokenCounts.value,
-        anonymizePaths: anonymizePaths.value,
-      },
-    },
+// Watch session changes to load sections info
+watch(selectedSessionId, (id) => loadSectionsInfo(id));
+
+// ── Helpers ─────────────────────────────────────────────────
+
+function sectionHasData(sectionId: SectionId): boolean | null {
+  const info = sectionsInfo.value;
+  if (!info) return null;
+  const map: Partial<Record<SectionId, boolean>> = {
+    conversation: info.hasConversation,
+    events: info.hasEvents,
+    todos: info.hasTodos,
+    plan: info.hasPlan,
+    checkpoints: info.hasCheckpoints,
+    metrics: info.hasMetrics,
+    health: info.hasHealth,
+    incidents: info.hasIncidents,
+    rewind_snapshots: info.hasRewindSnapshots,
+    custom_tables: info.hasCustomTables,
   };
-  if (includeConversation.value) {
-    obj.conversation = [
-      {
-        turn: 1,
-        role: 'user',
-        content: 'Implement authentication module',
-        ...(includeTimestamps.value && { timestamp: '2025-01-15T10:30:00Z' }),
-        ...(includeTokenCounts.value && { tokens: 12 }),
-      },
-      {
-        turn: 1,
-        role: 'assistant',
-        content: "I'll create the auth module with JWT-based authentication...",
-        ...(includeTimestamps.value && { timestamp: '2025-01-15T10:30:05Z' }),
-        ...(includeTokenCounts.value && { tokens: 847 }),
-      },
-    ];
-  }
-  if (includeEvents.value) {
-    obj.events = [
-      { type: 'session.init', ...(includeTimestamps.value && { timestamp: '2025-01-15T10:29:55Z' }) },
-      { type: 'tool.execute', tool: 'edit', ...(includeTimestamps.value && { timestamp: '2025-01-15T10:30:10Z' }) },
-    ];
-  }
-  if (includeMetrics.value) {
-    obj.metrics = {
-      totalTokens: 12450,
-      totalDurationMs: 45200,
-      models: { 'claude-sonnet-4': { requests: 5, inputTokens: 8200, outputTokens: 4250 } },
-    };
-  }
-  if (includeToolCalls.value) {
-    const path = anonymizePaths.value ? '[REDACTED]/auth.ts' : 'src/auth/auth.ts';
-    obj.toolCalls = [
-      { name: 'edit', target: path, success: true, durationMs: 120 },
-      { name: 'powershell', command: 'npm test', success: true, durationMs: 3400 },
-    ];
-  }
-  if (includeTodos.value) {
-    obj.todos = [
-      { id: 'auth-module', title: 'Create auth module', status: 'done' },
-      { id: 'write-tests', title: 'Write unit tests', status: 'in_progress' },
-    ];
-  }
-  if (includeCheckpoints.value) {
-    obj.checkpoints = [
-      { number: 1, title: 'Initial setup complete' },
-      { number: 2, title: 'Auth endpoints implemented' },
-    ];
-  }
-  if (includeRawData.value) {
-    obj.rawData = { eventCount: 42, note: 'Full event stream omitted in preview' };
-  }
-  return JSON.stringify(obj, null, 2);
+  return map[sectionId] ?? null;
 }
 
-function generateMarkdownPreview(): string {
-  const session = selectedSession.value;
-  const lines: string[] = [];
-  lines.push(`# Session Export: ${session?.summary ?? 'No session selected'}`);
-  lines.push('');
-  lines.push(`**Exported:** ${new Date().toISOString()}`);
-  lines.push(`**Session ID:** ${session?.id ?? '—'}`);
-  lines.push('');
-
-  if (includeConversation.value) {
-    lines.push('## Conversation');
-    lines.push('');
-    lines.push('### Turn 1');
-    if (includeTimestamps.value) lines.push('*2025-01-15T10:30:00Z*');
-    lines.push('');
-    lines.push('**User:** Implement authentication module');
-    lines.push('');
-    lines.push('**Assistant:** I\'ll create the auth module with JWT-based authentication...');
-    if (includeTokenCounts.value) lines.push('> Tokens: 859');
-    lines.push('');
+function copiedToClipboard() {
+  if (preview.value?.content) {
+    navigator.clipboard.writeText(preview.value.content);
+    toastSuccess('Copied to clipboard');
   }
-  if (includeEvents.value) {
-    lines.push('## Events');
-    lines.push('');
-    lines.push('| Type | Timestamp |');
-    lines.push('|------|-----------|');
-    lines.push(`| session.init | ${includeTimestamps.value ? '2025-01-15T10:29:55Z' : '—'} |`);
-    lines.push(`| tool.execute | ${includeTimestamps.value ? '2025-01-15T10:30:10Z' : '—'} |`);
-    lines.push('');
-  }
-  if (includeMetrics.value) {
-    lines.push('## Metrics');
-    lines.push('');
-    lines.push('- **Total Tokens:** 12,450');
-    lines.push('- **Duration:** 45.2s');
-    lines.push('');
-  }
-  if (includeToolCalls.value) {
-    const path = anonymizePaths.value ? '[REDACTED]/auth.ts' : 'src/auth/auth.ts';
-    lines.push('## Tool Calls');
-    lines.push('');
-    lines.push(`1. \`edit\` → ${path} ✓ (120ms)`);
-    lines.push('2. `powershell` → npm test ✓ (3.4s)');
-    lines.push('');
-  }
-  if (includeTodos.value) {
-    lines.push('## Todos');
-    lines.push('');
-    lines.push('- [x] Create auth module');
-    lines.push('- [ ] Write unit tests');
-    lines.push('');
-  }
-  if (includeCheckpoints.value) {
-    lines.push('## Checkpoints');
-    lines.push('');
-    lines.push('1. Initial setup complete');
-    lines.push('2. Auth endpoints implemented');
-    lines.push('');
-  }
-  if (includeRawData.value) {
-    lines.push('## Raw Data');
-    lines.push('');
-    lines.push('*42 raw events (omitted in preview)*');
-    lines.push('');
-  }
-  return lines.join('\n');
-}
-
-function generateCsvPreview(): string {
-  const lines: string[] = [];
-  const headers: string[] = ['section', 'key', 'value'];
-  if (includeTimestamps.value) headers.push('timestamp');
-  if (includeTokenCounts.value) headers.push('tokens');
-  lines.push(headers.join(','));
-
-  if (includeConversation.value) {
-    const ts = includeTimestamps.value ? ',2025-01-15T10:30:00Z' : '';
-    const tok = includeTokenCounts.value ? ',12' : '';
-    lines.push(`conversation,user_message,"Implement authentication module"${ts}${tok}`);
-    const ts2 = includeTimestamps.value ? ',2025-01-15T10:30:05Z' : '';
-    const tok2 = includeTokenCounts.value ? ',847' : '';
-    lines.push(`conversation,assistant_message,"I'll create the auth module..."${ts2}${tok2}`);
-  }
-  if (includeEvents.value) {
-    const ts = includeTimestamps.value ? ',2025-01-15T10:29:55Z' : '';
-    const tok = includeTokenCounts.value ? ',' : '';
-    lines.push(`events,session.init,""${ts}${tok}`);
-    const ts2 = includeTimestamps.value ? ',2025-01-15T10:30:10Z' : '';
-    lines.push(`events,tool.execute,"edit"${ts2}${tok}`);
-  }
-  if (includeMetrics.value) {
-    const ts = includeTimestamps.value ? ',' : '';
-    const tok = includeTokenCounts.value ? ',12450' : '';
-    lines.push(`metrics,total_tokens,"12450"${ts}${tok}`);
-  }
-  if (includeToolCalls.value) {
-    const path = anonymizePaths.value ? '[REDACTED]/auth.ts' : 'src/auth/auth.ts';
-    const ts = includeTimestamps.value ? ',2025-01-15T10:30:10Z' : '';
-    const tok = includeTokenCounts.value ? ',' : '';
-    lines.push(`tool_calls,edit,"${path}"${ts}${tok}`);
-    lines.push(`tool_calls,powershell,"npm test"${ts}${tok}`);
-  }
-  if (includeTodos.value) {
-    const ts = includeTimestamps.value ? ',' : '';
-    const tok = includeTokenCounts.value ? ',' : '';
-    lines.push(`todos,auth-module,"done"${ts}${tok}`);
-    lines.push(`todos,write-tests,"in_progress"${ts}${tok}`);
-  }
-  return lines.join('\n');
-}
-
-const previewContent = computed(() => {
-  switch (format.value) {
-    case 'json':
-      return generateJsonPreview();
-    case 'markdown':
-      return generateMarkdownPreview();
-    case 'csv':
-      return generateCsvPreview();
-    default:
-      return '';
-  }
-});
-
-const previewLanguage = computed(() => {
-  switch (format.value) {
-    case 'json': return 'json';
-    case 'markdown': return 'markdown';
-    case 'csv': return 'csv';
-    default: return 'text';
-  }
-});
-
-const estimatedSize = computed(() => {
-  const bytes = new Blob([previewContent.value]).size;
-  return formatBytes(bytes);
-});
-
-// ── Export action ────────────────────────────────────────────
-async function handleExport() {
-  // STUB: File download uses Blob URL — switch to Tauri save_file dialog in production.
-  exporting.value = true;
-
-  // Simulate brief export delay
-  await new Promise((r) => setTimeout(r, 600));
-
-  const ext = format.value === 'json' ? 'json' : format.value === 'markdown' ? 'md' : 'csv';
-  const mime = format.value === 'json' ? 'application/json' : format.value === 'csv' ? 'text/csv' : 'text/markdown';
-  const blob = new Blob([previewContent.value], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `session-export.${ext}`;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  exporting.value = false;
-  success('Session exported successfully');
 }
 </script>
 
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
-      <!-- Header -->
+      <!-- ── Header + Tabs ── -->
       <header class="export-header">
-        <h1>Export Session</h1>
-        <p class="text-secondary">Configure and preview your session export</p>
+        <div class="header-row">
+          <h1>Export & Import</h1>
+          <div class="tab-pills">
+            <button
+              class="tab-pill"
+              :class="{ active: activeTab === 'export' }"
+              @click="activeTab = 'export'"
+            >
+              Export
+            </button>
+            <button
+              class="tab-pill"
+              :class="{ active: activeTab === 'import' }"
+              @click="activeTab = 'import'"
+            >
+              Import
+            </button>
+          </div>
+        </div>
+        <p class="text-secondary">
+          {{ activeTab === 'export'
+            ? 'Configure and preview your session export'
+            : 'Import sessions from a TracePilot archive' }}
+        </p>
       </header>
 
-      <div class="export-layout">
-        <!-- Left Column: Config -->
-        <div class="export-config">
+      <!-- ════════════ EXPORT TAB ════════════ -->
+      <div v-if="activeTab === 'export'" class="export-split">
+        <!-- Left: Config Column -->
+        <div class="config-col">
+          <!-- Presets -->
+          <div class="preset-bar">
+            <button
+              v-for="preset in EXPORT_PRESETS"
+              :key="preset.id"
+              class="preset-btn"
+              :class="{ active: activePreset === preset.id }"
+              :title="preset.description"
+              @click="applyPreset(preset.id)"
+            >
+              <span>{{ preset.icon }}</span>
+              {{ preset.label }}
+            </button>
+          </div>
+
           <!-- Session Selector -->
           <section class="config-section">
             <h3 class="config-section-title">Session</h3>
-            <select
-              v-model="selectedSessionId"
-              class="form-select"
-            >
+            <select v-model="selectedSessionId" class="session-select">
               <option value="" disabled>Select a session…</option>
               <option
                 v-for="s in sessionsStore.sessions"
                 :key="s.id"
                 :value="s.id"
               >
-                {{ s.summary || s.id }} — {{ s.repository ?? 'unknown' }}
+                {{ s.summary || s.id.slice(0, 12) }} — {{ s.repository ?? 'unknown' }}
               </option>
             </select>
-          </section>
-
-          <!-- Format Selector -->
-          <section class="config-section">
-            <h3 class="config-section-title">Format</h3>
-            <BtnGroup v-model="format" :options="formatOptions" />
-          </section>
-
-          <!-- Include Sections -->
-          <section class="config-section">
-            <h3 class="config-section-title">Include Sections</h3>
-            <div class="switch-list">
-              <FormSwitch v-model="includeConversation" label="Conversation" />
-              <FormSwitch v-model="includeEvents" label="Events" />
-              <FormSwitch v-model="includeMetrics" label="Metrics" />
-              <FormSwitch v-model="includeToolCalls" label="Tool Calls" />
-              <FormSwitch v-model="includeTodos" label="Todos" />
-              <FormSwitch v-model="includeCheckpoints" label="Checkpoints" />
-              <FormSwitch v-model="includeRawData" label="Raw Data" />
+            <div v-if="selectedSession" class="session-info">
+              <Badge variant="accent">{{ selectedSession.repository ?? '—' }}</Badge>
+              <Badge variant="neutral">{{ selectedSession.currentModel ?? '—' }}</Badge>
+              <span v-if="sectionsInfo?.turnCount != null">
+                {{ sectionsInfo.turnCount }} turns
+              </span>
+              <span v-if="sectionsInfo?.eventCount != null">
+                · {{ sectionsInfo.eventCount }} events
+              </span>
             </div>
           </section>
 
-          <!-- Options -->
+          <!-- Format -->
           <section class="config-section">
-            <h3 class="config-section-title">Options</h3>
-            <div class="switch-list">
-              <FormSwitch v-model="includeTimestamps" label="Include timestamps" />
-              <FormSwitch v-model="includeTokenCounts" label="Include token counts" />
-              <FormSwitch v-model="anonymizePaths" label="Anonymize paths" />
+            <h3 class="config-section-title">Format</h3>
+            <BtnGroup v-model="format" :options="formatOptions" />
+            <p class="format-desc-text">{{ FORMAT_DESCRIPTIONS[format] }}</p>
+          </section>
+
+          <!-- Content Sections -->
+          <section class="config-section">
+            <div class="section-title-row">
+              <h3 class="config-section-title">Content Sections</h3>
+              <span class="section-actions">
+                <button class="link-btn" @click="selectAll">Select All</button>
+                ·
+                <button class="link-btn" @click="selectNone">None</button>
+              </span>
+            </div>
+            <div v-for="group in SECTION_GROUPS" :key="group.label">
+              <div class="toggle-group-label">{{ group.label }}</div>
+              <div
+                v-for="sectionId in group.sections"
+                :key="sectionId"
+                class="toggle-row"
+              >
+                <span class="toggle-row-icon">{{ SECTION_ICONS[sectionId] }}</span>
+                <span class="toggle-row-label">
+                  {{ SECTION_LABELS[sectionId] }}
+                  <span
+                    v-if="sectionHasData(sectionId) === false"
+                    class="no-data-hint"
+                  >(empty)</span>
+                </span>
+                <FormSwitch
+                  :model-value="enabledSections.has(sectionId)"
+                  @update:model-value="toggleSection(sectionId)"
+                />
+              </div>
             </div>
           </section>
 
           <!-- Export Button -->
-          <button
-            class="btn btn-primary btn-export"
-            :disabled="!selectedSessionId || exporting"
-            @click="handleExport"
-          >
-            <template v-if="exporting">
-              <span class="spinner" /> Exporting…
-            </template>
-            <template v-else>
-              Export Session
-            </template>
-          </button>
+          <div class="export-actions">
+            <button
+              class="btn btn-primary btn-export"
+              :disabled="!selectedSessionId || exporting || sectionsArray.length === 0"
+              @click="handleExport"
+            >
+              <template v-if="exporting">
+                <span class="spinner" /> Exporting…
+              </template>
+              <template v-else>
+                Export
+              </template>
+            </button>
+            <div class="export-footer-row">
+              <span v-if="preview" class="text-tertiary">
+                ~{{ formatBytes(preview.estimatedSizeBytes) }}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <!-- Right Column: Preview -->
-        <div class="export-preview-panel">
-          <div class="preview-header">
-            <h3 class="config-section-title">Preview</h3>
-            <span class="preview-badge">{{ previewLanguage.toUpperCase() }}</span>
+        <!-- Right: Preview Column -->
+        <div class="preview-col">
+          <div class="preview-panel">
+            <!-- Preview Header -->
+            <div class="preview-header">
+              <h3 class="config-section-title" style="margin: 0">Preview</h3>
+              <div class="preview-header-right">
+                <Badge variant="accent">{{ format.toUpperCase() }}</Badge>
+                <div class="view-toggle">
+                  <button
+                    class="view-toggle-btn"
+                    :class="{ active: previewView === 'raw' }"
+                    @click="previewView = 'raw'"
+                  >
+                    Raw
+                  </button>
+                  <button
+                    class="view-toggle-btn"
+                    :class="{ active: previewView === 'rendered' }"
+                    @click="previewView = 'rendered'"
+                  >
+                    Rendered
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview Body -->
+            <div class="preview-body">
+              <div v-if="!selectedSessionId" class="preview-empty">
+                <EmptyState
+                  icon="📤"
+                  message="Select a session to preview the export"
+                  compact
+                />
+              </div>
+              <div v-else-if="previewLoading" class="preview-loading">
+                <span class="spinner" /> Generating preview…
+              </div>
+              <div v-else-if="previewError" class="preview-error">
+                <EmptyState
+                  icon="⚠️"
+                  :message="previewError"
+                  compact
+                />
+              </div>
+              <div v-else-if="preview">
+                <!-- Raw view -->
+                <pre v-if="previewView === 'raw'" class="preview-code"><code>{{ preview.content }}</code></pre>
+                <!-- Rendered view (renders raw content with basic formatting) -->
+                <div v-else class="rendered-view" v-html="preview.content" />
+              </div>
+            </div>
+
+            <!-- Preview Footer -->
+            <div v-if="preview" class="preview-footer">
+              <div class="preview-footer-left">
+                <span>{{ preview.sectionCount }} section{{ preview.sectionCount !== 1 ? 's' : '' }}</span>
+                <span>·</span>
+                <span>~{{ formatBytes(preview.estimatedSizeBytes) }}</span>
+              </div>
+              <button class="link-btn" @click="copiedToClipboard">
+                Copy to Clipboard
+              </button>
+            </div>
           </div>
-          <div class="preview-scroll">
-            <pre class="preview-code"><code>{{ previewContent }}</code></pre>
+        </div>
+      </div>
+
+      <!-- ════════════ IMPORT TAB ════════════ -->
+      <div v-if="activeTab === 'import'" class="import-container">
+        <!-- Step 1: File Selection -->
+        <div v-if="importFlow.step.value === 'select'">
+          <div
+            class="drop-zone"
+            @click="importFlow.browseFile"
+          >
+            <div class="drop-zone-icon">📂</div>
+            <div class="drop-zone-text">
+              Drop a <strong>.tpx.json</strong> file here, or click to browse
+            </div>
+            <div class="drop-zone-hint">Supports TracePilot export files v1.0+</div>
           </div>
-          <div class="preview-footer">
-            <span class="text-tertiary">
-              {{ enabledSections.length }} section{{ enabledSections.length !== 1 ? 's' : '' }} ·
-              Estimated size: <strong>{{ estimatedSize }}</strong>
-            </span>
+          <div v-if="importFlow.error.value" class="import-error">
+            ⚠️ {{ importFlow.error.value }}
+          </div>
+        </div>
+
+        <!-- Step 2: Validating -->
+        <div v-if="importFlow.step.value === 'validating'" class="import-validating">
+          <div class="import-file-card">
+            <span class="import-file-icon">📄</span>
+            <div>
+              <div class="import-file-name">{{ importFlow.fileName.value }}</div>
+              <div class="import-file-meta">Validating…</div>
+            </div>
+          </div>
+          <div class="validation-list">
+            <div class="validation-item checking">
+              <span class="validation-icon spinner">⟳</span>
+              <span class="validation-label">Parsing and validating archive…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Review -->
+        <div v-if="importFlow.step.value === 'review' && importFlow.preview.value">
+          <div class="import-file-card">
+            <span class="import-file-icon">📄</span>
+            <div>
+              <div class="import-file-name">{{ importFlow.fileName.value }}</div>
+              <div class="import-file-meta">
+                {{ importFlow.preview.value.sessions.length }} session(s) ·
+                Schema v{{ importFlow.preview.value.schemaVersion }}
+                <Badge v-if="importFlow.preview.value.needsMigration" variant="warning">
+                  Migration needed
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <!-- Validation Issues -->
+          <div v-if="importFlow.preview.value.issues.length > 0" class="validation-list">
+            <div
+              v-for="(issue, i) in importFlow.preview.value.issues"
+              :key="i"
+              class="validation-item"
+              :class="{
+                'issue-error': issue.severity === 'error',
+                'issue-warning': issue.severity === 'warning',
+              }"
+            >
+              <span class="validation-icon">
+                {{ issue.severity === 'error' ? '❌' : issue.severity === 'warning' ? '⚠️' : 'ℹ️' }}
+              </span>
+              <span class="validation-label">{{ issue.message }}</span>
+            </div>
+          </div>
+          <div v-else class="validation-list">
+            <div class="validation-item passed">
+              <span class="validation-icon">✅</span>
+              <span class="validation-label">Archive is valid</span>
+            </div>
+          </div>
+
+          <!-- Session List -->
+          <section class="config-section" style="margin-top: 20px">
+            <h3 class="config-section-title">Sessions to Import</h3>
+            <div
+              v-for="session in importFlow.preview.value.sessions"
+              :key="session.id"
+              class="import-session-row"
+            >
+              <FormSwitch
+                :model-value="importFlow.selectedSessions.value.includes(session.id)"
+                @update:model-value="importFlow.toggleSession(session.id)"
+              />
+              <div class="import-session-info">
+                <div class="import-session-name">
+                  {{ session.summary ?? session.id.slice(0, 12) }}
+                </div>
+                <div class="import-session-meta">
+                  {{ session.repository ?? 'Unknown repo' }}
+                  · {{ session.sectionCount }} sections
+                  <Badge v-if="session.alreadyExists" variant="warning">Exists</Badge>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Conflict Strategy -->
+          <section class="config-section" style="margin-top: 16px">
+            <h3 class="config-section-title">Conflict Handling</h3>
+            <BtnGroup
+              v-model="importFlow.conflictStrategy.value"
+              :options="[
+                { value: 'skip', label: 'Skip' },
+                { value: 'overwrite', label: 'Overwrite' },
+                { value: 'rename', label: 'Rename' },
+              ]"
+            />
+          </section>
+
+          <!-- Error display -->
+          <div v-if="importFlow.error.value" class="import-error" style="margin-top: 12px">
+            ⚠️ {{ importFlow.error.value }}
+          </div>
+
+          <!-- Import Actions -->
+          <div class="import-actions">
+            <button class="btn btn-secondary" @click="importFlow.reset">
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              :disabled="!importFlow.canImport.value"
+              @click="importFlow.executeImport"
+            >
+              Import {{ importFlow.selectedSessions.value.length }} Session(s)
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: Importing -->
+        <div v-if="importFlow.step.value === 'importing'" class="import-progress-container">
+          <div class="import-file-card">
+            <span class="import-file-icon">📄</span>
+            <div>
+              <div class="import-file-name">{{ importFlow.fileName.value }}</div>
+              <div class="import-file-meta">Importing…</div>
+            </div>
+          </div>
+          <ProgressBar :percent="importFlow.importProgress.value" color="accent" aria-label="Import progress" />
+          <p class="text-secondary import-progress-label">
+            {{ importFlow.importProgress.value < 30 ? 'Parsing sessions…'
+              : importFlow.importProgress.value < 60 ? 'Restoring data…'
+              : importFlow.importProgress.value < 90 ? 'Indexing events…'
+              : 'Finalizing…' }}
+          </p>
+        </div>
+
+        <!-- Step 5: Complete -->
+        <div v-if="importFlow.step.value === 'complete'" class="import-success">
+          <div class="import-success-icon">✅</div>
+          <h2 class="import-success-title">Import Complete</h2>
+          <p class="import-success-desc">
+            {{ importFlow.importedCount.value }} session(s) imported successfully.
+            <template v-if="importFlow.skippedCount.value > 0">
+              {{ importFlow.skippedCount.value }} skipped.
+            </template>
+          </p>
+          <div v-if="importFlow.importErrors.value.length > 0" class="import-error-list">
+            <div v-for="(err, i) in importFlow.importErrors.value" :key="i" class="import-error">
+              ⚠️ {{ err }}
+            </div>
+          </div>
+          <div class="import-actions">
+            <button class="btn btn-secondary" @click="importFlow.reset">
+              Import Another
+            </button>
+            <button class="btn btn-primary" @click="router.push({ name: 'sessions' })">
+              View Sessions
+            </button>
           </div>
         </div>
       </div>
@@ -389,6 +553,7 @@ async function handleExport() {
 </template>
 
 <style scoped>
+/* ── Header ────────────────────────────────────────────────── */
 .export-header {
   margin-bottom: 24px;
 }
@@ -396,55 +561,242 @@ async function handleExport() {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 4px;
+  margin: 0;
 }
-.export-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 24px;
-  min-height: 0;
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.text-secondary {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+.text-tertiary {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
 }
 
-/* ── Config column ─────────────────────────────────────────── */
-.export-config {
+/* ── Tab Pills ─────────────────────────────────────────────── */
+.tab-pills {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
-.config-section {
+.tab-pill {
+  padding: 6px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.tab-pill:not(:last-child) {
+  border-right: 1px solid var(--border-default);
+}
+.tab-pill:hover {
+  color: var(--text-primary);
+}
+.tab-pill.active {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+/* ── Export Split Layout ───────────────────────────────────── */
+.export-split {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .export-split {
+    grid-template-columns: 1fr;
+  }
+  .preview-col {
+    order: -1;
+  }
+}
+
+.config-col,
+.preview-col {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+.config-col::-webkit-scrollbar,
+.preview-col::-webkit-scrollbar {
+  width: 5px;
+}
+.config-col::-webkit-scrollbar-thumb,
+.preview-col::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 999px;
+}
+
+/* ── Preset Bar ────────────────────────────────────────────── */
+.preset-bar {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.preset-btn:hover {
+  border-color: var(--accent-emphasis);
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+.preset-btn.active {
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+  background: var(--accent-muted);
+}
+
+/* ── Config Sections ───────────────────────────────────────── */
+.config-section {
+  margin-bottom: 20px;
 }
 .config-section-title {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 10px;
 }
-.form-select {
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.section-actions {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Session Selector ──────────────────────────────────────── */
+.session-select {
   width: 100%;
   padding: 8px 12px;
-  border-radius: var(--radius-md);
+  background: var(--canvas-default);
   border: 1px solid var(--border-default);
-  background: var(--canvas-subtle);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
   outline: none;
+  cursor: pointer;
   transition: border-color var(--transition-fast);
 }
-.form-select:focus {
+.session-select:focus {
   border-color: var(--accent-emphasis);
 }
-.switch-list {
+.session-info {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Format Description ────────────────────────────────────── */
+.format-desc-text {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ── Section Toggle Rows ───────────────────────────────────── */
+.toggle-group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: 10px 0 4px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-muted);
+  transition: background var(--transition-fast);
+}
+.toggle-row:last-child {
+  border-bottom: none;
+}
+.toggle-row:hover {
+  background: var(--canvas-subtle);
+  margin: 0 -8px;
+  padding: 8px 8px;
+  border-radius: var(--radius-md);
+}
+.toggle-row-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  width: 20px;
+  text-align: center;
+}
+.toggle-row-label {
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.no-data-hint {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+/* ── Link Button ───────────────────────────────────────────── */
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Export Actions ─────────────────────────────────────────── */
+.export-actions {
+  margin-top: 8px;
 }
 .btn-export {
-  margin-top: 8px;
+  width: 100%;
   padding: 12px 24px;
   font-size: 1rem;
   font-weight: 600;
@@ -454,9 +806,14 @@ async function handleExport() {
   justify-content: center;
   gap: 8px;
 }
+.export-footer-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
 
-/* ── Preview column ────────────────────────────────────────── */
-.export-preview-panel {
+/* ── Preview Panel ─────────────────────────────────────────── */
+.preview-panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-default);
@@ -471,21 +828,56 @@ async function handleExport() {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
 }
-.preview-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--accent-subtle);
+.preview-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.view-toggle-btn {
+  padding: 3px 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.view-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--border-default);
+}
+.view-toggle-btn.active {
+  background: var(--accent-muted);
   color: var(--accent-fg);
+  font-weight: 600;
 }
-.preview-scroll {
+.preview-body {
   flex: 1;
   overflow: auto;
   padding: 16px;
-  min-height: 0;
+  min-height: 200px;
+}
+.preview-empty,
+.preview-loading,
+.preview-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.preview-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  gap: 8px;
 }
 .preview-code {
   margin: 0;
@@ -496,25 +888,230 @@ async function handleExport() {
   word-break: break-word;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
+.rendered-view {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.rendered-view :deep(h1) { font-size: 1.25rem; margin: 0 0 12px; color: var(--text-primary); }
+.rendered-view :deep(h2) { font-size: 1rem; margin: 16px 0 8px; color: var(--accent-fg); }
+.rendered-view :deep(h3) { font-size: 0.875rem; margin: 12px 0 6px; color: var(--text-secondary); }
+.rendered-view :deep(table) { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.rendered-view :deep(th),
+.rendered-view :deep(td) { padding: 4px 8px; border: 1px solid var(--border-muted); font-size: 0.8rem; }
+.rendered-view :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
 .preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 10px 16px;
   border-top: 1px solid var(--border-default);
-  font-size: 0.8rem;
+  background: var(--canvas-subtle);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
-.text-secondary {
+.preview-footer-left {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Import Container ──────────────────────────────────────── */
+.import-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ── Drop Zone ─────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--canvas-subtle);
+}
+.drop-zone:hover {
+  border-color: var(--accent-emphasis);
+  background: var(--accent-subtle);
+}
+.drop-zone-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+.drop-zone-text {
+  font-size: 0.875rem;
   color: var(--text-secondary);
+  margin-bottom: 4px;
 }
-.text-tertiary {
+.drop-zone-hint {
+  font-size: 0.6875rem;
   color: var(--text-tertiary);
 }
 
+/* ── Import File Card ──────────────────────────────────────── */
+.import-file-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  margin-bottom: 20px;
+}
+.import-file-icon {
+  font-size: 28px;
+  opacity: 0.7;
+}
+.import-file-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.import-file-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Validation Items ──────────────────────────────────────── */
+.validation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.validation-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  background: var(--canvas-subtle);
+  transition: all 0.2s;
+}
+.validation-item.checking {
+  border-color: var(--accent-emphasis);
+}
+.validation-item.passed {
+  border-color: var(--success-emphasis);
+  background: var(--success-subtle);
+}
+.validation-item.issue-error {
+  border-color: var(--danger-emphasis);
+  background: var(--danger-subtle);
+}
+.validation-item.issue-warning {
+  border-color: var(--warning-emphasis);
+  background: var(--warning-subtle);
+}
+.validation-icon {
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.validation-label {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+/* ── Import Session Rows ───────────────────────────────────── */
+.import-session-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-muted);
+}
+.import-session-row:last-child {
+  border-bottom: none;
+}
+.import-session-info {
+  flex: 1;
+}
+.import-session-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.import-session-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* ── Import Actions ────────────────────────────────────────── */
+.import-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* ── Import Progress ───────────────────────────────────────── */
+.import-progress-container {
+  text-align: center;
+}
+.import-progress-label {
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+/* ── Import Success ────────────────────────────────────────── */
+.import-success {
+  text-align: center;
+  padding: 32px 0;
+}
+.import-success-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.import-success-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--success-fg);
+  margin: 0 0 8px;
+}
+.import-success-desc {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0 0 16px;
+}
+
+/* ── Import Error ──────────────────────────────────────────── */
+.import-error {
+  padding: 10px 14px;
+  border: 1px solid var(--danger-emphasis);
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+  font-size: 0.8125rem;
+  margin-top: 12px;
+}
+.import-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 500px;
+  margin: 0 auto 16px;
+}
+
 /* ── Spinner ───────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-muted);
-  border-top-color: var(--accent-fg);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
 }
 </style>

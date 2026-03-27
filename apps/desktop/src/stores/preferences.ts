@@ -75,7 +75,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     toolOverrides: { ...DEFAULT_TOOL_RENDERING_PREFS.toolOverrides },
   });
   const featureFlags = ref<Record<string, boolean>>({
-    exportView: false,
+    exportView: true,
     healthScoring: false,
     sessionReplay: false,
     renderMarkdown: true,

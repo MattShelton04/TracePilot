@@ -72,3 +72,42 @@ export async function browseForSavePath(options?: {
     return sanitizePath(input);
   }
 }
+
+/**
+ * Opens a native file picker dialog (Tauri) or falls back to prompt().
+ * Returns the selected file path or null if cancelled.
+ */
+export async function browseForFile(options?: {
+  title?: string;
+  defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
+}): Promise<string | null> {
+  if (!('__TAURI_INTERNALS__' in window)) {
+    const input = prompt(
+      options?.title ?? 'Select file:',
+      options?.defaultPath ?? '',
+    );
+    return sanitizePath(input);
+  }
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const result = await open({
+      title: options?.title ?? 'Select file',
+      defaultPath: options?.defaultPath,
+      filters: options?.filters,
+      directory: false,
+      multiple: false,
+    });
+    if (typeof result === 'string') return result;
+    if (result && typeof result === 'object' && 'length' in result) {
+      return (result as string[])[0] ?? null;
+    }
+    return null;
+  } catch {
+    const input = prompt(
+      options?.title ?? 'Select file:',
+      options?.defaultPath ?? '',
+    );
+    return sanitizePath(input);
+  }
+}
