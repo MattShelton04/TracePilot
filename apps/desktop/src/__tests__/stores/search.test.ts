@@ -29,19 +29,55 @@ vi.mock("@/utils/tauriEvents", () => ({
   safeListen: vi.fn().mockResolvedValue(() => {}),
 }));
 
+const emptySearchResponse = {
+  results: [],
+  totalCount: 0,
+  hasMore: false,
+  latencyMs: 5,
+};
+
+const emptyFacets = {
+  byContentType: [],
+  byRepository: [],
+  byToolName: [],
+  totalMatches: 0,
+  sessionCount: 0,
+};
+
+function resetAllMocks() {
+  mockSearchContent.mockReset();
+  mockGetSearchFacets.mockReset();
+  mockGetSearchStats.mockReset();
+  mockGetSearchRepositories.mockReset();
+  mockGetSearchToolNames.mockReset();
+  mockRebuildSearchIndex.mockReset();
+  mockFtsIntegrityCheck.mockReset();
+  mockFtsOptimize.mockReset();
+  mockFtsHealth.mockReset();
+}
+
+function setupDefaultMocks() {
+  mockSearchContent.mockResolvedValue(emptySearchResponse);
+  mockGetSearchFacets.mockResolvedValue(emptyFacets);
+  mockGetSearchStats.mockResolvedValue({ totalRows: 0, indexedSessions: 0, totalSessions: 0, contentTypeCounts: [] });
+  mockGetSearchRepositories.mockResolvedValue([]);
+  mockGetSearchToolNames.mockResolvedValue([]);
+  mockRebuildSearchIndex.mockResolvedValue(undefined);
+  mockFtsIntegrityCheck.mockResolvedValue("ok");
+  mockFtsOptimize.mockResolvedValue("ok");
+  mockFtsHealth.mockResolvedValue(null);
+}
+
+async function flushSearchQueue() {
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("useSearchStore – scheduling", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
-    mockSearchContent.mockReset();
-    mockGetSearchFacets.mockReset();
-    mockGetSearchStats.mockReset();
-    mockGetSearchRepositories.mockReset();
-    mockGetSearchToolNames.mockReset();
-    mockRebuildSearchIndex.mockReset();
-    mockFtsIntegrityCheck.mockReset();
-    mockFtsOptimize.mockReset();
-    mockFtsHealth.mockReset();
+    resetAllMocks();
 
     mockSearchContent.mockResolvedValue({
       results: [],
@@ -108,5 +144,78 @@ describe("useSearchStore – scheduling", () => {
     expect(mockSearchContent).toHaveBeenCalledTimes(1);
     const [_query, options] = mockSearchContent.mock.calls[0];
     expect(options?.offset).toBe(50); // (page 2 - 1) * 50
+  });
+});
+
+describe("useSearchStore browse presets", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    resetAllMocks();
+    setupDefaultMocks();
+  });
+
+  it("clears filters and uses newest sort when browsing tool calls", async () => {
+    const store = useSearchStore();
+    store.query = "error in repo";
+    store.repository = "org/repo";
+    store.toolName = "grep";
+    store.contentTypes = ["user_message"];
+    store.excludeContentTypes = ["tool_result"];
+    store.sortBy = "oldest";
+    store.page = 3;
+
+    store.browseToolCalls();
+    await flushSearchQueue();
+
+    expect(store.query).toBe("");
+    expect(store.repository).toBeNull();
+    expect(store.toolName).toBeNull();
+    expect(store.contentTypes).toEqual(["tool_call"]);
+    expect(store.excludeContentTypes).toEqual([]);
+    expect(store.sortBy).toBe("newest");
+    expect(store.page).toBe(1);
+    expect(mockSearchContent).toHaveBeenCalledTimes(1);
+
+    const [searchQuery, options] = mockSearchContent.mock.calls[0];
+    expect(searchQuery).toBe("");
+    expect(options.contentTypes).toEqual(["tool_call"]);
+    expect(options.repositories).toBeUndefined();
+    expect(options.toolNames).toBeUndefined();
+    expect(options.sortBy).toBe("newest");
+  });
+
+  const presetMethods = {
+    browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
+    browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
+    browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),
+    browseToolResults: (s: ReturnType<typeof useSearchStore>) => s.browseToolResults(),
+    browseSubagents: (s: ReturnType<typeof useSearchStore>) => s.browseSubagents(),
+  } as const;
+
+  it.each([
+    ["browseErrors", ["error", "tool_error"]],
+    ["browseUserMessages", ["user_message"]],
+    ["browseReasoning", ["reasoning"]],
+    ["browseToolResults", ["tool_result"]],
+    ["browseSubagents", ["subagent"]],
+  ] as const)("applies expected content types for %s", async (method, expectedTypes) => {
+    const store = useSearchStore();
+    const presetMethods: Record<string, () => void> = {
+      browseErrors: () => store.browseErrors(),
+      browseUserMessages: () => store.browseUserMessages(),
+      browseReasoning: () => store.browseReasoning(),
+      browseToolResults: () => store.browseToolResults(),
+      browseSubagents: () => store.browseSubagents(),
+    };
+    presetMethods[method]();
+    await flushSearchQueue();
+
+    expect(store.contentTypes).toEqual(expectedTypes);
+    expect(store.sortBy).toBe("newest");
+    expect(mockSearchContent).toHaveBeenCalledTimes(1);
+
+    const [, options] = mockSearchContent.mock.calls[0];
+    expect(options.contentTypes).toEqual(expectedTypes);
+    expect(options.sortBy).toBe("newest");
   });
 });
