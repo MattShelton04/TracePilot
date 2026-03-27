@@ -22,6 +22,9 @@ pub mod schema;
 pub mod json;
 pub mod markdown;
 
+#[cfg(test)]
+pub(crate) mod test_helpers;
+
 // Re-export key types for ergonomic API usage.
 pub use document::{SessionArchive, PortableSession, SectionId};
 pub use error::{ExportError, Result};

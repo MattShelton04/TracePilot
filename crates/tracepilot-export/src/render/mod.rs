@@ -8,7 +8,9 @@ use crate::document::SessionArchive;
 use crate::error::Result;
 use crate::options::ExportFormat;
 
+pub mod csv;
 pub mod json;
+pub mod markdown;
 
 /// A single output file produced by a renderer.
 #[derive(Debug, Clone)]
@@ -53,13 +55,7 @@ pub trait ExportRenderer {
 pub fn create_renderer(format: ExportFormat) -> Box<dyn ExportRenderer> {
     match format {
         ExportFormat::Json => Box::new(json::JsonRenderer),
-        ExportFormat::Markdown => {
-            // Phase A2: will be implemented in render/markdown.rs
-            unimplemented!("Markdown renderer not yet implemented")
-        }
-        ExportFormat::Csv => {
-            // Phase A2: will be implemented in render/csv.rs
-            unimplemented!("CSV renderer not yet implemented")
-        }
+        ExportFormat::Markdown => Box::new(markdown::MarkdownRenderer),
+        ExportFormat::Csv => Box::new(csv::CsvRenderer),
     }
 }
