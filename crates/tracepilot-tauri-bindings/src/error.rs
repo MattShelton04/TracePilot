@@ -43,6 +43,10 @@ pub enum BindingsError {
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
 
+    /// Error from `tracepilot-export` (export/import pipeline).
+    #[error(transparent)]
+    Export(#[from] tracepilot_export::ExportError),
+
     /// A reindex is already running; callers should retry later.
     #[error("ALREADY_INDEXING")]
     AlreadyIndexing,

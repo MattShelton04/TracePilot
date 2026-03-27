@@ -88,6 +88,12 @@ fn main() {
                     // Logging commands
                     "get_log_path",
                     "export_logs",
+                    // Export / Import commands
+                    "export_sessions",
+                    "preview_export",
+                    "get_session_sections",
+                    "preview_import",
+                    "import_sessions",
                 ])
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),

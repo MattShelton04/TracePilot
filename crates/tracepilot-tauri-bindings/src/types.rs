@@ -180,3 +180,97 @@ pub struct IndexingProgressPayload {
     pub total_events: u64,
     pub total_repos: usize,
 }
+
+// ── Export / Import DTOs ────────────────────────────────────────────
+
+/// Result returned to the frontend after a successful export.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSessionsResult {
+    /// Number of sessions included in the export.
+    pub sessions_exported: usize,
+    /// Filesystem path where the export was written.
+    pub file_path: String,
+    /// Size of the output file in bytes.
+    pub file_size_bytes: u64,
+    /// ISO-8601 timestamp of the export.
+    pub exported_at: String,
+}
+
+/// Preview content returned for the live preview panel.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportPreviewResult {
+    /// Rendered content (JSON, Markdown, or CSV).
+    pub content: String,
+    /// Format that was rendered.
+    pub format: String,
+    /// Estimated total output size in bytes.
+    pub estimated_size_bytes: usize,
+    /// Number of sections included.
+    pub section_count: usize,
+}
+
+/// Info about which sections have data in a given session.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionSectionsInfo {
+    pub session_id: String,
+    pub has_conversation: bool,
+    pub has_events: bool,
+    pub has_todos: bool,
+    pub has_plan: bool,
+    pub has_checkpoints: bool,
+    pub has_metrics: bool,
+    pub has_health: bool,
+    pub has_incidents: bool,
+    pub has_rewind_snapshots: bool,
+    pub has_custom_tables: bool,
+    pub event_count: Option<usize>,
+    pub turn_count: Option<usize>,
+}
+
+/// Result of an import preview — shows what would be imported.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreviewResult {
+    /// Whether the archive is valid for import.
+    pub valid: bool,
+    /// Validation issues (errors and warnings).
+    pub issues: Vec<ImportIssue>,
+    /// Sessions found in the archive.
+    pub sessions: Vec<ImportSessionPreview>,
+    /// Schema version of the archive.
+    pub schema_version: String,
+    /// Whether the archive needs migration.
+    pub needs_migration: bool,
+}
+
+/// A single validation issue found during import preview.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportIssue {
+    pub severity: String,
+    pub message: String,
+}
+
+/// Summary of a session found in an import archive.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportSessionPreview {
+    pub id: String,
+    pub summary: Option<String>,
+    pub repository: Option<String>,
+    pub created_at: Option<String>,
+    pub section_count: usize,
+    pub already_exists: bool,
+}
+
+/// Result returned to the frontend after import.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportSessionsResult {
+    pub imported_count: usize,
+    pub skipped_count: usize,
+    pub errors: Vec<String>,
+}
