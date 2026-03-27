@@ -55,19 +55,67 @@ pub fn parse_archive(path: &Path) -> Result<SessionArchive> {
         });
     }
 
+    // 5. Enforce minimum reader version if the archive declares one
+    if let Some(min_reader) = &archive.header.minimum_reader_version {
+        if !schema::CURRENT_VERSION.satisfies_minimum(min_reader) {
+            return Err(ExportError::UnsupportedVersion {
+                major: min_reader.major,
+                minor: min_reader.minor,
+                min_major: schema::CURRENT_VERSION.major,
+                min_minor: schema::CURRENT_VERSION.minor,
+            });
+        }
+    }
+
     Ok(archive)
 }
 
 /// Parse a JSON string into a [`SessionArchive`].
 ///
 /// Useful for testing and for in-memory imports (e.g., clipboard paste).
+/// Optionally verifies the content hash if present in the header.
 pub fn parse_archive_str(json: &str) -> Result<SessionArchive> {
     let archive: SessionArchive = serde_json::from_str(json).map_err(|e| {
         ExportError::Validation {
             message: format!("invalid JSON structure: {}", e),
         }
     })?;
+
+    // Verify content hash if present
+    if let Some(expected_hash) = &archive.header.content_hash {
+        verify_content_hash(&archive.sessions, expected_hash)?;
+    }
+
     Ok(archive)
+}
+
+/// Re-serialize sessions and compare hash to detect tampering.
+fn verify_content_hash(
+    sessions: &[crate::document::PortableSession],
+    expected: &str,
+) -> Result<()> {
+    use sha2::{Digest, Sha256};
+
+    let sessions_json = serde_json::to_vec_pretty(sessions).map_err(|e| {
+        ExportError::Validation {
+            message: format!("failed to re-serialize sessions for hash verification: {e}"),
+        }
+    })?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(&sessions_json);
+    let actual = format!("{:x}", hasher.finalize());
+
+    if actual != *expected {
+        return Err(ExportError::Validation {
+            message: format!(
+                "content hash mismatch: expected {}, computed {}. Archive may be corrupted or tampered with.",
+                expected, actual
+            ),
+        });
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -129,5 +177,25 @@ mod tests {
             parsed.sessions[0].metadata.repository,
             archive.sessions[0].metadata.repository
         );
+    }
+
+    #[test]
+    fn rejects_unmet_minimum_reader_version() {
+        let mut archive = test_archive(minimal_session());
+        // Set a minimum reader version higher than current
+        archive.header.minimum_reader_version = Some(crate::schema::SchemaVersion {
+            major: 1,
+            minor: 99,
+        });
+        let json = serde_json::to_string(&archive).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("future.tpx.json");
+        std::fs::write(&path, &json).unwrap();
+
+        let result = parse_archive(&path);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unsupported") || err.contains("version"));
     }
 }

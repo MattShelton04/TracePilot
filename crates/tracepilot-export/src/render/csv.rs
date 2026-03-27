@@ -125,7 +125,7 @@ fn make_file(prefix: &str, name: &str, content: Vec<u8>) -> ExportFile {
 }
 
 fn short_prefix(id: &str) -> String {
-    let short = if id.len() > 8 { &id[..8] } else { id };
+    let short = &id[..id.floor_char_boundary(8.min(id.len()))];
     format!("session-{}", short)
 }
 

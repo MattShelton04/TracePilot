@@ -27,7 +27,7 @@ impl ExportRenderer for MarkdownRenderer {
         for session in &archive.sessions {
             let md = render_session(session, archive);
             let id = &session.metadata.id;
-            let short_id = if id.len() > 8 { &id[..8] } else { id };
+            let short_id = &id[..id.floor_char_boundary(8.min(id.len()))];
             files.push(ExportFile {
                 filename: format!("session-{}.md", short_id),
                 content: md.into_bytes(),

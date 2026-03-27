@@ -75,7 +75,11 @@ pub fn preview_export(
         .to_string();
 
     match max_bytes {
-        Some(max) if content.len() > max => Ok(content[..max].to_string()),
+        Some(max) if content.len() > max => {
+            // Find a valid UTF-8 boundary at or before `max`
+            let truncated = &content[..content.floor_char_boundary(max)];
+            Ok(truncated.to_string())
+        }
         _ => Ok(content),
     }
 }

@@ -168,9 +168,27 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
 
 // ── Security helpers ───────────────────────────────────────────────────────
 
-/// Check if a string contains path traversal sequences.
+/// Check if a string contains path traversal sequences or absolute paths.
 fn contains_path_traversal(s: &str) -> bool {
-    s.contains("..") || s.starts_with('/') || s.starts_with('\\') || s.contains(":/")
+    use std::path::{Component, Path};
+
+    let path = Path::new(s);
+
+    // Reject absolute paths (covers `/`, `\`, `C:\`, `\\server`, etc.)
+    if path.is_absolute() {
+        return true;
+    }
+
+    // Reject any component that is `..` or a Windows prefix (e.g. `C:`)
+    for component in path.components() {
+        match component {
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir => return true,
+            _ => {}
+        }
+    }
+
+    // Belt-and-suspenders: also catch `://` and bare `..` in the string
+    s.contains("..") || s.contains(":/")
 }
 
 /// Validate a filename is safe for filesystem use.
@@ -267,6 +285,32 @@ mod tests {
         let archive = test_archive(session);
         let err = validate_archive(&archive).unwrap_err();
         assert!(err.to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn rejects_absolute_unix_path_in_id() {
+        let mut session = minimal_session();
+        session.metadata.id = "/etc/evil".to_string();
+        let archive = test_archive(session);
+        assert!(validate_archive(&archive).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_windows_absolute_path_in_id() {
+        let mut session = minimal_session();
+        session.metadata.id = r"C:\evil\pwn".to_string();
+        let archive = test_archive(session);
+        assert!(validate_archive(&archive).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_unc_path_in_id() {
+        let mut session = minimal_session();
+        session.metadata.id = r"\\server\share".to_string();
+        let archive = test_archive(session);
+        assert!(validate_archive(&archive).is_err());
     }
 
     #[test]

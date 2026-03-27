@@ -20,7 +20,7 @@ impl JsonRenderer {
         if archive.sessions.len() == 1 {
             let id = &archive.sessions[0].metadata.id;
             // Use first 8 chars of the session ID for brevity
-            let short_id = if id.len() > 8 { &id[..8] } else { id };
+            let short_id = &id[..id.floor_char_boundary(8.min(id.len()))];
             format!("session-{}.tpx.json", short_id)
         } else {
             let ts = archive.header.exported_at.format("%Y%m%d-%H%M%S");
