@@ -5,10 +5,15 @@ import type {
   ConversationTurn,
   EventsResponse,
   ExportConfig,
+  ExportPreviewRequest,
+  ExportPreviewResult,
   ExportResult,
   FreshnessResponse,
   GitInfo,
   HealthScoringData,
+  ImportConfig,
+  ImportPreviewResult,
+  ImportResult,
   SearchFacetsResponse,
   SearchFilters,
   SearchResult,
@@ -19,6 +24,7 @@ import type {
   SessionIncident,
   SessionListItem,
   SessionPlan,
+  SessionSectionsInfo,
   ShutdownMetrics,
   TodosResponse,
   ToolAnalysisData,
@@ -394,16 +400,52 @@ export async function getHealthScores(): Promise<HealthScoringData> {
   return m.MOCK_HEALTH_SCORING;
 }
 
+// ── Export / Import Commands ──────────────────────────────────
+
+/** Export one or more sessions in the specified format. */
+export async function exportSessions(config: ExportConfig): Promise<ExportResult> {
+  return invoke<ExportResult>('export_sessions', {
+    sessionIds: config.sessionIds,
+    format: config.format,
+    sections: config.sections,
+    outputPath: config.outputPath,
+  });
+}
+
+/** Get a live preview of what an export would look like. */
+export async function previewExport(request: ExportPreviewRequest): Promise<ExportPreviewResult> {
+  return invoke<ExportPreviewResult>('preview_export', {
+    sessionId: request.sessionId,
+    format: request.format,
+    sections: request.sections,
+    maxLength: request.maxLength,
+  });
+}
+
+/** Discover which sections have data for a given session. */
+export async function getSessionSections(sessionId: string): Promise<SessionSectionsInfo> {
+  return invoke<SessionSectionsInfo>('get_session_sections', { sessionId });
+}
+
+/** Preview a `.tpx.json` file before importing. */
+export async function previewImport(filePath: string): Promise<ImportPreviewResult> {
+  return invoke<ImportPreviewResult>('preview_import', { filePath });
+}
+
+/** Import sessions from a `.tpx.json` file. */
+export async function importSessions(config: ImportConfig): Promise<ImportResult> {
+  return invoke<ImportResult>('import_sessions', {
+    filePath: config.filePath,
+    conflictStrategy: config.conflictStrategy,
+    sessionFilter: config.sessionFilter,
+  });
+}
+
 /**
- * Export one or more sessions in the specified format.
- * // STUB: Currently returns mock data. Replace with real Tauri IPC command
- * // STUB: when the export backend API is implemented (Phase 6+).
+ * @deprecated Use `exportSessions` instead. Kept for backward compatibility.
  */
-export async function exportSession(_config: ExportConfig): Promise<ExportResult> {
-  // STUB: No Tauri command exists yet for export.
-  // STUB: When implemented, this should call: invoke('plugin:tracepilot|export_session', { config })
-  const m = await getMocks();
-  return m.MOCK_EXPORT_RESULT;
+export async function exportSession(config: ExportConfig): Promise<ExportResult> {
+  return exportSessions(config);
 }
 
 // ── Setup / Configuration Commands ────────────────────────────
