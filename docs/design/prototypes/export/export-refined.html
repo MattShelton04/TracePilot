@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Export &amp; Import</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Export / Import layout ── */
+    .export-split {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 1000px) {
+      .export-split { grid-template-columns: 1fr; }
+      .preview-col { order: -1; }
+    }
+    .config-col,
+    .preview-col {
+      max-height: calc(100vh - 160px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+    .config-col::-webkit-scrollbar,
+    .preview-col::-webkit-scrollbar { width: 5px; }
+    .config-col::-webkit-scrollbar-thumb,
+    .preview-col::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: var(--radius-full);
+    }
+
+    /* ── Config sections ── */
+    .config-section { margin-bottom: 20px; }
+    .config-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+
+    /* ── Preset bar ── */
+    .preset-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .preset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .preset-btn:hover {
+      border-color: var(--accent-emphasis);
+      color: var(--text-primary);
+      background: var(--accent-subtle);
+    }
+    .preset-btn.active {
+      border-color: var(--accent-emphasis);
+      color: var(--accent-fg);
+      background: var(--accent-muted);
+      box-shadow: var(--shadow-glow-accent);
+    }
+
+    /* ── Session selector ── */
+    .session-select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+    .session-select:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .session-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+
+    /* ── Format button group ── */
+    .format-btn-group {
+      display: flex;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .format-btn {
+      flex: 1;
+      padding: 7px 0;
+      text-align: center;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      font-family: inherit;
+      background: var(--canvas-subtle);
+      color: var(--text-secondary);
+      border: none;
+      border-right: 1px solid var(--border-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .format-btn:last-child { border-right: none; }
+    .format-btn:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+    .format-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+    .format-desc-text {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 8px;
+    }
+
+    /* ── Section toggles ── */
+    .toggle-group-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      padding: 10px 0 4px;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-row:hover { background: var(--neutral-subtle); margin: 0 -8px; padding: 8px 8px; border-radius: var(--radius-sm); }
+    .toggle-row-icon { font-size: 14px; flex-shrink: 0; opacity: 0.7; width: 20px; text-align: center; }
+    .toggle-row-label { flex: 1; font-size: 0.8125rem; font-weight: 500; }
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: background var(--transition-normal);
+    }
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      top: 3px;
+      left: 3px;
+      transition: transform var(--transition-normal), background var(--transition-normal);
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent-emphasis); }
+    .toggle-switch input:checked + .toggle-slider::after {
+      transform: translateX(16px);
+      background: white;
+    }
+    .select-links {
+      display: flex;
+      gap: 8px;
+      font-size: 0.6875rem;
+    }
+    .select-links a {
+      color: var(--text-link);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .select-links a:hover { text-decoration: underline; }
+
+    /* ── Collapsible privacy ── */
+    .collapse-trigger {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .collapse-trigger .chevron-icon {
+      transition: transform var(--transition-normal);
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+    .collapse-trigger.expanded .chevron-icon { transform: rotate(90deg); }
+    .collapse-body { display: none; padding-top: 10px; }
+    .collapse-body.open { display: block; }
+    .redaction-sub {
+      padding-left: 14px;
+      border-left: 2px solid var(--border-default);
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .redaction-sub .toggle-row { padding: 4px 0; border-bottom: none; }
+    .redaction-sub .toggle-row:hover { margin: 0; padding: 4px 0; }
+    .redaction-sub .toggle-row-label { font-size: 0.75rem; color: var(--text-secondary); }
+
+    /* ── Export actions ── */
+    .export-actions {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .btn-export-main {
+      width: 100%;
+      justify-content: center;
+      padding: 10px 16px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .export-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .est-size {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Preview panel ── */
+    .preview-panel {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--canvas-inset);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .preview-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      flex-shrink: 0;
+    }
+    .preview-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      flex: 1;
+    }
+    .view-toggle {
+      display: flex;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .view-toggle-btn {
+      padding: 3px 12px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      font-family: inherit;
+      background: transparent;
+      color: var(--text-secondary);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .view-toggle-btn:first-child { border-right: 1px solid var(--border-default); }
+    .view-toggle-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+    }
+    .preview-body {
+      flex: 1;
+      overflow-y: auto;
+      max-height: calc(100vh - 280px);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+    .preview-body::-webkit-scrollbar { width: 5px; }
+    .preview-body::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: var(--radius-full);
+    }
+
+    /* Raw code view */
+    .raw-view {
+      padding: 16px;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text-secondary);
+      transition: opacity var(--transition-normal);
+    }
+    .raw-view .json-key { color: var(--accent-fg); }
+    .raw-view .json-string { color: var(--success-fg); }
+    .raw-view .json-number { color: var(--warning-fg); }
+    .raw-view .json-bool { color: var(--done-fg); }
+    .raw-view .json-null { color: var(--text-tertiary); }
+    .raw-view .md-h1 { color: var(--accent-fg); font-weight: 700; font-size: 0.8125rem; }
+    .raw-view .md-h2 { color: var(--accent-fg); font-weight: 600; }
+    .raw-view .md-h3 { color: var(--done-fg); font-weight: 600; }
+    .raw-view .md-bold { color: var(--text-primary); font-weight: 600; }
+    .raw-view .md-code { color: var(--done-fg); background: var(--neutral-subtle); padding: 1px 4px; border-radius: 3px; }
+    .raw-view .md-li { color: var(--text-secondary); }
+    .raw-view .csv-header { color: var(--accent-fg); font-weight: 600; }
+    .raw-view .csv-data { color: var(--text-secondary); }
+    .raw-view .html-tag { color: var(--accent-fg); }
+    .raw-view .html-attr { color: var(--warning-fg); }
+    .raw-view .html-str { color: var(--success-fg); }
+
+    /* Rendered view */
+    .rendered-view {
+      padding: 20px;
+      transition: opacity var(--transition-normal);
+    }
+    .rendered-view .rv-section {
+      margin-bottom: 20px;
+      animation: rvFadeIn 280ms ease;
+    }
+    @keyframes rvFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .rv-header {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .rv-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .rv-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+    .rv-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .rv-section-title {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Rendered: Metrics row */
+    .rv-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 700px) { .rv-metrics { grid-template-columns: repeat(2, 1fr); } }
+    .rv-stat {
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-subtle);
+    }
+    .rv-stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+    .rv-stat-label {
+      font-size: 0.625rem;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    /* Rendered: Conversation */
+    .rv-turn { margin-bottom: 14px; }
+    .rv-turn-user {
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      font-size: 0.8125rem;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .rv-turn-role {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .rv-turn-role.user { color: var(--accent-fg); }
+    .rv-turn-role.assistant { color: var(--success-fg); }
+    .rv-turn-assistant {
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .rv-tool-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .rv-tool-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 500;
+      background: var(--neutral-muted);
+      color: var(--neutral-fg);
+    }
+    .rv-tool-badge.success { background: var(--success-subtle); color: var(--success-fg); }
+    .rv-tool-badge.fail { background: var(--danger-subtle); color: var(--danger-fg); }
+
+    /* Rendered: Todos */
+    .rv-todo {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8125rem;
+    }
+    .rv-todo:last-child { border-bottom: none; }
+    .rv-todo-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+    .rv-todo-title { color: var(--text-primary); font-weight: 500; }
+    .rv-todo-desc { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+
+    /* Rendered: Tool usage table */
+    .rv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+    .rv-table th {
+      text-align: left;
+      padding: 6px 10px;
+      font-weight: 600;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-default);
+    }
+    .rv-table td {
+      padding: 6px 10px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .rv-table tr:last-child td { border-bottom: none; }
+
+    /* Rendered: Events */
+    .rv-event {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 0.75rem;
+    }
+    .rv-event-time {
+      font-size: 0.625rem;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-tertiary);
+      min-width: 56px;
+      flex-shrink: 0;
+    }
+
+    /* Rendered: Checkpoints timeline */
+    .rv-checkpoint {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      position: relative;
+    }
+    .rv-checkpoint:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 32px;
+      bottom: -2px;
+      width: 2px;
+      background: var(--border-default);
+    }
+    .rv-cp-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+      border: 2px solid var(--accent-emphasis);
+      color: var(--accent-fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .rv-cp-title { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); }
+    .rv-cp-file { font-size: 0.6875rem; color: var(--text-tertiary); font-family: "JetBrains Mono", monospace; }
+
+    /* Redacted highlights */
+    .redacted {
+      color: var(--warning-fg);
+      background: var(--warning-subtle);
+      border-radius: 3px;
+      padding: 0 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    /* Preview footer */
+    .preview-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .preview-footer-left {
+      display: flex;
+      gap: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Import tab ── */
+    .import-container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .drop-zone {
+      border: 2px dashed var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      background: var(--canvas-subtle);
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .drop-zone-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    .drop-zone-text {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .drop-zone-hint {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+    }
+
+    /* Recent imports */
+    .recent-imports {
+      margin-top: 24px;
+    }
+    .recent-import-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      font-size: 0.8125rem;
+      background: var(--canvas-subtle);
+    }
+    .recent-import-name { flex: 1; font-weight: 500; color: var(--text-primary); }
+    .recent-import-date { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    /* Import validation */
+    .import-file-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--canvas-subtle);
+      margin-bottom: 20px;
+    }
+    .import-file-icon {
+      font-size: 28px;
+      opacity: 0.7;
+    }
+    .import-file-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .import-file-meta {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+    .validation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .validation-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      background: var(--canvas-subtle);
+      transition: all var(--transition-normal);
+    }
+    .validation-item.checking { border-color: var(--border-accent); }
+    .validation-item.passed { border-color: var(--success-emphasis); background: var(--success-subtle); }
+    .validation-icon { width: 20px; text-align: center; flex-shrink: 0; }
+    .validation-label { flex: 1; color: var(--text-secondary); }
+    .validation-detail { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
+
+    /* Import review */
+    .import-summary-card {
+      padding: 18px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--canvas-subtle);
+      margin-bottom: 20px;
+    }
+    .import-summary-stat {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .import-mode-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .import-mode-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .import-mode-option:hover { border-color: var(--border-accent); }
+    .import-mode-option.selected {
+      border-color: var(--accent-emphasis);
+      background: var(--accent-subtle);
+    }
+    .import-mode-option input[type="radio"] { accent-color: var(--accent-emphasis); }
+    .import-mode-label { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); }
+    .import-mode-desc { font-size: 0.6875rem; color: var(--text-tertiary); }
+
+    /* Progress bar */
+    .import-progress { margin: 20px 0; }
+    .import-progress-bar {
+      width: 100%;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background: var(--neutral-muted);
+      overflow: hidden;
+    }
+    .import-progress-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--gradient-accent);
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+    .import-progress-label {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* Success card */
+    .import-success {
+      text-align: center;
+      padding: 32px 24px;
+      border: 1px solid var(--success-emphasis);
+      border-radius: var(--radius-lg);
+      background: var(--success-subtle);
+    }
+    .import-success-icon { font-size: 36px; margin-bottom: 8px; }
+    .import-success-title { font-size: 1rem; font-weight: 700; color: var(--success-fg); margin-bottom: 4px; }
+    .import-success-desc { font-size: 0.8125rem; color: var(--text-secondary); }
+
+    /* ── Fade utility ── */
+    .fade-swap { transition: opacity 180ms ease; }
+    .fade-swap.fading { opacity: 0; }
+
+    /* ── Theme toggle ── */
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: all var(--transition-fast);
+    }
+    .theme-toggle:hover {
+      background: var(--neutral-subtle);
+      border-color: var(--border-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+      <div class="page-header-bar">
+        <div class="breadcrumb">
+          <a href="#">TracePilot</a>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-current">Export &amp; Import</span>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="page-content-inner">
+          <!-- Page title -->
+          <div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:12px">
+            <div>
+              <h1 class="text-display" style="margin-bottom:4px">Export &amp; Import</h1>
+              <p class="text-body" style="color:var(--text-tertiary)">Export session data or import previously saved sessions.</p>
+            </div>
+          </div>
+
+          <!-- Tab navigation -->
+          <nav class="tab-nav mb-6" id="mainTabs">
+            <button class="tab-nav-item active" data-tab="exportPanel">Export</button>
+            <button class="tab-nav-item" data-tab="importPanel">Import</button>
+          </nav>
+
+          <!-- ═══════════════ EXPORT TAB ═══════════════ -->
+          <div class="tab-panel" id="exportPanel" style="display:block">
+            <div class="export-split">
+              <!-- ── Left: Config ── -->
+              <div class="config-col">
+
+                <!-- Presets -->
+                <div class="config-section">
+                  <div class="preset-bar" id="presetBar">
+                    <button class="preset-btn" data-preset="full">📦 Full Archive</button>
+                    <button class="preset-btn" data-preset="team">👥 Team Report</button>
+                    <button class="preset-btn" data-preset="summary">📋 Summary</button>
+                    <button class="preset-btn" data-preset="analytics">📊 Analytics</button>
+                  </div>
+                </div>
+
+                <!-- Session selector -->
+                <div class="config-section">
+                  <div class="config-section-title">Session</div>
+                  <select class="session-select" id="sessionSelect"></select>
+                  <div class="session-info" id="sessionInfo"></div>
+                </div>
+
+                <!-- Format -->
+                <div class="config-section">
+                  <div class="config-section-title">Format</div>
+                  <div class="format-btn-group" id="formatGroup">
+                    <button class="format-btn active" data-format="json">JSON</button>
+                    <button class="format-btn" data-format="markdown">Markdown</button>
+                    <button class="format-btn" data-format="csv">CSV</button>
+                    <button class="format-btn" data-format="html">HTML</button>
+                  </div>
+                  <div class="format-desc-text" id="formatDesc">Full fidelity archive — lossless round-trip import/export.</div>
+                </div>
+
+                <!-- Content sections -->
+                <div class="config-section">
+                  <div class="flex items-center justify-between" style="margin-bottom:8px">
+                    <div class="config-section-title" style="margin-bottom:0">Content Sections</div>
+                    <div class="select-links">
+                      <a id="selectAllSections">Select All</a>
+                      <span style="color:var(--text-tertiary)">·</span>
+                      <a id="selectNoneSections">None</a>
+                    </div>
+                  </div>
+
+                  <div class="toggle-group-label">Content</div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">💬</span>
+                    <span class="toggle-row-label">Conversation</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-conversation" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">📋</span>
+                    <span class="toggle-row-label">Plan &amp; Todos</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-todos" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">📌</span>
+                    <span class="toggle-row-label">Checkpoints</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-checkpoints" checked><span class="toggle-slider"></span></label>
+                  </div>
+
+                  <div class="toggle-group-label" style="margin-top:8px">Analytics</div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">📊</span>
+                    <span class="toggle-row-label">Metrics &amp; Costs</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-metrics" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">🔧</span>
+                    <span class="toggle-row-label">Tool Usage</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-tools" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">💻</span>
+                    <span class="toggle-row-label">Code Impact</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-code"><span class="toggle-slider"></span></label>
+                  </div>
+
+                  <div class="toggle-group-label" style="margin-top:8px">Technical</div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">📡</span>
+                    <span class="toggle-row-label">Raw Events</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-events"><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">🔄</span>
+                    <span class="toggle-row-label">Compactions</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-compactions"><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <!-- Options -->
+                <div class="config-section">
+                  <div class="config-section-title">Options</div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">🕐</span>
+                    <span class="toggle-row-label">Include timestamps</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-timestamps" checked><span class="toggle-slider"></span></label>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="toggle-row-icon">🔢</span>
+                    <span class="toggle-row-label">Include token counts</span>
+                    <label class="toggle-switch"><input type="checkbox" id="tog-tokens" checked><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+
+                <!-- Privacy -->
+                <div class="config-section">
+                  <div class="config-section-title collapse-trigger" id="privacyTrigger">
+                    <span class="chevron-icon">▶</span>
+                    <span>Privacy</span>
+                  </div>
+                  <div class="collapse-body" id="privacyBody">
+                    <div class="toggle-row" style="border-bottom:none">
+                      <span class="toggle-row-icon">🔒</span>
+                      <span class="toggle-row-label">Enable Redaction</span>
+                      <label class="toggle-switch"><input type="checkbox" id="tog-redaction"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="redaction-sub" id="redactionSub" style="display:none">
+                      <div class="toggle-row">
+                        <span class="toggle-row-label">Anonymize file paths</span>
+                        <label class="toggle-switch"><input type="checkbox" id="tog-redact-paths" checked><span class="toggle-slider"></span></label>
+                      </div>
+                      <div class="toggle-row">
+                        <span class="toggle-row-label">Anonymize repositories</span>
+                        <label class="toggle-switch"><input type="checkbox" id="tog-redact-repos" checked><span class="toggle-slider"></span></label>
+                      </div>
+                      <div class="toggle-row">
+                        <span class="toggle-row-label">Strip environment variables</span>
+                        <label class="toggle-switch"><input type="checkbox" id="tog-redact-env" checked><span class="toggle-slider"></span></label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Export actions -->
+                <div class="export-actions">
+                  <button class="btn btn-primary btn-export-main" id="exportBtn">Export</button>
+                  <div class="export-footer-row">
+                    <button class="btn btn-ghost btn-sm">Save as Preset</button>
+                    <span class="est-size" id="estSize">~12.4 KB</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Right: Live Preview ── -->
+              <div class="preview-col">
+                <div class="preview-panel">
+                  <div class="preview-header">
+                    <span class="preview-title">Preview</span>
+                    <span class="badge badge-accent" id="previewFormatBadge">JSON</span>
+                    <div class="view-toggle" id="viewToggle">
+                      <button class="view-toggle-btn" data-view="raw">Raw</button>
+                      <button class="view-toggle-btn active" data-view="rendered">Rendered</button>
+                    </div>
+                  </div>
+                  <div class="preview-body">
+                    <div class="raw-view fade-swap" id="rawView" style="display:none"></div>
+                    <div class="rendered-view fade-swap" id="renderedView"></div>
+                  </div>
+                  <div class="preview-footer">
+                    <div class="preview-footer-left">
+                      <span id="sectionCount">5 sections</span>
+                      <span>·</span>
+                      <span id="footerSize">~12.4 KB</span>
+                    </div>
+                    <button class="btn btn-sm" id="copyBtn">Copy to Clipboard</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════ IMPORT TAB ═══════════════ -->
+          <div class="tab-panel" id="importPanel" style="display:none">
+            <div class="import-container">
+
+              <!-- State 1: File selection -->
+              <div id="importState1">
+                <div class="drop-zone" id="dropZone">
+                  <div class="drop-zone-icon">📂</div>
+                  <div class="drop-zone-text">Drop a <strong>.json</strong> or <strong>.zip</strong> file here, or click to browse</div>
+                  <div class="drop-zone-hint">Supports TracePilot export files v1.0+</div>
+                </div>
+
+                <div class="recent-imports mt-6">
+                  <div class="config-section-title">Recent Imports</div>
+                  <div class="recent-import-row">
+                    <span>📄</span>
+                    <span class="recent-import-name">session-oauth-export.json</span>
+                    <span class="badge badge-success">Success</span>
+                    <span class="recent-import-date">Mar 12, 2026</span>
+                  </div>
+                  <div class="recent-import-row">
+                    <span>📦</span>
+                    <span class="recent-import-name">full-archive-batch.zip</span>
+                    <span class="badge badge-success">Success</span>
+                    <span class="recent-import-date">Mar 10, 2026</span>
+                  </div>
+                  <div class="recent-import-row">
+                    <span>📄</span>
+                    <span class="recent-import-name">analytics-only-export.json</span>
+                    <span class="badge badge-warning">Partial</span>
+                    <span class="recent-import-date">Mar 8, 2026</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- State 2: Validation -->
+              <div id="importState2" style="display:none">
+                <div class="import-file-card">
+                  <span class="import-file-icon">📄</span>
+                  <div>
+                    <div class="import-file-name">session-oauth-export.json</div>
+                    <div class="import-file-meta">2.8 MB · <span class="badge badge-accent" style="font-size:0.625rem">JSON</span></div>
+                  </div>
+                </div>
+                <div class="config-section-title">Validation</div>
+                <div class="validation-list" id="validationList">
+                  <div class="validation-item" data-step="0">
+                    <span class="validation-icon">○</span>
+                    <span class="validation-label">File integrity</span>
+                    <span class="validation-detail"></span>
+                  </div>
+                  <div class="validation-item" data-step="1">
+                    <span class="validation-icon">○</span>
+                    <span class="validation-label">Schema version</span>
+                    <span class="validation-detail"></span>
+                  </div>
+                  <div class="validation-item" data-step="2">
+                    <span class="validation-icon">○</span>
+                    <span class="validation-label">Content verification</span>
+                    <span class="validation-detail"></span>
+                  </div>
+                  <div class="validation-item" data-step="3">
+                    <span class="validation-icon">○</span>
+                    <span class="validation-label">Section inventory</span>
+                    <span class="validation-detail"></span>
+                  </div>
+                  <div class="validation-item" data-step="4">
+                    <span class="validation-icon">○</span>
+                    <span class="validation-label">Security scan</span>
+                    <span class="validation-detail"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- State 3: Review & Import -->
+              <div id="importState3" style="display:none">
+                <div class="import-summary-card">
+                  <div class="import-summary-stat">📦 3 sessions found · 12 sections · 4.2 MB</div>
+                  <div style="font-size:0.6875rem;color:var(--text-tertiary)">Export format v2.1 — fully compatible with this version of TracePilot.</div>
+                </div>
+
+                <div class="config-section-title">Import Mode</div>
+                <div class="import-mode-group" id="importModeGroup">
+                  <label class="import-mode-option selected">
+                    <input type="radio" name="importMode" value="full" checked>
+                    <div>
+                      <div class="import-mode-label">Full Reconstruction</div>
+                      <div class="import-mode-desc">Restore sessions as live, editable data. Allows re-analysis and extended use.</div>
+                    </div>
+                  </label>
+                  <label class="import-mode-option">
+                    <input type="radio" name="importMode" value="readonly">
+                    <div>
+                      <div class="import-mode-label">Read-Only Snapshot</div>
+                      <div class="import-mode-desc">Import as an immutable snapshot for review and comparison only.</div>
+                    </div>
+                  </label>
+                </div>
+
+                <button class="btn btn-primary w-full" id="importBtn" style="justify-content:center;padding:10px 16px;font-size:0.875rem;font-weight:600">Import</button>
+
+                <div class="import-progress" id="importProgress" style="display:none">
+                  <div class="import-progress-bar">
+                    <div class="import-progress-fill" id="importProgressFill"></div>
+                  </div>
+                  <div class="import-progress-label" id="importProgressLabel">Preparing…</div>
+                </div>
+
+                <div class="import-success" id="importSuccess" style="display:none">
+                  <div class="import-success-icon">✅</div>
+                  <div class="import-success-title">Import Complete</div>
+                  <div class="import-success-desc">3 sessions have been successfully imported and are now available in your session list.</div>
+                  <button class="btn btn-primary mt-4" onclick="location.reload()">View Sessions</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../shared/shared.js"></script>
+  <script>
+    // ────────────────────────────────────────────
+    // State
+    // ────────────────────────────────────────────
+    const state = {
+      format: 'json',
+      viewMode: 'rendered',
+      sessionIdx: 0,
+      activePreset: null,
+      sections: {
+        conversation: true,
+        todos: true,
+        checkpoints: true,
+        metrics: true,
+        tools: true,
+        code: false,
+        events: false,
+        compactions: false,
+      },
+      options: {
+        timestamps: true,
+        tokens: true,
+      },
+      redaction: {
+        enabled: false,
+        paths: true,
+        repos: true,
+        env: true,
+      },
+    };
+
+    const FORMATS = {
+      json: 'Full fidelity archive — lossless round-trip import/export.',
+      markdown: 'Human-readable summary — great for sharing in docs or PRs.',
+      csv: 'Tabular data — ideal for spreadsheets and data analysis.',
+      html: 'Self-contained HTML report — viewable in any browser.',
+    };
+
+    const PRESETS = {
+      full: { conversation: true, todos: true, checkpoints: true, metrics: true, tools: true, code: true, events: true, compactions: true, format: 'json' },
+      team: { conversation: true, todos: true, checkpoints: false, metrics: true, tools: false, code: true, events: false, compactions: false, format: 'markdown' },
+      summary: { conversation: false, todos: true, checkpoints: true, metrics: true, tools: false, code: false, events: false, compactions: false, format: 'markdown' },
+      analytics: { conversation: false, todos: false, checkpoints: false, metrics: true, tools: true, code: true, events: false, compactions: false, format: 'csv' },
+    };
+
+    // ────────────────────────────────────────────
+    // Init
+    // ────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sidebar').innerHTML = generateSidebar('export');
+      initSessionSelect();
+      bindEvents();
+      updatePreview();
+    });
+
+    function initSessionSelect() {
+      const sel = document.getElementById('sessionSelect');
+      MOCK_SESSIONS.forEach((s, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = s.summary;
+        sel.appendChild(opt);
+      });
+      updateSessionInfo();
+    }
+
+    function updateSessionInfo() {
+      const s = MOCK_SESSIONS[state.sessionIdx];
+      document.getElementById('sessionInfo').innerHTML = `
+        <span class="badge badge-accent">${s.repository}</span>
+        <span class="badge badge-done">${s.currentModel}</span>
+        <span>${s.turnCount} turns · ${formatNumber(s.eventCount)} events</span>
+      `;
+    }
+
+    // ────────────────────────────────────────────
+    // Event Binding
+    // ────────────────────────────────────────────
+    function bindEvents() {
+      // Tabs
+      document.querySelectorAll('#mainTabs .tab-nav-item').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('#mainTabs .tab-nav-item').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+          document.getElementById(tab.dataset.tab).style.display = 'block';
+        });
+      });
+
+      // Presets
+      document.querySelectorAll('#presetBar .preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+      });
+
+      // Session select
+      document.getElementById('sessionSelect').addEventListener('change', e => {
+        state.sessionIdx = parseInt(e.target.value, 10);
+        updateSessionInfo();
+        updatePreview();
+      });
+
+      // Format
+      document.querySelectorAll('#formatGroup .format-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.format = btn.dataset.format;
+          document.querySelectorAll('#formatGroup .format-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('formatDesc').textContent = FORMATS[state.format];
+          document.getElementById('previewFormatBadge').textContent = state.format.toUpperCase();
+          clearActivePreset();
+          updatePreview();
+        });
+      });
+
+      // View toggle
+      document.querySelectorAll('#viewToggle .view-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.viewMode = btn.dataset.view;
+          document.querySelectorAll('#viewToggle .view-toggle-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          swapView();
+        });
+      });
+
+      // Section toggles
+      const sectionIds = ['conversation','todos','checkpoints','metrics','tools','code','events','compactions'];
+      sectionIds.forEach(id => {
+        const el = document.getElementById('tog-' + id);
+        if (el) el.addEventListener('change', () => {
+          state.sections[id] = el.checked;
+          clearActivePreset();
+          updatePreview();
+        });
+      });
+
+      // Option toggles
+      document.getElementById('tog-timestamps').addEventListener('change', e => { state.options.timestamps = e.target.checked; updatePreview(); });
+      document.getElementById('tog-tokens').addEventListener('change', e => { state.options.tokens = e.target.checked; updatePreview(); });
+
+      // Select All / None
+      document.getElementById('selectAllSections').addEventListener('click', () => toggleAllSections(true));
+      document.getElementById('selectNoneSections').addEventListener('click', () => toggleAllSections(false));
+
+      // Privacy collapsible
+      document.getElementById('privacyTrigger').addEventListener('click', () => {
+        const body = document.getElementById('privacyBody');
+        const trigger = document.getElementById('privacyTrigger');
+        const open = body.classList.toggle('open');
+        trigger.classList.toggle('expanded', open);
+      });
+
+      // Redaction master toggle
+      document.getElementById('tog-redaction').addEventListener('change', e => {
+        state.redaction.enabled = e.target.checked;
+        document.getElementById('redactionSub').style.display = e.target.checked ? 'flex' : 'none';
+        updatePreview();
+      });
+      ['paths','repos','env'].forEach(key => {
+        document.getElementById('tog-redact-' + key).addEventListener('change', e => {
+          state.redaction[key] = e.target.checked;
+          updatePreview();
+        });
+      });
+
+      // Export button
+      document.getElementById('exportBtn').addEventListener('click', simulateExport);
+
+      // Copy button
+      document.getElementById('copyBtn').addEventListener('click', () => {
+        const raw = generateRawContent();
+        navigator.clipboard.writeText(raw).then(() => {
+          const btn = document.getElementById('copyBtn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy to Clipboard', 1500);
+        });
+      });
+
+      // Import interactions
+      bindImport();
+    }
+
+    // ────────────────────────────────────────────
+    // Presets
+    // ────────────────────────────────────────────
+    function applyPreset(name) {
+      const p = PRESETS[name];
+      if (!p) return;
+      state.activePreset = name;
+
+      // Update section toggles
+      Object.keys(p).forEach(key => {
+        if (key === 'format') return;
+        state.sections[key] = p[key];
+        const el = document.getElementById('tog-' + key);
+        if (el) el.checked = p[key];
+      });
+
+      // Update format
+      if (p.format) {
+        state.format = p.format;
+        document.querySelectorAll('#formatGroup .format-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.format === p.format);
+        });
+        document.getElementById('formatDesc').textContent = FORMATS[p.format];
+        document.getElementById('previewFormatBadge').textContent = p.format.toUpperCase();
+      }
+
+      // Highlight preset
+      document.querySelectorAll('#presetBar .preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === name);
+      });
+
+      updatePreview();
+    }
+
+    function clearActivePreset() {
+      state.activePreset = null;
+      document.querySelectorAll('#presetBar .preset-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    function toggleAllSections(on) {
+      Object.keys(state.sections).forEach(key => {
+        state.sections[key] = on;
+        const el = document.getElementById('tog-' + key);
+        if (el) el.checked = on;
+      });
+      clearActivePreset();
+      updatePreview();
+    }
+
+    // ────────────────────────────────────────────
+    // View Swap
+    // ────────────────────────────────────────────
+    function swapView() {
+      const raw = document.getElementById('rawView');
+      const rendered = document.getElementById('renderedView');
+      if (state.viewMode === 'raw') {
+        rendered.style.display = 'none';
+        raw.style.display = 'block';
+      } else {
+        raw.style.display = 'none';
+        rendered.style.display = 'block';
+      }
+    }
+
+    // ────────────────────────────────────────────
+    // Preview Update
+    // ────────────────────────────────────────────
+    function updatePreview() {
+      const raw = document.getElementById('rawView');
+      const rendered = document.getElementById('renderedView');
+
+      // Fade out
+      raw.classList.add('fading');
+      rendered.classList.add('fading');
+
+      setTimeout(() => {
+        raw.innerHTML = generateHighlightedRaw();
+        rendered.innerHTML = generateRendered();
+        updateFooter();
+        raw.classList.remove('fading');
+        rendered.classList.remove('fading');
+      }, 100);
+    }
+
+    function updateFooter() {
+      const count = Object.values(state.sections).filter(Boolean).length;
+      const size = estimateSize();
+      document.getElementById('sectionCount').textContent = count + ' section' + (count !== 1 ? 's' : '');
+      document.getElementById('footerSize').textContent = size;
+      document.getElementById('estSize').textContent = size;
+    }
+
+    function estimateSize() {
+      let kb = 0.5; // base
+      if (state.sections.conversation) kb += 8.2;
+      if (state.sections.todos) kb += 1.4;
+      if (state.sections.checkpoints) kb += 0.8;
+      if (state.sections.metrics) kb += 2.1;
+      if (state.sections.tools) kb += 1.6;
+      if (state.sections.code) kb += 3.2;
+      if (state.sections.events) kb += 5.8;
+      if (state.sections.compactions) kb += 0.9;
+      if (state.format === 'markdown') kb *= 0.6;
+      if (state.format === 'csv') kb *= 0.4;
+      if (state.format === 'html') kb *= 1.3;
+      return '~' + kb.toFixed(1) + ' KB';
+    }
+
+    // ────────────────────────────────────────────
+    // Raw Content Generation
+    // ────────────────────────────────────────────
+    function getSessionData() {
+      return MOCK_SESSIONS[state.sessionIdx];
+    }
+
+    function r(text) {
+      // Apply redaction if enabled
+      if (!state.redaction.enabled) return text;
+      let t = text;
+      if (state.redaction.paths) {
+        t = t.replace(/src\/[\w/.-]+/g, '[PATH_REDACTED]');
+        t = t.replace(/tests\/[\w/.-]+/g, '[PATH_REDACTED]');
+      }
+      if (state.redaction.repos) {
+        t = t.replace(/acme\/[\w-]+/g, '[REPO_1]');
+      }
+      return t;
+    }
+
+    function generateRawContent() {
+      const s = getSessionData();
+      if (state.format === 'json') return generateJsonRaw(s);
+      if (state.format === 'markdown') return generateMarkdownRaw(s);
+      if (state.format === 'csv') return generateCsvRaw(s);
+      return generateHtmlRaw(s);
+    }
+
+    function generateJsonRaw(s) {
+      const obj = {
+        exportMeta: {
+          version: '2.1',
+          format: 'json',
+          exportedAt: new Date().toISOString(),
+          sessionId: s.id,
+        },
+      };
+      if (state.sections.conversation) {
+        obj.conversation = MOCK_TURNS.map(t => ({
+          turn: t.turnIndex,
+          user: r(t.userMessage),
+          assistant: r(t.assistantMessages[0]),
+          model: t.model,
+          ...(state.options.timestamps ? { timestamp: t.timestamp } : {}),
+          ...(state.options.tokens ? { tokens: { input: 12400, output: 3200 } } : {}),
+          toolCalls: t.toolCalls.map(tc => ({ tool: tc.toolName, args: r(tc.args), success: tc.success, durationMs: tc.durationMs })),
+        }));
+      }
+      if (state.sections.metrics) {
+        obj.metrics = {
+          totalRequests: MOCK_METRICS.totalPremiumRequests,
+          totalDurationMs: MOCK_METRICS.totalApiDurationMs,
+          model: MOCK_METRICS.currentModel,
+          ...(state.options.tokens ? { totalTokens: { input: 1171400, output: 76800 } } : {}),
+          cost: '$1.36',
+        };
+      }
+      if (state.sections.todos) {
+        obj.todos = MOCK_TODOS.todos.map(t => ({ id: t.id, title: t.title, status: t.status }));
+      }
+      if (state.sections.checkpoints) {
+        obj.checkpoints = MOCK_CHECKPOINTS.map(c => ({ number: c.number, title: c.title, file: r(c.filename) }));
+      }
+      if (state.sections.tools) {
+        obj.toolUsage = [
+          { tool: 'view', calls: 14, successRate: '100%' },
+          { tool: 'edit', calls: 8, successRate: '100%' },
+          { tool: 'create', calls: 5, successRate: '100%' },
+          { tool: 'powershell', calls: 4, successRate: '75%' },
+        ];
+      }
+      if (state.sections.code) {
+        obj.codeImpact = { linesAdded: 342, linesRemoved: 56, filesModified: MOCK_METRICS.codeChanges.filesModified.map(f => r(f)) };
+      }
+      if (state.sections.events) {
+        obj.events = MOCK_EVENTS.slice(0, 6).map(e => ({ type: e.eventType, ...(state.options.timestamps ? { timestamp: e.timestamp } : {}), id: e.id }));
+      }
+      if (state.sections.compactions) {
+        obj.compactions = [{ at: 'turn-5', tokensBefore: 45000, tokensAfter: 12000, ratio: '73%' }];
+      }
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function generateMarkdownRaw(s) {
+      let md = `# Session Export\n\n`;
+      md += `**Session:** ${r(s.summary)}  \n`;
+      md += `**Repository:** ${r(s.repository)} · **Model:** ${s.currentModel}  \n`;
+      if (state.options.timestamps) md += `**Exported:** ${new Date().toLocaleDateString()}\n`;
+      md += '\n---\n\n';
+
+      if (state.sections.conversation) {
+        md += `## 💬 Conversation\n\n`;
+        MOCK_TURNS.forEach(t => {
+          md += `### Turn ${t.turnIndex}\n\n`;
+          md += `**User:** ${r(t.userMessage)}\n\n`;
+          md += `**Assistant:** ${r(t.assistantMessages[0]).substring(0, 120)}…\n\n`;
+          if (t.toolCalls.length) {
+            md += `**Tool Calls:** `;
+            md += t.toolCalls.map(tc => `\`${tc.toolName}\` (${tc.success ? '✓' : '✗'})`).join(', ');
+            md += '\n\n';
+          }
+        });
+      }
+      if (state.sections.metrics) {
+        md += `## 📊 Metrics\n\n`;
+        md += `| Metric | Value |\n|--------|-------|\n`;
+        md += `| Total Requests | ${MOCK_METRICS.totalPremiumRequests} |\n`;
+        md += `| Duration | ${formatDuration(MOCK_METRICS.totalApiDurationMs)} |\n`;
+        md += `| Cost | $1.36 |\n`;
+        if (state.options.tokens) md += `| Tokens (in/out) | 1.17M / 76.8K |\n`;
+        md += '\n';
+      }
+      if (state.sections.todos) {
+        md += `## 📋 Todos\n\n`;
+        MOCK_TODOS.todos.forEach(t => {
+          const icon = t.status === 'done' ? '✅' : t.status === 'in_progress' ? '⏳' : t.status === 'blocked' ? '🚫' : '⬜';
+          md += `- ${icon} **${t.title}** — ${t.status}\n`;
+        });
+        md += '\n';
+      }
+      if (state.sections.checkpoints) {
+        md += `## 📌 Checkpoints\n\n`;
+        MOCK_CHECKPOINTS.forEach(c => {
+          md += `${c.number}. **${c.title}** — \`${r(c.filename)}\`\n`;
+        });
+        md += '\n';
+      }
+      if (state.sections.tools) {
+        md += `## 🔧 Tool Usage\n\n`;
+        md += `| Tool | Calls | Success |\n|------|-------|---------|\n`;
+        md += `| view | 14 | 100% |\n| edit | 8 | 100% |\n| create | 5 | 100% |\n| powershell | 4 | 75% |\n\n`;
+      }
+      if (state.sections.code) {
+        md += `## 💻 Code Impact\n\n`;
+        md += `- **+342** lines added, **-56** lines removed\n`;
+        md += `- ${MOCK_METRICS.codeChanges.filesModified.length} files modified\n\n`;
+      }
+      if (state.sections.events) {
+        md += `## 📡 Events (sample)\n\n`;
+        MOCK_EVENTS.slice(0, 6).forEach(e => { md += `- \`${e.eventType}\`${state.options.timestamps ? ' — ' + formatTime(e.timestamp) : ''}\n`; });
+        md += '\n';
+      }
+      if (state.sections.compactions) {
+        md += `## 🔄 Compactions\n\n`;
+        md += `- Turn 5: 45,000 → 12,000 tokens (73% reduction)\n`;
+      }
+      return md;
+    }
+
+    function generateCsvRaw(s) {
+      let csv = '';
+      if (state.sections.metrics) {
+        csv += 'metric,value\n';
+        csv += `total_requests,${MOCK_METRICS.totalPremiumRequests}\n`;
+        csv += `duration_ms,${MOCK_METRICS.totalApiDurationMs}\n`;
+        csv += `cost,1.36\n`;
+        if (state.options.tokens) csv += `total_input_tokens,1171400\ntotal_output_tokens,76800\n`;
+        csv += '\n';
+      }
+      if (state.sections.conversation) {
+        csv += 'turn,role,message' + (state.options.timestamps ? ',timestamp' : '') + '\n';
+        MOCK_TURNS.forEach(t => {
+          csv += `${t.turnIndex},user,"${r(t.userMessage).substring(0, 80)}"${state.options.timestamps ? ',' + t.timestamp : ''}\n`;
+          csv += `${t.turnIndex},assistant,"${r(t.assistantMessages[0]).substring(0, 80)}"${state.options.timestamps ? ',' + t.timestamp : ''}\n`;
+        });
+        csv += '\n';
+      }
+      if (state.sections.todos) {
+        csv += 'todo_id,title,status\n';
+        MOCK_TODOS.todos.forEach(t => { csv += `${t.id},"${t.title}",${t.status}\n`; });
+        csv += '\n';
+      }
+      if (state.sections.tools) {
+        csv += 'tool,calls,success_rate\n';
+        csv += 'view,14,100%\nedit,8,100%\ncreate,5,100%\npowershell,4,75%\n\n';
+      }
+      if (state.sections.events) {
+        csv += 'event_type,event_id' + (state.options.timestamps ? ',timestamp' : '') + '\n';
+        MOCK_EVENTS.slice(0, 6).forEach(e => { csv += `${e.eventType},${e.id}${state.options.timestamps ? ',' + e.timestamp : ''}\n`; });
+      }
+      return csv;
+    }
+
+    function generateHtmlRaw(s) {
+      let html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n';
+      html += '  <meta charset="UTF-8">\n  <title>TracePilot Export</title>\n';
+      html += '  <style>\n    body { font-family: Inter, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; }\n';
+      html += '    h1 { font-size: 1.5rem; } h2 { font-size: 1.1rem; margin-top: 24px; }\n';
+      html += '    .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }\n';
+      html += '    table { border-collapse: collapse; width: 100%; } th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #eee; }\n';
+      html += '  </style>\n</head>\n<body>\n';
+      html += `  <h1>${r(s.summary)}</h1>\n`;
+      html += `  <p><span class="badge">${r(s.repository)}</span> · ${s.currentModel}</p>\n`;
+      if (state.sections.metrics) {
+        html += '  <h2>📊 Metrics</h2>\n  <table>\n    <tr><th>Metric</th><th>Value</th></tr>\n';
+        html += `    <tr><td>Cost</td><td>$1.36</td></tr>\n    <tr><td>Duration</td><td>${formatDuration(MOCK_METRICS.totalApiDurationMs)}</td></tr>\n`;
+        html += '  </table>\n';
+      }
+      if (state.sections.conversation) html += '  <h2>💬 Conversation</h2>\n  <p>3 turns with tool calls…</p>\n';
+      if (state.sections.todos) html += '  <h2>📋 Todos</h2>\n  <ul>\n    <li>✅ Create user auth module</li>\n    <li>⏳ OAuth provider integration</li>\n  </ul>\n';
+      html += '</body>\n</html>';
+      return html;
+    }
+
+    // ────────────────────────────────────────────
+    // Syntax Highlighted Raw
+    // ────────────────────────────────────────────
+    function generateHighlightedRaw() {
+      const raw = generateRawContent();
+      if (state.format === 'json') return highlightJson(raw);
+      if (state.format === 'markdown') return highlightMarkdown(raw);
+      if (state.format === 'csv') return highlightCsv(raw);
+      return highlightHtml(raw);
+    }
+
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function highlightJson(raw) {
+      return esc(raw)
+        .replace(/"([^"]+)"(\s*:)/g, '<span class="json-key">"$1"</span>$2')
+        .replace(/:\s*"([^"]*?)"/g, ': <span class="json-string">"$1"</span>')
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+        .replace(/:\s*(true|false)/g, ': <span class="json-bool">$1</span>')
+        .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>');
+    }
+
+    function highlightMarkdown(raw) {
+      return esc(raw).split('\n').map(line => {
+        if (line.startsWith('# ')) return '<span class="md-h1">' + line + '</span>';
+        if (line.startsWith('## ')) return '<span class="md-h2">' + line + '</span>';
+        if (line.startsWith('### ')) return '<span class="md-h3">' + line + '</span>';
+        if (line.startsWith('- ') || line.startsWith('  -')) return '<span class="md-li">' + line + '</span>';
+        line = line.replace(/\*\*([^*]+)\*\*/g, '<span class="md-bold">**$1**</span>');
+        line = line.replace(/`([^`]+)`/g, '<span class="md-code">`$1`</span>');
+        return line;
+      }).join('\n');
+    }
+
+    function highlightCsv(raw) {
+      return esc(raw).split('\n').map((line, i) => {
+        if (!line.trim()) return line;
+        const prevLines = raw.split('\n');
+        const isHeader = i === 0 || (i > 0 && prevLines[i - 1].trim() === '');
+        return isHeader ? '<span class="csv-header">' + line + '</span>' : '<span class="csv-data">' + line + '</span>';
+      }).join('\n');
+    }
+
+    function highlightHtml(raw) {
+      return esc(raw)
+        .replace(/(&lt;\/?[\w]+)/g, '<span class="html-tag">$1</span>')
+        .replace(/([\w-]+)=(&quot;|")/g, '<span class="html-attr">$1</span>=<span class="html-str">"</span>')
+        .replace(/(&gt;)/g, '<span class="html-tag">$1</span>');
+    }
+
+    // ────────────────────────────────────────────
+    // Rendered Preview
+    // ────────────────────────────────────────────
+    function generateRendered() {
+      const s = getSessionData();
+      let html = '';
+
+      // Header
+      html += `<div class="rv-header">`;
+      html += `<div class="rv-title">${r(s.summary)}</div>`;
+      html += `<div class="rv-subtitle">${s.turnCount} turns · ${formatDuration(MOCK_METRICS.totalApiDurationMs)} · ${formatNumber(s.eventCount)} events</div>`;
+      html += `<div class="rv-badges">`;
+      html += `<span class="badge badge-accent">${r(s.repository)}</span>`;
+      html += `<span class="badge badge-done">${s.currentModel}</span>`;
+      html += `<span class="badge badge-neutral">${s.branch}</span>`;
+      if (state.options.timestamps) html += `<span class="badge badge-neutral">${new Date(s.createdAt).toLocaleDateString()}</span>`;
+      html += `</div></div>`;
+
+      // Metrics
+      if (state.sections.metrics) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">📊 Metrics &amp; Costs</div>`;
+        html += `<div class="rv-metrics">`;
+        html += renderStat(state.options.tokens ? '1.17M' : '—', 'Total Tokens');
+        html += renderStat(formatDuration(MOCK_METRICS.totalApiDurationMs), 'Duration');
+        html += renderStat('$1.36', 'Total Cost');
+        html += renderStat(String(MOCK_METRICS.codeChanges.filesModified.length), 'Files Modified');
+        html += `</div></div>`;
+      }
+
+      // Conversation
+      if (state.sections.conversation) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">💬 Conversation</div>`;
+        MOCK_TURNS.forEach(t => {
+          html += `<div class="rv-turn">`;
+          html += `<div class="rv-turn-user"><div class="rv-turn-role user">User · Turn ${t.turnIndex}</div>${redactInline(r(t.userMessage))}</div>`;
+          html += `<div class="rv-turn-assistant"><div class="rv-turn-role assistant">Assistant · ${t.model}</div>${redactInline(r(t.assistantMessages[0]).substring(0, 180))}…`;
+          if (t.toolCalls.length) {
+            html += `<div class="rv-tool-badges">`;
+            t.toolCalls.forEach(tc => {
+              html += `<span class="rv-tool-badge ${tc.success ? 'success' : 'fail'}">${toolIcon(tc.toolName)} ${tc.toolName} <span style="opacity:0.6">${tc.durationMs}ms</span></span>`;
+            });
+            html += `</div>`;
+          }
+          html += `</div></div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Todos
+      if (state.sections.todos) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">📋 Plan &amp; Todos</div>`;
+        MOCK_TODOS.todos.forEach(t => {
+          const icon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '⟳' : t.status === 'blocked' ? '⊘' : '○';
+          const color = t.status === 'done' ? 'var(--success-fg)' : t.status === 'in_progress' ? 'var(--accent-fg)' : t.status === 'blocked' ? 'var(--danger-fg)' : 'var(--neutral-fg)';
+          html += `<div class="rv-todo">`;
+          html += `<span class="rv-todo-icon" style="color:${color}">${icon}</span>`;
+          html += `<div><div class="rv-todo-title">${t.title}</div><div class="rv-todo-desc">${r(t.description)}</div></div>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Checkpoints
+      if (state.sections.checkpoints) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">📌 Checkpoints</div>`;
+        MOCK_CHECKPOINTS.forEach(c => {
+          html += `<div class="rv-checkpoint">`;
+          html += `<div class="rv-cp-num">${c.number}</div>`;
+          html += `<div><div class="rv-cp-title">${c.title}</div><div class="rv-cp-file">${r(c.filename)}</div></div>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Tool usage
+      if (state.sections.tools) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">🔧 Tool Usage</div>`;
+        html += `<table class="rv-table"><thead><tr><th>Tool</th><th>Calls</th><th>Success Rate</th><th>Avg Duration</th></tr></thead><tbody>`;
+        const toolData = [
+          { name: 'view', calls: 14, rate: '100%', avg: '79ms' },
+          { name: 'edit', calls: 8, rate: '100%', avg: '235ms' },
+          { name: 'create', calls: 5, rate: '100%', avg: '149ms' },
+          { name: 'powershell', calls: 4, rate: '75%', avg: '2.1s' },
+          { name: 'grep', calls: 3, rate: '100%', avg: '45ms' },
+        ];
+        toolData.forEach(td => {
+          html += `<tr><td>${toolIcon(td.name)} ${td.name}</td><td>${td.calls}</td><td>${td.rate}</td><td>${td.avg}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+
+      // Code impact
+      if (state.sections.code) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">💻 Code Impact</div>`;
+        html += `<div class="rv-metrics" style="grid-template-columns:repeat(3,1fr)">`;
+        html += renderStat('+342', 'Lines Added');
+        html += renderStat('-56', 'Lines Removed');
+        html += renderStat(String(MOCK_METRICS.codeChanges.filesModified.length), 'Files');
+        html += `</div>`;
+        html += `<div style="margin-top:10px;font-size:0.75rem;color:var(--text-tertiary)">`;
+        MOCK_METRICS.codeChanges.filesModified.forEach(f => {
+          html += `<div style="padding:2px 0;font-family:'JetBrains Mono',monospace">${redactInline(r(f))}</div>`;
+        });
+        html += `</div></div>`;
+      }
+
+      // Events
+      if (state.sections.events) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">📡 Raw Events</div>`;
+        MOCK_EVENTS.slice(0, 10).forEach(e => {
+          html += `<div class="rv-event">`;
+          if (state.options.timestamps) html += `<span class="rv-event-time">${formatTime(e.timestamp)}</span>`;
+          html += `<span class="${eventBadgeClass(e.eventType)}">${e.eventType}</span>`;
+          html += `</div>`;
+        });
+        if (MOCK_EVENTS.length > 10) {
+          html += `<div style="font-size:0.6875rem;color:var(--text-tertiary);padding:6px 0">… and ${MOCK_EVENTS.length - 10} more events</div>`;
+        }
+        html += `</div>`;
+      }
+
+      // Compactions
+      if (state.sections.compactions) {
+        html += `<div class="rv-section">`;
+        html += `<div class="rv-section-title">🔄 Compactions</div>`;
+        html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--canvas-subtle)">`;
+        html += `<span style="font-size:0.875rem;font-weight:600;color:var(--accent-fg)">Turn 5</span>`;
+        html += `<span style="font-size:0.75rem;color:var(--text-secondary)">45,000 → 12,000 tokens</span>`;
+        html += `<span class="badge badge-success">73% reduction</span>`;
+        html += `</div></div>`;
+      }
+
+      if (!Object.values(state.sections).some(Boolean)) {
+        html += `<div style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">`;
+        html += `<div style="font-size:24px;margin-bottom:8px;opacity:0.4">📭</div>`;
+        html += `<div style="font-size:0.8125rem">No sections selected. Toggle sections in the config panel.</div>`;
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    function renderStat(value, label) {
+      return `<div class="rv-stat"><div class="rv-stat-value">${value}</div><div class="rv-stat-label">${label}</div></div>`;
+    }
+
+    function redactInline(text) {
+      if (!state.redaction.enabled) return esc(text);
+      return esc(text).replace(/\[PATH_REDACTED\]/g, '<span class="redacted">[PATH_REDACTED]</span>')
+                      .replace(/\[REPO_1\]/g, '<span class="redacted">[REPO_1]</span>');
+    }
+
+    // ────────────────────────────────────────────
+    // Export Simulation
+    // ────────────────────────────────────────────
+    function simulateExport() {
+      const btn = document.getElementById('exportBtn');
+      btn.innerHTML = '<span class="spinner">⏳</span> Exporting…';
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.7';
+      setTimeout(() => {
+        btn.innerHTML = '✓ Exported!';
+        btn.style.opacity = '1';
+        setTimeout(() => {
+          btn.innerHTML = 'Export';
+          btn.style.pointerEvents = '';
+          btn.style.opacity = '';
+        }, 1500);
+      }, 1200);
+    }
+
+    // ────────────────────────────────────────────
+    // Import
+    // ────────────────────────────────────────────
+    function bindImport() {
+      const zone = document.getElementById('dropZone');
+
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); startValidation(); });
+      zone.addEventListener('click', () => startValidation());
+
+      // Import mode radio
+      document.querySelectorAll('#importModeGroup .import-mode-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          document.querySelectorAll('#importModeGroup .import-mode-option').forEach(o => o.classList.remove('selected'));
+          opt.classList.add('selected');
+          opt.querySelector('input').checked = true;
+        });
+      });
+
+      // Import button
+      document.getElementById('importBtn').addEventListener('click', runImport);
+    }
+
+    function startValidation() {
+      document.getElementById('importState1').style.display = 'none';
+      document.getElementById('importState2').style.display = 'block';
+      runValidation();
+    }
+
+    function runValidation() {
+      const items = document.querySelectorAll('#validationList .validation-item');
+      const details = ['SHA-256 verified', 'v2.1 — Compatible', '3 sessions valid', '12 sections found', 'No threats detected'];
+      let step = 0;
+
+      function advance() {
+        if (step >= items.length) {
+          setTimeout(() => {
+            document.getElementById('importState2').style.display = 'none';
+            document.getElementById('importState3').style.display = 'block';
+          }, 400);
+          return;
+        }
+        const item = items[step];
+        item.classList.add('checking');
+        item.querySelector('.validation-icon').innerHTML = '<span class="spinner">⟳</span>';
+
+        setTimeout(() => {
+          item.classList.remove('checking');
+          item.classList.add('passed');
+          item.querySelector('.validation-icon').innerHTML = '<span style="color:var(--success-fg)">✓</span>';
+          item.querySelector('.validation-detail').textContent = details[step];
+          step++;
+          setTimeout(advance, 200);
+        }, 350);
+      }
+      setTimeout(advance, 300);
+    }
+
+    function runImport() {
+      const btn = document.getElementById('importBtn');
+      btn.style.display = 'none';
+      const prog = document.getElementById('importProgress');
+      prog.style.display = 'block';
+      const fill = document.getElementById('importProgressFill');
+      const label = document.getElementById('importProgressLabel');
+
+      const phases = [
+        { pct: 20, text: 'Parsing sessions…' },
+        { pct: 50, text: 'Restoring data…' },
+        { pct: 80, text: 'Indexing events…' },
+        { pct: 100, text: 'Finalizing…' },
+      ];
+
+      let i = 0;
+      function nextPhase() {
+        if (i >= phases.length) {
+          setTimeout(() => {
+            prog.style.display = 'none';
+            document.getElementById('importSuccess').style.display = 'block';
+          }, 400);
+          return;
+        }
+        fill.style.width = phases[i].pct + '%';
+        label.textContent = phases[i].text;
+        i++;
+        setTimeout(nextPhase, 600);
+      }
+      setTimeout(nextPhase, 200);
+    }
+  </script>
+</body>
+</html>

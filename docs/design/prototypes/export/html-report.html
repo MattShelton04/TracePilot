@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TracePilot — Session Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ──────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;line-height:1.6;transition:background .3s,color .3s}
+
+/* ── Variant C Tokens — Dark (default) ─────────────────── */
+:root,[data-theme="dark"]{
+  --canvas-deep:#050506;
+  --canvas:#09090b;
+  --canvas-raised:#111113;
+  --canvas-overlay:#18181b;
+  --text-primary:#fafafa;
+  --text-secondary:#a1a1aa;
+  --text-muted:#71717a;
+  --accent:#818cf8;
+  --accent-bold:#6366f1;
+  --success:#34d399;
+  --warning:#fbbf24;
+  --danger:#fb7185;
+  --done:#a78bfa;
+  --border:rgba(255,255,255,0.10);
+  --border-strong:rgba(255,255,255,0.16);
+  --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
+  --shadow-lg:0 10px 25px rgba(0,0,0,.5);
+  --user-bubble:rgba(99,102,241,0.12);
+  --user-bubble-border:rgba(99,102,241,0.25);
+  --code-bg:rgba(255,255,255,0.06);
+  --scrollbar-thumb:rgba(255,255,255,0.12);
+  --scrollbar-track:transparent;
+  --gauge-track:rgba(255,255,255,0.08);
+  --print-invert:0;
+}
+
+/* ── Light Theme ───────────────────────────────────────── */
+[data-theme="light"]{
+  --canvas-deep:#ffffff;
+  --canvas:#f9fafb;
+  --canvas-raised:#ffffff;
+  --canvas-overlay:#f3f4f6;
+  --text-primary:#111113;
+  --text-secondary:#4b5563;
+  --text-muted:#6b7280;
+  --accent:#6366f1;
+  --accent-bold:#4f46e5;
+  --success:#059669;
+  --warning:#d97706;
+  --danger:#e11d48;
+  --done:#7c3aed;
+  --border:rgba(0,0,0,0.08);
+  --border-strong:rgba(0,0,0,0.14);
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 10px 25px rgba(0,0,0,.1);
+  --user-bubble:rgba(99,102,241,0.08);
+  --user-bubble-border:rgba(99,102,241,0.2);
+  --code-bg:rgba(0,0,0,0.04);
+  --scrollbar-thumb:rgba(0,0,0,0.12);
+  --scrollbar-track:transparent;
+  --gauge-track:rgba(0,0,0,0.06);
+  --print-invert:0;
+}
+
+body{background:var(--canvas);color:var(--text-primary)}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--scrollbar-track)}
+::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:3px}
+
+/* ── Layout ────────────────────────────────────────────── */
+.report{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
+@media(min-width:768px){.report{padding:3rem 2rem 5rem}}
+
+/* ── Typography ────────────────────────────────────────── */
+h1{font-size:1.75rem;font-weight:700;letter-spacing:-0.02em;color:var(--text-primary)}
+h2{font-size:1.25rem;font-weight:600;letter-spacing:-0.01em;color:var(--text-primary);margin-bottom:1rem}
+h3{font-size:1rem;font-weight:600;color:var(--text-primary);margin-bottom:0.5rem}
+p{color:var(--text-secondary);margin-bottom:0.75rem}
+code,.mono{font-family:'JetBrains Mono',monospace;font-size:0.85em}
+
+/* ── Cards ─────────────────────────────────────────────── */
+.card{background:var(--canvas-raised);border:1px solid var(--border);border-radius:12px;padding:1.25rem;box-shadow:var(--shadow);transition:background .3s,border-color .3s}
+.card+.card{margin-top:1rem}
+
+/* ── Section ───────────────────────────────────────────── */
+.section{margin-top:2.5rem}
+.section-header{display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none;padding:0.5rem 0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;transition:border-color .3s}
+.section-header:hover{border-bottom-color:var(--accent)}
+.section-header .chevron{width:18px;height:18px;transition:transform .25s ease;flex-shrink:0;color:var(--text-muted)}
+.section-header .chevron.collapsed{transform:rotate(-90deg)}
+.section-header h2{margin-bottom:0}
+.section-content{overflow:hidden;transition:max-height .35s ease,opacity .25s ease}
+.section-content.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+
+/* ── Badges ────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:6px;letter-spacing:0.02em;text-transform:uppercase;white-space:nowrap}
+.badge-accent{background:rgba(99,102,241,0.15);color:var(--accent)}
+.badge-success{background:rgba(52,211,153,0.15);color:var(--success)}
+.badge-warning{background:rgba(251,191,36,0.15);color:var(--warning)}
+.badge-danger{background:rgba(251,113,133,0.15);color:var(--danger)}
+.badge-done{background:rgba(167,139,250,0.15);color:var(--done)}
+.badge-muted{background:var(--code-bg);color:var(--text-muted)}
+
+/* ── Stat Cards Grid ───────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem}
+.stat-card{background:var(--canvas-raised);border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center;transition:border-color .2s,background .3s}
+.stat-card:hover{border-color:var(--accent)}
+.stat-card .stat-value{font-size:1.5rem;font-weight:700;color:var(--text-primary);line-height:1.2}
+.stat-card .stat-label{font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:0.25rem}
+.stat-card .stat-sub{font-size:0.7rem;color:var(--text-muted);margin-top:0.125rem}
+
+/* ── Tables ────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+thead{background:var(--canvas-overlay)}
+th{text-align:left;padding:0.6rem 0.75rem;font-weight:600;color:var(--text-secondary);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
+td{padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);color:var(--text-primary);vertical-align:middle}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:var(--code-bg)}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+
+/* ── CSS Bar Charts ────────────────────────────────────── */
+.bar-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem}
+.bar-label{min-width:110px;font-size:0.8rem;color:var(--text-secondary);text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:22px;background:var(--gauge-track);border-radius:6px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:6px;transition:width .6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:0.7rem;font-weight:600;color:#fff;min-width:fit-content}
+.bar-fill.accent{background:linear-gradient(90deg,var(--accent-bold),var(--accent))}
+.bar-fill.success{background:linear-gradient(90deg,#059669,var(--success))}
+.bar-fill.warning{background:linear-gradient(90deg,#b45309,var(--warning))}
+.bar-fill.done{background:linear-gradient(90deg,#7c3aed,var(--done))}
+.bar-fill.danger{background:linear-gradient(90deg,#be123c,var(--danger))}
+
+/* ── Conversation ──────────────────────────────────────── */
+.turn{border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;overflow:hidden;transition:border-color .3s,background .3s}
+.turn-header{display:flex;align-items:center;gap:0.5rem;padding:0.75rem 1rem;background:var(--canvas-overlay);cursor:pointer;user-select:none;transition:background .3s}
+.turn-header:hover{background:var(--code-bg)}
+.turn-number{font-size:0.72rem;font-weight:700;color:var(--accent);background:rgba(99,102,241,0.15);padding:2px 8px;border-radius:5px}
+.turn-header .meta{margin-left:auto;display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;color:var(--text-muted)}
+.turn-body{padding:1rem;display:block;transition:max-height .3s ease}
+.turn-body.collapsed{display:none}
+
+.msg{border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.75rem;font-size:0.88rem;line-height:1.65}
+.msg-user{background:var(--user-bubble);border:1px solid var(--user-bubble-border)}
+.msg-user .msg-role{color:var(--accent);font-weight:600;font-size:0.75rem;margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.04em}
+.msg-assistant{background:var(--code-bg);border:1px solid var(--border)}
+.msg-assistant .msg-role{color:var(--text-muted);font-weight:600;font-size:0.75rem;margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.04em}
+
+.msg code{background:var(--canvas-overlay);padding:2px 6px;border-radius:4px;font-size:0.82em}
+.msg pre{background:var(--canvas);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;overflow-x:auto;margin:0.5rem 0;font-size:0.82rem;line-height:1.5}
+.msg pre code{background:transparent;padding:0}
+
+/* ── Tool Calls ────────────────────────────────────────── */
+.tool-calls{margin-top:0.5rem}
+.tool-calls-toggle{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-muted);cursor:pointer;user-select:none;padding:0.35rem 0}
+.tool-calls-toggle:hover{color:var(--accent)}
+.tool-calls-toggle svg{width:14px;height:14px;transition:transform .2s}
+.tool-calls-toggle.expanded svg{transform:rotate(90deg)}
+.tool-calls-list{display:none;margin-top:0.5rem}
+.tool-calls-list.expanded{display:block}
+.tool-call{display:flex;align-items:flex-start;gap:0.6rem;padding:0.5rem 0.75rem;border-radius:8px;background:var(--canvas);border:1px solid var(--border);margin-bottom:0.4rem;font-size:0.8rem;transition:background .3s}
+.tool-call-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;margin-top:2px}
+.tool-call-icon.success{background:rgba(52,211,153,0.15);color:var(--success)}
+.tool-call-icon.fail{background:rgba(251,113,133,0.15);color:var(--danger)}
+.tool-call-info{flex:1;min-width:0}
+.tool-call-name{font-weight:600;color:var(--text-primary)}
+.tool-call-args{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tool-call-meta{display:flex;gap:0.5rem;margin-top:0.2rem;font-size:0.7rem;color:var(--text-muted)}
+
+/* ── Todos ─────────────────────────────────────────────── */
+.todo-list{list-style:none}
+.todo-item{display:flex;align-items:flex-start;gap:0.6rem;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:0.35rem;transition:background .15s}
+.todo-item:hover{background:var(--code-bg)}
+.todo-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0;margin-top:1px}
+.todo-icon.done{background:rgba(52,211,153,0.15);color:var(--success)}
+.todo-icon.in-progress{background:rgba(99,102,241,0.15);color:var(--accent)}
+.todo-icon.pending{background:var(--code-bg);color:var(--text-muted)}
+.todo-icon.blocked{background:rgba(251,113,133,0.15);color:var(--danger)}
+.todo-text{font-size:0.88rem;color:var(--text-primary)}
+.todo-dep{font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem}
+
+/* ── Timeline ──────────────────────────────────────────── */
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:var(--border);border-radius:1px}
+.timeline-item{position:relative;padding-bottom:1.25rem}
+.timeline-item:last-child{padding-bottom:0}
+.timeline-dot{position:absolute;left:-28px;top:4px;width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);background:var(--canvas-raised);display:flex;align-items:center;justify-content:center;z-index:1}
+.timeline-dot-inner{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.timeline-time{font-size:0.72rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-bottom:0.15rem}
+.timeline-title{font-size:0.88rem;font-weight:500;color:var(--text-primary)}
+
+/* ── Events List ───────────────────────────────────────── */
+.events-list{max-height:480px;overflow-y:auto;border:1px solid var(--border);border-radius:10px}
+.event-row{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.82rem;transition:background .15s}
+.event-row:last-child{border-bottom:none}
+.event-row:hover{background:var(--code-bg)}
+.event-time{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--text-muted);flex-shrink:0;min-width:60px}
+.event-desc{color:var(--text-secondary);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Code Impact ───────────────────────────────────────── */
+.file-change{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem}
+.file-change:last-child{border-bottom:none}
+.file-path{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diff-stat{display:flex;gap:0.35rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;flex-shrink:0}
+.diff-add{color:var(--success)}
+.diff-del{color:var(--danger)}
+
+/* ── File Tree ─────────────────────────────────────────── */
+.file-tree{font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.8;color:var(--text-secondary);padding:0.75rem 1rem;background:var(--canvas);border-radius:8px;border:1px solid var(--border)}
+.file-tree .dir{color:var(--accent)}
+.file-tree .changed{color:var(--warning)}
+
+/* ── Health Gauge ──────────────────────────────────────── */
+.gauge-wrap{display:flex;align-items:center;gap:1.5rem;margin-top:1rem}
+.gauge{position:relative;width:100px;height:100px;flex-shrink:0}
+.gauge svg{width:100%;height:100%;transform:rotate(-90deg)}
+.gauge circle{fill:none;stroke-linecap:round}
+.gauge .track{stroke:var(--gauge-track);stroke-width:8}
+.gauge .fill{stroke:var(--success);stroke-width:8;transition:stroke-dashoffset .8s ease}
+.gauge-value{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge-value .num{font-size:1.5rem;font-weight:700;color:var(--text-primary);line-height:1}
+.gauge-value .of{font-size:0.65rem;color:var(--text-muted)}
+.gauge-info .gauge-label{font-size:0.95rem;font-weight:600;color:var(--success)}
+.gauge-info .gauge-desc{font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem}
+
+/* ── Header ────────────────────────────────────────────── */
+.report-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);margin-bottom:0.5rem}
+.brand{display:flex;align-items:center;gap:0.5rem}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent-bold),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:0.9rem}
+.brand-name{font-size:1.1rem;font-weight:700;color:var(--text-primary);letter-spacing:-0.02em}
+.header-actions{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8rem;font-weight:500;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--canvas-raised);color:var(--text-secondary);cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent-bold);border-color:var(--accent-bold);color:#fff}
+.btn-primary:hover{background:var(--accent);border-color:var(--accent)}
+.export-meta{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;font-size:0.72rem;color:var(--text-muted)}
+.export-meta span{background:var(--code-bg);padding:2px 8px;border-radius:4px}
+
+/* ── TOC ───────────────────────────────────────────────── */
+.toc{margin-top:1.25rem;padding:1rem 1.25rem;background:var(--canvas-raised);border:1px solid var(--border);border-radius:10px}
+.toc-title{font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.6rem}
+.toc-list{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.25rem 1rem}
+.toc-list a{font-size:0.84rem;color:var(--text-secondary);text-decoration:none;padding:0.15rem 0;display:flex;align-items:center;gap:0.35rem;transition:color .15s}
+.toc-list a:hover{color:var(--accent)}
+.toc-list a::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--accent);opacity:0.5;flex-shrink:0}
+
+/* ── Copy Button ───────────────────────────────────────── */
+.copy-btn{display:inline-flex;align-items:center;gap:4px;font-size:0.7rem;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;font-family:inherit}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.copy-btn.copied{border-color:var(--success);color:var(--success)}
+
+/* ── Metadata Grid ─────────────────────────────────────── */
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.6rem}
+.meta-item{display:flex;flex-direction:column;gap:0.1rem}
+.meta-label{font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:500}
+.meta-value{font-size:0.88rem;color:var(--text-primary);font-weight:500}
+
+/* ── Token Distribution Bar ────────────────────────────── */
+.token-bar{display:flex;height:28px;border-radius:8px;overflow:hidden;margin:0.75rem 0}
+.token-seg{transition:width .6s ease;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:600;color:#fff;min-width:0;overflow:hidden;white-space:nowrap}
+.token-legend{display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.75rem;color:var(--text-secondary)}
+.token-legend-item{display:flex;align-items:center;gap:0.3rem}
+.token-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ── Footer ────────────────────────────────────────────── */
+.report-footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);text-align:center;font-size:0.78rem;color:var(--text-muted)}
+.report-footer a{color:var(--accent);text-decoration:none}
+.report-footer a:hover{text-decoration:underline}
+
+/* ── Back to Top ───────────────────────────────────────── */
+.back-to-top{position:fixed;bottom:2rem;right:2rem;width:40px;height:40px;border-radius:10px;background:var(--accent-bold);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;transform:translateY(8px);box-shadow:var(--shadow-lg);z-index:100}
+.back-to-top.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
+.back-to-top:hover{background:var(--accent)}
+
+/* ── Accessibility ─────────────────────────────────────── */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.section{animation:fadeInUp .4s ease both}
+.section:nth-child(2){animation-delay:.05s}
+.section:nth-child(3){animation-delay:.1s}
+.section:nth-child(4){animation-delay:.15s}
+
+/* ── Print Styles ──────────────────────────────────────── */
+@media print{
+  *{color-adjust:exact;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{background:#fff!important;color:#111!important}
+  :root{
+    --canvas:#fff!important;--canvas-raised:#f9fafb!important;--canvas-overlay:#f3f4f6!important;
+    --text-primary:#111!important;--text-secondary:#4b5563!important;--text-muted:#6b7280!important;
+    --border:rgba(0,0,0,0.1)!important;--shadow:none!important;--shadow-lg:none!important;
+    --code-bg:rgba(0,0,0,0.04)!important;--user-bubble:rgba(99,102,241,0.06)!important;
+    --user-bubble-border:rgba(99,102,241,0.15)!important;--gauge-track:rgba(0,0,0,0.06)!important
+  }
+  .back-to-top,.header-actions,.toc{display:none!important}
+  .card,.turn,.table-wrap{box-shadow:none!important;page-break-inside:avoid}
+  .section{page-break-inside:avoid;animation:none!important}
+  .events-list{max-height:none!important;overflow:visible!important}
+  .report{max-width:100%;padding:0.5rem}
+  .section-content.collapsed{max-height:none!important;opacity:1!important;pointer-events:auto!important}
+  .turn-body.collapsed{display:block!important}
+  .tool-calls-list{display:block!important}
+}
+</style>
+</head>
+<body>
+
+<div class="report">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <header class="report-header">
+    <div>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">TP</div>
+        <span class="brand-name">TracePilot</span>
+      </div>
+      <h1 style="margin-top:0.5rem">Session Report</h1>
+      <div class="export-meta">
+        <span>Exported 2025-01-15 14:32 UTC</span>
+        <span>TracePilot v0.6.0</span>
+        <span>Schema v2.1</span>
+        <span>Format: HTML</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="themeToggle" aria-label="Toggle theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <span id="themeLabel">Light</span>
+      </button>
+      <button class="btn btn-primary" onclick="window.print()" aria-label="Print report">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════ TABLE OF CONTENTS ═══════ -->
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-title">Contents</div>
+    <ol class="toc-list">
+      <li><a href="#session-overview">Session Overview</a></li>
+      <li><a href="#metrics">Metrics Dashboard</a></li>
+      <li><a href="#conversation">Conversation</a></li>
+      <li><a href="#plan-todos">Plan &amp; Todos</a></li>
+      <li><a href="#tool-usage">Tool Usage Analysis</a></li>
+      <li><a href="#code-impact">Code Impact</a></li>
+      <li><a href="#checkpoints">Checkpoints</a></li>
+      <li><a href="#events">Events Timeline</a></li>
+    </ol>
+  </nav>
+
+  <!-- ═══════ 1 · SESSION OVERVIEW ═══════ -->
+  <div class="section" id="session-overview">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>1 &middot; Session Overview</h2>
+    </div>
+    <div class="section-content">
+      <div class="card">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Session ID</span>
+            <span class="meta-value" style="display:flex;align-items:center;gap:0.35rem">
+              <code class="mono" style="font-size:0.82rem" title="sess_a3f8c912-7b4e-4d1a-b6e3-9f2c5d8a1e07">sess_a3f8c912…1e07</code>
+              <button class="copy-btn" onclick="copyText('sess_a3f8c912-7b4e-4d1a-b6e3-9f2c5d8a1e07',this)" aria-label="Copy session ID">Copy</button>
+            </span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Repository</span>
+            <span class="meta-value">acme-corp/web-platform</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Branch</span>
+            <span class="meta-value"><code class="mono">feat/oauth-integration</code></span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Host Type</span>
+            <span class="meta-value"><span class="badge badge-accent">CLI</span></span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Model</span>
+            <span class="meta-value"><span class="badge badge-done">claude-sonnet-4-20250514</span></span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Created</span>
+            <span class="meta-value">2025-01-15 09:34 UTC</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Updated</span>
+            <span class="meta-value">2025-01-15 11:08 UTC</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Duration</span>
+            <span class="meta-value">1h 34m</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Events</span>
+            <span class="meta-value">128</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Turns</span>
+            <span class="meta-value">5</span>
+          </div>
+        </div>
+
+        <div class="gauge-wrap">
+          <div class="gauge" role="img" aria-label="Health score 78 out of 100">
+            <svg viewBox="0 0 100 100">
+              <circle class="track" cx="50" cy="50" r="42"/>
+              <circle class="fill" cx="50" cy="50" r="42"
+                stroke-dasharray="263.9"
+                stroke-dashoffset="58.1"/>
+            </svg>
+            <div class="gauge-value">
+              <span class="num">78</span>
+              <span class="of">/100</span>
+            </div>
+          </div>
+          <div class="gauge-info">
+            <div class="gauge-label">Good</div>
+            <div class="gauge-desc">Session health score — tool success rates, cache performance, and cost efficiency are all within healthy ranges.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 2 · METRICS DASHBOARD ═══════ -->
+  <div class="section" id="metrics">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>2 &middot; Metrics Dashboard</h2>
+    </div>
+    <div class="section-content">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value">$1.33</div>
+          <div class="stat-label">Total API Cost</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">2m 34s</div>
+          <div class="stat-label">API Duration</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">47</div>
+          <div class="stat-label">Premium Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="display:flex;align-items:baseline;justify-content:center;gap:0.35rem">
+            <span style="color:var(--success)">+342</span>
+            <span style="color:var(--text-muted);font-size:0.85rem">/</span>
+            <span style="color:var(--danger)">-56</span>
+          </div>
+          <div class="stat-label">Lines Changed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">8</div>
+          <div class="stat-label">Files Modified</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">72%</div>
+          <div class="stat-label">Cache Hit Rate</div>
+        </div>
+      </div>
+
+      <!-- Model Breakdown -->
+      <div class="card" style="margin-top:1.25rem">
+        <h3>Model Breakdown</h3>
+        <div class="table-wrap" style="margin-top:0.75rem">
+          <table>
+            <thead>
+              <tr><th>Model</th><th>Requests</th><th>Cost</th><th>Input Tokens</th><th>Output Tokens</th><th>Cache Read</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-done">claude-sonnet-4</span></td>
+                <td>38</td><td class="mono">$1.12</td><td class="mono">284,320</td><td class="mono">42,156</td><td class="mono">198,440</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-accent">claude-haiku-4</span></td>
+                <td>9</td><td class="mono">$0.21</td><td class="mono">67,890</td><td class="mono">8,340</td><td class="mono">45,120</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Token Distribution -->
+      <div class="card" style="margin-top:1.25rem">
+        <h3>Token Distribution</h3>
+        <div class="token-bar">
+          <div class="token-seg" style="width:55%;background:var(--accent-bold)" title="Input: 352,210">Input</div>
+          <div class="token-seg" style="width:12%;background:var(--done)" title="Output: 50,496">Output</div>
+          <div class="token-seg" style="width:33%;background:var(--success)" title="Cache Read: 243,560">Cache</div>
+        </div>
+        <div class="token-legend">
+          <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--accent-bold)"></div> Input — 352,210</div>
+          <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--done)"></div> Output — 50,496</div>
+          <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--success)"></div> Cache Read — 243,560</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 3 · CONVERSATION ═══════ -->
+  <div class="section" id="conversation">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>3 &middot; Conversation</h2>
+    </div>
+    <div class="section-content">
+
+      <!-- Turn 1 -->
+      <div class="turn">
+        <div class="turn-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleTurn(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTurn(this)}">
+          <span class="turn-number">Turn 1</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">Project scaffolding</span>
+          <div class="meta">
+            <span class="badge badge-done">claude-sonnet-4</span>
+            <span>12.4s</span>
+          </div>
+        </div>
+        <div class="turn-body">
+          <div class="msg msg-user">
+            <div class="msg-role">User</div>
+            I need to add OAuth authentication to our web platform. We need to support Google and GitHub as identity providers. The auth module should live in <code>src/auth/</code> and use JWT tokens for session management. Start by setting up the project structure and the base auth module.
+          </div>
+          <div class="msg msg-assistant">
+            <div class="msg-role">Assistant</div>
+            I'll set up the OAuth authentication module with support for Google and GitHub providers. Let me start by examining the existing project structure, then create the auth module foundation.
+            <br><br>
+            I've created the following structure:
+            <pre><code>src/auth/
+├── index.ts          # Public API exports
+├── providers/
+│   ├── google.ts     # Google OAuth provider
+│   └── github.ts     # GitHub OAuth provider
+├── jwt.ts            # JWT token utilities
+├── middleware.ts      # Auth middleware
+└── types.ts          # TypeScript interfaces</code></pre>
+            The base module includes JWT token generation and verification, provider interface contracts, and Express middleware for route protection.
+          </div>
+          <div class="tool-calls">
+            <div class="tool-calls-toggle" onclick="toggleToolCalls(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleToolCalls(this)}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              4 tool calls
+            </div>
+            <div class="tool-calls-list">
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">view</div>
+                  <div class="tool-call-args">path: "src/"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>79ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/types.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>142ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/jwt.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>138ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/index.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>155ms</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn 2 -->
+      <div class="turn">
+        <div class="turn-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleTurn(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTurn(this)}">
+          <span class="turn-number">Turn 2</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">OAuth providers</span>
+          <div class="meta">
+            <span class="badge badge-done">claude-sonnet-4</span>
+            <span>18.7s</span>
+          </div>
+        </div>
+        <div class="turn-body">
+          <div class="msg msg-user">
+            <div class="msg-role">User</div>
+            Great. Now implement the Google and GitHub OAuth providers. Use the standard OAuth 2.0 authorization code flow. Make sure to handle token refresh for Google and include proper error handling.
+          </div>
+          <div class="msg msg-assistant">
+            <div class="msg-role">Assistant</div>
+            I'll implement both OAuth providers with the authorization code flow. Let me first check the existing dependencies, then build out the providers.
+            <br><br>
+            Both providers are now implemented with:
+            <ul style="margin:0.5rem 0 0.5rem 1.25rem;color:var(--text-secondary)">
+              <li>Authorization URL generation with PKCE support</li>
+              <li>Token exchange with proper error handling</li>
+              <li>User profile fetching from provider APIs</li>
+              <li>Google token refresh mechanism</li>
+              <li>Rate limiting awareness with exponential backoff</li>
+            </ul>
+            I also installed <code>googleapis</code> and <code>@octokit/oauth-app</code> as dependencies.
+          </div>
+          <div class="tool-calls">
+            <div class="tool-calls-toggle" onclick="toggleToolCalls(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleToolCalls(this)}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              5 tool calls
+            </div>
+            <div class="tool-calls-list">
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">view</div>
+                  <div class="tool-call-args">path: "package.json"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>62ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">powershell</div>
+                  <div class="tool-call-args">command: "npm install googleapis @octokit/oauth-app"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>4.2s</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/providers/google.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>168ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/providers/github.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>152ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/auth/index.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>210ms</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn 3 -->
+      <div class="turn">
+        <div class="turn-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleTurn(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTurn(this)}">
+          <span class="turn-number">Turn 3</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">API routes</span>
+          <div class="meta">
+            <span class="badge badge-done">claude-sonnet-4</span>
+            <span>14.1s</span>
+          </div>
+        </div>
+        <div class="turn-body">
+          <div class="msg msg-user">
+            <div class="msg-role">User</div>
+            Add the API routes for the OAuth flow: <code>/auth/google</code>, <code>/auth/github</code>, and a shared <code>/auth/callback</code> endpoint. Also add a <code>/auth/me</code> endpoint that returns the current user.
+          </div>
+          <div class="msg msg-assistant">
+            <div class="msg-role">Assistant</div>
+            I've created the auth routes with the following endpoints:
+            <pre><code>GET  /auth/google          → Redirect to Google OAuth
+GET  /auth/github          → Redirect to GitHub OAuth
+GET  /auth/callback/:provider → Handle OAuth callback
+GET  /auth/me              → Get current user (protected)
+POST /auth/refresh         → Refresh access token
+POST /auth/logout          → Clear session</code></pre>
+            The callback endpoint validates the state parameter to prevent CSRF attacks, exchanges the authorization code for tokens, and creates or updates the user record before issuing a JWT.
+          </div>
+          <div class="tool-calls">
+            <div class="tool-calls-toggle" onclick="toggleToolCalls(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleToolCalls(this)}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              3 tool calls
+            </div>
+            <div class="tool-calls-list">
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/routes.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>175ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/app.ts" — register auth router</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>245ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/auth/middleware.ts" — add requireAuth</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>302ms</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn 4 -->
+      <div class="turn">
+        <div class="turn-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleTurn(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTurn(this)}">
+          <span class="turn-number">Turn 4</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">Rate limiting</span>
+          <div class="meta">
+            <span class="badge badge-accent">claude-haiku-4</span>
+            <span>8.2s</span>
+          </div>
+        </div>
+        <div class="turn-body">
+          <div class="msg msg-user">
+            <div class="msg-role">User</div>
+            Add rate limiting to the auth endpoints. We should limit login attempts to 5 per minute per IP, and token refresh to 10 per minute.
+          </div>
+          <div class="msg msg-assistant">
+            <div class="msg-role">Assistant</div>
+            I've added rate limiting using <code>express-rate-limit</code> with a Redis-backed store for distributed environments. The configuration:
+            <ul style="margin:0.5rem 0 0.5rem 1.25rem;color:var(--text-secondary)">
+              <li><strong>Login endpoints</strong>: 5 requests/min per IP with a 60s window</li>
+              <li><strong>Token refresh</strong>: 10 requests/min per IP</li>
+              <li><strong>General auth routes</strong>: 30 requests/min per IP</li>
+            </ul>
+            Rate limit headers (<code>X-RateLimit-*</code>) are included in all responses. When the limit is exceeded, the middleware returns a <code>429 Too Many Requests</code> with a <code>Retry-After</code> header.
+          </div>
+          <div class="tool-calls">
+            <div class="tool-calls-toggle" onclick="toggleToolCalls(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleToolCalls(this)}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              4 tool calls
+            </div>
+            <div class="tool-calls-list">
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">powershell</div>
+                  <div class="tool-call-args">command: "npm install express-rate-limit rate-limit-redis"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>3.8s</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">create</div>
+                  <div class="tool-call-args">path: "src/auth/rate-limit.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>135ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/auth/routes.ts" — apply rate limiters</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>278ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">view</div>
+                  <div class="tool-call-args">path: "src/auth/routes.ts"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>58ms</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn 5 -->
+      <div class="turn">
+        <div class="turn-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleTurn(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTurn(this)}">
+          <span class="turn-number">Turn 5</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">Build verification</span>
+          <div class="meta">
+            <span class="badge badge-done">claude-sonnet-4</span>
+            <span>22.1s</span>
+          </div>
+        </div>
+        <div class="turn-body">
+          <div class="msg msg-user">
+            <div class="msg-role">User</div>
+            Run the build and fix any TypeScript errors. Then run the existing test suite to make sure nothing is broken.
+          </div>
+          <div class="msg msg-assistant">
+            <div class="msg-role">Assistant</div>
+            The build initially had 3 TypeScript errors related to missing type imports. I fixed those and the build now succeeds. The existing test suite (47 tests across 12 files) passes with no regressions.
+            <pre><code>$ npm run build
+✓ Compiled successfully in 4.2s
+
+$ npm test
+Test Suites: 12 passed, 12 total
+Tests:       47 passed, 47 total
+Time:        6.841s</code></pre>
+            All existing functionality remains intact. The new auth module is compiled and ready for integration testing.
+          </div>
+          <div class="tool-calls">
+            <div class="tool-calls-toggle" onclick="toggleToolCalls(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleToolCalls(this)}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              5 tool calls
+            </div>
+            <div class="tool-calls-list">
+              <div class="tool-call">
+                <div class="tool-call-icon fail">✗</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">powershell</div>
+                  <div class="tool-call-args">command: "npm run build"</div>
+                  <div class="tool-call-meta"><span class="badge badge-danger">Failed</span><span>3.1s</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/auth/providers/google.ts" — fix imports</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>195ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">edit</div>
+                  <div class="tool-call-args">path: "src/auth/middleware.ts" — fix type annotation</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>180ms</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">powershell</div>
+                  <div class="tool-call-args">command: "npm run build"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>4.2s</span></div>
+                </div>
+              </div>
+              <div class="tool-call">
+                <div class="tool-call-icon success">✓</div>
+                <div class="tool-call-info">
+                  <div class="tool-call-name">powershell</div>
+                  <div class="tool-call-args">command: "npm test"</div>
+                  <div class="tool-call-meta"><span class="badge badge-success">Success</span><span>6.8s</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════ 4 · PLAN & TODOS ═══════ -->
+  <div class="section" id="plan-todos">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>4 &middot; Plan &amp; Todos</h2>
+    </div>
+    <div class="section-content">
+      <div class="card">
+        <h3>Plan</h3>
+        <p>Implement a complete OAuth 2.0 authentication system for the web platform, supporting Google and GitHub as identity providers. The system uses JWT tokens for stateless session management and includes Express middleware for route protection.</p>
+        <p>The implementation follows the authorization code flow with PKCE for enhanced security. Each provider has its own module implementing a shared interface, making it straightforward to add new providers (e.g., Microsoft, Apple) in the future.</p>
+        <p>Rate limiting is applied at the route level to prevent brute-force attacks on authentication endpoints. The rate limiter uses a Redis-backed store for consistency across distributed deployments. Integration tests will be written once the core module is stable.</p>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <h3>Todos</h3>
+        <ul class="todo-list" style="margin-top:0.75rem">
+          <li class="todo-item">
+            <div class="todo-icon done">✓</div>
+            <div>
+              <div class="todo-text">Create user auth module</div>
+              <div class="todo-dep">Completed — project foundation</div>
+            </div>
+          </li>
+          <li class="todo-item">
+            <div class="todo-icon done">✓</div>
+            <div>
+              <div class="todo-text">Add API routes</div>
+              <div class="todo-dep">Completed — depends on: <span class="badge badge-muted" style="font-size:0.65rem">auth module</span></div>
+            </div>
+          </li>
+          <li class="todo-item">
+            <div class="todo-icon in-progress">⟳</div>
+            <div>
+              <div class="todo-text">OAuth provider integration</div>
+              <div class="todo-dep">In progress — depends on: <span class="badge badge-muted" style="font-size:0.65rem">auth module</span> <span class="badge badge-muted" style="font-size:0.65rem">API routes</span></div>
+            </div>
+          </li>
+          <li class="todo-item">
+            <div class="todo-icon in-progress">⟳</div>
+            <div>
+              <div class="todo-text">Implement rate limiting</div>
+              <div class="todo-dep">In progress — depends on: <span class="badge badge-muted" style="font-size:0.65rem">API routes</span></div>
+            </div>
+          </li>
+          <li class="todo-item">
+            <div class="todo-icon pending">○</div>
+            <div>
+              <div class="todo-text">Session management</div>
+              <div class="todo-dep">Pending — depends on: <span class="badge badge-muted" style="font-size:0.65rem">OAuth providers</span> <span class="badge badge-muted" style="font-size:0.65rem">rate limiting</span></div>
+            </div>
+          </li>
+          <li class="todo-item">
+            <div class="todo-icon blocked">✗</div>
+            <div>
+              <div class="todo-text">Write integration tests</div>
+              <div class="todo-dep">Blocked — depends on: <span class="badge badge-muted" style="font-size:0.65rem">session management</span> — waiting for test fixtures from backend team</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 5 · TOOL USAGE ANALYSIS ═══════ -->
+  <div class="section" id="tool-usage">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>5 &middot; Tool Usage Analysis</h2>
+    </div>
+    <div class="section-content">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>Calls</th><th>Success Rate</th><th>Avg Duration</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">view</td><td>8</td><td><span class="badge badge-success">100%</span></td><td class="mono">79ms</td></tr>
+            <tr><td class="mono">edit</td><td>5</td><td><span class="badge badge-success">100%</span></td><td class="mono">260ms</td></tr>
+            <tr><td class="mono">create</td><td>3</td><td><span class="badge badge-success">100%</span></td><td class="mono">148ms</td></tr>
+            <tr><td class="mono">powershell</td><td>3</td><td><span class="badge badge-warning">67%</span></td><td class="mono">2,800ms</td></tr>
+            <tr><td class="mono">grep</td><td>2</td><td><span class="badge badge-success">100%</span></td><td class="mono">45ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:1.25rem">
+        <h3>Tool Frequency</h3>
+        <div style="margin-top:0.75rem">
+          <div class="bar-row">
+            <span class="bar-label">view</span>
+            <div class="bar-track"><div class="bar-fill accent" style="width:100%">8</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">edit</span>
+            <div class="bar-track"><div class="bar-fill done" style="width:62.5%">5</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">create</span>
+            <div class="bar-track"><div class="bar-fill success" style="width:37.5%">3</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">powershell</span>
+            <div class="bar-track"><div class="bar-fill warning" style="width:37.5%">3</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">grep</span>
+            <div class="bar-track"><div class="bar-fill danger" style="width:25%">2</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 6 · CODE IMPACT ═══════ -->
+  <div class="section" id="code-impact">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>6 &middot; Code Impact</h2>
+    </div>
+    <div class="section-content">
+      <div class="card">
+        <h3>Files Changed</h3>
+        <div style="margin-top:0.5rem">
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/index.ts</span>
+            <div class="diff-stat"><span class="diff-add">+24</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/types.ts</span>
+            <div class="diff-stat"><span class="diff-add">+68</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/jwt.ts</span>
+            <div class="diff-stat"><span class="diff-add">+45</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/providers/google.ts</span>
+            <div class="diff-stat"><span class="diff-add">+82</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/providers/github.ts</span>
+            <div class="diff-stat"><span class="diff-add">+61</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-success">Added</span>
+            <span class="file-path">src/auth/routes.ts</span>
+            <div class="diff-stat"><span class="diff-add">+38</span><span class="diff-del">-0</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-accent">Modified</span>
+            <span class="file-path">src/auth/middleware.ts</span>
+            <div class="diff-stat"><span class="diff-add">+18</span><span class="diff-del">-4</span></div>
+          </div>
+          <div class="file-change">
+            <span class="badge badge-accent">Modified</span>
+            <span class="file-path">src/app.ts</span>
+            <div class="diff-stat"><span class="diff-add">+6</span><span class="diff-del">-2</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <h3>Affected Paths</h3>
+        <div class="file-tree">
+          <span class="dir">src/</span><br>
+          &nbsp;&nbsp;<span class="changed">app.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— modified</span><br>
+          &nbsp;&nbsp;<span class="dir">auth/</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">index.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">types.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">jwt.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">middleware.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— modified</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">routes.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">rate-limit.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">providers/</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">google.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="changed">github.ts</span> <span style="color:var(--text-muted);font-size:0.7rem">— added</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 7 · CHECKPOINTS ═══════ -->
+  <div class="section" id="checkpoints">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>7 &middot; Checkpoints</h2>
+    </div>
+    <div class="section-content">
+      <div class="card">
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+            <div class="timeline-time">09:35 UTC</div>
+            <div class="timeline-title">Initial project scaffolding</div>
+            <p style="font-size:0.8rem;margin-top:0.15rem">Created auth module directory structure with base types and JWT utilities.</p>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+            <div class="timeline-time">10:00 UTC</div>
+            <div class="timeline-title">Auth module foundation</div>
+            <p style="font-size:0.8rem;margin-top:0.15rem">Implemented Google and GitHub OAuth providers with authorization code flow and PKCE support.</p>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+            <div class="timeline-time">10:45 UTC</div>
+            <div class="timeline-title">OAuth providers integrated</div>
+            <p style="font-size:0.8rem;margin-top:0.15rem">API routes registered, middleware configured, rate limiting applied. Build passes with zero errors.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 8 · EVENTS TIMELINE ═══════ -->
+  <div class="section" id="events">
+    <div class="section-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this)}">
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <h2>8 &middot; Events Timeline</h2>
+    </div>
+    <div class="section-content">
+      <div class="events-list">
+        <div class="event-row">
+          <span class="event-time">09:34:12</span>
+          <span class="badge badge-success">session.start</span>
+          <span class="event-desc">Session initialized on acme-corp/web-platform</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:14</span>
+          <span class="badge badge-accent">user.message</span>
+          <span class="event-desc">User requested OAuth authentication setup</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:15</span>
+          <span class="badge badge-done">assistant.turn_start</span>
+          <span class="event-desc">Turn 1 started — claude-sonnet-4</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:16</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">view — path: "src/"</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:16</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">view — success in 79ms</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:18</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">create — path: "src/auth/types.ts"</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:18</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">create — success in 142ms</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:20</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">create — path: "src/auth/jwt.ts"</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:20</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">create — success in 138ms</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:22</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">create — path: "src/auth/index.ts"</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:22</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">create — success in 155ms</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:34:26</span>
+          <span class="badge badge-done">assistant.turn_end</span>
+          <span class="event-desc">Turn 1 completed in 12.4s</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:35:00</span>
+          <span class="badge badge-muted">session.plan_changed</span>
+          <span class="event-desc">Checkpoint: Initial project scaffolding</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:41</span>
+          <span class="badge badge-accent">user.message</span>
+          <span class="event-desc">User requested OAuth provider implementation</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:42</span>
+          <span class="badge badge-done">assistant.turn_start</span>
+          <span class="event-desc">Turn 2 started — claude-sonnet-4</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:43</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">view — path: "package.json"</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:43</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">view — success in 62ms</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:45</span>
+          <span class="badge badge-warning">tool.exec_start</span>
+          <span class="event-desc">powershell — npm install googleapis @octokit/oauth-app</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:38:49</span>
+          <span class="badge badge-success">tool.exec_complete</span>
+          <span class="event-desc">powershell — success in 4.2s</span>
+        </div>
+        <div class="event-row">
+          <span class="event-time">09:39:01</span>
+          <span class="badge badge-done">assistant.turn_end</span>
+          <span class="event-desc">Turn 2 completed in 18.7s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ FOOTER ═══════ -->
+  <footer class="report-footer">
+    <p>Generated by <strong>TracePilot v0.6.0</strong></p>
+    <p>Exported on 2025-01-15 at 14:32 UTC &middot; Schema v2.1 &middot; <a href="#">tracepilot.dev</a></p>
+  </footer>
+
+</div>
+
+<!-- ═══════ BACK TO TOP ═══════ -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
+<script>
+/* ── Theme Toggle ──────────────────────────────────────── */
+(function(){
+  const html=document.documentElement;
+  const toggle=document.getElementById('themeToggle');
+  const label=document.getElementById('themeLabel');
+  const saved=localStorage.getItem('tp-report-theme');
+  if(saved){html.dataset.theme=saved;updateLabel()}
+
+  toggle.addEventListener('click',()=>{
+    html.dataset.theme=html.dataset.theme==='dark'?'light':'dark';
+    localStorage.setItem('tp-report-theme',html.dataset.theme);
+    updateLabel();
+  });
+
+  function updateLabel(){
+    label.textContent=html.dataset.theme==='dark'?'Light':'Dark';
+  }
+})();
+
+/* ── Back to Top ───────────────────────────────────────── */
+(function(){
+  const btn=document.getElementById('backToTop');
+  let ticking=false;
+  window.addEventListener('scroll',()=>{
+    if(!ticking){
+      window.requestAnimationFrame(()=>{
+        btn.classList.toggle('visible',window.scrollY>400);
+        ticking=false;
+      });
+      ticking=true;
+    }
+  });
+})();
+
+/* ── Section Collapse ──────────────────────────────────── */
+function toggleSection(header){
+  const content=header.nextElementSibling;
+  const chevron=header.querySelector('.chevron');
+  const isCollapsed=content.classList.toggle('collapsed');
+  chevron.classList.toggle('collapsed',isCollapsed);
+  header.setAttribute('aria-expanded',!isCollapsed);
+  if(!isCollapsed){
+    content.style.maxHeight=content.scrollHeight+'px';
+    requestAnimationFrame(()=>{content.style.maxHeight='none'});
+  }
+}
+
+/* ── Turn Collapse ─────────────────────────────────────── */
+function toggleTurn(header){
+  const body=header.nextElementSibling;
+  const isCollapsed=body.classList.toggle('collapsed');
+  header.setAttribute('aria-expanded',!isCollapsed);
+}
+
+/* ── Tool Calls Toggle ─────────────────────────────────── */
+function toggleToolCalls(el){
+  const list=el.nextElementSibling;
+  const isExpanded=el.classList.toggle('expanded');
+  list.classList.toggle('expanded',isExpanded);
+  el.setAttribute('aria-expanded',isExpanded);
+}
+
+/* ── Copy to Clipboard ─────────────────────────────────── */
+function copyText(text,btn){
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.classList.add('copied');
+    const orig=btn.textContent;
+    btn.textContent='Copied!';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig},1500);
+  });
+}
+</script>
+</body>
+</html>
