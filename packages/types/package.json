@@ -18,7 +18,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist",
-    "test": "node --test --experimental-strip-types tests/**/*.test.ts"
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0"

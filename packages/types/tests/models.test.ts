@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { getModelById, MODEL_REGISTRY } from '../src/models.ts';
+import { getModelById, MODEL_REGISTRY } from '../src/models.js';
 
 describe('getModelById', () => {
   test('returns the correct model for an exact match', () => {
