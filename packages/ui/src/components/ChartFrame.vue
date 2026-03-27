@@ -57,7 +57,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="chart-container" @mouseleave="emit('dismiss-tooltip')">
+  <div class="chart-frame" @mouseleave="emit('dismiss-tooltip')">
     <svg
       :viewBox="viewBox"
       width="100%"
@@ -147,7 +147,7 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.chart-container {
+.chart-frame {
   position: relative;
 }
 </style>

@@ -70,9 +70,9 @@ describe('ChartFrame', () => {
     expect(vb).toBe('0 0 800 400');
   });
 
-  it('has a chart-container root element with position: relative', () => {
+  it('has a chart-frame root element with position: relative', () => {
     const wrapper = mountFrame();
-    expect(wrapper.find('.chart-container').exists()).toBe(true);
+    expect(wrapper.find('.chart-frame').exists()).toBe(true);
   });
 
   // ── Grid lines ──────────────────────────────────────────────────
@@ -200,7 +200,7 @@ describe('ChartFrame', () => {
 
   it('emits dismiss-tooltip on mouseleave', async () => {
     const wrapper = mountFrame();
-    await wrapper.find('.chart-container').trigger('mouseleave');
+    await wrapper.find('.chart-frame').trigger('mouseleave');
     expect(wrapper.emitted('dismiss-tooltip')).toHaveLength(1);
   });
 
@@ -274,8 +274,8 @@ describe('ChartFrame', () => {
         footer: '<div class="test-legend">Legend content</div>',
       },
     });
-    // Footer should be inside chart-container but NOT inside svg
-    expect(wrapper.find('.chart-container .test-legend').exists()).toBe(true);
+    // Footer should be inside chart-frame but NOT inside svg
+    expect(wrapper.find('.chart-frame .test-legend').exists()).toBe(true);
     expect(wrapper.find('svg .test-legend').exists()).toBe(false);
   });
 
