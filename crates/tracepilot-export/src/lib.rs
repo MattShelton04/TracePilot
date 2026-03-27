@@ -14,6 +14,7 @@
 pub mod builder;
 pub mod document;
 pub mod error;
+pub mod import;
 pub mod options;
 pub mod render;
 pub mod schema;
