@@ -32,6 +32,7 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
   const consumed: [number, number][] = [];
 
   for (const match of raw.matchAll(QUALIFIER_RE)) {
+    if (match.index == null) continue;
     const key = match[1].toLowerCase();
     const val = match[2] ?? match[3]; // quoted value or unquoted
     consumed.push([match.index, match.index + match[0].length]);
