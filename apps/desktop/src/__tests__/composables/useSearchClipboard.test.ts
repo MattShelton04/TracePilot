@@ -21,17 +21,21 @@ afterEach(() => {
 // Helper: minimal SearchResult factory
 function makeResult(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
+    id: 1,
     sessionId: 'sess-1',
     contentType: 'tool_call',
     snippet: '<mark>hello</mark> world',
     turnNumber: 1,
+    eventIndex: null,
+    timestampUnix: null,
     sessionSummary: null,
     sessionRepository: null,
     sessionBranch: null,
+    sessionUpdatedAt: null,
     toolName: null,
-    rank: 1,
+    metadataJson: null,
     ...overrides,
-  } as SearchResult;
+  };
 }
 
 describe('stripHtml', () => {

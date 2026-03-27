@@ -29,10 +29,9 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
     sort: null,
   };
 
-  let match: RegExpExecArray | null;
   const consumed: [number, number][] = [];
 
-  while ((match = QUALIFIER_RE.exec(raw)) !== null) {
+  for (const match of raw.matchAll(QUALIFIER_RE)) {
     const key = match[1].toLowerCase();
     const val = match[2] ?? match[3]; // quoted value or unquoted
     consumed.push([match.index, match.index + match[0].length]);

@@ -42,13 +42,13 @@ export interface SessionGroup {
 }
 
 /** Content-type presets for the browse-mode quick filters. */
-export const BROWSE_PRESETS = {
-  errors: ['error', 'tool_error'] as SearchContentType[],
-  userMessages: ['user_message'] as SearchContentType[],
-  toolCalls: ['tool_call'] as SearchContentType[],
-  reasoning: ['reasoning'] as SearchContentType[],
-  toolResults: ['tool_result'] as SearchContentType[],
-  subagents: ['subagent'] as SearchContentType[],
+export const BROWSE_PRESETS: Record<string, readonly SearchContentType[]> = {
+  errors: ['error', 'tool_error'],
+  userMessages: ['user_message'],
+  toolCalls: ['tool_call'],
+  reasoning: ['reasoning'],
+  toolResults: ['tool_result'],
+  subagents: ['subagent'],
 } as const;
 
 export type BrowsePresetKey = keyof typeof BROWSE_PRESETS;
@@ -327,11 +327,11 @@ export const useSearchStore = defineStore('search', () => {
   });
 
   // ── Quick browse presets ─────────────────────────────────────
-  function applyBrowsePreset(types: SearchContentType[]) {
+  function applyBrowsePreset(types: readonly SearchContentType[]) {
     hydrating = true;
     page.value = 1;
     query.value = '';
-    contentTypes.value = types;
+    contentTypes.value = [...types];
     excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
