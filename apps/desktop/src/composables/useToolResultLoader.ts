@@ -1,5 +1,6 @@
 import { reactive, watch } from "vue";
 import { getToolResult } from "@tracepilot/client";
+import { logError } from "@/utils/logger";
 
 /**
  * Composable for lazy-loading full (un-truncated) tool results from the backend.
@@ -37,6 +38,7 @@ function formatResult(result: unknown): string {
 
 export function useToolResultLoader(sessionId: () => string | null | undefined) {
   const fullResults = reactive(new Map<string, string>());
+  const fullResultData = reactive(new Map<string, { raw: unknown; formatted: string }>());
   const loadingResults = reactive(new Set<string>());
   const failedResults = reactive(new Set<string>());
   let generation = 0;
@@ -51,12 +53,14 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
       const result = await getToolResult(capturedSessionId, toolCallId);
       if (generation !== capturedGen || sessionId() !== capturedSessionId) return;
       if (result != null) {
-        fullResults.set(toolCallId, formatResult(result));
+        const formatted = formatResult(result);
+        fullResults.set(toolCallId, formatted);
+        fullResultData.set(toolCallId, { raw: result, formatted });
       } else {
         failedResults.add(toolCallId);
       }
     } catch (e) {
-      console.error("[TracePilot] Failed to load full result:", e);
+      logError("[toolResultLoader] Failed to load full result:", e);
       if (generation === capturedGen && sessionId() === capturedSessionId) {
         failedResults.add(toolCallId);
       }
@@ -76,6 +80,7 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
   function clear() {
     generation++;
     fullResults.clear();
+    fullResultData.clear();
     loadingResults.clear();
     failedResults.clear();
   }
@@ -83,5 +88,5 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
   // Auto-clear when session changes
   watch(sessionId, () => clear());
 
-  return { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult, clear };
+  return { fullResults, fullResultData, loadingResults, failedResults, loadFullResult, retryFullResult, clear };
 }

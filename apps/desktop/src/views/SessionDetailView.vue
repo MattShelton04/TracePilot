@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import { logError } from "@/utils/logger";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
 import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@tracepilot/client";
@@ -29,7 +30,7 @@ async function openSessionFolder() {
   try {
     await openInExplorer(path);
   } catch (e) {
-    console.error('Failed to open folder:', e);
+    logError('[sessionDetail] Failed to open folder:', e);
   }
 }
 
@@ -76,7 +77,7 @@ async function resumeInTerminal() {
   try {
     await resumeSessionInTerminal(resolvedSessionId.value, prefs.cliCommand);
   } catch (e) {
-    console.error('Failed to open terminal:', e);
+    logError('[sessionDetail] Failed to open terminal:', e);
   }
 }
 

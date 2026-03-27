@@ -1,4 +1,5 @@
 import { toErrorMessage } from '@tracepilot/ui';
+import { logError } from '@/utils/logger';
 import { ref, readonly, type Ref } from 'vue';
 
 /**
@@ -193,7 +194,7 @@ export function useCachedFetch<TData, TParams = void>(
           try {
             onSuccess(result);
           } catch (callbackError) {
-            console.error('useCachedFetch: onSuccess callback threw an error:', callbackError);
+            logError('[useCachedFetch] onSuccess callback error:', callbackError);
           }
         }
 
@@ -214,7 +215,7 @@ export function useCachedFetch<TData, TParams = void>(
           try {
             onError(errorMsg);
           } catch (callbackError) {
-            console.error('useCachedFetch: onError callback threw an error:', callbackError);
+            logError('[useCachedFetch] onError callback error:', callbackError);
           }
         }
 
@@ -234,7 +235,7 @@ export function useCachedFetch<TData, TParams = void>(
             try {
               onFinally();
             } catch (callbackError) {
-              console.error('useCachedFetch: onFinally callback threw an error:', callbackError);
+              logError('[useCachedFetch] onFinally callback error:', callbackError);
             }
           }
         }

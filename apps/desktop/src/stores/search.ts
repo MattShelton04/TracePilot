@@ -20,6 +20,7 @@ import {
 } from '@tracepilot/client';
 import type { FtsHealthInfo } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
 import { safeListen } from '@/utils/tauriEvents';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
@@ -253,6 +254,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // ── Single search scheduler (replaces multiple watchers) ────
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressPageWatcher = false;
   const searchGuard = useAsyncGuard();
   const DEBOUNCE_MS = 150;
 
@@ -263,14 +265,25 @@ export const useSearchStore = defineStore('search', () => {
    */
   function scheduleSearch(resetPage: boolean, debounce = false) {
     if (hydrating) return; // Suppress during URL hydration
-    if (searchTimer) clearTimeout(searchTimer);
-    if (resetPage) page.value = 1;
+
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+
+    if (resetPage && page.value !== 1) {
+      suppressPageWatcher = true;
+      page.value = 1;
+    }
 
     if (debounce) {
-      searchTimer = setTimeout(executeSearch, DEBOUNCE_MS);
+      searchTimer = setTimeout(() => {
+        searchTimer = null;
+        executeSearch();
+      }, DEBOUNCE_MS);
     } else {
       // Use nextTick to coalesce synchronous state changes (e.g. presets)
-      nextTick(executeSearch);
+      nextTick(() => executeSearch());
     }
   }
 
@@ -366,14 +379,20 @@ export const useSearchStore = defineStore('search', () => {
   );
 
   // Page changes → immediate search (no page reset)
-  watch(page, () => scheduleSearch(false));
+  watch(page, () => {
+    if (suppressPageWatcher) {
+      suppressPageWatcher = false;
+      return;
+    }
+    scheduleSearch(false);
+  });
 
   // ── Quick browse presets ─────────────────────────────────────
-  // These set multiple refs synchronously. nextTick in scheduleSearch
-  // coalesces them into a single executeSearch call.
-  function browseErrors() {
+  function applyBrowsePreset(types: SearchContentType[]) {
+    hydrating = true;
+    page.value = 1;
     query.value = '';
-    contentTypes.value = ['error', 'tool_error'];
+    contentTypes.value = types;
     excludeContentTypes.value = [];
     repository.value = null;
     toolName.value = null;
@@ -381,66 +400,34 @@ export const useSearchStore = defineStore('search', () => {
     dateTo.value = null;
     sessionId.value = null;
     sortBy.value = 'newest';
+    nextTick(() => {
+      hydrating = false;
+      scheduleSearch(false);
+    });
+  }
+
+  function browseErrors() {
+    applyBrowsePreset(['error', 'tool_error']);
   }
 
   function browseUserMessages() {
-    query.value = '';
-    contentTypes.value = ['user_message'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset(['user_message']);
   }
 
   function browseToolCalls() {
-    query.value = '';
-    contentTypes.value = ['tool_call'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset(['tool_call']);
   }
 
   function browseReasoning() {
-    query.value = '';
-    contentTypes.value = ['reasoning'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset(['reasoning']);
   }
 
   function browseToolResults() {
-    query.value = '';
-    contentTypes.value = ['tool_result'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset(['tool_result']);
   }
 
   function browseSubagents() {
-    query.value = '';
-    contentTypes.value = ['subagent'];
-    excludeContentTypes.value = [];
-    repository.value = null;
-    toolName.value = null;
-    dateFrom.value = null;
-    dateTo.value = null;
-    sessionId.value = null;
-    sortBy.value = 'newest';
+    applyBrowsePreset(['subagent']);
   }
 
   // ── Recent search management ──────────────────────────────
@@ -540,7 +527,7 @@ export const useSearchStore = defineStore('search', () => {
       facets.value = result;
     } catch (e) {
       if (!facetGuard.isValid(token)) return;
-      console.warn('Failed to fetch search facets:', e);
+      logWarn('[search] Failed to fetch search facets:', e);
     }
   }
 
@@ -549,7 +536,7 @@ export const useSearchStore = defineStore('search', () => {
     try {
       stats.value = await getSearchStats();
     } catch (e) {
-      console.warn('Failed to fetch search stats:', e);
+      logWarn('[search] Failed to fetch search stats:', e);
     } finally {
       statsLoading.value = false;
     }

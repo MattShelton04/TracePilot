@@ -148,7 +148,7 @@ function commitDates() {
 
 .time-range-btn.active {
   background: var(--accent-emphasis);
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
 }
 
 .time-range-custom {

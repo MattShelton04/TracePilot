@@ -94,6 +94,72 @@ describe('useAsyncGuard', () => {
     });
   });
 
+  describe('current()', () => {
+    it('returns 0 before any start()', () => {
+      const guard = useAsyncGuard();
+      expect(guard.current()).toBe(0);
+    });
+
+    it('returns the same value as the last start()', () => {
+      const guard = useAsyncGuard();
+      const t1 = guard.start();
+      expect(guard.current()).toBe(t1);
+
+      const t2 = guard.start();
+      expect(guard.current()).toBe(t2);
+    });
+
+    it('does not invalidate existing tokens', () => {
+      const guard = useAsyncGuard();
+      const token = guard.start();
+      expect(guard.isValid(token)).toBe(true);
+
+      guard.current(); // read-only — should NOT invalidate
+      guard.current();
+      guard.current();
+
+      expect(guard.isValid(token)).toBe(true);
+    });
+
+    it('isValid(current()) returns true', () => {
+      const guard = useAsyncGuard();
+      guard.start();
+      expect(guard.isValid(guard.current())).toBe(true);
+    });
+
+    it('reflects invalidate()', () => {
+      const guard = useAsyncGuard();
+      const t1 = guard.start();
+      guard.invalidate();
+      expect(guard.current()).not.toBe(t1);
+      expect(guard.isValid(guard.current())).toBe(true);
+    });
+
+    it('supports child-of-parent staleness checking pattern', async () => {
+      const guard = useAsyncGuard();
+      let state = { value: '' };
+
+      // Parent starts a new epoch
+      const parentToken = guard.start();
+
+      // Child captures current epoch without invalidating siblings
+      const childToken = guard.current();
+      expect(childToken).toBe(parentToken);
+
+      // Simulate child completing successfully
+      await Promise.resolve();
+      if (guard.isValid(childToken)) {
+        state.value = 'child-result';
+      }
+      expect(state.value).toBe('child-result');
+
+      // New parent epoch invalidates both parent and child tokens
+      guard.start();
+      expect(guard.isValid(parentToken)).toBe(false);
+      expect(guard.isValid(childToken)).toBe(false);
+    });
+  });
+
   describe('race condition simulation', () => {
     it('prevents late-completing first request from overwriting second', async () => {
       const guard = useAsyncGuard();

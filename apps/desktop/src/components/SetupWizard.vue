@@ -3,6 +3,7 @@ import { getConfig, saveConfig, validateSessionDir } from '@tracepilot/client';
 import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
 import { createDefaultConfig } from '@tracepilot/types';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logError } from '@/utils/logger';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import WizardStepDatabase from '@/components/wizard/WizardStepDatabase.vue';
 import WizardStepFeatures from '@/components/wizard/WizardStepFeatures.vue';
@@ -135,7 +136,7 @@ async function finishSetup() {
     emit('setup-saved', validationResult.value?.sessionCount ?? 0);
   } catch (e) {
     setupError.value = toErrorMessage(e);
-    console.error('Setup save failed:', e);
+    logError('[setup] Setup save failed:', e);
   } finally {
     saving.value = false;
   }

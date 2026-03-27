@@ -68,7 +68,7 @@
   position: absolute;
   pointer-events: none;
   background: var(--canvas-overlay, rgba(0, 0, 0, 0.85));
-  color: var(--text-on-emphasis, #fff);
+  color: var(--text-on-emphasis);
   font-size: 0.6875rem;
   font-weight: 500;
   padding: 4px 10px;

@@ -22,7 +22,8 @@ import {
   getSessionIncidents,
 } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
-import { useAsyncGuard } from "@/composables/useAsyncGuard";
+import { logError, logWarn } from "@/utils/logger";
+import { useAsyncGuard, type AsyncGuardToken } from "@/composables/useAsyncGuard";
 
 export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
@@ -85,35 +86,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  /** Clear all per-section error refs (used on session switch / reset). */
-  function clearSectionErrors() {
-    turnsError.value = null;
-    eventsError.value = null;
-    todosError.value = null;
-    checkpointsError.value = null;
-    planError.value = null;
-    metricsError.value = null;
-    incidentsError.value = null;
-  }
-
-  /** Reset all section data refs to their initial (empty) state.
-   *  Used on full session switch (cache miss) and on store reset.
-   *  Do NOT use in the cache-hit path — that restores specific fields. */
-  function resetSectionData() {
-    detail.value = null;
-    turns.value = [];
-    events.value = null;
-    todos.value = null;
-    checkpoints.value = [];
-    plan.value = null;
-    shutdownMetrics.value = null;
-    incidents.value = [];
-    loaded.value.clear();
-    lastEventsFileSize = 0;
-  }
-
   // Guard against stale async responses when user switches sessions quickly
-  let requestToken = 0; // Keep for buildSectionLoader compatibility
+  const sessionGuard = useAsyncGuard();
   const eventsGuard = useAsyncGuard();
 
   // ── Section loader factory ───────────────────────────────────────────
@@ -129,19 +103,19 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     return async () => {
       const id = sessionId.value;
       if (!id || loaded.value.has(opts.key)) return;
-      const token = requestToken;
+      const token = sessionGuard.current();
       opts.errorRef.value = null;
 
       try {
         const result = await opts.fetchFn(id);
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         opts.onResult(result);
         loaded.value.add(opts.key);
       } catch (e) {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         opts.errorRef.value = toErrorMessage(e);
-        const logFn = opts.logLevel === 'warn' ? console.warn : console.error;
-        logFn(`Failed to load ${opts.key}:`, e);
+        const logFn = opts.logLevel === 'warn' ? logWarn : logError;
+        logFn(`[sessionDetail] Failed to load ${opts.key}:`, e);
       }
     };
   }
@@ -151,29 +125,129 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // fetch → assign result → clear error (on success).
   // Unlike buildSectionLoader, this clears errorRef on *success* (not before
   // the fetch), preserving the previous error during the refresh attempt.
-  interface RefreshConfig {
-    key: string;
-    errorRef: Ref<string | null>;
-    fetchFn: (id: string) => Promise<unknown>;
-    onResult: (result: unknown) => void;
-    logLevel?: 'error' | 'warn';
-  }
-
-  function buildRefreshPromise(
-    cfg: RefreshConfig,
+  function buildRefreshPromise<T>(
+    cfg: {
+      key: string;
+      errorRef: Ref<string | null>;
+      fetchFn: (id: string) => Promise<T>;
+      onResult: (result: T) => void;
+      logLevel?: 'error' | 'warn';
+    },
     id: string,
-    token: number,
+    token: AsyncGuardToken,
   ): Promise<void> {
     return cfg.fetchFn(id).then((result) => {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       cfg.onResult(result);
       cfg.errorRef.value = null;
     }).catch((e) => {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       cfg.errorRef.value = toErrorMessage(e);
-      const logFn = cfg.logLevel === 'warn' ? console.warn : console.error;
-      logFn(`Failed to refresh ${cfg.key}:`, e);
+      const logFn = cfg.logLevel === 'warn' ? logWarn : logError;
+      logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
     });
+  }
+
+  // ── Section registry ────────────────────────────────────────────────
+  // Defines standard section config ONCE. Used by loaders, refreshAll,
+  // clearSectionErrors, and resetSectionData — eliminating duplicate
+  // key/errorRef/fetchFn/onResult mappings.
+  //
+  // Sections NOT in this registry (require custom logic):
+  //   detail — uses global `error` ref + loading spinner + cache
+  //   turns  — has lastEventsFileSize side-effect + freshness check
+  //   events — uses eventsGuard + pagination args
+  //
+  // NOTE: Cache save/restore paths (saveToCache, loadDetail cache-hit,
+  // prefetchSession) still enumerate fields manually because CachedSession
+  // has a different shape. Update those when adding a new cached section.
+  function defineSection<T>(config: {
+    key: string;
+    errorRef: Ref<string | null>;
+    dataRef: Ref<T>;
+    defaultValue: () => T;
+    fetchFn: (id: string) => Promise<T>;
+    logLevel?: 'error' | 'warn';
+  }) {
+    const load = buildSectionLoader({
+      key: config.key,
+      errorRef: config.errorRef,
+      fetchFn: config.fetchFn,
+      onResult: (result) => { config.dataRef.value = result; },
+      logLevel: config.logLevel,
+    });
+
+    return {
+      key: config.key,
+      errorRef: config.errorRef,
+      load,
+      clearError: () => { config.errorRef.value = null; },
+      resetData: () => { config.dataRef.value = config.defaultValue(); },
+      buildRefresh: (id: string, token: number) =>
+        buildRefreshPromise({
+          key: config.key,
+          errorRef: config.errorRef,
+          fetchFn: config.fetchFn,
+          onResult: (r) => { config.dataRef.value = r; },
+          logLevel: config.logLevel,
+        }, id, token),
+    };
+  }
+
+  const todosDef = defineSection({
+    key: 'todos', errorRef: todosError, dataRef: todos,
+    defaultValue: () => null,
+    fetchFn: (id) => getSessionTodos(id),
+  });
+
+  const checkpointsDef = defineSection({
+    key: 'checkpoints', errorRef: checkpointsError, dataRef: checkpoints,
+    defaultValue: (): CheckpointEntry[] => [],
+    fetchFn: (id) => getSessionCheckpoints(id),
+  });
+
+  const planDef = defineSection({
+    key: 'plan', errorRef: planError, dataRef: plan,
+    defaultValue: () => null,
+    fetchFn: (id) => getSessionPlan(id),
+  });
+
+  const metricsDef = defineSection({
+    key: 'metrics', errorRef: metricsError, dataRef: shutdownMetrics,
+    defaultValue: () => null,
+    fetchFn: (id) => getShutdownMetrics(id),
+  });
+
+  const incidentsDef = defineSection({
+    key: 'incidents', errorRef: incidentsError, dataRef: incidents,
+    defaultValue: (): SessionIncident[] => [],
+    fetchFn: (id) => getSessionIncidents(id),
+    logLevel: 'warn',
+  });
+
+  const standardSections = [todosDef, checkpointsDef, planDef, metricsDef, incidentsDef];
+
+  /** Clear all per-section error refs (used on session switch / reset). */
+  function clearSectionErrors() {
+    turnsError.value = null;   // special case: custom loader with lastEventsFileSize
+    eventsError.value = null;  // special case: uses eventsGuard + pagination
+    for (const sec of standardSections) {
+      sec.clearError();
+    }
+  }
+
+  /** Reset all section data refs to their initial (empty) state.
+   *  Used on full session switch (cache miss) and on store reset.
+   *  Do NOT use in the cache-hit path — that restores specific fields. */
+  function resetSectionData() {
+    detail.value = null;
+    turns.value = [];
+    events.value = null;
+    for (const sec of standardSections) {
+      sec.resetData();
+    }
+    loaded.value.clear();
+    lastEventsFileSize = 0;
   }
 
   async function loadDetail(id: string) {
@@ -186,7 +260,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       saveToCache(sessionId.value);
     }
 
-    const token = ++requestToken;
+    const token = sessionGuard.start();
     sessionId.value = id;
     error.value = null;
     clearSectionErrors();
@@ -210,20 +284,20 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
       // Background refresh: silently update stale data
       getSessionDetail(id).then((result) => {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         detail.value = result;
       }).catch(() => {});
       checkSessionFreshness(id).then(async (freshness) => {
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         if (freshness.eventsFileSize === lastEventsFileSize) return;
         const result = await getSessionTurns(id);
-        if (requestToken !== token) return;
+        if (!sessionGuard.isValid(token)) return;
         turns.value = result.turns;
         lastEventsFileSize = result.eventsFileSize;
       }).catch(() => {});
       if (loaded.value.has("plan")) {
         getSessionPlan(id).then((result) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           plan.value = result;
         }).catch(() => {});
       }
@@ -236,15 +310,15 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
     try {
       const result = await getSessionDetail(id);
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       detail.value = result;
       loaded.value.add("detail");
     } catch (e) {
-      if (requestToken !== token) return;
+      if (!sessionGuard.isValid(token)) return;
       detail.value = null;
       error.value = toErrorMessage(e);
     } finally {
-      if (requestToken === token) loading.value = false;
+      if (sessionGuard.isValid(token)) loading.value = false;
     }
   }
 
@@ -261,60 +335,25 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   async function loadEvents(offset = 0, limit = 100, eventType?: string) {
     const id = sessionId.value;
     if (!id) return;
-    const sessionToken = requestToken;
+    const sessionToken = sessionGuard.current();
     const eventsToken = eventsGuard.start();
     eventsError.value = null;
 
     try {
       const result = await getSessionEvents(id, offset, limit, eventType);
-      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
+      if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       events.value = result;
       loaded.value.add("events");
     } catch (e) {
-      if (requestToken !== sessionToken || !eventsGuard.isValid(eventsToken)) return;
+      if (!sessionGuard.isValid(sessionToken) || !eventsGuard.isValid(eventsToken)) return;
       eventsError.value = toErrorMessage(e);
-      console.error("Failed to load events:", e);
+      logError("[sessionDetail] Failed to load events:", e);
     }
   }
 
-  const loadTodos = buildSectionLoader({
-    key: 'todos',
-    errorRef: todosError,
-    fetchFn: (id) => getSessionTodos(id),
-    onResult: (result) => { todos.value = result; },
-  });
-
-  const loadCheckpoints = buildSectionLoader({
-    key: 'checkpoints',
-    errorRef: checkpointsError,
-    fetchFn: (id) => getSessionCheckpoints(id),
-    onResult: (result) => { checkpoints.value = result; },
-  });
-
-  const loadPlan = buildSectionLoader({
-    key: 'plan',
-    errorRef: planError,
-    fetchFn: (id) => getSessionPlan(id),
-    onResult: (result) => { plan.value = result; },
-  });
-
-  const loadShutdownMetrics = buildSectionLoader({
-    key: 'metrics',
-    errorRef: metricsError,
-    fetchFn: (id) => getShutdownMetrics(id),
-    onResult: (result) => { shutdownMetrics.value = result; },
-  });
-
-  const loadIncidents = buildSectionLoader({
-    key: 'incidents',
-    errorRef: incidentsError,
-    fetchFn: (id) => getSessionIncidents(id),
-    onResult: (result) => { incidents.value = result; },
-    logLevel: 'warn',
-  });
 
   function reset() {
-    requestToken++;
+    sessionGuard.invalidate();
     eventsGuard.invalidate();
     sessionId.value = null;
     resetSectionData();
@@ -331,7 +370,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   async function refreshAll() {
     const id = sessionId.value;
     if (!id) return;
-    const token = requestToken;
+    const token = sessionGuard.current();
     const sections = new Set(loaded.value);
 
     const promises: Promise<void>[] = [];
@@ -341,11 +380,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     if (sections.has("detail")) {
       promises.push(
         getSessionDetail(id).then((result) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           detail.value = result;
         }).catch((e) => {
-          if (requestToken !== token) return;
-          console.error("Failed to refresh detail:", e);
+          if (!sessionGuard.isValid(token)) return;
+          logError("[sessionDetail] Failed to refresh detail:", e);
         })
       );
     }
@@ -357,21 +396,21 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           // Freshness check: skip full turn fetch if events.jsonl hasn't changed
           try {
             const freshness = await checkSessionFreshness(id);
-            if (requestToken !== token) return;
+            if (!sessionGuard.isValid(token)) return;
             if (freshness.eventsFileSize === lastEventsFileSize) return;
           } catch {
             // Freshness check failed — fall through to full fetch
           }
 
           const result = await getSessionTurns(id);
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           turns.value = result.turns;
           turnsError.value = null;
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {
-          if (requestToken !== token) return;
+          if (!sessionGuard.isValid(token)) return;
           turnsError.value = toErrorMessage(e);
-          console.error("Failed to refresh turns:", e);
+          logError("[sessionDetail] Failed to refresh turns:", e);
         })
       );
     }
@@ -380,40 +419,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // state (currentPage, pageSize). Refreshing here would overwrite the user's
     // current page position.
 
-    // All remaining sections follow an identical refresh pattern:
-    // fetch → assign result → clear error (on success).
-    const sectionConfigs: RefreshConfig[] = [
-      {
-        key: 'todos', errorRef: todosError,
-        fetchFn: (id) => getSessionTodos(id),
-        onResult: (r) => { todos.value = r as TodosResponse; },
-      },
-      {
-        key: 'checkpoints', errorRef: checkpointsError,
-        fetchFn: (id) => getSessionCheckpoints(id),
-        onResult: (r) => { checkpoints.value = r as CheckpointEntry[]; },
-      },
-      {
-        key: 'plan', errorRef: planError,
-        fetchFn: (id) => getSessionPlan(id),
-        onResult: (r) => { plan.value = r as SessionPlan; },
-      },
-      {
-        key: 'metrics', errorRef: metricsError,
-        fetchFn: (id) => getShutdownMetrics(id),
-        onResult: (r) => { shutdownMetrics.value = r as ShutdownMetrics; },
-      },
-      {
-        key: 'incidents', errorRef: incidentsError,
-        fetchFn: (id) => getSessionIncidents(id),
-        onResult: (r) => { incidents.value = r as SessionIncident[]; },
-        logLevel: 'warn',
-      },
-    ];
-
-    for (const cfg of sectionConfigs) {
-      if (sections.has(cfg.key)) {
-        promises.push(buildRefreshPromise(cfg, id, token));
+    // All remaining standard sections use the section registry — config is
+    // defined once in defineSection(), eliminating duplicate mappings.
+    for (const sec of standardSections) {
+      if (sections.has(sec.key)) {
+        promises.push(sec.buildRefresh(id, token));
       }
     }
 
@@ -481,11 +491,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     loadDetail,
     loadTurns,
     loadEvents,
-    loadTodos,
-    loadCheckpoints,
-    loadPlan,
-    loadShutdownMetrics,
-    loadIncidents,
+    loadTodos: todosDef.load,
+    loadCheckpoints: checkpointsDef.load,
+    loadPlan: planDef.load,
+    loadShutdownMetrics: metricsDef.load,
+    loadIncidents: incidentsDef.load,
     reset,
     refreshAll,
     prefetchSession,

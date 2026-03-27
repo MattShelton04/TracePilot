@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useSearchStore } from '@/stores/search';
 
 import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
-import { safeListen } from '@/utils/tauriEvents';
+import { useIndexingEvents } from '@/composables/useIndexingEvents';
+import { useSearchPagination } from '@/composables/useSearchPagination';
+import { useSearchKeyboardNavigation } from '@/composables/useSearchKeyboardNavigation';
+import { useSearchResultState } from '@/composables/useSearchResultState';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
-import type { SearchContentType, SearchResult } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes } from '@tracepilot/ui';
+import type { IndexingProgressPayload, SearchContentType, SearchResult } from '@tracepilot/types';
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes, useToast } from '@tracepilot/ui';
 import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
 
 const store = useSearchStore();
@@ -15,22 +17,50 @@ const store = useSearchStore();
 // Sync search state ↔ URL query params
 useSearchUrlSync();
 
-// ÔöÇÔöÇ Main indexing progress (local to this view) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const indexingProgress = ref<{ current: number; total: number } | null>(null);
+
+// ── Main indexing progress (local to this view) ──────────────
+const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
-const unlisteners: UnlistenFn[] = [];
 let healthRefreshInterval: number | undefined;
 
-// ÔöÇÔöÇ Local UI state ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const searchInputRef = ref<HTMLInputElement | null>(null);
-const filtersOpen = ref(true);
-const activeDatePreset = ref<string>('all');
-const copyToast = ref<string | null>(null);
-let copyToastTimer: ReturnType<typeof setTimeout> | null = null;
-const showSyntaxHelp = ref(false);
+const { setup: setupIndexingEvents } = useIndexingEvents({
+  onStarted: () => { indexingProgress.value = null; isIndexing.value = true; },
+  onProgress: (p) => { indexingProgress.value = p; },
+  onFinished: () => { indexingProgress.value = null; isIndexing.value = false; },
+});
+
+// ── Result expansion/collapse state ──────────────────────────
+const {
+  expandedResults,
+  toggleExpand,
+  collapsedGroups,
+  toggleGroupCollapse,
+  filteredSessionNameOverride,
+  sessionDisplayName,
+  filterBySession,
+} = useSearchResultState({
+  sessionId: computed({
+    get: () => store.sessionId,
+    set: (v) => { store.sessionId = v; },
+  }),
+  results: computed(() => store.results),
+  groupedResults: computed(() => store.groupedResults),
+  resultViewMode: computed({
+    get: () => store.resultViewMode,
+    set: (v) => { store.resultViewMode = v; },
+  }),
+});
 
 // ── Keyboard navigation ─────────────────────────────────────
-const focusedResultIndex = ref(-1);
+const searchInputRef = ref<HTMLInputElement | null>(null);
+
+const { focusedResultIndex } = useSearchKeyboardNavigation({
+  searchInputRef,
+  results: computed(() => store.results),
+  hasQuery: computed(() => store.hasQuery),
+  onClearAll: () => store.clearAll(),
+  onToggleExpand: toggleExpand,
+});
 
 // Map result.id → flat index for keyboard nav in grouped view
 const resultIndexMap = computed(() => {
@@ -39,27 +69,42 @@ const resultIndexMap = computed(() => {
   return m;
 });
 
-function showCopyToast(message: string) {
-  copyToast.value = message;
-  if (copyToastTimer) clearTimeout(copyToastTimer);
-  copyToastTimer = setTimeout(() => { copyToast.value = null; }, 2000);
+// ── Pagination display ──────────────────────────────────────
+const { pageStart, pageEnd, visiblePages } = useSearchPagination({
+  page: computed(() => store.page),
+  pageSize: computed(() => store.pageSize),
+  totalCount: computed(() => store.totalCount),
+  totalPages: computed(() => store.totalPages),
+});
+
+// ── Local UI state ───────────────────────────────────────────
+const filtersOpen = ref(true);
+const activeDatePreset = ref<string>('all');
+const { success: toastSuccess, error: toastError, dismiss: toastDismiss } = useToast();
+let lastCopyToastId: string | null = null;
+const showSyntaxHelp = ref(false);
+
+function showCopyToast(ok: boolean, message: string) {
+  if (lastCopyToastId) toastDismiss(lastCopyToastId);
+  lastCopyToastId = ok
+    ? toastSuccess(message, { duration: 2000 })
+    : toastError(message, { duration: 2000 });
 }
 
 async function handleCopyResult(result: SearchResult) {
   const ok = await store.copySingleResult(result);
-  showCopyToast(ok ? 'Copied to clipboard' : 'Copy failed');
+  showCopyToast(ok, ok ? 'Copied to clipboard' : 'Copy failed');
 }
 
 async function handleCopyAllResults() {
   const ok = await store.copyResultsToClipboard();
-  showCopyToast(ok ? `Copied ${store.results.length} results` : 'Copy failed');
+  showCopyToast(ok, ok ? `Copied ${store.results.length} results` : 'Copy failed');
 }
 
-// ÔöÇÔöÇ Content type config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 // ── Content type config (shared) ─────────────────────────────
 const contentTypeConfig = CONTENT_TYPE_CONFIG;
 
-// ÔöÇÔöÇ Computed helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Computed helpers ─────────────────────────────────────────
 const activeFilterCount = computed(() => {
   let count = 0;
   if (store.contentTypes.length > 0 || store.excludeContentTypes.length > 0) count++;
@@ -67,24 +112,6 @@ const activeFilterCount = computed(() => {
   if (store.dateFrom || store.dateTo) count++;
   if (store.sessionId) count++;
   return count;
-});
-
-const pageStart = computed(() => (store.page - 1) * store.pageSize + 1);
-const pageEnd = computed(() => Math.min(store.page * store.pageSize, store.totalCount));
-
-const visiblePages = computed(() => {
-  const total = store.totalPages;
-  const current = store.page;
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const pages: (number | null)[] = [1];
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  if (start > 2) pages.push(null);
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (end < total - 1) pages.push(null);
-  pages.push(total);
-  return pages;
 });
 
 // ── Content type tri-state toggle ─────────────────────────────
@@ -107,49 +134,6 @@ const activeContentTypeChips = computed(() => {
   }
   return chips;
 });
-
-// ÔöÇÔöÇ Expandable result cards ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const expandedResults = ref<Set<number>>(new Set());
-
-function toggleExpand(id: number) {
-  if (expandedResults.value.has(id)) {
-    expandedResults.value.delete(id);
-  } else {
-    expandedResults.value.add(id);
-  }
-}
-
-// ── Session-grouped view: collapse/expand + filter ──────────
-const collapsedGroups = ref<Set<string>>(new Set());
-// Track the display name for the currently filtered session (set explicitly via filterBySession)
-const filteredSessionNameOverride = ref<string | null>(null);
-
-// Resolve session display name: explicit override → lookup from results → truncated ID
-const sessionDisplayName = computed(() => {
-  if (!store.sessionId) return null;
-  if (filteredSessionNameOverride.value) return filteredSessionNameOverride.value;
-  // Try to find a name from current results
-  const match = store.results.find(r => r.sessionId === store.sessionId);
-  if (match?.sessionSummary) return match.sessionSummary;
-  // Try grouped results
-  const group = store.groupedResults.find(g => g.sessionId === store.sessionId);
-  if (group?.sessionSummary) return group.sessionSummary;
-  return store.sessionId.slice(0, 12) + '…';
-});
-
-function toggleGroupCollapse(sessionId: string) {
-  if (collapsedGroups.value.has(sessionId)) {
-    collapsedGroups.value.delete(sessionId);
-  } else {
-    collapsedGroups.value.add(sessionId);
-  }
-}
-
-function filterBySession(sessionId: string, displayName: string | null) {
-  store.sessionId = sessionId;
-  filteredSessionNameOverride.value = displayName || null;
-  store.resultViewMode = 'flat';
-}
 
 // ÔöÇÔöÇ Friendly error messages ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const friendlyError = computed(() => {
@@ -194,91 +178,8 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
   return qs ? `${base}?${qs}` : base;
 }
 
-// ÔöÇÔöÇ Keyboard shortcut (Ctrl+K) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-function handleKeydown(e: KeyboardEvent) {
-  // Ctrl+K: focus search input (global)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    searchInputRef.value?.focus();
-    searchInputRef.value?.select();
-    return;
-  }
-
-  const isSearchInput = e.target === searchInputRef.value;
-
-  // From search input: allow arrow keys to navigate into results,
-  // and Enter/Esc when a result is already focused
-  if (isSearchInput) {
-    const isArrow = e.key === 'ArrowDown' || e.key === 'ArrowUp';
-    const isEnterOnFocused = e.key === 'Enter' && focusedResultIndex.value >= 0;
-    const isEscOnFocused = e.key === 'Escape' && focusedResultIndex.value >= 0;
-    if (!isArrow && !isEnterOnFocused && !isEscOnFocused) return;
-  }
-
-  if (!isSearchInput && shouldIgnoreGlobalShortcut(e)) return;
-
-  const resultCount = store.results.length;
-  if (resultCount === 0) return;
-
-  switch (e.key) {
-    case 'ArrowDown':
-    case 'j':
-      e.preventDefault();
-      focusedResultIndex.value = Math.min(focusedResultIndex.value + 1, resultCount - 1);
-      if (isSearchInput) searchInputRef.value?.blur();
-      scrollToFocusedResult();
-      break;
-    case 'ArrowUp':
-    case 'k':
-      e.preventDefault();
-      focusedResultIndex.value = Math.max(focusedResultIndex.value - 1, -1);
-      if (isSearchInput && focusedResultIndex.value >= 0) searchInputRef.value?.blur();
-      scrollToFocusedResult();
-      break;
-    case 'Enter':
-      if (focusedResultIndex.value >= 0) {
-        e.preventDefault();
-        const result = store.results[focusedResultIndex.value];
-        if (result) toggleExpand(result.id);
-      }
-      break;
-    case 'Escape':
-      if (focusedResultIndex.value >= 0) {
-        e.preventDefault();
-        focusedResultIndex.value = -1;
-        searchInputRef.value?.focus();
-      } else if (store.hasQuery) {
-        store.clearAll();
-      }
-      break;
-  }
-}
-
-function scrollToFocusedResult() {
-  if (focusedResultIndex.value < 0) return;
-  const el = document.querySelector(`[data-result-index="${focusedResultIndex.value}"]`);
-  if (!el) return;
-  // Account for sticky summary bar when scrolling.
-  // 'nearest' with 'auto' (instant) avoids animation queueing when holding arrow keys.
-  const scrollParent = el.closest('.search-main-scroll');
-  if (scrollParent) {
-    const parentRect = scrollParent.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const stickyOffset = 56;
-    if (elRect.top < parentRect.top + stickyOffset) {
-      // Element is hidden behind sticky header — scroll it into view
-      el.scrollIntoView({ block: 'start', behavior: 'auto' });
-      scrollParent.scrollTop -= stickyOffset;
-    } else if (elRect.bottom > parentRect.bottom) {
-      el.scrollIntoView({ block: 'end', behavior: 'auto' });
-    }
-  } else {
-    el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-  }
-}
-
-// ÔöÇÔöÇ Lifecycle ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Lifecycle ────────────────────────────────────────────────
+// Note: keyboard listener is managed by useSearchKeyboardNavigation
 onMounted(async () => {
   store.fetchStats();
   store.fetchFilterOptions();
@@ -287,29 +188,14 @@ onMounted(async () => {
   store.fetchHealth();
   // Refresh health every 5s for live progress during indexing
   healthRefreshInterval = window.setInterval(() => store.fetchHealth(), 5_000);
-  window.addEventListener('keydown', handleKeydown, { capture: true });
 
   // Main indexing events (local — only for showing main index progress)
-  unlisteners.push(
-    await safeListen<{ current: number; total: number }>('indexing-progress', (event) => {
-      indexingProgress.value = event.payload;
-    }),
-    await safeListen('indexing-started', () => {
-      indexingProgress.value = null;
-      isIndexing.value = true;
-    }),
-    await safeListen('indexing-finished', () => {
-      indexingProgress.value = null;
-      isIndexing.value = false;
-    }),
-  );
+  await setupIndexingEvents();
   // Search indexing events are handled globally in the search store
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown, { capture: true });
   if (healthRefreshInterval) clearInterval(healthRefreshInterval);
-  for (const unlisten of unlisteners) unlisten();
 });
 </script>
 
@@ -769,16 +655,6 @@ onUnmounted(() => {
         </div>
 
       </div>
-
-      <!-- Copy Toast -->
-      <Transition name="toast-fade">
-        <div v-if="copyToast" class="copy-toast">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-            <polyline points="3 8 6.5 11.5 13 5" />
-          </svg>
-          {{ copyToast }}
-        </div>
-      </Transition>
 
       <!-- Keyboard hints (shown when results are visible) -->
       <div v-if="store.hasResults && !store.loading" class="keyboard-hints">
@@ -1417,7 +1293,7 @@ onUnmounted(() => {
 
 .indexing-banner-text {
   font-size: 0.8125rem;
-  color: var(--fg-secondary, #8b949e);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -1733,7 +1609,7 @@ onUnmounted(() => {
 
 .filter-chip-remove:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--state-hover-overlay);
 }
 
 .filter-chip-clear-all {
@@ -2027,34 +1903,6 @@ onUnmounted(() => {
   color: var(--accent-fg);
   background: var(--accent-subtle);
   border-color: var(--accent-fg);
-}
-
-/* ── Copy toast ──────────────────────────────────────────── */
-.copy-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--bg-emphasis);
-  color: var(--text-primary);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  font-size: 0.8125rem;
-  z-index: 1000;
-  pointer-events: none;
-}
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(8px);
 }
 
 /* ── Keyboard hints ──────────────────────────────────────── */

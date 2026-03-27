@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
+import { EmptyState, ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
 import { computed, ref, watch } from 'vue';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
 import { usePreferencesStore } from '@/stores/preferences';
 import { MODEL_PALETTE } from '@/utils/chartColors';
+import { formatModelDelta } from '@/utils/deltaFormatting';
 
 const prefs = usePreferencesStore();
 const { store } = useAnalyticsPage('fetchAnalytics');
@@ -346,73 +347,60 @@ const compareMetrics = computed<CompareMetric[]>(() => {
   const b = compareRowB.value;
   if (!a || !b) return [];
 
-  function delta(
-    va: number,
-    vb: number,
-    higherIsBetter: boolean,
-  ): Pick<CompareMetric, 'delta' | 'direction' | 'better'> {
-    const diff = va - vb;
-    if (Math.abs(diff) < 0.001) return { delta: '—', direction: 'neutral', better: 'neutral' };
-    const pct = vb !== 0 ? ((diff / Math.abs(vb)) * 100).toFixed(1) : '∞';
-    const dir = diff > 0 ? 'up' : 'down';
-    const better = higherIsBetter ? (diff > 0 ? 'a' : 'b') : diff < 0 ? 'a' : 'b';
-    return { delta: `${diff > 0 ? '+' : ''}${pct}%`, direction: dir as 'up' | 'down', better };
-  }
-
   return [
     {
       label: 'Total Tokens',
       valueA: fmtNorm(a.tokens),
       valueB: fmtNorm(b.tokens),
-      ...delta(a.tokens, b.tokens, true),
+      ...formatModelDelta(a.tokens, b.tokens, true),
     },
     {
       label: 'Input Tokens',
       valueA: fmtNorm(a.inputTokens),
       valueB: fmtNorm(b.inputTokens),
-      ...delta(a.inputTokens, b.inputTokens, true),
+      ...formatModelDelta(a.inputTokens, b.inputTokens, true),
     },
     {
       label: 'Output Tokens',
       valueA: fmtNorm(a.outputTokens),
       valueB: fmtNorm(b.outputTokens),
-      ...delta(a.outputTokens, b.outputTokens, true),
+      ...formatModelDelta(a.outputTokens, b.outputTokens, true),
     },
     {
       label: 'Cache Read',
       valueA: fmtNorm(a.cacheReadTokens),
       valueB: fmtNorm(b.cacheReadTokens),
-      ...delta(a.cacheReadTokens, b.cacheReadTokens, true),
+      ...formatModelDelta(a.cacheReadTokens, b.cacheReadTokens, true),
     },
     {
       label: 'Token Share',
       valueA: formatPercent(a.percentage),
       valueB: formatPercent(b.percentage),
-      ...delta(a.percentage, b.percentage, true),
+      ...formatModelDelta(a.percentage, b.percentage, true),
     },
     {
       label: 'Premium Requests',
       valueA: fmtNorm(a.premiumRequests),
       valueB: fmtNorm(b.premiumRequests),
-      ...delta(a.premiumRequests, b.premiumRequests, true),
+      ...formatModelDelta(a.premiumRequests, b.premiumRequests, true),
     },
     {
       label: 'Cache Hit Rate',
       valueA: formatPercent(a.cacheHitRate),
       valueB: formatPercent(b.cacheHitRate),
-      ...delta(a.cacheHitRate, b.cacheHitRate, true),
+      ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
     {
       label: 'Wholesale Cost',
       valueA: fmtNorm(a.cost, true),
       valueB: fmtNorm(b.cost, true),
-      ...delta(a.cost ?? 0, b.cost ?? 0, false),
+      ...formatModelDelta(a.cost ?? 0, b.cost ?? 0, false),
     },
     {
       label: 'Copilot Cost',
       valueA: fmtNorm(a.copilotCost, true),
       valueB: fmtNorm(b.copilotCost, true),
-      ...delta(a.copilotCost, b.copilotCost, false),
+      ...formatModelDelta(a.copilotCost, b.copilotCost, false),
     },
   ];
 });
@@ -428,11 +416,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
         <template v-else-if="data">
 
           <!-- Empty State -->
-          <div v-if="modelRows.length === 0" class="empty-state">
-            <div class="empty-state-icon">🤖</div>
-            <div class="empty-state-title">No Model Data</div>
-            <p class="empty-state-message">No model usage data found for the selected time range and repository.</p>
-          </div>
+          <EmptyState v-if="modelRows.length === 0" icon="🤖" title="No Model Data" message="No model usage data found for the selected time range and repository." />
 
           <template v-else>
             <!-- Stat Cards -->
@@ -813,26 +797,6 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 </template>
 
 <style scoped>
-/* ── Empty State ──────────────────────────────────────────── */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-}
-.empty-state-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
-}
-.empty-state-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-.empty-state-message {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-}
-
 /* ── Model Cards Row ──────────────────────────────────────── */
 .model-cards-row {
   display: grid;

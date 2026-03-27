@@ -32,7 +32,8 @@
   --text-tertiary: #71717a;
   --text-placeholder: #52525b;
   --text-link: #818cf8;
-  --text-inverse: #09090b;
+  --text-inverse: #09090b;                            /* Dark text for use on light backgrounds */
+  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Light text for use on colored emphasis backgrounds (badges, buttons) */
 
   /* --- Accent (Indigo) --- */
   --accent-fg: #818cf8;
@@ -103,6 +104,9 @@
   --z-modal: 70;
   --z-tooltip: 80;
 
+  /* --- Interaction States --- */
+  --state-hover-overlay: rgba(255, 255, 255, 0.12);   /* Subtle overlay for hover states */
+
   /* --- Gradients --- */
   --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
   --gradient-card: linear-gradient(145deg, var(--canvas-subtle), var(--canvas-default));
@@ -152,6 +156,7 @@
   --text-placeholder: #a1a1aa;
   --text-link: #6366f1;
   --text-inverse: #fafafa;
+  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Same as dark - always high contrast on emphasis colors */
 
   --accent-fg: #6366f1;
   --accent-emphasis: #4f46e5;
@@ -188,6 +193,8 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-glow-accent: 0 0 20px rgba(99, 102, 241, 0.08);
   --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.08);
+
+  --state-hover-overlay: rgba(0, 0, 0, 0.08);         /* Inverted and slightly more visible for light theme */
 
   --gradient-card: linear-gradient(145deg, #ffffff, #f4f4f5);
   --gradient-surface: linear-gradient(180deg, #f4f4f5 0%, #ffffff 100%);
@@ -1202,6 +1209,8 @@ body {
 
 /* ============================
    EMPTY STATE
+   Kept for backward compatibility with inline markup.
+   Prefer the <EmptyState> component from @tracepilot/ui.
    ============================ */
 
 .empty-state {

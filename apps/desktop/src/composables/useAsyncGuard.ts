@@ -62,6 +62,26 @@ export interface AsyncGuard {
   isValid(token: AsyncGuardToken): boolean;
 
   /**
+   * Return the current token without starting a new operation.
+   *
+   * Use when you need to capture the current generation for later staleness
+   * checks without invalidating other in-flight operations.
+   *
+   * @returns The current generation token
+   *
+   * @example
+   * ```typescript
+   * // Parent starts a new generation:
+   * const parentToken = guard.start();
+   * // Child captures current generation without invalidating siblings:
+   * const childToken = guard.current();
+   * const data = await fetchData();
+   * if (!guard.isValid(childToken)) return;
+   * ```
+   */
+  current(): AsyncGuardToken;
+
+  /**
    * Invalidate all tokens without starting a new operation.
    * Useful for cleanup/reset scenarios.
    *
@@ -104,6 +124,16 @@ export interface AsyncGuard {
  * const eventsGuard = useAsyncGuard();  // For events pagination
  * ```
  *
+ * ## Read-Only Token Capture
+ * Use `current()` when child operations need to check the parent's generation
+ * without invalidating sibling operations:
+ * ```typescript
+ * // Parent starts a new epoch:
+ * const token = guard.start();
+ * // Child captures the epoch to detect staleness:
+ * const snapshot = guard.current();
+ * ```
+ *
  * ## Error Handling
  * Guards work the same in error paths:
  * ```typescript
@@ -117,7 +147,7 @@ export interface AsyncGuard {
  * }
  * ```
  *
- * @returns AsyncGuard instance with start(), isValid(), and invalidate() methods
+ * @returns AsyncGuard instance with start(), current(), isValid(), and invalidate() methods
  */
 export function useAsyncGuard(): AsyncGuard {
   let generation = 0;
@@ -129,6 +159,10 @@ export function useAsyncGuard(): AsyncGuard {
 
     isValid(token: AsyncGuardToken): boolean {
       return token === generation;
+    },
+
+    current(): AsyncGuardToken {
+      return generation;
     },
 
     invalidate(): void {
