@@ -26,6 +26,7 @@ use serde_json::Value;
 // ============================================================================
 
 /// High-level event builder that produces TypedEvent instances.
+#[must_use = "builders do nothing unless consumed"]
 pub struct EventBuilder {
     event_type: SessionEventType,
     typed_data: TypedEventData,
@@ -75,6 +76,8 @@ impl EventBuilder {
 // User Message Builder
 // ============================================================================
 
+/// Builder for user message events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct UserMessageBuilder {
     content: String,
     interaction_id: Option<String>,
@@ -144,6 +147,8 @@ impl UserMessageBuilder {
 // Assistant Message Builder
 // ============================================================================
 
+/// Builder for assistant message events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct AssistantMessageBuilder {
     content: Option<String>,
     message_id: Option<String>,
@@ -250,6 +255,8 @@ impl AssistantMessageBuilder {
 // Turn Start/End Builders
 // ============================================================================
 
+/// Builder for turn start events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct TurnStartBuilder {
     turn_id: Option<String>,
     interaction_id: Option<String>,
@@ -288,6 +295,8 @@ impl TurnStartBuilder {
     }
 }
 
+/// Builder for turn end events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct TurnEndBuilder {
     turn_id: Option<String>,
 }
@@ -320,6 +329,8 @@ impl TurnEndBuilder {
 // Tool Execution Builders
 // ============================================================================
 
+/// Builder for tool execution start events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct ToolExecStartBuilder {
     tool_call_id: Option<String>,
     tool_name: Option<String>,
@@ -385,6 +396,8 @@ impl ToolExecStartBuilder {
     }
 }
 
+/// Builder for tool execution complete events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct ToolExecCompleteBuilder {
     tool_call_id: Option<String>,
     parent_tool_call_id: Option<String>,
@@ -478,6 +491,8 @@ impl ToolExecCompleteBuilder {
 // Subagent Builders
 // ============================================================================
 
+/// Builder for subagent started events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct SubagentStartedBuilder {
     tool_call_id: Option<String>,
     agent_name: Option<String>,
@@ -527,6 +542,8 @@ impl SubagentStartedBuilder {
     }
 }
 
+/// Builder for subagent completed events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct SubagentCompletedBuilder {
     tool_call_id: Option<String>,
     agent_name: Option<String>,
@@ -568,6 +585,8 @@ impl SubagentCompletedBuilder {
     }
 }
 
+/// Builder for subagent failed events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct SubagentFailedBuilder {
     tool_call_id: Option<String>,
     agent_name: Option<String>,
@@ -621,6 +640,8 @@ impl SubagentFailedBuilder {
 // Session Event Builders
 // ============================================================================
 
+/// Builder for session error events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct SessionErrorBuilder {
     message: String,
     error_type: Option<String>,
@@ -665,6 +686,8 @@ impl SessionErrorBuilder {
     }
 }
 
+/// Builder for session warning events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct SessionWarningBuilder {
     message: String,
     warning_type: Option<String>,
@@ -699,6 +722,8 @@ impl SessionWarningBuilder {
     }
 }
 
+/// Builder for model change events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct ModelChangeBuilder {
     previous_model: Option<String>,
     new_model: Option<String>,
@@ -739,6 +764,8 @@ impl ModelChangeBuilder {
     }
 }
 
+/// Builder for compaction start events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct CompactionStartBuilder {}
 
 impl CompactionStartBuilder {
@@ -758,6 +785,8 @@ impl CompactionStartBuilder {
     }
 }
 
+/// Builder for compaction complete events.
+#[must_use = "builders do nothing unless consumed"]
 pub struct CompactionCompleteBuilder {
     success: Option<bool>,
 }
@@ -877,254 +906,44 @@ pub fn compaction_complete() -> CompactionCompleteBuilder {
 // Builder Extensions for Chaining
 // ============================================================================
 
-impl UserMessageBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
+/// Macro to implement common event builder methods (id, timestamp, parent, build_event).
+///
+/// This eliminates ~230 lines of repetitive boilerplate by generating the same 4 methods
+/// for each builder type that needs to chain into EventBuilder.
+macro_rules! impl_event_builder_extensions {
+    ($builder:ty) => {
+        impl $builder {
+            pub fn id(self, id: impl Into<String>) -> EventBuilder {
+                self.into_event_builder().id(id)
+            }
 
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
+            pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
+                self.into_event_builder().timestamp(ts)
+            }
 
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
+            pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
+                self.into_event_builder().parent(parent_id)
+            }
 
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
+            pub fn build_event(self) -> TypedEvent {
+                self.into_event_builder().build_event()
+            }
+        }
+    };
 }
 
-impl AssistantMessageBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl TurnStartBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl TurnEndBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl ToolExecStartBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl ToolExecCompleteBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl SubagentStartedBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl SubagentCompletedBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl SubagentFailedBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl SessionErrorBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl SessionWarningBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl ModelChangeBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl CompactionStartBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
-
-impl CompactionCompleteBuilder {
-    pub fn id(self, id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().id(id)
-    }
-
-    pub fn timestamp(self, ts: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().timestamp(ts)
-    }
-
-    pub fn parent(self, parent_id: impl Into<String>) -> EventBuilder {
-        self.into_event_builder().parent(parent_id)
-    }
-
-    pub fn build_event(self) -> TypedEvent {
-        self.into_event_builder().build_event()
-    }
-}
+// Apply the macro to all builder types
+impl_event_builder_extensions!(UserMessageBuilder);
+impl_event_builder_extensions!(AssistantMessageBuilder);
+impl_event_builder_extensions!(TurnStartBuilder);
+impl_event_builder_extensions!(TurnEndBuilder);
+impl_event_builder_extensions!(ToolExecStartBuilder);
+impl_event_builder_extensions!(ToolExecCompleteBuilder);
+impl_event_builder_extensions!(SubagentStartedBuilder);
+impl_event_builder_extensions!(SubagentCompletedBuilder);
+impl_event_builder_extensions!(SubagentFailedBuilder);
+impl_event_builder_extensions!(SessionErrorBuilder);
+impl_event_builder_extensions!(SessionWarningBuilder);
+impl_event_builder_extensions!(ModelChangeBuilder);
+impl_event_builder_extensions!(CompactionStartBuilder);
+impl_event_builder_extensions!(CompactionCompleteBuilder);
