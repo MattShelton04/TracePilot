@@ -17,6 +17,7 @@ import {
   toTimeSpan,
   detectParallelIds,
   useTimelineNavigation,
+  useToggleSet,
   ToolDetailPanel,
   TerminologyLegend,
   type TimeSpanItem,
