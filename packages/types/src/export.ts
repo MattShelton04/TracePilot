@@ -64,6 +64,8 @@ export interface ContentDetailOptions {
   includeSubagentInternals: boolean;
   /** Include tool call arguments and result content. Default: true. */
   includeToolDetails: boolean;
+  /** Include full tool results instead of truncated 1KB previews. Default: false. */
+  includeFullToolResults: boolean;
 }
 
 // ── Export Configuration ────────────────────────────────────────

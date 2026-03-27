@@ -411,6 +411,7 @@ export async function exportSessions(config: ExportConfig): Promise<ExportResult
     outputPath: config.outputPath,
     includeSubagentInternals: config.contentDetail?.includeSubagentInternals,
     includeToolDetails: config.contentDetail?.includeToolDetails,
+    includeFullToolResults: config.contentDetail?.includeFullToolResults,
   });
 }
 
@@ -423,6 +424,7 @@ export async function previewExport(request: ExportPreviewRequest): Promise<Expo
     maxBytes: request.maxLength,
     includeSubagentInternals: request.contentDetail?.includeSubagentInternals,
     includeToolDetails: request.contentDetail?.includeToolDetails,
+    includeFullToolResults: request.contentDetail?.includeFullToolResults,
   });
 }
 

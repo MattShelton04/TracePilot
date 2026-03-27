@@ -72,6 +72,11 @@ pub struct ContentDetailOptions {
     /// `result_content`.  When `false`, only tool name, status, duration,
     /// and summary are preserved.
     pub include_tool_details: bool,
+
+    /// When `true`, tool call `result_content` includes the full result from
+    /// the event stream instead of the default 1 KB truncated preview.
+    /// Can produce significantly larger exports.
+    pub include_full_tool_results: bool,
 }
 
 impl Default for ContentDetailOptions {
@@ -79,6 +84,7 @@ impl Default for ContentDetailOptions {
         Self {
             include_subagent_internals: true,
             include_tool_details: true,
+            include_full_tool_results: false,
         }
     }
 }
@@ -157,6 +163,7 @@ mod tests {
         let opts = ContentDetailOptions::default();
         assert!(opts.include_subagent_internals);
         assert!(opts.include_tool_details);
+        assert!(!opts.include_full_tool_results);
     }
 
     #[test]
@@ -164,5 +171,6 @@ mod tests {
         let opts = ExportOptions::all(ExportFormat::Json);
         assert!(opts.content_detail.include_subagent_internals);
         assert!(opts.content_detail.include_tool_details);
+        assert!(!opts.content_detail.include_full_tool_results);
     }
 }

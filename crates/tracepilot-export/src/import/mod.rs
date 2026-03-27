@@ -281,20 +281,21 @@ pub fn import_sessions(
         }
     }
 
-    // Warn about sections present in the archive that can't be fully round-tripped.
-    // These are preserved in the JSON archive format but the writer doesn't reconstruct them.
+    // Note about sections included in the archive but not written to the local
+    // session directory. These are read-only metadata that the import pipeline
+    // preserves in the archive but cannot restore to disk.
     for session in &archive.sessions {
         let id = &session.metadata.id;
         if session.rewind_snapshots.is_some() {
-            warnings.push(format!("Session {}: rewind_snapshots section not persisted during import", id));
+            warnings.push(format!("Session {}: rewind_snapshots included in archive only (not restored to local session)", id));
         }
         if let Some(tables) = &session.custom_tables {
             if !tables.is_empty() {
-                warnings.push(format!("Session {}: custom_tables section not persisted during import", id));
+                warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
             }
         }
         if session.parse_diagnostics.is_some() {
-            warnings.push(format!("Session {}: parse_diagnostics section not persisted during import", id));
+            warnings.push(format!("Session {}: parse_diagnostics included in archive only (not restored to local session)", id));
         }
     }
 

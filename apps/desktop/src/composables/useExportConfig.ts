@@ -100,6 +100,7 @@ export function useExportConfig() {
   const contentDetail = ref<ContentDetailOptions>({
     includeSubagentInternals: true,
     includeToolDetails: true,
+    includeFullToolResults: false,
   });
 
   // Custom user-saved presets (session-scoped)

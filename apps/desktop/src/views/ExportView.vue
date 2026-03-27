@@ -168,6 +168,28 @@ const selectedSession = computed(() =>
   sessionsStore.sessions.find((s) => s.id === selectedSessionId.value),
 );
 
+// ── Session Search / Filter ─────────────────────────────────
+
+const sessionSearchQuery = ref('');
+const sessionDropdownOpen = ref(false);
+
+const filteredSessions = computed(() => {
+  const q = sessionSearchQuery.value.toLowerCase().trim();
+  if (!q) return sessionsStore.sessions;
+  return sessionsStore.sessions.filter((s) => {
+    const summary = (s.summary || '').toLowerCase();
+    const repo = (s.repository || '').toLowerCase();
+    const id = s.id.toLowerCase();
+    return summary.includes(q) || repo.includes(q) || id.includes(q);
+  });
+});
+
+function selectSession(id: string) {
+  selectedSessionId.value = id;
+  sessionDropdownOpen.value = false;
+  sessionSearchQuery.value = '';
+}
+
 // ── Lifecycle ───────────────────────────────────────────────
 
 onMounted(() => {
@@ -281,19 +303,40 @@ function copiedToClipboard() {
             <button class="link-btn" @click="showSavePreset = false">Cancel</button>
           </div>
 
-          <!-- Session Selector -->
+          <!-- Session Selector (searchable) -->
           <section class="config-section">
             <h3 class="config-section-title">Session</h3>
-            <select v-model="selectedSessionId" class="session-select">
-              <option value="" disabled>Select a session…</option>
-              <option
-                v-for="s in sessionsStore.sessions"
-                :key="s.id"
-                :value="s.id"
-              >
-                {{ s.summary || s.id.slice(0, 12) }} — {{ s.repository ?? 'unknown' }}
-              </option>
-            </select>
+            <div class="session-picker" @focusin="sessionDropdownOpen = true">
+              <input
+                v-model="sessionSearchQuery"
+                class="session-search-input"
+                placeholder="Search sessions…"
+                @focus="sessionDropdownOpen = true"
+              />
+              <div v-if="selectedSession && !sessionSearchQuery" class="session-search-selected" @click="sessionDropdownOpen = true">
+                {{ selectedSession.summary || selectedSession.id.slice(0, 12) }} — {{ selectedSession.repository ?? 'unknown' }}
+              </div>
+              <div v-if="sessionDropdownOpen" class="session-dropdown" @mouseleave="sessionDropdownOpen = false">
+                <div v-if="filteredSessions.length === 0" class="session-dropdown-empty">
+                  No sessions match "{{ sessionSearchQuery }}"
+                </div>
+                <div
+                  v-for="s in filteredSessions"
+                  :key="s.id"
+                  class="session-dropdown-item"
+                  :class="{ selected: s.id === selectedSessionId }"
+                  @click="selectSession(s.id)"
+                >
+                  <div class="session-dropdown-name">
+                    {{ s.summary || s.id.slice(0, 12) }}
+                  </div>
+                  <div class="session-dropdown-meta">
+                    {{ s.repository ?? 'unknown' }}
+                    <span v-if="s.currentModel"> · {{ s.currentModel }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div v-if="selectedSession" class="session-info">
               <Badge variant="accent">{{ selectedSession.repository ?? '—' }}</Badge>
               <Badge variant="neutral">{{ selectedSession.currentModel ?? '—' }}</Badge>
@@ -369,6 +412,17 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="contentDetail.includeToolDetails"
                 @update:model-value="contentDetail = { ...contentDetail, includeToolDetails: $event }"
+              />
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">📄</span>
+              <span class="toggle-row-label">
+                Full tool results
+                <span class="detail-hint">Include complete output instead of 1KB preview (may be large)</span>
+              </span>
+              <FormSwitch
+                :model-value="contentDetail.includeFullToolResults"
+                @update:model-value="contentDetail = { ...contentDetail, includeFullToolResults: $event }"
               />
             </div>
           </section>
@@ -634,9 +688,9 @@ function copiedToClipboard() {
               {{ importFlow.skippedCount.value }} skipped.
             </template>
           </p>
-          <div v-if="importFlow.importErrors.value.length > 0" class="import-error-list">
-            <div v-for="(err, i) in importFlow.importErrors.value" :key="i" class="import-error">
-              ⚠️ {{ err }}
+          <div v-if="importFlow.importErrors.value.length > 0" class="import-note-list">
+            <div v-for="(err, i) in importFlow.importErrors.value" :key="i" class="import-note">
+              ℹ️ {{ err }}
             </div>
           </div>
           <div class="import-actions">
@@ -841,8 +895,11 @@ function copiedToClipboard() {
   color: var(--text-tertiary);
 }
 
-/* ── Session Selector ──────────────────────────────────────── */
-.session-select {
+/* ── Session Picker (searchable dropdown) ──────────────────── */
+.session-picker {
+  position: relative;
+}
+.session-search-input {
   width: 100%;
   padding: 8px 12px;
   background: var(--canvas-default);
@@ -852,11 +909,79 @@ function copiedToClipboard() {
   font-size: 0.8125rem;
   font-family: inherit;
   outline: none;
-  cursor: pointer;
+  cursor: text;
   transition: border-color var(--transition-fast);
+  box-sizing: border-box;
 }
-.session-select:focus {
+.session-search-input:focus {
   border-color: var(--accent-emphasis);
+}
+.session-search-selected {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.session-search-input:focus + .session-search-selected {
+  display: none;
+}
+.session-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--canvas-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+.session-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.session-dropdown-item:hover,
+.session-dropdown-item.selected {
+  background: var(--accent-subtle);
+}
+.session-dropdown-item.selected {
+  border-left: 2px solid var(--accent-emphasis);
+}
+.session-dropdown-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-dropdown-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-dropdown-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
 }
 .session-info {
   display: flex;
@@ -1245,6 +1370,23 @@ function copiedToClipboard() {
   gap: 8px;
   max-width: 500px;
   margin: 0 auto 16px;
+}
+
+/* ── Import Notes (info-level messages) ───────────────────── */
+.import-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 500px;
+  margin: 0 auto 16px;
+}
+.import-note {
+  padding: 8px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 /* ── Spinner ───────────────────────────────────────────────── */

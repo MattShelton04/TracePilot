@@ -15,7 +15,7 @@ use tracepilot_core::models::conversation::ConversationTurn;
 /// When both flags are `true` (the default), this is a no-op.
 pub fn apply_content_filters(archive: &mut SessionArchive, options: &ContentDetailOptions) {
     if options.include_subagent_internals && options.include_tool_details {
-        return; // Nothing to filter
+        return; // Nothing to filter — full tool results are handled by the builder
     }
 
     for session in &mut archive.sessions {
@@ -238,6 +238,7 @@ mod tests {
         let opts = ContentDetailOptions {
             include_subagent_internals: false,
             include_tool_details: true,
+            include_full_tool_results: false,
         };
         apply_content_filters(&mut archive, &opts);
 
@@ -259,6 +260,7 @@ mod tests {
         let opts = ContentDetailOptions {
             include_subagent_internals: false,
             include_tool_details: true,
+            include_full_tool_results: false,
         };
         apply_content_filters(&mut archive, &opts);
 
@@ -281,6 +283,7 @@ mod tests {
         let opts = ContentDetailOptions {
             include_subagent_internals: true,
             include_tool_details: false,
+            include_full_tool_results: false,
         };
         apply_content_filters(&mut archive, &opts);
 
@@ -304,6 +307,7 @@ mod tests {
         let opts = ContentDetailOptions {
             include_subagent_internals: false,
             include_tool_details: false,
+            include_full_tool_results: false,
         };
         apply_content_filters(&mut archive, &opts);
 
@@ -329,6 +333,7 @@ mod tests {
         let opts = ContentDetailOptions {
             include_subagent_internals: false,
             include_tool_details: true,
+            include_full_tool_results: false,
         };
         apply_content_filters(&mut archive, &opts);
 

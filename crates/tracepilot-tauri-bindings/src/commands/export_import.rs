@@ -30,6 +30,7 @@ pub async fn export_sessions(
     output_path: String,
     include_subagent_internals: Option<bool>,
     include_tool_details: Option<bool>,
+    include_full_tool_results: Option<bool>,
 ) -> CmdResult<ExportSessionsResult> {
     if session_ids.is_empty() {
         return Err(BindingsError::Validation("No sessions selected".into()));
@@ -48,6 +49,7 @@ pub async fn export_sessions(
             content_detail: ContentDetailOptions {
                 include_subagent_internals: include_subagent_internals.unwrap_or(true),
                 include_tool_details: include_tool_details.unwrap_or(true),
+                include_full_tool_results: include_full_tool_results.unwrap_or(false),
             },
         };
 
@@ -116,6 +118,7 @@ pub async fn preview_export(
     max_bytes: Option<usize>,
     include_subagent_internals: Option<bool>,
     include_tool_details: Option<bool>,
+    include_full_tool_results: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -130,6 +133,7 @@ pub async fn preview_export(
             content_detail: ContentDetailOptions {
                 include_subagent_internals: include_subagent_internals.unwrap_or(true),
                 include_tool_details: include_tool_details.unwrap_or(true),
+                include_full_tool_results: include_full_tool_results.unwrap_or(false),
             },
         };
 
