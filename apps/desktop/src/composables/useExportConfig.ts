@@ -51,6 +51,14 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
     format: 'csv',
     sections: ['metrics', 'events', 'health', 'incidents'],
   },
+  {
+    id: 'agent-context',
+    label: 'Agent Context',
+    icon: '🤖',
+    description: 'Session summary for sharing with another AI — includes conversation, plan, and outcomes.',
+    format: 'markdown',
+    sections: ['conversation', 'todos', 'plan', 'metrics', 'health'],
+  },
 ] as const;
 
 // ── Section Grouping for Display ────────────────────────────────

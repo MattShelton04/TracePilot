@@ -158,13 +158,20 @@ pub async fn preview_export(
             &session_state_dir,
         )?;
 
-        let content = tracepilot_export::preview_export(
+        let full_content = tracepilot_export::preview_export(
             &session_path,
             &options,
-            max_bytes.or(Some(512 * 1024)), // Default 512KB preview limit
+            None, // No truncation — get full size for estimation
         )?;
+        let estimated_size = full_content.len();
 
-        let estimated_size = content.len();
+        let content = match max_bytes.or(Some(512 * 1024)) {
+            Some(max) if full_content.len() > max => {
+                let boundary = full_content.as_str().floor_char_boundary(max);
+                full_content[..boundary].to_string()
+            }
+            _ => full_content,
+        };
         let format_name = format.clone();
 
         Ok(ExportPreviewResult {
