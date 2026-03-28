@@ -397,8 +397,8 @@ function copiedToClipboard() {
             <div class="toggle-row">
               <span class="toggle-row-icon">🤖</span>
               <span class="toggle-row-label">
-                Agent internals
-                <span class="detail-hint">Include subagent reasoning &amp; tool calls</span>
+                Include subagent internals
+                <span class="detail-hint">Include subagent reasoning, tool calls &amp; intermediate thoughts</span>
               </span>
               <FormSwitch
                 :model-value="contentDetail.includeSubagentInternals"
