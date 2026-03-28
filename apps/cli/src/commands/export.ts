@@ -9,7 +9,7 @@
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { findSession, getSessionStateDir } from './utils.js';
-import { runExportBinary } from './rust-bridge.js';
+import { runExportBinaryStreaming, runExportBinary } from './rust-bridge.js';
 
 interface ExportOptions {
   format: string;
@@ -18,8 +18,9 @@ interface ExportOptions {
   redactPaths?: boolean;
   stripSecrets?: boolean;
   stripPii?: boolean;
-  noAgentInternals?: boolean;
-  noToolDetails?: boolean;
+  // Commander maps `--no-agent-internals` to `agentInternals: false`
+  agentInternals?: boolean;
+  toolDetails?: boolean;
   fullToolResults?: boolean;
   preview?: boolean;
 }
@@ -72,28 +73,18 @@ export async function exportCommand(
     if (options.stripSecrets) args.push('--strip-secrets');
     if (options.stripPii) args.push('--strip-pii');
 
-    // Content detail flags
-    if (options.noAgentInternals) args.push('--no-agent-internals');
-    if (options.noToolDetails) args.push('--no-tool-details');
+    // Content detail flags — Commander's --no-X maps to X: false (not noX: true)
+    if (options.agentInternals === false) args.push('--no-agent-internals');
+    if (options.toolDetails === false) args.push('--no-tool-details');
     if (options.fullToolResults) args.push('--full-tool-results');
 
     // Preview mode
     if (options.preview) args.push('--preview');
 
-    const result = runExportBinary(args);
-
-    // Emit stdout (the exported content)
-    if (result.stdout) {
-      process.stdout.write(result.stdout);
-    }
-
-    // Emit stderr (status messages from the Rust binary)
-    if (result.stderr) {
-      process.stderr.write(result.stderr);
-    }
-
-    if (result.exitCode !== 0) {
-      process.exit(result.exitCode);
+    // Stream directly to stdout/stderr to avoid buffering large exports
+    const exitCode = await runExportBinaryStreaming(args);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
     }
   } catch (err) {
     console.error(chalk.red(`Export failed: ${err}`));

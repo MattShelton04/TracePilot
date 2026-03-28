@@ -15,7 +15,7 @@
  *   3. System PATH (installed binary)
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,10 +76,10 @@ export interface BridgeResult {
 }
 
 /**
- * Run the Rust binary with the given arguments.
- * Uses `spawnSync` to capture both stdout and stderr on success.
+ * Run the Rust binary with the given arguments (sync, buffered).
+ * Use for commands with bounded output (e.g., import --dry-run).
  *
- * @param args - CLI arguments (e.g., ['export', '--format', 'json', ...])
+ * @param args - CLI arguments (e.g., ['import', '--dry-run', ...])
  * @param options - Options to control execution
  * @returns stdout, stderr, and exit code
  */
@@ -103,4 +103,23 @@ export function runExportBinary(
     stderr: result.stderr ?? '',
     exitCode: result.status ?? 1,
   };
+}
+
+/**
+ * Run the Rust binary and stream stdout/stderr directly to the terminal.
+ * Avoids buffering, so it works for arbitrarily large exports.
+ * Use for export commands whose output goes to the user's terminal.
+ *
+ * @param args - CLI arguments
+ * @returns exit code
+ */
+export function runExportBinaryStreaming(args: string[]): Promise<number> {
+  const bin = getBinary();
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, {
+      stdio: ['ignore', 'inherit', 'inherit'],
+    });
+    child.on('close', (code) => resolve(code ?? 1));
+    child.on('error', (err) => reject(new Error(`Failed to execute ${bin}: ${err.message}`)));
+  });
 }
