@@ -15,15 +15,15 @@ import {
   formatPercent,
   generateXLabels,
   generateYLabels,
-  mapToLineCoords,
-  toAreaPoints,
-  toPolylinePoints,
   useChartTooltip,
 } from '@tracepilot/ui';
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
+import LineAreaChart from '@/components/charts/LineAreaChart.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
+import { useIncidentChartData } from '@/composables/useIncidentChartData';
+import { useLineAreaChartData } from '@/composables/useLineAreaChartData';
 import { usePerfMonitor } from '@/composables/usePerfMonitor';
 import { usePreferencesStore } from '@/stores/preferences';
 import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
@@ -59,7 +59,7 @@ const totalWholesaleCost = computed(() => {
 
 // ── Chart constants ──────────────────────────────────────────
 const chartLayout = createChartLayout(55, 490, 20, 175);
-const { left: CHART_LEFT, right: CHART_RIGHT, top: CHART_TOP, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
+const { left: CHART_LEFT, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
 const GRID_ROWS = 4;
 
 const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
@@ -84,20 +84,14 @@ const timeRangeLabel = computed(() => {
 });
 
 // ── Token Usage Line/Area Chart ──────────────────────────────
-const tokenChart = computed(() => {
-  if (!data.value) return null;
-  const pts = data.value.tokenUsageByDay;
-  if (pts.length < 2) return null;
-  const max = Math.max(...pts.map((p) => p.tokens), 1);
-  const coords = mapToLineCoords(pts, chartLayout, (p) => p.tokens, max);
-  const linePoints = toPolylinePoints(coords);
-  const areaPoints = toAreaPoints(coords, chartLayout);
-  const yLabels = generateYLabels(max, chartLayout, 5, formatNumber);
-  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
-  return { coords, linePoints, areaPoints, yLabels, xLabels };
+const { chartData: tokenChart } = useLineAreaChartData({
+  data: computed(() => data.value?.tokenUsageByDay ?? null),
+  layout: chartLayout,
+  accessor: (p) => p.tokens,
+  yFormatter: formatNumber,
 });
 
-// ── Session Activity Per Day Bar Chart───────────────────────────────
+// ── Session Activity Per Day Bar Chart ───────────────────────
 const activityChart = computed(() => {
   if (!data.value) return null;
   const pts = data.value.activityPerDay;
@@ -158,111 +152,35 @@ watch(donutSegments, () => {
 });
 
 // ── Cost Trend Area Chart ────────────────────────────────────
-const costChart = computed(() => {
-  if (!data.value) return null;
-  const rate = prefs.costPerPremiumRequest;
-  const pts = data.value.costByDay.map((p) => ({ date: p.date, cost: p.cost * rate }));
-  if (pts.length < 2) return null;
-  const max = Math.max(...pts.map((p) => p.cost), 0.01);
-  const coords = mapToLineCoords(pts, chartLayout, (p) => p.cost, max);
-  const linePoints = toPolylinePoints(coords);
-  const areaPoints = toAreaPoints(coords, chartLayout);
-  const yLabels = generateYLabels(max, chartLayout, 4, formatCost);
-  const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
-  return { coords, linePoints, areaPoints, yLabels, xLabels };
+const costPoints = computed(() =>
+  data.value?.costByDay.map((p) => ({
+    date: p.date,
+    cost: p.cost * prefs.costPerPremiumRequest,
+  })) ?? null,
+);
+
+const { chartData: costChart } = useLineAreaChartData({
+  data: costPoints,
+  layout: chartLayout,
+  accessor: (p) => p.cost,
+  yTicks: 4,
+  yFormatter: formatCost,
+  maxFloor: 0.01,
 });
 
 // ── Incident trend chart ─────────────────────────────────────
 const incidentNormalize = ref(false);
 
-const incidentChart = computed(() => {
-  if (!data.value?.incidentsByDay?.length) return null;
-  const pts = data.value.incidentsByDay;
-  const activityPerDay = data.value.activityPerDay ?? [];
-
-  // Build a lookup for sessions count per day (for normalization)
-  const sessionMap = new Map<string, number>();
-  for (const s of activityPerDay) {
-    sessionMap.set(s.date, s.count);
-  }
-
-  // Compute values per bar — split errors into rateLimits + otherErrors
-  const barData = pts.map(p => {
-    const otherErrors = Math.max(0, p.errors - p.rateLimits);
-    const sessions = sessionMap.get(p.date) || 1;
-    const norm = incidentNormalize.value ? sessions : 1;
-    return {
-      date: p.date,
-      rateLimits: p.rateLimits / norm,
-      otherErrors: otherErrors / norm,
-      compactions: p.compactions / norm,
-      truncations: p.truncations / norm,
-      rawRateLimits: p.rateLimits,
-      rawOtherErrors: otherErrors,
-      rawCompactions: p.compactions,
-      rawTruncations: p.truncations,
-      total: (p.rateLimits + otherErrors + p.compactions + p.truncations) / norm,
-    };
-  });
-
-  const maxVal = Math.max(0.5, ...barData.map(b => b.total));
-  const barW = Math.max(4, Math.min(18, (CHART_W) / barData.length - 2));
-
-  const bars = barData.map((b, i) => {
-    const x = CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W;
-    const truncH = (b.truncations / maxVal) * CHART_H;
-    const compH = (b.compactions / maxVal) * CHART_H;
-    const otherH = (b.otherErrors / maxVal) * CHART_H;
-    const rlH = (b.rateLimits / maxVal) * CHART_H;
-    return {
-      x,
-      ...b,
-      // Stacked from bottom: truncations, compactions, other errors, rate limits
-      truncRect: { y: CHART_BOTTOM - truncH, h: truncH },
-      compRect: { y: CHART_BOTTOM - truncH - compH, h: compH },
-      otherRect: { y: CHART_BOTTOM - truncH - compH - otherH, h: otherH },
-      rlRect: { y: CHART_BOTTOM - truncH - compH - otherH - rlH, h: rlH },
-    };
-  });
-
-  // Nice Y-axis ticks
-  const yTicks = 5;
-  const step = maxVal <= 1 ? 0.2 : Math.ceil(maxVal / (yTicks - 1));
-  const yLabels = Array.from({ length: yTicks }, (_, i) => {
-    const value = maxVal <= 1 ? +(i * step).toFixed(1) : Math.round(i * step);
-    return { value: String(value), y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
-  });
-
-  const xLabels = generateXLabels(
-    barData,
-    (_, i) => CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W,
-    (b) => formatDateShort(b.date),
-  );
-
-  return { bars, yLabels, xLabels, barW, maxVal };
+const {
+  chartData: incidentChart,
+  gridLines: incidentGridLines,
+  formatTooltip: formatIncidentTooltip,
+} = useIncidentChartData({
+  incidents: computed(() => data.value?.incidentsByDay ?? null),
+  activity: computed(() => data.value?.activityPerDay ?? null),
+  normalize: incidentNormalize,
+  layout: chartLayout,
 });
-
-const incidentGridLines = computed(() =>
-  incidentChart.value?.yLabels.map(yl => yl.y) ?? [],
-);
-
-function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErrors: number; compactions: number; truncations: number; rawRateLimits: number; rawOtherErrors: number; rawCompactions: number; rawTruncations: number }): string {
-  const d = formatDateMedium(bar.date);
-  if (incidentNormalize.value) {
-    const parts: string[] = [];
-    if (bar.rateLimits > 0) parts.push(`${bar.rateLimits.toFixed(1)} rate limits/session`);
-    if (bar.otherErrors > 0) parts.push(`${bar.otherErrors.toFixed(1)} errors/session`);
-    if (bar.compactions > 0) parts.push(`${bar.compactions.toFixed(1)} compactions/session`);
-    if (bar.truncations > 0) parts.push(`${bar.truncations.toFixed(1)} truncations/session`);
-    return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
-  }
-  const parts: string[] = [];
-  if (bar.rawRateLimits > 0) parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? 's' : ''}`);
-  if (bar.rawOtherErrors > 0) parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? 's' : ''}`);
-  if (bar.rawCompactions > 0) parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
-  if (bar.rawTruncations > 0) parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
-  return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
-}
 </script>
 
 <template>
@@ -385,58 +303,20 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             <div class="section-panel">
               <div class="section-panel-header">Token Usage Over Time</div>
               <div class="section-panel-body">
-                <ChartFrame
+                <LineAreaChart
                   v-if="tokenChart"
+                  :chart-data="tokenChart"
                   :chart-layout="chartLayout"
                   :grid-lines="gridLines"
-                  :y-labels="tokenChart.yLabels"
-                  :x-labels="tokenChart.xLabels"
-                  :ariaLabel="`Line chart showing token usage over ${timeRangeLabel}`"
-                  chart-id="tokens"
                   :tooltip="tooltip"
+                  chart-id="tokens"
+                  :ariaLabel="`Line chart showing token usage over ${timeRangeLabel}`"
+                  :color="CHART_COLORS.primary"
+                  :color-light="CHART_COLORS.primaryLight"
                   @mousemove="onChartMouseMove($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
                   @click="onChartClick($event, tokenChart.coords, (i) => `${formatDateMedium(tokenChart!.coords[i].date)} — ${formatNumberFull(tokenChart!.coords[i].tokens)} tokens`, 'tokens', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
-                >
-                  <template #defs>
-                    <linearGradient id="tokenAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.25" />
-                      <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
-                    </linearGradient>
-                  </template>
-                  <!-- Area -->
-                  <polygon :points="tokenChart.areaPoints" fill="url(#tokenAreaGrad)" />
-                  <!-- Line -->
-                  <polyline
-                    :points="tokenChart.linePoints"
-                    fill="none"
-                    :stroke="CHART_COLORS.primary"
-                    stroke-width="2"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
-                  />
-                  <!-- Dots -->
-                  <circle
-                    v-for="(c, ci) in tokenChart.coords"
-                    :key="`td-${ci}`"
-                    :cx="c.x"
-                    :cy="c.y"
-                    :r="ci === tokenChart.coords.length - 1 ? 3.5 : 3"
-                    :fill="ci === tokenChart.coords.length - 1 ? CHART_COLORS.primaryLight : CHART_COLORS.primary"
-                    class="chart-dot"
-                  />
-                  <!-- Highlight ring on active point -->
-                  <circle
-                    v-if="tooltip.chartId === 'tokens' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < tokenChart.coords.length"
-                    :cx="tokenChart.coords[tooltip.highlightIndex].x"
-                    :cy="tokenChart.coords[tooltip.highlightIndex].y"
-                    r="6"
-                    fill="none"
-                    :stroke="CHART_COLORS.primary"
-                    stroke-width="2"
-                    class="chart-highlight-ring"
-                  />
-                </ChartFrame>
+                />
               </div>
             </div>
 
@@ -536,58 +416,21 @@ function formatIncidentTooltip(bar: { date: string; rateLimits: number; otherErr
             <div class="section-panel">
               <div class="section-panel-header">Cost Trend</div>
               <div class="section-panel-body">
-                <ChartFrame
+                <LineAreaChart
                   v-if="costChart"
+                  :chart-data="costChart"
                   :chart-layout="chartLayout"
                   :grid-lines="gridLines"
-                  :y-labels="costChart.yLabels"
-                  :x-labels="costChart.xLabels"
-                  :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
-                  chart-id="cost"
                   :tooltip="tooltip"
+                  chart-id="cost"
+                  :ariaLabel="`Area chart showing daily cost trend over ${timeRangeLabel}`"
+                  :color="CHART_COLORS.primary"
+                  :color-light="CHART_COLORS.primaryLight"
+                  :gradient-opacity="0.35"
                   @mousemove="onChartMouseMove($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
                   @click="onChartClick($event, costChart.coords, (i) => `${formatDateMedium(costChart!.coords[i].date)} — ${formatCost(costChart!.coords[i].cost)}`, 'cost', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
-                >
-                  <template #defs>
-                    <linearGradient id="costAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" :stop-color="CHART_COLORS.primary" stop-opacity="0.35" />
-                      <stop offset="100%" :stop-color="CHART_COLORS.primary" stop-opacity="0.02" />
-                    </linearGradient>
-                  </template>
-                  <!-- Area -->
-                  <polygon :points="costChart.areaPoints" fill="url(#costAreaGrad)" />
-                  <!-- Line -->
-                  <polyline
-                    :points="costChart.linePoints"
-                    fill="none"
-                    :stroke="CHART_COLORS.primary"
-                    stroke-width="2"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
-                  />
-                  <!-- Dots -->
-                  <circle
-                    v-for="(c, ci) in costChart.coords"
-                    :key="`cd-${ci}`"
-                    :cx="c.x"
-                    :cy="c.y"
-                    :r="ci === costChart.coords.length - 1 ? 3.5 : 3"
-                    :fill="ci === costChart.coords.length - 1 ? CHART_COLORS.primaryLight : CHART_COLORS.primary"
-                    class="chart-dot"
-                  />
-                  <!-- Highlight ring on active point -->
-                  <circle
-                    v-if="tooltip.chartId === 'cost' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < costChart.coords.length"
-                    :cx="costChart.coords[tooltip.highlightIndex].x"
-                    :cy="costChart.coords[tooltip.highlightIndex].y"
-                    r="6"
-                    fill="none"
-                    :stroke="CHART_COLORS.primary"
-                    stroke-width="2"
-                    class="chart-highlight-ring"
-                  />
-                </ChartFrame>
+                />
               </div>
             </div>
           </div>
