@@ -5,10 +5,12 @@ import { useSessionsStore } from "../../stores/sessions";
 // Mock the client module
 const mockListSessions = vi.fn();
 const mockReindexSessions = vi.fn();
+const mockSearchSessions = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   listSessions: (...args: unknown[]) => mockListSessions(...args),
   reindexSessions: (...args: unknown[]) => mockReindexSessions(...args),
+  searchSessions: (...args: unknown[]) => mockSearchSessions(...args),
 }));
 
 const MOCK_SESSION = {
@@ -27,8 +29,10 @@ const MOCK_SESSION = {
 describe("useSessionsStore", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    vi.useFakeTimers();
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();
+    mockSearchSessions.mockReset();
   });
 
   it("initializes with empty sessions", () => {
@@ -36,7 +40,9 @@ describe("useSessionsStore", () => {
     expect(store.sessions).toEqual([]);
     expect(store.loading).toBe(false);
     expect(store.indexing).toBe(false);
+    expect(store.searching).toBe(false);
     expect(store.error).toBeNull();
+    expect(store.searchError).toBeNull();
   });
 
   it("has search query initially empty", () => {
@@ -117,17 +123,86 @@ describe("useSessionsStore", () => {
     expect(store.error).toContain("index failed");
   });
 
-  it("filters sessions by search query", async () => {
+  it("calls backend searchSessions when searchQuery is set", async () => {
+    mockSearchSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", summary: "OAuth Login" },
+    ]);
+    const store = useSessionsStore();
+
+    store.searchQuery = "oauth";
+    await vi.advanceTimersByTimeAsync(400); // debounce + execution
+
+    expect(mockSearchSessions).toHaveBeenCalledWith("oauth");
+    expect(store.sessions).toHaveLength(1);
+    expect(store.sessions[0].summary).toBe("OAuth Login");
+    expect(store.searching).toBe(false);
+  });
+
+  it("fetches all sessions when search query is cleared", async () => {
+    mockSearchSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", summary: "OAuth Login" },
+    ]);
     mockListSessions.mockResolvedValue([
       { ...MOCK_SESSION, id: "1", summary: "OAuth Login" },
       { ...MOCK_SESSION, id: "2", summary: "Database Migration" },
     ]);
     const store = useSessionsStore();
-    await store.fetchSessions();
 
     store.searchQuery = "oauth";
+    await vi.advanceTimersByTimeAsync(400);
+    expect(store.sessions).toHaveLength(1);
+
+    store.searchQuery = "";
+    await vi.advanceTimersByTimeAsync(400);
+    expect(mockListSessions).toHaveBeenCalled();
+    expect(store.sessions).toHaveLength(2);
+  });
+
+  it("debounces search queries", async () => {
+    mockSearchSessions.mockResolvedValue([]);
+    const store = useSessionsStore();
+
+    store.searchQuery = "a";
+    await vi.advanceTimersByTimeAsync(100);
+    store.searchQuery = "ab";
+    await vi.advanceTimersByTimeAsync(100);
+    store.searchQuery = "abc";
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(mockSearchSessions).toHaveBeenCalledTimes(1);
+    expect(mockSearchSessions).toHaveBeenCalledWith("abc");
+  });
+
+  it("applies filters to search results", async () => {
+    mockSearchSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", repository: "org/web", summary: "Web search result" },
+      { ...MOCK_SESSION, id: "2", repository: "org/api", summary: "API search result" },
+    ]);
+    const store = useSessionsStore();
+
+    store.searchQuery = "search";
+    await vi.advanceTimersByTimeAsync(400);
+    expect(store.filteredSessions).toHaveLength(2);
+
+    store.filterRepo = "org/web";
     expect(store.filteredSessions).toHaveLength(1);
-    expect(store.filteredSessions[0].summary).toBe("OAuth Login");
+    expect(store.filteredSessions[0].repository).toBe("org/web");
+  });
+
+  it("handles search errors gracefully", async () => {
+    mockListSessions.mockResolvedValue([MOCK_SESSION]);
+    mockSearchSessions.mockRejectedValue(new Error("Network error"));
+    const store = useSessionsStore();
+
+    await store.fetchSessions();
+    const initialSessions = store.sessions;
+
+    store.searchQuery = "test";
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(store.searchError).toBe("Network error");
+    expect(store.sessions).toBe(initialSessions); // Unchanged
+    expect(store.searching).toBe(false);
   });
 
   it("filters sessions by repo", async () => {

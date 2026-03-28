@@ -1,7 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { watchDebounced } from "@vueuse/core";
 import type { SessionListItem } from "@tracepilot/types";
-import { listSessions, reindexSessions } from "@tracepilot/client";
+import { listSessions, reindexSessions, searchSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { logError } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
@@ -17,55 +18,75 @@ export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionListItem[]>([]);
   const loading = ref(false);
   const indexing = ref(false);
+  const searching = ref(false);
   const error = ref<string | null>(null);
+  const searchError = ref<string | null>(null);
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
   const sortBy = ref<SortOption>("updated");
 
-  // Pre-compute lowercased search fields — rebuilt only when session list changes,
-  // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
-  const searchFieldCache = computed(() => {
-    const cache = new Map<string, { id: string; summary: string; repository: string; branch: string }>();
-    for (const s of sessions.value) {
-      cache.set(s.id, {
-        id: s.id.toLowerCase(),
-        summary: (s.summary ?? '').toLowerCase(),
-        repository: (s.repository ?? '').toLowerCase(),
-        branch: (s.branch ?? '').toLowerCase(),
-      });
-    }
-    return cache;
-  });
+  /**
+   * Debounced search watcher: triggers backend FTS5 search when query changes.
+   * Uses 300ms debounce to avoid excessive backend calls during typing.
+   * Falls back to listSessions() when query is empty.
+   */
+  watchDebounced(
+    searchQuery,
+    async (query) => {
+      if (!query || query.trim() === '') {
+        // Empty query: fetch all sessions (normal browse mode)
+        await fetchSessions();
+        return;
+      }
 
+      // Execute backend FTS5 search
+      searching.value = true;
+      searchError.value = null;
+      try {
+        const results = await searchSessions(query.trim());
+        sessions.value = results;
+      } catch (e) {
+        searchError.value = toErrorMessage(e);
+        logError('[sessions] Search failed:', e);
+        // Keep existing sessions visible on error for better UX
+      } finally {
+        searching.value = false;
+      }
+    },
+    { debounce: 300, maxWait: 1000 }
+  );
+
+  /**
+   * Filtered and sorted sessions list.
+   * When searchQuery is non-empty, sessions.value contains FTS5 search results.
+   * When searchQuery is empty, sessions.value contains all indexed sessions.
+   * This computed applies client-side filters (repo, branch, hideEmpty) and sorting.
+   */
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
-    const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     const repo = filterRepo.value;
     const branch = filterBranch.value;
     const hideEmpty = prefs.hideEmptySessions;
-    const cache = searchFieldCache.value;
 
-    // Single-pass filter: combine all predicates into one loop
-    const result = sessions.value.filter((s) => {
-      if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
+    // sessions.value now contains either:
+    // - All sessions (from listSessions) if no search query
+    // - Search results (from searchSessions) if query exists
 
-      if (q) {
-        const fields = cache.get(s.id);
-        if (!fields || !(
-          fields.summary.includes(q) ||
-          fields.repository.includes(q) ||
-          fields.branch.includes(q) ||
-          fields.id.includes(q)
-        )) return false;
-      }
+    let result = sessions.value;
 
-      if (repo && s.repository !== repo) return false;
-      if (branch && s.branch !== branch) return false;
+    // Apply client-side filters for instant reactivity
+    if (hideEmpty) {
+      result = result.filter(s => (s.turnCount ?? 0) !== 0);
+    }
+    if (repo) {
+      result = result.filter(s => s.repository === repo);
+    }
+    if (branch) {
+      result = result.filter(s => s.branch === branch);
+    }
 
-      return true;
-    });
-
+    // Apply sort
     result.sort((a, b) => {
       switch (sortBy.value) {
         case "created":
@@ -81,6 +102,7 @@ export const useSessionsStore = defineStore("sessions", () => {
           return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
       }
     });
+
     return result;
   });
 
@@ -204,7 +226,9 @@ export const useSessionsStore = defineStore("sessions", () => {
     sessions,
     loading,
     indexing,
+    searching,
     error,
+    searchError,
     searchQuery,
     filterRepo,
     filterBranch,

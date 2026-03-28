@@ -28,6 +28,7 @@
     "@tracepilot/client": "workspace:*",
     "@tracepilot/types": "workspace:*",
     "@tracepilot/ui": "workspace:*",
+    "@vueuse/core": "^14.2.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.0",
     "vue-router": "^4.5.0"
