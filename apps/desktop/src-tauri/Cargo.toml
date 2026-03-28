@@ -24,6 +24,16 @@ tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 log = "0.4"
+console-subscriber = { version = "0.4", optional = true }
+
+[features]
+# Enable tokio-console for async task debugging.
+# NOTE: This replaces the tauri-plugin-log tracing bridge — Rust log output
+# will go to tokio-console instead of the Tauri log file. Use only for
+# async task profiling, not general debugging.
+# Build: cargo tauri dev --features tokio-console
+# Connect: tokio-console http://127.0.0.1:6669
+tokio-console = ["dep:console-subscriber"]
 
 [[bin]]
 name = "tracepilot-desktop"

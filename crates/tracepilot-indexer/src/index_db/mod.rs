@@ -39,7 +39,7 @@ impl IndexDb {
             std::fs::create_dir_all(parent)?;
         }
 
-        let conn = Connection::open(path)
+        let mut conn = Connection::open(path)
             .map_err(|e| IndexerError::database_open(path.display(), e))?;
 
         // Performance and correctness pragmas
@@ -52,6 +52,19 @@ impl IndexDb {
         .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
 
         run_migrations(&conn)?;
+
+        // Debug-only: log slow SQL queries (>10ms) via tracing
+        #[cfg(debug_assertions)]
+        conn.profile(Some(|query: &str, duration: std::time::Duration| {
+            if duration.as_millis() > 10 {
+                tracing::warn!(
+                    duration_ms = duration.as_millis(),
+                    query = %query.chars().take(200).collect::<String>(),
+                    "Slow SQL query"
+                );
+            }
+        }));
+
         Ok(Self { conn })
     }
 

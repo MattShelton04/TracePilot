@@ -15,7 +15,7 @@ use crate::types::{
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
 };
 
-use tracepilot_export::options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget};
+use tracepilot_export::options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions};
 use tracepilot_export::SectionId;
 
 // ── Export Commands ────────────────────────────────────────────────────────
@@ -31,6 +31,9 @@ pub async fn export_sessions(
     include_subagent_internals: Option<bool>,
     include_tool_details: Option<bool>,
     include_full_tool_results: Option<bool>,
+    anonymize_paths: Option<bool>,
+    strip_secrets: Option<bool>,
+    strip_pii: Option<bool>,
 ) -> CmdResult<ExportSessionsResult> {
     if session_ids.is_empty() {
         return Err(BindingsError::Validation("No sessions selected".into()));
@@ -39,7 +42,7 @@ pub async fn export_sessions(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
     let export_format = parse_format(&format)?;
-    let section_set = parse_sections(&sections);
+    let section_set = parse_sections(&sections)?;
 
     tokio::task::spawn_blocking(move || {
         let options = ExportOptions {
@@ -50,6 +53,11 @@ pub async fn export_sessions(
                 include_subagent_internals: include_subagent_internals.unwrap_or(true),
                 include_tool_details: include_tool_details.unwrap_or(true),
                 include_full_tool_results: include_full_tool_results.unwrap_or(false),
+            },
+            redaction: RedactionOptions {
+                anonymize_paths: anonymize_paths.unwrap_or(false),
+                strip_secrets: strip_secrets.unwrap_or(false),
+                strip_pii: strip_pii.unwrap_or(false),
             },
         };
 
@@ -119,11 +127,14 @@ pub async fn preview_export(
     include_subagent_internals: Option<bool>,
     include_tool_details: Option<bool>,
     include_full_tool_results: Option<bool>,
+    anonymize_paths: Option<bool>,
+    strip_secrets: Option<bool>,
+    strip_pii: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
     let export_format = parse_format(&format)?;
-    let section_set = parse_sections(&sections);
+    let section_set = parse_sections(&sections)?;
 
     tokio::task::spawn_blocking(move || {
         let options = ExportOptions {
@@ -135,6 +146,11 @@ pub async fn preview_export(
                 include_tool_details: include_tool_details.unwrap_or(true),
                 include_full_tool_results: include_full_tool_results.unwrap_or(false),
             },
+            redaction: RedactionOptions {
+                anonymize_paths: anonymize_paths.unwrap_or(false),
+                strip_secrets: strip_secrets.unwrap_or(false),
+                strip_pii: strip_pii.unwrap_or(false),
+            },
         };
 
         let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
@@ -142,13 +158,20 @@ pub async fn preview_export(
             &session_state_dir,
         )?;
 
-        let content = tracepilot_export::preview_export(
+        let full_content = tracepilot_export::preview_export(
             &session_path,
             &options,
-            max_bytes.or(Some(512 * 1024)), // Default 512KB preview limit
+            None, // No truncation — get full size for estimation
         )?;
+        let estimated_size = full_content.len();
 
-        let estimated_size = content.len();
+        let content = match max_bytes.or(Some(512 * 1024)) {
+            Some(max) if full_content.len() > max => {
+                let boundary = full_content.as_str().floor_char_boundary(max);
+                full_content[..boundary].to_string()
+            }
+            _ => full_content,
+        };
         let format_name = format.clone();
 
         Ok(ExportPreviewResult {
@@ -324,25 +347,58 @@ fn parse_format(format: &str) -> CmdResult<ExportFormat> {
     }
 }
 
-fn parse_sections(sections: &[String]) -> HashSet<SectionId> {
-    sections
-        .iter()
-        .filter_map(|s| match s.to_lowercase().as_str() {
-            "conversation" => Some(SectionId::Conversation),
-            "events" => Some(SectionId::Events),
-            "todos" => Some(SectionId::Todos),
-            "plan" => Some(SectionId::Plan),
-            "checkpoints" => Some(SectionId::Checkpoints),
-            "metrics" | "shutdownmetrics" => Some(SectionId::Metrics),
-            "health" => Some(SectionId::Health),
-            "incidents" => Some(SectionId::Incidents),
-            "rewindsnapshots" | "rewind_snapshots" => Some(SectionId::RewindSnapshots),
-            "customtables" | "custom_tables" => Some(SectionId::CustomTables),
-            "parsediagnostics" | "parse_diagnostics" => Some(SectionId::ParseDiagnostics),
-            _ => {
-                tracing::warn!("Unknown section ID: {}", s);
-                None
+fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
+    if sections.is_empty() {
+        return Ok(HashSet::new());
+    }
+    let mut result = HashSet::new();
+    for s in sections {
+        let section = match s.to_lowercase().as_str() {
+            "conversation" => SectionId::Conversation,
+            "events" => SectionId::Events,
+            "todos" => SectionId::Todos,
+            "plan" => SectionId::Plan,
+            "checkpoints" => SectionId::Checkpoints,
+            "metrics" | "shutdownmetrics" => SectionId::Metrics,
+            "health" => SectionId::Health,
+            "incidents" => SectionId::Incidents,
+            "rewindsnapshots" | "rewind_snapshots" | "snapshots" => SectionId::RewindSnapshots,
+            "customtables" | "custom_tables" | "tables" => SectionId::CustomTables,
+            "parsediagnostics" | "parse_diagnostics" | "diagnostics" => SectionId::ParseDiagnostics,
+            unknown => {
+                return Err(BindingsError::Validation(format!(
+                    "Unknown section '{}'. Valid sections: conversation, events, todos, plan, \
+                     checkpoints, metrics, health, incidents, snapshots, tables, diagnostics",
+                    unknown
+                )));
             }
-        })
-        .collect()
+        };
+        result.insert(section);
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_sections_returns_empty_set() {
+        let result = parse_sections(&[]).unwrap();
+        assert!(result.is_empty(), "empty input should produce empty set, not all sections");
+    }
+
+    #[test]
+    fn explicit_sections_are_parsed() {
+        let result = parse_sections(&["conversation".to_string(), "plan".to_string()]).unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&SectionId::Conversation));
+        assert!(result.contains(&SectionId::Plan));
+    }
+
+    #[test]
+    fn unknown_section_returns_error() {
+        let result = parse_sections(&["nonexistent".to_string()]);
+        assert!(result.is_err());
+    }
 }

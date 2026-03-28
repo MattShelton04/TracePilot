@@ -5,6 +5,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { logError } from "@/utils/logger";
+import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
 import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@tracepilot/client";
@@ -12,6 +13,7 @@ import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@trac
 const route = useRoute();
 const router = useRouter();
 const store = useSessionDetailStore();
+usePerfMonitor('SessionDetailView');
 const prefs = usePreferencesStore();
 
 const sessionId = computed(() => route.params.id as string);
