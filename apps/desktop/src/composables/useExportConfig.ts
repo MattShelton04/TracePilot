@@ -185,10 +185,20 @@ export function useExportConfig() {
     }
   }
 
-  // Clear active preset when format changes manually
+  function updateContentDetail(key: keyof ContentDetailOptions, value: boolean) {
+    contentDetail.value = { ...contentDetail.value, [key]: value };
+  }
+
+  function updateRedaction(key: keyof RedactionOptions, value: boolean) {
+    redaction.value = { ...redaction.value, [key]: value };
+  }
+
+  // Clear active preset when format changes manually.
+  // flush: 'sync' ensures the watcher runs while applyingPreset is still true,
+  // so programmatic format changes from applyPreset() don't clear the preset.
   watch(format, () => {
     if (!applyingPreset) activePreset.value = null;
-  });
+  }, { flush: 'sync' });
 
   const sectionsArray = computed<SectionId[]>(() => [...enabledSections.value]);
 
@@ -208,5 +218,7 @@ export function useExportConfig() {
     selectNone,
     saveAsPreset,
     deleteCustomPreset,
+    updateContentDetail,
+    updateRedaction,
   };
 }
