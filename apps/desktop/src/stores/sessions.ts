@@ -4,6 +4,7 @@ import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { logError } from "@/utils/logger";
+import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -152,7 +153,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         sessions.value = await listSessions();
       } catch (e) {
         const msg = toErrorMessage(e);
-        if (msg !== "ALREADY_INDEXING") {
+        if (!isAlreadyIndexingError(msg)) {
           error.value = msg;
         }
       }
@@ -168,7 +169,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       sessions.value = await listSessions();
     } catch (e) {
       const msg = toErrorMessage(e);
-      if (msg !== "ALREADY_INDEXING") {
+      if (!isAlreadyIndexingError(msg)) {
         error.value = msg;
       }
     } finally {
