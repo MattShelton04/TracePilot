@@ -48,13 +48,15 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
             for tc in &turn.tool_calls {
                 total_calls += 1;
 
-                let acc = tool_stats.entry(tc.tool_name.clone()).or_insert(ToolAccumulator {
-                    call_count: 0,
-                    success_count: 0,
-                    failure_count: 0,
-                    total_duration_ms: 0.0,
-                    durations_counted: 0,
-                });
+                let acc = tool_stats
+                    .entry(tc.tool_name.clone())
+                    .or_insert(ToolAccumulator {
+                        call_count: 0,
+                        success_count: 0,
+                        failure_count: 0,
+                        total_duration_ms: 0.0,
+                        durations_counted: 0,
+                    });
 
                 acc.call_count += 1;
 
@@ -158,8 +160,8 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_helpers::*;
+    use super::*;
     use chrono::{TimeZone, Utc};
 
     #[test]
@@ -256,9 +258,12 @@ mod tests {
 
     #[test]
     fn test_tool_analysis_multiple_sessions() {
-        let turns1 = vec![make_turn_with_tools(vec![
-            make_tool_call("view", Some(true), Some(100), None),
-        ])];
+        let turns1 = vec![make_turn_with_tools(vec![make_tool_call(
+            "view",
+            Some(true),
+            Some(100),
+            None,
+        )])];
         let turns2 = vec![make_turn_with_tools(vec![
             make_tool_call("view", Some(true), Some(200), None),
             make_tool_call("powershell", Some(true), Some(500), None),

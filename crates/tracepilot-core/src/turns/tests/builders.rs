@@ -643,17 +643,34 @@ impl SubagentFailedBuilder {
 /// Builder for session error events.
 #[must_use = "builders do nothing unless consumed"]
 pub struct SessionErrorBuilder {
-    message: String,
+    message: Option<String>,
     error_type: Option<String>,
     stack: Option<String>,
+    status_code: Option<u16>,
+    provider_call_id: Option<String>,
+    url: Option<String>,
 }
 
 impl SessionErrorBuilder {
     fn new(message: impl Into<String>) -> Self {
         Self {
-            message: message.into(),
+            message: Some(message.into()),
             error_type: None,
             stack: None,
+            status_code: None,
+            provider_call_id: None,
+            url: None,
+        }
+    }
+
+    fn new_empty() -> Self {
+        Self {
+            message: None,
+            error_type: None,
+            stack: None,
+            status_code: None,
+            provider_call_id: None,
+            url: None,
         }
     }
 
@@ -667,14 +684,29 @@ impl SessionErrorBuilder {
         self
     }
 
+    pub fn status_code(mut self, code: u16) -> Self {
+        self.status_code = Some(code);
+        self
+    }
+
+    pub fn provider_call_id(mut self, id: impl Into<String>) -> Self {
+        self.provider_call_id = Some(id.into());
+        self
+    }
+
+    pub fn url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into());
+        self
+    }
+
     fn build_data(self) -> SessionErrorData {
         SessionErrorData {
-            message: Some(self.message),
+            message: self.message,
             error_type: self.error_type,
             stack: self.stack,
-            status_code: None,
-            provider_call_id: None,
-            url: None,
+            status_code: self.status_code,
+            provider_call_id: self.provider_call_id,
+            url: self.url,
         }
     }
 
@@ -691,6 +723,7 @@ impl SessionErrorBuilder {
 pub struct SessionWarningBuilder {
     message: String,
     warning_type: Option<String>,
+    url: Option<String>,
 }
 
 impl SessionWarningBuilder {
@@ -698,6 +731,7 @@ impl SessionWarningBuilder {
         Self {
             message: message.into(),
             warning_type: None,
+            url: None,
         }
     }
 
@@ -706,11 +740,16 @@ impl SessionWarningBuilder {
         self
     }
 
+    pub fn url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into());
+        self
+    }
+
     fn build_data(self) -> SessionWarningData {
         SessionWarningData {
             message: Some(self.message),
             warning_type: self.warning_type,
-            url: None,
+            url: self.url,
         }
     }
 
@@ -789,11 +828,19 @@ impl CompactionStartBuilder {
 #[must_use = "builders do nothing unless consumed"]
 pub struct CompactionCompleteBuilder {
     success: Option<bool>,
+    error: Option<String>,
+    pre_compaction_tokens: Option<u64>,
+    pre_compaction_messages_length: Option<u64>,
 }
 
 impl CompactionCompleteBuilder {
     fn new() -> Self {
-        Self { success: None }
+        Self {
+            success: None,
+            error: None,
+            pre_compaction_tokens: None,
+            pre_compaction_messages_length: None,
+        }
     }
 
     pub fn success(mut self, success: bool) -> Self {
@@ -801,12 +848,27 @@ impl CompactionCompleteBuilder {
         self
     }
 
+    pub fn error(mut self, error: impl Into<String>) -> Self {
+        self.error = Some(error.into());
+        self
+    }
+
+    pub fn pre_compaction_tokens(mut self, tokens: u64) -> Self {
+        self.pre_compaction_tokens = Some(tokens);
+        self
+    }
+
+    pub fn pre_compaction_messages_length(mut self, length: u64) -> Self {
+        self.pre_compaction_messages_length = Some(length);
+        self
+    }
+
     fn build_data(self) -> CompactionCompleteData {
         CompactionCompleteData {
             success: self.success,
-            error: None,
-            pre_compaction_tokens: None,
-            pre_compaction_messages_length: None,
+            error: self.error,
+            pre_compaction_tokens: self.pre_compaction_tokens,
+            pre_compaction_messages_length: self.pre_compaction_messages_length,
             summary_content: None,
             checkpoint_number: None,
             checkpoint_path: None,
@@ -880,6 +942,11 @@ pub fn subagent_failed(agent_name: impl Into<String>) -> SubagentFailedBuilder {
 /// Create a session error builder.
 pub fn session_error(message: impl Into<String>) -> SessionErrorBuilder {
     SessionErrorBuilder::new(message)
+}
+
+/// Create a session error builder with no message (for fallback tests).
+pub fn session_error_empty() -> SessionErrorBuilder {
+    SessionErrorBuilder::new_empty()
 }
 
 /// Create a session warning builder.

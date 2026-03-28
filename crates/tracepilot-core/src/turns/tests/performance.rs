@@ -99,7 +99,11 @@ fn make_subagent_heavy_session(
         // Subagents
         for sub_idx in 0..subagents_per_turn {
             let sub_tc_id = format!("tc-sub-{turn_idx}-{sub_idx}");
-            let sub_model = if sub_idx % 2 == 0 { "gemini-3-pro-preview" } else { "gpt-5.3-codex" };
+            let sub_model = if sub_idx % 2 == 0 {
+                "gemini-3-pro-preview"
+            } else {
+                "gpt-5.3-codex"
+            };
 
             // ToolExecStart for subagent wrapper
             events.push(make_event(
@@ -216,10 +220,10 @@ fn perf_reconstruct_turns_subagent_heavy() {
     // This is a timing test, not a pass/fail — prints results for manual review.
     let configs = [
         // (turns, subagents_per_turn, tools_per_subagent)
-        (10, 3, 5),     // small: 10 turns, 3 subagents each with 5 tools
-        (50, 3, 5),     // medium: 50 turns
-        (200, 4, 8),    // large: 200 turns, 4 subagents each with 8 tools
-        (500, 5, 10),   // xlarge: 500 turns, 5 subagents each with 10 tools
+        (10, 3, 5),   // small: 10 turns, 3 subagents each with 5 tools
+        (50, 3, 5),   // medium: 50 turns
+        (200, 4, 8),  // large: 200 turns, 4 subagents each with 8 tools
+        (500, 5, 10), // xlarge: 500 turns, 5 subagents each with 10 tools
     ];
 
     for (turns, subs, tools) in configs {
@@ -253,7 +257,8 @@ fn perf_reconstruct_turns_subagent_heavy() {
         }
 
         let total_tool_calls: usize = result.iter().map(|t| t.tool_calls.len()).sum();
-        let subagent_count: usize = result.iter()
+        let subagent_count: usize = result
+            .iter()
             .flat_map(|t| t.tool_calls.iter())
             .filter(|tc| tc.is_subagent)
             .count();

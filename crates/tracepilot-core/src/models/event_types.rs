@@ -174,7 +174,8 @@ impl fmt::Display for SessionEventType {
 /// unrecognized input.
 impl SessionEventType {
     pub fn parse_wire(s: &str) -> Self {
-        s.parse().expect("strum default variant makes this infallible")
+        s.parse()
+            .expect("strum default variant makes this infallible")
     }
 }
 

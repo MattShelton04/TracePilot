@@ -86,108 +86,56 @@ fn reconstructs_simple_single_turn() {
 #[test]
 fn reconstructs_multiple_turns() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("First".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T07:14:51.100Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some("msg-1".to_string()),
-                content: Some("Response one".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                tool_requests: None,
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            "evt-3",
-            "2026-03-10T07:14:52.000Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "evt-4",
-            "2026-03-10T07:14:53.000Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Second".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-2".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-5",
-            "2026-03-10T07:14:54.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-2".to_string()),
-                interaction_id: Some("int-2".to_string()),
-            }),
-            "evt-6",
-            "2026-03-10T07:14:54.100Z",
-            Some("evt-5"),
-        ),
-        make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some("msg-2".to_string()),
-                content: Some("Response two".to_string()),
-                interaction_id: Some("int-2".to_string()),
-                tool_requests: None,
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            "evt-7",
-            "2026-03-10T07:14:55.000Z",
-            Some("evt-6"),
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-2".to_string()),
-            }),
-            "evt-8",
-            "2026-03-10T07:14:56.000Z",
-            Some("evt-6"),
-        ),
+        user_msg("First")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:51.100Z")
+            .parent("evt-1")
+            .build_event(),
+        asst_msg("Response one")
+            .message_id("msg-1")
+            .interaction_id("int-1")
+            .id("evt-3")
+            .timestamp("2026-03-10T07:14:52.000Z")
+            .parent("evt-2")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-4")
+            .timestamp("2026-03-10T07:14:53.000Z")
+            .parent("evt-2")
+            .build_event(),
+        user_msg("Second")
+            .interaction_id("int-2")
+            .id("evt-5")
+            .timestamp("2026-03-10T07:14:54.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-2")
+            .interaction_id("int-2")
+            .id("evt-6")
+            .timestamp("2026-03-10T07:14:54.100Z")
+            .parent("evt-5")
+            .build_event(),
+        asst_msg("Response two")
+            .message_id("msg-2")
+            .interaction_id("int-2")
+            .id("evt-7")
+            .timestamp("2026-03-10T07:14:55.000Z")
+            .parent("evt-6")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-2")
+            .id("evt-8")
+            .timestamp("2026-03-10T07:14:56.000Z")
+            .parent("evt-6")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);

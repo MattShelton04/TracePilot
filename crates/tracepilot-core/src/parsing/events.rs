@@ -20,12 +20,12 @@ use crate::models::event_types::{
     CompactionStartData, HookEndData, HookStartData, ModelChangeData, ModelMetricDetail,
     PlanChangedData, RequestMetrics, SessionContext, SessionErrorData, SessionEventType,
     SessionHandoffData, SessionImportLegacyData, SessionInfoData, SessionModeChangedData,
-    SessionResumeData, SessionStartData, SessionTaskCompleteData, SessionTruncationData,
-    SessionWarningData, ShutdownData, SessionSegment, SkillInvokedData, SubagentCompletedData,
-    SubagentDeselectedData, SubagentFailedData, SubagentSelectedData, SubagentStartedData,
-    SystemMessageData, SystemNotificationData, ToolExecCompleteData, ToolExecStartData,
-    ToolUserRequestedData, TurnEndData, TurnStartData, UsageMetrics, UserMessageData,
-    WorkspaceFileChangedData,
+    SessionResumeData, SessionSegment, SessionStartData, SessionTaskCompleteData,
+    SessionTruncationData, SessionWarningData, ShutdownData, SkillInvokedData,
+    SubagentCompletedData, SubagentDeselectedData, SubagentFailedData, SubagentSelectedData,
+    SubagentStartedData, SystemMessageData, SystemNotificationData, ToolExecCompleteData,
+    ToolExecStartData, ToolUserRequestedData, TurnEndData, TurnStartData, UsageMetrics,
+    UserMessageData, WorkspaceFileChangedData,
 };
 use crate::parsing::diagnostics::{EventParseWarning, ParseDiagnostics};
 use chrono::{DateTime, Utc};
@@ -197,7 +197,12 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(UserMessage, UserMessageData, "user.message", data)
         }
         SessionEventType::AssistantMessage => {
-            try_deser!(AssistantMessage, AssistantMessageData, "assistant.message", data)
+            try_deser!(
+                AssistantMessage,
+                AssistantMessageData,
+                "assistant.message",
+                data
+            )
         }
         SessionEventType::AssistantTurnStart => {
             try_deser!(TurnStart, TurnStartData, "assistant.turn_start", data)
@@ -206,25 +211,55 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(TurnEnd, TurnEndData, "assistant.turn_end", data)
         }
         SessionEventType::ToolExecutionStart => {
-            try_deser!(ToolExecutionStart, ToolExecStartData, "tool.execution_start", data)
+            try_deser!(
+                ToolExecutionStart,
+                ToolExecStartData,
+                "tool.execution_start",
+                data
+            )
         }
         SessionEventType::ToolExecutionComplete => {
-            try_deser!(ToolExecutionComplete, ToolExecCompleteData, "tool.execution_complete", data)
+            try_deser!(
+                ToolExecutionComplete,
+                ToolExecCompleteData,
+                "tool.execution_complete",
+                data
+            )
         }
         SessionEventType::SubagentStarted => {
-            try_deser!(SubagentStarted, SubagentStartedData, "subagent.started", data)
+            try_deser!(
+                SubagentStarted,
+                SubagentStartedData,
+                "subagent.started",
+                data
+            )
         }
         SessionEventType::SubagentCompleted => {
-            try_deser!(SubagentCompleted, SubagentCompletedData, "subagent.completed", data)
+            try_deser!(
+                SubagentCompleted,
+                SubagentCompletedData,
+                "subagent.completed",
+                data
+            )
         }
         SessionEventType::SubagentFailed => {
             try_deser!(SubagentFailed, SubagentFailedData, "subagent.failed", data)
         }
         SessionEventType::SessionCompactionComplete => {
-            try_deser!(CompactionComplete, CompactionCompleteData, "session.compaction_complete", data)
+            try_deser!(
+                CompactionComplete,
+                CompactionCompleteData,
+                "session.compaction_complete",
+                data
+            )
         }
         SessionEventType::SessionCompactionStart => {
-            try_deser!(CompactionStart, CompactionStartData, "session.compaction_start", data)
+            try_deser!(
+                CompactionStart,
+                CompactionStartData,
+                "session.compaction_start",
+                data
+            )
         }
         SessionEventType::SessionModelChange => {
             try_deser!(ModelChange, ModelChangeData, "session.model_change", data)
@@ -236,7 +271,12 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(SessionResume, SessionResumeData, "session.resume", data)
         }
         SessionEventType::SystemNotification => {
-            try_deser!(SystemNotification, SystemNotificationData, "system.notification", data)
+            try_deser!(
+                SystemNotification,
+                SystemNotificationData,
+                "system.notification",
+                data
+            )
         }
         SessionEventType::SkillInvoked => {
             try_deser!(SkillInvoked, SkillInvokedData, "skill.invoked", data)
@@ -251,20 +291,45 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(SessionInfo, SessionInfoData, "session.info", data)
         }
         SessionEventType::SessionContextChanged => {
-            try_deser!(ContextChanged, SessionContext, "session.context_changed", data)
+            try_deser!(
+                ContextChanged,
+                SessionContext,
+                "session.context_changed",
+                data
+            )
         }
         SessionEventType::SessionWorkspaceFileChanged => {
-            try_deser!(WorkspaceFileChanged, WorkspaceFileChangedData, "session.workspace_file_changed", data)
+            try_deser!(
+                WorkspaceFileChanged,
+                WorkspaceFileChangedData,
+                "session.workspace_file_changed",
+                data
+            )
         }
         SessionEventType::ToolUserRequested => {
-            try_deser!(ToolUserRequested, ToolUserRequestedData, "tool.user_requested", data)
+            try_deser!(
+                ToolUserRequested,
+                ToolUserRequestedData,
+                "tool.user_requested",
+                data
+            )
         }
         // New event types
         SessionEventType::SessionTruncation => {
-            try_deser!(SessionTruncation, SessionTruncationData, "session.truncation", data)
+            try_deser!(
+                SessionTruncation,
+                SessionTruncationData,
+                "session.truncation",
+                data
+            )
         }
         SessionEventType::AssistantReasoning => {
-            try_deser!(AssistantReasoning, AssistantReasoningData, "assistant.reasoning", data)
+            try_deser!(
+                AssistantReasoning,
+                AssistantReasoningData,
+                "assistant.reasoning",
+                data
+            )
         }
         SessionEventType::SystemMessage => {
             try_deser!(SystemMessage, SystemMessageData, "system.message", data)
@@ -273,16 +338,36 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(SessionWarning, SessionWarningData, "session.warning", data)
         }
         SessionEventType::SessionModeChanged => {
-            try_deser!(SessionModeChanged, SessionModeChangedData, "session.mode_changed", data)
+            try_deser!(
+                SessionModeChanged,
+                SessionModeChangedData,
+                "session.mode_changed",
+                data
+            )
         }
         SessionEventType::SessionTaskComplete => {
-            try_deser!(SessionTaskComplete, SessionTaskCompleteData, "session.task_complete", data)
+            try_deser!(
+                SessionTaskComplete,
+                SessionTaskCompleteData,
+                "session.task_complete",
+                data
+            )
         }
         SessionEventType::SubagentSelected => {
-            try_deser!(SubagentSelected, SubagentSelectedData, "subagent.selected", data)
+            try_deser!(
+                SubagentSelected,
+                SubagentSelectedData,
+                "subagent.selected",
+                data
+            )
         }
         SessionEventType::SubagentDeselected => {
-            try_deser!(SubagentDeselected, SubagentDeselectedData, "subagent.deselected", data)
+            try_deser!(
+                SubagentDeselected,
+                SubagentDeselectedData,
+                "subagent.deselected",
+                data
+            )
         }
         SessionEventType::HookStart => {
             try_deser!(HookStart, HookStartData, "hook.start", data)
@@ -294,7 +379,12 @@ pub(crate) fn typed_data_from_raw(
             try_deser!(SessionHandoff, SessionHandoffData, "session.handoff", data)
         }
         SessionEventType::SessionImportLegacy => {
-            try_deser!(SessionImportLegacy, SessionImportLegacyData, "session.import_legacy", data)
+            try_deser!(
+                SessionImportLegacy,
+                SessionImportLegacyData,
+                "session.import_legacy",
+                data
+            )
         }
         SessionEventType::Unknown(name) => (
             TypedEventData::Other(data.clone()),
@@ -344,7 +434,10 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
     }
 
     diagnostics.log_summary();
-    Ok(ParsedEvents { events, diagnostics })
+    Ok(ParsedEvents {
+        events,
+        diagnostics,
+    })
 }
 
 /// Collect ALL `session.shutdown` events and combine their per-instance metrics.
@@ -380,7 +473,10 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
 
     let count = shutdowns.len() as u32;
 
-    Some((combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps), count))
+    Some((
+        combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps),
+        count,
+    ))
 }
 
 /// Combine multiple `ShutdownData` instances into a single aggregate.
@@ -465,7 +561,9 @@ fn combine_shutdown_data(
         shutdown_type: last.shutdown_type.clone(),
         current_model: last.current_model.clone(),
         session_start_time: first.session_start_time,
-        total_premium_requests: sum_opt_f64(shutdowns.iter().map(|(s, _)| s.total_premium_requests)),
+        total_premium_requests: sum_opt_f64(
+            shutdowns.iter().map(|(s, _)| s.total_premium_requests),
+        ),
         total_api_duration_ms: sum_opt_u64(shutdowns.iter().map(|(s, _)| s.total_api_duration_ms)),
         code_changes: combine_code_changes(shutdowns.iter().map(|(s, _)| s.code_changes.as_ref())),
         model_metrics: Some(combine_model_metrics(
@@ -544,10 +642,12 @@ fn combine_model_metrics<'a>(
 
     for map in maps.flatten() {
         for (model, detail) in map {
-            let entry = merged.entry(model.clone()).or_insert_with(|| ModelMetricDetail {
-                requests: None,
-                usage: None,
-            });
+            let entry = merged
+                .entry(model.clone())
+                .or_insert_with(|| ModelMetricDetail {
+                    requests: None,
+                    usage: None,
+                });
 
             // Merge requests
             if let Some(ref req) = detail.requests {
@@ -567,10 +667,14 @@ fn combine_model_metrics<'a>(
                     cache_read_tokens: None,
                     cache_write_tokens: None,
                 });
-                e_usg.input_tokens = sum_opt_u64([e_usg.input_tokens, usg.input_tokens].into_iter());
-                e_usg.output_tokens = sum_opt_u64([e_usg.output_tokens, usg.output_tokens].into_iter());
-                e_usg.cache_read_tokens = sum_opt_u64([e_usg.cache_read_tokens, usg.cache_read_tokens].into_iter());
-                e_usg.cache_write_tokens = sum_opt_u64([e_usg.cache_write_tokens, usg.cache_write_tokens].into_iter());
+                e_usg.input_tokens =
+                    sum_opt_u64([e_usg.input_tokens, usg.input_tokens].into_iter());
+                e_usg.output_tokens =
+                    sum_opt_u64([e_usg.output_tokens, usg.output_tokens].into_iter());
+                e_usg.cache_read_tokens =
+                    sum_opt_u64([e_usg.cache_read_tokens, usg.cache_read_tokens].into_iter());
+                e_usg.cache_write_tokens =
+                    sum_opt_u64([e_usg.cache_write_tokens, usg.cache_write_tokens].into_iter());
             }
         }
     }

@@ -11,7 +11,7 @@ use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::checkpoints::parse_checkpoints;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::{
-    extract_combined_shutdown_data, extract_session_start, parse_typed_events, TypedEvent,
+    TypedEvent, extract_combined_shutdown_data, extract_session_start, parse_typed_events,
 };
 use crate::parsing::workspace::parse_workspace_yaml;
 use crate::turns::{reconstruct_turns, turn_stats};
@@ -319,11 +319,7 @@ summary: "Sparse session"
         // Workspace missing repository/branch/host_type
         fs::write(session_dir.join("workspace.yaml"), sparse_workspace_yaml()).unwrap();
         // Events with session.start containing context
-        fs::write(
-            session_dir.join("events.jsonl"),
-            enrichment_events_jsonl(),
-        )
-        .unwrap();
+        fs::write(session_dir.join("events.jsonl"), enrichment_events_jsonl()).unwrap();
 
         let summary = load_session_summary(session_dir).unwrap();
 
@@ -384,7 +380,10 @@ summary: "Sparse session"
 
         let summary = load_session_summary(session_dir).unwrap();
 
-        let metrics = summary.shutdown_metrics.as_ref().expect("should have shutdown metrics");
+        let metrics = summary
+            .shutdown_metrics
+            .as_ref()
+            .expect("should have shutdown metrics");
         // shutdown_count = 2 (two shutdown events combined)
         assert_eq!(metrics.shutdown_count, Some(2));
         // Summed premium requests: 12 + 6 = 18

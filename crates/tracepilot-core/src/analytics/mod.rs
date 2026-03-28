@@ -11,8 +11,8 @@
 
 mod code_impact;
 mod dashboard;
-mod tools;
 pub mod loader;
+mod tools;
 pub mod types;
 
 #[cfg(test)]
@@ -20,9 +20,9 @@ mod test_helpers;
 
 pub use code_impact::compute_code_impact;
 pub use dashboard::compute_analytics;
-pub use tools::compute_tool_analysis;
 pub use loader::{
     load_full_sessions, load_full_sessions_filtered, load_session_summaries,
     load_session_summaries_filtered,
 };
+pub use tools::compute_tool_analysis;
 pub use types::*;

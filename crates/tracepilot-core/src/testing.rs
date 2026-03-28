@@ -50,7 +50,9 @@ pub fn make_typed_event(event_type: &str, data: serde_json::Value) -> TypedEvent
 /// let parsed = parse_typed_events(&path.join("events.jsonl")).unwrap();
 /// assert_eq!(parsed.events.len(), 2);
 /// ```
-pub fn temp_session(events: &[(&str, serde_json::Value)]) -> (tempfile::TempDir, std::path::PathBuf) {
+pub fn temp_session(
+    events: &[(&str, serde_json::Value)],
+) -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let session_path = dir.path().to_path_buf();
 
