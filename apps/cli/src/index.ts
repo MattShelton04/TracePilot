@@ -4,8 +4,6 @@
  * TracePilot CLI — inspect and explore Copilot CLI sessions from the terminal.
  *
  * Most commands use pure TypeScript to read session files directly.
- * Export/import commands delegate to the Rust engine via subprocess bridge
- * for full-fidelity rendering, redaction, and import validation.
  */
 
 import { Command } from "commander";
@@ -14,8 +12,6 @@ import { showSessionCommand } from "./commands/show.js";
 import { searchCommand } from "./commands/search.js";
 import { resumeCommand } from "./commands/resume.js";
 import { indexCommand } from "./commands/index-cmd.js";
-import { exportCommand } from "./commands/export.js";
-import { importCommand } from "./commands/import.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,32 +72,6 @@ program
   .description("Rebuild the session search index")
   .option("--full", "Full reindex (instead of incremental)")
   .action(indexCommand);
-
-// ── export / import commands ─────────────────────────────────────────
-
-program
-  .command("export [session-ids...]")
-  .description("Export sessions to JSON, Markdown, or CSV")
-  .option("-f, --format <format>", "Output format: json, markdown (md), csv", "json")
-  .option("-o, --output <path>", "Output file path (default: stdout)")
-  .option("-s, --sections <list>", "Sections to include (comma-separated)", (v: string) => v.split(","))
-  .option("--redact-paths", "Replace filesystem paths with <REDACTED_PATH>")
-  .option("--strip-secrets", "Strip API keys, tokens, and credentials")
-  .option("--strip-pii", "Strip emails, IP addresses, and other PII")
-  .option("--no-agent-internals", "Exclude subagent internals")
-  .option("--no-tool-details", "Exclude tool call arguments and results")
-  .option("--full-tool-results", "Include full tool results instead of previews")
-  .option("--preview", "Preview the rendered output (stdout only)")
-  .action(exportCommand);
-
-program
-  .command("import <file>")
-  .description("Import sessions from a .tpx.json archive")
-  .option("-c, --conflict <strategy>", "Conflict resolution: skip, replace, duplicate", "skip")
-  .option("-t, --target-dir <path>", "Target directory for imported sessions")
-  .option("--sessions <ids>", "Only import specific session IDs (comma-separated)", (v: string) => v.split(","))
-  .option("--dry-run", "Show what would be imported without writing")
-  .action(importCommand);
 
 // ── versions command group ───────────────────────────────────────────
 const versionsCmd = program

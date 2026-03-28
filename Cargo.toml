@@ -4,7 +4,6 @@ members = [
     "crates/tracepilot-core",
     "crates/tracepilot-indexer",
     "crates/tracepilot-export",
-    "crates/tracepilot-cli",
     "crates/tracepilot-orchestrator",
     "crates/tracepilot-tauri-bindings",
     "crates/tracepilot-bench",
