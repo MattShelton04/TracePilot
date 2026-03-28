@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from "vue";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { usePreferencesStore } from "@/stores/preferences";
+import { useTimelineToolState } from "@/composables/useTimelineToolState";
 import {
   Badge,
   EmptyState,
@@ -14,7 +12,6 @@ import {
   truncateText,
   toolIcon,
   formatArgsSummary,
-  useToggleSet,
   useLiveDuration,
   ToolArgsRenderer,
   ToolResultRenderer,
@@ -71,18 +68,26 @@ interface ParallelGroup {
 // Store & State
 // ---------------------------------------------------------------------------
 
-const store = useSessionDetailStore();
-const prefs = usePreferencesStore();
-const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const {
+  store,
+  prefs,
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult,
+  retryFullResult,
+  expandedToolCalls,
+  expandedReasoning,
+  expandedOutputs,
+  allToolCalls,
+  clearAllState,
+} = useTimelineToolState();
+
+// Component-specific state
 const selectedNodeId = ref<string | null>(null);
 const viewMode = ref<"paginated" | "unified">("paginated");
 const treeContainer = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
-const expandedToolCalls = useToggleSet<string>();
-const expandedReasoning = useToggleSet<string>();
-const expandedOutputs = useToggleSet<string>();
 const nodeRefs = ref<Map<string, HTMLElement>>(new Map());
 
 // Live-ticking timer for in-progress agent durations (started when hasInProgress is true)
@@ -143,9 +148,7 @@ const turnNavLabel = computed(() => {
 // Side effects on turn change (clear selection & expanded state)
 watch(agentTurnIndex, () => {
   selectedNodeId.value = null;
-  expandedToolCalls.clear();
-  expandedReasoning.clear();
-  expandedOutputs.clear();
+  clearAllState();
 });
 
 function prevAgentTurn() { navPrev(); }
@@ -156,9 +159,7 @@ function jumpToLatestAgent() { agentJumpTo(agentTurns.value.length - 1); }
 function toggleViewMode() {
   viewMode.value = viewMode.value === "paginated" ? "unified" : "paginated";
   selectedNodeId.value = null;
-  expandedToolCalls.clear();
-  expandedReasoning.clear();
-  expandedOutputs.clear();
+  clearAllState();
 }
 
 // ---------------------------------------------------------------------------
@@ -176,8 +177,6 @@ const AGENT_TYPE_ICONS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Tree Data
 // ---------------------------------------------------------------------------
-
-const allToolCalls = computed(() => store.turns.flatMap(t => t.toolCalls));
 
 // Session-wide index: subagent toolCallId → the TurnToolCall object (across all turns).
 const allSubagentToolCalls = computed(() => {
