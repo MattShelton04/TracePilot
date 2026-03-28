@@ -267,9 +267,12 @@ const allAgentToolCalls = computed(() => {
   for (const phase of groupedPhases.value) {
     for (const turn of phase.turns) {
       const agentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
-      for (const a of agentCalls) {
+      for (let i = 0; i < agentCalls.length; i++) {
+        const a = agentCalls[i];
+        // Use toolCallId if available, otherwise generate unique ID to prevent collisions
+        const id = a.toolCallId ?? `${a.toolName}-turn${turn.turnIndex}-agent${i}`;
         agents.push({
-          id: a.toolCallId ?? a.toolName,
+          id,
           startedAt: a.startedAt ?? null,
           completedAt: a.completedAt ?? null,
         });

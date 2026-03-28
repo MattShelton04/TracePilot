@@ -7,9 +7,9 @@ export interface TimeRangedItem {
   /** Unique identifier for this item */
   id: string;
   /** ISO timestamp when this item started */
-  startedAt: string | null | undefined;
+  startedAt: string | null;
   /** ISO timestamp when this item completed (optional) */
-  completedAt?: string | null | undefined;
+  completedAt?: string | null;
   /** Duration in milliseconds (used as fallback if completedAt is missing) */
   durationMs?: number;
 }
@@ -52,6 +52,11 @@ export interface UseParallelAgentDetectionReturn {
  * Two items overlap if their time ranges intersect: `a.start < b.end && b.start < a.end`.
  * The algorithm groups all overlapping items together (transitive: if A overlaps B and B overlaps C,
  * then A, B, and C are all in the same group).
+ *
+ * **Time Complexity**: O(n²) where n is the number of items with valid timestamps.
+ * - The nested loop to detect overlaps is O(n²)
+ * - Union-Find operations are nearly O(1) with path compression (O(α(n)) where α is inverse Ackermann)
+ * - Note: O(n²) is optimal for this problem as all pairs must be checked for overlap
  *
  * @param items - Array of items with time ranges (reactive ref or computed)
  * @param options - Configuration options for labeling and behavior

@@ -418,11 +418,13 @@ const timedNodes = computed(() => {
   const children = treeData.value.children;
 
   return children
-    .filter((c) => c.toolCallRef?.startedAt)
+    .filter((c): c is typeof c & { toolCallRef: { startedAt: string } } =>
+      !!c.toolCallRef?.startedAt
+    )
     .map((c) => ({
       id: c.id,
-      startedAt: c.toolCallRef!.startedAt!,
-      completedAt: c.toolCallRef?.completedAt,
+      startedAt: c.toolCallRef.startedAt,
+      completedAt: c.toolCallRef.completedAt ?? null,
       durationMs: c.durationMs,
     }));
 });
