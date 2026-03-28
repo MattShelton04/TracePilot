@@ -6,6 +6,7 @@ import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { formatRelativeTime } from "@tracepilot/ui";
 import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar, LoadingSpinner } from "@tracepilot/ui";
@@ -13,6 +14,7 @@ import type { IndexingProgressPayload } from '@tracepilot/types';
 
 const router = useRouter();
 const store = useSessionsStore();
+usePerfMonitor('SessionListView');
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const { refreshing, refresh } = useAutoRefresh({
