@@ -183,17 +183,25 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
     if let Some(checkpoints) = &session.checkpoints {
         let mut seen_filenames = HashSet::new();
         for cp in checkpoints {
-            if contains_path_traversal(&cp.filename) {
-                issues.push(ValidationIssue::error(&format!(
-                    "{}: checkpoint filename contains path traversal: {:?}",
-                    prefix, cp.filename
-                )));
+            // Run the same validation as validate_filename (path traversal,
+            // path separators, reserved names, dangerous characters)
+            if let Err(e) = validate_filename_with_prefix(&cp.filename, &prefix) {
+                issues.push(ValidationIssue::error(&e.to_string()));
             }
             if !seen_filenames.insert(&cp.filename) {
                 issues.push(ValidationIssue::error(&format!(
                     "{}: duplicate checkpoint filename: {:?}",
                     prefix, cp.filename
                 )));
+            }
+            // Size limit check
+            if let Some(content) = &cp.content {
+                if content.len() > MAX_SECTION_SIZE {
+                    issues.push(ValidationIssue::error(&format!(
+                        "{}: checkpoint '{}' content too large: {} bytes (max {})",
+                        prefix, cp.filename, content.len(), MAX_SECTION_SIZE
+                    )));
+                }
             }
         }
     }
@@ -210,7 +218,7 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
 // ── Security helpers ───────────────────────────────────────────────────────
 
 /// Check if a string contains path traversal sequences or absolute paths.
-fn contains_path_traversal(s: &str) -> bool {
+pub(crate) fn contains_path_traversal(s: &str) -> bool {
     use std::path::{Component, Path};
 
     let path = Path::new(s);
@@ -245,28 +253,45 @@ fn looks_like_uuid(s: &str) -> bool {
 
 /// Validate a filename is safe for filesystem use.
 fn validate_filename(name: &str) -> Result<()> {
+    validate_filename_with_prefix(name, "")
+}
+
+/// Validate a filename with a prefix for error messages.
+fn validate_filename_with_prefix(name: &str, prefix: &str) -> Result<()> {
+    let pfx = if prefix.is_empty() {
+        String::new()
+    } else {
+        format!("{}: ", prefix)
+    };
     if name.is_empty() {
-        return Err(validation_err("filename is empty"));
+        return Err(validation_err(&format!("{}filename is empty", pfx)));
+    }
+    // Reject path separators — filenames must be flat, not nested
+    if name.contains('/') || name.contains('\\') {
+        return Err(validation_err(&format!(
+            "{}checkpoint filename contains path separator: {}",
+            pfx, name
+        )));
     }
     if contains_path_traversal(name) {
         return Err(validation_err(&format!(
-            "filename contains path traversal: {:?}",
-            name
+            "{}filename contains path traversal: {:?}",
+            pfx, name
         )));
     }
     // Reject reserved names that would collide with generated files
     let reserved = ["index.md", "index.html", "index.json"];
     if reserved.iter().any(|r| name.eq_ignore_ascii_case(r)) {
         return Err(validation_err(&format!(
-            "filename {:?} is reserved and cannot be used for checkpoints",
-            name
+            "{}filename {:?} is reserved and cannot be used for checkpoints",
+            pfx, name
         )));
     }
     // Reject control characters and common shell-dangerous chars
     if name.contains(|c: char| c.is_control() || matches!(c, '|' | '>' | '<' | '&' | ';' | '`')) {
         return Err(validation_err(&format!(
-            "filename contains dangerous characters: {:?}",
-            name
+            "{}filename contains dangerous characters: {:?}",
+            pfx, name
         )));
     }
     Ok(())
@@ -497,5 +522,75 @@ mod tests {
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
         assert!(issues.iter().any(|i| i.is_error() && i.message.contains("duplicate checkpoint filename")));
+    }
+
+    #[test]
+    fn rejects_path_separator_in_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "nested".to_string(),
+            filename: "nested/file.md".to_string(),
+            content: None,
+        }]);
+        let archive = test_archive(session);
+        let err = validate_archive(&archive).unwrap_err();
+        assert!(err.to_string().contains("path separator"));
+    }
+
+    #[test]
+    fn rejects_backslash_in_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "nested".to_string(),
+            filename: r"nested\file.md".to_string(),
+            content: None,
+        }]);
+        let archive = test_archive(session);
+        let err = validate_archive(&archive).unwrap_err();
+        assert!(err.to_string().contains("path separator"));
+    }
+
+    #[test]
+    fn collect_issues_rejects_path_separator_in_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "nested".to_string(),
+            filename: "sub/dir.md".to_string(),
+            content: None,
+        }]);
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("path separator")));
+    }
+
+    #[test]
+    fn collect_issues_reports_reserved_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "sneaky".to_string(),
+            filename: "index.md".to_string(),
+            content: Some("overwrite the index".to_string()),
+        }]);
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("reserved")));
+    }
+
+    #[test]
+    fn collect_issues_reports_dangerous_chars_in_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "bad".to_string(),
+            filename: "file|bad.md".to_string(),
+            content: None,
+        }]);
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("dangerous characters")));
     }
 }

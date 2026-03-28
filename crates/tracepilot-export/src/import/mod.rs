@@ -31,7 +31,6 @@ pub mod parser;
 pub mod validator;
 pub mod writer;
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -169,23 +168,6 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
 
     let can_import = !issues.iter().any(|i| i.is_error());
 
-    // Collect session IDs that have validation errors (path traversal, etc.)
-    // to avoid probing the filesystem with potentially malicious IDs.
-    let error_ids: HashSet<&str> = issues
-        .iter()
-        .filter(|i| i.is_error())
-        .filter_map(|i| {
-            // Extract session ID from error messages that reference specific sessions
-            archive.sessions.iter().find_map(|s| {
-                if i.message.contains(&s.metadata.id) {
-                    Some(s.metadata.id.as_str())
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-
     let sessions: Vec<ImportSessionSummary> = archive
         .sessions
         .iter()
@@ -196,9 +178,11 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
                 .iter()
                 .map(|sec| sec.display_name().to_string())
                 .collect();
-            // Only probe filesystem for sessions that passed validation
+            // Only probe filesystem for sessions with safe IDs
             if let Some(target) = target_dir {
-                if !error_ids.contains(s.metadata.id.as_str()) {
+                if !validator::contains_path_traversal(&s.metadata.id)
+                    && s.metadata.id.len() <= validator::MAX_ID_LENGTH
+                {
                     summary.already_exists = writer::session_exists(&s.metadata.id, target);
                 }
             }
@@ -488,5 +472,24 @@ mod tests {
 
         assert_eq!(result.imported.len(), 0);
         assert!(!target.path().join("test-12345678").exists());
+    }
+
+    #[test]
+    fn preview_path_traversal_id_does_not_probe_filesystem() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = tempfile::tempdir().unwrap();
+
+        // Build an archive with a path-traversal session ID
+        let mut session = minimal_session();
+        session.metadata.id = "../../../etc/passwd".to_string();
+        let archive = test_archive(session);
+        let json = serde_json::to_string_pretty(&archive).unwrap();
+        let path = dir.path().join("malicious.tpx.json");
+        fs::write(&path, json).unwrap();
+
+        let preview = preview_import(&path, Some(target.path())).unwrap();
+        // The malicious ID should NOT have triggered a filesystem probe
+        assert!(!preview.sessions[0].already_exists);
+        assert!(!preview.can_import);
     }
 }

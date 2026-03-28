@@ -349,7 +349,7 @@ fn parse_format(format: &str) -> CmdResult<ExportFormat> {
 
 fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
     if sections.is_empty() {
-        return Ok(SectionId::ALL.iter().copied().collect());
+        return Ok(HashSet::new());
     }
     let mut result = HashSet::new();
     for s in sections {
@@ -376,4 +376,29 @@ fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
         result.insert(section);
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_sections_returns_empty_set() {
+        let result = parse_sections(&[]).unwrap();
+        assert!(result.is_empty(), "empty input should produce empty set, not all sections");
+    }
+
+    #[test]
+    fn explicit_sections_are_parsed() {
+        let result = parse_sections(&["conversation".to_string(), "plan".to_string()]).unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&SectionId::Conversation));
+        assert!(result.contains(&SectionId::Plan));
+    }
+
+    #[test]
+    fn unknown_section_returns_error() {
+        let result = parse_sections(&["nonexistent".to_string()]);
+        assert!(result.is_err());
+    }
 }
