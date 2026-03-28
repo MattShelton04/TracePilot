@@ -16,48 +16,25 @@ use super::*;
 #[test]
 fn marks_incomplete_session_without_turn_end() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T07:14:51.100Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some("msg-1".to_string()),
-                content: Some("Partial".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                tool_requests: None,
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            "evt-3",
-            "2026-03-10T07:14:52.000Z",
-            Some("evt-2"),
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:51.100Z")
+            .parent("evt-1")
+            .build_event(),
+        asst_msg("Partial")
+            .message_id("msg-1")
+            .interaction_id("int-1")
+            .id("evt-3")
+            .timestamp("2026-03-10T07:14:52.000Z")
+            .parent("evt-2")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -71,30 +48,18 @@ fn realistic_agentic_session_with_many_tool_rounds() {
     // makes 5 rounds of tool calls (each preceded by an empty-content
     // assistant.message), then gives a final response.
     let mut events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Refactor the auth module".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T07:14:51.100Z",
-            Some("evt-1"),
-        ),
+        user_msg("Refactor the auth module")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:51.100Z")
+            .parent("evt-1")
+            .build_event(),
     ];
 
     let tool_names = ["grep", "view", "edit", "view", "powershell"];
@@ -103,92 +68,66 @@ fn realistic_agentic_session_with_many_tool_rounds() {
 
     for (round, tool_name) in tool_names.iter().enumerate() {
         // Empty assistant.message before each tool batch
-        events.push(make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some(format!("msg-{round}")),
-                content: Some("".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                tool_requests: Some(vec![json!({"id": format!("tc-{round}"), "name": tool_name})]),
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            &format!("evt-{evt_counter}"),
-            &format!("2026-03-10T07:14:{}.000Z", base_ts + round * 2),
-            Some("evt-2"),
-        ));
+        events.push(
+            asst_msg_empty()
+                .message_id(format!("msg-{round}"))
+                .content("")
+                .interaction_id("int-1")
+                .tool_requests(vec![
+                    json!({"id": format!("tc-{round}"), "name": tool_name}),
+                ])
+                .id(format!("evt-{evt_counter}"))
+                .timestamp(format!("2026-03-10T07:14:{}.000Z", base_ts + round * 2))
+                .parent("evt-2")
+                .build_event(),
+        );
         evt_counter += 1;
 
-        events.push(make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some(format!("tc-{round}")),
-                tool_name: Some(tool_name.to_string()),
-                arguments: Some(json!({"arg": "value"})),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            &format!("evt-{evt_counter}"),
-            &format!("2026-03-10T07:14:{}.100Z", base_ts + round * 2),
-            Some(&format!("evt-{}", evt_counter - 1)),
-        ));
+        events.push(
+            tool_start(*tool_name)
+                .tool_call_id(format!("tc-{round}"))
+                .arguments(json!({"arg": "value"}))
+                .id(format!("evt-{evt_counter}"))
+                .timestamp(format!("2026-03-10T07:14:{}.100Z", base_ts + round * 2))
+                .parent(format!("evt-{}", evt_counter - 1))
+                .build_event(),
+        );
         evt_counter += 1;
 
-        events.push(make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some(format!("tc-{round}")),
-                parent_tool_call_id: None,
-                model: Some("claude-opus-4.6".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            &format!("evt-{evt_counter}"),
-            &format!("2026-03-10T07:14:{}.900Z", base_ts + round * 2),
-            Some(&format!("evt-{}", evt_counter - 1)),
-        ));
+        events.push(
+            tool_complete(format!("tc-{round}"))
+                .model("claude-opus-4.6")
+                .interaction_id("int-1")
+                .success(true)
+                .id(format!("evt-{evt_counter}"))
+                .timestamp(format!("2026-03-10T07:14:{}.900Z", base_ts + round * 2))
+                .parent(format!("evt-{}", evt_counter - 1))
+                .build_event(),
+        );
         evt_counter += 1;
     }
 
     // Final assistant.message with real content
-    events.push(make_event(
-        SessionEventType::AssistantMessage,
-        TypedEventData::AssistantMessage(AssistantMessageData {
-            message_id: Some("msg-final".to_string()),
-            content: Some("I've refactored the auth module. Here's a summary of changes.".to_string()),
-            interaction_id: Some("int-1".to_string()),
-            tool_requests: None,
-            output_tokens: Some(150),
-            parent_tool_call_id: None,
-            reasoning_text: None,
-            reasoning_opaque: None,
-            encrypted_content: None,
-            phase: None,
-        }),
-        &format!("evt-{evt_counter}"),
-        "2026-03-10T07:15:02.000Z",
-        Some("evt-2"),
-    ));
+    events.push(
+        asst_msg("I've refactored the auth module. Here's a summary of changes.")
+            .message_id("msg-final")
+            .interaction_id("int-1")
+            .output_tokens(150)
+            .id(format!("evt-{evt_counter}"))
+            .timestamp("2026-03-10T07:15:02.000Z")
+            .parent("evt-2")
+            .build_event(),
+    );
     evt_counter += 1;
 
-    events.push(make_event(
-        SessionEventType::AssistantTurnEnd,
-        TypedEventData::TurnEnd(TurnEndData {
-            turn_id: Some("turn-1".to_string()),
-        }),
-        &format!("evt-{evt_counter}"),
-        "2026-03-10T07:15:03.000Z",
-        Some("evt-2"),
-    ));
+    events.push(
+        turn_end()
+            .turn_id("turn-1")
+            .id(format!("evt-{evt_counter}"))
+            .timestamp("2026-03-10T07:15:03.000Z")
+            .parent("evt-2")
+            .build_event(),
+    );
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -212,20 +151,12 @@ fn realistic_agentic_session_with_many_tool_rounds() {
 }
 #[test]
 fn session_error_embedded_in_turn() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionError,
-        TypedEventData::SessionError(SessionErrorData {
-            error_type: Some("rate_limit".to_string()),
-            message: Some("Rate limit exceeded".to_string()),
-            stack: None,
-            status_code: Some(429),
-            provider_call_id: None,
-            url: None,
-        }),
-        "evt-err",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![session_error("Rate limit exceeded")
+        .error_type("rate_limit")
+        .status_code(429)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -238,77 +169,43 @@ fn session_error_embedded_in_turn() {
 }
 #[test]
 fn session_error_fallback_to_error_type() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionError,
-        TypedEventData::SessionError(SessionErrorData {
-            error_type: Some("connection_timeout".to_string()),
-            message: None,
-            stack: None,
-            status_code: None,
-            provider_call_id: None,
-            url: None,
-        }),
-        "evt-err",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![session_error_empty()
+        .error_type("connection_timeout")
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "connection_timeout");
 }
 #[test]
 fn session_error_fallback_to_status_code() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionError,
-        TypedEventData::SessionError(SessionErrorData {
-            error_type: None,
-            message: None,
-            stack: None,
-            status_code: Some(500),
-            provider_call_id: None,
-            url: None,
-        }),
-        "evt-err",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![session_error_empty()
+        .status_code(500)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "HTTP 500");
 }
 #[test]
 fn session_error_fallback_to_default() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionError,
-        TypedEventData::SessionError(SessionErrorData {
-            error_type: None,
-            message: None,
-            stack: None,
-            status_code: None,
-            provider_call_id: None,
-            url: None,
-        }),
-        "evt-err",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![session_error_empty()
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events[0].summary, "Session error");
 }
 #[test]
 fn session_warning_embedded_in_turn() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionWarning,
-        TypedEventData::SessionWarning(SessionWarningData {
-            warning_type: Some("token_budget".to_string()),
-            message: Some("Approaching token limit".to_string()),
-            url: None,
-        }),
-        "evt-warn",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![session_warning("Approaching token limit")
+        .warning_type("token_budget")
+        .id("evt-warn")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events.len(), 1);
@@ -319,13 +216,10 @@ fn session_warning_embedded_in_turn() {
 }
 #[test]
 fn compaction_start_embedded_in_turn() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionCompactionStart,
-        TypedEventData::CompactionStart(CompactionStartData {}),
-        "evt-comp-start",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![compaction_start()
+        .id("evt-comp-start")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns[0].session_events.len(), 1);
@@ -336,23 +230,13 @@ fn compaction_start_embedded_in_turn() {
 }
 #[test]
 fn compaction_complete_success() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionCompactionComplete,
-        TypedEventData::CompactionComplete(CompactionCompleteData {
-            success: Some(true),
-            error: None,
-            pre_compaction_tokens: Some(50000),
-            pre_compaction_messages_length: Some(120),
-            summary_content: None,
-            checkpoint_number: None,
-            checkpoint_path: None,
-            compaction_tokens_used: None,
-            request_id: None,
-        }),
-        "evt-comp",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![compaction_complete()
+        .success(true)
+        .pre_compaction_tokens(50000)
+        .pre_compaction_messages_length(120)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];
@@ -362,23 +246,13 @@ fn compaction_complete_success() {
 }
 #[test]
 fn compaction_complete_failure() {
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionCompactionComplete,
-        TypedEventData::CompactionComplete(CompactionCompleteData {
-            success: Some(false),
-            error: Some("Out of memory".to_string()),
-            pre_compaction_tokens: Some(50000),
-            pre_compaction_messages_length: None,
-            summary_content: None,
-            checkpoint_number: None,
-            checkpoint_path: None,
-            compaction_tokens_used: None,
-            request_id: None,
-        }),
-        "evt-comp",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![compaction_complete()
+        .success(false)
+        .error("Out of memory")
+        .pre_compaction_tokens(50000)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];
@@ -450,51 +324,33 @@ fn mode_changed_embedded() {
 #[test]
 fn multiple_session_events_in_single_turn() {
     let events = make_turn_events(vec![
-        make_event(
-            SessionEventType::SessionCompactionStart,
-            TypedEventData::CompactionStart(CompactionStartData {}),
-            "evt-cs",
-            "2026-03-10T07:00:10.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionCompactionComplete,
-            TypedEventData::CompactionComplete(CompactionCompleteData {
-                success: Some(true),
-                error: None,
-                pre_compaction_tokens: Some(40000),
-                pre_compaction_messages_length: None,
-                summary_content: None,
-                checkpoint_number: None,
-                checkpoint_path: None,
-                compaction_tokens_used: None,
-                request_id: None,
-            }),
-            "evt-cc",
-            "2026-03-10T07:00:20.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionError,
-            TypedEventData::SessionError(SessionErrorData {
-                error_type: None,
-                message: Some("API timeout".to_string()),
-                stack: None,
-                status_code: None,
-                provider_call_id: None,
-                url: None,
-            }),
-            "evt-err",
-            "2026-03-10T07:00:30.000Z",
-            None,
-        ),
+        compaction_start()
+            .id("evt-cs")
+            .timestamp("2026-03-10T07:00:10.000Z")
+            .build_event(),
+        compaction_complete()
+            .success(true)
+            .pre_compaction_tokens(40000)
+            .id("evt-cc")
+            .timestamp("2026-03-10T07:00:20.000Z")
+            .build_event(),
+        session_error("API timeout")
+            .id("evt-err")
+            .timestamp("2026-03-10T07:00:30.000Z")
+            .build_event(),
     ]);
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 3);
-    assert_eq!(turns[0].session_events[0].event_type, "session.compaction_start");
-    assert_eq!(turns[0].session_events[1].event_type, "session.compaction_complete");
+    assert_eq!(
+        turns[0].session_events[0].event_type,
+        "session.compaction_start"
+    );
+    assert_eq!(
+        turns[0].session_events[1].event_type,
+        "session.compaction_complete"
+    );
     assert_eq!(turns[0].session_events[2].event_type, "session.error");
 }
 #[test]
@@ -502,75 +358,32 @@ fn session_events_between_turns_attach_to_next_turn() {
     // Events that arrive between turns should be buffered and flushed into the next turn
     let events = vec![
         // Turn 1
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("First".to_string()),
-                transformed_content: None,
-                interaction_id: None,
-                attachments: None,
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-u1",
-            "2026-03-10T07:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
-            "evt-te1",
-            "2026-03-10T07:01:00.000Z",
-            None,
-        ),
+        user_msg("First")
+            .id("evt-u1")
+            .timestamp("2026-03-10T07:00:00.000Z")
+            .build_event(),
+        turn_end()
+            .id("evt-te1")
+            .timestamp("2026-03-10T07:01:00.000Z")
+            .build_event(),
         // Session events between turns (no current turn)
-        make_event(
-            SessionEventType::SessionError,
-            TypedEventData::SessionError(SessionErrorData {
-                error_type: None,
-                message: Some("Connection lost".to_string()),
-                stack: None,
-                status_code: None,
-                provider_call_id: None,
-                url: None,
-            }),
-            "evt-err",
-            "2026-03-10T07:01:30.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionWarning,
-            TypedEventData::SessionWarning(SessionWarningData {
-                warning_type: None,
-                message: Some("Reconnecting".to_string()),
-                url: None,
-            }),
-            "evt-warn",
-            "2026-03-10T07:01:45.000Z",
-            None,
-        ),
+        session_error("Connection lost")
+            .id("evt-err")
+            .timestamp("2026-03-10T07:01:30.000Z")
+            .build_event(),
+        session_warning("Reconnecting")
+            .id("evt-warn")
+            .timestamp("2026-03-10T07:01:45.000Z")
+            .build_event(),
         // Turn 2 — buffered events should be flushed here
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Second".to_string()),
-                transformed_content: None,
-                interaction_id: None,
-                attachments: None,
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-u2",
-            "2026-03-10T07:02:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
-            "evt-te2",
-            "2026-03-10T07:03:00.000Z",
-            None,
-        ),
+        user_msg("Second")
+            .id("evt-u2")
+            .timestamp("2026-03-10T07:02:00.000Z")
+            .build_event(),
+        turn_end()
+            .id("evt-te2")
+            .timestamp("2026-03-10T07:03:00.000Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -596,74 +409,41 @@ fn session_events_before_any_turn_attach_to_first() {
             "2026-03-10T06:59:00.000Z",
             None,
         ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Go".to_string()),
-                transformed_content: None,
-                interaction_id: None,
-                attachments: None,
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-u1",
-            "2026-03-10T07:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
-            "evt-te1",
-            "2026-03-10T07:01:00.000Z",
-            None,
-        ),
+        user_msg("Go")
+            .id("evt-u1")
+            .timestamp("2026-03-10T07:00:00.000Z")
+            .build_event(),
+        turn_end()
+            .id("evt-te1")
+            .timestamp("2026-03-10T07:01:00.000Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].session_events.len(), 1);
-    assert_eq!(turns[0].session_events[0].event_type, "session.mode_changed");
+    assert_eq!(
+        turns[0].session_events[0].event_type,
+        "session.mode_changed"
+    );
     assert_eq!(turns[0].session_events[0].summary, "Mode changed to plan");
 }
 #[test]
 fn trailing_session_events_attach_to_last_turn() {
     // Session events that arrive after the last TurnEnd should attach to the last turn
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                interaction_id: None,
-                attachments: None,
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-u1",
-            "2026-03-10T07:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData { turn_id: None }),
-            "evt-te1",
-            "2026-03-10T07:01:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionError,
-            TypedEventData::SessionError(SessionErrorData {
-                error_type: None,
-                message: Some("Session crashed".to_string()),
-                stack: None,
-                status_code: None,
-                provider_call_id: None,
-                url: None,
-            }),
-            "evt-err",
-            "2026-03-10T07:02:00.000Z",
-            None,
-        ),
+        user_msg("Hello")
+            .id("evt-u1")
+            .timestamp("2026-03-10T07:00:00.000Z")
+            .build_event(),
+        turn_end()
+            .id("evt-te1")
+            .timestamp("2026-03-10T07:01:00.000Z")
+            .build_event(),
+        session_error("Session crashed")
+            .id("evt-err")
+            .timestamp("2026-03-10T07:02:00.000Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -730,7 +510,10 @@ fn session_events_serialization_round_trip() {
     // Round-trip
     let deserialized: ConversationTurn = serde_json::from_value(json).unwrap();
     assert_eq!(deserialized.session_events.len(), 1);
-    assert_eq!(deserialized.session_events[0].severity, SessionEventSeverity::Error);
+    assert_eq!(
+        deserialized.session_events[0].severity,
+        SessionEventSeverity::Error
+    );
 }
 #[test]
 fn truncation_summary_tokens_only() {
@@ -807,28 +590,21 @@ fn session_events_flush_via_ensure_current_turn() {
     assert_eq!(turns.len(), 1);
     // The mode_changed event should be flushed into the synthetic turn
     assert_eq!(turns[0].session_events.len(), 1);
-    assert_eq!(turns[0].session_events[0].event_type, "session.mode_changed");
+    assert_eq!(
+        turns[0].session_events[0].event_type,
+        "session.mode_changed"
+    );
 }
 #[test]
 fn orphaned_session_events_create_synthetic_turn() {
     // A session with only session events (no UserMessage or other turn-creating events)
     // should produce a synthetic turn to hold them.
-    let events = vec![
-        make_event(
-            SessionEventType::SessionError,
-            TypedEventData::SessionError(SessionErrorData {
-                error_type: Some("auth_failed".to_string()),
-                message: Some("Authentication failed".to_string()),
-                stack: None,
-                status_code: Some(401),
-                provider_call_id: None,
-                url: None,
-            }),
-            "evt-err",
-            "2026-03-10T07:00:00.000Z",
-            None,
-        ),
-    ];
+    let events = vec![session_error("Authentication failed")
+        .error_type("auth_failed")
+        .status_code(401)
+        .id("evt-err")
+        .timestamp("2026-03-10T07:00:00.000Z")
+        .build_event()];
 
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -839,23 +615,12 @@ fn orphaned_session_events_create_synthetic_turn() {
 #[test]
 fn compaction_error_with_success_none() {
     // When success is None but error is set, treat as failure
-    let events = make_turn_events(vec![make_event(
-        SessionEventType::SessionCompactionComplete,
-        TypedEventData::CompactionComplete(CompactionCompleteData {
-            success: None,
-            error: Some("OOM".to_string()),
-            pre_compaction_tokens: Some(50000),
-            pre_compaction_messages_length: None,
-            summary_content: None,
-            checkpoint_number: None,
-            checkpoint_path: None,
-            compaction_tokens_used: None,
-            request_id: None,
-        }),
-        "evt-comp",
-        "2026-03-10T07:00:30.000Z",
-        None,
-    )]);
+    let events = make_turn_events(vec![compaction_complete()
+        .error("OOM")
+        .pre_compaction_tokens(50000)
+        .id("evt-comp")
+        .timestamp("2026-03-10T07:00:30.000Z")
+        .build_event()]);
 
     let turns = reconstruct_turns(&events);
     let se = &turns[0].session_events[0];
@@ -865,110 +630,50 @@ fn compaction_error_with_success_none() {
 #[test]
 fn computes_turn_stats() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("First".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some("msg-1".to_string()),
-                content: Some("One".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                tool_requests: None,
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            "evt-2",
-            "2026-03-10T07:14:52.000Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-1".to_string()),
-                tool_name: Some("read_file".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T07:14:52.100Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-1".to_string()),
-                parent_tool_call_id: None,
-                model: Some("claude-sonnet-4.5".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-4",
-            "2026-03-10T07:14:52.400Z",
-            Some("evt-3"),
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "evt-5",
-            "2026-03-10T07:14:53.000Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Second".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-2".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-6",
-            "2026-03-10T07:14:54.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantMessage,
-            TypedEventData::AssistantMessage(AssistantMessageData {
-                message_id: Some("msg-2".to_string()),
-                content: Some("Two".to_string()),
-                interaction_id: Some("int-2".to_string()),
-                tool_requests: None,
-                output_tokens: None,
-                parent_tool_call_id: None,
-                reasoning_text: None,
-                reasoning_opaque: None,
-                encrypted_content: None,
-                phase: None,
-            }),
-            "evt-7",
-            "2026-03-10T07:14:55.000Z",
-            Some("evt-6"),
-        ),
+        user_msg("First")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
+        asst_msg("One")
+            .message_id("msg-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:52.000Z")
+            .parent("evt-1")
+            .build_event(),
+        tool_start("read_file")
+            .tool_call_id("tc-1")
+            .id("evt-3")
+            .timestamp("2026-03-10T07:14:52.100Z")
+            .parent("evt-2")
+            .build_event(),
+        tool_complete("tc-1")
+            .model("claude-sonnet-4.5")
+            .interaction_id("int-1")
+            .success(true)
+            .id("evt-4")
+            .timestamp("2026-03-10T07:14:52.400Z")
+            .parent("evt-3")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-5")
+            .timestamp("2026-03-10T07:14:53.000Z")
+            .parent("evt-1")
+            .build_event(),
+        user_msg("Second")
+            .interaction_id("int-2")
+            .id("evt-6")
+            .timestamp("2026-03-10T07:14:54.000Z")
+            .build_event(),
+        asst_msg("Two")
+            .message_id("msg-2")
+            .interaction_id("int-2")
+            .id("evt-7")
+            .timestamp("2026-03-10T07:14:55.000Z")
+            .parent("evt-6")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -985,30 +690,17 @@ fn computes_turn_stats() {
 #[test]
 fn abort_event_finalizes_current_turn() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Do something".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-2",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
+        user_msg("Do something")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
         make_event(
             SessionEventType::Abort,
             TypedEventData::Abort(AbortData {

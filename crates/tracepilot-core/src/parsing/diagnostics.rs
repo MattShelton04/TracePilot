@@ -67,7 +67,10 @@ impl ParseDiagnostics {
     pub fn record_warning(&mut self, warning: &EventParseWarning) {
         match warning {
             EventParseWarning::UnknownEventType { event_type } => {
-                *self.unknown_event_types.entry(event_type.clone()).or_insert(0) += 1;
+                *self
+                    .unknown_event_types
+                    .entry(event_type.clone())
+                    .or_insert(0) += 1;
             }
             EventParseWarning::DeserializationFailed { event_type, error } => {
                 self.deserialization_failures

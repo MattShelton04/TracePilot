@@ -76,10 +76,7 @@ mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
 
-    fn make_summary(
-        updated: Option<&str>,
-        created: Option<&str>,
-    ) -> SessionSummary {
+    fn make_summary(updated: Option<&str>, created: Option<&str>) -> SessionSummary {
         let parse = |s: &str| {
             let dt = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
                 .unwrap()

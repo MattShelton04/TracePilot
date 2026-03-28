@@ -120,8 +120,8 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_helpers::*;
+    use super::*;
 
     #[test]
     fn test_code_impact_empty() {
@@ -135,7 +135,10 @@ mod tests {
     #[test]
     fn test_code_impact_single_session() {
         let sessions = vec![make_input_with_code(
-            "s1", "2026-01-15", 100, 30,
+            "s1",
+            "2026-01-15",
+            100,
+            30,
             vec!["src/main.rs", "src/lib.rs", "README.md"],
         )];
         let result = compute_code_impact(&sessions);
@@ -149,13 +152,20 @@ mod tests {
     #[test]
     fn test_code_impact_file_type_breakdown() {
         let sessions = vec![make_input_with_code(
-            "s1", "2026-01-15", 100, 30,
+            "s1",
+            "2026-01-15",
+            100,
+            30,
             vec!["src/main.rs", "src/lib.rs", "src/app.ts", "README.md"],
         )];
         let result = compute_code_impact(&sessions);
 
         assert_eq!(result.file_type_breakdown.len(), 3); // rs, ts, md
-        let rs = result.file_type_breakdown.iter().find(|e| e.extension == "rs").unwrap();
+        let rs = result
+            .file_type_breakdown
+            .iter()
+            .find(|e| e.extension == "rs")
+            .unwrap();
         assert_eq!(rs.count, 2);
     }
 
@@ -163,7 +173,13 @@ mod tests {
     fn test_code_impact_multiple_sessions_same_files() {
         let sessions = vec![
             make_input_with_code("s1", "2026-01-15", 50, 10, vec!["src/main.rs"]),
-            make_input_with_code("s2", "2026-01-16", 80, 20, vec!["src/main.rs", "src/lib.rs"]),
+            make_input_with_code(
+                "s2",
+                "2026-01-16",
+                80,
+                20,
+                vec!["src/main.rs", "src/lib.rs"],
+            ),
         ];
         let result = compute_code_impact(&sessions);
 
@@ -179,7 +195,10 @@ mod tests {
     #[test]
     fn test_code_impact_negative_net_change() {
         let sessions = vec![make_input_with_code(
-            "s1", "2026-01-15", 10, 100,
+            "s1",
+            "2026-01-15",
+            10,
+            100,
             vec!["src/main.rs"],
         )];
         let result = compute_code_impact(&sessions);
@@ -206,7 +225,11 @@ mod tests {
         let result = compute_code_impact(&sessions);
 
         assert_eq!(result.changes_by_day.len(), 2);
-        let jan15 = result.changes_by_day.iter().find(|d| d.date == "2026-01-15").unwrap();
+        let jan15 = result
+            .changes_by_day
+            .iter()
+            .find(|d| d.date == "2026-01-15")
+            .unwrap();
         assert_eq!(jan15.additions, 80);
         assert_eq!(jan15.deletions, 15);
     }
@@ -214,13 +237,20 @@ mod tests {
     #[test]
     fn test_code_impact_no_extension_files() {
         let sessions = vec![make_input_with_code(
-            "s1", "2026-01-15", 10, 5,
+            "s1",
+            "2026-01-15",
+            10,
+            5,
             vec!["Makefile", "Dockerfile", ".gitignore"],
         )];
         let result = compute_code_impact(&sessions);
 
         // Files without extension should be grouped under "(no ext)"
-        let no_ext = result.file_type_breakdown.iter().find(|e| e.extension == "(no ext)").unwrap();
+        let no_ext = result
+            .file_type_breakdown
+            .iter()
+            .find(|e| e.extension == "(no ext)")
+            .unwrap();
         assert_eq!(no_ext.count, 3);
     }
 }

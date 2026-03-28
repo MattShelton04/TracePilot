@@ -12,61 +12,42 @@ use super::*;
 
 // Helper functions
 fn sub_completed_event(ts: &str, evt_id: &str) -> TypedEvent {
-    make_event(
-        SessionEventType::SubagentCompleted,
-        TypedEventData::SubagentCompleted(SubagentCompletedData {
-            tool_call_id: Some("tc-sub".to_string()),
-            agent_name: Some("explore".to_string()),
-            agent_display_name: Some("Explore Agent".to_string()),
-        }),
-        evt_id,
-        ts,
-        Some("evt-4"),
-    )
+    subagent_complete("explore")
+        .tool_call_id("tc-sub")
+        .agent_display_name("Explore Agent")
+        .id(evt_id)
+        .timestamp(ts)
+        .parent("evt-4")
+        .build_event()
 }
 fn sub_failed_event(ts: &str, evt_id: &str, error: &str) -> TypedEvent {
-    make_event(
-        SessionEventType::SubagentFailed,
-        TypedEventData::SubagentFailed(SubagentFailedData {
-            tool_call_id: Some("tc-sub".to_string()),
-            agent_name: Some("explore".to_string()),
-            agent_display_name: Some("Explore Agent".to_string()),
-            error: Some(error.to_string()),
-        }),
-        evt_id,
-        ts,
-        Some("evt-4"),
-    )
+    subagent_failed("explore")
+        .tool_call_id("tc-sub")
+        .agent_display_name("Explore Agent")
+        .error(error)
+        .id(evt_id)
+        .timestamp(ts)
+        .parent("evt-4")
+        .build_event()
 }
 fn tool_complete_event(ts: &str, evt_id: &str, success: Option<bool>) -> TypedEvent {
-    make_event(
-        SessionEventType::ToolExecutionComplete,
-        TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-            tool_call_id: Some("tc-sub".to_string()),
-            parent_tool_call_id: None,
-            model: Some("claude-opus-4.6".to_string()),
-            interaction_id: Some("int-1".to_string()),
-            success,
-            result: Some(json!("Agent completed successfully")),
-            error: None,
-            tool_telemetry: None,
-            is_user_requested: None,
-        }),
-        evt_id,
-        ts,
-        Some("evt-3"),
-    )
+    tool_complete("tc-sub")
+        .model("claude-opus-4.6")
+        .interaction_id("int-1")
+        .success(success.unwrap_or(true))
+        .result(json!("Agent completed successfully"))
+        .id(evt_id)
+        .timestamp(ts)
+        .parent("evt-3")
+        .build_event()
 }
 fn turn_end_event(ts: &str, evt_id: &str) -> TypedEvent {
-    make_event(
-        SessionEventType::AssistantTurnEnd,
-        TypedEventData::TurnEnd(TurnEndData {
-            turn_id: Some("turn-1".to_string()),
-        }),
-        evt_id,
-        ts,
-        Some("evt-2"),
-    )
+    turn_end()
+        .turn_id("turn-1")
+        .id(evt_id)
+        .timestamp(ts)
+        .parent("evt-2")
+        .build_event()
 }
 fn run_subagent_scenario(events: Vec<TypedEvent>) -> TurnToolCall {
     let turns = reconstruct_turns(&events);
@@ -82,43 +63,25 @@ fn run_subagent_scenario(events: Vec<TypedEvent>) -> TurnToolCall {
 #[test]
 fn treats_subagent_events_as_tool_calls() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Run specialist".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-2",
-            "2026-03-10T07:14:52.000Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "evt-3",
-            "2026-03-10T07:14:53.000Z",
-            Some("evt-2"),
-        ),
+        user_msg("Run specialist")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("sub-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:52.000Z")
+            .parent("evt-1")
+            .build_event(),
+        subagent_complete("explore")
+            .tool_call_id("sub-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-3")
+            .timestamp("2026-03-10T07:14:53.000Z")
+            .parent("evt-2")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -135,67 +98,41 @@ fn subagent_started_merges_into_tool_exec_start() {
     // When SubagentStarted fires with the same toolCallId as a previous ToolExecStart,
     // it should MERGE into the existing entry (not create a duplicate).
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Launch agent".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T10:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T10:00:00.100Z",
-            Some("evt-1"),
-        ),
+        user_msg("Launch agent")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T10:00:00.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T10:00:00.100Z")
+            .parent("evt-1")
+            .build_event(),
         // ToolExecStart creates entry with arguments
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-agent-1".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({ "prompt": "Review the code", "agent_type": "code-review" })),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T10:00:01.000Z",
-            Some("evt-2"),
-        ),
+        tool_start("task")
+            .tool_call_id("tc-agent-1")
+            .arguments(json!({ "prompt": "Review the code", "agent_type": "code-review" }))
+            .id("evt-3")
+            .timestamp("2026-03-10T10:00:01.000Z")
+            .parent("evt-2")
+            .build_event(),
         // SubagentStarted should merge into existing entry, not create duplicate
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-agent-1".to_string()),
-                agent_name: Some("code-review".to_string()),
-                agent_display_name: Some("Code Review Agent".to_string()),
-                agent_description: Some("Reviews code for issues".to_string()),
-            }),
-            "evt-4",
-            "2026-03-10T10:00:01.003Z",
-            Some("evt-3"),
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "evt-5",
-            "2026-03-10T10:00:02.000Z",
-            Some("evt-2"),
-        ),
+        subagent_start("code-review")
+            .tool_call_id("tc-agent-1")
+            .agent_display_name("Code Review Agent")
+            .agent_description("Reviews code for issues")
+            .id("evt-4")
+            .timestamp("2026-03-10T10:00:01.003Z")
+            .parent("evt-3")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-5")
+            .timestamp("2026-03-10T10:00:02.000Z")
+            .parent("evt-2")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -210,7 +147,10 @@ fn subagent_started_merges_into_tool_exec_start() {
     // Subagent fields from SubagentStarted
     assert!(tc.is_subagent);
     assert_eq!(tc.agent_display_name.as_deref(), Some("Code Review Agent"));
-    assert_eq!(tc.agent_description.as_deref(), Some("Reviews code for issues"));
+    assert_eq!(
+        tc.agent_description.as_deref(),
+        Some("Reviews code for issues")
+    );
     // Arguments preserved from ToolExecStart
     assert!(tc.arguments.is_some());
     let args = tc.arguments.as_ref().unwrap();
@@ -224,78 +164,46 @@ fn subagent_completed_finds_entry_in_finalized_turn() {
     // SubagentCompleted may arrive after the turn is finalized.
     // It should still find and update the entry in the finalized turn.
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Launch agent".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T10:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T10:00:00.100Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-agent-1".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({ "prompt": "Explore codebase" })),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T10:00:01.000Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-agent-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-4",
-            "2026-03-10T10:00:01.003Z",
-            Some("evt-3"),
-        ),
+        user_msg("Launch agent")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T10:00:00.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T10:00:00.100Z")
+            .parent("evt-1")
+            .build_event(),
+        tool_start("task")
+            .tool_call_id("tc-agent-1")
+            .arguments(json!({ "prompt": "Explore codebase" }))
+            .id("evt-3")
+            .timestamp("2026-03-10T10:00:01.000Z")
+            .parent("evt-2")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("tc-agent-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-4")
+            .timestamp("2026-03-10T10:00:01.003Z")
+            .parent("evt-3")
+            .build_event(),
         // Turn ends BEFORE subagent completes
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "evt-5",
-            "2026-03-10T10:00:02.000Z",
-            Some("evt-2"),
-        ),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-5")
+            .timestamp("2026-03-10T10:00:02.000Z")
+            .parent("evt-2")
+            .build_event(),
         // SubagentCompleted arrives after turn is finalized (4 minutes later)
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("tc-agent-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "evt-6",
-            "2026-03-10T10:04:01.000Z",
-            None,
-        ),
+        subagent_complete("explore")
+            .tool_call_id("tc-agent-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-6")
+            .timestamp("2026-03-10T10:04:01.000Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -307,83 +215,54 @@ fn subagent_completed_finds_entry_in_finalized_turn() {
     assert!(tc.is_complete);
     assert_eq!(tc.success, Some(true));
     // Duration should be ~4 minutes, not 5ms
-    assert!(tc.duration_ms.unwrap() > 200_000, "Duration should be >200s, got {}ms", tc.duration_ms.unwrap());
+    assert!(
+        tc.duration_ms.unwrap() > 200_000,
+        "Duration should be >200s, got {}ms",
+        tc.duration_ms.unwrap()
+    );
 }
 #[test]
 fn subagent_failed_finds_entry_in_finalized_turn() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Launch".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T10:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T10:00:00.100Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-fail".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T10:00:01.000Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-fail".to_string()),
-                agent_name: Some("general-purpose".to_string()),
-                agent_display_name: Some("General Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-4",
-            "2026-03-10T10:00:01.003Z",
-            Some("evt-3"),
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "evt-5",
-            "2026-03-10T10:00:02.000Z",
-            Some("evt-2"),
-        ),
+        user_msg("Launch")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T10:00:00.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T10:00:00.100Z")
+            .parent("evt-1")
+            .build_event(),
+        tool_start("task")
+            .tool_call_id("tc-fail")
+            .id("evt-3")
+            .timestamp("2026-03-10T10:00:01.000Z")
+            .parent("evt-2")
+            .build_event(),
+        subagent_start("general-purpose")
+            .tool_call_id("tc-fail")
+            .agent_display_name("General Agent")
+            .id("evt-4")
+            .timestamp("2026-03-10T10:00:01.003Z")
+            .parent("evt-3")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("evt-5")
+            .timestamp("2026-03-10T10:00:02.000Z")
+            .parent("evt-2")
+            .build_event(),
         // SubagentFailed arrives after turn
-        make_event(
-            SessionEventType::SubagentFailed,
-            TypedEventData::SubagentFailed(crate::models::event_types::SubagentFailedData {
-                tool_call_id: Some("tc-fail".to_string()),
-                agent_name: Some("general-purpose".to_string()),
-                agent_display_name: Some("General Agent".to_string()),
-                error: Some("OOM".to_string()),
-            }),
-            "evt-6",
-            "2026-03-10T10:01:30.000Z",
-            None,
-        ),
+        subagent_failed("general-purpose")
+            .tool_call_id("tc-fail")
+            .agent_display_name("General Agent")
+            .error("OOM")
+            .id("evt-6")
+            .timestamp("2026-03-10T10:01:30.000Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -397,83 +276,48 @@ fn subagent_failed_finds_entry_in_finalized_turn() {
 #[test]
 fn subagent_failed_records_error() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Do work".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-2",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("sub-1".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-3",
-            "2025-01-01T00:00:02Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("task".to_string()),
-                agent_display_name: None,
-                agent_description: None,
-            }),
-            "ev-4",
-            "2025-01-01T00:00:03Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentFailed,
-            TypedEventData::SubagentFailed(SubagentFailedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: None,
-                agent_display_name: None,
-                error: Some("timeout".to_string()),
-            }),
-            "ev-5",
-            "2025-01-01T00:00:04Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-6",
-            "2025-01-01T00:00:05Z",
-            None,
-        ),
+        user_msg("Do work")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
+        tool_start("task")
+            .tool_call_id("sub-1")
+            .id("ev-3")
+            .timestamp("2025-01-01T00:00:02Z")
+            .build_event(),
+        subagent_start("task")
+            .tool_call_id("sub-1")
+            .id("ev-4")
+            .timestamp("2025-01-01T00:00:03Z")
+            .build_event(),
+        subagent_failed("task")
+            .tool_call_id("sub-1")
+            .error("timeout")
+            .id("ev-5")
+            .timestamp("2025-01-01T00:00:04Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-6")
+            .timestamp("2025-01-01T00:00:05Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
     let tc = &turns[0].tool_calls[0];
     assert!(tc.is_subagent);
-    assert_eq!(tc.success, Some(false), "failed subagent should be marked unsuccessful");
+    assert_eq!(
+        tc.success,
+        Some(false),
+        "failed subagent should be marked unsuccessful"
+    );
     assert_eq!(tc.error.as_deref(), Some("timeout"));
 }
 #[test]
@@ -483,75 +327,40 @@ fn repro_enrich_subagent_bug() {
     // However, the finalization sweep then infers completion from completed_at (set by
     // ToolExecComplete) — this is correct behavior for truncated/interrupted sessions.
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Launch".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T10:00:00.000Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "evt-2",
-            "2026-03-10T10:00:00.100Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-bug".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T10:00:01.000Z",
-            Some("evt-2"),
-        ),
+        user_msg("Launch")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T10:00:00.000Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("evt-2")
+            .timestamp("2026-03-10T10:00:00.100Z")
+            .parent("evt-1")
+            .build_event(),
+        tool_start("task")
+            .tool_call_id("tc-bug")
+            .id("evt-3")
+            .timestamp("2026-03-10T10:00:01.000Z")
+            .parent("evt-2")
+            .build_event(),
         // Tool completes before we learn it's a subagent
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-bug".to_string()),
-                parent_tool_call_id: None,
-                model: None,
-                interaction_id: Some("int-1".to_string()),
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-4",
-            "2026-03-10T10:00:01.100Z",
-            Some("evt-3"),
-        ),
+        tool_complete("tc-bug")
+            .interaction_id("int-1")
+            .success(true)
+            .id("evt-4")
+            .timestamp("2026-03-10T10:00:01.100Z")
+            .parent("evt-3")
+            .build_event(),
         // Then we learn it's a subagent (but SubagentCompleted never arrives)
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-bug".to_string()),
-                agent_name: Some("task".to_string()),
-                agent_display_name: Some("Task Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-5",
-            "2026-03-10T10:00:01.200Z",
-            Some("evt-4"),
-        ),
+        subagent_start("task")
+            .tool_call_id("tc-bug")
+            .agent_display_name("Task Agent")
+            .id("evt-5")
+            .timestamp("2026-03-10T10:00:01.200Z")
+            .parent("evt-4")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -588,9 +397,15 @@ fn subagent_completion_normal_order() {
 
     let tc = run_subagent_scenario(events);
     assert!(tc.is_subagent, "Should be marked as subagent");
-    assert!(tc.is_complete, "Subagent should be complete (SubagentCompleted arrived)");
+    assert!(
+        tc.is_complete,
+        "Subagent should be complete (SubagentCompleted arrived)"
+    );
     assert_eq!(tc.success, Some(true), "Should be successful");
-    assert!(tc.completed_at.is_some(), "Should have completed_at timestamp");
+    assert!(
+        tc.completed_at.is_some(),
+        "Should have completed_at timestamp"
+    );
     assert!(tc.duration_ms.is_some(), "Should have duration");
 }
 #[test]
@@ -609,7 +424,10 @@ fn subagent_completion_reverse_order() {
 
     let tc = run_subagent_scenario(events);
     assert!(tc.is_subagent);
-    assert!(tc.is_complete, "Subagent should be complete (SubagentCompleted arrived)");
+    assert!(
+        tc.is_complete,
+        "Subagent should be complete (SubagentCompleted arrived)"
+    );
     assert_eq!(tc.success, Some(true));
 }
 #[test]
@@ -648,9 +466,20 @@ fn subagent_failed_with_late_tool_exec_complete() {
 
     let tc = run_subagent_scenario(events);
     assert!(tc.is_subagent);
-    assert!(tc.is_complete, "Should be complete (SubagentFailed arrived)");
-    assert_eq!(tc.success, Some(false), "Failure must be preserved despite ToolExecComplete success=true");
-    assert_eq!(tc.error.as_deref(), Some("Agent crashed"), "Error message must be preserved");
+    assert!(
+        tc.is_complete,
+        "Should be complete (SubagentFailed arrived)"
+    );
+    assert_eq!(
+        tc.success,
+        Some(false),
+        "Failure must be preserved despite ToolExecComplete success=true"
+    );
+    assert_eq!(
+        tc.error.as_deref(),
+        Some("Agent crashed"),
+        "Error message must be preserved"
+    );
 }
 #[test]
 fn subagent_missing_lifecycle_events_stays_incomplete() {
@@ -685,18 +514,14 @@ fn subagent_tool_exec_before_subagent_started_then_completed() {
     // Out-of-order: ToolExecComplete before SubagentStarted, then SubagentCompleted.
     // enrich_subagent() resets is_complete; SubagentCompleted then sets it.
     let (user_msg, turn_start, tool_start, _sub_started) = base_subagent_events();
-    let sub_started_late = make_event(
-        SessionEventType::SubagentStarted,
-        TypedEventData::SubagentStarted(SubagentStartedData {
-            tool_call_id: Some("tc-sub".to_string()),
-            agent_name: Some("explore".to_string()),
-            agent_display_name: Some("Explore Agent".to_string()),
-            agent_description: Some("Explores the codebase".to_string()),
-        }),
-        "evt-5",
-        "2026-03-18T00:00:02.000Z",
-        Some("evt-3"),
-    );
+    let sub_started_late = subagent_start("explore")
+        .tool_call_id("tc-sub")
+        .agent_display_name("Explore Agent")
+        .agent_description("Explores the codebase")
+        .id("evt-5")
+        .timestamp("2026-03-18T00:00:02.000Z")
+        .parent("evt-3")
+        .build_event();
     let events = vec![
         user_msg,
         turn_start,
@@ -710,7 +535,10 @@ fn subagent_tool_exec_before_subagent_started_then_completed() {
 
     let tc = run_subagent_scenario(events);
     assert!(tc.is_subagent);
-    assert!(tc.is_complete, "SubagentCompleted should finalize even after out-of-order events");
+    assert!(
+        tc.is_complete,
+        "SubagentCompleted should finalize even after out-of-order events"
+    );
     assert_eq!(tc.success, Some(true));
 }
 #[test]
@@ -729,7 +557,10 @@ fn subagent_no_tool_exec_complete_only_lifecycle() {
 
     let tc = run_subagent_scenario(events);
     assert!(tc.is_subagent);
-    assert!(tc.is_complete, "SubagentCompleted alone should mark complete");
+    assert!(
+        tc.is_complete,
+        "SubagentCompleted alone should mark complete"
+    );
     assert_eq!(tc.success, Some(true));
 }
 #[test]
@@ -739,18 +570,14 @@ fn subagent_tool_exec_before_subagent_started_no_completion_stays_incomplete() {
     // would see the completed_at from ToolExecComplete and prematurely mark the
     // subagent as complete with a very short (incorrect) duration.
     let (user_msg, turn_start, tool_start, _sub_started) = base_subagent_events();
-    let sub_started_late = make_event(
-        SessionEventType::SubagentStarted,
-        TypedEventData::SubagentStarted(SubagentStartedData {
-            tool_call_id: Some("tc-sub".to_string()),
-            agent_name: Some("explore".to_string()),
-            agent_display_name: Some("Explore Agent".to_string()),
-            agent_description: Some("Explores the codebase".to_string()),
-        }),
-        "evt-5",
-        "2026-03-18T00:00:02.000Z",
-        Some("evt-3"),
-    );
+    let sub_started_late = subagent_start("explore")
+        .tool_call_id("tc-sub")
+        .agent_display_name("Explore Agent")
+        .agent_description("Explores the codebase")
+        .id("evt-5")
+        .timestamp("2026-03-18T00:00:02.000Z")
+        .parent("evt-3")
+        .build_event();
     let events = vec![
         user_msg,
         turn_start,
@@ -781,18 +608,14 @@ fn subagent_tool_exec_before_subagent_started_then_tool_exec_after() {
     // then the actual ToolExecComplete fires after the subagent work is done.
     // The second ToolExecComplete should set completed_at correctly.
     let (user_msg, turn_start, tool_start, _sub_started) = base_subagent_events();
-    let sub_started_late = make_event(
-        SessionEventType::SubagentStarted,
-        TypedEventData::SubagentStarted(SubagentStartedData {
-            tool_call_id: Some("tc-sub".to_string()),
-            agent_name: Some("explore".to_string()),
-            agent_display_name: Some("Explore Agent".to_string()),
-            agent_description: Some("Explores the codebase".to_string()),
-        }),
-        "evt-5",
-        "2026-03-18T00:00:02.000Z",
-        Some("evt-3"),
-    );
+    let sub_started_late = subagent_start("explore")
+        .tool_call_id("tc-sub")
+        .agent_display_name("Explore Agent")
+        .agent_description("Explores the codebase")
+        .id("evt-5")
+        .timestamp("2026-03-18T00:00:02.000Z")
+        .parent("evt-3")
+        .build_event();
     let events = vec![
         user_msg,
         turn_start,
@@ -835,8 +658,8 @@ fn subagent_started_then_tool_exec_complete_no_sub_completed_stays_incomplete() 
     let events = vec![
         user_msg,
         turn_start,
-        tool_start,                                                          // T=1.0s
-        sub_started,                                                         // T=1.05s
+        tool_start,                                                           // T=1.0s
+        sub_started,                                                          // T=1.05s
         tool_complete_event("2026-03-18T00:00:01.100Z", "evt-5", Some(true)), // T=1.1s
         // No SubagentCompleted -- subagent is still running
         turn_end_event("2026-03-18T00:00:01.200Z", "evt-6"),
@@ -867,10 +690,10 @@ fn subagent_completed_before_subagent_started_preserves_terminal_state() {
     let events = vec![
         user_msg,
         turn_start,
-        tool_start,                                                     // T=1.0s
+        tool_start, // T=1.0s
         // SubagentCompleted arrives BEFORE SubagentStarted
-        sub_completed_event("2026-03-18T00:00:05.000Z", "evt-4"),       // T=5.0s
-        sub_started,                                                     // T=1.05s
+        sub_completed_event("2026-03-18T00:00:05.000Z", "evt-4"), // T=5.0s
+        sub_started,                                              // T=1.05s
         turn_end_event("2026-03-18T00:00:05.200Z", "evt-6"),
     ];
 

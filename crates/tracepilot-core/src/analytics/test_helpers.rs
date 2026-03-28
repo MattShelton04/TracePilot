@@ -6,7 +6,7 @@
 use chrono::{TimeZone, Utc};
 use std::collections::HashMap;
 
-use crate::models::conversation::{ConversationTurn, AttributedMessage, TurnToolCall};
+use crate::models::conversation::{AttributedMessage, ConversationTurn, TurnToolCall};
 use crate::models::event_types::{CodeChanges, ModelMetricDetail, RequestMetrics, UsageMetrics};
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 
@@ -70,10 +70,7 @@ pub(super) fn make_input(
                 code_changes: Some(CodeChanges {
                     lines_added: Some(50),
                     lines_removed: Some(10),
-                    files_modified: Some(vec![
-                        "src/main.rs".to_string(),
-                        "src/lib.rs".to_string(),
-                    ]),
+                    files_modified: Some(vec!["src/main.rs".to_string(), "src/lib.rs".to_string()]),
                 }),
                 model_metrics,
                 session_segments: None,
@@ -135,9 +132,7 @@ pub(super) fn make_tool_call(
 }
 
 /// Create a `ConversationTurn` with the given tool calls.
-pub(super) fn make_turn_with_tools(
-    tool_calls: Vec<TurnToolCall>,
-) -> ConversationTurn {
+pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> ConversationTurn {
     ConversationTurn {
         turn_index: 0,
         event_index: None,

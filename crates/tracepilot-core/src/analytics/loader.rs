@@ -8,7 +8,7 @@ use std::path::Path;
 
 use tracing::{instrument, warn};
 
-use crate::session::discovery::{discover_sessions, DiscoveredSession};
+use crate::session::discovery::{DiscoveredSession, discover_sessions};
 use crate::summary::{load_session_summary, load_session_summary_with_events};
 
 use super::types::SessionAnalyticsInput;
@@ -76,9 +76,7 @@ pub fn load_full_sessions(sessions_dir: &Path) -> crate::Result<Vec<SessionAnaly
 ///
 /// Uses `load_session_summary_with_events` to parse events once, then reuses
 /// the parsed events for turn reconstruction (avoiding a double parse).
-fn load_single_full_session(
-    session: &DiscoveredSession,
-) -> crate::Result<SessionAnalyticsInput> {
+fn load_single_full_session(session: &DiscoveredSession) -> crate::Result<SessionAnalyticsInput> {
     let result = load_session_summary_with_events(&session.path)?;
     let summary = result.summary;
 

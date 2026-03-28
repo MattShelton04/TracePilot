@@ -102,7 +102,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let session_model_tokens = input_t + output_t;
                     total_tokens += session_model_tokens;
                     session_tokens += session_model_tokens;
-                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
+                    let entry = model_tokens
+                        .entry(model_name.clone())
+                        .or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.0 += input_t;
                     entry.1 += output_t;
                     entry.2 += cache_read;
@@ -120,7 +122,9 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
                     let req_count = requests.count.map(|c| c as u64).unwrap_or(0);
-                    let entry = model_tokens.entry(model_name.clone()).or_insert((0, 0, 0, 0, 0.0, 0));
+                    let entry = model_tokens
+                        .entry(model_name.clone())
+                        .or_insert((0, 0, 0, 0, 0.0, 0));
                     entry.4 += cost;
                     entry.5 += req_count;
                 }
@@ -128,14 +132,25 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
 
             if let Some(ref segments) = metrics.session_segments {
                 for seg in segments {
-                    let end_date = seg.end_timestamp.split('T').next().unwrap_or(&seg.end_timestamp).to_string();
-                    let start_date = seg.start_timestamp.split('T').next().unwrap_or(&seg.start_timestamp).to_string();
+                    let end_date = seg
+                        .end_timestamp
+                        .split('T')
+                        .next()
+                        .unwrap_or(&seg.end_timestamp)
+                        .to_string();
+                    let start_date = seg
+                        .start_timestamp
+                        .split('T')
+                        .next()
+                        .unwrap_or(&seg.start_timestamp)
+                        .to_string();
                     let mut seg_tokens: u64 = 0;
                     let mut seg_cost: f64 = 0.0;
                     if let Some(ref mm) = seg.model_metrics {
                         for detail in mm.values() {
                             if let Some(ref usage) = detail.usage {
-                                seg_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                                seg_tokens += usage.input_tokens.unwrap_or(0)
+                                    + usage.output_tokens.unwrap_or(0);
                             }
                             if let Some(ref req) = detail.requests {
                                 seg_cost += req.cost.unwrap_or(0.0);
@@ -154,7 +169,8 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 let mut fallback_cost = 0.0;
                 for detail in metrics.model_metrics.values() {
                     if let Some(ref usage) = detail.usage {
-                        fallback_tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
+                        fallback_tokens +=
+                            usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
                     }
                     if let Some(ref req) = detail.requests {
                         fallback_cost += req.cost.unwrap_or(0.0);
@@ -208,27 +224,32 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
         .collect();
 
     // Model distribution with percentages (inputTokens already includes cacheReadTokens)
-    let total_model_tokens: u64 = model_tokens.values().map(|(i, o, _cr, _cw, _, _rc)| i + o).sum();
+    let total_model_tokens: u64 = model_tokens
+        .values()
+        .map(|(i, o, _cr, _cw, _, _rc)| i + o)
+        .sum();
     let mut model_distribution: Vec<ModelDistEntry> = model_tokens
         .into_iter()
-        .map(|(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count))| {
-            let tokens = input_t + output_t;
-            let percentage = if total_model_tokens > 0 {
-                (tokens as f64 / total_model_tokens as f64) * 100.0
-            } else {
-                0.0
-            };
-            ModelDistEntry {
-                model,
-                tokens,
-                percentage,
-                input_tokens: input_t,
-                output_tokens: output_t,
-                cache_read_tokens: cache_read,
-                premium_requests: premium_req,
-                request_count,
-            }
-        })
+        .map(
+            |(model, (input_t, output_t, cache_read, _cache_write, premium_req, request_count))| {
+                let tokens = input_t + output_t;
+                let percentage = if total_model_tokens > 0 {
+                    (tokens as f64 / total_model_tokens as f64) * 100.0
+                } else {
+                    0.0
+                };
+                ModelDistEntry {
+                    model,
+                    tokens,
+                    percentage,
+                    input_tokens: input_t,
+                    output_tokens: output_t,
+                    cache_read_tokens: cache_read,
+                    premium_requests: premium_req,
+                    request_count,
+                }
+            },
+        )
         .collect();
     model_distribution.sort_by(|a, b| b.tokens.cmp(&a.tokens));
 
@@ -350,8 +371,8 @@ fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_helpers::*;
+    use super::*;
 
     // ── compute_analytics tests ──────────────────────────────────────
 
@@ -369,7 +390,14 @@ mod tests {
 
     #[test]
     fn test_analytics_single_session() {
-        let sessions = vec![make_input("s1", "2026-01-15", "claude-opus-4.6", 10000, 1.50, 8)];
+        let sessions = vec![make_input(
+            "s1",
+            "2026-01-15",
+            "claude-opus-4.6",
+            10000,
+            1.50,
+            8,
+        )];
         let result = compute_analytics(&sessions);
 
         assert_eq!(result.total_sessions, 1);
@@ -397,7 +425,11 @@ mod tests {
         assert_eq!(result.activity_per_day.len(), 2);
 
         // Jan 15: 2 activities (one per session, via fallback path)
-        let jan15 = result.activity_per_day.iter().find(|d| d.date == "2026-01-15").unwrap();
+        let jan15 = result
+            .activity_per_day
+            .iter()
+            .find(|d| d.date == "2026-01-15")
+            .unwrap();
         assert_eq!(jan15.count, 2);
     }
 

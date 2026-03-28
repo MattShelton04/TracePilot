@@ -13,100 +13,57 @@ use super::*;
 #[test]
 fn infers_subagent_model_from_child_tool_calls() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Run agent".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-03-10T07:14:51.000Z",
-            None,
-        ),
+        user_msg("Run agent")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-03-10T07:14:51.000Z")
+            .build_event(),
         // Subagent with children that have a model
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-2",
-            "2026-03-10T07:14:52.000Z",
-            Some("evt-1"),
-        ),
+        subagent_start("explore")
+            .tool_call_id("sub-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-2")
+            .timestamp("2026-03-10T07:14:52.000Z")
+            .parent("evt-1")
+            .build_event(),
         // Child tool call under sub-1 with a known model
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-child-1".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("sub-1".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-3",
-            "2026-03-10T07:14:52.500Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-child-1".to_string()),
-                parent_tool_call_id: Some("sub-1".to_string()),
-                model: Some("claude-haiku-4.5".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-4",
-            "2026-03-10T07:14:53.000Z",
-            Some("evt-3"),
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "evt-5",
-            "2026-03-10T07:14:54.000Z",
-            Some("evt-2"),
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-child-1")
+            .parent_tool_call_id("sub-1")
+            .id("evt-3")
+            .timestamp("2026-03-10T07:14:52.500Z")
+            .parent("evt-2")
+            .build_event(),
+        tool_complete("tc-child-1")
+            .parent_tool_call_id("sub-1")
+            .model("claude-haiku-4.5")
+            .success(true)
+            .id("evt-4")
+            .timestamp("2026-03-10T07:14:53.000Z")
+            .parent("evt-3")
+            .build_event(),
+        subagent_complete("explore")
+            .tool_call_id("sub-1")
+            .agent_display_name("Explore Agent")
+            .id("evt-5")
+            .timestamp("2026-03-10T07:14:54.000Z")
+            .parent("evt-2")
+            .build_event(),
         // Subagent without any children (model stays None)
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("sub-2".to_string()),
-                agent_name: Some("task".to_string()),
-                agent_display_name: Some("Task Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-6",
-            "2026-03-10T07:14:55.000Z",
-            Some("evt-1"),
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("sub-2".to_string()),
-                agent_name: Some("task".to_string()),
-                agent_display_name: Some("Task Agent".to_string()),
-            }),
-            "evt-7",
-            "2026-03-10T07:14:56.000Z",
-            Some("evt-6"),
-        ),
+        subagent_start("task")
+            .tool_call_id("sub-2")
+            .agent_display_name("Task Agent")
+            .id("evt-6")
+            .timestamp("2026-03-10T07:14:55.000Z")
+            .parent("evt-1")
+            .build_event(),
+        subagent_complete("task")
+            .tool_call_id("sub-2")
+            .agent_display_name("Task Agent")
+            .id("evt-7")
+            .timestamp("2026-03-10T07:14:56.000Z")
+            .parent("evt-6")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -133,118 +90,69 @@ fn infers_subagent_model_from_child_tool_calls() {
 #[test]
 fn subagent_model_overrides_wrong_parent_model() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Review code".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-04-01T10:00:00.000Z",
-            None,
-        ),
+        user_msg("Review code")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-04-01T10:00:00.000Z")
+            .build_event(),
         // 1. ToolExecStart for the subagent tool call (arguments contain the real model)
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("sub-1".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({
-                    "agent_type": "code-review",
-                    "model": "gemini-3-pro-preview",
-                    "prompt": "Review the diff"
-                })),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-2",
-            "2026-04-01T10:00:01.000Z",
-            Some("evt-1"),
-        ),
+        tool_start("task")
+            .tool_call_id("sub-1")
+            .arguments(json!({
+                "agent_type": "code-review",
+                "model": "gemini-3-pro-preview",
+                "prompt": "Review the diff"
+            }))
+            .id("evt-2")
+            .timestamp("2026-04-01T10:00:01.000Z")
+            .parent("evt-1")
+            .build_event(),
         // 2. ToolExecComplete for the subagent — model is WRONG (parent's model)
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("sub-1".to_string()),
-                parent_tool_call_id: None,
-                model: Some("claude-opus-4.6".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: Some(json!({
-                    "properties": {
-                        "model": "gemini-3-pro-preview"
-                    }
-                })),
-                is_user_requested: None,
-            }),
-            "evt-3",
-            "2026-04-01T10:00:02.000Z",
-            Some("evt-2"),
-        ),
+        tool_complete("sub-1")
+            .model("claude-opus-4.6")
+            .interaction_id("int-1")
+            .success(true)
+            .tool_telemetry(json!({
+                "properties": {
+                    "model": "gemini-3-pro-preview"
+                }
+            }))
+            .id("evt-3")
+            .timestamp("2026-04-01T10:00:02.000Z")
+            .parent("evt-2")
+            .build_event(),
         // 3. SubagentStarted enriches the tool call
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("code-review".to_string()),
-                agent_display_name: Some("Code Review Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-4",
-            "2026-04-01T10:00:03.000Z",
-            Some("evt-2"),
-        ),
+        subagent_start("code-review")
+            .tool_call_id("sub-1")
+            .agent_display_name("Code Review Agent")
+            .id("evt-4")
+            .timestamp("2026-04-01T10:00:03.000Z")
+            .parent("evt-2")
+            .build_event(),
         // 4. Child ToolExecStart under the subagent
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-child-1".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("sub-1".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-5",
-            "2026-04-01T10:00:04.000Z",
-            Some("evt-4"),
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-child-1")
+            .parent_tool_call_id("sub-1")
+            .id("evt-5")
+            .timestamp("2026-04-01T10:00:04.000Z")
+            .parent("evt-4")
+            .build_event(),
         // 5. Child ToolExecComplete with the CORRECT subagent model
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-child-1".to_string()),
-                parent_tool_call_id: Some("sub-1".to_string()),
-                model: Some("gemini-3-pro-preview".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-6",
-            "2026-04-01T10:00:05.000Z",
-            Some("evt-5"),
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("sub-1".to_string()),
-                agent_name: Some("code-review".to_string()),
-                agent_display_name: Some("Code Review Agent".to_string()),
-            }),
-            "evt-7",
-            "2026-04-01T10:00:06.000Z",
-            Some("evt-4"),
-        ),
+        tool_complete("tc-child-1")
+            .parent_tool_call_id("sub-1")
+            .model("gemini-3-pro-preview")
+            .success(true)
+            .id("evt-6")
+            .timestamp("2026-04-01T10:00:05.000Z")
+            .parent("evt-5")
+            .build_event(),
+        subagent_complete("code-review")
+            .tool_call_id("sub-1")
+            .agent_display_name("Code Review Agent")
+            .id("evt-7")
+            .timestamp("2026-04-01T10:00:06.000Z")
+            .parent("evt-4")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -266,165 +174,91 @@ fn subagent_model_overrides_wrong_parent_model() {
 #[test]
 fn nested_subagent_model_propagation() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Deep task".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "evt-1",
-            "2026-05-01T12:00:00.000Z",
-            None,
-        ),
+        user_msg("Deep task")
+            .interaction_id("int-1")
+            .id("evt-1")
+            .timestamp("2026-05-01T12:00:00.000Z")
+            .build_event(),
         // Outer subagent: ToolExecStart
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("outer-sub".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({"agent_type": "general-purpose"})),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-2",
-            "2026-05-01T12:00:01.000Z",
-            Some("evt-1"),
-        ),
+        tool_start("task")
+            .tool_call_id("outer-sub")
+            .arguments(json!({"agent_type": "general-purpose"}))
+            .id("evt-2")
+            .timestamp("2026-05-01T12:00:01.000Z")
+            .parent("evt-1")
+            .build_event(),
         // Outer subagent: ToolExecComplete with wrong parent model
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("outer-sub".to_string()),
-                parent_tool_call_id: None,
-                model: Some("claude-opus-4.6".to_string()),
-                interaction_id: Some("int-1".to_string()),
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-3",
-            "2026-05-01T12:00:02.000Z",
-            Some("evt-2"),
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("outer-sub".to_string()),
-                agent_name: Some("general-purpose".to_string()),
-                agent_display_name: Some("General Purpose Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-4",
-            "2026-05-01T12:00:03.000Z",
-            Some("evt-2"),
-        ),
+        tool_complete("outer-sub")
+            .model("claude-opus-4.6")
+            .interaction_id("int-1")
+            .success(true)
+            .id("evt-3")
+            .timestamp("2026-05-01T12:00:02.000Z")
+            .parent("evt-2")
+            .build_event(),
+        subagent_start("general-purpose")
+            .tool_call_id("outer-sub")
+            .agent_display_name("General Purpose Agent")
+            .id("evt-4")
+            .timestamp("2026-05-01T12:00:03.000Z")
+            .parent("evt-2")
+            .build_event(),
         // Inner subagent (child of outer): ToolExecStart
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("inner-sub".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({"agent_type": "explore"})),
-                parent_tool_call_id: Some("outer-sub".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-5",
-            "2026-05-01T12:00:04.000Z",
-            Some("evt-4"),
-        ),
+        tool_start("task")
+            .tool_call_id("inner-sub")
+            .arguments(json!({"agent_type": "explore"}))
+            .parent_tool_call_id("outer-sub")
+            .id("evt-5")
+            .timestamp("2026-05-01T12:00:04.000Z")
+            .parent("evt-4")
+            .build_event(),
         // Inner subagent: ToolExecComplete with outer's model (wrong for inner)
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("inner-sub".to_string()),
-                parent_tool_call_id: Some("outer-sub".to_string()),
-                model: Some("claude-sonnet-4.5".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-6",
-            "2026-05-01T12:00:05.000Z",
-            Some("evt-5"),
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("inner-sub".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "evt-7",
-            "2026-05-01T12:00:06.000Z",
-            Some("evt-5"),
-        ),
+        tool_complete("inner-sub")
+            .parent_tool_call_id("outer-sub")
+            .model("claude-sonnet-4.5")
+            .success(true)
+            .id("evt-6")
+            .timestamp("2026-05-01T12:00:05.000Z")
+            .parent("evt-5")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("inner-sub")
+            .agent_display_name("Explore Agent")
+            .id("evt-7")
+            .timestamp("2026-05-01T12:00:06.000Z")
+            .parent("evt-5")
+            .build_event(),
         // Leaf tool call under inner subagent
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("leaf-tc".to_string()),
-                tool_name: Some("view".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("inner-sub".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "evt-8",
-            "2026-05-01T12:00:07.000Z",
-            Some("evt-7"),
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("leaf-tc".to_string()),
-                parent_tool_call_id: Some("inner-sub".to_string()),
-                model: Some("claude-haiku-4.5".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "evt-9",
-            "2026-05-01T12:00:08.000Z",
-            Some("evt-8"),
-        ),
+        tool_start("view")
+            .tool_call_id("leaf-tc")
+            .parent_tool_call_id("inner-sub")
+            .id("evt-8")
+            .timestamp("2026-05-01T12:00:07.000Z")
+            .parent("evt-7")
+            .build_event(),
+        tool_complete("leaf-tc")
+            .parent_tool_call_id("inner-sub")
+            .model("claude-haiku-4.5")
+            .success(true)
+            .id("evt-9")
+            .timestamp("2026-05-01T12:00:08.000Z")
+            .parent("evt-8")
+            .build_event(),
         // Complete inner, then outer
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("inner-sub".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "evt-10",
-            "2026-05-01T12:00:09.000Z",
-            Some("evt-7"),
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("outer-sub".to_string()),
-                agent_name: Some("general-purpose".to_string()),
-                agent_display_name: Some("General Purpose Agent".to_string()),
-            }),
-            "evt-11",
-            "2026-05-01T12:00:10.000Z",
-            Some("evt-4"),
-        ),
+        subagent_complete("explore")
+            .tool_call_id("inner-sub")
+            .agent_display_name("Explore Agent")
+            .id("evt-10")
+            .timestamp("2026-05-01T12:00:09.000Z")
+            .parent("evt-7")
+            .build_event(),
+        subagent_complete("general-purpose")
+            .tool_call_id("outer-sub")
+            .agent_display_name("General Purpose Agent")
+            .id("evt-11")
+            .timestamp("2026-05-01T12:00:10.000Z")
+            .parent("evt-4")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -459,51 +293,27 @@ fn nested_subagent_model_propagation() {
 #[test]
 fn session_model_change_sets_turn_model() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-2",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionModelChange,
-            TypedEventData::ModelChange(ModelChangeData {
-                previous_model: None,
-                new_model: Some("claude-sonnet-4".to_string()),
-                previous_reasoning_effort: None,
-                reasoning_effort: None,
-            }),
-            "ev-3",
-            "2025-01-01T00:00:02Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-4",
-            "2025-01-01T00:00:03Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
+        model_change()
+            .new_model("claude-sonnet-4")
+            .id("ev-3")
+            .timestamp("2025-01-01T00:00:02Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-4")
+            .timestamp("2025-01-01T00:00:03Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -533,20 +343,11 @@ fn session_start_seeds_model() {
             "2025-01-01T00:00:00Z",
             None,
         ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -573,20 +374,11 @@ fn session_resume_seeds_model() {
             "2025-01-01T00:00:00Z",
             None,
         ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello again".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-2".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-2",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
+        user_msg("Hello again")
+            .interaction_id("int-2")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -618,16 +410,12 @@ fn ensure_current_turn_inherits_session_model() {
             "2025-01-01T00:00:00Z",
             None,
         ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-1",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -640,82 +428,39 @@ fn ensure_current_turn_inherits_session_model() {
 #[test]
 fn session_model_change_does_not_overwrite_existing_model() {
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-2",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-1".to_string()),
-                tool_name: Some("read_file".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-2b",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-1".to_string()),
-                parent_tool_call_id: None,
-                model: Some("gpt-4o".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-3",
-            "2025-01-01T00:00:02Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SessionModelChange,
-            TypedEventData::ModelChange(ModelChangeData {
-                previous_model: Some("gpt-4o".to_string()),
-                new_model: Some("claude-sonnet-4".to_string()),
-                previous_reasoning_effort: None,
-                reasoning_effort: None,
-            }),
-            "ev-4",
-            "2025-01-01T00:00:03Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-5",
-            "2025-01-01T00:00:04Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
+        tool_start("read_file")
+            .tool_call_id("tc-1")
+            .id("ev-2b")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
+        tool_complete("tc-1")
+            .model("gpt-4o")
+            .success(true)
+            .id("ev-3")
+            .timestamp("2025-01-01T00:00:02Z")
+            .build_event(),
+        model_change()
+            .previous_model("gpt-4o")
+            .new_model("claude-sonnet-4")
+            .id("ev-4")
+            .timestamp("2025-01-01T00:00:03Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-5")
+            .timestamp("2025-01-01T00:00:04Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -729,51 +474,27 @@ fn session_model_change_does_not_overwrite_existing_model() {
 fn session_model_change_persists_across_turns() {
     // Model change between turns should be inherited by the next turn
     let events = vec![
-        make_event(
-            SessionEventType::SessionModelChange,
-            TypedEventData::ModelChange(ModelChangeData {
-                previous_model: None,
-                new_model: Some("claude-sonnet-4".to_string()),
-                previous_reasoning_effort: None,
-                reasoning_effort: None,
-            }),
-            "ev-0",
-            "2025-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2025-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnStart,
-            TypedEventData::TurnStart(TurnStartData {
-                turn_id: Some("turn-1".to_string()),
-                interaction_id: Some("int-1".to_string()),
-            }),
-            "ev-2",
-            "2025-01-01T00:00:02Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-3",
-            "2025-01-01T00:00:03Z",
-            None,
-        ),
+        model_change()
+            .new_model("claude-sonnet-4")
+            .id("ev-0")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:01Z")
+            .build_event(),
+        turn_start()
+            .turn_id("turn-1")
+            .interaction_id("int-1")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:02Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-3")
+            .timestamp("2025-01-01T00:00:03Z")
+            .build_event(),
     ];
     let turns = reconstruct_turns(&events);
     assert_eq!(turns.len(), 1);
@@ -789,118 +510,61 @@ fn subagent_child_tool_does_not_set_turn_model() {
     // child tool calls. The child tool's ToolExecutionComplete carries the
     // subagent's model. turn.model should NOT be set to the subagent's model.
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2026-01-01T00:00:00Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2026-01-01T00:00:00Z")
+            .build_event(),
         // Main agent tool call that spawns the subagent
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: Some(json!({ "prompt": "explore code", "model": "gemini-3-pro-preview" })),
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-2",
-            "2026-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "ev-3",
-            "2026-01-01T00:00:02Z",
-            None,
-        ),
+        tool_start("task")
+            .tool_call_id("tc-subagent")
+            .arguments(
+                json!({ "prompt": "explore code", "model": "gemini-3-pro-preview" }),
+            )
+            .id("ev-2")
+            .timestamp("2026-01-01T00:00:01Z")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("tc-subagent")
+            .agent_display_name("Explore Agent")
+            .id("ev-3")
+            .timestamp("2026-01-01T00:00:02Z")
+            .build_event(),
         // Subagent's child tool call (grep under the subagent)
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-grep-1".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: Some(json!({ "pattern": "foo" })),
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-4",
-            "2026-01-01T00:00:03Z",
-            None,
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-grep-1")
+            .arguments(json!({ "pattern": "foo" }))
+            .parent_tool_call_id("tc-subagent")
+            .id("ev-4")
+            .timestamp("2026-01-01T00:00:03Z")
+            .build_event(),
         // Child tool completes WITH a model (the subagent's model)
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-grep-1".to_string()),
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                model: Some("gemini-3-pro-preview".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: Some(json!("match found")),
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-5",
-            "2026-01-01T00:00:04Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "ev-6",
-            "2026-01-01T00:00:05Z",
-            None,
-        ),
+        tool_complete("tc-grep-1")
+            .parent_tool_call_id("tc-subagent")
+            .model("gemini-3-pro-preview")
+            .success(true)
+            .result(json!("match found"))
+            .id("ev-5")
+            .timestamp("2026-01-01T00:00:04Z")
+            .build_event(),
+        subagent_complete("explore")
+            .tool_call_id("tc-subagent")
+            .agent_display_name("Explore Agent")
+            .id("ev-6")
+            .timestamp("2026-01-01T00:00:05Z")
+            .build_event(),
         // Main agent tool call completes (sets real model)
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                parent_tool_call_id: None,
-                model: Some("claude-sonnet-4".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-7",
-            "2026-01-01T00:00:06Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-8",
-            "2026-01-01T00:00:07Z",
-            None,
-        ),
+        tool_complete("tc-subagent")
+            .model("claude-sonnet-4")
+            .success(true)
+            .id("ev-7")
+            .timestamp("2026-01-01T00:00:06Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-8")
+            .timestamp("2026-01-01T00:00:07Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -918,101 +582,50 @@ fn correct_turn_models_fixes_polluted_model_from_subagent_child() {
     // so the inline guard couldn't catch it. The post-processing step should
     // still correct the turn model.
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2026-01-01T00:00:00Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2026-01-01T00:00:00Z")
+            .build_event(),
         // ToolExecStart for the subagent wrapper (before SubagentStarted)
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-2",
-            "2026-01-01T00:00:01Z",
-            None,
-        ),
+        tool_start("task")
+            .tool_call_id("tc-subagent")
+            .id("ev-2")
+            .timestamp("2026-01-01T00:00:01Z")
+            .build_event(),
         // Subagent's child tool starts
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-child".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-3",
-            "2026-01-01T00:00:02Z",
-            None,
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-child")
+            .parent_tool_call_id("tc-subagent")
+            .id("ev-3")
+            .timestamp("2026-01-01T00:00:02Z")
+            .build_event(),
         // Child tool completes — at this point, parent isn't yet marked as subagent!
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-child".to_string()),
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                model: Some("gemini-3-pro-preview".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-4",
-            "2026-01-01T00:00:03Z",
-            None,
-        ),
+        tool_complete("tc-child")
+            .parent_tool_call_id("tc-subagent")
+            .model("gemini-3-pro-preview")
+            .success(true)
+            .id("ev-4")
+            .timestamp("2026-01-01T00:00:03Z")
+            .build_event(),
         // NOW SubagentStarted arrives — marks tc-subagent as subagent
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "ev-5",
-            "2026-01-01T00:00:04Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "ev-6",
-            "2026-01-01T00:00:05Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-7",
-            "2026-01-01T00:00:06Z",
-            None,
-        ),
+        subagent_start("explore")
+            .tool_call_id("tc-subagent")
+            .agent_display_name("Explore Agent")
+            .id("ev-5")
+            .timestamp("2026-01-01T00:00:04Z")
+            .build_event(),
+        subagent_complete("explore")
+            .tool_call_id("tc-subagent")
+            .agent_display_name("Explore Agent")
+            .id("ev-6")
+            .timestamp("2026-01-01T00:00:05Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-7")
+            .timestamp("2026-01-01T00:00:06Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -1030,131 +643,60 @@ fn correct_turn_models_preserves_main_agent_model() {
     // Scenario: main agent (claude) does its own tool calls AND has subagents.
     // turn.model should be the main agent's model, not a subagent's.
     let events = vec![
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Hello".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2026-01-01T00:00:00Z",
-            None,
-        ),
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2026-01-01T00:00:00Z")
+            .build_event(),
         // Main agent's own tool call
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-main".to_string()),
-                tool_name: Some("read_file".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-2",
-            "2026-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-main".to_string()),
-                parent_tool_call_id: None,
-                model: Some("claude-sonnet-4".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-3",
-            "2026-01-01T00:00:02Z",
-            None,
-        ),
+        tool_start("read_file")
+            .tool_call_id("tc-main")
+            .id("ev-2")
+            .timestamp("2026-01-01T00:00:01Z")
+            .build_event(),
+        tool_complete("tc-main")
+            .model("claude-sonnet-4")
+            .success(true)
+            .id("ev-3")
+            .timestamp("2026-01-01T00:00:02Z")
+            .build_event(),
         // Subagent tool call
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-sub".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-4",
-            "2026-01-01T00:00:03Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-sub".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "ev-5",
-            "2026-01-01T00:00:04Z",
-            None,
-        ),
+        tool_start("task")
+            .tool_call_id("tc-sub")
+            .id("ev-4")
+            .timestamp("2026-01-01T00:00:03Z")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("tc-sub")
+            .agent_display_name("Explore Agent")
+            .id("ev-5")
+            .timestamp("2026-01-01T00:00:04Z")
+            .build_event(),
         // Subagent child tool
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-sub-child".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("tc-sub".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-6",
-            "2026-01-01T00:00:05Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-sub-child".to_string()),
-                parent_tool_call_id: Some("tc-sub".to_string()),
-                model: Some("gemini-3-pro-preview".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-7",
-            "2026-01-01T00:00:06Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentCompleted,
-            TypedEventData::SubagentCompleted(SubagentCompletedData {
-                tool_call_id: Some("tc-sub".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-            }),
-            "ev-8",
-            "2026-01-01T00:00:07Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-9",
-            "2026-01-01T00:00:08Z",
-            None,
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-sub-child")
+            .parent_tool_call_id("tc-sub")
+            .id("ev-6")
+            .timestamp("2026-01-01T00:00:05Z")
+            .build_event(),
+        tool_complete("tc-sub-child")
+            .parent_tool_call_id("tc-sub")
+            .model("gemini-3-pro-preview")
+            .success(true)
+            .id("ev-7")
+            .timestamp("2026-01-01T00:00:06Z")
+            .build_event(),
+        subagent_complete("explore")
+            .tool_call_id("tc-sub")
+            .agent_display_name("Explore Agent")
+            .id("ev-8")
+            .timestamp("2026-01-01T00:00:07Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-9")
+            .timestamp("2026-01-01T00:00:08Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
@@ -1171,123 +713,57 @@ fn cross_turn_subagent_child_does_not_pollute_next_turn_model() {
     // child tool calls land in Turn 2. Turn 2's model should not be the subagent's.
     let events = vec![
         // --- Turn 1: main agent spawns subagent ---
-        make_event(
-            SessionEventType::SessionModelChange,
-            TypedEventData::ModelChange(ModelChangeData {
-                previous_model: None,
-                new_model: Some("claude-sonnet-4".to_string()),
-                previous_reasoning_effort: None,
-                reasoning_effort: None,
-            }),
-            "ev-0",
-            "2026-01-01T00:00:00Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Turn 1".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-1".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-1",
-            "2026-01-01T00:00:01Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                tool_name: Some("task".to_string()),
-                arguments: None,
-                parent_tool_call_id: None,
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-2",
-            "2026-01-01T00:00:02Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::SubagentStarted,
-            TypedEventData::SubagentStarted(SubagentStartedData {
-                tool_call_id: Some("tc-subagent".to_string()),
-                agent_name: Some("explore".to_string()),
-                agent_display_name: Some("Explore Agent".to_string()),
-                agent_description: None,
-            }),
-            "ev-3",
-            "2026-01-01T00:00:03Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-1".to_string()),
-            }),
-            "ev-4",
-            "2026-01-01T00:00:04Z",
-            None,
-        ),
+        model_change()
+            .new_model("claude-sonnet-4")
+            .id("ev-0")
+            .timestamp("2026-01-01T00:00:00Z")
+            .build_event(),
+        user_msg("Turn 1")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2026-01-01T00:00:01Z")
+            .build_event(),
+        tool_start("task")
+            .tool_call_id("tc-subagent")
+            .id("ev-2")
+            .timestamp("2026-01-01T00:00:02Z")
+            .build_event(),
+        subagent_start("explore")
+            .tool_call_id("tc-subagent")
+            .agent_display_name("Explore Agent")
+            .id("ev-3")
+            .timestamp("2026-01-01T00:00:03Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-1")
+            .id("ev-4")
+            .timestamp("2026-01-01T00:00:04Z")
+            .build_event(),
         // --- Turn 2: new user message, but subagent child events arrive here ---
-        make_event(
-            SessionEventType::UserMessage,
-            TypedEventData::UserMessage(UserMessageData {
-                content: Some("Turn 2".to_string()),
-                transformed_content: None,
-                attachments: None,
-                interaction_id: Some("int-2".to_string()),
-                source: None,
-                agent_mode: None,
-            }),
-            "ev-5",
-            "2026-01-01T00:00:05Z",
-            None,
-        ),
+        user_msg("Turn 2")
+            .interaction_id("int-2")
+            .id("ev-5")
+            .timestamp("2026-01-01T00:00:05Z")
+            .build_event(),
         // Subagent's child tool call lands in Turn 2
-        make_event(
-            SessionEventType::ToolExecutionStart,
-            TypedEventData::ToolExecutionStart(ToolExecStartData {
-                tool_call_id: Some("tc-child".to_string()),
-                tool_name: Some("grep".to_string()),
-                arguments: None,
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                mcp_server_name: None,
-                mcp_tool_name: None,
-            }),
-            "ev-6",
-            "2026-01-01T00:00:06Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::ToolExecutionComplete,
-            TypedEventData::ToolExecutionComplete(ToolExecCompleteData {
-                tool_call_id: Some("tc-child".to_string()),
-                parent_tool_call_id: Some("tc-subagent".to_string()),
-                model: Some("gemini-3-pro-preview".to_string()),
-                interaction_id: None,
-                success: Some(true),
-                result: None,
-                error: None,
-                tool_telemetry: None,
-                is_user_requested: None,
-            }),
-            "ev-7",
-            "2026-01-01T00:00:07Z",
-            None,
-        ),
-        make_event(
-            SessionEventType::AssistantTurnEnd,
-            TypedEventData::TurnEnd(TurnEndData {
-                turn_id: Some("turn-2".to_string()),
-            }),
-            "ev-8",
-            "2026-01-01T00:00:08Z",
-            None,
-        ),
+        tool_start("grep")
+            .tool_call_id("tc-child")
+            .parent_tool_call_id("tc-subagent")
+            .id("ev-6")
+            .timestamp("2026-01-01T00:00:06Z")
+            .build_event(),
+        tool_complete("tc-child")
+            .parent_tool_call_id("tc-subagent")
+            .model("gemini-3-pro-preview")
+            .success(true)
+            .id("ev-7")
+            .timestamp("2026-01-01T00:00:07Z")
+            .build_event(),
+        turn_end()
+            .turn_id("turn-2")
+            .id("ev-8")
+            .timestamp("2026-01-01T00:00:08Z")
+            .build_event(),
     ];
 
     let turns = reconstruct_turns(&events);
