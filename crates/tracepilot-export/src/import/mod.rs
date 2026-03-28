@@ -31,6 +31,7 @@ pub mod parser;
 pub mod validator;
 pub mod writer;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -168,6 +169,23 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
 
     let can_import = !issues.iter().any(|i| i.is_error());
 
+    // Collect session IDs that have validation errors (path traversal, etc.)
+    // to avoid probing the filesystem with potentially malicious IDs.
+    let error_ids: HashSet<&str> = issues
+        .iter()
+        .filter(|i| i.is_error())
+        .filter_map(|i| {
+            // Extract session ID from error messages that reference specific sessions
+            archive.sessions.iter().find_map(|s| {
+                if i.message.contains(&s.metadata.id) {
+                    Some(s.metadata.id.as_str())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
     let sessions: Vec<ImportSessionSummary> = archive
         .sessions
         .iter()
@@ -178,8 +196,11 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
                 .iter()
                 .map(|sec| sec.display_name().to_string())
                 .collect();
+            // Only probe filesystem for sessions that passed validation
             if let Some(target) = target_dir {
-                summary.already_exists = writer::session_exists(&s.metadata.id, target);
+                if !error_ids.contains(s.metadata.id.as_str()) {
+                    summary.already_exists = writer::session_exists(&s.metadata.id, target);
+                }
             }
             summary
         })

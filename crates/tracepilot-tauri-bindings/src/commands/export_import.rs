@@ -42,7 +42,7 @@ pub async fn export_sessions(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
     let export_format = parse_format(&format)?;
-    let section_set = parse_sections(&sections);
+    let section_set = parse_sections(&sections)?;
 
     tokio::task::spawn_blocking(move || {
         let options = ExportOptions {
@@ -134,7 +134,7 @@ pub async fn preview_export(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
     let export_format = parse_format(&format)?;
-    let section_set = parse_sections(&sections);
+    let section_set = parse_sections(&sections)?;
 
     tokio::task::spawn_blocking(move || {
         let options = ExportOptions {
@@ -340,28 +340,33 @@ fn parse_format(format: &str) -> CmdResult<ExportFormat> {
     }
 }
 
-fn parse_sections(sections: &[String]) -> HashSet<SectionId> {
+fn parse_sections(sections: &[String]) -> CmdResult<HashSet<SectionId>> {
     if sections.is_empty() {
-        return SectionId::ALL.iter().copied().collect();
+        return Ok(SectionId::ALL.iter().copied().collect());
     }
-    sections
-        .iter()
-        .filter_map(|s| match s.to_lowercase().as_str() {
-            "conversation" => Some(SectionId::Conversation),
-            "events" => Some(SectionId::Events),
-            "todos" => Some(SectionId::Todos),
-            "plan" => Some(SectionId::Plan),
-            "checkpoints" => Some(SectionId::Checkpoints),
-            "metrics" | "shutdownmetrics" => Some(SectionId::Metrics),
-            "health" => Some(SectionId::Health),
-            "incidents" => Some(SectionId::Incidents),
-            "rewindsnapshots" | "rewind_snapshots" => Some(SectionId::RewindSnapshots),
-            "customtables" | "custom_tables" => Some(SectionId::CustomTables),
-            "parsediagnostics" | "parse_diagnostics" => Some(SectionId::ParseDiagnostics),
-            _ => {
-                tracing::warn!("Unknown section ID: {}", s);
-                None
+    let mut result = HashSet::new();
+    for s in sections {
+        let section = match s.to_lowercase().as_str() {
+            "conversation" => SectionId::Conversation,
+            "events" => SectionId::Events,
+            "todos" => SectionId::Todos,
+            "plan" => SectionId::Plan,
+            "checkpoints" => SectionId::Checkpoints,
+            "metrics" | "shutdownmetrics" => SectionId::Metrics,
+            "health" => SectionId::Health,
+            "incidents" => SectionId::Incidents,
+            "rewindsnapshots" | "rewind_snapshots" | "snapshots" => SectionId::RewindSnapshots,
+            "customtables" | "custom_tables" | "tables" => SectionId::CustomTables,
+            "parsediagnostics" | "parse_diagnostics" | "diagnostics" => SectionId::ParseDiagnostics,
+            unknown => {
+                return Err(BindingsError::Validation(format!(
+                    "Unknown section '{}'. Valid sections: conversation, events, todos, plan, \
+                     checkpoints, metrics, health, incidents, snapshots, tables, diagnostics",
+                    unknown
+                )));
             }
-        })
-        .collect()
+        };
+        result.insert(section);
+    }
+    Ok(result)
 }

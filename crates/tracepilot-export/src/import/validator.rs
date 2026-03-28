@@ -4,6 +4,8 @@
 //! we attempt to write it to disk. Validation is intentionally strict:
 //! we reject anything suspicious rather than silently accepting it.
 
+use std::collections::HashSet;
+
 use crate::document::{PortableSession, SessionArchive};
 use crate::error::{ExportError, Result};
 
@@ -36,9 +38,16 @@ pub fn validate_archive(archive: &SessionArchive) -> Result<()> {
     }
 
     // Per-session checks
+    let mut seen_ids = HashSet::new();
     for (i, session) in archive.sessions.iter().enumerate() {
         validate_session(session)
             .map_err(|e| validation_err(&format!("session {}: {}", i, e)))?;
+        if !seen_ids.insert(&session.metadata.id) {
+            return Err(validation_err(&format!(
+                "duplicate session ID: {:?}",
+                session.metadata.id
+            )));
+        }
     }
 
     Ok(())
@@ -62,7 +71,14 @@ pub fn collect_issues(archive: &SessionArchive) -> Vec<ValidationIssue> {
         )));
     }
 
+    let mut seen_ids = HashSet::new();
     for (i, session) in archive.sessions.iter().enumerate() {
+        if !seen_ids.insert(&session.metadata.id) {
+            issues.push(ValidationIssue::error(&format!(
+                "Duplicate session ID: {:?}",
+                session.metadata.id
+            )));
+        }
         collect_session_issues(session, i, &mut issues);
     }
 
@@ -156,11 +172,26 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
         )));
     }
 
+    // Warn if the ID doesn't look like a UUID — session discovery may not find it
+    if !id.is_empty() && !looks_like_uuid(id) {
+        issues.push(ValidationIssue::warning(&format!(
+            "{}: ID {:?} is not a UUID — imported session may not appear in session list",
+            prefix, id
+        )));
+    }
+
     if let Some(checkpoints) = &session.checkpoints {
+        let mut seen_filenames = HashSet::new();
         for cp in checkpoints {
             if contains_path_traversal(&cp.filename) {
                 issues.push(ValidationIssue::error(&format!(
                     "{}: checkpoint filename contains path traversal: {:?}",
+                    prefix, cp.filename
+                )));
+            }
+            if !seen_filenames.insert(&cp.filename) {
+                issues.push(ValidationIssue::error(&format!(
+                    "{}: duplicate checkpoint filename: {:?}",
                     prefix, cp.filename
                 )));
             }
@@ -201,6 +232,17 @@ fn contains_path_traversal(s: &str) -> bool {
     s.contains("..") || s.contains(":/")
 }
 
+/// Check if a string looks like a standard UUID (8-4-4-4-12 hex pattern).
+fn looks_like_uuid(s: &str) -> bool {
+    if s.len() != 36 {
+        return false;
+    }
+    s.bytes().enumerate().all(|(i, b)| match i {
+        8 | 13 | 18 | 23 => b == b'-',
+        _ => b.is_ascii_hexdigit(),
+    })
+}
+
 /// Validate a filename is safe for filesystem use.
 fn validate_filename(name: &str) -> Result<()> {
     if name.is_empty() {
@@ -209,6 +251,14 @@ fn validate_filename(name: &str) -> Result<()> {
     if contains_path_traversal(name) {
         return Err(validation_err(&format!(
             "filename contains path traversal: {:?}",
+            name
+        )));
+    }
+    // Reject reserved names that would collide with generated files
+    let reserved = ["index.md", "index.html", "index.json"];
+    if reserved.iter().any(|r| name.eq_ignore_ascii_case(r)) {
+        return Err(validation_err(&format!(
+            "filename {:?} is reserved and cannot be used for checkpoints",
             name
         )));
     }
@@ -368,5 +418,84 @@ mod tests {
 
         let issues = collect_issues(&archive);
         assert!(issues.iter().any(|i| i.is_error()));
+    }
+
+    #[test]
+    fn rejects_duplicate_session_ids() {
+        let s1 = minimal_session();
+        let s2 = minimal_session(); // same ID as s1
+        let mut archive = test_archive(s1);
+        archive.sessions.push(s2);
+
+        let err = validate_archive(&archive).unwrap_err();
+        assert!(err.to_string().contains("duplicate session ID"));
+    }
+
+    #[test]
+    fn collect_issues_reports_duplicate_ids() {
+        let s1 = minimal_session();
+        let s2 = minimal_session();
+        let mut archive = test_archive(s1);
+        archive.sessions.push(s2);
+
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("Duplicate session ID")));
+    }
+
+    #[test]
+    fn rejects_reserved_checkpoint_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "sneaky".to_string(),
+            filename: "index.md".to_string(),
+            content: Some("overwrite the index".to_string()),
+        }]);
+        let archive = test_archive(session);
+        let err = validate_archive(&archive).unwrap_err();
+        assert!(err.to_string().contains("reserved"));
+    }
+
+    #[test]
+    fn warns_on_non_uuid_session_id() {
+        let mut session = minimal_session();
+        session.metadata.id = "not-a-uuid".to_string();
+        let archive = test_archive(session);
+
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| {
+            i.severity == IssueSeverity::Warning && i.message.contains("not a UUID")
+        }));
+    }
+
+    #[test]
+    fn no_warning_for_valid_uuid() {
+        let mut session = minimal_session();
+        session.metadata.id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890".to_string();
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(!issues.iter().any(|i| i.message.contains("not a UUID")));
+    }
+
+    #[test]
+    fn reports_duplicate_checkpoint_filenames() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![
+            CheckpointExport {
+                number: 1,
+                title: "first".to_string(),
+                filename: "001-first.md".to_string(),
+                content: None,
+            },
+            CheckpointExport {
+                number: 2,
+                title: "dup".to_string(),
+                filename: "001-first.md".to_string(),
+                content: None,
+            },
+        ]);
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("duplicate checkpoint filename")));
     }
 }
