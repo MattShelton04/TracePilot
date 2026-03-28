@@ -68,6 +68,18 @@ export interface ContentDetailOptions {
   includeFullToolResults: boolean;
 }
 
+// ── Redaction Options ─────────────────────────────────────────
+
+/** Privacy controls for scrubbing sensitive content before export. */
+export interface RedactionOptions {
+  /** Replace filesystem paths with &lt;REDACTED_PATH&gt;. Default: false. */
+  anonymizePaths: boolean;
+  /** Strip API keys, tokens, and credentials. Default: false. */
+  stripSecrets: boolean;
+  /** Strip emails, IP addresses, and other PII. Default: false. */
+  stripPii: boolean;
+}
+
 // ── Export Configuration ────────────────────────────────────────
 
 /** Export configuration sent to the Tauri `export_sessions` command. */
@@ -82,6 +94,8 @@ export interface ExportConfig {
   outputPath: string;
   /** Content detail options. Omit for full detail. */
   contentDetail?: ContentDetailOptions;
+  /** Privacy redaction options. Omit to disable all redaction. */
+  redaction?: RedactionOptions;
 }
 
 /** Result returned from `export_sessions`. Matches Rust `ExportSessionsResult`. */
@@ -107,6 +121,8 @@ export interface ExportPreviewRequest {
   maxLength?: number;
   /** Content detail options. Omit for full detail. */
   contentDetail?: ContentDetailOptions;
+  /** Privacy redaction options. Omit to disable all redaction. */
+  redaction?: RedactionOptions;
 }
 
 /** Result returned from `preview_export`. Matches Rust `ExportPreviewResult`. */

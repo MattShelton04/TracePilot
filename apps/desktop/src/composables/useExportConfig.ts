@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, watch } from 'vue';
-import type { SectionId, ExportFormat, ContentDetailOptions } from '@tracepilot/types';
+import type { SectionId, ExportFormat, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
 import { ALL_SECTION_IDS, SECTION_LABELS } from '@tracepilot/types';
 
 // ── Preset Definitions ──────────────────────────────────────────
@@ -103,6 +103,13 @@ export function useExportConfig() {
     includeFullToolResults: false,
   });
 
+  // Privacy redaction options
+  const redaction = ref<RedactionOptions>({
+    anonymizePaths: false,
+    stripSecrets: false,
+    stripPii: false,
+  });
+
   // Custom user-saved presets (session-scoped)
   const customPresets = ref<ExportPreset[]>([]);
 
@@ -186,6 +193,7 @@ export function useExportConfig() {
     allPresets,
     customPresets,
     contentDetail,
+    redaction,
     applyPreset,
     toggleSection,
     selectAll,

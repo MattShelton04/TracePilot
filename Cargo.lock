@@ -5450,6 +5450,8 @@ version = "0.5.1"
 dependencies = [
  "anyhow",
  "chrono",
+ "once_cell",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

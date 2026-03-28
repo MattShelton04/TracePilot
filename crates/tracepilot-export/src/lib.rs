@@ -17,6 +17,7 @@ pub mod document;
 pub mod error;
 pub mod import;
 pub mod options;
+pub mod redaction;
 pub mod render;
 pub mod schema;
 
@@ -30,7 +31,7 @@ pub(crate) mod test_helpers;
 // Re-export key types for ergonomic API usage.
 pub use document::{SessionArchive, PortableSession, SectionId};
 pub use error::{ExportError, Result};
-pub use options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget};
+pub use options::{ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions};
 pub use render::{ExportFile, ExportRenderer};
 
 use std::path::Path;
@@ -44,6 +45,7 @@ pub fn export_session(
 ) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
     content_filter::apply_content_filters(&mut archive, &options.content_detail);
+    redaction::apply_redaction(&mut archive, &options.redaction);
     let renderer = render::create_renderer(options.format);
     renderer.render(&archive)
 }
@@ -55,6 +57,7 @@ pub fn export_sessions_batch(
 ) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive_batch(session_dirs, options)?;
     content_filter::apply_content_filters(&mut archive, &options.content_detail);
+    redaction::apply_redaction(&mut archive, &options.redaction);
     let renderer = render::create_renderer(options.format);
     renderer.render(&archive)
 }
@@ -69,6 +72,7 @@ pub fn preview_export(
 ) -> Result<String> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
     content_filter::apply_content_filters(&mut archive, &options.content_detail);
+    redaction::apply_redaction(&mut archive, &options.redaction);
     let renderer = render::create_renderer(options.format);
     let files = renderer.render(&archive)?;
 
