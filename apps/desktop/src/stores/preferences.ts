@@ -1,5 +1,6 @@
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import { normalizePath } from '@tracepilot/ui';
+import { useAsyncGuard } from '@/composables/useAsyncGuard';
 import { logWarn } from '@/utils/logger';
 import type {
   ModelPriceEntry,
@@ -237,25 +238,25 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Debounced persist to backend ───────────────────────────
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  let saveGeneration = 0;
+  const saveGuard = useAsyncGuard();
 
   function scheduleSave() {
     if (!hydrated) return;
     if (saveTimer) clearTimeout(saveTimer);
-    const gen = ++saveGeneration;
+    const token = saveGuard.start();
     saveTimer = setTimeout(async () => {
       try {
         // Re-read latest config from backend to avoid overwriting changes
         // made by other components (e.g. SettingsDataStorage paths/autoIndex)
         const freshConfig = await getConfig();
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         backendConfig = freshConfig;
         const config = buildConfig();
         await saveConfig(config);
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         backendConfig = config;
       } catch (e) {
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         logWarn("[preferences] Failed to persist config:", e);
       }
     }, 300);
