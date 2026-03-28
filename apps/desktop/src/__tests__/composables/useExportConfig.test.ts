@@ -341,6 +341,15 @@ describe('useExportConfig', () => {
         includeFullToolResults: true,
       });
     });
+
+    it('does not clear activePreset', () => {
+      const { activePreset, updateContentDetail } = useExportConfig();
+      expect(activePreset.value).toBe('full');
+
+      updateContentDetail('includeSubagentInternals', false);
+
+      expect(activePreset.value).toBe('full');
+    });
   });
 
   // ── updateRedaction ────────────────────────────────────────
@@ -376,6 +385,15 @@ describe('useExportConfig', () => {
         stripSecrets: true,
         stripPii: true,
       });
+    });
+
+    it('does not clear activePreset', () => {
+      const { activePreset, updateRedaction } = useExportConfig();
+      expect(activePreset.value).toBe('full');
+
+      updateRedaction('stripSecrets', true);
+
+      expect(activePreset.value).toBe('full');
     });
   });
 

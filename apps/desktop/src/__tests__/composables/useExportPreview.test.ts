@@ -245,6 +245,74 @@ describe('useExportPreview', () => {
     expect(preview.value?.content).toBe('Second');
   });
 
+  // ── Reactivity to Detail/Redaction Changes ──────────────────
+
+  it('re-fetches when contentDetail changes', async () => {
+    const refs = createRefs();
+    mockPreviewExport.mockResolvedValue(makePreviewResult('Initial'));
+
+    useExportPreview(
+      refs.sessionId,
+      refs.format,
+      refs.sections,
+      refs.contentDetail,
+      refs.redaction,
+    );
+
+    // Trigger initial fetch by changing sessionId after composable is created
+    refs.sessionId.value = 'sess-1';
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+    expect(mockPreviewExport).toHaveBeenCalledTimes(1);
+
+    // Change contentDetail
+    mockPreviewExport.mockResolvedValue(makePreviewResult('Updated'));
+    refs.contentDetail.value = { ...refs.contentDetail.value, includeFullToolResults: true };
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+
+    expect(mockPreviewExport).toHaveBeenCalledTimes(2);
+    expect(mockPreviewExport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        contentDetail: expect.objectContaining({ includeFullToolResults: true }),
+      }),
+    );
+  });
+
+  it('re-fetches when redaction changes', async () => {
+    const refs = createRefs();
+    mockPreviewExport.mockResolvedValue(makePreviewResult('Initial'));
+
+    useExportPreview(
+      refs.sessionId,
+      refs.format,
+      refs.sections,
+      refs.contentDetail,
+      refs.redaction,
+    );
+
+    // Trigger initial fetch
+    refs.sessionId.value = 'sess-1';
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+
+    // Change redaction
+    refs.redaction.value = { ...refs.redaction.value, stripSecrets: true };
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+
+    expect(mockPreviewExport).toHaveBeenCalledTimes(2);
+    expect(mockPreviewExport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        redaction: expect.objectContaining({ stripSecrets: true }),
+      }),
+    );
+  });
+
   // ── Manual Refresh ─────────────────────────────────────────
 
   it('refresh() fetches immediately without debounce', async () => {
