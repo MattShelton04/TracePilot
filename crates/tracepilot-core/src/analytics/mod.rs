@@ -11,6 +11,7 @@
 
 mod code_impact;
 mod dashboard;
+mod health;
 pub mod loader;
 mod tools;
 pub mod types;
@@ -20,6 +21,7 @@ mod test_helpers;
 
 pub use code_impact::compute_code_impact;
 pub use dashboard::compute_analytics;
+pub use health::compute_health_scoring;
 pub use loader::{
     load_full_sessions, load_full_sessions_filtered, load_session_summaries,
     load_session_summaries_filtered,

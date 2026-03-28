@@ -63,10 +63,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::search::fts_optimize,
             commands::search::fts_health,
             commands::search::get_result_context,
-            // Analytics commands (3)
+            // Analytics commands (4)
             commands::analytics::get_analytics,
             commands::analytics::get_tool_analysis,
             commands::analytics::get_code_impact,
+            commands::analytics::get_health_scores,
             // Config commands (24)
             commands::config_cmds::check_config_exists,
             commands::config_cmds::get_config,

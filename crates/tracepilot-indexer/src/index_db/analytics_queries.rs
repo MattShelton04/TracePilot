@@ -522,4 +522,33 @@ impl IndexDb {
             changes_by_day,
         })
     }
+
+    /// Aggregate health scoring data from the indexed sessions table.
+    pub fn query_health_scoring(&self) -> Result<HealthScoringData> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, summary, health_score, event_count, error_count, rate_limit_count, compaction_count, truncation_count
+             FROM sessions",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SessionHealthSnapshot {
+                session_id: row.get::<_, String>(0)?,
+                session_name: row.get::<_, Option<String>>(1)?,
+                health_score: row.get::<_, Option<f64>>(2)?.unwrap_or(1.0),
+                event_count: row.get::<_, Option<i64>>(3)?.map(|v| v.max(0) as u64),
+                error_count: row.get::<_, Option<i64>>(4)?.map(|v| v.max(0) as u64),
+                rate_limit_count: row.get::<_, Option<i64>>(5)?.map(|v| v.max(0) as u64),
+                compaction_count: row.get::<_, Option<i64>>(6)?.map(|v| v.max(0) as u64),
+                truncation_count: row.get::<_, Option<i64>>(7)?.map(|v| v.max(0) as u64),
+            })
+        })?;
+
+        let mut snapshots = Vec::new();
+        for row in rows {
+            snapshots.push(row?);
+        }
+
+        Ok(tracepilot_core::analytics::compute_health_scoring(
+            &snapshots,
+        ))
+    }
 }

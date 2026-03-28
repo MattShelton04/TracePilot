@@ -1,4 +1,4 @@
-//! Analytics Tauri commands (3 commands).
+//! Analytics Tauri commands (4 commands).
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
@@ -114,6 +114,55 @@ pub async fn get_code_impact(
             hide_empty.unwrap_or(false),
         )?;
         Ok(tracepilot_core::analytics::compute_code_impact(&inputs))
+    })
+    .await?
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all)]
+pub async fn get_health_scores(
+    state: tauri::State<'_, SharedConfig>,
+) -> CmdResult<tracepilot_core::analytics::HealthScoringData> {
+    let cfg = read_config(&state);
+    let index_path = cfg.index_db_path();
+    let session_state_dir = cfg.session_state_dir();
+
+    tokio::task::spawn_blocking(move || {
+        if let Some(db) = open_index_db(&index_path) {
+            match db.query_health_scoring() {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    tracing::warn!(
+                        "Health scoring SQL fast path failed, falling back to disk scan: {e}"
+                    )
+                }
+            }
+        }
+
+        let summaries = tracepilot_core::analytics::load_session_summaries(&session_state_dir)?;
+        let snapshots: Vec<tracepilot_core::analytics::types::SessionHealthSnapshot> = summaries
+            .into_iter()
+            .map(|s| {
+                let health = tracepilot_core::health::compute_health(
+                    s.event_count,
+                    s.shutdown_metrics.as_ref(),
+                    None,
+                    None,
+                );
+                tracepilot_core::analytics::types::SessionHealthSnapshot {
+                    session_id: s.id.clone(),
+                    session_name: s.summary.clone(),
+                    health_score: health.score,
+                    event_count: s.event_count.map(|v| v as u64),
+                    error_count: None,
+                    rate_limit_count: None,
+                    compaction_count: None,
+                    truncation_count: None,
+                }
+            })
+            .collect();
+
+        Ok(tracepilot_core::analytics::compute_health_scoring(&snapshots))
     })
     .await?
 }

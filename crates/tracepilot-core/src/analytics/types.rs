@@ -154,6 +154,70 @@ pub struct HealthDistribution {
     pub critical_count: u32,
 }
 
+// ── Health Scoring ───────────────────────────────────────────────────
+
+/// Minimal per-session snapshot used for health scoring aggregation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHealthSnapshot {
+    pub session_id: String,
+    pub session_name: Option<String>,
+    pub health_score: f64,
+    pub event_count: Option<u64>,
+    pub error_count: Option<u64>,
+    pub rate_limit_count: Option<u64>,
+    pub compaction_count: Option<u64>,
+    pub truncation_count: Option<u64>,
+}
+
+/// Severity for health flags exposed to the frontend.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "lowercase")]
+pub enum HealthFlagSeverity {
+    Warning,
+    Danger,
+}
+
+/// Flag assigned to a specific session in the attention list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionFlag {
+    pub name: String,
+    pub severity: HealthFlagSeverity,
+}
+
+/// Session requiring attention, shown in the health dashboard.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttentionSession {
+    pub session_id: String,
+    pub session_name: String,
+    pub score: f64,
+    pub flags: Vec<SessionFlag>,
+}
+
+/// Aggregate count of a health flag across all sessions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthFlagSummary {
+    pub name: String,
+    pub count: u32,
+    pub severity: HealthFlagSeverity,
+    pub description: String,
+}
+
+/// Aggregated health scoring data across all sessions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthScoringData {
+    pub overall_score: f64,
+    pub healthy_count: u32,
+    pub attention_count: u32,
+    pub critical_count: u32,
+    pub attention_sessions: Vec<AttentionSession>,
+    pub health_flags: Vec<HealthFlagSummary>,
+}
+
 // ── Tool Analysis ─────────────────────────────────────────────────────
 
 /// Tool usage analysis data.

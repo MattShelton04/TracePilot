@@ -1,13 +1,8 @@
 <script setup lang="ts">
-// STUB: Currently loads mock data from getHealthScores().
-// STUB: Replace with real health scoring from backend Phase 4 API.
-// STUB: SessionHealth and HealthFlag types are already defined in @tracepilot/types.
-
 import { ref, onMounted, computed } from 'vue';
 import type { HealthScoringData } from '@tracepilot/types';
 import { getHealthScores } from '@tracepilot/client';
-import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from '@tracepilot/ui';
-import StubBanner from '@/components/StubBanner.vue';
+import { EmptyState, ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from '@tracepilot/ui';
 
 const data = ref<HealthScoringData | null>(null);
 const loading = ref(true);
@@ -29,6 +24,11 @@ async function reload() {
 onMounted(reload);
 
 const avgScoreDisplay = computed(() => data.value?.overallScore.toFixed(2) ?? '—');
+const hasSessions = computed(() => {
+  const d = data.value;
+  if (!d) return false;
+  return d.healthyCount + d.attentionCount + d.criticalCount > 0;
+});
 
 function severityBadgeClass(severity: 'warning' | 'danger'): string {
   return severity === 'danger' ? 'badge badge-danger' : 'badge badge-warning';
@@ -42,12 +42,16 @@ function severityLabel(severity: 'warning' | 'danger'): string {
 <template>
   <div class="page-content">
     <div class="page-content-inner">
-      <StubBanner />
       <!-- Error state -->
       <ErrorState v-if="error" heading="Failed to load health scores" :message="error" @retry="reload" />
 
       <LoadingOverlay :loading="loading" message="Loading health data…">
       <template v-if="data">
+        <EmptyState
+          v-if="!hasSessions"
+          message="No health data is available yet. Run a few sessions to generate health scores."
+        />
+        <template v-else>
         <!-- Hero Section: Large Health Ring + Stat Cards -->
         <section class="health-hero" aria-label="Overall health summary">
           <HealthRing :score="data.overallScore" size="lg" />
@@ -129,6 +133,7 @@ function severityLabel(severity: 'warning' | 'danger'): string {
             </tbody>
           </table>
         </section>
+        </template>
       </template>
       </LoadingOverlay>
     </div>

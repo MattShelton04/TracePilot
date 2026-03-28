@@ -104,6 +104,7 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
     get_analytics: mocks.MOCK_ANALYTICS,
     get_tool_analysis: mocks.MOCK_TOOL_ANALYSIS,
     get_code_impact: mocks.MOCK_CODE_IMPACT,
+    get_health_scores: mocks.MOCK_HEALTH_SCORING,
     check_config_exists: true,
     get_config: createDefaultConfig({
       paths: {
@@ -396,14 +397,9 @@ export async function getCodeImpact(options?: {
 
 /**
  * Get health scoring data across all sessions.
- * // STUB: Currently returns mock data. Replace with real Tauri IPC command
- * // STUB: when the health scoring backend API is implemented (Phase 6+).
  */
 export async function getHealthScores(): Promise<HealthScoringData> {
-  // STUB: No Tauri command exists yet for health scores.
-  // STUB: When implemented, this should call: invoke('plugin:tracepilot|get_health_scores')
-  const m = await getMocks();
-  return m.MOCK_HEALTH_SCORING;
+  return invoke<HealthScoringData>('get_health_scores');
 }
 
 // ── Export / Import Commands ──────────────────────────────────
