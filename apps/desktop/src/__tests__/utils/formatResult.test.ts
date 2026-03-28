@@ -95,12 +95,10 @@ describe("formatObjectResult", () => {
       expect(formatObjectResult(null)).toBe("null");
     });
 
-    it("returns undefined for undefined input (callers guard against this)", () => {
-      // JSON.stringify(undefined) returns the value undefined, not a string.
-      // In practice, all callers guard: useToolResultLoader checks `result != null`
-      // and OverviewTab uses `hasDetail()`. This test documents the edge case.
-      const result = formatObjectResult(undefined);
-      expect(result).toBeUndefined();
+    it("returns 'undefined' string for undefined input", () => {
+      // Explicit early return ensures the function always returns a string,
+      // even though callers guard against undefined in practice.
+      expect(formatObjectResult(undefined)).toBe("undefined");
     });
 
     it("returns JSON for number input", () => {

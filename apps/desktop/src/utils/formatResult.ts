@@ -15,6 +15,7 @@
  * - Non-serializable (e.g. circular references, BigInt) → String() fallback
  */
 export function formatObjectResult(result: unknown): string {
+  if (result === undefined) return "undefined";
   if (typeof result === "string") return result;
 
   if (result && typeof result === "object" && !Array.isArray(result)) {
