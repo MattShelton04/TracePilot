@@ -84,5 +84,42 @@ pub mod testing;
 pub use error::{Result, TracePilotError};
 pub use models::{ConversationTurn, SessionEvent, SessionSummary, ShutdownMetrics, TurnToolCall};
 pub use session::discovery::{discover_sessions, resolve_session_path};
-pub use summary::{load_session_summary, load_session_summary_with_events, SessionLoadResult};
+pub use summary::{SessionLoadResult, load_session_summary, load_session_summary_with_events};
 pub use turns::{TurnStats, reconstruct_turns, turn_stats};
+
+#[cfg(test)]
+mod dhat_tests {
+    #[cfg(feature = "dhat-heap")]
+    #[test]
+    fn profile_heap_session_parsing() {
+        use std::io::Write;
+        let _profiler = dhat::Profiler::builder().testing().build();
+
+        // Write a temp events.jsonl file
+        let dir = std::env::temp_dir().join("dhat_test_session");
+        std::fs::create_dir_all(&dir).unwrap();
+        let events_path = dir.join("events.jsonl");
+        {
+            let mut f = std::fs::File::create(&events_path).unwrap();
+            for i in 0..50 {
+                writeln!(f, r#"{{"type":"user_message","timestamp":"2024-01-01T00:00:{:02}Z","data":{{"content":"Turn {} user message with some content to allocate"}}}}"#, i, i).unwrap();
+                writeln!(f, r#"{{"type":"assistant_message","timestamp":"2024-01-01T00:00:{:02}Z","data":{{"content":"Turn {} assistant response with generated text","model":"claude-sonnet-4-20250514"}}}}"#, i, i).unwrap();
+            }
+        }
+
+        let parsed = crate::parsing::events::parse_typed_events(&events_path).unwrap();
+        let _turns = crate::turns::reconstruct_turns(&parsed.events);
+
+        let stats = dhat::HeapStats::get();
+        eprintln!("\n=== DHAT HEAP PROFILING RESULTS ===");
+        eprintln!("Total bytes allocated:   {}", stats.total_bytes);
+        eprintln!("Total allocations:       {}", stats.total_blocks);
+        eprintln!("Peak bytes (max live):   {}", stats.max_bytes);
+        eprintln!("Peak allocations:        {}", stats.max_blocks);
+        eprintln!("Currently live bytes:    {}", stats.curr_bytes);
+        eprintln!("Currently live allocs:   {}", stats.curr_blocks);
+        eprintln!("====================================\n");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

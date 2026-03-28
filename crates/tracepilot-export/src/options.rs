@@ -89,6 +89,38 @@ impl Default for ContentDetailOptions {
     }
 }
 
+/// Controls which categories of sensitive data are redacted before export.
+///
+/// Each flag enables a set of regex-based patterns that replace matches with
+/// placeholder text (e.g., `<REDACTED_PATH>`). All flags default to `false`
+/// (no redaction), making exports fully transparent by default.
+#[derive(Debug, Clone)]
+pub struct RedactionOptions {
+    /// Replace filesystem paths (Windows, Unix home, system dirs) with `<REDACTED_PATH>`.
+    pub anonymize_paths: bool,
+    /// Replace API keys, tokens, passwords, and env-var secrets with `<REDACTED_*>`.
+    pub strip_secrets: bool,
+    /// Replace email addresses and IPv4 addresses with `<REDACTED_*>`.
+    pub strip_pii: bool,
+}
+
+impl RedactionOptions {
+    /// Returns `true` if any redaction category is enabled.
+    pub fn has_any(&self) -> bool {
+        self.anonymize_paths || self.strip_secrets || self.strip_pii
+    }
+}
+
+impl Default for RedactionOptions {
+    fn default() -> Self {
+        Self {
+            anonymize_paths: false,
+            strip_secrets: false,
+            strip_pii: false,
+        }
+    }
+}
+
 /// Complete export configuration provided by the user.
 #[derive(Debug, Clone)]
 pub struct ExportOptions {
@@ -100,6 +132,8 @@ pub struct ExportOptions {
     pub output: OutputTarget,
     /// Controls verbosity of conversation content.
     pub content_detail: ContentDetailOptions,
+    /// Controls which categories of sensitive data are scrubbed.
+    pub redaction: RedactionOptions,
 }
 
 impl ExportOptions {
@@ -110,6 +144,7 @@ impl ExportOptions {
             sections: SectionId::ALL.iter().copied().collect(),
             output: OutputTarget::String,
             content_detail: ContentDetailOptions::default(),
+            redaction: RedactionOptions::default(),
         }
     }
 
@@ -120,6 +155,7 @@ impl ExportOptions {
             sections: HashSet::new(),
             output: OutputTarget::String,
             content_detail: ContentDetailOptions::default(),
+            redaction: RedactionOptions::default(),
         }
     }
 
@@ -139,6 +175,7 @@ impl ExportOptions {
             sections,
             output: OutputTarget::String,
             content_detail: ContentDetailOptions::default(),
+            redaction: RedactionOptions::default(),
         }
     }
 

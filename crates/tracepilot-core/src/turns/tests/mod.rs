@@ -14,23 +14,26 @@
 use super::*;
 use crate::models::conversation::{AttributedMessage, SessionEventSeverity};
 use crate::models::event_types::{
-    AbortData, AssistantMessageData, AssistantReasoningData, CompactionCompleteData,
-    CompactionStartData, ModelChangeData, PlanChangedData, SessionErrorData,
+    AbortData, AssistantReasoningData, ModelChangeData, PlanChangedData,
     SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
-    SessionWarningData, SubagentCompletedData, SubagentFailedData, SubagentStartedData,
-    ToolExecCompleteData, ToolExecStartData, TurnEndData, TurnStartData, UserMessageData,
+    SubagentCompletedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
+    TurnEndData, TurnStartData, UserMessageData,
 };
 use crate::parsing::events::{RawEvent, TypedEvent};
 use serde_json::{Value, json};
 
 // Declare test submodules
-mod turn_reconstruction;
 mod message_handling;
-mod tool_execution;
-mod subagent_lifecycle;
 mod model_tracking;
-mod session_events;
 mod performance;
+mod session_events;
+mod subagent_lifecycle;
+mod tool_execution;
+mod turn_reconstruction;
+
+// Test utilities
+pub(super) mod builders;
+pub(super) use builders::*;
 
 // ============================================================================
 // Common Test Helpers
@@ -114,9 +117,7 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
 ///
 /// Creates a minimal valid turn (UserMessage → [session_events] → TurnEnd)
 /// so tests can focus on session-level event behavior.
-pub(super) fn make_turn_events(
-    session_events: Vec<TypedEvent>,
-) -> Vec<TypedEvent> {
+pub(super) fn make_turn_events(session_events: Vec<TypedEvent>) -> Vec<TypedEvent> {
     let mut events = vec![make_event(
         SessionEventType::UserMessage,
         TypedEventData::UserMessage(UserMessageData {

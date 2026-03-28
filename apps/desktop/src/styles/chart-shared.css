@@ -5,7 +5,7 @@
  * These classes are used by multiple chart/analytics views and were previously
  * duplicated identically in each view's scoped <style> block.
  *
- * Imported globally via main.ts alongside styles.css.
+ * Imported globally via styles.css alongside the other CSS modules.
  */
 
 /* ── Chart container & overlay ───────────────────────────── */

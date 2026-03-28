@@ -1,0 +1,392 @@
+/* ============================
+   EVENT BADGES
+   ============================ */
+
+.event-badge { font-size: 0.625rem; font-weight: 500; padding: 1px 6px; border-radius: var(--radius-sm); }
+.event-session { background: var(--accent-muted); color: var(--accent-fg); }
+.event-user { background: var(--success-muted); color: var(--success-fg); }
+.event-assistant { background: var(--done-muted); color: var(--done-fg); }
+.event-tool { background: var(--warning-muted); color: var(--warning-fg); }
+.event-context { background: var(--accent-muted); color: var(--accent-fg); }
+.event-subagent { background: var(--done-muted); color: var(--done-fg); }
+
+/* ============================
+   PAGINATION
+   ============================ */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+.pagination-info { font-size: 0.75rem; color: var(--text-tertiary); }
+
+/* ============================
+   TODO LIST
+   ============================ */
+
+.todo-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: flex-start;
+}
+.todo-status-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.todo-body { flex: 1; min-width: 0; }
+.todo-title { font-size: 0.8125rem; font-weight: 500; }
+.todo-desc { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; line-height: 1.5; }
+.todo-deps { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* ============================
+   EMPTY STATE
+   Kept for backward compatibility with inline markup.
+   Prefer the <EmptyState> component from @tracepilot/ui.
+   ============================ */
+
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--text-placeholder);
+}
+.empty-state-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.3; }
+.empty-state-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 6px; }
+.empty-state-desc { font-size: 0.8125rem; color: var(--text-placeholder); }
+
+/* ============================
+   TOKEN DISTRIBUTION BAR
+   ============================ */
+
+.token-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.token-bar-label {
+  width: 120px;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.token-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--neutral-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.token-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--gradient-accent);
+  transition: width var(--transition-slow);
+}
+.token-bar-value {
+  width: 52px;
+  text-align: right;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================
+   DIFF PANEL
+   ============================ */
+
+.diff-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-default); border-radius: var(--radius-lg); overflow: hidden; }
+.diff-side { background: var(--canvas-subtle); padding: 16px; }
+.diff-header { padding: 8px 16px; font-weight: 600; font-size: 0.75rem; background: var(--canvas-default); border-bottom: 1px solid var(--border-default); }
+
+/* ============================
+   SWIMLANE
+   ============================ */
+
+.swimlane { display: grid; grid-template-columns: 100px 1fr; gap: 0; }
+.swimlane-label {
+  padding: 10px 12px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  border-right: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+}
+.swimlane-track {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-height: 40px;
+  overflow: hidden;
+}
+.swimlane-bar {
+  height: 20px;
+  border-radius: 3px;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================
+   HEALTH RING
+   ============================ */
+
+.health-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  position: relative;
+}
+.health-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(var(--ring-color) calc(var(--ring-pct) * 1%), var(--neutral-muted) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+
+
+/* ============================
+   DEFINITION LIST
+   ============================ */
+
+.def-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 0.8125rem; }
+.def-list dt { color: var(--text-tertiary); font-weight: 500; white-space: nowrap; }
+.def-list dd { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ============================
+   SESSION CARD
+   ============================ */
+
+.session-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.session-card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; min-width: 0; }
+.session-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.6875rem;
+  color: var(--text-placeholder);
+  margin-top: auto;
+}
+.session-card-stat { display: flex; align-items: center; gap: 3px; }
+
+/* ============================
+   PAGE TITLE
+   ============================ */
+
+.page-title { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+.page-subtitle { font-size: 0.8125rem; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ============================
+   TOOLBAR
+   ============================ */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-default);
+}
+
+/* ============================
+   CHART CONTAINER
+   ============================ */
+
+.chart-container {
+  background: var(--canvas-subtle);
+  background-image: var(--gradient-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When chart-container is inside a section-panel, the panel already provides the border.
+   Depends on .section-panel-body from components.css. */
+.section-panel-body.chart-container {
+  border: none;
+  background: none;
+  background-image: none;
+  border-radius: 0;
+}
+
+/* ============================
+   TIMELINE SCRUBBER
+   ============================ */
+
+.timeline-scrubber {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+.timeline-track {
+  flex: 1;
+  height: 4px;
+  background: var(--neutral-muted);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+.timeline-progress {
+  height: 100%;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+  position: relative;
+}
+.timeline-thumb {
+  position: absolute;
+  right: -5px;
+  top: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-fg);
+  border: 2px solid var(--canvas-default);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+.timeline-time { font-size: 0.6875rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; min-width: 44px; }
+
+/* ============================
+   THEME TOGGLE
+   ============================ */
+
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.theme-toggle:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+
+/* ============================
+   GRADIENT TEXT EFFECT
+   ============================ */
+
+.gradient-value {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================
+   CHECKPOINT LIST
+   ============================ */
+
+.checkpoint-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.checkpoint-item:last-child { border-bottom: none; }
+.checkpoint-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.checkpoint-body { flex: 1; min-width: 0; }
+.checkpoint-title { font-size: 0.8125rem; font-weight: 500; }
+.checkpoint-file { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ============================
+   SUMMARY PROSE
+   ============================ */
+
+.summary-prose {
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* ============================
+   MINI STAT CARD
+   Depends on .stat-card-value from components.css.
+   ============================ */
+
+.mini-stat { padding: 10px 14px; }
+.mini-stat .stat-card-value { font-size: 1.125rem; }
+
+/* ============================
+   TIMELINE LINK
+   ============================ */
+
+.timeline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--accent-fg);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.timeline-link:hover { color: var(--accent-emphasis); text-decoration: underline; }
+

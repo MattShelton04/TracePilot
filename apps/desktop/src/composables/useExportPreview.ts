@@ -1,10 +1,10 @@
 /**
  * Composable for fetching a debounced live preview of an export.
- * Watches sessionId, format, and sections — re-fetches on any change.
+ * Watches sessionId, format, sections, contentDetail, and redaction — re-fetches on any change.
  */
 
 import { ref, watch, onUnmounted, type Ref, type ComputedRef } from 'vue';
-import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions } from '@tracepilot/types';
+import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
 import { previewExport } from '@tracepilot/client';
 import { logError } from '@/utils/logger';
 
@@ -15,6 +15,7 @@ export function useExportPreview(
   format: Ref<ExportFormat>,
   sections: Ref<SectionId[]> | ComputedRef<SectionId[]>,
   contentDetail?: Ref<ContentDetailOptions>,
+  redaction?: Ref<RedactionOptions>,
 ) {
   const preview = ref<ExportPreviewResult | null>(null);
   const loading = ref(false);
@@ -41,6 +42,7 @@ export function useExportPreview(
         format: format.value,
         sections: sections.value,
         contentDetail: contentDetail?.value,
+        redaction: redaction?.value,
       });
 
       // Guard against stale responses
@@ -64,9 +66,9 @@ export function useExportPreview(
     debounceTimer = setTimeout(fetchPreview, DEBOUNCE_MS);
   }
 
-  const watchSources = contentDetail
-    ? [sessionId, format, sections, contentDetail]
-    : [sessionId, format, sections];
+  const watchSources: Array<Ref | ComputedRef> = [sessionId, format, sections];
+  if (contentDetail) watchSources.push(contentDetail);
+  if (redaction) watchSources.push(redaction);
   watch(watchSources, scheduleFetch, { deep: true });
 
   onUnmounted(() => {

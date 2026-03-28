@@ -562,10 +562,7 @@ impl TurnReconstructor {
                 );
             }
 
-            (
-                SessionEventType::SessionCompactionStart,
-                TypedEventData::CompactionStart(_data),
-            ) => {
+            (SessionEventType::SessionCompactionStart, TypedEventData::CompactionStart(_data)) => {
                 self.push_session_event(
                     "session.compaction_start",
                     event.raw.timestamp,
@@ -604,10 +601,7 @@ impl TurnReconstructor {
                 );
             }
 
-            (
-                SessionEventType::SessionTruncation,
-                TypedEventData::SessionTruncation(data),
-            ) => {
+            (SessionEventType::SessionTruncation, TypedEventData::SessionTruncation(data)) => {
                 let summary = match (
                     data.tokens_removed_during_truncation,
                     data.messages_removed_during_truncation,
@@ -700,10 +694,12 @@ impl TurnReconstructor {
         // or create a synthetic turn if no turns exist (e.g., failed-start sessions).
         if !self.pending_session_events.is_empty() {
             if let Some(last) = self.turns.last_mut() {
-                last.session_events
-                    .append(&mut self.pending_session_events);
+                last.session_events.append(&mut self.pending_session_events);
             } else {
-                let ts = self.pending_session_events.first().and_then(|e| e.timestamp);
+                let ts = self
+                    .pending_session_events
+                    .first()
+                    .and_then(|e| e.timestamp);
                 let mut turn = new_turn(0, ts, None, None, None, None);
                 turn.session_events.append(&mut self.pending_session_events);
                 self.turns.push(turn);
@@ -910,7 +906,11 @@ fn enrich_subagent(
     }
     existing.agent_display_name = data.agent_display_name.clone();
     existing.agent_description = data.agent_description.clone();
-    if let Some(name) = data.agent_name.as_ref().or(data.agent_display_name.as_ref()) {
+    if let Some(name) = data
+        .agent_name
+        .as_ref()
+        .or(data.agent_display_name.as_ref())
+    {
         existing.tool_name = name.clone();
     }
 }
@@ -922,7 +922,11 @@ fn enrich_subagent(
 fn infer_subagent_models(turns: &mut [ConversationTurn]) {
     // Cap iterations to prevent infinite loops from cyclic parent_tool_call_id data.
     // Valid DAGs converge in at most depth iterations; we use total tool calls as a safe bound.
-    let max_iterations = turns.iter().map(|t| t.tool_calls.len()).sum::<usize>().max(1);
+    let max_iterations = turns
+        .iter()
+        .map(|t| t.tool_calls.len())
+        .sum::<usize>()
+        .max(1);
     let mut iterations = 0;
 
     loop {

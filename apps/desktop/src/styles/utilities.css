@@ -1,0 +1,86 @@
+/* ============================
+   ANIMATIONS
+   ============================ */
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.2s ease; }
+
+@keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 0.3; } }
+.skeleton { background: var(--neutral-muted); border-radius: var(--radius-md); animation: pulse 1.5s infinite ease-in-out; }
+
+/* ============================
+   SCROLLBAR
+   ============================ */
+
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.25); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.4); }
+
+/* ============================
+   UTILITIES
+   These intentionally shadow some Tailwind utility names with
+   project-specific values (e.g. gap-1 = 4px vs Tailwind 0.25rem).
+   ============================ */
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 6px; }
+.gap-3 { gap: 10px; }
+.gap-4 { gap: 14px; }
+.gap-6 { gap: 20px; }
+.gap-8 { gap: 28px; }
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 6px; }
+.mt-4 { margin-top: 14px; }
+.mt-6 { margin-top: 20px; }
+.mt-auto { margin-top: auto; }
+.mb-2 { margin-bottom: 6px; }
+.mb-4 { margin-bottom: 14px; }
+.mb-6 { margin-bottom: 20px; }
+.p-4 { padding: 14px; }
+.p-6 { padding: 20px; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hidden { display: none; }
+.opacity-50 { opacity: 0.5; }
+
+/* ============================
+   ACCESSIBILITY
+   ============================ */
+
+:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Overrides .gradient-value from features.css for high-contrast mode */
+@media (prefers-contrast: more) {
+  .gradient-value, [style*="background-clip"] {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: var(--accent-fg) !important;
+  }
+}
+

@@ -4,8 +4,6 @@ import { toErrorMessage } from "@tracepilot/ui";
 import App from "./App.vue";
 import router from "./router";
 import "./styles.css";
-import "./styles/chart-shared.css";
-import "./styles/animations.css";
 import { initLogging, logError } from "./utils/logger";
 
 // Apply persisted theme before mount to prevent flash.
@@ -39,3 +37,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // Init logging AFTER mount — Tauri IPC requires mounted webview
 initLogging();
+
+// Dev-only: observe long tasks (>50ms main-thread blocks)
+if (import.meta.env.DEV) {
+  import('./utils/longTaskObserver').then((m) => m.startLongTaskObserver());
+}

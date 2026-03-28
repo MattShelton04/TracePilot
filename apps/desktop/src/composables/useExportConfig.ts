@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, watch } from 'vue';
-import type { SectionId, ExportFormat, ContentDetailOptions } from '@tracepilot/types';
+import type { SectionId, ExportFormat, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
 import { ALL_SECTION_IDS, SECTION_LABELS } from '@tracepilot/types';
 
 // ── Preset Definitions ──────────────────────────────────────────
@@ -50,6 +50,14 @@ export const EXPORT_PRESETS: readonly ExportPreset[] = [
     description: 'Tabular metrics and events for spreadsheet analysis.',
     format: 'csv',
     sections: ['metrics', 'events', 'health', 'incidents'],
+  },
+  {
+    id: 'agent-context',
+    label: 'Agent Context',
+    icon: '🤖',
+    description: 'Session summary for sharing with another AI — includes conversation, plan, and outcomes.',
+    format: 'markdown',
+    sections: ['conversation', 'todos', 'plan', 'metrics', 'health'],
   },
 ] as const;
 
@@ -101,6 +109,13 @@ export function useExportConfig() {
     includeSubagentInternals: true,
     includeToolDetails: true,
     includeFullToolResults: false,
+  });
+
+  // Privacy redaction options
+  const redaction = ref<RedactionOptions>({
+    anonymizePaths: false,
+    stripSecrets: false,
+    stripPii: false,
   });
 
   // Custom user-saved presets (session-scoped)
@@ -186,6 +201,7 @@ export function useExportConfig() {
     allPresets,
     customPresets,
     contentDetail,
+    redaction,
     applyPreset,
     toggleSection,
     selectAll,

@@ -6,8 +6,12 @@
 //! - FTS5 full-text search over summaries and messages
 
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
+
+/// Minimum interval between progress events to avoid flooding IPC.
+const PROGRESS_THROTTLE: Duration = Duration::from_millis(80);
 
 pub mod error;
 pub mod index_db;
@@ -93,11 +97,12 @@ pub fn reindex_all_with_rich_progress(
         })
         .collect();
 
-    // Phase 2: Write results to DB sequentially with per-session progress
+    // Phase 2: Write results to DB sequentially with throttled progress
     let mut running_tokens: u64 = 0;
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
     let mut indexed = 0;
+    let mut last_progress = Instant::now();
 
     db.begin_transaction()?;
     for (i, (session_id, parse_result)) in prepared.into_iter().enumerate() {
@@ -122,14 +127,21 @@ pub fn reindex_all_with_rich_progress(
                 None
             }
         };
-        on_progress(&IndexingProgress {
-            current: i + 1,
-            total,
-            session_info: info,
-            running_tokens,
-            running_events,
-            running_repos: seen_repos.len(),
-        });
+
+        // Throttle IPC progress events: emit at most every PROGRESS_THROTTLE,
+        // but always emit the final event so the UI reaches 100%.
+        let is_last = i + 1 == total;
+        if is_last || last_progress.elapsed() >= PROGRESS_THROTTLE {
+            on_progress(&IndexingProgress {
+                current: i + 1,
+                total,
+                session_info: info,
+                running_tokens,
+                running_events,
+                running_repos: seen_repos.len(),
+            });
+            last_progress = Instant::now();
+        }
     }
     db.commit_transaction()?;
 
@@ -196,23 +208,39 @@ pub fn reindex_incremental_with_rich_progress(
     let mut running_events: u64 = 0;
     let mut seen_repos = std::collections::HashSet::new();
 
-    // Step 1: Check staleness (sequential DB reads), emit progress for skipped
+    // Step 1: Check staleness (sequential DB reads), emit throttled progress for skipped
     let mut stale_sessions = Vec::new();
     let mut skipped = 0;
+    let mut last_progress = Instant::now();
     for session in &sessions {
         if db.needs_reindex(&session.id, &session.path) {
             stale_sessions.push(session);
         } else {
             skipped += 1;
-            on_progress(&IndexingProgress {
-                current: skipped + stale_sessions.len(),
-                total,
-                session_info: None,
-                running_tokens,
-                running_events,
-                running_repos: seen_repos.len(),
-            });
+            if last_progress.elapsed() >= PROGRESS_THROTTLE {
+                on_progress(&IndexingProgress {
+                    current: skipped + stale_sessions.len(),
+                    total,
+                    session_info: None,
+                    running_tokens,
+                    running_events,
+                    running_repos: seen_repos.len(),
+                });
+                last_progress = Instant::now();
+            }
         }
+    }
+
+    // If nothing needs reindex, emit a final progress event so the UI reaches 100%
+    if stale_sessions.is_empty() && total > 0 {
+        on_progress(&IndexingProgress {
+            current: total,
+            total,
+            session_info: None,
+            running_tokens,
+            running_events,
+            running_repos: seen_repos.len(),
+        });
     }
 
     // Step 2: Parse stale sessions in parallel (no DB access)
@@ -271,14 +299,20 @@ pub fn reindex_incremental_with_rich_progress(
                 None
             }
         };
-        on_progress(&IndexingProgress {
-            current: skipped + i + 1,
-            total,
-            session_info: info,
-            running_tokens,
-            running_events,
-            running_repos: seen_repos.len(),
-        });
+
+        // Throttle progress — always emit the final event
+        let is_last = skipped + i + 1 == total;
+        if is_last || last_progress.elapsed() >= PROGRESS_THROTTLE {
+            on_progress(&IndexingProgress {
+                current: skipped + i + 1,
+                total,
+                session_info: info,
+                running_tokens,
+                running_events,
+                running_repos: seen_repos.len(),
+            });
+            last_progress = Instant::now();
+        }
     }
 
     // Commit any remaining batch

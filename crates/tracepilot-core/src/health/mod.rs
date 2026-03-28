@@ -132,7 +132,11 @@ pub fn compute_health(
         }
 
         if !diag.deserialization_failures.is_empty() {
-            let total_failures: usize = diag.deserialization_failures.values().map(|f| f.count).sum();
+            let total_failures: usize = diag
+                .deserialization_failures
+                .values()
+                .map(|f| f.count)
+                .sum();
             flags.push(HealthFlag {
                 severity: HealthSeverity::Warning,
                 category: "parsing".to_string(),
@@ -184,10 +188,7 @@ pub fn compute_health(
             flags.push(HealthFlag {
                 severity: HealthSeverity::Warning,
                 category: "errors".to_string(),
-                message: format!(
-                    "{} non-rate-limit error(s) during session",
-                    other_errors
-                ),
+                message: format!("{} non-rate-limit error(s) during session", other_errors),
             });
         }
         if inc.truncation_count >= 3 {
@@ -265,10 +266,13 @@ mod tests {
     #[test]
     fn deser_failures_warning() {
         let mut failures = HashMap::new();
-        failures.insert("user.message".to_string(), DeserFailureInfo {
-            count: 5,
-            first_error: "missing field 'content'".to_string(),
-        });
+        failures.insert(
+            "user.message".to_string(),
+            DeserFailureInfo {
+                count: 5,
+                first_error: "missing field 'content'".to_string(),
+            },
+        );
         let diag = ParseDiagnostics {
             total_events: 100,
             typed_events: 95,
@@ -307,7 +311,11 @@ mod tests {
 
     #[test]
     fn rate_limit_warning() {
-        let inc = SessionIncidentCounts { rate_limit_count: 1, error_count: 1, ..Default::default() };
+        let inc = SessionIncidentCounts {
+            rate_limit_count: 1,
+            error_count: 1,
+            ..Default::default()
+        };
         let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
         assert!(health.score < 1.0);
         assert!(health.flags.iter().any(|f| f.category == "rate_limit"));
@@ -315,16 +323,33 @@ mod tests {
 
     #[test]
     fn severe_rate_limits_error() {
-        let inc = SessionIncidentCounts { rate_limit_count: 5, error_count: 5, ..Default::default() };
+        let inc = SessionIncidentCounts {
+            rate_limit_count: 5,
+            error_count: 5,
+            ..Default::default()
+        };
         let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
-        assert!(health.flags.iter().any(|f| matches!(f.severity, HealthSeverity::Error)));
+        assert!(
+            health
+                .flags
+                .iter()
+                .any(|f| matches!(f.severity, HealthSeverity::Error))
+        );
     }
 
     #[test]
     fn truncation_pressure_warning() {
-        let inc = SessionIncidentCounts { truncation_count: 4, ..Default::default() };
+        let inc = SessionIncidentCounts {
+            truncation_count: 4,
+            ..Default::default()
+        };
         let health = compute_health(Some(100), Some(&Default::default()), None, Some(&inc));
-        assert!(health.flags.iter().any(|f| f.category == "context_pressure"));
+        assert!(
+            health
+                .flags
+                .iter()
+                .any(|f| f.category == "context_pressure")
+        );
     }
 
     #[test]

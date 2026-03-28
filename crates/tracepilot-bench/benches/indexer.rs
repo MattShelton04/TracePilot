@@ -1,5 +1,5 @@
 use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
-use tracepilot_bench::{SessionFixtureBuilder, create_multi_session_fixture};
+use tracepilot_bench::{SessionFixtureBuilder, create_multi_session_fixture, create_varied_session_fixture};
 use tracepilot_indexer::index_db::IndexDb;
 
 fn bench_upsert_session(c: &mut Criterion) {
@@ -106,10 +106,36 @@ fn bench_query_analytics(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark full reindex with varied session sizes (realistic distribution).
+fn bench_reindex_varied(c: &mut Criterion) {
+    let mut group = c.benchmark_group("reindex_varied");
+    group.sample_size(10);
+    for count in [50, 100] {
+        let (_sessions_guard, sessions_path) = create_varied_session_fixture(count);
+
+        group.throughput(criterion::Throughput::Elements(count as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(count), &sessions_path, |b, sessions_path| {
+            b.iter_batched(
+                || {
+                    let db_dir = tempfile::tempdir().unwrap();
+                    let db_path = db_dir.path().join("bench.db");
+                    (db_dir, db_path)
+                },
+                |(_db_dir, db_path)| {
+                    tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_upsert_session,
     bench_reindex_all,
+    bench_reindex_varied,
     bench_search,
     bench_query_analytics
 );

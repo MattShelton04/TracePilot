@@ -43,6 +43,7 @@ const {
   allPresets,
   customPresets,
   contentDetail,
+  redaction,
   applyPreset,
   toggleSection,
   selectAll,
@@ -55,7 +56,7 @@ const {
   preview,
   loading: previewLoading,
   error: previewError,
-} = useExportPreview(selectedSessionId, format, sectionsArray, contentDetail);
+} = useExportPreview(selectedSessionId, format, sectionsArray, contentDetail, redaction);
 
 const importFlow = useImportFlow();
 
@@ -104,6 +105,7 @@ async function handleExport() {
       sections: sectionsArray.value,
       outputPath,
       contentDetail: contentDetail.value,
+      redaction: redaction.value,
     });
     toastSuccess(
       `Exported ${result.sessionsExported} session (${formatBytes(result.fileSizeBytes)})`,
@@ -338,14 +340,14 @@ function copiedToClipboard() {
               </div>
             </div>
             <div v-if="selectedSession" class="session-info">
-              <Badge variant="accent">{{ selectedSession.repository ?? '—' }}</Badge>
-              <Badge variant="neutral">{{ selectedSession.currentModel ?? '—' }}</Badge>
-              <span v-if="sectionsInfo?.turnCount != null">
-                {{ sectionsInfo.turnCount }} turns
-              </span>
-              <span v-if="sectionsInfo?.eventCount != null">
-                · {{ sectionsInfo.eventCount }} events
-              </span>
+              <div class="session-info-badges">
+                <Badge variant="accent">{{ selectedSession.repository ?? '—' }}</Badge>
+                <Badge variant="neutral">{{ selectedSession.currentModel ?? '—' }}</Badge>
+              </div>
+              <div v-if="sectionsInfo" class="session-info-stats">
+                <span v-if="sectionsInfo.turnCount != null">{{ sectionsInfo.turnCount }} turns</span>
+                <span v-if="sectionsInfo.eventCount != null">· {{ sectionsInfo.eventCount }} events</span>
+              </div>
             </div>
           </section>
 
@@ -395,8 +397,8 @@ function copiedToClipboard() {
             <div class="toggle-row">
               <span class="toggle-row-icon">🤖</span>
               <span class="toggle-row-label">
-                Agent internals
-                <span class="detail-hint">Include subagent reasoning &amp; tool calls</span>
+                Include subagent internals
+                <span class="detail-hint">Include subagent reasoning, tool calls &amp; intermediate thoughts</span>
               </span>
               <FormSwitch
                 :model-value="contentDetail.includeSubagentInternals"
@@ -423,6 +425,44 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="contentDetail.includeFullToolResults"
                 @update:model-value="contentDetail = { ...contentDetail, includeFullToolResults: $event }"
+              />
+            </div>
+          </section>
+
+          <!-- Privacy / Redaction -->
+          <section class="config-section">
+            <h3 class="config-section-title">Privacy</h3>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">📁</span>
+              <span class="toggle-row-label">
+                Anonymize paths
+                <span class="detail-hint">Replace filesystem paths with placeholders</span>
+              </span>
+              <FormSwitch
+                :model-value="redaction.anonymizePaths"
+                @update:model-value="redaction = { ...redaction, anonymizePaths: $event }"
+              />
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">🔑</span>
+              <span class="toggle-row-label">
+                Strip secrets
+                <span class="detail-hint">Remove API keys, tokens, and credentials</span>
+              </span>
+              <FormSwitch
+                :model-value="redaction.stripSecrets"
+                @update:model-value="redaction = { ...redaction, stripSecrets: $event }"
+              />
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-row-icon">👤</span>
+              <span class="toggle-row-label">
+                Strip PII
+                <span class="detail-hint">Remove emails, IP addresses, and other personal data</span>
+              </span>
+              <FormSwitch
+                :model-value="redaction.stripPii"
+                @update:model-value="redaction = { ...redaction, stripPii: $event }"
               />
             </div>
           </section>
@@ -924,7 +964,8 @@ function copiedToClipboard() {
   padding: 8px 12px;
   font-size: 0.8125rem;
   color: var(--text-primary);
-  pointer-events: none;
+  background: var(--canvas-default);
+  pointer-events: auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -985,12 +1026,22 @@ function copiedToClipboard() {
 }
 .session-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 8px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+.session-info-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.session-info-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ── Format Description ────────────────────────────────────── */

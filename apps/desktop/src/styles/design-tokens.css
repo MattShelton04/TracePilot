@@ -1,0 +1,203 @@
+/* ============================
+   VARIANT C DESIGN SYSTEM
+   ============================ */
+
+:root {
+  /* --- Font --- */
+  --font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-family);
+
+  /* --- Canvas --- */
+  --canvas-default: #09090b;
+  --canvas-subtle: #111113;
+  --canvas-inset: #0a0a0c;
+  --canvas-overlay: #18181b;
+  --canvas-raised: #1c1c1f;
+
+  /* --- Border --- */
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-accent: rgba(99, 102, 241, 0.5);
+  --border-glow: rgba(99, 102, 241, 0.15);
+
+  /* --- Text --- */
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-placeholder: #52525b;
+  --text-link: #818cf8;
+  --text-inverse: #09090b;                            /* Dark text for use on light backgrounds */
+  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Light text for use on colored emphasis backgrounds (badges, buttons) */
+
+  /* --- Accent (Indigo) --- */
+  --accent-fg: #818cf8;
+  --accent-emphasis: #6366f1;
+  --accent-muted: rgba(99, 102, 241, 0.25);
+  --accent-subtle: rgba(99, 102, 241, 0.10);
+
+  /* --- Success (Emerald) --- */
+  --success-fg: #34d399;
+  --success-emphasis: #10b981;
+  --success-muted: rgba(16, 185, 129, 0.25);
+  --success-subtle: rgba(16, 185, 129, 0.10);
+
+  /* --- Warning (Amber) --- */
+  --warning-fg: #fbbf24;
+  --warning-emphasis: #f59e0b;
+  --warning-muted: rgba(245, 158, 11, 0.25);
+  --warning-subtle: rgba(245, 158, 11, 0.10);
+
+  /* --- Danger (Rose) --- */
+  --danger-fg: #fb7185;
+  --danger-emphasis: #f43f5e;
+  --danger-muted: rgba(244, 63, 94, 0.25);
+  --danger-subtle: rgba(244, 63, 94, 0.10);
+
+  /* --- Done (Violet) --- */
+  --done-fg: #a78bfa;
+  --done-emphasis: #8b5cf6;
+  --done-muted: rgba(139, 92, 246, 0.25);
+  --done-subtle: rgba(139, 92, 246, 0.10);
+
+  /* --- Neutral --- */
+  --neutral-fg: #a1a1aa;
+  --neutral-emphasis: #71717a;
+  --neutral-muted: rgba(113, 113, 122, 0.25);
+  --neutral-subtle: rgba(113, 113, 122, 0.10);
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow-accent: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.15);
+
+  /* --- Layout --- */
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 56px;
+  --header-height: 0px;
+  --content-max-width: 1600px;
+
+  /* --- Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* --- Transitions --- */
+  --transition-fast: 100ms ease;
+  --transition-normal: 180ms ease;
+  --transition-slow: 280ms ease;
+
+  /* --- Z-Index --- */
+  --z-sidebar: 40;
+  --z-header: 50;
+  --z-fab: 55;
+  --z-overlay: 60;
+  --z-modal: 70;
+  --z-tooltip: 80;
+
+  /* --- Interaction States --- */
+  --state-hover-overlay: rgba(255, 255, 255, 0.12);   /* Subtle overlay for hover states */
+
+  /* --- Gradients --- */
+  --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --gradient-card: linear-gradient(145deg, var(--canvas-subtle), var(--canvas-default));
+  --gradient-surface: linear-gradient(180deg, var(--canvas-subtle) 0%, var(--canvas-default) 100%);
+
+  /* --- Agent Colors --- */
+  --agent-color-main: #6366f1;
+  --agent-color-explore: #22d3ee;
+  --agent-color-general-purpose: #a78bfa;
+  --agent-color-code-review: #f472b6;
+  --agent-color-task: #fbbf24;
+
+  /* --- Chart Colors --- */
+  --chart-success: #34d399;
+  --chart-success-light: #6ee7b7;
+  --chart-danger: #fb7185;
+  --chart-danger-light: #fca5a5;
+  --chart-primary: #6366f1;
+  --chart-primary-light: #818cf8;
+  --chart-secondary: #a78bfa;
+  --chart-warning: #fbbf24;
+  --chart-warning-light: #fde68a;
+  --chart-info: #38bdf8;
+  --chart-cyan: #22d3ee;
+  --chart-orange: #f97316;
+  --chart-lime: #84cc16;
+
+}
+
+/* ===== LIGHT THEME ===== */
+:root[data-theme="light"] {
+  --canvas-default: #ffffff;
+  --canvas-subtle: #f4f4f5;
+  --canvas-inset: #fafafa;
+  --canvas-overlay: #ffffff;
+  --canvas-raised: #ffffff;
+
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-muted: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-accent: rgba(99, 102, 241, 0.4);
+  --border-glow: rgba(99, 102, 241, 0.10);
+
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #71717a;
+  --text-placeholder: #a1a1aa;
+  --text-link: #6366f1;
+  --text-inverse: #fafafa;
+  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Same as dark - always high contrast on emphasis colors */
+
+  --accent-fg: #6366f1;
+  --accent-emphasis: #4f46e5;
+  --accent-muted: rgba(99, 102, 241, 0.15);
+  --accent-subtle: rgba(99, 102, 241, 0.06);
+
+  --success-fg: #059669;
+  --success-emphasis: #047857;
+  --success-muted: rgba(16, 185, 129, 0.15);
+  --success-subtle: rgba(16, 185, 129, 0.06);
+
+  --warning-fg: #d97706;
+  --warning-emphasis: #b45309;
+  --warning-muted: rgba(245, 158, 11, 0.15);
+  --warning-subtle: rgba(245, 158, 11, 0.06);
+
+  --danger-fg: #e11d48;
+  --danger-emphasis: #be123c;
+  --danger-muted: rgba(244, 63, 94, 0.15);
+  --danger-subtle: rgba(244, 63, 94, 0.06);
+
+  --done-fg: #7c3aed;
+  --done-emphasis: #6d28d9;
+  --done-muted: rgba(139, 92, 246, 0.15);
+  --done-subtle: rgba(139, 92, 246, 0.06);
+
+  --neutral-fg: #52525b;
+  --neutral-emphasis: #3f3f46;
+  --neutral-muted: rgba(113, 113, 122, 0.15);
+  --neutral-subtle: rgba(113, 113, 122, 0.06);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-glow-accent: 0 0 20px rgba(99, 102, 241, 0.08);
+  --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.08);
+
+  --state-hover-overlay: rgba(0, 0, 0, 0.08);         /* Inverted and slightly more visible for light theme */
+
+  --gradient-card: linear-gradient(145deg, #ffffff, #f4f4f5);
+  --gradient-surface: linear-gradient(180deg, #f4f4f5 0%, #ffffff 100%);
+
+  /* --- Agent Colors (darker for light backgrounds) --- */
+  --agent-color-main: #4f46e5;
+  --agent-color-explore: #0891b2;
+  --agent-color-general-purpose: #7c3aed;
+  --agent-color-code-review: #db2777;
+  --agent-color-task: #d97706;
+}

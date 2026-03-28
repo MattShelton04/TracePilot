@@ -162,7 +162,10 @@ pub fn column_exists(conn: &Connection, table_name: &str, column_name: &str) -> 
 #[must_use = "row count is useless if not used"]
 pub fn row_count(conn: &Connection, table_name: &str) -> Option<i64> {
     // Escape double quotes per SQL standard ("" = escaped ")
-    let query = format!("SELECT COUNT(*) FROM \"{}\"", table_name.replace("\"", "\"\""));
+    let query = format!(
+        "SELECT COUNT(*) FROM \"{}\"",
+        table_name.replace("\"", "\"\"")
+    );
     conn.query_row(&query, [], |row| row.get(0)).ok()
 }
 
@@ -219,7 +222,10 @@ mod tests {
         if let Ok(conn) = result {
             // Try to query - this should fail on corrupted database
             let query_result = conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()));
-            assert!(query_result.is_err(), "Corrupted database should fail on query");
+            assert!(
+                query_result.is_err(),
+                "Corrupted database should fail on query"
+            );
         }
         // Either open fails or query fails - both are acceptable behaviors
     }
@@ -335,9 +341,7 @@ mod tests {
         let db_path = create_test_db(&dir);
 
         // Open 10 simultaneous readonly connections
-        let conns: Vec<_> = (0..10)
-            .map(|_| open_readonly(&db_path).unwrap())
-            .collect();
+        let conns: Vec<_> = (0..10).map(|_| open_readonly(&db_path).unwrap()).collect();
 
         // All should be able to query
         for conn in &conns {
@@ -370,7 +374,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("case.db");
         let conn = Connection::open(&db_path).unwrap();
-        conn.execute_batch("CREATE TABLE MyTable (id INTEGER);").unwrap();
+        conn.execute_batch("CREATE TABLE MyTable (id INTEGER);")
+            .unwrap();
         drop(conn);
 
         let readonly = open_readonly(&db_path).unwrap();
@@ -386,7 +391,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("测试数据库.db");
         let conn = Connection::open(&db_path).unwrap();
-        conn.execute_batch("CREATE TABLE test (id INTEGER);").unwrap();
+        conn.execute_batch("CREATE TABLE test (id INTEGER);")
+            .unwrap();
         drop(conn);
 
         assert!(open_readonly(&db_path).is_ok());
@@ -398,7 +404,8 @@ mod tests {
         let db_path = dir.path().join("test.db");
         let conn = Connection::open(&db_path).unwrap();
         conn.execute_batch("PRAGMA journal_mode=DELETE;").unwrap();
-        conn.execute_batch("CREATE TABLE test (id INTEGER);").unwrap();
+        conn.execute_batch("CREATE TABLE test (id INTEGER);")
+            .unwrap();
         drop(conn);
 
         // Should still open readonly successfully
@@ -438,7 +445,8 @@ mod tests {
              INSERT INTO nulltest VALUES (1, 'a');
              INSERT INTO nulltest VALUES (2, NULL);
              INSERT INTO nulltest VALUES (NULL, 'b');",
-        ).unwrap();
+        )
+        .unwrap();
         drop(conn);
 
         let readonly = open_readonly(&db_path).unwrap();
@@ -466,7 +474,11 @@ mod tests {
 
         // PRAGMA statements with quote escaping are safe - malicious input becomes
         // part of the table name string literal and fails to match any real table
-        assert!(!column_exists(&conn, "users'; DROP TABLE users; --", "name"));
+        assert!(!column_exists(
+            &conn,
+            "users'; DROP TABLE users; --",
+            "name"
+        ));
         assert!(!column_exists(&conn, "users' OR '1'='1", "name"));
     }
 
