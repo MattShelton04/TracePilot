@@ -11,7 +11,7 @@
 
 pub mod config;
 mod commands;
-pub(crate) mod error;
+pub mod error;
 mod helpers;
 pub mod types;
 
