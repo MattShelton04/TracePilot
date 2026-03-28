@@ -5,6 +5,7 @@ import { useLauncherStore } from '@/stores/launcher';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useWorktreesStore } from '@/stores/worktrees';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
+import { useGitRepository } from '@/composables/useGitRepository';
 import {
   truncateText,
   formatCost,
@@ -13,14 +14,10 @@ import {
   useConfirmDialog,
   useClipboard,
   ErrorAlert,
-  pathBasename,
-  pathDirname,
-  sanitizeBranchForPath,
   SearchableSelect,
 } from '@tracepilot/ui';
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
-import { getDefaultBranch, fetchRemote } from '@tracepilot/client';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
@@ -67,29 +64,26 @@ const envVarsRecord = computed(() => {
 });
 
 const baseBranch = ref('');
-const defaultBranch = ref('');
-const fetchingRemote = ref(false);
 
-async function loadDefaultBranch(path: string) {
-  try {
-    defaultBranch.value = await getDefaultBranch(path);
-  } catch {
-    defaultBranch.value = '';
-  }
-}
-
-async function handleFetchRemote() {
-  if (!repoPath.value) return;
-  fetchingRemote.value = true;
-  try {
-    await fetchRemote(repoPath.value);
+// ── Git repository operations ───────────────────────────────────────
+const {
+  defaultBranch,
+  fetchingRemote,
+  fetchRemote: performFetchRemote,
+  computeWorktreePath,
+} = useGitRepository({
+  repoPath,
+  onFetchSuccess: async () => {
     await worktreeStore.loadBranches(repoPath.value);
     toastSuccess('Fetched latest from remote');
-  } catch (e) {
-    toastError(toErrorMessage(e));
-  } finally {
-    fetchingRemote.value = false;
-  }
+  },
+  onFetchError: (error) => {
+    toastError(error);
+  },
+});
+
+async function handleFetchRemote() {
+  await performFetchRemote();
 }
 
 function resetBranch() {
@@ -143,11 +137,8 @@ const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
 
 // Preview path for worktree creation
 const worktreePreviewPath = computed(() => {
-  if (!createWorktree.value || !repoPath.value || !branch.value) return '';
-  const repoName = pathBasename(repoPath.value);
-  const sanitized = sanitizeBranchForPath(branch.value);
-  const parent = pathDirname(repoPath.value);
-  return `${parent}/${repoName}-${sanitized}`.replace(/\//g, '\\');
+  if (!createWorktree.value || !branch.value) return '';
+  return computeWorktreePath(branch.value).replace(/\//g, '\\');
 });
 
 const estimatedCost = computed(() => {
@@ -351,12 +342,11 @@ async function copyCommand() {
   if (ok) toastSuccess('Command copied to clipboard');
 }
 
+// Note: repoPath watcher removed - now handled by useGitRepository composable
+// which automatically loads default branch and branches when repoPath changes
 watch(repoPath, (newPath) => {
   if (newPath) {
     worktreeStore.loadBranches(newPath);
-    loadDefaultBranch(newPath);
-  } else {
-    defaultBranch.value = '';
   }
 });
 
