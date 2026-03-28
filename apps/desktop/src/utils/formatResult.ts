@@ -37,7 +37,7 @@ export function formatObjectResult(result: unknown): string {
   }
 
   try {
-    return JSON.stringify(result, null, 2);
+    return JSON.stringify(result, null, 2) ?? String(result);
   } catch {
     // Circular references or non-serializable values (e.g. BigInt)
     return String(result);

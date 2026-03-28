@@ -134,6 +134,19 @@ describe("formatObjectResult", () => {
       const result = formatObjectResult(BigInt(42));
       expect(result).toBe("42");
     });
+
+    it("handles Symbol values via ?? String fallback", () => {
+      // JSON.stringify(Symbol()) returns undefined without throwing
+      const result = formatObjectResult(Symbol("test"));
+      expect(typeof result).toBe("string");
+      expect(result).toBe("Symbol(test)");
+    });
+
+    it("handles function values via ?? String fallback", () => {
+      // JSON.stringify(function) returns undefined without throwing
+      const result = formatObjectResult(() => 42);
+      expect(typeof result).toBe("string");
+    });
   });
 
   // ── Edge cases ────────────────────────────────────────────────────────────
