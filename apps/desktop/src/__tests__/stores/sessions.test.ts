@@ -1,14 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useSessionsStore } from "../../stores/sessions";
+import { nextTick } from "vue";
 
 // Mock the client module
 const mockListSessions = vi.fn();
 const mockReindexSessions = vi.fn();
+const mockSearchSessions = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   listSessions: (...args: unknown[]) => mockListSessions(...args),
   reindexSessions: (...args: unknown[]) => mockReindexSessions(...args),
+  searchSessions: (...args: unknown[]) => mockSearchSessions(...args),
 }));
 
 const MOCK_SESSION = {
@@ -29,6 +32,12 @@ describe("useSessionsStore", () => {
     setActivePinia(createPinia());
     mockListSessions.mockReset();
     mockReindexSessions.mockReset();
+    mockSearchSessions.mockReset();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("initializes with empty sessions", () => {
@@ -122,10 +131,23 @@ describe("useSessionsStore", () => {
       { ...MOCK_SESSION, id: "1", summary: "OAuth Login" },
       { ...MOCK_SESSION, id: "2", summary: "Database Migration" },
     ]);
+    mockSearchSessions.mockResolvedValue([
+      { ...MOCK_SESSION, id: "1", summary: "OAuth Login" },
+    ]);
+
     const store = useSessionsStore();
     await store.fetchSessions();
 
     store.searchQuery = "oauth";
+    await nextTick();
+    // wait for debounce
+    vi.runAllTimers();
+    // Flush promises so the async searchSessions call resolves
+    await Promise.resolve();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(mockSearchSessions).toHaveBeenCalledWith("oauth");
     expect(store.filteredSessions).toHaveLength(1);
     expect(store.filteredSessions[0].summary).toBe("OAuth Login");
   });

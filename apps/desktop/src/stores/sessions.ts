@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
-import { listSessions, reindexSessions } from "@tracepilot/client";
+import { listSessions, reindexSessions, searchSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { logError } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
@@ -19,47 +19,59 @@ export const useSessionsStore = defineStore("sessions", () => {
   const indexing = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref("");
+  const searchResults = ref<SessionListItem[] | null>(null);
+  const isSearching = ref(false);
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
   const sortBy = ref<SortOption>("updated");
 
-  // Pre-compute lowercased search fields — rebuilt only when session list changes,
-  // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
-  const searchFieldCache = computed(() => {
-    const cache = new Map<string, { id: string; summary: string; repository: string; branch: string }>();
-    for (const s of sessions.value) {
-      cache.set(s.id, {
-        id: s.id.toLowerCase(),
-        summary: (s.summary ?? '').toLowerCase(),
-        repository: (s.repository ?? '').toLowerCase(),
-        branch: (s.branch ?? '').toLowerCase(),
-      });
+  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let activeSearchId = 0;
+
+  watch(searchQuery, (newQuery) => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (!newQuery || !newQuery.trim()) {
+      searchResults.value = null;
+      isSearching.value = false;
+      return;
     }
-    return cache;
+
+    isSearching.value = true;
+    const searchId = ++activeSearchId;
+
+    searchTimeout = setTimeout(async () => {
+      try {
+        const results = await searchSessions(newQuery.trim());
+        if (activeSearchId === searchId) {
+          searchResults.value = results;
+        }
+      } catch (e) {
+        logError("[sessions] Search failed:", e);
+        if (activeSearchId === searchId) {
+          searchResults.value = [];
+        }
+      } finally {
+        if (activeSearchId === searchId) {
+          isSearching.value = false;
+        }
+      }
+    }, 300);
   });
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
-    const q = searchQuery.value ? searchQuery.value.toLowerCase() : null;
+    const q = searchQuery.value ? searchQuery.value.trim() : null;
     const repo = filterRepo.value;
     const branch = filterBranch.value;
     const hideEmpty = prefs.hideEmptySessions;
-    const cache = searchFieldCache.value;
+
+    // Use searchResults if there's a query, otherwise use full sessions list
+    const baseList = q ? (searchResults.value ?? []) : sessions.value;
 
     // Single-pass filter: combine all predicates into one loop
-    const result = sessions.value.filter((s) => {
+    const result = baseList.filter((s) => {
       if (hideEmpty && (s.turnCount ?? 0) === 0) return false;
-
-      if (q) {
-        const fields = cache.get(s.id);
-        if (!fields || !(
-          fields.summary.includes(q) ||
-          fields.repository.includes(q) ||
-          fields.branch.includes(q) ||
-          fields.id.includes(q)
-        )) return false;
-      }
-
       if (repo && s.repository !== repo) return false;
       if (branch && s.branch !== branch) return false;
 
@@ -206,6 +218,8 @@ export const useSessionsStore = defineStore("sessions", () => {
     indexing,
     error,
     searchQuery,
+    searchResults,
+    isSearching,
     filterRepo,
     filterBranch,
     sortBy,
