@@ -582,7 +582,7 @@ const swimlaneTerms = [
 
             <!-- Detail panel (shown when a tool in this turn is selected) -->
             <ToolDetailPanel
-              v-if="selectedTool && turnOwnsSelected(turn)"
+              v-if="selectedTool && turnOwnsSelected?.(turn)"
               :tc="selectedTool"
               :full-result="fullResults.get(selectedTool.toolCallId ?? '')"
               :loading-full-result="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"

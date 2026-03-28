@@ -97,24 +97,24 @@ describe("useTimelineToolState", () => {
 			const store = wrapper.vm.store;
 
 			const mockToolCall1: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
 				startedAt: "2024-01-01T00:00:00Z",
 				completedAt: "2024-01-01T00:00:01Z",
 				durationMs: 1000,
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
 			};
 
 			const mockToolCall2: TurnToolCall = {
-				name: "read",
+				toolName: "read",
 				arguments: '{"path":"file.ts"}',
 				startedAt: "2024-01-01T00:00:02Z",
 				completedAt: "2024-01-01T00:00:03Z",
 				durationMs: 1000,
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-2",
@@ -126,16 +126,18 @@ describe("useTimelineToolState", () => {
 				userMessage: "test message 1",
 				assistantMessages: [],
 				toolCalls: [mockToolCall1],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			const mockTurn2: ConversationTurn = {
 				turnIndex: 1,
 				timestamp: "2024-01-01T00:00:05Z",
-				userMessage: null,
+				userMessage: undefined,
 				assistantMessages: [],
 				toolCalls: [mockToolCall2],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			store.turns = [mockTurn1, mockTurn2];
@@ -156,9 +158,9 @@ describe("useTimelineToolState", () => {
 		it("selects a tool", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -166,15 +168,15 @@ describe("useTimelineToolState", () => {
 
 			wrapper.vm.selectTool(mockTool);
 			expect(wrapper.vm.selectedTool?.toolCallId).toBe("tc-1");
-			expect(wrapper.vm.selectedTool?.name).toBe("bash");
+			expect(wrapper.vm.selectedTool?.toolName).toBe("bash");
 		});
 
 		it("toggles selection when selecting same tool by ID", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -190,15 +192,15 @@ describe("useTimelineToolState", () => {
 		it("toggles selection when selecting same tool by reference (no ID)", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 			};
 
 			wrapper.vm.selectTool(mockTool);
-			expect(wrapper.vm.selectedTool?.name).toBe("bash");
+			expect(wrapper.vm.selectedTool?.toolName).toBe("bash");
 
 			// Note: Due to Vue's reactivity proxies, the second call may not match
 			// the same object reference, so the toggle may not work as expected
@@ -206,15 +208,15 @@ describe("useTimelineToolState", () => {
 			wrapper.vm.selectTool(mockTool);
 			// The selection behavior for non-ID tools depends on reference equality
 			// which may not work through Vue proxies, so we just verify it's set
-			expect(wrapper.vm.selectedTool?.name).toBeDefined();
+			expect(wrapper.vm.selectedTool?.toolName).toBeDefined();
 		});
 
 		it("isToolSelected returns true for selected tool by ID", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -233,9 +235,9 @@ describe("useTimelineToolState", () => {
 		it("isToolSelected checks tool selection", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 			};
@@ -247,9 +249,9 @@ describe("useTimelineToolState", () => {
 
 			// Different object without ID should not match (no ID to compare)
 			const differentTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 			};
@@ -259,17 +261,17 @@ describe("useTimelineToolState", () => {
 		it("isToolSelected returns false for non-selected tool", () => {
 			const wrapper = mount(TestComponent);
 			const toolA: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
 			};
 			const toolB: TurnToolCall = {
-				name: "read",
+				toolName: "read",
 				arguments: '{"path":"file.ts"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-2",
@@ -282,9 +284,9 @@ describe("useTimelineToolState", () => {
 		it("clears selection with clearSelection", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -300,9 +302,9 @@ describe("useTimelineToolState", () => {
 		it("clears selection with clearAllState", () => {
 			const wrapper = mount(TestComponent);
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -320,9 +322,9 @@ describe("useTimelineToolState", () => {
 			const store = wrapper.vm.store;
 
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -334,7 +336,8 @@ describe("useTimelineToolState", () => {
 				userMessage: "test",
 				assistantMessages: [],
 				toolCalls: [mockTool],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			store.turns = [mockTurn];
@@ -367,9 +370,9 @@ describe("useTimelineToolState", () => {
 			const store = wrapper.vm.store;
 
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -381,7 +384,8 @@ describe("useTimelineToolState", () => {
 				userMessage: "test",
 				assistantMessages: [],
 				toolCalls: [mockTool],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			store.turns = [mockTurn];
@@ -403,9 +407,9 @@ describe("useTimelineToolState", () => {
 			const store = wrapper.vm.store;
 
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 			};
@@ -416,21 +420,22 @@ describe("useTimelineToolState", () => {
 				userMessage: "test",
 				assistantMessages: [],
 				toolCalls: [mockTool],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			store.turns = [mockTurn];
 			await nextTick();
 
 			wrapper.vm.selectTool(mockTool);
-			expect(wrapper.vm.selectedTool?.name).toBe("bash");
+			expect(wrapper.vm.selectedTool?.toolName).toBe("bash");
 			const originalArgs = wrapper.vm.selectedTool?.arguments;
 
 			// Simulate data refresh
 			const newMockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"pwd"}', // Different args, no ID to match
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 			};
@@ -471,9 +476,9 @@ describe("useTimelineToolState", () => {
 			expect(typeof wrapper.vm.turnOwnsSelected).toBe("function");
 
 			const mockTool: TurnToolCall = {
-				name: "bash",
+				toolName: "bash",
 				arguments: '{"command":"ls"}',
-				status: "success",
+				success: true,
 				isSubagent: false,
 				isComplete: true,
 				toolCallId: "tc-1",
@@ -485,7 +490,8 @@ describe("useTimelineToolState", () => {
 				userMessage: "test",
 				assistantMessages: [],
 				toolCalls: [mockTool],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			wrapper.vm.selectTool(mockTool);
@@ -517,7 +523,8 @@ describe("useTimelineToolState", () => {
 				userMessage: "test",
 				assistantMessages: [],
 				toolCalls: [],
-				subagentSections: [],
+			isComplete: true,
+				
 			};
 
 			const result = wrapper.vm.turnOwnsSelected?.(mockTurn);
