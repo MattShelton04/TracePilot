@@ -47,6 +47,10 @@ export interface LineAreaChartResult<T> {
  * Maps an array of date-keyed data points to SVG coordinates suitable for
  * rendering line charts, area fills, axis labels, and highlight dots.
  *
+ * @returns An object containing:
+ *   - `chartData` — Computed chart coordinates, polyline/area strings, and axis labels (null when data is insufficient).
+ *   - `gridLines` — Computed Y positions derived from the Y-axis labels, suitable for horizontal grid-line rendering.
+ *
  * @example
  * ```ts
  * const { chartData, gridLines } = useLineAreaChartData({

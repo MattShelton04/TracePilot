@@ -5,7 +5,9 @@ import { useLineAreaChartData } from '../useLineAreaChartData';
 
 const layout = createChartLayout(55, 490, 20, 175);
 
-function makePoints(count: number) {
+type TokenPoint = { date: string; tokens: number };
+
+function makePoints(count: number): TokenPoint[] {
   return Array.from({ length: count }, (_, i) => ({
     date: `2025-01-${String(i + 1).padStart(2, '0')}`,
     tokens: (i + 1) * 100,
@@ -16,18 +18,18 @@ describe('useLineAreaChartData', () => {
   describe('chartData', () => {
     it('returns null when data is null', () => {
       const { chartData } = useLineAreaChartData({
-        data: ref(null),
+        data: ref<TokenPoint[] | null>(null),
         layout,
-        accessor: (p: { tokens: number }) => p.tokens,
+        accessor: (p) => p.tokens,
       });
       expect(chartData.value).toBeNull();
     });
 
     it('returns null when data is undefined', () => {
       const { chartData } = useLineAreaChartData({
-        data: ref(undefined),
+        data: ref<TokenPoint[] | undefined>(undefined),
         layout,
-        accessor: (p: { tokens: number }) => p.tokens,
+        accessor: (p) => p.tokens,
       });
       expect(chartData.value).toBeNull();
     });
@@ -43,9 +45,9 @@ describe('useLineAreaChartData', () => {
 
     it('returns null for empty array', () => {
       const { chartData } = useLineAreaChartData({
-        data: ref([]),
+        data: ref<TokenPoint[]>([]),
         layout,
-        accessor: (p: { date: string; tokens: number }) => p.tokens,
+        accessor: (p) => p.tokens,
       });
       expect(chartData.value).toBeNull();
     });
@@ -154,9 +156,9 @@ describe('useLineAreaChartData', () => {
   describe('gridLines', () => {
     it('returns empty array when chartData is null', () => {
       const { gridLines } = useLineAreaChartData({
-        data: ref(null),
+        data: ref<TokenPoint[] | null>(null),
         layout,
-        accessor: (p: { tokens: number }) => p.tokens,
+        accessor: (p) => p.tokens,
       });
       expect(gridLines.value).toEqual([]);
     });

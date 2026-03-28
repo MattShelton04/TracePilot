@@ -1,7 +1,7 @@
 import type { ComputedRef, Ref } from 'vue';
 import { computed } from 'vue';
 import type { ChartLayout, XAxisLabel } from '@tracepilot/ui';
-import { formatDateMedium, formatDateShort, generateXLabels } from '@tracepilot/ui';
+import { computeBarWidth, formatDateMedium, formatDateShort, generateXLabels } from '@tracepilot/ui';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ export function useIncidentChartData(options: UseIncidentChartDataOptions) {
     });
 
     const maxVal = Math.max(0.5, ...barData.map((b) => b.total));
-    const barW = Math.max(4, Math.min(18, CHART_W / barData.length - 2));
+    const barW = computeBarWidth(CHART_W, barData.length, 4, 18);
 
     const bars: IncidentBar[] = barData.map((b, i) => {
       const x = CHART_LEFT + ((i + 0.5) / barData.length) * CHART_W;

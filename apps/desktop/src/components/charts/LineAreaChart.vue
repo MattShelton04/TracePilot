@@ -5,8 +5,7 @@ import type { LineAreaChartResult } from '@/composables/useLineAreaChartData';
 
 defineProps<{
   /** Pre-computed chart data from useLineAreaChartData. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  chartData: LineAreaChartResult<any>;
+  chartData: LineAreaChartResult<{ date: string }>;
   /** Shared layout dimensions. */
   chartLayout: ChartLayout;
   /** Y-axis grid line positions. */
