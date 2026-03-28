@@ -15,7 +15,8 @@
 pub mod patterns;
 
 use crate::document::{
-    CustomTableExport, PortableSession, PortableSessionMetadata, SessionArchive,
+    CheckpointExport, CustomTableExport, ParseDiagnosticsExport, PortableSession,
+    PortableSessionMetadata, SessionArchive,
 };
 use crate::options::RedactionOptions;
 use patterns::{RedactionPattern, PATH_PATTERNS, PII_PATTERNS, SECRET_PATTERNS};
@@ -78,45 +79,72 @@ fn redact_session(
 ) {
     redact_metadata(&mut session.metadata, patterns, stats);
 
-    if let Some(ref mut conversation) = session.conversation {
+    if let Some(conversation) = &mut session.conversation {
         for turn in conversation.iter_mut() {
             redact_turn(turn, patterns, stats);
         }
     }
 
-    if let Some(ref mut events) = session.events {
+    if let Some(events) = &mut session.events {
         for event in events.iter_mut() {
             redact_json_value(&mut event.data, patterns, stats);
         }
     }
 
-    if let Some(ref mut todos) = session.todos {
+    if let Some(todos) = &mut session.todos {
         for item in &mut todos.items {
             redact_opt_string(&mut item.description, patterns, stats);
             redact_string(&mut item.title, patterns, stats);
         }
     }
 
-    if let Some(ref mut plan) = session.plan {
+    if let Some(plan) = &mut session.plan {
         redact_string(plan, patterns, stats);
     }
 
-    if let Some(ref mut checkpoints) = session.checkpoints {
-        for cp in checkpoints.iter_mut() {
-            if let Some(ref mut content) = cp.content {
-                redact_string(content, patterns, stats);
+    if let Some(checkpoints) = &mut session.checkpoints {
+        redact_checkpoints(checkpoints, patterns, stats);
+    }
+
+    if let Some(rewind) = &mut session.rewind_snapshots {
+        for snap in &mut rewind.snapshots {
+            redact_opt_string(&mut snap.user_message, patterns, stats);
+            redact_opt_string(&mut snap.git_branch, patterns, stats);
+        }
+    }
+
+    if let Some(metrics) = &mut session.shutdown_metrics {
+        if let Some(changes) = &mut metrics.code_changes {
+            if let Some(files) = &mut changes.files_modified {
+                for f in files.iter_mut() {
+                    redact_string(f, patterns, stats);
+                }
             }
         }
     }
 
-    if let Some(ref mut tables) = session.custom_tables {
+    if let Some(tables) = &mut session.custom_tables {
         redact_custom_tables(tables, patterns, stats);
     }
 
-    if let Some(ref mut incidents) = session.incidents {
+    if let Some(incidents) = &mut session.incidents {
         for incident in incidents.iter_mut() {
             redact_string(&mut incident.summary, patterns, stats);
         }
+    }
+
+    if let Some(health) = &mut session.health {
+        for flag in &mut health.flags {
+            redact_string(&mut flag.message, patterns, stats);
+        }
+    }
+
+    if let Some(diag) = &mut session.parse_diagnostics {
+        redact_diagnostics(diag, patterns, stats);
+    }
+
+    if let Some(extensions) = &mut session.extensions {
+        redact_json_value(extensions, patterns, stats);
     }
 }
 
@@ -131,6 +159,12 @@ fn redact_metadata(
     redact_opt_string(&mut meta.repository, patterns, stats);
     redact_opt_string(&mut meta.branch, patterns, stats);
     redact_opt_string(&mut meta.summary, patterns, stats);
+
+    if let Some(lineage) = &mut meta.lineage {
+        for entry in lineage.iter_mut() {
+            redact_opt_string(&mut entry.system_info, patterns, stats);
+        }
+    }
 }
 
 /// Redact all text content within a conversation turn.
@@ -162,15 +196,41 @@ fn redact_turn(
     for event in &mut turn.session_events {
         redact_string(&mut event.summary, patterns, stats);
     }
+
+    // Attachments are stored as arbitrary JSON (file paths, code snippets, etc.)
+    if let Some(attachments) = &mut turn.attachments {
+        for attachment in attachments.iter_mut() {
+            redact_json_value(attachment, patterns, stats);
+        }
+    }
 }
 
-/// Redact values in custom table rows.
+/// Redact checkpoint titles, filenames, and content.
+fn redact_checkpoints(
+    checkpoints: &mut [CheckpointExport],
+    patterns: &[&RedactionPattern],
+    stats: &mut RedactionStats,
+) {
+    for cp in checkpoints.iter_mut() {
+        redact_string(&mut cp.title, patterns, stats);
+        redact_string(&mut cp.filename, patterns, stats);
+        if let Some(content) = &mut cp.content {
+            redact_string(content, patterns, stats);
+        }
+    }
+}
+
+/// Redact values in custom table names, columns, and row data.
 fn redact_custom_tables(
     tables: &mut [CustomTableExport],
     patterns: &[&RedactionPattern],
     stats: &mut RedactionStats,
 ) {
     for table in tables.iter_mut() {
+        redact_string(&mut table.name, patterns, stats);
+        for col in &mut table.columns {
+            redact_string(col, patterns, stats);
+        }
         for row in &mut table.rows {
             for value in row.values_mut() {
                 redact_json_value(value, patterns, stats);
@@ -179,14 +239,33 @@ fn redact_custom_tables(
     }
 }
 
+/// Redact parse diagnostics warning messages.
+fn redact_diagnostics(
+    diag: &mut ParseDiagnosticsExport,
+    patterns: &[&RedactionPattern],
+    stats: &mut RedactionStats,
+) {
+    use crate::document::EventParseWarning;
+    if let Some(warnings) = &mut diag.warnings {
+        for warning in warnings.iter_mut() {
+            match warning {
+                EventParseWarning::DeserializationFailed { error, .. } => {
+                    redact_string(error, patterns, stats);
+                }
+                EventParseWarning::UnknownEventType { .. } => {}
+            }
+        }
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/// Redact a `String` field in place.
+/// Redact a `String` field in place. Tracks per-field and per-match counts.
 fn redact_string(s: &mut String, patterns: &[&RedactionPattern], stats: &mut RedactionStats) {
-    if let Some(redacted) = apply_patterns(s, patterns) {
+    if let Some((redacted, match_count)) = apply_patterns(s, patterns) {
         *s = redacted;
         stats.fields_redacted += 1;
-        stats.total_replacements += 1;
+        stats.total_replacements += match_count;
     }
 }
 
@@ -225,20 +304,33 @@ fn redact_json_value(
     }
 }
 
-/// Extend `apply_patterns` to accept a slice of references (not a slice of owned values).
-fn apply_patterns(text: &str, patterns: &[&RedactionPattern]) -> Option<String> {
+/// Apply patterns to a string. Returns `None` if no patterns matched,
+/// otherwise returns the redacted string and the total number of individual
+/// regex matches that were replaced.
+fn apply_patterns(text: &str, patterns: &[&RedactionPattern]) -> Option<(String, usize)> {
+    // Fast path: check if any pattern matches before allocating.
+    let any_match = patterns.iter().any(|p| p.regex.is_match(text));
+    if !any_match {
+        return None;
+    }
+
     let mut result = text.to_string();
-    let mut changed = false;
+    let mut total_matches: usize = 0;
 
     for pattern in patterns {
-        let after = pattern.regex.replace_all(&result, pattern.replacement);
-        if after != result {
-            changed = true;
+        let match_count = pattern.regex.find_iter(&result).count();
+        if match_count > 0 {
+            total_matches += match_count;
+            let after = pattern.regex.replace_all(&result, pattern.replacement);
             result = after.into_owned();
         }
     }
 
-    if changed { Some(result) } else { None }
+    if total_matches > 0 {
+        Some((result, total_matches))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -406,6 +498,195 @@ mod tests {
 
         let stats = apply_redaction(&mut archive, &test_options_all());
         assert!(stats.fields_redacted >= 2);
-        assert!(stats.total_replacements >= 2);
+        // total_replacements should be >= fields_redacted (plan has 2 matches)
+        assert!(stats.total_replacements >= stats.fields_redacted);
+    }
+
+    #[test]
+    fn redacts_attachments() {
+        let mut session = minimal_session();
+        session.conversation = Some(vec![ConversationTurn {
+            turn_index: 0,
+            event_index: None,
+            turn_id: None,
+            interaction_id: None,
+            user_message: None,
+            assistant_messages: vec![],
+            model: None,
+            timestamp: None,
+            end_timestamp: None,
+            tool_calls: vec![],
+            duration_ms: None,
+            is_complete: true,
+            reasoning_texts: vec![],
+            output_tokens: None,
+            transformed_user_message: None,
+            attachments: Some(vec![serde_json::json!({
+                "type": "file",
+                "path": "/home/alice/secrets.txt",
+                "content": "token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+            })]),
+            session_events: vec![],
+        }]);
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_all());
+
+        let att = &archive.sessions[0].conversation.as_ref().unwrap()[0]
+            .attachments
+            .as_ref()
+            .unwrap()[0];
+        let att_str = att.to_string();
+        assert!(!att_str.contains("/home/alice"), "Path should be redacted in attachment");
+        assert!(!att_str.contains("ghp_"), "Token should be redacted in attachment");
+    }
+
+    #[test]
+    fn redacts_rewind_snapshots() {
+        let mut session = minimal_session();
+        session.rewind_snapshots = Some(tracepilot_core::parsing::rewind_snapshots::RewindIndex {
+            version: 1,
+            snapshots: vec![tracepilot_core::parsing::rewind_snapshots::RewindSnapshot {
+                snapshot_id: "snap-1".into(),
+                event_id: None,
+                user_message: Some("Edit /home/bob/code.rs".into()),
+                timestamp: None,
+                file_count: None,
+                git_commit: None,
+                git_branch: Some("feature/bob-secret".into()),
+            }],
+        });
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_paths_only());
+
+        let snap = &archive.sessions[0]
+            .rewind_snapshots
+            .as_ref()
+            .unwrap()
+            .snapshots[0];
+        assert!(
+            !snap.user_message.as_ref().unwrap().contains("/home/bob"),
+            "Rewind snapshot user_message should be redacted"
+        );
+    }
+
+    #[test]
+    fn redacts_checkpoint_title_and_filename() {
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![CheckpointExport {
+            number: 1,
+            title: "Saved /home/alice/project state".into(),
+            filename: "/home/alice/project/checkpoint.md".into(),
+            content: Some("Token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij".into()),
+        }]);
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_all());
+
+        let cp = &archive.sessions[0].checkpoints.as_ref().unwrap()[0];
+        assert!(!cp.title.contains("/home/alice"), "Checkpoint title should be redacted");
+        assert!(!cp.filename.contains("/home/alice"), "Checkpoint filename should be redacted");
+        assert!(
+            !cp.content.as_ref().unwrap().contains("ghp_"),
+            "Checkpoint content should be redacted"
+        );
+    }
+
+    #[test]
+    fn redacts_health_flags() {
+        let mut session = minimal_session();
+        session.health = Some(tracepilot_core::health::SessionHealth {
+            score: 0.8,
+            flags: vec![tracepilot_core::health::HealthFlag {
+                severity: tracepilot_core::health::HealthSeverity::Warning,
+                category: "paths".into(),
+                message: "Found path /home/user/sensitive in events".into(),
+            }],
+        });
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_paths_only());
+
+        let flag = &archive.sessions[0].health.as_ref().unwrap().flags[0];
+        assert!(
+            !flag.message.contains("/home/user"),
+            "Health flag message should be redacted"
+        );
+    }
+
+    #[test]
+    fn redacts_extensions_json() {
+        let mut session = minimal_session();
+        session.extensions = Some(serde_json::json!({
+            "custom_field": "deploy to 10.0.0.1",
+            "nested": {
+                "email": "admin@corp.com"
+            }
+        }));
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_all());
+
+        let ext = archive.sessions[0].extensions.as_ref().unwrap();
+        let ext_str = ext.to_string();
+        assert!(!ext_str.contains("10.0.0.1"), "Extension IP should be redacted");
+        assert!(!ext_str.contains("admin@corp.com"), "Extension email should be redacted");
+    }
+
+    #[test]
+    fn redacts_custom_table_name_and_columns() {
+        let mut session = minimal_session();
+        session.custom_tables = Some(vec![CustomTableExport {
+            name: "/home/alice/data".into(),
+            columns: vec!["path".into(), "/home/alice/col".into()],
+            rows: vec![{
+                let mut row = std::collections::HashMap::new();
+                row.insert("path".into(), serde_json::json!("/home/alice/file.txt"));
+                row
+            }],
+        }]);
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_paths_only());
+
+        let table = &archive.sessions[0].custom_tables.as_ref().unwrap()[0];
+        assert!(
+            !table.name.contains("/home/alice"),
+            "Custom table name should be redacted"
+        );
+        assert!(
+            !table.columns[1].contains("/home/alice"),
+            "Custom table column should be redacted"
+        );
+    }
+
+    #[test]
+    fn total_replacements_counts_all_matches() {
+        let mut session = minimal_session();
+        session.plan = Some("Contact a@test.com and b@test.com and c@test.com".into());
+        let mut archive = test_archive(session);
+
+        let stats = apply_redaction(&mut archive, &test_options_all());
+        // 3 email matches in one field = fields_redacted=1, total_replacements=3
+        assert_eq!(stats.fields_redacted, 1);
+        assert_eq!(stats.total_replacements, 3);
+    }
+
+    #[test]
+    fn env_var_assign_handles_quoted_values() {
+        let mut session = minimal_session();
+        session.plan =
+            Some(r#"export PASSWORD="my secret pass""#.into());
+        let mut archive = test_archive(session);
+
+        apply_redaction(&mut archive, &test_options_all());
+
+        let plan = archive.sessions[0].plan.as_ref().unwrap();
+        assert!(
+            !plan.contains("my secret pass"),
+            "Quoted env var value should be fully redacted, got: {}",
+            plan
+        );
     }
 }

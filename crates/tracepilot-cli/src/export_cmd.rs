@@ -82,11 +82,26 @@ pub fn run(opts: ExportOpts) -> Result<()> {
             }
         }
         None => {
-            // Write to stdout
-            if let Some(file) = files.first() {
+            // Write to stdout — all files with separators for multi-file output
+            if files.len() == 1 {
                 std::io::stdout()
-                    .write_all(&file.content)
+                    .write_all(&files[0].content)
                     .context("Failed to write to stdout")?;
+            } else if files.len() > 1 {
+                let stdout = std::io::stdout();
+                let mut handle = stdout.lock();
+                for (i, file) in files.iter().enumerate() {
+                    if i > 0 {
+                        writeln!(handle, "\n--- {} ---\n", file.filename)
+                            .context("Failed to write separator to stdout")?;
+                    } else {
+                        writeln!(handle, "--- {} ---\n", file.filename)
+                            .context("Failed to write separator to stdout")?;
+                    }
+                    handle
+                        .write_all(&file.content)
+                        .context("Failed to write to stdout")?;
+                }
             }
         }
     }
@@ -99,10 +114,14 @@ fn run_preview(sessions: &[std::path::PathBuf], options: &ExportOptions) -> Resu
         bail!("At least one session directory is required");
     }
 
-    let content = tracepilot_export::preview_export(sessions[0].as_path(), options, None)
-        .context("Preview failed")?;
-
-    println!("{content}");
+    for (i, session_path) in sessions.iter().enumerate() {
+        if i > 0 {
+            println!("\n--- Session {} ---\n", i + 1);
+        }
+        let content = tracepilot_export::preview_export(session_path.as_path(), options, None)
+            .context("Preview failed")?;
+        println!("{content}");
+    }
     Ok(())
 }
 

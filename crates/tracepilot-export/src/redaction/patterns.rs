@@ -65,7 +65,7 @@ static GENERIC_SECRET_ASSIGN: Lazy<Regex> = Lazy::new(|| {
 });
 
 static ENV_VAR_ASSIGN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)(?:export\s+|set\s+)?(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|ACCESS_KEY|AUTH)[A-Z_]*\s*=\s*\S+").unwrap()
+    Regex::new(r#"(?i)(?:export\s+|set\s+)?(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|ACCESS_KEY|AUTH)[A-Z_]*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)"#).unwrap()
 });
 
 /// Patterns that match secrets, tokens, API keys, and credentials.

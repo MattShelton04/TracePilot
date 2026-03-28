@@ -341,6 +341,9 @@ fn parse_format(format: &str) -> CmdResult<ExportFormat> {
 }
 
 fn parse_sections(sections: &[String]) -> HashSet<SectionId> {
+    if sections.is_empty() {
+        return SectionId::ALL.iter().copied().collect();
+    }
     sections
         .iter()
         .filter_map(|s| match s.to_lowercase().as_str() {
