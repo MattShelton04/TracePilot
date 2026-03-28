@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { aggregateSettledErrors } from '../../utils/settleErrors';
 
 /** Helper: create a fulfilled PromiseSettledResult. */
@@ -22,10 +22,7 @@ describe('aggregateSettledErrors', () => {
   });
 
   it('returns single error message for one rejection', () => {
-    const results = [
-      fulfilled('ok'),
-      rejected(new Error('Network error')),
-    ];
+    const results = [fulfilled('ok'), rejected(new Error('Network error'))];
     expect(aggregateSettledErrors(results)).toBe('Network error');
   });
 
@@ -39,11 +36,7 @@ describe('aggregateSettledErrors', () => {
   });
 
   it('handles all-rejected results', () => {
-    const results = [
-      rejected(new Error('A')),
-      rejected(new Error('B')),
-      rejected(new Error('C')),
-    ];
+    const results = [rejected(new Error('A')), rejected(new Error('B')), rejected(new Error('C'))];
     expect(aggregateSettledErrors(results)).toBe('A; B; C');
   });
 
@@ -59,16 +52,12 @@ describe('aggregateSettledErrors', () => {
 
   it('handles null rejection reason', () => {
     const results = [rejected(null)];
-    const msg = aggregateSettledErrors(results);
-    expect(msg).toBeTruthy();
-    expect(typeof msg).toBe('string');
+    expect(aggregateSettledErrors(results)).toBe('Unknown error');
   });
 
   it('handles undefined rejection reason', () => {
     const results = [rejected(undefined)];
-    const msg = aggregateSettledErrors(results);
-    expect(msg).toBeTruthy();
-    expect(typeof msg).toBe('string');
+    expect(aggregateSettledErrors(results)).toBe('Unknown error');
   });
 
   it('handles numeric rejection reason', () => {
