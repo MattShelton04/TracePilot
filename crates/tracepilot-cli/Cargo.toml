@@ -1,0 +1,18 @@
+[package]
+name = "tracepilot-cli"
+description = "CLI tool for exporting and importing TracePilot sessions"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "tracepilot-export"
+path = "src/main.rs"
+
+[dependencies]
+tracepilot-export = { path = "../tracepilot-export" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
