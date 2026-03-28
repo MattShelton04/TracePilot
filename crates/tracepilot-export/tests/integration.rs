@@ -206,6 +206,7 @@ fn export_section_filtering() {
         sections,
         output: OutputTarget::String,
         content_detail: ContentDetailOptions::default(),
+        redaction: Default::default(),
     };
 
     let files = export_session(dir.path(), &options).unwrap();
@@ -324,6 +325,7 @@ fn export_options_record_reflects_config() {
         sections,
         output: OutputTarget::String,
         content_detail: ContentDetailOptions::default(),
+        redaction: Default::default(),
     };
 
     let files = export_session(dir.path(), &options).unwrap();

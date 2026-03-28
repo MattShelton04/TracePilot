@@ -256,6 +256,33 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
             let _ = writeln!(md, "| {} | {} | {} | {} |", name, status, duration, summary);
         }
         md.push('\n');
+
+        // Detailed tool call content (when tool details are included)
+        let detailed_tools: Vec<_> = turn.tool_calls.iter()
+            .filter(|t| t.arguments.is_some() || t.result_content.is_some())
+            .collect();
+        if !detailed_tools.is_empty() {
+            for tool in detailed_tools {
+                let _ = writeln!(md, "#### 🔧 {}\n", tool.tool_name);
+                if let Some(args) = &tool.arguments {
+                    md.push_str("**Arguments:**\n\n");
+                    let _ = writeln!(md, "```json\n{}\n```\n", args);
+                }
+                if let Some(result) = &tool.result_content {
+                    let preview = if result.len() > 2000 {
+                        format!(
+                            "{}…\n\n*(truncated — {} bytes total)*",
+                            &result[..result.floor_char_boundary(2000)],
+                            result.len()
+                        )
+                    } else {
+                        result.clone()
+                    };
+                    md.push_str("**Result:**\n\n");
+                    let _ = writeln!(md, "```\n{}\n```\n", preview);
+                }
+            }
+        }
     }
 
     // Session events within this turn

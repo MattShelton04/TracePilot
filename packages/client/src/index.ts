@@ -418,6 +418,9 @@ export async function exportSessions(config: ExportConfig): Promise<ExportResult
     includeSubagentInternals: config.contentDetail?.includeSubagentInternals,
     includeToolDetails: config.contentDetail?.includeToolDetails,
     includeFullToolResults: config.contentDetail?.includeFullToolResults,
+    anonymizePaths: config.redaction?.anonymizePaths,
+    stripSecrets: config.redaction?.stripSecrets,
+    stripPii: config.redaction?.stripPii,
   });
 }
 
@@ -431,6 +434,9 @@ export async function previewExport(request: ExportPreviewRequest): Promise<Expo
     includeSubagentInternals: request.contentDetail?.includeSubagentInternals,
     includeToolDetails: request.contentDetail?.includeToolDetails,
     includeFullToolResults: request.contentDetail?.includeFullToolResults,
+    anonymizePaths: request.redaction?.anonymizePaths,
+    stripSecrets: request.redaction?.stripSecrets,
+    stripPii: request.redaction?.stripPii,
   });
 }
 

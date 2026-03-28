@@ -24,10 +24,12 @@ import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
 import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
+import { usePerfMonitor } from '@/composables/usePerfMonitor';
 import { usePreferencesStore } from '@/stores/preferences';
 import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
 
 const prefs = usePreferencesStore();
+usePerfMonitor('AnalyticsDashboardView');
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
 const { store } = useAnalyticsPage('fetchAnalytics');
 

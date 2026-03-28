@@ -37,7 +37,14 @@
 
 TracePilot has strong performance fundamentals: incremental SQLite indexing with WAL mode, LRU caching in both the Rust backend (turn cache) and Vue frontend (session detail cache), async Tauri IPC with `spawn_blocking` for CPU-bound work, and lazy-loaded Vue routes. The prior optimization pass (documented in `docs/research/optimization-plan.md`) successfully addressed 13/18 identified issues.
 
-However, significant optimization opportunities remain across all layers. This report identifies concrete bottlenecks with code-level examples, surveys the profiling/analysis tool landscape for each technology, and proposes a **maintainable, reusable performance infrastructure** that developers and AI agents can use to find and fix bottlenecks systematically.
+**Implementation Status**: All 5 phases of the performance roadmap have been implemented:
+- **Phase 1** ✅ — Quick wins: opt-level "2", Vec::with_capacity, single-pass filter, CSS transitions, bundle visualizer
+- **Phase 2** ✅ — Instrumentation: 20+ tracing spans, IPC timing wrapper, bundle CI, perf-budget.json
+- **Phase 3** ✅ — Structural: lazy markdown loading, manual chunks, search field cache
+- **Phase 4** ✅ — Advanced: Rayon parallel indexing, dhat-rs heap profiling, benchmark modernization
+- **Phase 5** ✅ — Continuous: usePerfMonitor composable, long task observer, SQLite query profiling, tokio-console, PGO scripts, progress throttling, realistic benchmark fixtures
+
+This report identifies concrete bottlenecks with code-level examples, surveys the profiling/analysis tool landscape for each technology, and documents the **maintainable, reusable performance infrastructure** that developers and AI agents can use to find and fix bottlenecks systematically.
 
 ### Key Findings
 
@@ -1198,17 +1205,19 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> { ... }
 | Turn pagination over IPC | 2-3 days | Smaller IPC payloads | B13 | Impacts API contract (`packages/client`) + views |
 | Add `ANALYZE` scheduling after significant index changes | 2 hours | Better SQLite query plans | B16 | Run after bulk reindex |
 
-### Phase 5: Continuous Improvement
+### Phase 5: Continuous Improvement ✅ Implemented
 
-| Item | Effort | Impact | Description |
-|------|--------|--------|-------------|
-| `usePerfMonitor` composable | 1 day | Component-level timing in dev | Mount time, render tracking |
-| Long task observer in production | 2 hours | Detect UI jank | Alert on >50ms main thread blocks |
-| SQLite query profiling with `connection.profile()` | 1 day | Query-level timing | Log slow queries |
-| Real-world session fixtures for benchmarks | 1 day | Realistic benchmark data | Capture anonymized real sessions |
-| `tokio-console` integration for dev | 2 hours | Async task debugging | Add console-subscriber feature flag |
-| Profile-Guided Optimization (PGO) | 1-2 days | 5-15% additional runtime speedup | Collect profiles from benchmark runs, feed back into compiler |
-| Throttle/batch indexing progress events | 2 hours | Less IPC overhead during indexing | Currently emits per-session progress |
+| Item | Status | Description |
+|------|--------|-------------|
+| `usePerfMonitor` composable | ✅ | Component mount/render timing with console access (`window.__TRACEPILOT_PERF__`) |
+| Long task observer | ✅ | Dev-only W3C Long Tasks API detection (>50ms blocks) |
+| SQLite query profiling | ✅ | `conn.profile()` logs slow queries (>10ms) in debug builds |
+| Realistic benchmark fixtures | ✅ | `SessionProfile` enum with weighted varied fixture generation |
+| `tokio-console` integration | ✅ | Feature-gated `console-subscriber` for async task debugging |
+| Profile-Guided Optimization (PGO) | ✅ | Build scripts for Linux/macOS and Windows |
+| Throttle progress events | ✅ | 80ms time-based throttle (~12 updates/sec) |
+
+*See [`docs/plans/perf-phase-5-continuous.md`](plans/perf-phase-5-continuous.md) for full implementation details.*
 
 ---
 
