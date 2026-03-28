@@ -8,6 +8,16 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ## [Unreleased]
 
 ### Added
+- **Session Export/Import** — full pipeline for sharing and archiving sessions
+  - Export to JSON (lossless `.tpx.json`), Markdown (human-readable), and CSV (tabular)
+  - Import `.tpx.json` archives with conflict resolution (skip/replace/duplicate)
+  - Granular section selection (conversation, events, plan, todos, checkpoints, metrics, etc.)
+  - Privacy-aware redaction: path anonymization, secret stripping, PII removal
+  - Content detail filtering: exclude agent internals, tool arguments/results
+  - Schema versioning (`1.0.0`) with forward/backward compatibility support
+  - Live preview in the Export view with real-time configuration changes
+  - CLI integration: `tracepilot export` and `tracepilot import` subcommands
+  - Export feature flag enabled by default
 
 ### Changed
 
