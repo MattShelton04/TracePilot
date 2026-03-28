@@ -20,34 +20,37 @@ pub fn apply_content_filters(archive: &mut SessionArchive, options: &ContentDeta
 
     for session in &mut archive.sessions {
         if let Some(ref mut conversation) = session.conversation {
+            // Collect subagent IDs across ALL turns first — child tool calls
+            // often land in different turns than the subagent entry itself.
+            let subagent_ids: HashSet<String> = if !options.include_subagent_internals {
+                conversation
+                    .iter()
+                    .flat_map(|turn| &turn.tool_calls)
+                    .filter(|tc| tc.is_subagent)
+                    .filter_map(|tc| tc.tool_call_id.clone())
+                    .collect()
+            } else {
+                HashSet::new()
+            };
+
             for turn in conversation.iter_mut() {
-                filter_turn(turn, options);
+                if !options.include_subagent_internals {
+                    collapse_subagent_internals(turn, &subagent_ids);
+                }
+                if !options.include_tool_details {
+                    strip_tool_details(turn);
+                }
             }
         }
     }
 }
 
-/// Filter a single conversation turn according to the detail options.
-fn filter_turn(turn: &mut ConversationTurn, options: &ContentDetailOptions) {
-    if !options.include_subagent_internals {
-        collapse_subagent_internals(turn);
-    }
-    if !options.include_tool_details {
-        strip_tool_details(turn);
-    }
-}
-
 /// Remove child tool calls, reasoning, and assistant messages that belong to
 /// subagents, keeping only the top-level subagent entry with its final result.
-fn collapse_subagent_internals(turn: &mut ConversationTurn) {
-    // Collect tool_call_ids of all subagent entries
-    let subagent_ids: HashSet<String> = turn
-        .tool_calls
-        .iter()
-        .filter(|tc| tc.is_subagent)
-        .filter_map(|tc| tc.tool_call_id.clone())
-        .collect();
-
+///
+/// `subagent_ids` must be collected across ALL turns in the conversation,
+/// since child events often land in different turns than the subagent entry.
+fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashSet<String>) {
     if subagent_ids.is_empty() {
         return;
     }
