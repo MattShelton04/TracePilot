@@ -4,8 +4,6 @@ import { toErrorMessage } from "@tracepilot/ui";
 import App from "./App.vue";
 import router from "./router";
 import "./styles.css";
-import "./styles/chart-shared.css";
-import "./styles/animations.css";
 import { initLogging, logError } from "./utils/logger";
 
 // Apply persisted theme before mount to prevent flash.
