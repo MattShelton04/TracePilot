@@ -87,7 +87,7 @@ export function createDefaultConfig(
       ...overrides?.toolRendering,
     },
     features: {
-      exportView: false,
+      exportView: true,
       healthScoring: false,
       sessionReplay: false,
       renderMarkdown: true,

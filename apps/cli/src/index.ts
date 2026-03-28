@@ -3,8 +3,7 @@
 /**
  * TracePilot CLI — inspect and explore Copilot CLI sessions from the terminal.
  *
- * Phase 1: Pure TypeScript reading session files directly (no Rust FFI).
- * Once the Rust core is mature, we can optionally add NAPI bindings.
+ * Most commands use pure TypeScript to read session files directly.
  */
 
 import { Command } from "commander";

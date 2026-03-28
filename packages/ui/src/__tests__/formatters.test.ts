@@ -57,6 +57,11 @@ describe('formatRate', () => {
     expect(formatRate(null)).toBe('0.0%');
     expect(formatRate(undefined)).toBe('0.0%');
   });
+  it('handles NaN and Infinity', () => {
+    expect(formatRate(NaN)).toBe('0.0%');
+    expect(formatRate(Infinity)).toBe('0.0%');
+    expect(formatRate(-Infinity)).toBe('0.0%');
+  });
 });
 
 describe('formatPercent', () => {
@@ -68,6 +73,11 @@ describe('formatPercent', () => {
   it('handles null/undefined', () => {
     expect(formatPercent(null)).toBe('0.0%');
     expect(formatPercent(undefined)).toBe('0.0%');
+  });
+  it('handles NaN and Infinity', () => {
+    expect(formatPercent(NaN)).toBe('0.0%');
+    expect(formatPercent(Infinity)).toBe('0.0%');
+    expect(formatPercent(-Infinity)).toBe('0.0%');
   });
 });
 
@@ -119,6 +129,11 @@ describe('formatNumberFull', () => {
   it('handles null/undefined', () => {
     expect(formatNumberFull(null)).toBe('0');
     expect(formatNumberFull(undefined)).toBe('0');
+  });
+  it('handles NaN and Infinity', () => {
+    expect(formatNumberFull(NaN)).toBe('0');
+    expect(formatNumberFull(Infinity)).toBe('0');
+    expect(formatNumberFull(-Infinity)).toBe('0');
   });
 });
 
@@ -337,6 +352,12 @@ describe('formatNumber', () => {
     expect(formatNumber(0.5)).toBe('0.5');
     expect(formatNumber(1_234.5)).toBe('1.2K');
   });
+
+  it('handles NaN and Infinity', () => {
+    expect(formatNumber(NaN)).toBe('0');
+    expect(formatNumber(Infinity)).toBe('0');
+    expect(formatNumber(-Infinity)).toBe('0');
+  });
 });
 
 describe('formatDuration', () => {
@@ -375,6 +396,12 @@ describe('formatDuration', () => {
     expect(formatDuration(-1)).toBe('');
     expect(formatDuration(-1000)).toBe('');
   });
+
+  it('handles NaN and Infinity', () => {
+    expect(formatDuration(NaN)).toBe('');
+    expect(formatDuration(Infinity)).toBe('');
+    expect(formatDuration(-Infinity)).toBe('');
+  });
 });
 
 describe('formatCost', () => {
@@ -402,6 +429,12 @@ describe('formatCost', () => {
   it('rounds to two decimal places', () => {
     expect(formatCost(0.999)).toBe('$1.00');
     expect(formatCost(1.234)).toBe('$1.23');
+  });
+
+  it('handles NaN and Infinity', () => {
+    expect(formatCost(NaN)).toBe('$0.00');
+    expect(formatCost(Infinity)).toBe('$0.00');
+    expect(formatCost(-Infinity)).toBe('$0.00');
   });
 });
 
@@ -434,5 +467,11 @@ describe('formatBytes', () => {
 
   it('formats terabytes', () => {
     expect(formatBytes(1_099_511_627_776)).toBe('1.0 TB');
+  });
+
+  it('handles NaN and Infinity', () => {
+    expect(formatBytes(NaN)).toBe('—');
+    expect(formatBytes(Infinity)).toBe('—');
+    expect(formatBytes(-Infinity)).toBe('—');
   });
 });

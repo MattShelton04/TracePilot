@@ -37,3 +37,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // Init logging AFTER mount — Tauri IPC requires mounted webview
 initLogging();
+
+// Dev-only: observe long tasks (>50ms main-thread blocks)
+if (import.meta.env.DEV) {
+  import('./utils/longTaskObserver').then((m) => m.startLongTaskObserver());
+}

@@ -3,6 +3,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    // When built with --features tokio-console, use console-subscriber for
+    // async task debugging via `tokio-console`. This REPLACES the normal
+    // tauri-plugin-log tracing bridge (Rust logs won't appear in the Tauri
+    // log file). Only use for diagnosing async task performance.
+    #[cfg(feature = "tokio-console")]
+    console_subscriber::init();
+
     let shared_config = tracepilot_tauri_bindings::config::create_shared_config();
 
     // Read configured log level, defaulting to Info.
