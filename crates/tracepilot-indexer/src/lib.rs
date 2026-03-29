@@ -448,6 +448,11 @@ pub fn reindex_search_content(
             .filter_map(|(id, content)| content.map(|rows| (id, rows)))
             .collect();
 
+        if is_cancelled() {
+            tracing::info!(indexed, skipped, "Search indexing cancelled before bulk write");
+            return Ok((indexed, skipped));
+        }
+
         let bulk_count = bulk_data.len();
         match db.bulk_write_search_content(&bulk_data) {
             Ok(rows) => {
@@ -462,6 +467,10 @@ pub fn reindex_search_content(
                 tracing::error!(error = %e, "Phase 2: bulk write failed, falling back to per-session");
                 // Fall back to per-session writes
                 for (session_id, rows) in &bulk_data {
+                    if is_cancelled() {
+                        tracing::info!(indexed, skipped, "Search indexing cancelled during fallback write");
+                        return Ok((indexed, skipped));
+                    }
                     match db.upsert_search_content(session_id, rows) {
                         Ok(_) => indexed += 1,
                         Err(e) => {

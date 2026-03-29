@@ -301,9 +301,34 @@ impl IndexDb {
             Ok(total_inserted)
         })();
 
+        // Helper: restore FTS triggers (idempotent via IF NOT EXISTS)
+        let restore_triggers = |conn: &rusqlite::Connection| {
+            let _ = conn.execute_batch(
+                "CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
+                    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                 END;
+                 CREATE TRIGGER IF NOT EXISTS search_content_ad AFTER DELETE ON search_content BEGIN
+                    INSERT INTO search_fts(search_fts, rowid, content)
+                        VALUES ('delete', old.id, old.content);
+                 END;
+                 CREATE TRIGGER IF NOT EXISTS search_content_au AFTER UPDATE ON search_content BEGIN
+                    INSERT INTO search_fts(search_fts, rowid, content)
+                        VALUES ('delete', old.id, old.content);
+                    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                 END;",
+            );
+        };
+
         match result {
             Ok(count) => {
-                self.conn.execute_batch("COMMIT")?;
+                // COMMIT can fail (SQLITE_BUSY, SQLITE_FULL, SQLITE_IOERR).
+                // If it does, ROLLBACK and restore triggers before returning the error —
+                // otherwise the dangling transaction would silently eat any fallback writes.
+                if let Err(commit_err) = self.conn.execute_batch("COMMIT") {
+                    let _ = self.conn.execute_batch("ROLLBACK");
+                    restore_triggers(&self.conn);
+                    return Err(commit_err.into());
+                }
                 tracing::debug!(
                     inserted = count,
                     sessions = session_rows.len(),
@@ -313,22 +338,8 @@ impl IndexDb {
                 Ok(count)
             }
             Err(e) => {
-                // Rollback, then ensure triggers are restored
                 let _ = self.conn.execute_batch("ROLLBACK");
-                let _ = self.conn.execute_batch(
-                    "CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
-                        INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
-                     END;
-                     CREATE TRIGGER IF NOT EXISTS search_content_ad AFTER DELETE ON search_content BEGIN
-                        INSERT INTO search_fts(search_fts, rowid, content)
-                            VALUES ('delete', old.id, old.content);
-                     END;
-                     CREATE TRIGGER IF NOT EXISTS search_content_au AFTER UPDATE ON search_content BEGIN
-                        INSERT INTO search_fts(search_fts, rowid, content)
-                            VALUES ('delete', old.id, old.content);
-                        INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
-                     END;",
-                );
+                restore_triggers(&self.conn);
                 Err(e)
             }
         }
