@@ -36,6 +36,25 @@ pub use render::{ExportFile, ExportRenderer};
 
 use std::path::Path;
 
+/// Apply the standard export pipeline to a session archive.
+///
+/// This applies content filtering, redaction, and rendering in the correct order:
+/// 1. Apply content detail filters (e.g., exclude conversation, events)
+/// 2. Apply redaction patterns (e.g., mask secrets)
+/// 3. Create format-specific renderer
+/// 4. Render to output files
+///
+/// This ensures consistent processing across all export functions.
+fn apply_export_pipeline(
+    archive: &mut SessionArchive,
+    options: &ExportOptions,
+) -> Result<Vec<ExportFile>> {
+    content_filter::apply_content_filters(archive, &options.content_detail);
+    redaction::apply_redaction(archive, &options.redaction);
+    let renderer = render::create_renderer(options.format);
+    renderer.render(archive)
+}
+
 /// Export a single session to the specified format.
 ///
 /// Returns one or more output files (most formats produce one; CSV produces multiple).
@@ -44,10 +63,7 @@ pub fn export_session(
     options: &ExportOptions,
 ) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
-    content_filter::apply_content_filters(&mut archive, &options.content_detail);
-    redaction::apply_redaction(&mut archive, &options.redaction);
-    let renderer = render::create_renderer(options.format);
-    renderer.render(&archive)
+    apply_export_pipeline(&mut archive, options)
 }
 
 /// Export multiple sessions in a single archive.
@@ -56,10 +72,7 @@ pub fn export_sessions_batch(
     options: &ExportOptions,
 ) -> Result<Vec<ExportFile>> {
     let mut archive = builder::build_session_archive_batch(session_dirs, options)?;
-    content_filter::apply_content_filters(&mut archive, &options.content_detail);
-    redaction::apply_redaction(&mut archive, &options.redaction);
-    let renderer = render::create_renderer(options.format);
-    renderer.render(&archive)
+    apply_export_pipeline(&mut archive, options)
 }
 
 /// Generate a preview of the export output without writing to disk.
@@ -71,10 +84,7 @@ pub fn preview_export(
     max_bytes: Option<usize>,
 ) -> Result<String> {
     let mut archive = builder::build_session_archive(session_dir, options)?;
-    content_filter::apply_content_filters(&mut archive, &options.content_detail);
-    redaction::apply_redaction(&mut archive, &options.redaction);
-    let renderer = render::create_renderer(options.format);
-    let files = renderer.render(&archive)?;
+    let files = apply_export_pipeline(&mut archive, options)?;
 
     let content = files
         .first()
