@@ -529,9 +529,12 @@ defineExpose({ revealEvent });
   transition: margin-right var(--transition-normal, 0.2s) ease;
 }
 
+.cv-main.panel-open {
+  margin-right: min(38%, 650px);
+}
+
 .cv-main.panel-open .cv-content {
   max-width: none;
-  margin-right: 0;
 }
 
 @media (max-width: 959px) {
