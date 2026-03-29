@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
-import type { SystemDependencies, CopilotVersion, SessionMetadata, WorktreeInfo, RegisteredRepo } from "@tracepilot/types";
+import type { SystemDependencies, CopilotVersion, SessionListItem, WorktreeInfo, RegisteredRepo } from "@tracepilot/types";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockCheckSystemDeps = vi.fn();
@@ -32,8 +32,11 @@ const FIXTURE_SYSTEM_DEPS: SystemDependencies = {
 const FIXTURE_ACTIVE_VERSION: CopilotVersion = {
   version: "1.0.9",
   path: "/home/user/.copilot/versions/1.0.9",
-  agentCount: 12,
+  isActive: true,
+  isComplete: true,
+  modifiedAt: "2026-03-28T10:00:00Z",
   hasCustomizations: false,
+  lockCount: 0,
 };
 
 const FIXTURE_VERSIONS: CopilotVersion[] = [
@@ -41,12 +44,15 @@ const FIXTURE_VERSIONS: CopilotVersion[] = [
   {
     version: "1.0.8",
     path: "/home/user/.copilot/versions/1.0.8",
-    agentCount: 11,
+    isActive: false,
+    isComplete: true,
+    modifiedAt: "2026-03-27T10:00:00Z",
     hasCustomizations: true,
+    lockCount: 1,
   },
 ];
 
-const FIXTURE_SESSIONS: SessionMetadata[] = [
+const FIXTURE_SESSIONS: SessionListItem[] = [
   {
     id: "session-1",
     repository: "TracePilot",
@@ -83,7 +89,9 @@ const FIXTURE_WORKTREES: WorktreeInfo[] = [
   {
     path: "/home/user/repos/TracePilot/.worktrees/feature-a",
     branch: "feature-a",
+    headCommit: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     isMainWorktree: false,
+    isBare: false,
     status: "active",
     repoRoot: "/home/user/repos/TracePilot",
     diskUsageBytes: 1024 * 1024 * 50, // 50MB
@@ -93,7 +101,9 @@ const FIXTURE_WORKTREES: WorktreeInfo[] = [
   {
     path: "/home/user/repos/TracePilot/.worktrees/feature-b",
     branch: "feature-b",
+    headCommit: "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
     isMainWorktree: false,
+    isBare: false,
     status: "stale",
     repoRoot: "/home/user/repos/TracePilot",
     diskUsageBytes: 1024 * 1024 * 30, // 30MB
@@ -103,7 +113,9 @@ const FIXTURE_WORKTREES: WorktreeInfo[] = [
   {
     path: "/home/user/repos/TracePilot",
     branch: "main",
+    headCommit: "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
     isMainWorktree: true,
+    isBare: false,
     status: "active",
     repoRoot: "/home/user/repos/TracePilot",
     diskUsageBytes: 1024 * 1024 * 100, // 100MB
@@ -115,13 +127,15 @@ const FIXTURE_REPOS: RegisteredRepo[] = [
   {
     path: "/home/user/repos/TracePilot",
     name: "TracePilot",
-    worktreeCount: 3,
+    addedAt: "2026-03-20T10:00:00Z",
+    source: "manual",
     favourite: true,
   },
   {
     path: "/home/user/repos/MyProject",
     name: "MyProject",
-    worktreeCount: 0,
+    addedAt: "2026-03-22T14:00:00Z",
+    source: "session-discovery",
     favourite: false,
   },
 ];
