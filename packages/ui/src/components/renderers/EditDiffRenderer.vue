@@ -3,7 +3,7 @@
  * EditDiffRenderer — renders edit tool results as a rich diff view.
  *
  * Features: unified/split toggle, line numbers, full-line backgrounds,
- * word-level inline highlights, and a "Modified" badge.
+ * and a "Modified" badge.
  */
 import { computed, ref } from "vue";
 import RendererShell from "./RendererShell.vue";
@@ -34,70 +34,6 @@ const newStr = computed(() =>
 );
 
 const isDelete = computed(() => oldStr.value != null && !newStr.value);
-
-// ── Word-level diff algorithm ──
-
-interface DiffSegment {
-  type: "equal" | "added" | "removed";
-  value: string;
-}
-
-const MAX_DIFF_COMPLEXITY = 4_000_000;
-
-function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
-  const tokenize = (text: string): string[] =>
-    text.match(/\S+|\s+/g) ?? [];
-
-  const oldTokens = tokenize(oldText);
-  const newTokens = tokenize(newText);
-  const m = oldTokens.length;
-  const n = newTokens.length;
-
-  if (m * n > MAX_DIFF_COMPLEXITY) {
-    return [
-      { type: "removed", value: oldText },
-      { type: "added", value: newText },
-    ];
-  }
-
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (oldTokens[i - 1] === newTokens[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-  }
-
-  const result: DiffSegment[] = [];
-  let i = m, j = n;
-  const stack: DiffSegment[] = [];
-
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
-      stack.push({ type: "equal", value: oldTokens[i - 1] });
-      i--; j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      stack.push({ type: "added", value: newTokens[j - 1] });
-      j--;
-    } else {
-      stack.push({ type: "removed", value: oldTokens[i - 1] });
-      i--;
-    }
-  }
-
-  stack.reverse();
-  for (const seg of stack) {
-    if (result.length > 0 && result[result.length - 1].type === seg.type) {
-      result[result.length - 1].value += seg.value;
-    } else {
-      result.push({ ...seg });
-    }
-  }
-  return result;
-}
 
 // ── Line-level diff for unified/split views ──
 
@@ -162,9 +98,6 @@ const diffLines = computed<DiffLine[]>(() => {
   stack.reverse();
   return stack;
 });
-
-const oldLineCount = computed(() => oldStr.value ? splitLines(oldStr.value).length : 0);
-const newLineCount = computed(() => newStr.value ? splitLines(newStr.value).length : 0);
 
 /** Actual diff stats based on LCS result, not raw line counts. */
 const addedCount = computed(() => diffLines.value.filter(l => l.type === "added").length);
