@@ -35,6 +35,7 @@ const props = defineProps<{
   totalCount: number;
   hasPrev: boolean;
   hasNext: boolean;
+  topOffset: number;
 }>();
 
 const emit = defineEmits<{
@@ -179,7 +180,7 @@ const activities = computed<ActivityItem[]>(() => {
 watch(
   () => props.subagent?.agentId,
   () => {
-    promptExpanded.value = false;
+    promptExpanded.value = true;
     resultExpanded.value = false;
     expandedReasoning.value = new Set();
     expandedToolDetails.clear();
@@ -219,21 +220,12 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
 </script>
 
 <template>
-  <!-- Backdrop overlay (visible on narrow screens or always as dimming layer) -->
-  <Transition name="cv-panel-overlay">
-    <div
-      v-if="isOpen && subagent"
-      class="cv-panel-overlay"
-      aria-hidden="true"
-      @click="emit('close')"
-    />
-  </Transition>
-
   <!-- Slide-out panel -->
   <Transition name="cv-panel">
     <div
       v-if="isOpen && subagent"
       class="cv-panel"
+      :style="{ top: `${topOffset}px` }"
       role="dialog"
       aria-label="Subagent detail panel"
       @keydown.esc="emit('close')"
@@ -439,40 +431,16 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
   transform: translateX(100%);
 }
 
-.cv-panel-overlay-enter-active,
-.cv-panel-overlay-leave-active {
-  transition: opacity 320ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-.cv-panel-overlay-enter-from,
-.cv-panel-overlay-leave-to {
-  opacity: 0;
-}
-
-/* ── Overlay ──────────────────────────────────────────────────── */
-
-.cv-panel-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 49;
-  background: rgba(0, 0, 0, 0.35);
-}
-
-@media (min-width: 960px) {
-  .cv-panel-overlay {
-    background: rgba(0, 0, 0, 0.1);
-  }
-}
-
 /* ── Panel container ──────────────────────────────────────────── */
 
 .cv-panel {
-  position: absolute;
-  top: 0;
+  position: fixed;
+  /* top is set dynamically via :style binding */
   right: 0;
   bottom: 0;
   width: 38%;
   min-width: 380px;
-  max-width: 600px;
+  max-width: 650px;
   z-index: 50;
   display: flex;
   flex-direction: column;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -57,7 +57,6 @@ const panel = useSubagentPanel(allSubagents);
 
 const expandedReasoning = useToggleSet<string>();
 const expandedGroups = useToggleSet<string>();
-const expandedUserMsgs = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
 
 // ─── Tool result loader ───────────────────────────────────────────
@@ -73,6 +72,34 @@ const { findToolCallIndex, getArgsSummary } = useConversationSections(() => stor
 // ─── Scroll ───────────────────────────────────────────────────────
 
 const scrollEl = ref<HTMLElement | null>(null);
+const cvRootEl = ref<HTMLElement | null>(null);
+
+// ─── Panel top offset (fixed position below page header) ──────────
+
+const panelTopPx = ref(0);
+
+function updatePanelTop() {
+  if (cvRootEl.value) {
+    panelTopPx.value = cvRootEl.value.getBoundingClientRect().top;
+  }
+}
+
+let panelTopRO: ResizeObserver | null = null;
+
+onMounted(() => {
+  updatePanelTop();
+  window.addEventListener("resize", updatePanelTop);
+  // Use a ResizeObserver on the parent to catch layout shifts (stat cards loading, etc.)
+  if (cvRootEl.value?.parentElement) {
+    panelTopRO = new ResizeObserver(updatePanelTop);
+    panelTopRO.observe(cvRootEl.value.parentElement);
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", updatePanelTop);
+  panelTopRO?.disconnect();
+});
 
 // ─── Computed helpers ─────────────────────────────────────────────
 
@@ -141,21 +168,6 @@ function isItemVisible(
 
 function hiddenToolCount(items: ToolGroupItem[]): number {
   return countRegularTools(items) - MAX_VISIBLE_TOOLS;
-}
-
-// ─── User message truncation ──────────────────────────────────────
-
-const USER_MSG_MAX = 600;
-
-function isUserMsgLong(msg: string | undefined): boolean {
-  return (msg?.length ?? 0) > USER_MSG_MAX;
-}
-
-function displayUserMsg(msg: string, turnIndex: number): string {
-  if (expandedUserMsgs.has(turnIndex) || msg.length <= USER_MSG_MAX) {
-    return msg;
-  }
-  return msg.slice(0, USER_MSG_MAX);
 }
 
 // ─── Intent/memory pill helpers ───────────────────────────────────
@@ -280,7 +292,7 @@ defineExpose({ revealEvent });
 </script>
 
 <template>
-  <div class="cv-root">
+  <div class="cv-root" ref="cvRootEl">
     <!-- Main column (shrinks when panel is open) -->
     <div :class="['cv-main', { 'panel-open': panel.isPanelOpen.value }]">
       <div class="cv-scroll" ref="scrollEl">
@@ -323,22 +335,7 @@ defineExpose({ revealEvent });
                   </span>
                 </div>
                 <div class="cv-user-body">
-                  <div
-                    :class="['cv-user-text', {
-                      'cv-user-text--clamped': isUserMsgLong(turn.userMessage) && !expandedUserMsgs.has(turn.turnIndex)
-                    }]"
-                  >
-                    <MarkdownContent :content="displayUserMsg(turn.userMessage, turn.turnIndex)" :render="renderMd" />
-                  </div>
-                  <button
-                    v-if="isUserMsgLong(turn.userMessage)"
-                    class="cv-user-expand"
-                    :aria-expanded="expandedUserMsgs.has(turn.turnIndex)"
-                    aria-label="Toggle full message"
-                    @click="expandedUserMsgs.toggle(turn.turnIndex)"
-                  >
-                    {{ expandedUserMsgs.has(turn.turnIndex) ? 'Show less ↑' : 'Show more ↓' }}
-                  </button>
+                  <MarkdownContent :content="turn.userMessage" :render="renderMd" />
                 </div>
               </div>
 
@@ -493,7 +490,7 @@ defineExpose({ revealEvent });
       </div>
     </div>
 
-    <!-- Subagent panel (includes its own overlay) -->
+    <!-- Subagent panel (fixed viewport-sticky, below header) -->
     <SubagentPanel
       :subagent="panel.selectedSubagent.value"
       :is-open="panel.isPanelOpen.value"
@@ -501,6 +498,7 @@ defineExpose({ revealEvent });
       :total-count="allSubagents.length"
       :has-prev="panel.hasPrev.value"
       :has-next="panel.hasNext.value"
+      :top-offset="panelTopPx"
       @close="panel.closePanel"
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
@@ -543,7 +541,7 @@ defineExpose({ revealEvent });
 }
 
 .cv-content {
-  max-width: 1400px;
+  max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
   padding: 24px 32px 80px;
 }
@@ -669,35 +667,14 @@ defineExpose({ revealEvent });
 
 .cv-user-body {
   position: relative;
-}
-
-.cv-user-text {
+  background: var(--accent-subtle, rgba(56, 139, 253, 0.08));
+  border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.15));
+  border-radius: var(--radius-md, 8px);
+  padding: 12px 16px;
   font-size: 13px;
   line-height: 1.55;
   color: var(--text-primary, #c9d1d9);
   overflow-wrap: break-word;
-}
-
-.cv-user-text--clamped {
-  mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
-}
-
-.cv-user-expand {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
-  font-size: 12px;
-  color: var(--accent-fg, #58a6ff);
-  background: none;
-  border: 1px solid var(--border-muted, #484f58);
-  border-radius: var(--radius-full, 100px);
-  cursor: pointer;
-  transition: background var(--transition-fast, 0.1s) ease;
-}
-
-.cv-user-expand:hover {
-  background: var(--accent-subtle, rgba(56, 139, 253, 0.1));
 }
 
 /* ─── Turn block + timeline ────────────────────────────────────── */
