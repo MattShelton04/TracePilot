@@ -262,13 +262,14 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 
     #[cfg(target_os = "linux")]
     let pid = {
+        let checkout_prefix = checkout_cmd.as_deref().map(|c| format!("{} && ", c)).unwrap_or_default();
         let interactive_suffix = if let Some(prompt) = &config.prompt {
             let escaped_prompt = prompt.replace('\'', "'\\''");
             format!(" --interactive '{}'", escaped_prompt)
         } else {
             String::new()
         };
-        let full_cmd = format!("{}{}", copilot_cmd, interactive_suffix);
+        let full_cmd = format!("{}{}{}", checkout_prefix, copilot_cmd, interactive_suffix);
         let envs_ref = if envs.is_empty() { None } else { Some(&envs) };
         crate::process::spawn_detached_terminal(&full_cmd, &[], &work_dir, envs_ref)?
     };

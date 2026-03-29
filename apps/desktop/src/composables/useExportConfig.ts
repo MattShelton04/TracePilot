@@ -186,9 +186,13 @@ export function useExportConfig() {
   }
 
   // Clear active preset when format changes manually
-  watch(format, () => {
-    if (!applyingPreset) activePreset.value = null;
-  });
+  watch(
+    format,
+    () => {
+      if (!applyingPreset) activePreset.value = null;
+    },
+    { flush: 'sync' },
+  );
 
   const sectionsArray = computed<SectionId[]>(() => [...enabledSections.value]);
 

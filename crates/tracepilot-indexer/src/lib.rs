@@ -432,47 +432,100 @@ pub fn reindex_search_content(
         return Ok((0, skipped));
     }
 
-    // Step 3: Write search content to DB sequentially
+    // Step 3: Write search content to DB.
+    // Use bulk write (drop triggers → insert → FTS rebuild) when many sessions
+    // need indexing — ~5x faster than per-row trigger updates. Fall back to
+    // per-session upsert for small incremental updates where the FTS rebuild
+    // cost would outweigh the trigger savings.
+    const BULK_THRESHOLD: usize = 10;
     let mut indexed = 0;
     let prepared_count = prepared.len();
-    for (i, (session_id, content)) in prepared.into_iter().enumerate() {
+
+    if prepared_count >= BULK_THRESHOLD {
+        // Bulk path: collect all valid rows, write without triggers, rebuild FTS
+        let bulk_data: Vec<(String, Vec<index_db::search_writer::SearchContentRow>)> = prepared
+            .into_iter()
+            .filter_map(|(id, content)| content.map(|rows| (id, rows)))
+            .collect();
+
         if is_cancelled() {
-            tracing::info!(indexed, skipped, "Search indexing cancelled during write");
+            tracing::info!(indexed, skipped, "Search indexing cancelled before bulk write");
             return Ok((indexed, skipped));
         }
 
-        if let Some(ref rows) = content {
-            let session_start = std::time::Instant::now();
-            match db.upsert_search_content(&session_id, rows) {
-                Ok(_) => {
-                    indexed += 1;
-                    let elapsed = session_start.elapsed();
-                    if elapsed.as_millis() > 100 {
-                        tracing::debug!(
-                            session_id = %session_id,
-                            rows = rows.len(),
-                            elapsed_ms = elapsed.as_millis(),
-                            "Phase 2: slow session write"
-                        );
+        let bulk_count = bulk_data.len();
+        match db.bulk_write_search_content(&bulk_data) {
+            Ok(rows) => {
+                indexed = bulk_count;
+                tracing::debug!(
+                    sessions = bulk_count,
+                    rows,
+                    "Phase 2: bulk write complete"
+                );
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Phase 2: bulk write failed, falling back to per-session");
+                // Fall back to per-session writes
+                for (session_id, rows) in &bulk_data {
+                    if is_cancelled() {
+                        tracing::info!(indexed, skipped, "Search indexing cancelled during fallback write");
+                        return Ok((indexed, skipped));
                     }
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        session_id = %session_id,
-                        error = %e,
-                        "Failed to write search content"
-                    );
+                    match db.upsert_search_content(session_id, rows) {
+                        Ok(_) => indexed += 1,
+                        Err(e) => {
+                            tracing::warn!(
+                                session_id = %session_id,
+                                error = %e,
+                                "Failed to write search content"
+                            );
+                        }
+                    }
                 }
             }
         }
+        on_progress(&SearchIndexingProgress { current: total, total });
+    } else {
+        // Incremental path: per-session upsert (triggers update FTS per row)
+        for (i, (session_id, content)) in prepared.into_iter().enumerate() {
+            if is_cancelled() {
+                tracing::info!(indexed, skipped, "Search indexing cancelled during write");
+                return Ok((indexed, skipped));
+            }
 
-        // Throttle progress events (every 5 sessions or at end)
-        let progress_idx = skipped + i + 1;
-        if (i + 1) % 5 == 0 || i + 1 == prepared_count || progress_idx == total {
-            on_progress(&SearchIndexingProgress {
-                current: progress_idx,
-                total,
-            });
+            if let Some(ref rows) = content {
+                let session_start = std::time::Instant::now();
+                match db.upsert_search_content(&session_id, rows) {
+                    Ok(_) => {
+                        indexed += 1;
+                        let elapsed = session_start.elapsed();
+                        if elapsed.as_millis() > 100 {
+                            tracing::debug!(
+                                session_id = %session_id,
+                                rows = rows.len(),
+                                elapsed_ms = elapsed.as_millis(),
+                                "Phase 2: slow session write"
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            session_id = %session_id,
+                            error = %e,
+                            "Failed to write search content"
+                        );
+                    }
+                }
+            }
+
+            // Throttle progress events (every 5 sessions or at end)
+            let progress_idx = skipped + i + 1;
+            if (i + 1) % 5 == 0 || i + 1 == prepared_count || progress_idx == total {
+                on_progress(&SearchIndexingProgress {
+                    current: progress_idx,
+                    total,
+                });
+            }
         }
     }
 

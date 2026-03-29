@@ -11,6 +11,7 @@ import {
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { logWarn } from '@/utils/logger';
+import { aggregateSettledErrors } from '@/utils/settleErrors';
 
 export interface ActivityEvent {
   id: string;
@@ -98,14 +99,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       const versionsData = versionsResult.status === 'fulfilled' ? versionsResult.value : [];
 
       // Surface background loading errors
-      const bgFailures = [sessionsResult, versionsResult]
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map((r) => toErrorMessage(r.reason));
-      if (bgFailures.length) {
-        error.value = bgFailures.join('; ');
-      } else {
-        error.value = null;
-      }
+      error.value = aggregateSettledErrors([sessionsResult, versionsResult]);
 
       totalSessions.value = sessions.length;
       activeSessions.value = sessions.filter((s) => s.isRunning).length;
