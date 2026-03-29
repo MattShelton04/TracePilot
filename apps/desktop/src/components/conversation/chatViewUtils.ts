@@ -15,8 +15,7 @@ import type {
 
 export type ToolSegment =
   | { type: "tool-group"; items: ToolGroupItem[] }
-  | { type: "subagent-group"; subagents: TurnToolCall[] }
-  | { type: "read-agent-pill"; toolCall: TurnToolCall };
+  | { type: "subagent-group"; subagents: TurnToolCall[] };
 
 export type ToolGroupItem =
   | { type: "intent"; toolCall: TurnToolCall }
@@ -72,9 +71,7 @@ export function segmentToolCalls(toolCalls: TurnToolCall[]): ToolSegment[] {
     } else if (tc.parentToolCallId) {
       // Skip — child data belongs to subagent panel
     } else if (tc.toolName === "read_agent") {
-      flushRegular();
-      flushSubagents();
-      segments.push({ type: "read-agent-pill", toolCall: tc });
+      // Skip — subagent status is shown on SubagentCard, these add noise
     } else {
       flushSubagents();
       currentRegular.push(tc);

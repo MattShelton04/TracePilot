@@ -43,8 +43,7 @@ const description = computed(() => {
 
 const model = computed(() => {
   const args = props.toolCall.arguments as Record<string, unknown> | undefined;
-  const m = (args?.model as string) || props.toolCall.model || "";
-  return m.replace("claude-", "").replace("gpt-", "");
+  return (args?.model as string) || props.toolCall.model || "";
 });
 
 const duration = computed(() =>

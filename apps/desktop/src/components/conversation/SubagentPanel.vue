@@ -44,7 +44,7 @@ const emit = defineEmits<{
 }>();
 
 const scrollContainer = ref<HTMLElement | null>(null);
-const promptExpanded = ref(false);
+const promptExpanded = ref(true);
 const resultExpanded = ref(false);
 const expandedReasoning = ref<Set<number>>(new Set());
 
@@ -79,8 +79,7 @@ const statusText = computed(() => {
 const model = computed(() => {
   if (!props.subagent) return "";
   const args = props.subagent.toolCall.arguments as Record<string, unknown> | undefined;
-  const m = (args?.model as string) || props.subagent.toolCall.model || "";
-  return m.replace("claude-", "").replace("gpt-", "");
+  return (args?.model as string) || props.subagent.toolCall.model || "";
 });
 
 const description = computed(() => {
@@ -273,7 +272,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
           <p class="cv-panel-description">{{ description }}</p>
         </div>
 
-        <!-- Prompt (collapsible when long) -->
+        <!-- Prompt (expanded by default, collapsible when long) -->
         <div v-if="prompt" class="cv-panel-section">
           <div class="cv-panel-section-header">
             <div class="cv-panel-section-label">Prompt</div>
@@ -289,7 +288,33 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
             </button>
           </div>
           <div :class="['cv-panel-prompt', { collapsed: isPromptLong && !promptExpanded }]">
-            {{ isPromptLong && !promptExpanded ? truncateText(prompt, 300) : prompt }}
+            <MarkdownContent
+              :content="isPromptLong && !promptExpanded ? truncateText(prompt, 300) : prompt"
+              :render="renderMd"
+            />
+          </div>
+        </div>
+
+        <!-- Result / Output (shown before activity stream) -->
+        <div v-if="resultContent" class="cv-panel-section">
+          <div class="cv-panel-section-header">
+            <div class="cv-panel-section-label">Output</div>
+            <button
+              v-if="isResultLong"
+              class="cv-panel-toggle"
+              :aria-expanded="resultExpanded"
+              aria-label="Toggle result visibility"
+              @click="resultExpanded = !resultExpanded"
+            >
+              {{ resultExpanded ? "Collapse" : "Expand" }}
+              <span :class="['cv-panel-chevron', { open: resultExpanded }]">▸</span>
+            </button>
+          </div>
+          <div :class="['cv-panel-result', { collapsed: isResultLong && !resultExpanded }]">
+            <MarkdownContent
+              :content="isResultLong && !resultExpanded ? truncateText(resultContent, 400) : resultContent"
+              :render="renderMd"
+            />
           </div>
         </div>
 
@@ -376,26 +401,6 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
             </template>
           </div>
         </div>
-
-        <!-- Final result (collapsible) -->
-        <div v-if="resultContent" class="cv-panel-section">
-          <div class="cv-panel-section-header">
-            <div class="cv-panel-section-label">Result</div>
-            <button
-              v-if="isResultLong"
-              class="cv-panel-toggle"
-              :aria-expanded="resultExpanded"
-              aria-label="Toggle result visibility"
-              @click="resultExpanded = !resultExpanded"
-            >
-              {{ resultExpanded ? "Collapse" : "Expand" }}
-              <span :class="['cv-panel-chevron', { open: resultExpanded }]">▸</span>
-            </button>
-          </div>
-          <div :class="['cv-panel-result', { collapsed: isResultLong && !resultExpanded }]">
-            {{ isResultLong && !resultExpanded ? truncateText(resultContent, 400) : resultContent }}
-          </div>
-        </div>
       </div>
 
       <!-- Navigation footer -->
@@ -446,7 +451,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
 /* ── Overlay ──────────────────────────────────────────────────── */
 
 .cv-panel-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 49;
   background: rgba(0, 0, 0, 0.35);
@@ -461,7 +466,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
 /* ── Panel container ──────────────────────────────────────────── */
 
 .cv-panel {
-  position: fixed;
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;

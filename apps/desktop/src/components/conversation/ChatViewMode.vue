@@ -485,20 +485,6 @@ defineExpose({ revealEvent });
                       </div>
                     </div>
                   </template>
-
-                  <!-- Read agent check -->
-                  <template v-if="segment.type === 'read-agent-pill'">
-                    <div
-                      :class="['cv-read-agent-check', {
-                        complete: segment.toolCall.isComplete && segment.toolCall.success !== false,
-                        failed: segment.toolCall.success === false
-                      }]"
-                      :id="segment.toolCall.eventIndex != null ? `event-${segment.toolCall.eventIndex}` : undefined"
-                    >
-                      <span class="cv-check-icon">{{ !segment.toolCall.isComplete ? '⏳' : segment.toolCall.success === false ? '✗' : '✓' }}</span>
-                      <span class="cv-check-text">{{ (segment.toolCall.arguments as any)?.agent_id ?? 'agent' }}</span>
-                    </div>
-                  </template>
                 </template>
               </div>
             </template>
@@ -880,31 +866,6 @@ defineExpose({ revealEvent });
   color: var(--text-primary, #c9d1d9);
   white-space: pre-wrap;
   overflow-wrap: break-word;
-}
-
-/* ─── Read agent check (subtle inline) ─────────────────────────── */
-
-.cv-read-agent-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--text-tertiary, #484f58);
-  padding: 1px 0;
-}
-
-.cv-read-agent-check.complete .cv-check-icon {
-  color: var(--success-fg, #3fb950);
-}
-
-.cv-read-agent-check.failed .cv-check-icon {
-  color: var(--danger-fg, #f85149);
-}
-
-.cv-check-text {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  opacity: 0.6;
 }
 
 /* ─── Parallel subagent layout ─────────────────────────────────── */
