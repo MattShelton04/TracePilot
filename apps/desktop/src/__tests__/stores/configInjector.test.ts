@@ -429,14 +429,14 @@ describe("useConfigInjectorStore", () => {
       expect(mockToastSuccess).not.toHaveBeenCalled();
     });
 
-    it("sets error on failure unless silent", async () => {
+    it("sets error on failure when not silent", async () => {
       mockCreateConfigBackup.mockRejectedValue(new Error("Backup failed"));
 
       const store = useConfigInjectorStore();
       const result = await store.createBackup("/path/to/file", "Failed backup");
 
       expect(result).toBe(false);
-      expect(store.error).toBeNull(); // Error suppressed (no silent flag check in non-silent path)
+      expect(store.error).toContain("Backup failed");
     });
 
     it("silent mode suppresses error", async () => {
