@@ -54,6 +54,8 @@
 | [Security Audit](SECURITY_AUDIT_REPORT.md) | Security-focused audit report |
 | [Tech Debt Report](tech-debt-report.md) | Known tech debt and improvement opportunities |
 | [Tech Debt — Future](tech-debt-future-improvements.md) | Longer-term tech debt items |
+| [Performance Analysis](performance-analysis-report.md) | Performance profiling and analysis |
+| [Performance Playbook](performance-playbook.md) | Performance optimization guidelines |
 
 ## Plans
 
@@ -63,6 +65,15 @@
 | [Implementation Roadmap](implementation-roadmap.md) | High-level roadmap |
 | [FTS Lean Rebuild](plans/fts-lean-rebuild.md) | Full-text search index rebuild plan |
 | [Versioning & Release](versioning-updates-release-strategy.md) | Versioning strategy and release process |
+
+## Search Index Migration
+
+| Document | Description |
+|----------|-------------|
+| [Search Index Replacement Analysis](search-index-replacement-analysis.md) | Analysis of replacing SQLite FTS5 with Tantivy |
+| [Tantivy Search Index](tantivy-search-index.md) | Tantivy integration documentation |
+| [Migration Retrospective](search-index-migration/retrospective.md) | Lessons learned from FTS5→Tantivy migration |
+| [Implementation Guide](search-index-migration/implementation-guide.md) | Technical implementation guide |
 
 ## Common Frontend Components
 
