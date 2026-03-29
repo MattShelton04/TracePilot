@@ -54,6 +54,7 @@ const FIXTURE_AGENT: AgentDefinition = {
   name: "code-reviewer",
   filePath: "/home/user/.copilot/versions/1.0.9/agents/code-reviewer.yaml",
   model: "claude-opus-4.6",
+  description: "Reviews code changes for quality and correctness",
   tools: ["read", "grep", "bash"],
   promptExcerpt: "You are a code review assistant...",
   rawYaml: "name: code-reviewer\nmodel: claude-opus-4.6\n",
@@ -65,6 +66,7 @@ const FIXTURE_AGENTS: AgentDefinition[] = [
     name: "test-writer",
     filePath: "/home/user/.copilot/versions/1.0.9/agents/test-writer.yaml",
     model: "claude-sonnet-4.6",
+    description: "Writes comprehensive test suites",
     tools: ["read", "write", "bash"],
     promptExcerpt: "You write comprehensive tests...",
     rawYaml: "name: test-writer\nmodel: claude-sonnet-4.6\n",
@@ -75,8 +77,9 @@ const FIXTURE_CONFIG: CopilotConfig = {
   model: "claude-sonnet-4.6",
   reasoningEffort: "high",
   trustedFolders: ["/home/user/projects"],
-  renderSettings: {
-    maxWidth: 1200,
+  raw: {
+    model: "claude-sonnet-4.6",
+    reasoningEffort: "high",
   },
 };
 
@@ -84,14 +87,20 @@ const FIXTURE_VERSIONS: CopilotVersion[] = [
   {
     version: "1.0.9",
     path: "/home/user/.copilot/versions/1.0.9",
-    agentCount: 12,
+    isActive: true,
+    isComplete: true,
+    modifiedAt: "2026-03-28T10:00:00Z",
     hasCustomizations: false,
+    lockCount: 0,
   },
   {
     version: "1.0.8",
     path: "/home/user/.copilot/versions/1.0.8",
-    agentCount: 11,
+    isActive: false,
+    isComplete: true,
+    modifiedAt: "2026-03-27T10:00:00Z",
     hasCustomizations: true,
+    lockCount: 1,
   },
 ];
 
@@ -99,16 +108,18 @@ const FIXTURE_ACTIVE_VERSION: CopilotVersion = FIXTURE_VERSIONS[0];
 
 const FIXTURE_BACKUPS: BackupEntry[] = [
   {
-    path: "/home/user/.copilot/backups/code-reviewer-2026-03-28.yaml",
-    fileName: "code-reviewer-2026-03-28.yaml",
+    id: "backup-1",
     label: "Before Opus upgrade",
+    sourcePath: "/home/user/.copilot/versions/1.0.9/agents/code-reviewer.yaml",
+    backupPath: "/home/user/.copilot/backups/code-reviewer-2026-03-28.yaml",
     createdAt: "2026-03-28T10:00:00Z",
     sizeBytes: 1024,
   },
   {
-    path: "/home/user/.copilot/backups/config-2026-03-27.json",
-    fileName: "config-2026-03-27.json",
+    id: "backup-2",
     label: "Daily backup",
+    sourcePath: "/home/user/.copilot/versions/1.0.9/config.json",
+    backupPath: "/home/user/.copilot/backups/config-2026-03-27.json",
     createdAt: "2026-03-27T10:00:00Z",
     sizeBytes: 512,
   },
@@ -117,15 +128,19 @@ const FIXTURE_BACKUPS: BackupEntry[] = [
 const FIXTURE_MIGRATION_DIFFS: MigrationDiff[] = [
   {
     fileName: "code-reviewer.yaml",
-    oldContent: "name: code-reviewer\nmodel: claude-opus-4.5\n",
-    newContent: "name: code-reviewer\nmodel: claude-opus-4.6\n",
-    status: "modified",
+    agentName: "code-reviewer",
+    fromVersion: "1.0.8",
+    toVersion: "1.0.9",
+    diff: "--- a/code-reviewer.yaml\n+++ b/code-reviewer.yaml\n-model: claude-opus-4.5\n+model: claude-opus-4.6",
+    hasConflicts: false,
   },
   {
     fileName: "test-writer.yaml",
-    oldContent: null,
-    newContent: "name: test-writer\nmodel: claude-sonnet-4.6\n",
-    status: "added",
+    agentName: "test-writer",
+    fromVersion: "1.0.8",
+    toVersion: "1.0.9",
+    diff: "+name: test-writer\n+model: claude-sonnet-4.6",
+    hasConflicts: false,
   },
 ];
 
@@ -538,7 +553,7 @@ describe("useConfigInjectorStore", () => {
 
       expect(store.migrationDiffs).toHaveLength(2);
       expect(store.migrationDiffs[0].fileName).toBe("code-reviewer.yaml");
-      expect(store.migrationDiffs[0].status).toBe("modified");
+      expect(store.migrationDiffs[0].hasConflicts).toBe(false);
     });
 
     it("sets error on failure", async () => {
