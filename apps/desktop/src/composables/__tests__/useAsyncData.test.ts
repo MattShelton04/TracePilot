@@ -560,7 +560,7 @@ describe('useAsyncData', () => {
     it('should reset all state to initial values', async () => {
       const asyncFn = vi.fn(async (x: number) => x * 2);
       const { data, loading, error, execute, reset } = useAsyncData(asyncFn, {
-        initialData: 'initial',
+        initialData: 42,
       });
 
       await execute(5);
@@ -568,7 +568,7 @@ describe('useAsyncData', () => {
 
       reset();
 
-      expect(data.value).toBe('initial');
+      expect(data.value).toBe(42);
       expect(loading.value).toBe(false);
       expect(error.value).toBeNull();
     });
@@ -682,7 +682,7 @@ describe('useAsyncData', () => {
       // TypeScript should enforce correct parameter types
       await execute(1, 'test');
 
-      // @ts-expect-error - Wrong parameter types
+      // The following would cause a type error:
       // execute('wrong', 123);
     });
   });
