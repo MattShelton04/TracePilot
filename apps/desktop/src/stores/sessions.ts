@@ -19,6 +19,19 @@ export const useSessionsStore = defineStore("sessions", () => {
   const loading = ref(false);
   const indexing = ref(false);
   const error = ref<string | null>(null);
+  // ── Session List Filtering (client-side — intentional) ──────────
+  // This search filters the already-loaded session list in memory.
+  // It is NOT a bug that this doesn't use the backend FTS5 index.
+  //
+  // Rationale: The session list page needs fast, instant-feedback filtering
+  // over a small dataset (~100s of sessions). Client-side substring matching
+  // gives zero-latency keystrokes and avoids round-trips. The backend FTS5
+  // search (in stores/search.ts → SessionSearchView) serves a different
+  // purpose: deep full-text search across session *content* (turns, tool
+  // results, etc.), which is a much larger dataset that requires indexing.
+  //
+  // Do not refactor this to use FTS5 — it has been evaluated and the current
+  // approach is correct for this use case.
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
