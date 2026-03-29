@@ -106,7 +106,21 @@ onUnmounted(() => {
   if (pageScrollEl) {
     pageScrollEl.removeEventListener("scroll", updatePanelTop);
   }
+  // Clean up ancestor class on unmount
+  cvRootEl.value?.closest('.page-content-inner')?.classList.remove('panel-open-layout');
 });
+
+// ─── Shift page-content-inner layout when panel opens ─────────────
+
+watch(
+  () => panel.isPanelOpen.value,
+  (open) => {
+    const inner = cvRootEl.value?.closest('.page-content-inner');
+    if (inner) {
+      inner.classList.toggle('panel-open-layout', open);
+    }
+  },
+);
 
 // ─── Computed helpers ─────────────────────────────────────────────
 

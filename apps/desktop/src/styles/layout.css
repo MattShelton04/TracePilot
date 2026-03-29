@@ -276,6 +276,12 @@
   margin: 0 auto;
 }
 
+/* When the subagent panel is open, left-align content and let it fill to the panel edge */
+.page-content-inner.panel-open-layout {
+  max-width: none;
+  margin: 0;
+}
+
 /* --- Breadcrumb --- */
 .breadcrumb {
   display: flex;
