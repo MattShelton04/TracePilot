@@ -5,6 +5,7 @@ import {
   StatCard, Badge, SectionPanel, DefList, ErrorAlert,
   formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
 } from "@tracepilot/ui";
+import { formatObjectResult } from "@/utils/formatResult";
 
 const store = useSessionDetailStore();
 
@@ -92,15 +93,6 @@ const isPlanExpanded = ref(true);
 
 function hasDetail(incident: { detailJson?: unknown }): boolean {
   return incident.detailJson != null && incident.detailJson !== '';
-}
-
-function formatDetail(detail: unknown): string {
-  if (typeof detail === 'string') return detail;
-  try {
-    return JSON.stringify(detail, null, 2);
-  } catch {
-    return String(detail);
-  }
 }
 
 function retryLoadSection(section: string) {
@@ -238,7 +230,7 @@ function retryLoadSection(section: string) {
             </span>
           </div>
           <div v-if="expandedDetails.has(idx) && hasDetail(incident)" class="incident-detail">
-            <pre class="incident-detail-json">{{ formatDetail(incident.detailJson) }}</pre>
+            <pre class="incident-detail-json">{{ formatObjectResult(incident.detailJson) }}</pre>
           </div>
         </div>
       </div>

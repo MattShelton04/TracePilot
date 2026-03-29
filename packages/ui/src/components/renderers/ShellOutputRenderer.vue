@@ -124,9 +124,23 @@ const outputLines = computed<OutputLine[]>(() => {
 
 <style scoped>
 .shell-output {
+  --term-bg: var(--canvas-subtle, #0d1117);
+  --term-chrome: var(--canvas-inset, #161b22);
+  --term-border: var(--border-muted, #30363d);
+  --term-text: var(--text-secondary, #c9d1d9);
+  --term-strong: var(--text-primary, #e6edf3);
+  --term-dim: var(--text-tertiary, #8b949e);
+  --term-accent: var(--accent-fg, #58a6ff);
+  --term-accent-bg: var(--accent-subtle, rgba(99, 102, 241, 0.1));
+  --term-success: var(--success-fg, #3fb950);
+  --term-success-bg: var(--success-subtle, rgba(16, 185, 129, 0.1));
+  --term-warning: var(--warning-fg, #d29922);
+  --term-warning-bg: var(--warning-subtle, rgba(245, 158, 11, 0.1));
+  --term-danger: var(--danger-fg, #f85149);
+  --term-danger-bg: var(--danger-subtle, rgba(244, 63, 94, 0.1));
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  background: #0d1117;
-  color: #c9d1d9;
+  background: linear-gradient(180deg, var(--term-chrome), var(--term-bg));
+  color: var(--term-text);
   border-radius: 0 0 6px 6px;
   overflow: hidden;
 }
@@ -137,8 +151,8 @@ const outputLines = computed<OutputLine[]>(() => {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
+  background: var(--term-chrome);
+  border-bottom: 1px solid var(--term-border);
 }
 .shell-dots {
   display: flex;
@@ -155,7 +169,7 @@ const outputLines = computed<OutputLine[]>(() => {
 .shell-dot--maximize { background: #28c840; }
 .shell-title {
   font-size: 0.6875rem;
-  color: #8b949e;
+  color: var(--term-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -167,11 +181,11 @@ const outputLines = computed<OutputLine[]>(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: #0d1117;
-  border-bottom: 1px solid #21262d;
+  background: var(--term-bg);
+  border-bottom: 1px solid var(--term-border);
 }
 .shell-prompt {
-  color: #3fb950;
+  color: var(--term-success);
   font-weight: 700;
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -182,15 +196,15 @@ const outputLines = computed<OutputLine[]>(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #e6edf3;
+  color: var(--term-strong);
 }
 .shell-mode-badge {
   font-size: 0.5625rem;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 9999px;
-  background: rgba(136, 198, 255, 0.15);
-  color: #58a6ff;
+  background: var(--term-accent-bg);
+  color: var(--term-accent);
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -203,16 +217,16 @@ const outputLines = computed<OutputLine[]>(() => {
   flex-shrink: 0;
 }
 .shell-exit--success {
-  background: rgba(63, 185, 80, 0.15);
-  color: #3fb950;
+  background: var(--term-success-bg);
+  color: var(--term-success);
 }
 .shell-exit--error {
-  background: rgba(248, 81, 73, 0.15);
-  color: #f85149;
+  background: var(--term-danger-bg);
+  color: var(--term-danger);
 }
 .shell-exit--pending {
-  background: rgba(210, 153, 34, 0.15);
-  color: #d29922;
+  background: var(--term-warning-bg);
+  color: var(--term-warning);
 }
 
 /* ── Output body ── */
@@ -222,21 +236,22 @@ const outputLines = computed<OutputLine[]>(() => {
   padding: 10px 12px;
   max-height: 500px;
   overflow: auto;
+  background: var(--term-bg);
 }
 .shell-line {
   white-space: pre-wrap;
   word-break: break-word;
 }
 .shell-line.term-error {
-  color: #f85149;
+  color: var(--term-danger);
 }
 .shell-line.term-warning {
-  color: #d29922;
+  color: var(--term-warning);
 }
 .shell-line.term-success {
-  color: #3fb950;
+  color: var(--term-success);
 }
 .shell-line.term-dim {
-  color: #484f58;
+  color: var(--term-dim);
 }
 </style>

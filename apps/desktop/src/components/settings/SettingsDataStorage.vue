@@ -13,8 +13,10 @@ import { ActionButton, FormInput, SectionPanel, formatBytes, toErrorMessage, use
 import { onMounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { useIndexingEvents } from '@/composables/useIndexingEvents';
+import { isAlreadyIndexingError } from '@/utils/backendErrors';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
+import { logWarn } from '@/utils/logger';
 
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
@@ -48,21 +50,24 @@ onMounted(async () => {
     const config = await getConfig();
     sessionsDirectory.value = config.paths.sessionStateDir;
     databasePath.value = config.paths.indexDbPath;
-  } catch {
-    /* defaults are fine */
+  } catch (e) {
+    // Non-critical: defaults are fine
+    logWarn('[SettingsDataStorage] Failed to load config:', e);
   }
 
   try {
     const bytes = await getDbSize();
     databaseSize.value = formatBytes(bytes);
-  } catch {
-    /* keep placeholder */
+  } catch (e) {
+    // Non-critical: keep placeholder
+    logWarn('[SettingsDataStorage] Failed to get database size:', e);
   }
 
   try {
     indexedSessionCount.value = await getSessionCountApi();
-  } catch {
-    /* keep 0 */
+  } catch (e) {
+    // Non-critical: keep 0
+    logWarn('[SettingsDataStorage] Failed to get session count:', e);
   }
 });
 
@@ -82,8 +87,9 @@ async function persistSessionDir() {
     const config = await getConfig();
     config.paths.sessionStateDir = sessionsDirectory.value;
     await saveConfig(config);
-  } catch {
-    /* non-fatal — local UI still updates */
+  } catch (e) {
+    // Non-fatal: local UI still updates
+    logWarn('[SettingsDataStorage] Failed to persist session directory:', e);
   }
 }
 
@@ -97,7 +103,7 @@ async function clearCache() {
     analyticsStore.$reset();
   } catch (e) {
     const msg = toErrorMessage(e);
-    if (msg === 'ALREADY_INDEXING') {
+    if (isAlreadyIndexingError(msg)) {
       reindexResult.value = 'Indexing already in progress…';
     } else {
       reindexResult.value = `Error: ${msg}`;
@@ -116,7 +122,7 @@ async function rebuildSearchIndex() {
     toast.success('Search index rebuilt successfully');
   } catch (e) {
     const msg = toErrorMessage(e);
-    if (msg === 'ALREADY_INDEXING') {
+    if (isAlreadyIndexingError(msg)) {
       searchRebuildResult.value = 'Search indexing already in progress…';
     } else {
       searchRebuildResult.value = `Error: ${msg}`;

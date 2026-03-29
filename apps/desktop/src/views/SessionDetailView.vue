@@ -43,8 +43,9 @@ async function checkRunning() {
   }
   try {
     isSessionActive.value = await isSessionRunning(sessionId.value);
-  } catch {
+  } catch (e) {
     isSessionActive.value = false;
+    logError('[sessionDetail] Failed to check if session is running:', e);
   }
 }
 

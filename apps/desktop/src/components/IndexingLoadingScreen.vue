@@ -4,8 +4,6 @@
     class="indexing-loading-screen"
     :class="{ 'fade-out': fadingOut }"
     :style="{
-      opacity: fadingOut ? 0 : undefined,
-      transform: fadingOut ? 'scale(1.02)' : undefined,
       '--ui-scale': scaleFactor,
     }"
   >
@@ -59,7 +57,7 @@
       />
 
       <!-- Center logo hub -->
-      <div class="logo-hub" :class="{ visible: phase !== 'idle' || showLogo }">
+      <div class="logo-hub" :class="{ visible: showLogo }">
         <div class="logo-icon">
           <div class="logo-glow" />
           <LogoIcon :size="70" />
@@ -68,18 +66,6 @@
         <div v-if="sessionCounterText" class="session-counter">{{ sessionCounterText }}</div>
       </div>
     </div>
-
-    <!-- Stats panel -->
-    <OrbitalStatsPanel
-      :visible="phase === 'indexing' || phase === 'finalizing'"
-      :display-sessions="displaySessions"
-      :total-sessions="props.totalSessions"
-      :display-tokens="displayTokens"
-      :display-events="displayEvents"
-      :display-repos="displayRepos"
-      :progress-pct="progressPct"
-      :repo-legend-items="repoLegendItems"
-    />
 
     <!-- Completion flash -->
     <div class="completion-flash" :class="{ active: completionFlashActive }" />
@@ -92,8 +78,6 @@ import type { IndexingProgressPayload } from '@tracepilot/types'
 import { reindexSessions } from '@tracepilot/client'
 import { logError, logWarn } from '@/utils/logger'
 import LogoIcon from '@/components/icons/LogoIcon.vue'
-import OrbitalStatsPanel from '@/components/OrbitalStatsPanel.vue'
-import { useAnimatedCounters } from '@/composables/useAnimatedCounters'
 import { useIndexingEvents } from '@/composables/useIndexingEvents'
 import {
   useOrbitalAnimation,
@@ -129,8 +113,9 @@ const SAFETY_TIMEOUT_MS = 60_000
 
 // Minimum display time tracking
 let mountTime = 0
-const MIN_DISPLAY_MS = 1500
+const MIN_DISPLAY_MS = 800
 let sessionsProcessed = 0
+let completionStarted = false
 
 // ── Template refs ──────────────────────────────────────────────────────────────
 
@@ -140,17 +125,15 @@ const ambientContainerRef = ref<HTMLElement>()
 
 // ── Composables ────────────────────────────────────────────────────────────────
 
-const counters = useAnimatedCounters()
-const { displaySessions, displayTokens, displayEvents, displayRepos } = counters
-
 const {
   visibleNodes,
   ripples,
-  repoLegendItems,
   centerX,
   centerY,
   scaleFactor,
   createNode,
+  createSeedNode,
+  clearSeedNodes,
   emitPulse,
   measureField,
   createAmbientParticles,
@@ -167,7 +150,6 @@ const {
   ambientContainerRef,
   phase,
   prefersReducedMotion,
-  onFrame: counters.lerpCounters,
 })
 
 const indexingEvents = useIndexingEvents({
@@ -178,7 +160,6 @@ const indexingEvents = useIndexingEvents({
 
 // ── Tracked timeout helper ─────────────────────────────────────────────────────
 
-/** setTimeout that auto-cleans on unmount */
 function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
   const id = setTimeout(() => {
     pendingTimers.delete(id)
@@ -191,6 +172,20 @@ function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> 
 // ── Computed ───────────────────────────────────────────────────────────────────
 
 const phaseLabel = computed(() => PHASE_LABELS[phase.value])
+
+// ── Seed nodes ─────────────────────────────────────────────────────────────────
+
+/** Seed decorative dot-only nodes across all lanes for immediate visual activity. */
+function seedDecorativeNodes() {
+  // Spread across the three orbital lanes (token thresholds: 30k, 100k, ∞)
+  createSeedNode('·', 5_000)
+  createSeedNode('·', 15_000)
+  createSeedNode('·', 25_000)
+  createSeedNode('·', 60_000)
+  createSeedNode('·', 80_000)
+  createSeedNode('·', 120_000)
+  createSeedNode('·', 200_000)
+}
 
 // ── Phase transitions ──────────────────────────────────────────────────────────
 
@@ -211,8 +206,8 @@ function setPhase(newPhase: Phase) {
 // ── Completion sequence ────────────────────────────────────────────────────────
 
 async function handleCompletion() {
-  // Guard against double-completion
-  if (dismissed.value || phase.value === 'complete') return
+  if (completionStarted) return
+  completionStarted = true
 
   // Ensure minimum display time
   const elapsed = performance.now() - mountTime
@@ -220,24 +215,26 @@ async function handleCompletion() {
     await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed))
   }
 
-  phase.value = 'complete'
+  if (dismissed.value) return
 
-  // Step 1: Show "Ready" text + completion flash
+  phase.value = 'complete'
   completionFlashActive.value = true
 
-  // Step 2: Decelerate orbits over 300ms
-  decelerate(300)
+  // Sequence: decelerate 400ms → hold 350ms → fade 400ms
+  const DECEL_MS = 400
+  const HOLD_MS = 350
+  const FADE_MS = 400
 
-  // Step 3: After 600ms, start fade-out
+  decelerate(DECEL_MS)
+
   safeTimeout(() => {
+    // Hold phase complete — begin fade
     fadingOut.value = true
-
-    // Step 4: After fade completes (500ms), emit complete
     safeTimeout(() => {
       dismissed.value = true
       emit('complete')
-    }, 500)
-  }, 600)
+    }, FADE_MS)
+  }, DECEL_MS + HOLD_MS)
 }
 
 // ── Tauri event handlers ───────────────────────────────────────────────────────
@@ -246,19 +243,22 @@ function onIndexingStarted() {
   setPhase('discovering')
 }
 
+let seedsCleared = false
+
 function onIndexingProgress(payload: IndexingProgressPayload) {
   if (phase.value === 'discovering' || phase.value === 'idle') {
     setPhase('indexing')
   }
 
+  // Clear decorative seed nodes on first real progress event
+  if (!seedsCleared) {
+    seedsCleared = true
+    clearSeedNodes()
+  }
+
   // Update progress
   const pct = payload.total > 0 ? (payload.current / payload.total) * 100 : 0
   progressPct.value = pct
-
-  // Update counter targets
-  counters.targetSessions.value = payload.current
-  counters.targetTokens.value = payload.totalTokens
-  counters.targetEvents.value = payload.totalEvents
   sessionCounterText.value = `${payload.current} / ${payload.total}`
 
   // Create orbiting node if this event has session info
@@ -268,7 +268,6 @@ function onIndexingProgress(payload: IndexingProgressPayload) {
       payload.sessionBranch ?? 'main',
       payload.sessionTokens,
     )
-    counters.targetRepos.value = repoLegendItems.value.length
 
     sessionsProcessed++
     if (sessionsProcessed % 10 === 0) {
@@ -283,7 +282,6 @@ function onIndexingProgress(payload: IndexingProgressPayload) {
 }
 
 function onIndexingFinished() {
-  // Snap counters to final values
   progressPct.value = 100
   handleCompletion()
 }
@@ -293,11 +291,9 @@ function onIndexingFinished() {
 onMounted(async () => {
   mountTime = performance.now()
 
-  // Detect reduced motion preference
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-  // CRITICAL: Register event listeners BEFORE triggering indexing
-  // to prevent the race condition where events fire before we're listening.
+  // Register event listeners BEFORE triggering indexing
   await indexingEvents.setup()
 
   await nextTick()
@@ -307,22 +303,21 @@ onMounted(async () => {
   createAmbientParticles(35)
   drawLaneEllipses()
 
-  // Start animation loop (also sets up resize observer)
+  // Start animation loop
   startAnimation()
 
-  // Show logo after brief delay
-  safeTimeout(() => {
-    showLogo.value = true
-  }, 200)
+  // Show logo + seed decorative nodes immediately for visual activity
+  showLogo.value = true
+  seedDecorativeNodes()
+  showLaneEllipses()
 
-  // NOW trigger indexing — listeners are guaranteed to be active
+  // Trigger indexing
   reindexSessions().catch((err) => {
     logError('[indexing] Indexing failed (non-fatal):', err)
-    // Ensure we don't get stuck — transition to app
     handleCompletion()
   })
 
-  // Safety timeout — if indexing-finished never arrives, auto-complete
+  // Safety timeout
   safetyTimeoutId = safeTimeout(() => {
     if (phase.value !== 'complete' && !dismissed.value) {
       logWarn('[indexing] Loading screen safety timeout — proceeding to app')
@@ -332,10 +327,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Stop animation loop and clean up orbital DOM elements
   stopAnimation()
-
-  // Clean up all tracked timers
   for (const id of pendingTimers) clearTimeout(id)
   pendingTimers.clear()
   if (safetyTimeoutId) {
@@ -352,10 +344,11 @@ onUnmounted(() => {
   inset: 0;
   background: #0d1117;
   z-index: 9999;
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition: opacity 0.4s ease;
 }
 
 .indexing-loading-screen.fade-out {
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -422,7 +415,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   opacity: 0;
-  transition: opacity 0.8s ease, transform 0.8s ease;
+  transition: opacity 0.6s ease;
   color: #818cf8;
 }
 
@@ -458,15 +451,8 @@ onUnmounted(() => {
 }
 
 @keyframes logoGlowPulse {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 }
 
 .logo-hub .phase-text {
@@ -506,18 +492,9 @@ onUnmounted(() => {
 }
 
 @keyframes dotPop {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.8);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.8); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* Mini card (expanded from dot) */
@@ -579,14 +556,8 @@ onUnmounted(() => {
 
 /* ── Pulse ripple ── */
 @keyframes ripplePulse {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0.5;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0;
-  }
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 
 .pulse-ripple {
@@ -606,15 +577,9 @@ onUnmounted(() => {
 
 /* ── Completion flash ── */
 @keyframes completionPulse {
-  0% {
-    opacity: 0;
-  }
-  30% {
-    opacity: 0.06;
-  }
-  100% {
-    opacity: 0;
-  }
+  0% { opacity: 0; }
+  30% { opacity: 0.04; }
+  100% { opacity: 0; }
 }
 
 .completion-flash {
@@ -627,7 +592,7 @@ onUnmounted(() => {
 }
 
 .completion-flash.active {
-  animation: completionPulse 1s ease-out forwards;
+  animation: completionPulse 0.5s ease-out forwards;
 }
 
 /* ── Ambient particles ── */
@@ -647,20 +612,10 @@ onUnmounted(() => {
 }
 
 @keyframes particleDrift {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  15% {
-    opacity: 0.1;
-  }
-  85% {
-    opacity: 0.1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--dx), var(--dy));
-  }
+  0% { opacity: 0; transform: translate(0, 0); }
+  15% { opacity: 0.1; }
+  85% { opacity: 0.1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
 }
 
 /* ── Reduced motion ── */
