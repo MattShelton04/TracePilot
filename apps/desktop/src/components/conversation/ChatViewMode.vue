@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -74,31 +74,38 @@ const { findToolCallIndex, getArgsSummary } = useConversationSections(() => stor
 const scrollEl = ref<HTMLElement | null>(null);
 const cvRootEl = ref<HTMLElement | null>(null);
 
-// ─── Panel top offset (fixed position below page header) ──────────
+// ─── Panel top offset (fixed position below sticky action bar) ────
 
 const panelTopPx = ref(0);
+let pageScrollEl: HTMLElement | null = null;
 
 function updatePanelTop() {
-  if (cvRootEl.value) {
-    panelTopPx.value = cvRootEl.value.getBoundingClientRect().top;
-  }
-}
+  const cvRect = cvRootEl.value?.getBoundingClientRect();
+  if (!cvRect) return;
 
-let panelTopRO: ResizeObserver | null = null;
+  // Find the sticky action bar (.detail-actions) — it sticks at top of scroll area
+  const actionsEl = document.querySelector('.detail-actions') as HTMLElement | null;
+  const actionsBottom = actionsEl ? actionsEl.getBoundingClientRect().bottom : 0;
+
+  // Panel top = whichever is lower: cv-root top or sticky bar bottom
+  panelTopPx.value = Math.max(cvRect.top, actionsBottom);
+}
 
 onMounted(() => {
   updatePanelTop();
   window.addEventListener("resize", updatePanelTop);
-  // Use a ResizeObserver on the parent to catch layout shifts (stat cards loading, etc.)
-  if (cvRootEl.value?.parentElement) {
-    panelTopRO = new ResizeObserver(updatePanelTop);
-    panelTopRO.observe(cvRootEl.value.parentElement);
+  // Listen to scroll on the page-content container (the page scroller)
+  pageScrollEl = cvRootEl.value?.closest('.page-content') as HTMLElement | null;
+  if (pageScrollEl) {
+    pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
   }
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", updatePanelTop);
-  panelTopRO?.disconnect();
+  if (pageScrollEl) {
+    pageScrollEl.removeEventListener("scroll", updatePanelTop);
+  }
 });
 
 // ─── Computed helpers ─────────────────────────────────────────────
@@ -511,21 +518,20 @@ defineExpose({ revealEvent });
 
 .cv-root {
   display: flex;
-  height: 100%;
   position: relative;
-  overflow: hidden;
 }
 
 .cv-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-width: 0;
   transition: margin-right var(--transition-normal, 0.2s) ease;
 }
 
-.cv-main.panel-open {
-  margin-right: 38%;
+.cv-main.panel-open .cv-content {
+  max-width: none;
+  margin-right: 0;
 }
 
 @media (max-width: 959px) {
@@ -536,8 +542,6 @@ defineExpose({ revealEvent });
 
 .cv-scroll {
   flex: 1;
-  overflow-y: auto;
-  scroll-behavior: smooth;
 }
 
 .cv-content {
