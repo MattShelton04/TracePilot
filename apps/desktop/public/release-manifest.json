@@ -1,11 +1,35 @@
 {
   "versions": [
     {
+      "version": "0.6.0",
+      "date": "2026-03-29",
+      "notes": {
+        "added": [
+          "Session Export (experimental): export to JSON, Markdown, or CSV with presets, section selection, and privacy redaction — enable in Settings → Features",
+          "Conversation Chat overhaul: subagent cards with drill-down panels, progressive tool disclosure, and cross-turn aggregation",
+          "Parallel session indexing via Rayon for significantly faster startup and incremental indexing",
+          "4.8x faster search indexing via bulk FTS5 write strategy",
+          "Theme-aware shell renderer: terminal output matches your active theme",
+          "Update check on startup now enabled by default for new installations"
+        ],
+        "changed": [
+          "Structured logging consolidated across the app; silent errors now logged",
+          "Smoother loading screen during fast indexing",
+          "CSS design system: hardcoded colors replaced with theme tokens"
+        ],
+        "fixed": [
+          "FTS turn attribution accuracy and duplicate search query prevention",
+          "Missing/corrupt workspace.yaml no longer breaks search indexing"
+        ]
+      },
+      "requiresReindex": true
+    },
+    {
       "version": "0.5.1",
       "date": "2026-03-26",
       "notes": {
         "added": [
-          "Search overhaul: tool results indexing (2.5× more content), session-grouped results, FTS health status bar",
+          "Search overhaul: tool results indexing (2.5x more content), session-grouped results, FTS health status bar",
           "Token/cost attribution improvements with session activity display",
           "BranchSelector with inline search, custom values, and default reset",
           "Replay turn-load failure surfacing with retry support"
