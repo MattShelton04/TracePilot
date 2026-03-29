@@ -205,6 +205,134 @@ impl IndexDb {
         )?;
         Ok(())
     }
+
+    /// Bulk-write search content for multiple sessions, bypassing per-row FTS triggers.
+    ///
+    /// Instead of firing FTS5 insert/delete triggers on every row (the normal path),
+    /// this method:
+    /// 1. Drops FTS sync triggers
+    /// 2. Deletes + inserts all content rows into `search_content` (fast without FTS overhead)
+    /// 3. Rebuilds the FTS5 index in a single pass
+    /// 4. Recreates the triggers
+    ///
+    /// This is dramatically faster for bulk operations (e.g., first-time indexing)
+    /// because FTS5 rebuild is O(N) vs O(N log N) for per-row trigger updates.
+    ///
+    /// **Not suitable for single-session updates** — use `upsert_search_content` for that.
+    pub fn bulk_write_search_content(
+        &self,
+        session_rows: &[(String, Vec<SearchContentRow>)],
+    ) -> Result<usize> {
+        let total_start = std::time::Instant::now();
+        self.conn.execute_batch("BEGIN")?;
+
+        let result = (|| -> Result<usize> {
+            // Step 1: Drop FTS triggers to avoid per-row index updates
+            self.conn.execute_batch(
+                "DROP TRIGGER IF EXISTS search_content_ai;
+                 DROP TRIGGER IF EXISTS search_content_ad;
+                 DROP TRIGGER IF EXISTS search_content_au;",
+            )?;
+
+            // Step 2: Delete + insert content rows (no FTS overhead)
+            let mut stmt = self.conn.prepare(
+                "INSERT INTO search_content
+                    (session_id, content_type, turn_number, event_index,
+                     timestamp_unix, tool_name, content, metadata_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?;
+
+            let now = chrono::Utc::now().to_rfc3339();
+            let mut total_inserted = 0;
+
+            for (session_id, rows) in session_rows {
+                // Delete existing content for this session
+                self.conn.execute(
+                    "DELETE FROM search_content WHERE session_id = ?1",
+                    [session_id.as_str()],
+                )?;
+
+                for row in rows {
+                    if row.content.is_empty() {
+                        continue;
+                    }
+                    stmt.execute(params![
+                        row.session_id,
+                        row.content_type,
+                        row.turn_number,
+                        row.event_index,
+                        row.timestamp_unix,
+                        row.tool_name,
+                        row.content,
+                        row.metadata_json,
+                    ])?;
+                    total_inserted += 1;
+                }
+
+                // Mark session as indexed
+                self.conn.execute(
+                    "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2
+                     WHERE id = ?3",
+                    params![now, CURRENT_EXTRACTOR_VERSION, session_id.as_str()],
+                )?;
+            }
+
+            // Step 3: Rebuild FTS index in a single pass
+            self.conn.execute_batch(
+                "INSERT INTO search_fts(search_fts) VALUES('rebuild');",
+            )?;
+
+            // Step 4: Recreate triggers
+            self.conn.execute_batch(
+                "CREATE TRIGGER search_content_ai AFTER INSERT ON search_content BEGIN
+                    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                 END;
+                 CREATE TRIGGER search_content_ad AFTER DELETE ON search_content BEGIN
+                    INSERT INTO search_fts(search_fts, rowid, content)
+                        VALUES ('delete', old.id, old.content);
+                 END;
+                 CREATE TRIGGER search_content_au AFTER UPDATE ON search_content BEGIN
+                    INSERT INTO search_fts(search_fts, rowid, content)
+                        VALUES ('delete', old.id, old.content);
+                    INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                 END;",
+            )?;
+
+            Ok(total_inserted)
+        })();
+
+        match result {
+            Ok(count) => {
+                self.conn.execute_batch("COMMIT")?;
+                tracing::debug!(
+                    inserted = count,
+                    sessions = session_rows.len(),
+                    elapsed_ms = total_start.elapsed().as_millis(),
+                    "Bulk search content write complete"
+                );
+                Ok(count)
+            }
+            Err(e) => {
+                // Rollback, then ensure triggers are restored
+                let _ = self.conn.execute_batch("ROLLBACK");
+                let _ = self.conn.execute_batch(
+                    "CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
+                        INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                     END;
+                     CREATE TRIGGER IF NOT EXISTS search_content_ad AFTER DELETE ON search_content BEGIN
+                        INSERT INTO search_fts(search_fts, rowid, content)
+                            VALUES ('delete', old.id, old.content);
+                     END;
+                     CREATE TRIGGER IF NOT EXISTS search_content_au AFTER UPDATE ON search_content BEGIN
+                        INSERT INTO search_fts(search_fts, rowid, content)
+                            VALUES ('delete', old.id, old.content);
+                        INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+                     END;",
+                );
+                Err(e)
+            }
+        }
+    }
 }
 
 /// Extract searchable content rows from a session's typed events.

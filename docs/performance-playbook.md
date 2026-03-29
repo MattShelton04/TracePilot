@@ -39,6 +39,7 @@ HTML reports are generated in `target/criterion/report/index.html`.
 |-------|-----------------|----------------|
 | `parsing` | JSONL → typed events, turn reconstruction, session summaries | `parse_typed_events/{100,1000,5000}`, `reconstruct_turns/{100,500,2000,5000}` |
 | `indexer` | Full reindex, search, upsert, analytics queries | `reindex_all/{10,50,100}`, `reindex_varied/{50,100}`, `search/{10,50,100,200}` |
+| `indexer` | Search content indexing (FTS5) | `reindex_search_content/{10,50,100,200}`, `reindex_search_varied/{50,100}` |
 | `analytics` | Analytics computation functions | `compute_analytics`, `compute_tool_analysis`, `compute_code_impact` |
 
 ---
@@ -201,10 +202,13 @@ Requires `rustup component add llvm-tools`.
 
 ### "Reindexing is slow"
 
-1. `cargo bench -p tracepilot-bench --bench indexer` → check `reindex_all` and `reindex_varied` times
-2. Run debug build → watch for "Slow SQL query" tracing warnings
-3. `cargo flamegraph --bench indexer` → find hot functions
-4. `cargo test -p tracepilot-core --features dhat-heap` → check allocation counts
+1. `cargo run --release --bin real_bench -p tracepilot-bench` → profiles real session data with A/B comparison
+2. `cargo bench -p tracepilot-bench --bench indexer` → synthetic Criterion benchmarks
+3. Run debug build → watch for "Slow SQL query" tracing warnings
+4. `cargo flamegraph --bench indexer` → find hot functions
+5. `cargo test -p tracepilot-core --features dhat-heap` → check allocation counts
+
+> **Note:** The `real_bench` binary profiles against your actual `~/.copilot/session-state` data. It compares the unbatched (per-row trigger) vs bulk (trigger-drop + FTS rebuild) write paths and reports the speedup.
 
 ### "Search is slow"
 

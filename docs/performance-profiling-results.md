@@ -27,7 +27,8 @@
 
 | Tool | Status | Key Finding |
 |------|--------|-------------|
-| **Criterion benchmarks** | ✅ Ran successfully | 27 benchmarks across 7 groups; parsing is the dominant cost |
+| **Criterion benchmarks** | ✅ Ran successfully | 27 benchmarks across 7 groups; parsing is the dominant cost in synthetic benchmarks |
+| **Real-world profiling** | ✅ Ran successfully | **FTS5 writes are 87.8% of search indexing (41s/47s)** — the #1 bottleneck |
 | **dhat-rs heap profiling** | ✅ Ran successfully | 50-turn session: 248KB total allocs, 208KB peak live |
 | **Flamegraph** | ⚠️ Requires admin | Windows needs elevated privileges (blondie/dtrace); Linux/macOS ready |
 | **SQLite query profiling** | ✅ Active in debug | No slow queries (>10ms) detected in test fixtures; production monitoring ready |
@@ -38,7 +39,90 @@
 | **Chrome DevTools** | ⚠️ Requires app running | Manual profiling via browser DevTools |
 | **PGO build scripts** | ✅ Available | Scripts ready for Linux/macOS (.sh) and Windows (.ps1) |
 
-**Bottom line:** The automated backend tools (benchmarks, dhat, SQLite profiling, bundle analysis) all work out of the box. Frontend/runtime tools (usePerfMonitor, long task observer, tokio-console) require the app to be running in dev mode.
+**Bottom line:** The automated backend tools (benchmarks, dhat, SQLite profiling, bundle analysis) all work out of the box. Frontend/runtime tools (usePerfMonitor, long task observer, tokio-console) require the app to be running in dev mode. **Real-world profiling revealed FTS5 writes as the dominant bottleneck (87.8% of search indexing time).**
+
+---
+
+## 0. Real-World Search Indexing Profiling
+
+**Tool:** `real_bench.rs` harness against actual user session data  
+**Command:** `cargo run --release --bin real_bench -p tracepilot-bench`
+
+### Environment
+
+| Metric | Value |
+|--------|-------|
+| Sessions discovered | 275 |
+| Sessions with events | 178 |
+| Total data size | 1,190.9 MB |
+| Total FTS rows | 326,758 |
+
+### Phase 1: `reindex_all` (Metadata Indexing)
+
+| Metric | Value |
+|--------|-------|
+| Time | 3.70s |
+| Throughput | 74.2 sessions/sec |
+
+### Phase 2: `reindex_search_content` (Deep Content FTS5 Indexing)
+
+| Step | Time | % of Total |
+|------|------|-----------|
+| Discovery | 0.03s | <0.1% |
+| Staleness check | 0.01s | <0.1% |
+| **JSON Parsing** | **5.07s** | **10.9%** |
+| Content Extraction | 0.62s | 1.3% |
+| **FTS5 DB Writes** | **41.02s** | **87.8%** |
+| **Total** | **~47s** | 100% |
+
+### Top 10 Slowest Sessions (Parse Time)
+
+| Session | Parse | Extract | File Size | FTS Rows |
+|---------|-------|---------|-----------|----------|
+| `01b724a3` | 210ms | 28ms | 41.2 MB | 11,569 |
+| `c533a91f` | 179ms | 24ms | 34.6 MB | 8,742 |
+| `13d8ee2d` | 168ms | 20ms | 42.0 MB | 9,976 |
+| `3336e71a` | 167ms | 20ms | 38.2 MB | 9,721 |
+| `3e5e0480` | 164ms | 29ms | 34.5 MB | 12,529 |
+
+### Top 10 Slowest FTS5 Writes
+
+| Session | Write Time | FTS Rows |
+|---------|-----------|----------|
+| `51418700` | 1,564ms | 9,198 |
+| `3e5e0480` | 1,486ms | 12,529 |
+| `3fb96bf5` | 1,284ms | 9,514 |
+| `01b724a3` | 1,256ms | 11,569 |
+| `3336e71a` | 1,154ms | 9,721 |
+| `c533a91f` | 1,127ms | 8,742 |
+| `13d8ee2d` | 1,126ms | 9,976 |
+| `fd713dd4` | 1,056ms | 8,448 |
+| `c3d25a3c` | 1,024ms | 6,050 |
+| `3d94669a` | 955ms | 7,548 |
+
+### Key Insight
+
+The **FTS5 write path** (`upsert_search_content`) dominates at **87.8%** of total time. Each call:
+1. Opens a `SAVEPOINT`
+2. `DELETE FROM search_content WHERE session_id = ?`
+3. Individual `INSERT` for each row
+4. `RELEASE SAVEPOINT`
+
+With 326,758 rows across 178 sessions, this creates massive FTS5 index rebuild overhead. The DELETE-before-INSERT pattern means FTS5 must update its B-tree for every row twice (once for deletion, once for insertion).
+
+**Staleness-aware re-runs are fast (0.04s)** — the system correctly skips already-indexed sessions. The bottleneck only matters for first-time indexing or when many sessions have changed.
+
+### Optimization Applied: Bulk Write with FTS5 Rebuild
+
+**Approach:** For bulk indexing (≥10 sessions), drop FTS triggers → insert all rows → rebuild FTS index in one pass → restore triggers. Small incremental updates (< 10 sessions) still use per-row triggers.
+
+| Strategy | Time | Speedup |
+|----------|------|---------|
+| Per-row triggers (original) | 44.1s | 1.0x |
+| Transaction batching (groups of 50) | 47.7s | 0.9x (no improvement) |
+| **Bulk write + FTS rebuild** | **9.3s** | **4.8x** |
+
+Transaction batching didn't help because WAL already amortizes fsyncs. The bottleneck was the **per-row FTS5 trigger overhead** (654K trigger operations). The bulk rebuild approach eliminates all per-row FTS work and replaces it with a single O(N) pass.
 
 ---
 
@@ -425,27 +509,33 @@ PGO typically provides 5-15% improvement on hot paths by optimizing branch predi
 
 ## Key Findings & Bottlenecks
 
-### 🔴 High Impact
+### 🔴 Critical: FTS5 Write Path — Optimized 4.8x
 
-| Area | Finding | Evidence |
-|------|---------|----------|
-| **JSON parsing** | Parsing 10K events takes 34ms — the single largest CPU cost | Criterion: `parse_typed_events/10000` |
-| **Session upsert** | SQLite writes take 20-33ms per session due to disk I/O | Criterion: `upsert_session/*` |
-| **Initial bundle** | 145KB gzipped initial load (JS+CSS) | Bundle analysis |
+Real-world profiling against 275 sessions (1.19 GB of events data) revealed:
+
+| Phase | Before | After | Improvement |
+|-------|--------|-------|------------|
+| **FTS5 DB Writes** | 41.0s (87.8%) | **9.3s** | **4.8x faster** |
+| JSON Parsing | 5.1s (10.9%) | 5.1s | — |
+| Content Extraction | 0.6s (1.3%) | 0.6s | — |
+| **Total Phase 2** | **~47s** | **~15s** | **~3x faster** |
+
+**Fix:** `bulk_write_search_content()` drops FTS triggers during load, inserts rows without per-row index updates, then rebuilds FTS5 in a single O(N) pass. Automatically used when ≥10 sessions need indexing. Falls back to per-session `upsert_search_content()` for small incremental updates.
 
 ### 🟡 Medium Impact
 
 | Area | Finding | Evidence |
 |------|---------|----------|
-| **Heap allocation** | 83% of allocations retained (low temporary churn, but high peak) | dhat: 208KB peak / 248KB total |
+| **JSON parsing** | 5.1s to parse 1.19 GB — 233 MB/s throughput | Real-world profiling |
+| **Initial bundle** | 145KB gzipped initial load (JS+CSS) | Bundle analysis |
 | **Pinia stores chunk** | 107KB (34.7KB gz) loaded eagerly | Bundle analysis |
-| **SessionTimelineView** | 57KB — largest single view | Bundle analysis |
 
 ### 🟢 Already Optimized
 
 | Area | Finding | Evidence |
 |------|---------|----------|
-| **Search** | Sub-33µs even at 200 sessions | Criterion: `search/*` |
+| **Staleness check** | Re-run after indexing: 0.04s (skips unchanged sessions) | Real-world profiling |
+| **Search queries** | Sub-33µs even at 200 sessions | Criterion: `search/*` |
 | **Analytics compute** | <180µs for 200 sessions | Criterion: `compute_analytics/*` |
 | **Code splitting** | All views lazy-loaded, per-view CSS | Bundle analysis |
 | **Parallel indexing** | Rayon par_iter for session processing | `reindex_all` benchmarks |
