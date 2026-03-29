@@ -22,6 +22,7 @@ import {
   migrateAgentDefinition as migrateAgentApi,
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { aggregateSettledErrors } from '@/utils/settleErrors';
 import { useToastStore } from '@/stores/toast';
 
 export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
@@ -62,11 +63,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       if (activeRes.status === 'fulfilled') activeVersion.value = activeRes.value;
       if (backupsRes.status === 'fulfilled') backups.value = backupsRes.value;
 
-      const failures = [agentsRes, configRes, versionsRes, activeRes, backupsRes]
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-      if (failures.length > 0) {
-        error.value = failures.map((f) => toErrorMessage(f.reason)).join('; ');
-      }
+      error.value = aggregateSettledErrors([agentsRes, configRes, versionsRes, activeRes, backupsRes]);
     } catch (e) {
       error.value = toErrorMessage(e);
     } finally {

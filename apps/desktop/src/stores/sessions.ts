@@ -3,7 +3,8 @@ import { ref, computed } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
-import { logError } from "@/utils/logger";
+import { logError, logWarn } from "@/utils/logger";
+import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -152,7 +153,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         sessions.value = await listSessions();
       } catch (e) {
         const msg = toErrorMessage(e);
-        if (msg !== "ALREADY_INDEXING") {
+        if (!isAlreadyIndexingError(msg)) {
           error.value = msg;
         }
       }
@@ -168,7 +169,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       sessions.value = await listSessions();
     } catch (e) {
       const msg = toErrorMessage(e);
-      if (msg !== "ALREADY_INDEXING") {
+      if (!isAlreadyIndexingError(msg)) {
         error.value = msg;
       }
     } finally {
@@ -184,8 +185,14 @@ export const useSessionsStore = defineStore("sessions", () => {
    */
   async function ensureIndex() {
     if (indexingPromise) {
-      try { await indexingPromise; } catch { /* already running */ }
-      try { sessions.value = await listSessions(); } catch { /* silent */ }
+      try { await indexingPromise; } catch (e) {
+        // Background reindex already running - log warning if it fails
+        logWarn('[sessions] Background reindex in progress failed', e);
+      }
+      try { sessions.value = await listSessions(); } catch (e) {
+        // Silent refresh failed
+        logWarn('[sessions] Failed to refresh session list after background reindex', e);
+      }
       return;
     }
 
@@ -193,8 +200,9 @@ export const useSessionsStore = defineStore("sessions", () => {
       indexingPromise = reindexSessions();
       await indexingPromise;
       sessions.value = await listSessions();
-    } catch {
+    } catch (e) {
       // Silent — this is a background optimization, not user-initiated
+      logWarn('[sessions] Background ensureIndex failed', e);
     } finally {
       indexingPromise = null;
     }

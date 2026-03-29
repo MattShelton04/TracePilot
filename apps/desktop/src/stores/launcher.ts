@@ -18,6 +18,8 @@ import {
   checkSystemDeps,
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
+import { aggregateSettledErrors } from '@/utils/settleErrors';
 
 export const useLauncherStore = defineStore('launcher', () => {
   const models = ref<ModelInfo[]>([]);
@@ -51,10 +53,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       if (depsResult.status === 'fulfilled') systemDeps.value = depsResult.value;
       if (modelsResult.status === 'fulfilled') models.value = modelsResult.value;
       if (templatesResult.status === 'fulfilled') templates.value = templatesResult.value;
-      const failures = [depsResult, modelsResult, templatesResult]
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map((r) => toErrorMessage(r.reason));
-      if (failures.length) error.value = failures.join('; ');
+      error.value = aggregateSettledErrors([depsResult, modelsResult, templatesResult]);
     } catch (e) {
       error.value = toErrorMessage(e);
     } finally {
@@ -113,8 +112,9 @@ export const useLauncherStore = defineStore('launcher', () => {
       // Update local count optimistically
       const tpl = templates.value.find((t) => t.id === id);
       if (tpl) tpl.usageCount += 1;
-    } catch {
+    } catch (e) {
       // Non-critical — don't surface errors for usage tracking
+      logWarn('[launcher] Failed to increment template usage', { id, error: e });
     }
   }
 
