@@ -441,6 +441,10 @@ fn export_markdown_full_session() {
     assert!(text.contains("# Session:"));
     assert!(text.contains("## Metadata"));
     assert!(text.contains("test-session-id"));
+    // Verify repository links are included
+    assert!(text.contains("[TracePilot v"));
+    assert!(text.contains("https://github.com/MattShelton04/TracePilot"));
+    assert!(text.contains("Get [TracePilot](https://github.com/MattShelton04/TracePilot)"));
 }
 
 #[test]
