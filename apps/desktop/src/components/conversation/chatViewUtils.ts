@@ -21,7 +21,6 @@ export type ToolGroupItem =
   | { type: "intent"; toolCall: TurnToolCall }
   | { type: "memory"; toolCall: TurnToolCall }
   | { type: "ask-user"; toolCall: TurnToolCall }
-  | { type: "subagent-complete"; toolCall: TurnToolCall }
   | { type: "tool"; toolCall: TurnToolCall };
 
 /** Maximum tool rows shown before progressive disclosure collapse. */
@@ -72,8 +71,7 @@ export function segmentToolCalls(toolCalls: TurnToolCall[]): ToolSegment[] {
     } else if (tc.parentToolCallId) {
       // Skip — child data belongs to subagent panel
     } else if (tc.toolName === "read_agent") {
-      flushSubagents();
-      currentRegular.push(tc);
+      // Skip — completion pills are rendered separately via completionsByTurn
     } else {
       flushSubagents();
       currentRegular.push(tc);
@@ -94,8 +92,6 @@ function classifyTool(tc: TurnToolCall): ToolGroupItem {
       return { type: "memory", toolCall: tc };
     case "ask_user":
       return { type: "ask-user", toolCall: tc };
-    case "read_agent":
-      return { type: "subagent-complete", toolCall: tc };
     default:
       return { type: "tool", toolCall: tc };
   }

@@ -206,9 +206,11 @@ function memoryLabel(tc: TurnToolCall): string {
   return (args?.fact as string) ?? (args?.subject as string) ?? "…";
 }
 
-// ─── Subagent completion pill helpers ─────────────────────────────
+// ─── Subagent completion tracking ─────────────────────────────────
+// Maps turnIndex → agent IDs whose LAST read_agent appears in that turn.
+// Only one pill per subagent, positioned at the final read.
 
-function parseReadAgentId(tc: TurnToolCall): string | null {
+function parseAgentIdFromArgs(tc: TurnToolCall): string | null {
   try {
     const args = typeof tc.arguments === "string"
       ? JSON.parse(tc.arguments)
@@ -219,24 +221,40 @@ function parseReadAgentId(tc: TurnToolCall): string | null {
   }
 }
 
-function subagentCompleteLabel(tc: TurnToolCall): string {
-  const agentId = parseReadAgentId(tc);
-  if (agentId) {
-    const sa = subagentMap.value.get(agentId);
-    if (sa) {
-      const agentType = inferAgentTypeFromToolCall(sa.toolCall);
-      const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-      return `${label} agent ${tc.success === false ? "failed" : "completed"}`;
+const completionsByTurn = computed(() => {
+  const lastReadByAgent = new Map<string, number>();
+
+  for (const turn of turns.value) {
+    for (const tc of turn.toolCalls) {
+      if (tc.toolName === "read_agent" && !tc.parentToolCallId) {
+        const agentId = parseAgentIdFromArgs(tc);
+        if (agentId && subagentMap.value.has(agentId)) {
+          lastReadByAgent.set(agentId, turn.turnIndex);
+        }
+      }
     }
   }
-  return tc.success === false ? "Agent failed" : "Agent completed";
-}
 
-function openSubagentFromReadAgent(tc: TurnToolCall) {
-  const agentId = parseReadAgentId(tc);
-  if (agentId) {
-    panel.selectSubagent(agentId);
+  const byTurn = new Map<number, string[]>();
+  for (const [agentId, turnIdx] of lastReadByAgent) {
+    const sa = subagentMap.value.get(agentId);
+    if (sa?.toolCall.isComplete) {
+      const list = byTurn.get(turnIdx) ?? [];
+      list.push(agentId);
+      byTurn.set(turnIdx, list);
+    }
   }
+  return byTurn;
+});
+
+function completionLabel(agentId: string): string {
+  const sa = subagentMap.value.get(agentId);
+  if (sa) {
+    const agentType = inferAgentTypeFromToolCall(sa.toolCall);
+    const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+    return `${label} agent ${sa.toolCall.success === false ? "failed" : "completed"}`;
+  }
+  return "Agent completed";
 }
 
 // ─── ToolCallItem helpers ─────────────────────────────────────────
@@ -467,21 +485,6 @@ defineExpose({ revealEvent });
                           @retry-full-result="handleRetryResult"
                         />
 
-                        <!-- Subagent completion pill -->
-                        <div
-                          v-else-if="item.type === 'subagent-complete'"
-                          :class="['cv-subagent-complete-pill', item.toolCall.success === false ? 'failed' : 'completed']"
-                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
-                          role="button"
-                          tabindex="0"
-                          @click="openSubagentFromReadAgent(item.toolCall)"
-                          @keydown.enter="openSubagentFromReadAgent(item.toolCall)"
-                        >
-                          <span class="cv-pill-icon" aria-hidden="true">{{ item.toolCall.success === false ? '✗' : '✓' }}</span>
-                          <span class="cv-pill-label">{{ subagentCompleteLabel(item.toolCall) }}</span>
-                          <span v-if="item.toolCall.durationMs" class="cv-pill-duration">{{ formatDuration(item.toolCall.durationMs) }}</span>
-                        </div>
-
                         <!-- Regular tool row (with progressive disclosure) -->
                         <ToolCallItem
                           v-else-if="item.type === 'tool'"
@@ -550,6 +553,23 @@ defineExpose({ revealEvent });
                     </div>
                   </template>
                 </template>
+
+                <!-- Subagent completion pills (at the turn of their final read_agent) -->
+                <div
+                  v-for="agentId in (completionsByTurn.get(turn.turnIndex) ?? [])"
+                  :key="`complete-${agentId}`"
+                  :class="['cv-subagent-complete-pill', subagentMap.get(agentId)?.toolCall.success === false ? 'failed' : 'completed']"
+                  role="button"
+                  tabindex="0"
+                  @click="panel.selectSubagent(agentId)"
+                  @keydown.enter="panel.selectSubagent(agentId)"
+                >
+                  <span class="cv-pill-icon" aria-hidden="true">{{ subagentMap.get(agentId)?.toolCall.success === false ? '✗' : '✓' }}</span>
+                  <span class="cv-pill-label">{{ completionLabel(agentId) }}</span>
+                  <span v-if="subagentMap.get(agentId)?.toolCall.durationMs" class="cv-pill-duration">
+                    {{ formatDuration(subagentMap.get(agentId)!.toolCall.durationMs!) }}
+                  </span>
+                </div>
               </div>
             </template>
           </div>
