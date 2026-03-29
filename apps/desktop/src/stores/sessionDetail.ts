@@ -288,7 +288,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         detail.value = result;
       }).catch((e) => {
         if (!sessionGuard.isValid(token)) return;
-        logWarn("[sessionDetail] Background refresh of detail failed:", e);
+        // Background refresh failed - non-critical
+        logWarn('[sessionDetail] Background refresh of session detail failed', { id, error: e });
       });
       checkSessionFreshness(id).then(async (freshness) => {
         if (!sessionGuard.isValid(token)) return;
@@ -299,7 +300,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         lastEventsFileSize = result.eventsFileSize;
       }).catch((e) => {
         if (!sessionGuard.isValid(token)) return;
-        logWarn("[sessionDetail] Background refresh of turns failed:", e);
+        // Background freshness check failed - non-critical
+        logWarn('[sessionDetail] Background freshness check failed', { id, error: e });
       });
       if (loaded.value.has("plan")) {
         getSessionPlan(id).then((result) => {
@@ -307,7 +309,8 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           plan.value = result;
         }).catch((e) => {
           if (!sessionGuard.isValid(token)) return;
-          logWarn("[sessionDetail] Background refresh of plan failed:", e);
+          // Background plan refresh failed - non-critical
+          logWarn('[sessionDetail] Background refresh of plan failed', { id, error: e });
         });
       }
       return;

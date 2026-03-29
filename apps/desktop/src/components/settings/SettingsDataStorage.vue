@@ -13,6 +13,7 @@ import { ActionButton, FormInput, SectionPanel, formatBytes, toErrorMessage, use
 import { onMounted, ref } from 'vue';
 import { browseForDirectory } from '@/composables/useBrowseDirectory';
 import { useIndexingEvents } from '@/composables/useIndexingEvents';
+import { isAlreadyIndexingError } from '@/utils/backendErrors';
 import { useAnalyticsStore } from '@/stores/analytics';
 import { useSessionsStore } from '@/stores/sessions';
 import { logWarn } from '@/utils/logger';
@@ -102,7 +103,7 @@ async function clearCache() {
     analyticsStore.$reset();
   } catch (e) {
     const msg = toErrorMessage(e);
-    if (msg === 'ALREADY_INDEXING') {
+    if (isAlreadyIndexingError(msg)) {
       reindexResult.value = 'Indexing already in progress…';
     } else {
       reindexResult.value = `Error: ${msg}`;
@@ -121,7 +122,7 @@ async function rebuildSearchIndex() {
     toast.success('Search index rebuilt successfully');
   } catch (e) {
     const msg = toErrorMessage(e);
-    if (msg === 'ALREADY_INDEXING') {
+    if (isAlreadyIndexingError(msg)) {
       searchRebuildResult.value = 'Search indexing already in progress…';
     } else {
       searchRebuildResult.value = `Error: ${msg}`;

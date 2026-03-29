@@ -8,6 +8,7 @@ import { useSearchPagination } from '@/composables/useSearchPagination';
 import { useSearchKeyboardNavigation } from '@/composables/useSearchKeyboardNavigation';
 import { useSearchResultState } from '@/composables/useSearchResultState';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
+import { toFriendlyErrorMessage } from '@/utils/backendErrors';
 import type { IndexingProgressPayload, SearchContentType, SearchResult } from '@tracepilot/types';
 import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes, useToast } from '@tracepilot/ui';
 import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
@@ -136,17 +137,7 @@ const activeContentTypeChips = computed(() => {
 });
 
 // ÔöÇÔöÇ Friendly error messages ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-const friendlyError = computed(() => {
-  const err = store.error;
-  if (!err) return null;
-  if (err.includes('fts5: syntax error') || err.includes('parse error')) {
-    return 'Invalid search syntax. Try simpler terms, or use quotes for exact phrases. Operators like AND, OR, NOT must be between search terms.';
-  }
-  if (err.includes('ALREADY_INDEXING') || err.includes('already indexing')) {
-    return 'Indexing is already in progress. Please wait for the current index to complete.';
-  }
-  return err;
-});
+const friendlyError = computed(() => toFriendlyErrorMessage(store.error));
 
 // ÔöÇÔöÇ Stats facets (always visible, from search stats) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const statsContentTypeFacets = computed(() => {

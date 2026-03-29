@@ -147,8 +147,9 @@ export const useSearchStore = defineStore('search', () => {
           }
         }),
       );
-    } catch {
-      // not in Tauri environment
+    } catch (e) {
+      // Not in Tauri environment - event listeners not available
+      logWarn('[search] Failed to initialize event listeners (not in Tauri environment)', e);
     }
   }
 
@@ -419,8 +420,9 @@ export const useSearchStore = defineStore('search', () => {
       ]);
       availableRepositories.value = repos;
       availableToolNames.value = tools;
-    } catch {
-      // non-fatal
+    } catch (e) {
+      // Non-fatal - filter options are supplementary UI info
+      logWarn('[search] Failed to fetch filter options', e);
     }
   }
 

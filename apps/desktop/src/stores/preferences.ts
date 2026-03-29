@@ -1,5 +1,6 @@
 import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
 import { normalizePath } from '@tracepilot/ui';
+import { useAsyncGuard } from '@/composables/useAsyncGuard';
 import { logWarn } from '@/utils/logger';
 import type {
   ModelPriceEntry,
@@ -158,8 +159,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
       // Migrate ephemeral fields
       if (old.lastViewedSession) localStorage.setItem("tracepilot-last-session", old.lastViewedSession);
       if (old.lastSeenVersion) localStorage.setItem("tracepilot-last-seen-version", old.lastSeenVersion);
-    } catch {
+    } catch (e) {
       // Corrupt localStorage — leave key in place; it'll be retried next launch
+      logWarn('[preferences] Failed to migrate legacy preferences', e);
     }
 
     return config;
@@ -237,25 +239,25 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   // ── Debounced persist to backend ───────────────────────────
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  let saveGeneration = 0;
+  const saveGuard = useAsyncGuard();
 
   function scheduleSave() {
     if (!hydrated) return;
     if (saveTimer) clearTimeout(saveTimer);
-    const gen = ++saveGeneration;
+    const token = saveGuard.start();
     saveTimer = setTimeout(async () => {
       try {
         // Re-read latest config from backend to avoid overwriting changes
         // made by other components (e.g. SettingsDataStorage paths/autoIndex)
         const freshConfig = await getConfig();
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         backendConfig = freshConfig;
         const config = buildConfig();
         await saveConfig(config);
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         backendConfig = config;
       } catch (e) {
-        if (gen !== saveGeneration) return;
+        if (!saveGuard.isValid(token)) return;
         logWarn("[preferences] Failed to persist config:", e);
       }
     }, 300);
@@ -287,8 +289,9 @@ export const usePreferencesStore = defineStore("preferences", () => {
       }
       backendConfig = config;
       applyConfig(config);
-    } catch {
+    } catch (e) {
       // Outside Tauri (dev mode) — keep defaults
+      logWarn('[preferences] Failed to hydrate config (may be outside Tauri environment)', e);
     }
     hydrated = true;
     hydrateResolve();
