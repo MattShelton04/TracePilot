@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchActiveFilters from '../../../components/search/SearchActiveFilters.vue';
+import type { ContentTypeStyle } from '@tracepilot/ui';
 
-const CONTENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-  message: { label: 'Message', color: '#3b82f6' },
+const CONTENT_TYPE_CONFIG: Record<string, ContentTypeStyle> = {
+  user_message: { label: 'User Message', color: '#3b82f6' },
   tool_call: { label: 'Tool Call', color: '#f59e0b' },
 };
 
@@ -30,10 +31,10 @@ describe('SearchActiveFilters', () => {
 
   it('renders content type include chips', () => {
     const wrapper = mountFilters({
-      activeContentTypeChips: [{ type: 'message', mode: 'include' }],
+      activeContentTypeChips: [{ type: 'user_message', mode: 'include' }],
     });
     expect(wrapper.find('.active-filters-bar').exists()).toBe(true);
-    expect(wrapper.find('.filter-chip-include').text()).toContain('Message');
+    expect(wrapper.find('.filter-chip-include').text()).toContain('User Message');
   });
 
   it('renders content type exclude chips with NOT prefix', () => {
@@ -66,10 +67,10 @@ describe('SearchActiveFilters', () => {
 
   it('emits remove-content-type when chip remove button clicked', async () => {
     const wrapper = mountFilters({
-      activeContentTypeChips: [{ type: 'message', mode: 'include' }],
+      activeContentTypeChips: [{ type: 'user_message', mode: 'include' }],
     });
     await wrapper.find('.filter-chip-remove').trigger('click');
-    expect(wrapper.emitted('remove-content-type')).toEqual([['message']]);
+    expect(wrapper.emitted('remove-content-type')).toEqual([['user_message']]);
   });
 
   it('emits clear-repository when repo chip remove clicked', async () => {
@@ -80,7 +81,7 @@ describe('SearchActiveFilters', () => {
 
   it('shows clear-all button when multiple filters active', () => {
     const wrapper = mountFilters({
-      activeContentTypeChips: [{ type: 'message', mode: 'include' }],
+      activeContentTypeChips: [{ type: 'user_message', mode: 'include' }],
       repository: 'org/repo',
       activeFilterCount: 2,
     });
@@ -89,7 +90,7 @@ describe('SearchActiveFilters', () => {
 
   it('emits clear-all when clear-all button clicked', async () => {
     const wrapper = mountFilters({
-      activeContentTypeChips: [{ type: 'message', mode: 'include' }],
+      activeContentTypeChips: [{ type: 'user_message', mode: 'include' }],
       repository: 'org/repo',
       activeFilterCount: 2,
     });
