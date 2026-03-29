@@ -82,6 +82,7 @@ import { useIndexingEvents } from '@/composables/useIndexingEvents'
 import {
   useOrbitalAnimation,
   PHASE_LABELS,
+  DISCOVERING_MESSAGES,
   type Phase,
 } from '@/composables/useOrbitalAnimation'
 
@@ -105,11 +106,13 @@ const completionFlashActive = ref(false)
 const progressPct = ref(0)
 const sessionCounterText = ref('')
 const prefersReducedMotion = ref(false)
+const discoveringMessageIndex = ref(0)
 
 // Timer tracking for cleanup
 const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
 let safetyTimeoutId: ReturnType<typeof setTimeout> | null = null
 const SAFETY_TIMEOUT_MS = 60_000
+let discoveringIntervalId: ReturnType<typeof setInterval> | null = null
 
 // Minimum display time tracking
 let mountTime = 0
@@ -171,7 +174,12 @@ function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> 
 
 // ── Computed ───────────────────────────────────────────────────────────────────
 
-const phaseLabel = computed(() => PHASE_LABELS[phase.value])
+const phaseLabel = computed(() => {
+  if (phase.value === 'discovering') {
+    return DISCOVERING_MESSAGES[discoveringMessageIndex.value]
+  }
+  return PHASE_LABELS[phase.value]
+})
 
 // ── Seed nodes ─────────────────────────────────────────────────────────────────
 
@@ -195,6 +203,18 @@ function setPhase(newPhase: Phase) {
   if (newPhase === 'discovering') {
     showLogo.value = true
     showLaneEllipses()
+    // Start cycling through discovering messages every 2 seconds
+    discoveringMessageIndex.value = 0
+    if (discoveringIntervalId) clearInterval(discoveringIntervalId)
+    discoveringIntervalId = setInterval(() => {
+      discoveringMessageIndex.value = (discoveringMessageIndex.value + 1) % DISCOVERING_MESSAGES.length
+    }, 2000)
+  } else {
+    // Stop cycling when leaving discovering phase
+    if (discoveringIntervalId) {
+      clearInterval(discoveringIntervalId)
+      discoveringIntervalId = null
+    }
   }
 
   if (newPhase === 'finalizing') {
@@ -333,6 +353,10 @@ onUnmounted(() => {
   if (safetyTimeoutId) {
     clearTimeout(safetyTimeoutId)
     safetyTimeoutId = null
+  }
+  if (discoveringIntervalId) {
+    clearInterval(discoveringIntervalId)
+    discoveringIntervalId = null
   }
 })
 </script>

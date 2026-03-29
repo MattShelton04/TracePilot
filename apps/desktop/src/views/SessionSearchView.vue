@@ -272,27 +272,12 @@ onUnmounted(() => {
           </svg>
           <span class="indexing-banner-text">
             <template v-if="store.rebuilding">Rebuilding search index…</template>
-            <template v-else-if="store.searchIndexing && store.searchIndexingProgress">
-              Building search index… {{ store.searchIndexingProgress.current }} / {{ store.searchIndexingProgress.total }}
-            </template>
-            <template v-else-if="store.searchIndexing">Building search index…</template>
+            <template v-else-if="store.searchIndexing">Creating search index…</template>
             <template v-else-if="indexingProgress">
               Indexing sessions… {{ indexingProgress.current }} / {{ indexingProgress.total }}
             </template>
             <template v-else>Indexing sessions…</template>
           </span>
-          <div v-if="store.searchIndexingProgress && store.searchIndexingProgress.total > 0" class="indexing-banner-bar-container">
-            <div
-              class="indexing-banner-bar"
-              :style="{ width: (store.searchIndexingProgress.current / store.searchIndexingProgress.total * 100) + '%' }"
-            />
-          </div>
-          <div v-else-if="indexingProgress && indexingProgress.total > 0" class="indexing-banner-bar-container">
-            <div
-              class="indexing-banner-bar"
-              :style="{ width: (indexingProgress.current / indexingProgress.total * 100) + '%' }"
-            />
-          </div>
         </div>
       </div>
 
