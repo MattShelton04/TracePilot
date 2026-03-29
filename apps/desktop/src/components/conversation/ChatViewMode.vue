@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -80,8 +80,9 @@ const panelTopPx = ref(0);
 let pageScrollEl: HTMLElement | null = null;
 
 function updatePanelTop() {
-  const cvRect = cvRootEl.value?.getBoundingClientRect();
-  if (!cvRect) return;
+  const cvRoot = cvRootEl.value;
+  if (!cvRoot) return;
+  const cvRect = cvRoot.getBoundingClientRect();
 
   // Find the sticky action bar (.detail-actions) — it sticks at top of scroll area
   const actionsEl = document.querySelector('.detail-actions') as HTMLElement | null;
@@ -89,6 +90,22 @@ function updatePanelTop() {
 
   // Panel top = whichever is lower: cv-root top or sticky bar bottom
   panelTopPx.value = Math.max(cvRect.top, actionsBottom);
+
+  // Compute breakout offsets so .cv-root can extend beyond .page-content-inner
+  // when the panel is open, without affecting sibling elements (toolbar, badges, etc.)
+  const pc = cvRoot.closest('.page-content') as HTMLElement | null;
+  const pci = cvRoot.closest('.page-content-inner') as HTMLElement | null;
+  if (pc && pci) {
+    const pcStyle = getComputedStyle(pc);
+    const padL = parseFloat(pcStyle.paddingLeft) || 0;
+    const padR = parseFloat(pcStyle.paddingRight) || 0;
+    const pcContentWidth = pc.clientWidth - padL - padR;
+    const pciWidth = pci.offsetWidth;
+    const sideGap = Math.max(0, (pcContentWidth - pciWidth) / 2);
+    cvRoot.style.setProperty('--breakout-left', `${sideGap}px`);
+    // Extend right through page-content padding so content meets the panel edge
+    cvRoot.style.setProperty('--breakout-right', `${sideGap + padR}px`);
+  }
 }
 
 onMounted(() => {
@@ -106,21 +123,7 @@ onUnmounted(() => {
   if (pageScrollEl) {
     pageScrollEl.removeEventListener("scroll", updatePanelTop);
   }
-  // Clean up ancestor class on unmount
-  cvRootEl.value?.closest('.page-content-inner')?.classList.remove('panel-open-layout');
 });
-
-// ─── Shift page-content-inner layout when panel opens ─────────────
-
-watch(
-  () => panel.isPanelOpen.value,
-  (open) => {
-    const inner = cvRootEl.value?.closest('.page-content-inner');
-    if (inner) {
-      inner.classList.toggle('panel-open-layout', open);
-    }
-  },
-);
 
 // ─── Computed helpers ─────────────────────────────────────────────
 
@@ -313,7 +316,7 @@ defineExpose({ revealEvent });
 </script>
 
 <template>
-  <div class="cv-root" ref="cvRootEl">
+  <div :class="['cv-root', { 'panel-active': panel.isPanelOpen.value }]" ref="cvRootEl">
     <!-- Main column (shrinks when panel is open) -->
     <div :class="['cv-main', { 'panel-open': panel.isPanelOpen.value }]">
       <div class="cv-scroll" ref="scrollEl">
@@ -533,6 +536,12 @@ defineExpose({ revealEvent });
 .cv-root {
   display: flex;
   position: relative;
+  transition: margin var(--transition-normal, 0.2s) ease;
+}
+
+.cv-root.panel-active {
+  margin-left: calc(-1 * var(--breakout-left, 0px));
+  margin-right: calc(-1 * var(--breakout-right, 0px));
 }
 
 .cv-main {
@@ -544,7 +553,7 @@ defineExpose({ revealEvent });
 }
 
 .cv-main.panel-open {
-  margin-right: min(38%, 650px);
+  margin-right: min(38vw, 650px);
 }
 
 .cv-main.panel-open .cv-content {
