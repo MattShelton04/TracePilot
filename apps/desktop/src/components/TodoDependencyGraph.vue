@@ -36,12 +36,12 @@ const STATUS_COLOR = computed<Record<string, { stroke: string; fill: string; tex
   return {
     done: {
       stroke: colors.done,
-      fill: `${colors.done}1f`, // ~12% opacity in hex
+      fill: `color-mix(in srgb, ${colors.done} 12%, transparent)`,
       text: colors.done
     },
     in_progress: {
       stroke: colors.inProgress,
-      fill: `${colors.inProgress}1f`,
+      fill: `color-mix(in srgb, ${colors.inProgress} 12%, transparent)`,
       text: colors.inProgress
     },
     pending: {
@@ -51,7 +51,7 @@ const STATUS_COLOR = computed<Record<string, { stroke: string; fill: string; tex
     },
     blocked: {
       stroke: colors.blocked,
-      fill: `${colors.blocked}14`, // ~8% opacity
+      fill: `color-mix(in srgb, ${colors.blocked} 8%, transparent)`,
       text: colors.blocked
     },
   };

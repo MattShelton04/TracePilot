@@ -5,12 +5,31 @@
  * and JavaScript/TypeScript code that needs to use colors programmatically (e.g., Chart.js,
  * canvas animations, SVG manipulation).
  *
+ * ⚠️ **Theme Reactivity Limitation**: Color values are captured at the time these functions
+ * are called. If users switch themes (dark/light), components must manually re-read colors
+ * or use Vue computed properties to track theme changes.
+ *
  * Usage:
  * ```ts
  * import { getDesignToken, getChartColors } from '@/utils/designTokens'
  *
  * const accentColor = getDesignToken('--accent-fg')
  * const colors = getChartColors()
+ * ```
+ *
+ * For theme-reactive colors in Vue components, use computed:
+ * ```vue
+ * <script setup>
+ * import { computed } from 'vue'
+ * import { usePreferencesStore } from '@/stores/preferences'
+ * import { getChartColors } from '@/utils/designTokens'
+ *
+ * const prefs = usePreferencesStore()
+ * const chartColors = computed(() => {
+ *   const _ = prefs.theme  // Track theme changes
+ *   return getChartColors()
+ * })
+ * </script>
  * ```
  */
 
