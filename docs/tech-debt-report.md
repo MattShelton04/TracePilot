@@ -88,7 +88,7 @@ TracePilot is a well-architected monorepo with clean separation between Rust bac
 - **No CI/CD pipeline** — zero automated quality gates
 - **Tracing subscriber never initialized** — all ~8 `tracing::warn!` calls are no-ops in production
 - **Tauri error handling** — ~37 instances of `.map_err(|e| e.to_string())` discarding error context
-- **Desktop app bypasses backend search** — client-side substring filtering ignores the FTS/index infrastructure
+- **~~Desktop app bypasses backend search~~** — *(Resolved: client-side session list filtering is intentional for instant feedback; backend FTS5 is used for deep content search in SessionSearchView)*
 - **Hardcoded colors** — 67+ hex values bypassing the design system, some breaking light theme
 
 ### High-Impact Improvements (P1)
@@ -315,7 +315,7 @@ fn main() {
 
 | Severity | Issue | Details |
 |----------|-------|---------|
-| 🔴 Critical | **Desktop app bypasses backend search** | `stores/sessions.ts` does client-side substring filtering over the full session list, completely ignoring the FTS/index infrastructure in `searchSessions()`. Makes search O(n) and wastes the indexer investment. |
+| ~~🔴 Critical~~ | ~~**Desktop app bypasses backend search**~~ | *(Resolved: intentional design — session list uses client-side filtering for instant keystroke feedback; backend FTS5 serves deep content search in SessionSearchView. Not tech debt.)* |
 | 🟠 High | **Redundant session loading** | Multiple components independently fetch the session list: `App.vue`, `SessionListView`, `ExportView`, `SessionComparisonView`, `analytics` store. Causes duplicate IPC/disk work and race potential. Should centralize session bootstrap. |
 | 🟠 High | **Session-detail tab failures are silent** | `stores/sessionDetail.ts` catches failures for turns/events/todos/checkpoints/metrics and only `console.error`s — does NOT set user-visible error state. Users get partially broken tabs with no indication. |
 | 🟡 Medium | **Wrong default path in Settings** | `SettingsView.vue:44` shows `~/.copilot/sessions/` but actual path is `~/.copilot/session-state/`. Concrete product bug. |
@@ -680,7 +680,7 @@ Tauri commands are async and can execute concurrently. Without managed state (si
 | 1 | **Add CI/CD pipeline** — GitHub Actions for `cargo test`, `pnpm test`, `cargo clippy`, `biome check`, `vue-tsc` | Medium | Prevents regressions |
 | 2 | **Initialize tracing subscriber** — wire `tracing-subscriber` in Tauri main entry point | Small | Makes all `tracing::` calls functional |
 | 3 | **Define Tauri error enum** — replace `Result<T, String>` with structured `TauriError` that serializes to JSON | Medium | Enables meaningful frontend error handling |
-| 4 | **Fix desktop search to use backend FTS** — `stores/sessions.ts` should call `searchSessions()` instead of client-side substring filtering | Medium | Leverages indexer investment, improves scalability |
+| ~~4~~ | ~~**Fix desktop search to use backend FTS**~~ | — | *(Resolved: client-side session list filtering is correct by design; FTS5 is for deep content search)* |
 | 5 | **Fix hardcoded colors breaking light theme** — especially `rgba(255,255,255,...)` in `ToolAnalysisView:403`, `ExportView:521` | Small | Fixes visual bugs in light theme |
 
 ### 🟠 P1 — High Priority
@@ -769,10 +769,10 @@ This report was reviewed by 4 models (Claude Opus 4.6, GPT 5.4, GPT 5.3 Codex, G
 - **CSS paradigm conflict** moved from P0 to P1 — doesn't cause bugs, just maintainability debt (Opus)
 - **ErrorBoundary wiring** moved from P2 to P1 — tiny effort, significant resilience gain (Opus)
 - **Timeline component splitting** moved from P1 to P2 — split when perf pain is measured (GPT 5.4)
-- **Desktop bypasses backend search** added as P0 — wastes indexer investment, architectural issue (GPT 5.4)
+- **~~Desktop bypasses backend search~~** ~~added as P0~~ — *(Resolved: not tech debt, intentional design for session list instant filtering)*
 
 ### Newly Added Findings (from reviews)
-- **Desktop app bypasses backend search entirely** — client-side filtering in `sessions.ts` (GPT 5.4)
+- **~~Desktop app bypasses backend search entirely~~** — *(Resolved: not tech debt, see above)* (GPT 5.4)
 - **Redundant session loading across 5+ components** — duplicate IPC/disk work (GPT 5.4)
 - **Session-detail tab failures are silent** — only `console.error`, no user-visible state (GPT 5.4)
 - **Wrong default path in SettingsView** — shows `sessions/` instead of `session-state/` (GPT 5.4)
