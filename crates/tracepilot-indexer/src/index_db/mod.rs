@@ -20,6 +20,7 @@ mod types;
 use crate::{error::IndexerError, Result};
 use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
+use tracepilot_core::utils::sqlite::DbConnectionBuilder;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings)
 pub use types::{IndexedIncident, IndexedSession, SessionIndexInfo};
@@ -35,21 +36,17 @@ pub struct IndexDb {
 impl IndexDb {
     /// Open or create the index database, running migrations as needed.
     pub fn open_or_create(path: &Path) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let mut conn = Connection::open(path)
-            .map_err(|e| IndexerError::database_open(path.display(), e))?;
-
-        // Performance and correctness pragmas
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             PRAGMA synchronous=NORMAL;
-             PRAGMA foreign_keys=ON;
-             PRAGMA busy_timeout=5000;",
-        )
-        .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
+        // Use DbConnectionBuilder to ensure consistent SQLite configuration
+        // (journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000)
+        let mut conn = DbConnectionBuilder::new(path).open().map_err(|e| {
+            // Convert TracePilotError to IndexerError
+            // We wrap it as a database configuration error since the builder handles both
+            // opening and pragma configuration
+            IndexerError::DatabaseConfiguration {
+                details: format!("Failed to open/configure database at {}", path.display()),
+                source: rusqlite::Error::InvalidPath(path.to_path_buf()),
+            }
+        })?;
 
         run_migrations(&conn)?;
 

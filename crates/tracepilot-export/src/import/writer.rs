@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use rusqlite::Connection;
+use tracepilot_core::utils::sqlite::DbConnectionBuilder;
 
 use crate::document::*;
 use crate::error::{ExportError, Result};
@@ -261,9 +261,14 @@ fn write_checkpoints(checkpoints: &[CheckpointExport], dir: &Path) -> Result<()>
 
 fn write_session_db(todos: &TodoExport, dir: &Path) -> Result<()> {
     let db_path = dir.join("session.db");
-    let conn = Connection::open(&db_path).map_err(|e| ExportError::SessionData {
-        message: format!("failed to create session.db: {}", e),
-    })?;
+
+    // Use DbConnectionBuilder to ensure proper SQLite pragmas are set
+    // (journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000)
+    let conn = DbConnectionBuilder::new(&db_path)
+        .open()
+        .map_err(|e| ExportError::SessionData {
+            message: format!("failed to create session.db: {}", e),
+        })?;
 
     // Create tables
     conn.execute_batch(

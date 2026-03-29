@@ -169,6 +169,227 @@ pub fn row_count(conn: &Connection, table_name: &str) -> Option<i64> {
     conn.query_row(&query, [], |row| row.get(0)).ok()
 }
 
+/// Builder for opening SQLite database connections with consistent configuration.
+///
+/// This builder provides a centralized way to open databases with proper pragmas
+/// for performance and data integrity. It enforces SQLite best practices by default
+/// while allowing customization when needed.
+///
+/// # Default Configuration
+///
+/// The builder applies these pragmas by default (for read-write mode):
+/// - `journal_mode=WAL` - Write-Ahead Logging for better concurrency
+/// - `synchronous=NORMAL` - Balance between safety and performance
+/// - `foreign_keys=ON` - Enforce foreign key constraints
+/// - `busy_timeout=5000` - Wait up to 5 seconds for locks
+///
+/// # Examples
+///
+/// ```no_run
+/// use tracepilot_core::utils::sqlite::DbConnectionBuilder;
+/// use std::path::Path;
+///
+/// // Open with defaults (WAL, foreign keys, etc.)
+/// let conn = DbConnectionBuilder::new("/path/to/db.sqlite")
+///     .open()?;
+///
+/// // Open read-only (only busy_timeout pragma applied)
+/// let conn = DbConnectionBuilder::new("/path/to/db.sqlite")
+///     .readonly()
+///     .open()?;
+///
+/// // Customize pragmas
+/// let conn = DbConnectionBuilder::new("/path/to/db.sqlite")
+///     .with_pragma("cache_size", "10000")
+///     .without_pragma("journal_mode")
+///     .open()?;
+/// # Ok::<(), tracepilot_core::error::TracePilotError>(())
+/// ```
+pub struct DbConnectionBuilder {
+    path: std::path::PathBuf,
+    readonly: bool,
+    pragmas: Vec<(String, String)>,
+    create_parent_dirs: bool,
+}
+
+impl DbConnectionBuilder {
+    /// Create a new builder for the given database path.
+    ///
+    /// Default configuration:
+    /// - Read-write mode
+    /// - WAL journal mode
+    /// - Normal synchronous mode
+    /// - Foreign keys enabled
+    /// - 5 second busy timeout
+    /// - Parent directories will be created
+    pub fn new(path: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            readonly: false,
+            pragmas: vec![
+                ("journal_mode".to_string(), "WAL".to_string()),
+                ("synchronous".to_string(), "NORMAL".to_string()),
+                ("foreign_keys".to_string(), "ON".to_string()),
+                ("busy_timeout".to_string(), "5000".to_string()),
+            ],
+            create_parent_dirs: true,
+        }
+    }
+
+    /// Open the database in read-only mode.
+    ///
+    /// Read-only mode:
+    /// - Uses `SQLITE_OPEN_READ_ONLY | SQLITE_OPEN_NO_MUTEX` flags
+    /// - Only applies `busy_timeout` pragma (other pragmas are ignored)
+    /// - Won't create the database if it doesn't exist
+    /// - Won't create parent directories
+    #[must_use]
+    pub fn readonly(mut self) -> Self {
+        self.readonly = true;
+        self
+    }
+
+    /// Add or override a pragma setting.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use tracepilot_core::utils::sqlite::DbConnectionBuilder;
+    /// let conn = DbConnectionBuilder::new("db.sqlite")
+    ///     .with_pragma("cache_size", "10000")
+    ///     .open()?;
+    /// # Ok::<(), tracepilot_core::error::TracePilotError>(())
+    /// ```
+    #[must_use]
+    pub fn with_pragma(mut self, key: &str, value: &str) -> Self {
+        // Remove existing pragma with same key (case-insensitive)
+        self.pragmas
+            .retain(|(k, _)| !k.eq_ignore_ascii_case(key));
+        self.pragmas.push((key.to_string(), value.to_string()));
+        self
+    }
+
+    /// Remove a pragma from the configuration.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use tracepilot_core::utils::sqlite::DbConnectionBuilder;
+    /// let conn = DbConnectionBuilder::new("db.sqlite")
+    ///     .without_pragma("journal_mode")
+    ///     .open()?;
+    /// # Ok::<(), tracepilot_core::error::TracePilotError>(())
+    /// ```
+    #[must_use]
+    pub fn without_pragma(mut self, key: &str) -> Self {
+        self.pragmas
+            .retain(|(k, _)| !k.eq_ignore_ascii_case(key));
+        self
+    }
+
+    /// Skip creating parent directories.
+    ///
+    /// By default, the builder creates parent directories if they don't exist.
+    /// Use this method to disable that behavior.
+    #[must_use]
+    pub fn skip_parent_dirs(mut self) -> Self {
+        self.create_parent_dirs = false;
+        self
+    }
+
+    /// Open the database connection with the configured settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The database file cannot be opened
+    /// - Parent directories cannot be created
+    /// - Any pragma fails to execute
+    pub fn open(self) -> Result<Connection> {
+        if self.readonly {
+            self.open_readonly_impl()
+        } else {
+            self.open_readwrite_impl()
+        }
+    }
+
+    fn open_readonly_impl(self) -> Result<Connection> {
+        tracing::debug!("Opening SQLite database read-only: {}", self.path.display());
+
+        let conn = Connection::open_with_flags(
+            &self.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+                | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|e| {
+            tracing::warn!(
+                "Failed to open database {} (readonly): {}",
+                self.path.display(),
+                e
+            );
+            TracePilotError::ParseError {
+                context: format!("Failed to open database (readonly): {}", self.path.display()),
+                source: Some(Box::new(e)),
+            }
+        })?;
+
+        // For read-only mode, only apply busy_timeout if present
+        if let Some((_, value)) = self
+            .pragmas
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("busy_timeout"))
+        {
+            conn.execute_batch(&format!("PRAGMA busy_timeout={};", value))
+                .map_err(|e| TracePilotError::ParseError {
+                    context: "Failed to set busy_timeout pragma".to_string(),
+                    source: Some(Box::new(e)),
+                })?;
+        }
+
+        Ok(conn)
+    }
+
+    fn open_readwrite_impl(self) -> Result<Connection> {
+        // Create parent directories if requested
+        if self.create_parent_dirs && let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| TracePilotError::ParseError {
+                context: format!("Failed to create parent directory: {}", parent.display()),
+                source: Some(Box::new(e)),
+            })?;
+        }
+
+        tracing::debug!("Opening SQLite database: {}", self.path.display());
+
+        let conn = Connection::open(&self.path).map_err(|e| {
+            tracing::warn!("Failed to open database {}: {}", self.path.display(), e);
+            TracePilotError::ParseError {
+                context: format!("Failed to open database: {}", self.path.display()),
+                source: Some(Box::new(e)),
+            }
+        })?;
+
+        // Apply all pragmas in order
+        if !self.pragmas.is_empty() {
+            let pragma_batch: String = self
+                .pragmas
+                .iter()
+                .map(|(key, value)| format!("PRAGMA {}={};", key, value))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            conn.execute_batch(&pragma_batch).map_err(|e| {
+                tracing::warn!("Failed to set pragmas: {}", e);
+                TracePilotError::ParseError {
+                    context: "Failed to set database pragmas".to_string(),
+                    source: Some(Box::new(e)),
+                }
+            })?;
+
+            tracing::debug!("Applied {} pragmas to database", self.pragmas.len());
+        }
+
+        Ok(conn)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -525,5 +746,199 @@ mod tests {
         std::os::unix::fs::symlink(&db_path, &link_path).unwrap();
 
         assert!(open_readonly(&link_path).is_ok());
+    }
+
+    // === DbConnectionBuilder TESTS ===
+
+    #[test]
+    fn test_db_builder_default_pragmas() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path).open().unwrap();
+
+        // Verify default pragmas were applied
+        let journal_mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(journal_mode.to_lowercase(), "wal");
+
+        let foreign_keys: i32 = conn
+            .query_row("PRAGMA foreign_keys", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(foreign_keys, 1);
+
+        let busy_timeout: i32 = conn
+            .query_row("PRAGMA busy_timeout", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(busy_timeout, 5000);
+    }
+
+    #[test]
+    fn test_db_builder_readonly() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = create_test_db(&dir);
+
+        let conn = DbConnectionBuilder::new(&db_path)
+            .readonly()
+            .open()
+            .unwrap();
+
+        // Should be able to read
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+
+        // Should not be able to write
+        let result = conn.execute("INSERT INTO users VALUES (999, 'hacker')", []);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_db_builder_custom_pragma() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path)
+            .with_pragma("cache_size", "10000")
+            .open()
+            .unwrap();
+
+        let cache_size: i32 = conn
+            .query_row("PRAGMA cache_size", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(cache_size, 10000);
+    }
+
+    #[test]
+    fn test_db_builder_remove_pragma() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path)
+            .without_pragma("journal_mode")
+            .open()
+            .unwrap();
+
+        // Journal mode should be default (not WAL)
+        let journal_mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_ne!(journal_mode.to_lowercase(), "wal");
+    }
+
+    #[test]
+    fn test_db_builder_parent_dirs_created() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("subdir").join("nested").join("test.db");
+
+        // Parent dirs don't exist yet
+        assert!(!db_path.parent().unwrap().exists());
+
+        DbConnectionBuilder::new(&db_path).open().unwrap();
+
+        // Parent dirs should now exist
+        assert!(db_path.parent().unwrap().exists());
+    }
+
+    #[test]
+    fn test_db_builder_skip_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("nonexistent").join("test.db");
+
+        let result = DbConnectionBuilder::new(&db_path)
+            .skip_parent_dirs()
+            .open();
+
+        // Should fail because parent dir doesn't exist
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_db_builder_readonly_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("nonexistent.db");
+
+        let result = DbConnectionBuilder::new(&db_path).readonly().open();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_db_builder_pragma_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        // Override default pragma
+        let conn = DbConnectionBuilder::new(&db_path)
+            .with_pragma("busy_timeout", "10000")
+            .open()
+            .unwrap();
+
+        let busy_timeout: i32 = conn
+            .query_row("PRAGMA busy_timeout", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(busy_timeout, 10000);
+    }
+
+    #[test]
+    fn test_db_builder_multiple_pragmas() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path)
+            .with_pragma("cache_size", "5000")
+            .with_pragma("temp_store", "2")
+            .open()
+            .unwrap();
+
+        let cache_size: i32 = conn
+            .query_row("PRAGMA cache_size", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(cache_size, 5000);
+
+        let temp_store: i32 = conn
+            .query_row("PRAGMA temp_store", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(temp_store, 2);
+    }
+
+    #[test]
+    fn test_db_builder_functional_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path).open().unwrap();
+
+        // Create table and insert data
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);
+             INSERT INTO test VALUES (1, 'hello');
+             INSERT INTO test VALUES (2, 'world');",
+        )
+        .unwrap();
+
+        // Query data
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM test", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_db_builder_readonly_only_busy_timeout() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = create_test_db(&dir);
+
+        // Open readonly with custom busy_timeout
+        let _conn = DbConnectionBuilder::new(&db_path)
+            .readonly()
+            .with_pragma("busy_timeout", "3000")
+            .open()
+            .unwrap();
+
+        // Test passes if connection opens successfully
+        // In readonly mode, only busy_timeout is applied, other pragmas are ignored
     }
 }
