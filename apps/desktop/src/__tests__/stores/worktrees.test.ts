@@ -129,6 +129,11 @@ describe("useWorktreesStore", () => {
     mockGetWorktreeDiskUsage.mockResolvedValue(0);
   });
 
+  afterEach(async () => {
+    // Drain fire-and-forget hydration promises to prevent cross-test leaks
+    await flushPromises();
+  });
+
   // ── Initialization ─────────────────────────────────────────
   describe("initialization", () => {
     it("starts with empty worktrees", () => {
@@ -259,6 +264,41 @@ describe("useWorktreesStore", () => {
       expect(store.worktrees).toHaveLength(1);
       expect(store.worktrees[0].branch).toBe("feature-b");
     });
+
+    it("discards stale disk-hydration when a newer load starts", async () => {
+      // Disk usage resolves AFTER a second loadWorktrees call starts
+      let resolveDiskUsage: (v: number) => void;
+      const diskPromise = new Promise<number>((resolve) => {
+        resolveDiskUsage = resolve;
+      });
+
+      mockListWorktrees
+        .mockResolvedValueOnce([{ ...FIXTURE_FEATURE_WT }])
+        .mockResolvedValueOnce([{ ...FIXTURE_STALE_WT }]);
+      mockGetWorktreeDiskUsage
+        .mockReturnValueOnce(diskPromise) // first load's hydration — delayed
+        .mockResolvedValue(9999); // second load's hydration — immediate
+
+      const store = useWorktreesStore();
+
+      // First load starts — triggers hydration with delayed promise
+      await store.loadWorktrees(REPO_PATH);
+
+      // Second load starts — invalidates first load's guard token
+      await store.loadWorktrees(REPO_PATH);
+      await flushPromises();
+
+      // Now resolve the first load's disk-usage promise
+      resolveDiskUsage!(42000);
+      await flushPromises();
+
+      // The stale hydration (42000) should be discarded;
+      // only the second load's worktrees should be present
+      expect(store.worktrees).toHaveLength(1);
+      expect(store.worktrees[0].branch).toBe("feature-b");
+      // diskUsageBytes should be 9999 (from second load), not 42000 (stale)
+      expect(store.worktrees[0].diskUsageBytes).toBe(9999);
+    });
   });
 
   // ── loadAllWorktrees ───────────────────────────────────────
@@ -313,18 +353,48 @@ describe("useWorktreesStore", () => {
       expect(mockGetWorktreeDiskUsage).toHaveBeenCalledTimes(2);
     });
 
-    it("sets error on outer failure", async () => {
+    it("returns empty worktrees when all repos fail individually", async () => {
       mockListWorktrees.mockRejectedValue(new Error("network error"));
       const store = useWorktreesStore();
-      // Need at least one repo to trigger the outer try block
+      // Need at least one repo to trigger the loop
       store.registeredRepos = [FIXTURE_REPO];
 
       await store.loadAllWorktrees();
 
-      // The inner try/catch catches individual repo errors via logWarn,
-      // but if ALL repos fail, worktrees is empty (no error set for individual failures)
+      // Individual repo errors are caught by inner try/catch (logWarn),
+      // so error.value stays null — worktrees is just empty
       expect(store.worktrees).toEqual([]);
       expect(store.loading).toBe(false);
+      expect(store.error).toBeNull();
+    });
+
+    it("discards results when a newer loadAllWorktrees call starts", async () => {
+      let resolveFirst: (v: WorktreeInfo[]) => void;
+      const firstPromise = new Promise<WorktreeInfo[]>((resolve) => {
+        resolveFirst = resolve;
+      });
+
+      const store = useWorktreesStore();
+      store.registeredRepos = [FIXTURE_REPO];
+
+      mockListWorktrees
+        .mockReturnValueOnce(firstPromise)
+        .mockResolvedValueOnce([{ ...FIXTURE_STALE_WT }]);
+
+      const call1 = store.loadAllWorktrees();
+      const call2 = store.loadAllWorktrees(); // invalidates first call
+
+      await call2;
+      await flushPromises();
+      expect(store.worktrees).toHaveLength(1);
+      expect(store.worktrees[0].branch).toBe("feature-b");
+
+      resolveFirst!([{ ...FIXTURE_MAIN_WT }, { ...FIXTURE_FEATURE_WT }]);
+      await call1;
+      await flushPromises();
+      // First call's results should be discarded
+      expect(store.worktrees).toHaveLength(1);
+      expect(store.worktrees[0].branch).toBe("feature-b");
     });
   });
 
