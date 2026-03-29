@@ -4,11 +4,12 @@
  * Searches workspace.yaml metadata and user messages in events.jsonl.
  */
 
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { getSessionStateDir, parseWorkspace, streamEvents, fileExists } from "./utils.js";
 import { UUID_REGEX } from "./utils.js";
+import { wrapCommand, handleValidationError } from "../utils/errorHandler.js";
 
 interface SearchHit {
   sessionId: string;
@@ -103,11 +104,10 @@ export async function searchCommand(
   options: { json?: boolean }
 ) {
   if (!query.trim()) {
-    console.error(chalk.red("Search query cannot be empty."));
-    process.exit(1);
+    handleValidationError("Search query cannot be empty.");
   }
 
-  try {
+  return wrapCommand(async () => {
     const hits = await searchSessions(query);
 
     if (options.json) {
@@ -133,8 +133,5 @@ export async function searchCommand(
       if (h.repository) console.log(`           ${chalk.cyan(h.repository)}`);
       console.log(`           ${chalk.dim(h.snippet)}\n`);
     }
-  } catch (err) {
-    console.error(chalk.red("Search failed:"), err);
-    process.exit(1);
-  }
+  }, "Search failed");
 }

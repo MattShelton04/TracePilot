@@ -16,16 +16,16 @@ import {
   type CopilotVersion,
   type SessionVersionInfo,
 } from "../lib/version-analyzer.js";
+import { handleValidationError } from "../utils/errorHandler.js";
 
 // ── Shared helpers ───────────────────────────────────────────────────
 
 function ensureVersions(): CopilotVersion[] {
   const versions = discoverInstalledVersions();
   if (versions.length === 0) {
-    console.error(
-      chalk.red("No installed Copilot CLI versions found at ~/.copilot/pkg/universal/"),
+    handleValidationError(
+      "No installed Copilot CLI versions found at ~/.copilot/pkg/universal/",
     );
-    process.exit(1);
   }
   return versions;
 }
@@ -85,12 +85,10 @@ export async function versionsDiffCommand(
     const ver1 = findVersion(versions, v1);
     const ver2 = findVersion(versions, v2);
     if (!ver1) {
-      console.error(chalk.red(`Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
-      process.exit(1);
+      handleValidationError(`Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`);
     }
     if (!ver2) {
-      console.error(chalk.red(`Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`));
-      process.exit(1);
+      handleValidationError(`Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`);
     }
 
     const diff = diffVersions(ver1, ver2);

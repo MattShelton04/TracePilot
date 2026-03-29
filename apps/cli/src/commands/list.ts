@@ -7,6 +7,7 @@ import { join } from "node:path";
 import chalk from "chalk";
 import { getSessionStateDir, parseWorkspace, fileExists } from "./utils.js";
 import { UUID_REGEX } from "./utils.js";
+import { wrapCommand, handleValidationError } from "../utils/errorHandler.js";
 
 interface SessionInfo {
   id: string;
@@ -59,7 +60,7 @@ export async function listSessionsCommand(options: {
   repo?: string;
   branch?: string;
 }) {
-  try {
+  return wrapCommand(async () => {
     let sessions = await discoverSessions();
 
     // Filters
@@ -80,8 +81,7 @@ export async function listSessionsCommand(options: {
     const validSorts = ["updated", "created", "name"] as const;
     const sortField = options.sort || "updated";
     if (!validSorts.includes(sortField as typeof validSorts[number])) {
-      console.error(chalk.red(`Invalid --sort value "${options.sort}". Must be one of: ${validSorts.join(", ")}`));
-      process.exit(1);
+      handleValidationError(`Invalid --sort value "${options.sort}". Must be one of: ${validSorts.join(", ")}`);
     }
     sessions.sort((a, b) => {
       if (sortField === "name") {
@@ -102,9 +102,8 @@ export async function listSessionsCommand(options: {
 
     // Limit
     const parsedLimit = parseInt(options.limit, 10);
-    if (isNaN(parsedLimit) || parsedLimit < 1) {
-      console.error(chalk.red(`Invalid --limit value "${options.limit}". Must be a positive integer.`));
-      process.exit(1);
+    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
+      handleValidationError(`Invalid --limit value "${options.limit}". Must be a positive integer.`);
     }
     const limit = parsedLimit;
     sessions = sessions.slice(0, limit);
@@ -134,8 +133,5 @@ export async function listSessionsCommand(options: {
       if (repo || branch) console.log(`           ${repo} ${branch}`);
       console.log(`           ${date} ${indicators}\n`);
     }
-  } catch (err) {
-    console.error(chalk.red("Failed to list sessions:"), err);
-    process.exit(1);
-  }
+  }, "Failed to list sessions");
 }
