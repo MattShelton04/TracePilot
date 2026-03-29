@@ -120,7 +120,8 @@ pub fn create_backup(
         "label": label,
         "original_filename": file_path.file_name().unwrap_or_default().to_string_lossy(),
     });
-    std::fs::write(&sidecar_path, serde_json::to_string_pretty(&sidecar).unwrap_or_default())?;
+    let sidecar_json = serde_json::to_string_pretty(&sidecar)?;
+    crate::utils::atomic_write(&sidecar_path, sidecar_json.as_bytes())?;
 
     Ok(BackupEntry {
         id: uuid::Uuid::new_v4().to_string(),

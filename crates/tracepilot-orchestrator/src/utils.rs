@@ -34,27 +34,60 @@ pub fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    // Generate temp file name
-    let temp_path = parent.join(format!(
-        ".tmp-{}",
+    // Generate temp file name with UUID for unpredictability (security: prevents temp file prediction attacks)
+    let temp_filename = format!(
+        ".tmp-{}-{}",
+        uuid::Uuid::new_v4().simple(),
         path.file_name()
             .ok_or_else(|| OrchestratorError::Config("Invalid file path".into()))?
             .to_string_lossy()
-    ));
+    );
+    let temp_path = parent.join(temp_filename);
 
     // Write to temp file
     std::fs::write(&temp_path, content)?;
 
-    // On Windows, remove target first since rename doesn't overwrite
+    // Platform-specific atomic rename handling
     #[cfg(windows)]
-    if path.exists() {
-        std::fs::remove_file(path)?;
+    {
+        // On Windows, rename doesn't overwrite existing files
+        // Try rename first - if it fails and target exists, handle specially
+        match std::fs::rename(&temp_path, path) {
+            Ok(()) => return Ok(()),
+            Err(_) if path.exists() => {
+                // Target exists - remove it and retry
+                // Note: This creates a small window where file doesn't exist (not fully atomic)
+                if let Err(e) = std::fs::remove_file(path) {
+                    let _ = std::fs::remove_file(&temp_path);
+                    return Err(e.into());
+                }
+                match std::fs::rename(&temp_path, path) {
+                    Ok(()) => return Ok(()),
+                    Err(e) => {
+                        let _ = std::fs::remove_file(&temp_path);
+                        return Err(e.into());
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&temp_path);
+                return Err(e.into());
+            }
+        }
     }
 
-    // Atomic rename
-    std::fs::rename(&temp_path, path)?;
-
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        // On Unix, rename is atomic and will overwrite
+        match std::fs::rename(&temp_path, path) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                // Best-effort cleanup of temp file
+                let _ = std::fs::remove_file(&temp_path);
+                Err(e.into())
+            }
+        }
+    }
 }
 
 /// Write content to a file atomically with pre-write validation.

@@ -55,8 +55,7 @@ fn read_dismissed_defaults() -> Result<Vec<String>> {
 fn write_dismissed_defaults(ids: &[String]) -> Result<()> {
     let path = dismissed_defaults_path()?;
     let content = serde_json::to_string_pretty(ids)?;
-    std::fs::write(&path, content)?;
-    Ok(())
+    crate::utils::atomic_write(&path, content.as_bytes())
 }
 
 /// Dismiss a default template so it no longer appears.
