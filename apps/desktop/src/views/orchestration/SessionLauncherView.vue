@@ -21,6 +21,7 @@ import {
 import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
 import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
 import { getDefaultBranch, fetchRemote } from '@tracepilot/client';
+import { logWarn } from '@/utils/logger';
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
@@ -73,8 +74,9 @@ const fetchingRemote = ref(false);
 async function loadDefaultBranch(path: string) {
   try {
     defaultBranch.value = await getDefaultBranch(path);
-  } catch {
+  } catch (e) {
     defaultBranch.value = '';
+    logWarn('[SessionLauncher] Failed to load default branch:', e);
   }
 }
 

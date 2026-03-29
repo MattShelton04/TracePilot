@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { logWarn } from '@/utils/logger';
 
 export interface RecentSearch {
   query: string;
@@ -22,13 +23,19 @@ function loadFromStorage(key: string, max: number): RecentSearch[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.slice(0, max) : [];
-  } catch { return []; }
+  } catch (e) {
+    logWarn('[useRecentSearches] Failed to load from localStorage:', e);
+    return [];
+  }
 }
 
 function saveToStorage(key: string, searches: RecentSearch[], max: number) {
   try {
     localStorage.setItem(key, JSON.stringify(searches.slice(0, max)));
-  } catch { /* localStorage full or unavailable */ }
+  } catch (e) {
+    // localStorage full or unavailable
+    logWarn('[useRecentSearches] Failed to save to localStorage:', e);
+  }
 }
 
 /**

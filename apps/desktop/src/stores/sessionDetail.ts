@@ -287,6 +287,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         if (!sessionGuard.isValid(token)) return;
         detail.value = result;
       }).catch((e) => {
+        if (!sessionGuard.isValid(token)) return;
         // Background refresh failed - non-critical
         logWarn('[sessionDetail] Background refresh of session detail failed', { id, error: e });
       });
@@ -298,6 +299,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         turns.value = result.turns;
         lastEventsFileSize = result.eventsFileSize;
       }).catch((e) => {
+        if (!sessionGuard.isValid(token)) return;
         // Background freshness check failed - non-critical
         logWarn('[sessionDetail] Background freshness check failed', { id, error: e });
       });
@@ -306,6 +308,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
           if (!sessionGuard.isValid(token)) return;
           plan.value = result;
         }).catch((e) => {
+          if (!sessionGuard.isValid(token)) return;
           // Background plan refresh failed - non-critical
           logWarn('[sessionDetail] Background refresh of plan failed', { id, error: e });
         });
