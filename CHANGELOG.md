@@ -7,21 +7,29 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-29
+
 ### Added
-- **Session Export/Import** — full pipeline for sharing and archiving sessions
-  - Export to JSON (lossless `.tpx.json`), Markdown (human-readable), and CSV (tabular)
-  - Import `.tpx.json` archives with conflict resolution (skip/replace/duplicate)
-  - Granular section selection (conversation, events, plan, todos, checkpoints, metrics, etc.)
-  - Privacy-aware redaction: path anonymization, secret stripping, PII removal
-  - Content detail filtering: exclude agent internals, tool arguments/results
-  - Schema versioning (`1.0.0`) with forward/backward compatibility support
-  - Live preview in the Export view with real-time configuration changes
-  - CLI export/import commands coming in a future CLI milestone
-  - Export feature flag enabled by default
+- **Session Export/Import** (experimental) — export sessions to JSON (lossless `.tpx.json`), Markdown, or CSV with preset configurations, granular section selection, privacy-aware redaction (paths, secrets, PII), and live preview. Import `.tpx.json` archives with conflict resolution. Enable in **Settings → Features**
+- **Conversation Chat overhaul** — subagent activity now renders as interactive cards with slide-out detail panels instead of inline tool dumps; progressive disclosure collapses tool-heavy turns; cross-turn subagent aggregation groups child activity under the originating agent; intent and memory shown as inline pills
+- **Parallel session indexing** — sessions now index concurrently via Rayon with an optimized release profile and parser preallocation, significantly reducing initial and incremental indexing time
+- **4.8× faster search indexing** — bulk FTS5 write strategy eliminates per-row trigger overhead for large reindexes (41 s → 9.3 s on 275 sessions / 327K rows)
+- **Theme-aware shell renderer** — PowerShell and terminal tool output now follows your active theme instead of a fixed dark palette
+- **Performance monitoring infrastructure** — tracing spans across hot Rust paths, IPC timing instrumentation, perf budgets, and bundle analysis CI workflow
+- **Update check on startup** is now enabled by default for new installations — disable in **Settings → Updates**
 
 ### Changed
+- Consolidated structured logging across the entire desktop app; silent catch blocks now surface warnings via `logWarn`
+- Smoother loading screen animations tuned for faster indexing runs
+- CSS design system: hardcoded colors replaced with theme tokens, refined micro-interactions and animations
+- Search browse presets streamlined; duplicate search calls on pagination reset and view navigation eliminated
 
 ### Fixed
+- FTS turn attribution now correctly matches reconstructor turn boundaries
+- Missing or corrupt `workspace.yaml` no longer causes FK constraint errors during search indexing
+- Markdown export: proper newline spacing between blockquotes; links open externally
+- Shared formatters hardened against non-finite numeric inputs
+- Chart tooltips restored; search first-run empty state properly styled
 
 ## [0.5.1] - 2026-03-26
 
