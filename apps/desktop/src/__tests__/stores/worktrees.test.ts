@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { flushPromises } from "@vue/test-utils";
 import { useWorktreesStore } from "../../stores/worktrees";
