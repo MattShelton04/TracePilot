@@ -94,7 +94,10 @@ impl IndexDb {
 
         let Some((search_indexed_at, stored_ev_mtime, stored_ev_size, extractor_ver)) = stored
         else {
-            return true; // not in DB at all
+            // Session row doesn't exist in `sessions` table (Phase 1 didn't index it,
+            // e.g. missing workspace.yaml in old Copilot CLI sessions). Don't attempt
+            // search indexing — the FK constraint on search_content would fail.
+            return false;
         };
 
         // Never indexed

@@ -47,33 +47,44 @@ pub fn load_session_summary_with_events(session_dir: &Path) -> Result<SessionLoa
 }
 
 fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<SessionLoadResult> {
-    // 1. Parse workspace.yaml (required)
+    // 1. Parse workspace.yaml — preferred source of session metadata.
+    //    For old Copilot CLI sessions that lack workspace.yaml we fall back to a
+    //    minimal summary derived from the directory name (UUID) and events.jsonl.
     let workspace_path = session_dir.join("workspace.yaml");
-    if !workspace_path.exists() {
-        return Err(TracePilotError::SessionNotFound(format!(
-            "workspace.yaml not found in {}",
-            session_dir.display()
-        )));
-    }
-    let ws = parse_workspace_yaml(&workspace_path)?;
-
-    let mut summary = SessionSummary {
-        id: ws.id,
-        summary: ws.summary,
-        repository: ws.repository,
-        branch: ws.branch,
-        cwd: ws.cwd,
-        host_type: ws.host_type,
-        created_at: ws.created_at,
-        updated_at: ws.updated_at,
-        event_count: None,
-        has_events: false,
-        has_session_db: false,
-        has_plan: false,
-        has_checkpoints: false,
-        checkpoint_count: None,
-        turn_count: None,
-        shutdown_metrics: None,
+    let mut summary = if workspace_path.exists() {
+        match parse_workspace_yaml(&workspace_path) {
+            Ok(ws) => SessionSummary {
+                id: ws.id,
+                summary: ws.summary,
+                repository: ws.repository,
+                branch: ws.branch,
+                cwd: ws.cwd,
+                host_type: ws.host_type,
+                created_at: ws.created_at,
+                updated_at: ws.updated_at,
+                event_count: None,
+                has_events: false,
+                has_session_db: false,
+                has_plan: false,
+                has_checkpoints: false,
+                checkpoint_count: None,
+                turn_count: None,
+                shutdown_metrics: None,
+            },
+            Err(e) => {
+                // workspace.yaml exists but failed to parse (incompatible format from
+                // an older Copilot CLI version). Fall back to minimal summary.
+                tracing::warn!(
+                    path = %workspace_path.display(),
+                    error = %e,
+                    "Failed to parse workspace.yaml; falling back to events-only summary"
+                );
+                minimal_summary_from_dir(session_dir)?
+            }
+        }
+    } else {
+        // No workspace.yaml at all (very early Copilot CLI sessions).
+        minimal_summary_from_dir(session_dir)?
     };
 
     // 2–5. Events processing — parse ONCE, derive count from len()
@@ -103,17 +114,30 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
                 summary.turn_count = Some(stats.total_turns);
 
                 // Context enrichment from session.start event
-                if let Some(start_data) = extract_session_start(&typed_events)
-                    && let Some(ctx) = &start_data.context
-                {
-                    if summary.repository.is_none() {
-                        summary.repository = ctx.repository.clone();
+                if let Some(start_data) = extract_session_start(&typed_events) {
+                    if let Some(ctx) = &start_data.context {
+                        if summary.repository.is_none() {
+                            summary.repository = ctx.repository.clone();
+                        }
+                        if summary.branch.is_none() {
+                            summary.branch = ctx.branch.clone();
+                        }
+                        if summary.host_type.is_none() {
+                            summary.host_type = ctx.host_type.clone();
+                        }
+                        if summary.cwd.is_none() {
+                            summary.cwd = ctx.cwd.clone();
+                        }
                     }
-                    if summary.branch.is_none() {
-                        summary.branch = ctx.branch.clone();
-                    }
-                    if summary.host_type.is_none() {
-                        summary.host_type = ctx.host_type.clone();
+
+                    // Derive created_at from session.start timestamp when workspace.yaml
+                    // didn't provide it (e.g. old Copilot CLI sessions).
+                    if summary.created_at.is_none() {
+                        if let Some(ref ts) = start_data.start_time {
+                            summary.created_at = chrono::DateTime::parse_from_rfc3339(ts)
+                                .ok()
+                                .map(|d| d.with_timezone(&chrono::Utc));
+                        }
                     }
                 }
 
@@ -147,6 +171,43 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
         summary,
         typed_events: typed_events_out,
         diagnostics: diagnostics_out,
+    })
+}
+
+/// Build a minimal [`SessionSummary`] from a session directory that lacks a
+/// parseable `workspace.yaml`.
+///
+/// Uses the directory name (UUID) as the session ID and leaves all metadata
+/// fields empty. The caller enriches the summary from `events.jsonl` afterward.
+fn minimal_summary_from_dir(session_dir: &Path) -> Result<SessionSummary> {
+    let id = session_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            TracePilotError::SessionNotFound(format!(
+                "Cannot derive session ID from directory: {}",
+                session_dir.display()
+            ))
+        })?;
+
+    Ok(SessionSummary {
+        id,
+        summary: None,
+        repository: None,
+        branch: None,
+        cwd: None,
+        host_type: None,
+        created_at: None,
+        updated_at: None,
+        event_count: None,
+        has_events: false,
+        has_session_db: false,
+        has_plan: false,
+        has_checkpoints: false,
+        checkpoint_count: None,
+        turn_count: None,
+        shutdown_metrics: None,
     })
 }
 
@@ -331,17 +392,59 @@ summary: "Sparse session"
     }
 
     #[test]
-    fn test_no_workspace_yaml_returns_error() {
+    fn test_no_workspace_yaml_falls_back_to_dir_id() {
         let dir = tempfile::tempdir().unwrap();
-        let result = load_session_summary(dir.path());
-        assert!(result.is_err());
+        // Create a UUID-named subdirectory (mimicking session-state layout)
+        let session_dir = dir.path().join("c86fe369-c858-4d91-81da-203c5e276e33");
+        fs::create_dir_all(&session_dir).unwrap();
 
-        match result.unwrap_err() {
-            TracePilotError::SessionNotFound(msg) => {
-                assert!(msg.contains("workspace.yaml"));
-            }
-            other => panic!("Expected SessionNotFound, got {:?}", other),
-        }
+        let summary = load_session_summary(&session_dir).unwrap();
+
+        assert_eq!(summary.id, "c86fe369-c858-4d91-81da-203c5e276e33");
+        assert!(summary.summary.is_none());
+        assert!(summary.repository.is_none());
+        assert!(!summary.has_events);
+        assert!(summary.event_count.is_none());
+    }
+
+    #[test]
+    fn test_no_workspace_yaml_enriched_from_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+        fs::create_dir_all(&session_dir).unwrap();
+        // No workspace.yaml — only events.jsonl
+        fs::write(session_dir.join("events.jsonl"), enrichment_events_jsonl()).unwrap();
+
+        let summary = load_session_summary(&session_dir).unwrap();
+
+        // ID comes from directory name
+        assert_eq!(summary.id, "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+        // Context fields enriched from session.start event
+        assert_eq!(summary.repository.as_deref(), Some("org/project"));
+        assert_eq!(summary.branch.as_deref(), Some("feature-x"));
+        assert_eq!(summary.host_type.as_deref(), Some("vscode"));
+        assert_eq!(summary.cwd.as_deref(), Some("/test"));
+        // Events parsed
+        assert!(summary.has_events);
+        assert_eq!(summary.event_count, Some(2));
+    }
+
+    #[test]
+    fn test_malformed_workspace_yaml_falls_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("bad-workspace-test");
+        fs::create_dir_all(&session_dir).unwrap();
+        // workspace.yaml with incompatible field type (created_at as number)
+        fs::write(
+            session_dir.join("workspace.yaml"),
+            "id: 123\ncreated_at: 12345\n",
+        )
+        .unwrap();
+
+        let summary = load_session_summary(&session_dir).unwrap();
+
+        // Falls back to directory name as ID
+        assert_eq!(summary.id, "bad-workspace-test");
     }
 
     /// Events.jsonl with two shutdown events simulating a resumed session.

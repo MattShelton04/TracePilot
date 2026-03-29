@@ -241,13 +241,17 @@ updatedAt: "2026-01-15T13:00:00Z"
         )
         .unwrap();
 
-        // Invalid session (corrupt yaml)
+        // Session with corrupt workspace.yaml — now handled gracefully via fallback
         let invalid_dir = tmp.path().join("b1b2c3d4-e5f6-7890-abcd-ef1234567890");
         fs::create_dir_all(&invalid_dir).unwrap();
         fs::write(invalid_dir.join("workspace.yaml"), "{{{{invalid yaml").unwrap();
 
         let result = load_session_summaries(tmp.path()).unwrap();
-        assert_eq!(result.len(), 1); // Only valid session loaded
+        // Both sessions are loaded: valid one normally, corrupt one via fallback
+        assert_eq!(result.len(), 2);
+        let ids: Vec<&str> = result.iter().map(|r| r.summary.id.as_str()).collect();
+        assert!(ids.contains(&"a1b2c3d4-e5f6-7890-abcd-ef1234567890"));
+        assert!(ids.contains(&"b1b2c3d4-e5f6-7890-abcd-ef1234567890"));
     }
 
     #[test]
