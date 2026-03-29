@@ -46,3 +46,16 @@ desktop.ini
 
 # Agent planning artifacts
 .agent/
+
+# Coverage and logs
+coverage/
+*.log
+pnpm-debug.log*
+
+# Cache directories
+.cache/
+.turbo/
+
+# Environment files (keep example)
+.env.*
+!.env.example
