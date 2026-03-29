@@ -77,6 +77,9 @@ export const useSearchStore = defineStore('search', () => {
   // When true, watcher-triggered searches are suppressed (URL hydration in progress)
   let hydrating = false;
 
+  // Track if the search view is currently mounted (prevent background ops when navigated away)
+  let isViewMounted = false;
+
   // ── Results state ────────────────────────────────────────────
   const results = ref<SearchResult[]>([]);
   const totalCount = ref(0);
@@ -136,6 +139,10 @@ export const useSearchStore = defineStore('search', () => {
         await safeListen('search-indexing-finished', () => {
           searchIndexing.value = false;
           searchIndexingProgress.value = null;
+          // Only perform background operations if the search view is currently mounted
+          // to avoid unnecessary API calls when user is on a different screen
+          if (!isViewMounted) return;
+
           fetchStats();
           fetchFilterOptions();
           fetchHealth();
@@ -587,6 +594,8 @@ export const useSearchStore = defineStore('search', () => {
     // Hydration control (for URL sync)
     beginHydration: () => { hydrating = true; },
     endHydration: () => { hydrating = false; },
+    // View lifecycle control (prevent background ops when view unmounted)
+    setViewMounted: (mounted: boolean) => { isViewMounted = mounted; },
     // Load stats/facets without executing a search (for browse presets view)
     async fetchStatsOnly() {
       await Promise.all([fetchStats(), fetchFacets(), fetchFilterOptions()]);
