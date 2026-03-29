@@ -39,6 +39,18 @@ pub struct IndexingProgress {
 ///
 /// Accumulates running totals (tokens, events, repos) and emits progress
 /// events at a controlled rate to avoid flooding IPC channels.
+///
+/// # Thread Safety
+///
+/// This type is `!Send` and must only be used on the main thread after
+/// parallel parsing completes via Rayon. Do not attempt to share across threads.
+///
+/// # Progress Semantics
+///
+/// The `current` counter represents sessions that have been **fully processed**
+/// (indexed or skipped). During incremental reindex staleness checks, sessions
+/// identified for reindexing are NOT included in `current` until they are
+/// actually indexed.
 struct ProgressTracker {
     current: usize,
     total: usize,
@@ -65,6 +77,8 @@ impl ProgressTracker {
     }
 
     /// Accumulate metrics from a successfully indexed session.
+    ///
+    /// Note: Sessions with `repository = None` are handled correctly.
     #[inline]
     fn accumulate(&mut self, info: &SessionIndexInfo) {
         self.running_tokens += info.total_tokens;
@@ -74,13 +88,20 @@ impl ProgressTracker {
         }
     }
 
-    /// Increment current counter (for both indexed and skipped sessions).
+    /// Increment the current session counter.
+    ///
+    /// This should be called for every session processed, whether successfully
+    /// indexed or skipped.
     #[inline]
     fn increment(&mut self) {
         self.current += 1;
     }
 
     /// Check if enough time has elapsed to emit the next progress event.
+    ///
+    /// Returns true if either:
+    /// - We've reached the final session (always emit completion)
+    /// - Sufficient time has passed since the last emission
     #[inline]
     fn should_emit(&self) -> bool {
         self.is_complete() || self.last_emit.elapsed() >= self.throttle
@@ -93,7 +114,8 @@ impl ProgressTracker {
     }
 
     /// Emit progress if throttling allows, updating last_emit timestamp.
-    /// Returns true if progress was emitted.
+    ///
+    /// Returns `true` if progress was emitted, `false` if throttled.
     fn emit_if_ready(
         &mut self,
         on_progress: &mut impl FnMut(&IndexingProgress),
@@ -108,6 +130,8 @@ impl ProgressTracker {
     }
 
     /// Force emit progress (for initial/final events), updating last_emit timestamp.
+    ///
+    /// Unlike `emit_if_ready`, this always emits regardless of throttling.
     fn emit(
         &mut self,
         on_progress: &mut impl FnMut(&IndexingProgress),
@@ -218,6 +242,9 @@ pub fn reindex_all_with_rich_progress(
         tracker.emit_if_ready(&mut on_progress, info);
     }
     db.commit_transaction()?;
+
+    // Note: Final 100% emission is guaranteed by is_complete() check in emit_if_ready.
+    // For zero sessions, the initial emit at line 206 covers it (current=0, total=0).
 
     tracing::debug!(
         indexed,
