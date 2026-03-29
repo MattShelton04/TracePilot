@@ -2,6 +2,7 @@
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::{AgentDefinition, BackupDiffPreview, BackupEntry, CopilotConfig, ConfigDiff};
+use crate::utils::atomic_write_validated;
 use std::path::{Path, PathBuf};
 
 /// Read all agent definitions for a given Copilot version.
@@ -66,32 +67,18 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 /// Write an updated agent definition YAML to disk.
 /// Uses atomic write (write to temp then rename) for safety.
 pub fn write_agent_definition(path: &Path, yaml_content: &str) -> Result<()> {
-    // Validate YAML is parseable before writing
-    let _: serde_yml::Value = serde_yml::from_str(yaml_content)
-        .map_err(|e| OrchestratorError::Config(format!("Invalid YAML: {e}")))?;
-
-    let parent = path
-        .parent()
-        .ok_or_else(|| OrchestratorError::Config("No parent directory".into()))?;
-    let temp_path = parent.join(format!(
-        ".tmp-{}",
-        path.file_name().unwrap_or_default().to_string_lossy()
-    ));
-
-    std::fs::write(&temp_path, yaml_content)?;
-    std::fs::rename(&temp_path, path)?;
-    Ok(())
+    atomic_write_validated(path, yaml_content, |s| {
+        serde_yml::from_str::<serde_yml::Value>(s)
+            .map(|_| ())
+            .map_err(|e| format!("Invalid YAML: {e}"))
+    })
 }
 
 /// Write the global Copilot config.json file.
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
     let config_path = copilot_home.join("config.json");
-    let temp_path = copilot_home.join(".config.json.tmp");
-
     let content = serde_json::to_string_pretty(config)?;
-    std::fs::write(&temp_path, &content)?;
-    std::fs::rename(&temp_path, &config_path)?;
-    Ok(())
+    crate::utils::atomic_write(&config_path, content.as_bytes())
 }
 
 /// Create a backup of a file.

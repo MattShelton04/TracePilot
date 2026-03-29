@@ -10,6 +10,7 @@ pub mod process;
 pub mod repo_registry;
 pub mod templates;
 pub mod types;
+pub mod utils;
 pub mod version_manager;
 pub mod worktrees;
 

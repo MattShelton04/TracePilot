@@ -2,6 +2,7 @@
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::SessionTemplate;
+use crate::utils::atomic_write_validated;
 use std::path::PathBuf;
 
 /// Maximum size for a single template JSON file (1 MB).
@@ -161,12 +162,13 @@ pub fn save_template(template: &SessionTemplate) -> Result<()> {
 
     let dir = templates_dir()?;
     let path = dir.join(format!("{}.json", template.id));
-    let temp = dir.join(format!(".{}.json.tmp", template.id));
-
     let content = serde_json::to_string_pretty(template)?;
-    std::fs::write(&temp, &content)?;
-    std::fs::rename(&temp, &path)?;
-    Ok(())
+
+    atomic_write_validated(&path, &content, |s| {
+        serde_json::from_str::<SessionTemplate>(s)
+            .map(|_| ())
+            .map_err(|e| format!("Invalid template JSON: {e}"))
+    })
 }
 
 /// Delete a template by ID. For default templates, this dismisses them instead.
