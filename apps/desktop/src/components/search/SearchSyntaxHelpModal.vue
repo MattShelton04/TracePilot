@@ -85,7 +85,7 @@ defineEmits<{ close: [] }>();
   transition: all var(--transition-fast);
 }
 .syntax-help-close:hover {
-  background: var(--bg-subtle);
+  background: var(--canvas-subtle);
   color: var(--text-primary);
 }
 .syntax-help-body {
@@ -115,7 +115,7 @@ defineEmits<{ close: [] }>();
 .syntax-row code {
   flex-shrink: 0;
   min-width: 180px;
-  background: var(--bg-subtle);
+  background: var(--canvas-subtle);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;

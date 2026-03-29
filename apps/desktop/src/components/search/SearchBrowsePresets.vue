@@ -217,7 +217,7 @@ const store = useSearchStore();
 }
 .recent-searches-clear:hover {
   color: var(--text-primary);
-  background: var(--bg-subtle);
+  background: var(--canvas-subtle);
 }
 .recent-searches-list {
   display: flex;
@@ -239,7 +239,7 @@ const store = useSearchStore();
   transition: all var(--transition-fast);
 }
 .recent-search-item:hover {
-  background: var(--bg-subtle);
+  background: var(--canvas-subtle);
   color: var(--text-primary);
 }
 .recent-search-item svg {

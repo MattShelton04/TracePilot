@@ -127,8 +127,8 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 }
 
 .modal-content {
-  background: var(--color-canvas-default, #1e1e2e);
-  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.08));
+  background: var(--canvas-default);
+  border: 1px solid var(--border-muted);
   border-radius: 12px;
   max-width: 560px;
   width: 90%;
@@ -148,13 +148,13 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
   font-size: 18px;
   font-weight: 600;
   margin: 0;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .modal-close {
   background: none;
   border: none;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   font-size: 22px;
   cursor: pointer;
   padding: 4px 8px;
@@ -162,7 +162,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 }
 
 .modal-close:hover {
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -171,10 +171,10 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 
 .version-jump {
   font-size: 13px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border-muted);
 }
 
 .version-section {
@@ -188,7 +188,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 .version-heading {
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
   margin-bottom: 10px;
   display: flex;
   align-items: baseline;
@@ -198,7 +198,7 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 .version-date {
   font-size: 12px;
   font-weight: 400;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
 }
 
 .change-group {
@@ -211,9 +211,9 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
   margin-bottom: 4px;
 }
 
-.added-title { color: var(--color-success-fg, #4ade80); }
-.changed-title { color: var(--color-accent-fg, #818cf8); }
-.fixed-title { color: var(--color-attention-fg, #eab308); }
+.added-title { color: var(--success-fg); }
+.changed-title { color: var(--accent-fg); }
+.fixed-title { color: var(--attention-fg); }
 
 .change-group ul {
   padding-left: 20px;
@@ -222,28 +222,28 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 
 .change-group li {
   font-size: 13px;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
   line-height: 1.7;
 }
 
 .reindex-notice {
   margin-top: 12px;
   padding: 10px 14px;
-  background: var(--color-attention-subtle, rgba(234, 179, 8, 0.08));
+  background: var(--attention-subtle);
   border-radius: 8px;
   font-size: 13px;
-  color: var(--color-attention-fg, #eab308);
+  color: var(--attention-fg);
 }
 
 .no-notes {
   text-align: center;
   padding: 20px;
-  color: var(--color-fg-muted, #94a3b8);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .release-notes-link {
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
   text-decoration: none;
   font-weight: 500;
 }
@@ -264,14 +264,14 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 .reindex-footer-hint {
   flex: 1 1 100%;
   font-size: 12px;
-  color: var(--color-attention-fg, #eab308);
+  color: var(--attention-fg);
   margin-bottom: 4px;
 }
 
 .modal-btn {
   padding: 8px 20px;
   border-radius: 8px;
-  background: var(--color-accent-emphasis, #6366f1);
+  background: var(--accent-emphasis);
   color: #fff;
   border: none;
   font-size: 13px;
@@ -281,16 +281,16 @@ const needsReindex = computed(() => relevantEntries.value.some((e) => e.requires
 }
 
 .modal-btn:hover {
-  background: var(--color-accent-emphasis-hover, #4f46e5);
+  background: var(--accent-emphasis-hover);
 }
 
 .modal-btn-secondary {
   background: transparent;
-  border: 1px solid var(--color-border-muted, rgba(255, 255, 255, 0.12));
-  color: var(--color-fg-default, #e2e8f0);
+  border: 1px solid var(--border-muted);
+  color: var(--text-primary);
 }
 
 .modal-btn-secondary:hover {
-  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.04));
+  background: var(--canvas-subtle);
 }
 </style>

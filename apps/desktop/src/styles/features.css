@@ -140,8 +140,7 @@
   padding: 0 6px;
   font-size: 0.625rem;
   font-weight: 500;
-  color: white;
-  white-space: nowrap;
+  color: var(--text-on-emphasis);
   overflow: hidden;
   text-overflow: ellipsis;
 }

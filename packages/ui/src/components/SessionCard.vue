@@ -92,6 +92,6 @@ function isActive(session: SessionListItem): boolean {
 }
 
 .stat-item--danger {
-  color: var(--color-danger, #ef4444);
+  color: var(--danger-fg);
 }
 </style>

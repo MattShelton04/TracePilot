@@ -111,12 +111,12 @@ function handleOpenRelease() {
 <style scoped>
 .update-check-result {
   font-size: 13px;
-  color: var(--color-fg-default);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
 .update-check-result a {
-  color: var(--color-accent-fg);
+  color: var(--accent-fg);
   text-decoration: none;
   margin-left: 6px;
 }

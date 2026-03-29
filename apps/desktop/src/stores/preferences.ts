@@ -57,8 +57,11 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // ── Reactive state ──────────────────────────────────────────
 
   // Initialize theme from write-through cache to match main.ts (prevents flash)
+  const VALID_THEMES: ThemeOption[] = ['dark', 'light'];
   const cachedTheme = localStorage.getItem("tracepilot-theme");
-  const theme = ref<ThemeOption>(cachedTheme === "light" ? "light" : "dark");
+  const theme = ref<ThemeOption>(
+    VALID_THEMES.includes(cachedTheme as ThemeOption) ? (cachedTheme as ThemeOption) : "dark",
+  );
   const sessionStateDir = ref("");
   const hideEmptySessions = ref(true);
   const cliCommand = ref(DEFAULT_CLI_COMMAND);
