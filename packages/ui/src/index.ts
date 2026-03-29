@@ -56,6 +56,7 @@ export * from "./utils/contentTypes";
 export { toTimeSpan, timeSpansOverlap, detectParallelIds, type TimeSpanItem } from "./utils/timelineUtils";
 export { normalizePath, pathBasename, pathDirname, shortenPath, sanitizeBranchForPath } from "./utils/pathUtils";
 export * from "./utils/chartGeometry";
+export { ensureMarkdownReady } from "./utils/markdownLoader";
 
 // Composables
 export * from "./composables";

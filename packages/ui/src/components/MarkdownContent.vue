@@ -2,36 +2,11 @@
 /**
  * MarkdownContent — renders markdown with markdown-it and sanitizes with DOMPurify.
  *
- * PERF: markdown-it + dompurify are lazy-loaded on first render to keep them
- * off the critical path (~150KB). While loading, raw text is shown as fallback.
+ * The parser is eagerly loaded at app startup via ensureMarkdownReady() in main.ts.
+ * This component simply uses the shared singleton — no layout shift from async loading.
  */
-import { computed, ref, watchEffect } from 'vue';
-
-// Module-level lazy singleton — shared across all instances, loaded once
-let mdInstance: InstanceType<typeof import('markdown-it').default> | null = null;
-let purifyFn: ((dirty: string) => string) | null = null;
-const mdReady = ref(false);
-let loadPromise: Promise<void> | null = null;
-
-function ensureMarkdownLoaded(): Promise<void> {
-  if (mdReady.value) return Promise.resolve();
-  if (loadPromise) return loadPromise;
-  loadPromise = (async () => {
-    const [{ default: MarkdownIt }, { default: DOMPurify }] = await Promise.all([
-      import('markdown-it'),
-      import('dompurify'),
-    ]);
-    mdInstance = new MarkdownIt({
-      html: false,
-      linkify: false,
-      typographer: true,
-      breaks: false,
-    });
-    purifyFn = (dirty: string) => DOMPurify.sanitize(dirty);
-    mdReady.value = true;
-  })();
-  return loadPromise;
-}
+import { computed, watchEffect } from 'vue';
+import { mdReady, ensureMarkdownReady, renderMarkdown, escapeHtml } from '../utils/markdownLoader';
 
 const props = withDefaults(defineProps<{
   /** Markdown text to render. */
@@ -44,23 +19,16 @@ const props = withDefaults(defineProps<{
   render: true
 });
 
-// Trigger lazy load when render is true
+// Safety net: trigger load if not already started (shouldn't happen in practice)
 watchEffect(() => {
-  if (props.render) ensureMarkdownLoaded();
+  if (props.render && !mdReady.value) ensureMarkdownReady();
 });
 
 const rendered = computed(() => {
   if (!props.render) {
     return escapeHtml(props.content);
   }
-
-  if (!mdReady.value || !mdInstance || !purifyFn) {
-    return escapeHtml(props.content);
-  }
-
-  const cleanedContent = props.content.trim();
-  const rawHtml = mdInstance.render(cleanedContent);
-  return purifyFn(rawHtml);
+  return renderMarkdown(props.content);
 });
 
 function handleLinkClick(event: MouseEvent) {
@@ -108,20 +76,15 @@ function handleLinkClick(event: MouseEvent) {
     }
   }
 }
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 </script>
 
 <template>
   <div
     class="markdown-content"
-    :class="{ 'is-rendered': render, 'is-raw': !render }"
+    :class="{
+      'is-rendered': render && mdReady,
+      'is-raw': !render,
+    }"
     :style="maxHeight ? { maxHeight, overflowY: 'auto' } : undefined"
     @click="handleLinkClick"
     v-html="rendered" />

@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import { toErrorMessage } from "@tracepilot/ui";
+import { toErrorMessage, ensureMarkdownReady } from "@tracepilot/ui";
 import App from "./App.vue";
 import router from "./router";
 import "./styles.css";
@@ -14,6 +14,12 @@ document.documentElement.setAttribute(
   "data-theme",
   cachedTheme === "light" ? "light" : "dark",
 );
+
+// Eagerly load markdown parser so MarkdownContent renders instantly (no layout shift).
+// Fire-and-forget: the ~150KB async import runs in parallel with app boot and resolves
+// before Vue navigates to any route with markdown content. MarkdownContent has a reactive
+// mdReady guard as a safety net if the import hasn't resolved yet.
+ensureMarkdownReady();
 
 const app = createApp(App);
 

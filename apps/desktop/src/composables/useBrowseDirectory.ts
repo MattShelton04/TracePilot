@@ -49,6 +49,7 @@ export async function browseForDirectory(options?: {
 export async function browseForSavePath(options?: {
   title?: string;
   defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
 }): Promise<string | null> {
   if (!('__TAURI_INTERNALS__' in window)) {
     const input = prompt(
@@ -62,6 +63,7 @@ export async function browseForSavePath(options?: {
     const selected = await save({
       title: options?.title ?? 'Choose file location',
       defaultPath: options?.defaultPath,
+      filters: options?.filters,
     });
     return selected ?? null;
   } catch {
