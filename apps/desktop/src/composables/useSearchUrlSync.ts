@@ -34,6 +34,7 @@ export function useSearchUrlSync() {
     const prevDateFrom = store.dateFrom;
     const prevDateTo = store.dateTo;
     const prevSortBy = store.sortBy;
+    const prevPage = store.page;
 
     store.query = typeof q.q === 'string' ? q.q : '';
     if (typeof q.sort === 'string' && ['relevance', 'newest', 'oldest'].includes(q.sort)) {
@@ -75,7 +76,8 @@ export function useSearchUrlSync() {
       prevSessionId !== store.sessionId ||
       prevDateFrom !== store.dateFrom ||
       prevDateTo !== store.dateTo ||
-      prevSortBy !== store.sortBy;
+      prevSortBy !== store.sortBy ||
+      prevPage !== store.page;
 
     // End hydration after Vue flushes watchers.
     // If state actually changed during hydration, watchers were suppressed and we need
