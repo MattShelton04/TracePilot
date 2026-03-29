@@ -272,10 +272,30 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   async function hydrate() {
     try {
+      let checkExistsFn: typeof checkConfigExists | undefined;
+      try {
+        checkExistsFn = checkConfigExists;
+      } catch {
+        logWarn(
+          "[preferences] Config check unavailable; skipping hydration and using defaults",
+        );
+        hydrated = true;
+        hydrateResolve();
+        return;
+      }
+      if (typeof checkExistsFn !== "function") {
+        logWarn(
+          "[preferences] Config check unavailable; skipping hydration and using defaults",
+        );
+        hydrated = true;
+        hydrateResolve();
+        return;
+      }
+
       // If no config file exists (e.g. after factory reset), don't hydrate.
       // This prevents the watcher from recreating config.toml before the
       // setup wizard has a chance to run.
-      const configExists = await checkConfigExists();
+      const configExists = await checkExistsFn();
       if (!configExists) {
         hydrateResolve();
         return;
