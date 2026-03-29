@@ -206,6 +206,39 @@ function memoryLabel(tc: TurnToolCall): string {
   return (args?.fact as string) ?? (args?.subject as string) ?? "…";
 }
 
+// ─── Subagent completion pill helpers ─────────────────────────────
+
+function parseReadAgentId(tc: TurnToolCall): string | null {
+  try {
+    const args = typeof tc.arguments === "string"
+      ? JSON.parse(tc.arguments)
+      : tc.arguments;
+    return (args?.agent_id as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function subagentCompleteLabel(tc: TurnToolCall): string {
+  const agentId = parseReadAgentId(tc);
+  if (agentId) {
+    const sa = subagentMap.value.get(agentId);
+    if (sa) {
+      const agentType = inferAgentTypeFromToolCall(sa.toolCall);
+      const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+      return `${label} agent ${tc.success === false ? "failed" : "completed"}`;
+    }
+  }
+  return tc.success === false ? "Agent failed" : "Agent completed";
+}
+
+function openSubagentFromReadAgent(tc: TurnToolCall) {
+  const agentId = parseReadAgentId(tc);
+  if (agentId) {
+    panel.selectSubagent(agentId);
+  }
+}
+
 // ─── ToolCallItem helpers ─────────────────────────────────────────
 
 function tcProps(turn: ConversationTurn, tc: TurnToolCall) {
@@ -424,19 +457,29 @@ defineExpose({ revealEvent });
                           <span class="cv-pill-label">{{ truncateText(memoryLabel(item.toolCall), 80) }}</span>
                         </div>
 
-                        <!-- Ask-user card -->
-                        <div
+                        <!-- Ask-user (rich renderer) -->
+                        <ToolCallItem
                           v-else-if="item.type === 'ask-user'"
-                          class="cv-ask-user-card"
                           :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          v-bind="tcProps(turn, item.toolCall)"
+                          @toggle="toggleToolDetail(turn, item.toolCall)"
+                          @load-full-result="handleLoadFullResult"
+                          @retry-full-result="handleRetryResult"
+                        />
+
+                        <!-- Subagent completion pill -->
+                        <div
+                          v-else-if="item.type === 'subagent-complete'"
+                          :class="['cv-subagent-complete-pill', item.toolCall.success === false ? 'failed' : 'completed']"
+                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          role="button"
+                          tabindex="0"
+                          @click="openSubagentFromReadAgent(item.toolCall)"
+                          @keydown.enter="openSubagentFromReadAgent(item.toolCall)"
                         >
-                          <div class="cv-ask-user-header">
-                            <span aria-hidden="true">💬</span>
-                            <span>Asked User</span>
-                          </div>
-                          <div v-if="item.toolCall.resultContent" class="cv-ask-user-body">
-                            {{ truncateText(item.toolCall.resultContent, 300) }}
-                          </div>
+                          <span class="cv-pill-icon" aria-hidden="true">{{ item.toolCall.success === false ? '✗' : '✓' }}</span>
+                          <span class="cv-pill-label">{{ subagentCompleteLabel(item.toolCall) }}</span>
+                          <span v-if="item.toolCall.durationMs" class="cv-pill-duration">{{ formatDuration(item.toolCall.durationMs) }}</span>
                         </div>
 
                         <!-- Regular tool row (with progressive disclosure) -->
@@ -847,32 +890,37 @@ defineExpose({ revealEvent });
   white-space: nowrap;
 }
 
-/* ─── Ask-user card ────────────────────────────────────────────── */
+/* ─── Subagent completion pill ─────────────────────────────────── */
 
-.cv-ask-user-card {
-  background: var(--warning-subtle, rgba(210, 153, 34, 0.1));
-  border: 1px solid var(--warning-muted, rgba(210, 153, 34, 0.2));
-  border-radius: var(--radius-md, 8px);
-  padding: 10px 14px;
-  margin: 4px 0;
-}
-
-.cv-ask-user-header {
-  display: flex;
+.cv-subagent-complete-pill {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--warning-fg, #d29922);
-  margin-bottom: 4px;
+  cursor: pointer;
+  margin: 4px 0;
+  transition: filter 0.15s ease;
 }
 
-.cv-ask-user-body {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-primary, #c9d1d9);
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+.cv-subagent-complete-pill:hover {
+  filter: brightness(1.15);
+}
+
+.cv-subagent-complete-pill.completed {
+  background: var(--success-subtle, rgba(63, 185, 80, 0.1));
+  color: var(--success-fg, #3fb950);
+}
+
+.cv-subagent-complete-pill.failed {
+  background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
+  color: var(--danger-fg, #f85149);
+}
+
+.cv-subagent-complete-pill .cv-pill-duration {
+  opacity: 0.7;
+  font-size: 11px;
 }
 
 /* ─── Parallel subagent layout ─────────────────────────────────── */
