@@ -1,23 +1,22 @@
 /**
  * Centralized chart color palette for TracePilot.
  * All chart colors should reference these constants rather than hardcoding hex values.
- * CSS custom properties (--chart-*) are defined in styles.css for use in <style> blocks.
+ * CSS custom properties (--chart-*) are defined in design-tokens.css for use in <style> blocks.
+ *
+ * This module now reads colors from CSS variables at runtime, ensuring consistency
+ * between static (CSS) and dynamic (JS-driven charts) visuals, and enabling theme support.
  */
 
-export const CHART_COLORS = {
-  success: '#34d399',
-  successLight: '#6ee7b7',
-  danger: '#fb7185',
-  dangerLight: '#fca5a5',
-  primary: '#6366f1',
-  primaryLight: '#818cf8',
-  secondary: '#a78bfa',
-  warning: '#fbbf24',
-  info: '#38bdf8',
-  cyan: '#22d3ee',
-  orange: '#f97316',
-  lime: '#84cc16',
-} as const;
+import { getChartColors } from './designTokens'
+
+/**
+ * Chart color constants derived from design tokens.
+ * These values are read from CSS custom properties and will reflect the active theme.
+ *
+ * Note: Values are computed at module load time. If you need theme-reactive colors,
+ * call getChartColors() directly after theme changes.
+ */
+export const CHART_COLORS = getChartColors()
 
 /** Default palette for donut/pie charts. */
 export const DONUT_PALETTE = [

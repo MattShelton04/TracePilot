@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import type { TodoItem, TodoDep } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
 import { buildTodoRelations } from "@/utils/todoStats";
+import { getStatusColors } from "@/utils/designTokens";
 
 const props = defineProps<{
   todos: TodoItem[];
@@ -29,12 +30,32 @@ const STATUS_ICON: Record<string, string> = {
   blocked: "⊘",
 };
 
-const STATUS_COLOR: Record<string, { stroke: string; fill: string; text: string }> = {
-  done: { stroke: "#34d399", fill: "rgba(52,211,153,0.12)", text: "#34d399" },
-  in_progress: { stroke: "#818cf8", fill: "rgba(99,102,241,0.12)", text: "#818cf8" },
-  pending: { stroke: "rgba(255,255,255,0.15)", fill: "rgba(161,161,170,0.08)", text: "#a1a1aa" },
-  blocked: { stroke: "#fb7185", fill: "rgba(251,113,133,0.08)", text: "#fb7185" },
-};
+// Status colors derived from design tokens at component mount
+const STATUS_COLOR = computed<Record<string, { stroke: string; fill: string; text: string }>>(() => {
+  const colors = getStatusColors();
+  return {
+    done: {
+      stroke: colors.done,
+      fill: `${colors.done}1f`, // ~12% opacity in hex
+      text: colors.done
+    },
+    in_progress: {
+      stroke: colors.inProgress,
+      fill: `${colors.inProgress}1f`,
+      text: colors.inProgress
+    },
+    pending: {
+      stroke: "rgba(255,255,255,0.15)",
+      fill: "rgba(161,161,170,0.08)",
+      text: colors.pending
+    },
+    blocked: {
+      stroke: colors.blocked,
+      fill: `${colors.blocked}14`, // ~8% opacity
+      text: colors.blocked
+    },
+  };
+});
 
 const STATUSES = ["done", "in_progress", "pending", "blocked"] as const;
 
@@ -330,7 +351,7 @@ const edgePaths = computed(() =>
     const cx2 = x2 + (x1 - x2) * 0.25;
     const targetTodo = filteredTodos.value.find(t => t.id === e.to);
     const status = targetTodo?.status || "pending";
-    const color = STATUS_COLOR[status]?.stroke ?? STATUS_COLOR.pending.stroke;
+    const color = STATUS_COLOR.value[status]?.stroke ?? STATUS_COLOR.value.pending.stroke;
     return {
       id: `edge-${i}`,
       d: `M${x1},${y1} C${x1},${cy1} ${cx2},${cy2} ${x2},${y2}`,
