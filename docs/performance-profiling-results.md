@@ -45,8 +45,8 @@
 
 ## 0. Real-World Search Indexing Profiling
 
-**Tool:** `real_bench.rs` harness against actual user session data  
-**Command:** `cargo run --release --bin real_bench -p tracepilot-bench`
+**Tool:** Custom `real_bench.rs` harness (development-only, not committed) against actual user session data  
+**Command:** Build locally from the profiling snippet in the performance playbook
 
 ### Environment
 
