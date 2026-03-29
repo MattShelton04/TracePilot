@@ -2,6 +2,7 @@
 import { computed, ref, nextTick, watch } from "vue";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
+import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
 import {
   Badge,
   EmptyState,
@@ -57,11 +58,6 @@ interface AgentNode {
 interface TreeData {
   root: AgentNode;
   children: AgentNode[];
-}
-
-interface ParallelGroup {
-  label: string;
-  nodeIds: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -413,88 +409,29 @@ const treeData = computed<TreeData | null>(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Parallel Groups
+// Parallel Groups — detect overlapping agents using Union-Find algorithm
 // ---------------------------------------------------------------------------
 
-const parallelGroups = computed<ParallelGroup[]>(() => {
+const timedNodes = computed(() => {
   if (!treeData.value) return [];
   // Only compare direct children of the root (same hierarchy level)
   const children = treeData.value.children;
-  if (children.length < 2) return [];
 
-  // Parse time ranges
-  interface TimedNode {
-    node: AgentNode;
-    start: number;
-    end: number;
-  }
-
-  const timed: TimedNode[] = children
-    .filter((c) => c.toolCallRef?.startedAt)
+  return children
+    .filter((c): c is typeof c & { toolCallRef: { startedAt: string } } =>
+      !!c.toolCallRef?.startedAt
+    )
     .map((c) => ({
-      node: c,
-      start: new Date(c.toolCallRef!.startedAt!).getTime(),
-      end: c.toolCallRef?.completedAt
-        ? new Date(c.toolCallRef.completedAt).getTime()
-        : new Date(c.toolCallRef!.startedAt!).getTime() + (c.durationMs ?? 0),
+      id: c.id,
+      startedAt: c.toolCallRef.startedAt,
+      completedAt: c.toolCallRef.completedAt ?? null,
+      durationMs: c.durationMs,
     }));
-
-  if (timed.length < 2) return [];
-
-  // Union-Find for grouping overlapping
-  const parent = new Map<string, string>();
-  function find(x: string): string {
-    if (!parent.has(x)) parent.set(x, x);
-    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
-    return parent.get(x)!;
-  }
-  function union(a: string, b: string) {
-    parent.set(find(a), find(b));
-  }
-
-  for (let i = 0; i < timed.length; i++) {
-    for (let j = i + 1; j < timed.length; j++) {
-      const a = timed[i];
-      const b = timed[j];
-      if (a.start < b.end && b.start < a.end) {
-        union(a.node.id, b.node.id);
-      }
-    }
-  }
-
-  // Collect groups
-  const groupMap = new Map<string, string[]>();
-  for (const t of timed) {
-    const root = find(t.node.id);
-    if (!groupMap.has(root)) groupMap.set(root, []);
-    groupMap.get(root)!.push(t.node.id);
-  }
-
-  const groups: ParallelGroup[] = [];
-  let labelIdx = 0;
-  for (const [, nodeIds] of groupMap) {
-    if (nodeIds.length > 1) {
-      const label = `Parallel Group ${String.fromCharCode(65 + labelIdx)}`;
-      labelIdx++;
-      groups.push({ label, nodeIds });
-    }
-  }
-
-  // If there are no parallel groups, nothing to label
-  if (groups.length === 0) return [];
-
-  return groups;
 });
 
-// Assign parallel group labels to tree nodes
-const nodeParallelLabel = computed<Map<string, string>>(() => {
-  const map = new Map<string, string>();
-  for (const g of parallelGroups.value) {
-    for (const id of g.nodeIds) {
-      map.set(id, g.label);
-    }
-  }
-  return map;
+const { idToLabel: nodeParallelLabel } = useParallelAgentDetection(timedNodes, {
+  generateLabels: true,
+  labelPrefix: 'Parallel Group',
 });
 
 // ---------------------------------------------------------------------------

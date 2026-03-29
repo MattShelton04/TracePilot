@@ -24,6 +24,7 @@ import {
   useLiveDuration,
 } from "@tracepilot/ui";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
+import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
 
 // Define the turn ownership check logic for the composable
 const turnOwnershipCheck = (turn: ConversationTurn, tool: TurnToolCall): boolean => {
@@ -254,32 +255,36 @@ function agentKey(tKey: string, agent: TurnToolCall, idx: number): string {
   return `${tKey}-${agent.toolCallId ?? `${agent.toolName}-${idx}`}`;
 }
 
-const parallelAgentIds = computed<Set<string>>(() => {
-  const result = new Set<string>();
+// ── Parallel agent detection ────────────────────────────────
+// Detect which agents overlap in time (execute in parallel)
+const allAgentToolCalls = computed(() => {
+  const agents: Array<{
+    id: string;
+    startedAt: string | null;
+    completedAt?: string | null;
+  }> = [];
+
   for (const phase of groupedPhases.value) {
     for (const turn of phase.turns) {
-      const agents = turn.toolCalls.filter((tc) => tc.isSubagent);
-      for (let i = 0; i < agents.length; i++) {
-        const a = agents[i];
-        if (!a.startedAt || !a.completedAt) continue;
-        const aStart = new Date(a.startedAt).getTime();
-        const aEnd = new Date(a.completedAt).getTime();
-        if (Number.isNaN(aStart) || Number.isNaN(aEnd)) continue;
-        for (let j = i + 1; j < agents.length; j++) {
-          const b = agents[j];
-          if (!b.startedAt || !b.completedAt) continue;
-          const bStart = new Date(b.startedAt).getTime();
-          const bEnd = new Date(b.completedAt).getTime();
-          if (Number.isNaN(bStart) || Number.isNaN(bEnd)) continue;
-          if (aStart < bEnd && bStart < aEnd) {
-            result.add(a.toolCallId ?? a.toolName);
-            result.add(b.toolCallId ?? b.toolName);
-          }
-        }
+      const agentCalls = turn.toolCalls.filter((tc) => tc.isSubagent);
+      for (let i = 0; i < agentCalls.length; i++) {
+        const a = agentCalls[i];
+        // Use toolCallId if available, otherwise generate unique ID to prevent collisions
+        const id = a.toolCallId ?? `${a.toolName}-turn${turn.turnIndex}-agent${i}`;
+        agents.push({
+          id,
+          startedAt: a.startedAt ?? null,
+          completedAt: a.completedAt ?? null,
+        });
       }
     }
   }
-  return result;
+
+  return agents;
+});
+
+const { parallelIds: parallelAgentIds } = useParallelAgentDetection(allAgentToolCalls, {
+  generateLabels: false, // Only need the flat set for highlighting
 });
 
 // ── Terminology legend items ─────────────────────────────────
