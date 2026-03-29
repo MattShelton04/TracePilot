@@ -3,7 +3,8 @@ import { ref, computed, watch } from "vue";
 import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions, searchSessions } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
-import { logError } from "@/utils/logger";
+import { logError, logWarn } from "@/utils/logger";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -21,38 +22,41 @@ export const useSessionsStore = defineStore("sessions", () => {
   const searchQuery = ref("");
   const searchResults = ref<SessionListItem[] | null>(null);
   const isSearching = ref(false);
+  const searchError = ref<string | null>(null);
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
   const sortBy = ref<SortOption>("updated");
 
+  const searchGuard = useAsyncGuard();
   let searchTimeout: ReturnType<typeof setTimeout> | null = null;
-  let activeSearchId = 0;
 
   watch(searchQuery, (newQuery) => {
     if (searchTimeout) clearTimeout(searchTimeout);
 
     if (!newQuery || !newQuery.trim()) {
+      searchGuard.invalidate();
       searchResults.value = null;
+      searchError.value = null;
       isSearching.value = false;
       return;
     }
 
     isSearching.value = true;
-    const searchId = ++activeSearchId;
+    searchError.value = null;
 
     searchTimeout = setTimeout(async () => {
+      const token = searchGuard.start();
       try {
         const results = await searchSessions(newQuery.trim());
-        if (activeSearchId === searchId) {
-          searchResults.value = results;
-        }
+        if (!searchGuard.isValid(token)) return;
+        searchResults.value = results;
       } catch (e) {
-        logError("[sessions] Search failed:", e);
-        if (activeSearchId === searchId) {
-          searchResults.value = [];
-        }
+        if (!searchGuard.isValid(token)) return;
+        logWarn("[sessions] Search failed:", e);
+        searchResults.value = [];
+        searchError.value = toErrorMessage(e);
       } finally {
-        if (activeSearchId === searchId) {
+        if (searchGuard.isValid(token)) {
           isSearching.value = false;
         }
       }
@@ -220,6 +224,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     searchQuery,
     searchResults,
     isSearching,
+    searchError,
     filterRepo,
     filterBranch,
     sortBy,
