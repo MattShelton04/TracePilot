@@ -18,6 +18,7 @@ import {
   checkSystemDeps,
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
 
 export const useLauncherStore = defineStore('launcher', () => {
   const models = ref<ModelInfo[]>([]);
@@ -113,8 +114,9 @@ export const useLauncherStore = defineStore('launcher', () => {
       // Update local count optimistically
       const tpl = templates.value.find((t) => t.id === id);
       if (tpl) tpl.usageCount += 1;
-    } catch {
+    } catch (e) {
       // Non-critical — don't surface errors for usage tracking
+      logWarn('[launcher] Failed to increment template usage', { id, error: e });
     }
   }
 
