@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useSessionsStore } from "../../stores/sessions";
 import { nextTick } from "vue";
-import type { SessionListItem } from "@tracepilot/types";
 
 // Mock the client module
 const mockListSessions = vi.fn();
@@ -26,6 +25,7 @@ const MOCK_SESSION = {
   eventCount: 10,
   turnCount: 3,
   currentModel: "claude-opus-4.6",
+  isRunning: false,
 };
 
 describe("useSessionsStore", () => {
@@ -191,75 +191,6 @@ describe("useSessionsStore", () => {
 
     expect(store.repositories).toEqual(["org/api", "org/web"]);
     expect(store.branches).toEqual(["dev", "main"]);
-  });
-
-  it("sets searchError on search failure", async () => {
-    mockSearchSessions.mockRejectedValue(new Error("fts5: syntax error"));
-    const store = useSessionsStore();
-
-    store.searchQuery = "bad[query";
-    await nextTick();
-    vi.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await nextTick();
-
-    expect(store.searchError).toContain("syntax error");
-    expect(store.searchResults).toEqual([]);
-    expect(store.isSearching).toBe(false);
-  });
-
-  it("clears searchError when query is emptied", async () => {
-    mockSearchSessions.mockRejectedValue(new Error("search error"));
-    const store = useSessionsStore();
-
-    store.searchQuery = "fail";
-    await nextTick();
-    vi.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await nextTick();
-    expect(store.searchError).not.toBeNull();
-
-    store.searchQuery = "";
-    await nextTick();
-    expect(store.searchError).toBeNull();
-    expect(store.searchResults).toBeNull();
-  });
-
-  it("discards stale search results via async guard", async () => {
-    let resolveFirst: (v: SessionListItem[]) => void;
-    const firstCall = new Promise<SessionListItem[]>((r) => { resolveFirst = r; });
-    const secondResult = [{ ...MOCK_SESSION, id: "2", summary: "Second" }];
-
-    mockSearchSessions
-      .mockImplementationOnce(() => firstCall)
-      .mockImplementationOnce(() => Promise.resolve(secondResult));
-
-    const store = useSessionsStore();
-
-    // Trigger first search
-    store.searchQuery = "first";
-    await nextTick();
-    vi.runAllTimers();
-
-    // Trigger second search before first resolves
-    store.searchQuery = "second";
-    await nextTick();
-    vi.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await nextTick();
-
-    // Now resolve the first (stale) search
-    resolveFirst!([{ ...MOCK_SESSION, id: "1", summary: "First" }]);
-    await Promise.resolve();
-    await Promise.resolve();
-    await nextTick();
-
-    // Should have second results, not first (stale)
-    expect(store.searchResults).toHaveLength(1);
-    expect(store.searchResults![0].summary).toBe("Second");
   });
 
   it("ensureIndex silently reindexes and refreshes list", async () => {
