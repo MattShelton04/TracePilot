@@ -172,6 +172,9 @@ function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: n
 // ── Lifecycle ────────────────────────────────────────────────
 // Note: keyboard listener is managed by useSearchKeyboardNavigation
 onMounted(async () => {
+  // Notify store that search view is mounted (enables background operations)
+  store.setViewMounted(true);
+
   store.fetchStats();
   store.fetchFilterOptions();
   // Fetch initial facets (browse mode gets filter-scoped counts)
@@ -186,6 +189,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  // Notify store that search view is unmounted (disables background operations)
+  store.setViewMounted(false);
   if (healthRefreshInterval) clearInterval(healthRefreshInterval);
 });
 </script>
