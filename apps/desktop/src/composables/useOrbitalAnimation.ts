@@ -279,6 +279,47 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
 
   // ── Node creation ────────────────────────────────────────────────────────────
 
+  const SEED_COLOR = '#4b5563' // muted gray — distinct from real repo palette
+
+  /**
+   * Create a decorative seed node for visual activity before real data arrives.
+   * Does NOT touch repoColorMap, repoLegendItems, or nextColorIndex.
+   */
+  function createSeedNode(label: string, tokens: number): OrbitNode {
+    const laneIdx = assignLane(tokens)
+    const startAngle = Math.random() * Math.PI * 2
+    const speedJitter = 0.85 + Math.random() * 0.3
+    const pos = getOrbitalPos(startAngle, laneIdx)
+
+    const node: OrbitNode = {
+      id: nodeIdCounter++,
+      repo: label,
+      repoDisplay: label,
+      branch: '…',
+      branchDisplay: '…',
+      color: SEED_COLOR,
+      laneIdx,
+      angle: startAngle,
+      speedJitter,
+      x: pos.x - 4,
+      y: pos.y - 4,
+      active: false,
+      expanded: false,
+      createdAt: performance.now(),
+    }
+
+    nodes.push(node)
+    requestAnimationFrame(() => { node.active = true })
+    return node
+  }
+
+  /** Remove all seed nodes (call when first real progress arrives). */
+  function clearSeedNodes() {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i].color === SEED_COLOR) nodes.splice(i, 1)
+    }
+  }
+
   function createNode(repo: string, branch: string, tokens: number): OrbitNode {
     const laneIdx = assignLane(tokens)
     const color = getRepoColor(repo)
@@ -471,9 +512,10 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
     }
 
     const decStart = performance.now()
+    const startSpeed = globalSpeedMult
     function step() {
       const t = Math.min((performance.now() - decStart) / durationMs, 1)
-      globalSpeedMult = Math.max(0.3 * (1 - t), 0)
+      globalSpeedMult = startSpeed * (1 - t)
 
       // Keep updating positions during deceleration
       for (const node of nodes) {
@@ -510,6 +552,8 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
 
     // Methods
     createNode,
+    createSeedNode,
+    clearSeedNodes,
     emitPulse,
     measureField,
     createAmbientParticles,
