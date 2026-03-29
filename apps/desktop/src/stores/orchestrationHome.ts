@@ -10,6 +10,7 @@ import {
   listRegisteredRepos,
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
+import { logWarn } from '@/utils/logger';
 import { aggregateSettledErrors } from '@/utils/settleErrors';
 
 export interface ActivityEvent {
@@ -140,8 +141,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       worktreeCount.value = stats.total;
       staleWorktreeCount.value = stats.stale;
       totalDiskUsage.value = stats.diskUsage;
-    } catch {
-      // Non-critical
+    } catch (e) {
+      // Non-critical - worktree stats are supplementary UI info
+      logWarn('[orchestrationHome] Failed to load worktree stats', e);
     }
   }
 
@@ -170,8 +172,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       worktreeCount.value = totalWt;
       staleWorktreeCount.value = staleWt;
       totalDiskUsage.value = totalDisk;
-    } catch {
-      // Non-critical
+    } catch (e) {
+      // Non-critical - worktree stats are supplementary UI info
+      logWarn('[orchestrationHome] Failed to load worktree stats from registry', e);
     }
   }
 

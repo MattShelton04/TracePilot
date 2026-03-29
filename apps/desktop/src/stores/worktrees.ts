@@ -25,6 +25,7 @@ import {
 } from '@tracepilot/client';
 import { toErrorMessage } from '@tracepilot/ui';
 import { useAsyncGuard } from '@/composables/useAsyncGuard';
+import { logWarn } from '@/utils/logger';
 
 export const useWorktreesStore = defineStore('worktrees', () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -94,7 +95,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch((e) => {
+            // Non-critical - disk usage is supplementary info
+            logWarn('[worktrees] Failed to load disk usage for worktree in loadWorktrees', e);
+          });
       }
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
@@ -115,8 +119,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
         try {
           const repoWorktrees = await listWorktrees(repo.path);
           allWorktrees.push(...repoWorktrees);
-        } catch {
+        } catch (e) {
           // Skip repos that fail (e.g., deleted from disk)
+          logWarn('[worktrees] Failed to load worktrees for repo', { repo: repo.path, error: e });
         }
       }
       if (!loadGuard.isValid(token)) return;
@@ -132,7 +137,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
               worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
             }
           })
-          .catch(() => { /* ignore disk usage errors */ });
+          .catch((e) => {
+            // Non-critical - disk usage is supplementary info
+            logWarn('[worktrees] Failed to load disk usage for worktree in loadAllWorktrees', e);
+          });
       }
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
@@ -150,8 +158,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       const result = await listBranchesApi(repoPath);
       if (!branchGuard.isValid(token)) return;
       branches.value = result;
-    } catch {
+    } catch (e) {
       if (!branchGuard.isValid(token)) return;
+      // Non-critical - branch list is optional for some operations
+      logWarn('[worktrees] Failed to load branches', { repoPath, error: e });
       branches.value = [];
     }
   }
@@ -247,7 +257,9 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   async function fetchWorktreeDetails(worktreePath: string): Promise<WorktreeDetails | null> {
     try {
       return await getWorktreeDetailsApi(worktreePath);
-    } catch {
+    } catch (e) {
+      // Non-critical - details are optional UI enhancement
+      logWarn('[worktrees] Failed to fetch worktree details', { worktreePath, error: e });
       return null;
     }
   }
@@ -260,7 +272,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
         }
       })
-      .catch(() => { /* ignore */ });
+      .catch((e) => {
+        // Non-critical - disk usage is supplementary info
+        logWarn('[worktrees] Failed to hydrate disk usage', { worktreePath, error: e });
+      });
   }
 
   // ─── Repository Registry Actions ──────────────────────────────────
