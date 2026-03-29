@@ -15,15 +15,17 @@ import {
   useSessionTabLoader, useToggleSet, useConversationSections,
   getAgentColor,
 } from "@tracepilot/ui";
+import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 
 const route = useRoute();
 const store = useSessionDetailStore();
 const preferences = usePreferencesStore();
-const expandedTools = useToggleSet<number>();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
-const collapsedSubagents = useToggleSet<string>();
 const activeView = ref("chat");
+
+// Chat view ref for deep-link delegation
+const chatViewRef = ref<InstanceType<typeof ChatViewMode> | null>(null);
 
 const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
   () => store.sessionId
@@ -45,10 +47,6 @@ const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollTo
 });
 
 // Scroll to a specific element when navigated from search.
-// Tries event-level first (via ?event=N), falls back to turn-level (via ?turn=N).
-// Uses IntersectionObserver so the highlight animation only starts once
-// the element is actually visible (loading can take a while).
-// Track timers and observers for cleanup on unmount
 const activeTimers: ReturnType<typeof setTimeout>[] = [];
 let activeObserver: IntersectionObserver | null = null;
 
@@ -93,8 +91,6 @@ function scrollToTarget(turnIndex: number, eventIndex: number | null) {
 }
 
 // Watch for turns to load, then scroll to the target.
-// Also re-scroll when query params change (e.g., clicking a different search result
-// in the same session without the component remounting).
 let lastScrolledKey: string | null = null;
 watch(
   [() => store.turns.length, () => route.query.turn, () => route.query.event],
@@ -107,20 +103,23 @@ watch(
     if (key === lastScrolledKey) return;
     if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
-    // Defer expansion to nextTick so useSessionTabLoader's onClear() runs first
+
     nextTick(() => {
+      // For chat view, delegate to ChatViewMode's revealEvent
+      if (activeView.value === 'chat' && chatViewRef.value) {
+        chatViewRef.value.revealEvent(turnIndex, eventIndex ?? undefined);
+        return;
+      }
+
+      // Compact/Timeline: use original expand logic
       if (eventIndex != null) {
-        if (!expandedTools.has(turnIndex)) expandedTools.toggle(turnIndex);
         const turn = store.turns.find(t => t.turnIndex === turnIndex);
         if (turn) {
           const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
           if (tc) {
-            if (tc.parentToolCallId) {
-              const subKey = `${turnIndex}-${tc.parentToolCallId}`;
-              if (collapsedSubagents.has(subKey)) collapsedSubagents.toggle(subKey);
-            }
             const idx = findToolCallIndex(turn, tc);
-            const detailKey = `${turnIndex}-${idx}`;
+            const prefix = activeView.value === 'timeline' ? 'tl-' : 'compact-';
+            const detailKey = `${prefix}${turnIndex}-${idx}`;
             if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
           }
         }
@@ -142,10 +141,8 @@ useSessionTabLoader(
   () => store.loadTurns(),
   {
     onClear() {
-      expandedTools.clear();
       expandedToolDetails.clear();
       expandedReasoning.clear();
-      collapsedSubagents.clear();
       lastScrolledKey = null;
     },
   }
@@ -236,174 +233,7 @@ function retryLoadTurns() {
     <EmptyState v-if="store.turns.length === 0 && !store.turnsError" message="No conversation turns found." />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
-    <div v-else-if="activeView === 'chat'" class="turn-group">
-      <div v-for="turn in store.turns" :key="turn.turnIndex" :id="`turn-${turn.turnIndex}`" class="conversation-turn">
-        <!-- User message -->
-        <div v-if="turn.userMessage" :id="turn.eventIndex != null ? `event-${turn.eventIndex}` : undefined" class="turn-item">
-          <div class="turn-avatar user">👤</div>
-          <div class="turn-body">
-            <div class="turn-header">
-              <span class="turn-author">You</span>
-              <span class="turn-meta">Turn {{ turn.turnIndex }}</span>
-              <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
-            </div>
-            <div class="turn-bubble user">
-              <MarkdownContent :content="turn.userMessage" :render="preferences.isFeatureEnabled('renderMarkdown')" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Agent-grouped content -->
-        <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="sIdx">
-          <!-- ── Main Agent Section ── -->
-          <template v-if="!section.agentId">
-            <!-- Reasoning (main agent) -->
-            <ReasoningBlock
-              class="turn-reasoning"
-              :reasoning="section.reasoning"
-              :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${sIdx}`)"
-              @toggle="expandedReasoning.toggle(`${turn.turnIndex}-main-${sIdx}`)"
-            />
-
-            <!-- Assistant messages (main agent) -->
-            <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`main-msg-${idx}`" class="turn-item">
-              <div class="turn-avatar assistant">🤖</div>
-              <div class="turn-body">
-                <div class="turn-header">
-                  <span class="turn-author">Copilot</span>
-                  <Badge v-if="turn.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ turn.model }}</Badge>
-                  <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
-                  <span v-if="turn.endTimestamp || turn.timestamp" class="turn-meta">{{ formatTime(turn.endTimestamp ?? turn.timestamp) }}</span>
-                  <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
-                </div>
-                <div class="turn-bubble assistant">
-                  <MarkdownContent :content="msg" :render="preferences.isFeatureEnabled('renderMarkdown')" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Tool calls (main agent — includes subagent launch calls) -->
-            <div v-if="section.toolCalls.length > 0" class="turn-tool-calls">
-              <div class="tool-calls-container">
-                <button
-                  class="tool-call-header w-full"
-                  :aria-expanded="expandedTools.has(turn.turnIndex)"
-                  @click="expandedTools.toggle(turn.turnIndex)"
-                >
-                  <ExpandChevron :expanded="expandedTools.has(turn.turnIndex)" />
-                  <span>{{ section.toolCalls.length }} tool call{{ section.toolCalls.length !== 1 ? "s" : "" }}</span>
-                  <span style="margin-left: auto; display: flex; gap: 6px;">
-                    <span class="tool-summary-badge tool-summary-pass">
-                      {{ section.toolCalls.filter((tc) => tc.success === true).length }} passed
-                    </span>
-                    <span
-                      v-if="section.toolCalls.some((tc) => tc.success === false)"
-                      class="tool-summary-badge tool-summary-fail"
-                    >
-                      {{ section.toolCalls.filter((tc) => tc.success === false).length }} failed
-                    </span>
-                  </span>
-                </button>
-
-                <div v-if="expandedTools.has(turn.turnIndex)">
-                  <ToolCallItem
-                    v-for="tc in section.toolCalls"
-                    :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
-                    :key="tc.toolCallId ?? tc.toolName"
-                    v-bind="tcProps(turn, tc)"
-                    @toggle="toggleToolDetail(turn, tc)"
-                    @load-full-result="handleLoadFullResult"
-                    @retry-full-result="handleRetryResult"
-                  />
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── Subagent Section ── -->
-          <div
-            v-else
-            :id="`subagent-${turn.turnIndex}-${section.agentId}`"
-            class="subagent-block"
-            :style="{ '--agent-border-color': getAgentColor(section.agentType) }"
-          >
-            <button
-              class="subagent-header"
-              :aria-expanded="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)"
-              @click="collapsedSubagents.toggle(`${turn.turnIndex}-${section.agentId}`)"
-            >
-              <ExpandChevron :expanded="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)" />
-              <AgentBadge
-                :agent-name="section.agentDisplayName"
-                :agent-type="section.agentType"
-                :model="section.model"
-                :status="section.status"
-              />
-              <span v-if="section.durationMs" class="turn-meta">{{ formatDuration(section.durationMs) }}</span>
-              <span v-if="section.toolCalls.length" class="turn-meta">
-                · {{ section.toolCalls.length }} tool{{ section.toolCalls.length !== 1 ? 's' : '' }}
-              </span>
-            </button>
-
-            <div v-if="!collapsedSubagents.has(`${turn.turnIndex}-${section.agentId}`)" class="subagent-content">
-              <!-- Subagent reasoning -->
-              <ReasoningBlock
-                class="turn-reasoning"
-                :reasoning="section.reasoning"
-                :expanded="expandedReasoning.has(`${turn.turnIndex}-${section.agentId}`)"
-                @toggle="expandedReasoning.toggle(`${turn.turnIndex}-${section.agentId}`)"
-              />
-
-              <!-- Subagent messages -->
-              <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`sub-msg-${idx}`" class="turn-item subagent-message">
-                <div class="turn-avatar assistant" :style="{ fontSize: '0.9rem' }">
-                  {{ section.agentType === 'explore' ? '🔍' : section.agentType === 'code-review' ? '🔎' : section.agentType === 'general-purpose' ? '🛠️' : '📋' }}
-                </div>
-                <div class="turn-body">
-                  <div class="turn-header">
-                    <span class="turn-author" :style="{ color: getAgentColor(section.agentType) }">{{ section.agentDisplayName }}</span>
-                    <Badge v-if="section.model" variant="done" style="font-size: 0.625rem; padding: 1px 6px;">{{ section.model }}</Badge>
-                  </div>
-                  <div class="turn-bubble assistant">
-                  <MarkdownContent :content="msg" :render="preferences.isFeatureEnabled('renderMarkdown')" />
-                </div>
-                </div>
-              </div>
-
-              <!-- Subagent tool calls -->
-              <div v-if="section.toolCalls.length > 0" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
-                <ToolCallItem
-                  v-for="tc in section.toolCalls"
-                  :id="tc.eventIndex != null ? `event-${tc.eventIndex}` : undefined"
-                  :key="tc.toolCallId ?? tc.toolName"
-                  v-bind="tcProps(turn, tc, '', 'compact')"
-                  @toggle="toggleToolDetail(turn, tc)"
-                  @load-full-result="handleLoadFullResult"
-                  @retry-full-result="handleRetryResult"
-                />
-              </div>
-
-              <!-- Empty state for subagents with no captured content -->
-              <div
-                v-if="section.messages.filter(m => m.trim()).length === 0 && section.reasoning.length === 0 && section.toolCalls.length === 0"
-                class="subagent-empty"
-              >
-                No content captured for this subagent
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Session events (errors, compactions, etc.) -->
-        <div v-if="turn.sessionEvents?.length" class="session-events-list">
-          <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
-            <Badge :variant="severityVariant(se.severity)" size="sm">{{ severityIcon(se.severity) }} {{ eventTypeLabel(se.eventType) }}</Badge>
-            <span class="session-event-summary">{{ se.summary }}</span>
-            <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ChatViewMode v-else-if="activeView === 'chat'" ref="chatViewRef" />
 
     <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
     <div v-else-if="activeView === 'compact'" class="turn-group">
@@ -618,50 +448,6 @@ function retryLoadTurns() {
 @keyframes turn-flash {
   0%, 30% { box-shadow: 0 0 0 3px var(--accent-emphasis); background: color-mix(in srgb, var(--accent-emphasis) 8%, transparent); }
   100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
-}
-
-.subagent-block {
-  margin: 8px 0 8px 24px;
-  border-left: 3px solid var(--agent-border-color, var(--accent-emphasis));
-  border-radius: 0 8px 8px 0;
-  background: color-mix(in srgb, var(--agent-border-color) 4%, var(--canvas-subtle));
-  overflow: hidden;
-}
-
-.subagent-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.subagent-header:hover {
-  background: color-mix(in srgb, var(--agent-border-color) 8%, transparent);
-}
-
-.subagent-content {
-  padding: 4px 12px 12px;
-}
-
-.subagent-empty {
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  opacity: 0.5;
-  font-style: italic;
-}
-
-.subagent-message .turn-avatar {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  font-size: 0.85rem;
 }
 
 .compact-agent-dot {
