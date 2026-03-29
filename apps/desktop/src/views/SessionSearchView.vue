@@ -328,8 +328,8 @@ onUnmounted(() => {
           <!-- ÔòÉÔòÉÔòÉ Empty State: No Query ÔòÉÔòÉÔòÉ -->
           <div v-else-if="!store.hasQuery && !store.hasResults && !store.hasActiveFilters" class="search-main-scroll">
 
-            <!-- Search index health status -->
-            <div v-if="store.healthInfo" class="search-health-bar">
+            <!-- Search index health status (only show when not actively indexing) -->
+            <div v-if="store.healthInfo && !store.searchIndexing && !isIndexing && !store.rebuilding" class="search-health-bar">
               <span class="health-stat">
                 <span class="health-dot" :class="store.healthInfo.inSync ? 'synced' : 'pending'" />
                 {{ store.healthInfo.indexedSessions }}/{{ store.healthInfo.totalSessions }} sessions indexed
