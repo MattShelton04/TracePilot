@@ -12,14 +12,15 @@
 //! - `performance`: Performance regression tests (marked with #[ignore])
 
 use super::*;
-use crate::models::conversation::{AttributedMessage, SessionEventSeverity};
+use crate::models::conversation::{AttributedMessage, SessionEventSeverity, TurnSessionEvent, TurnToolCall};
 use crate::models::event_types::{
     AbortData, AssistantReasoningData, ModelChangeData, PlanChangedData,
-    SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
+    SessionEventType, SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
     SubagentCompletedData, SubagentStartedData, ToolExecCompleteData, ToolExecStartData,
     TurnEndData, TurnStartData, UserMessageData,
 };
-use crate::parsing::events::{RawEvent, TypedEvent};
+use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
+use chrono::Utc;
 use serde_json::{Value, json};
 
 // Declare test submodules
