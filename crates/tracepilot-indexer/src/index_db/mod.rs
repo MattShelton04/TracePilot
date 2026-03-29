@@ -39,12 +39,33 @@ impl IndexDb {
         // Use DbConnectionBuilder to ensure consistent SQLite configuration
         // (journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000)
         let mut conn = DbConnectionBuilder::new(path).open().map_err(|e| {
-            // Convert TracePilotError to IndexerError
-            // We wrap it as a database configuration error since the builder handles both
-            // opening and pragma configuration
+            // Convert TracePilotError to IndexerError with proper context preservation
+            // We use DatabaseConfiguration since the builder handles both opening and pragma setup
             IndexerError::DatabaseConfiguration {
-                details: format!("Failed to open/configure database at {}", path.display()),
-                source: rusqlite::Error::InvalidPath(path.to_path_buf()),
+                details: format!(
+                    "Failed to open/configure database at {}: {}",
+                    path.display(),
+                    e
+                ),
+                // Extract the underlying rusqlite::Error from TracePilotError::ParseError
+                // This preserves the actual error cause for debugging
+                source: match e {
+                    tracepilot_core::error::TracePilotError::ParseError { source, .. } => {
+                        source
+                            .and_then(|e| e.downcast::<rusqlite::Error>().ok())
+                            .map(|e| *e)
+                            .unwrap_or_else(|| {
+                                rusqlite::Error::SqliteFailure(
+                                    rusqlite::ffi::Error::new(1), // SQLITE_ERROR
+                                    Some("Database configuration failed".to_string()),
+                                )
+                            })
+                    }
+                    _ => rusqlite::Error::SqliteFailure(
+                        rusqlite::ffi::Error::new(1),
+                        Some("Unexpected error type".to_string()),
+                    ),
+                },
             }
         })?;
 

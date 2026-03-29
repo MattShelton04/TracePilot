@@ -941,4 +941,74 @@ mod tests {
         // Test passes if connection opens successfully
         // In readonly mode, only busy_timeout is applied, other pragmas are ignored
     }
+
+    #[test]
+    fn test_foreign_keys_enforced() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path).open().unwrap();
+
+        // Create parent and child tables with FK constraint
+        conn.execute_batch(
+            "CREATE TABLE parent (id INTEGER PRIMARY KEY);
+             CREATE TABLE child (
+                 id INTEGER PRIMARY KEY,
+                 parent_id INTEGER NOT NULL,
+                 FOREIGN KEY (parent_id) REFERENCES parent(id)
+             );",
+        )
+        .unwrap();
+
+        // Insert valid parent
+        conn.execute("INSERT INTO parent VALUES (1)", []).unwrap();
+
+        // Valid FK reference should succeed
+        conn.execute("INSERT INTO child VALUES (1, 1)", [])
+            .unwrap();
+
+        // Invalid FK reference should FAIL because foreign_keys=ON
+        let result = conn.execute("INSERT INTO child VALUES (2, 999)", []);
+        assert!(
+            result.is_err(),
+            "Foreign key violation should be caught with foreign_keys=ON"
+        );
+    }
+
+    #[test]
+    fn test_synchronous_normal_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let conn = DbConnectionBuilder::new(&db_path).open().unwrap();
+
+        // Query synchronous pragma
+        let sync: i32 = conn
+            .query_row("PRAGMA synchronous", [], |r| r.get(0))
+            .unwrap();
+
+        // NORMAL = 1, FULL = 2, OFF = 0
+        assert_eq!(sync, 1, "synchronous should be set to NORMAL (1)");
+    }
+
+    #[test]
+    fn test_pragma_case_insensitive_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        // Test case-insensitive pragma matching in with_pragma
+        let conn = DbConnectionBuilder::new(&db_path)
+            .with_pragma("BUSY_TIMEOUT", "1000") // uppercase key
+            .open()
+            .unwrap();
+
+        // Should override default busy_timeout=5000 (case-insensitive)
+        let timeout: i32 = conn
+            .query_row("PRAGMA busy_timeout", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            timeout, 1000,
+            "Case-insensitive pragma override should work"
+        );
+    }
 }
