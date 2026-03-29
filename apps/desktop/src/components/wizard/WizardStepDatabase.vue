@@ -51,7 +51,7 @@ function onPathInput(e: Event) {
         >↺</button>
       </div>
 
-      <p class="form-note">~2 MB per 100 sessions. Will be created automatically.</p>
+      <p class="form-note">Will be created automatically.</p>
 
       <button class="btn-accent" @click="emit('next')">Continue →</button>
     </div>

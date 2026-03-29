@@ -44,8 +44,8 @@ const emit = defineEmits<{
         <div class="summary-row">
           <span class="summary-icon">📂</span>
           <div class="summary-text">
-            <span class="summary-label">Sessions</span>
-            <span class="summary-value">{{ sessionDir }} — {{ sessionCount }} sessions</span>
+            <span class="summary-label">Sessions ({{ sessionCount }})</span>
+            <span class="summary-value">{{ sessionDir }}</span>
           </div>
         </div>
         <div class="summary-row">

@@ -54,11 +54,18 @@ const REPO_PALETTE = [
 
 export const PHASE_LABELS: Record<Phase, string> = {
   idle: 'Preparing…',
-  discovering: 'Discovering sessions…',
+  discovering: 'Discovering sessions…', // Cycled in component
   indexing: 'Indexing sessions…',
   finalizing: 'Building search index…',
   complete: 'Ready — launching TracePilot',
 }
+
+export const DISCOVERING_MESSAGES = [
+  'Discovering sessions…',
+  'Scanning workspace…',
+  'Loading session data…',
+  'Analyzing conversation history…',
+]
 
 const MAX_VISIBLE_NODES = 40
 const MAX_CONNECTIONS = 80
