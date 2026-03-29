@@ -112,7 +112,7 @@ export interface TodoItem {
   id: string;
   title: string;
   description?: string;
-  status: string;
+  status: 'done' | 'in_progress' | 'blocked' | 'pending';
   createdAt?: string;
   updatedAt?: string;
 }
