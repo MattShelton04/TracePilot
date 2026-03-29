@@ -91,11 +91,28 @@ async function handleExport() {
   if (!selectedSessionId.value) return;
 
   const ext = format.value === 'json' ? 'tpx.json' : format.value === 'markdown' ? 'md' : 'csv';
-  const defaultName = `session-export.${ext}`;
+
+  // Build a descriptive filename from session name + datetime
+  const session = selectedSession.value;
+  const slug = (session?.summary || session?.repository || '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase()
+    .slice(0, 60) || 'session-export';
+  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  const defaultName = `${slug}-${timestamp}.${ext}`;
+
+  const filters = format.value === 'json'
+    ? [{ name: 'TracePilot Export (.tpx.json)', extensions: ['json'] }]
+    : format.value === 'markdown'
+      ? [{ name: 'Markdown', extensions: ['md'] }]
+      : [{ name: 'CSV', extensions: ['csv'] }];
 
   const outputPath = await browseForSavePath({
     title: 'Save export as',
     defaultPath: defaultName,
+    filters,
   });
   if (!outputPath) return;
 

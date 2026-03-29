@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import MarkdownContent from "../components/MarkdownContent.vue";
+import { ensureMarkdownReady } from "../utils/markdownLoader";
 
-// Pre-load heavy modules so the first test doesn't race module resolution
+// Pre-load markdown-it + dompurify before any test renders
 beforeAll(async () => {
-  await Promise.all([import('markdown-it'), import('dompurify')]);
+  await ensureMarkdownReady();
 });
 
 /** Mount and wait for the lazy markdown-it/dompurify load + Vue re-render. */
