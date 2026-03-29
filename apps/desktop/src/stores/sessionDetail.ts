@@ -52,6 +52,36 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // Track file size for freshness detection (avoids redundant turn re-fetches)
   let lastEventsFileSize = 0;
 
+  /**
+   * Smart-merge incoming turns into the reactive array.
+   *
+   * During auto-refresh of active sessions, only the last turn changes
+   * (receives new tool calls) and new turns are appended. By mutating
+   * the existing reactive array in-place instead of wholesale replacement,
+   * Vue's reactivity system only triggers updates for the changed indices,
+   * dramatically reducing re-render work for long sessions (900+ turns).
+   *
+   * Falls back to full replacement on first load or when lengths shrink.
+   */
+  function mergeTurns(incoming: ConversationTurn[]) {
+    const existing = turns.value;
+
+    // Full replacement: first load, reset, or truncation (shouldn't happen)
+    if (existing.length === 0 || incoming.length < existing.length) {
+      turns.value = incoming;
+      return;
+    }
+
+    // Update the last existing turn (may have gained new tool calls / messages)
+    const lastIdx = existing.length - 1;
+    existing[lastIdx] = incoming[lastIdx];
+
+    // Append any new turns
+    for (let i = existing.length; i < incoming.length; i++) {
+      existing.push(incoming[i]);
+    }
+  }
+
   // ── Frontend session cache (last 5 sessions) ────────────────────────
   // Caches all loaded section data so switching between recently viewed
   // sessions restores the UI instantly without any IPC roundtrip.
@@ -296,7 +326,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
         if (freshness.eventsFileSize === lastEventsFileSize) return;
         const result = await getSessionTurns(id);
         if (!sessionGuard.isValid(token)) return;
-        turns.value = result.turns;
+        mergeTurns(result.turns);
         lastEventsFileSize = result.eventsFileSize;
       }).catch((e) => {
         if (!sessionGuard.isValid(token)) return;
@@ -416,7 +446,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
           const result = await getSessionTurns(id);
           if (!sessionGuard.isValid(token)) return;
-          turns.value = result.turns;
+          mergeTurns(result.turns);
           turnsError.value = null;
           lastEventsFileSize = result.eventsFileSize;
         })().catch((e) => {

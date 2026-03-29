@@ -8,6 +8,7 @@ import {
   type ComputedRef,
 } from "vue";
 import type { SubagentFullData } from "./useCrossTurnSubagents";
+import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 /**
  * Manages the slide-out subagent detail panel state.
@@ -41,6 +42,10 @@ export function useSubagentPanel(
   );
 
   function selectSubagent(agentId: string) {
+    if (selectedAgentId.value === agentId && isPanelOpen.value) {
+      closePanel();
+      return;
+    }
     selectedAgentId.value = agentId;
     isPanelOpen.value = true;
   }
@@ -66,9 +71,7 @@ export function useSubagentPanel(
 
   function handleKeydown(e: KeyboardEvent) {
     if (!isPanelOpen.value) return;
-    // Don't intercept if focus is in an input/textarea
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (shouldIgnoreGlobalShortcut(e)) return;
 
     if (e.key === "Escape") {
       closePanel();

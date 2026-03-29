@@ -3,7 +3,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
-import type { ConversationTurn, TurnToolCall, SessionEventSeverity } from "@tracepilot/types";
+import type { ConversationTurn, TurnToolCall, SessionEventSeverity, AttributedMessage } from "@tracepilot/types";
 import {
   formatDuration,
   formatTime,
@@ -140,17 +140,44 @@ function userEventId(turn: ConversationTurn): string | undefined {
   return turn.eventIndex != null ? `event-${turn.eventIndex}` : undefined;
 }
 
-function mainReasoningForTurn(turn: ConversationTurn): string[] {
-  return getMainReasoning(turn);
+// ─── Memoized per-turn render data ────────────────────────────────
+// Computed once when turns change, avoids re-segmenting on every render.
+
+interface TurnRenderData {
+  reasoning: string[];
+  messages: AttributedMessage[];
+  segments: ToolSegment[];
 }
 
-function mainMessagesForTurn(turn: ConversationTurn) {
-  return getMainMessages(turn);
+const turnRenderData = computed(() => {
+  const map = new Map<number, TurnRenderData>();
+  for (const turn of turns.value) {
+    map.set(turn.turnIndex, {
+      reasoning: getMainReasoning(turn),
+      messages: getMainMessages(turn),
+      segments: segmentToolCalls(turn.toolCalls),
+    });
+  }
+  return map;
+});
+
+function renderDataFor(turn: ConversationTurn): TurnRenderData {
+  return turnRenderData.value.get(turn.turnIndex) ?? { reasoning: [], messages: [], segments: [] };
 }
 
-function toolSegmentsForTurn(turn: ConversationTurn): ToolSegment[] {
-  return segmentToolCalls(turn.toolCalls);
-}
+// ─── toolCallId → turnIndex index (O(1) lookups) ─────────────────
+
+const toolCallTurnIndex = computed(() => {
+  const map = new Map<string, number>();
+  for (const turn of turns.value) {
+    for (const tc of turn.toolCalls) {
+      if (tc.toolCallId) {
+        map.set(tc.toolCallId, turn.turnIndex);
+      }
+    }
+  }
+  return map;
+});
 
 function severityClass(severity: SessionEventSeverity): string {
   if (severity === "error") return "error";
@@ -305,12 +332,12 @@ const subagentTurnColors = computed(() => {
   const map = new Map<number, string>();
   for (const sa of allSubagents.value) {
     const color = getAgentColor(inferAgentTypeFromToolCall(sa.toolCall));
-    // The launch turn
     map.set(sa.turnIndex, color);
-    // Any turns where child tools appear
     for (const ct of sa.childTools) {
-      const turn = turns.value.find(t => t.toolCalls.some(tc => tc.toolCallId === ct.toolCallId));
-      if (turn) map.set(turn.turnIndex, color);
+      if (ct.toolCallId) {
+        const turnIdx = toolCallTurnIndex.value.get(ct.toolCallId);
+        if (turnIdx != null) map.set(turnIdx, color);
+      }
     }
   }
   return map;
@@ -442,7 +469,7 @@ defineExpose({ revealEvent });
               >
                 <!-- Main reasoning -->
                 <ReasoningBlock
-                  v-for="(reasoning, rIdx) in mainReasoningForTurn(turn)"
+                  v-for="(reasoning, rIdx) in renderDataFor(turn).reasoning"
                   :key="`r-${turn.turnIndex}-${rIdx}`"
                   :reasoning="[reasoning]"
                   :expanded="expandedReasoning.has(`${turn.turnIndex}-main-${rIdx}`)"
@@ -451,20 +478,23 @@ defineExpose({ revealEvent });
 
                 <!-- Main messages -->
                 <div
-                  v-for="(msg, mIdx) in mainMessagesForTurn(turn)"
+                  v-for="(msg, mIdx) in renderDataFor(turn).messages"
                   :key="`m-${turn.turnIndex}-${mIdx}`"
                   class="cv-agent-bubble"
                 >
                   <div class="cv-agent-bubble-header">
                     <span class="cv-agent-avatar" aria-hidden="true">🤖</span>
                     <span class="cv-agent-name">Copilot</span>
+                    <span v-if="turn.timestamp" class="cv-agent-time">
+                      {{ formatTime(turn.timestamp) }}
+                    </span>
                   </div>
                   <MarkdownContent :content="msg.content" :render="renderMd" />
                 </div>
 
                 <!-- Tool segments -->
                 <template
-                  v-for="(segment, sIdx) in toolSegmentsForTurn(turn)"
+                  v-for="(segment, sIdx) in renderDataFor(turn).segments"
                   :key="`seg-${turn.turnIndex}-${sIdx}`"
                 >
                   <!-- Tool group -->
@@ -864,6 +894,13 @@ defineExpose({ revealEvent });
 
 .cv-agent-name {
   font-weight: 600;
+}
+
+.cv-agent-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-placeholder, #6e7681);
+  font-weight: 400;
 }
 
 /* ─── Tool group ───────────────────────────────────────────────── */
