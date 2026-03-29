@@ -112,10 +112,15 @@ fn write_header(md: &mut String, session: &PortableSession, archive: &SessionArc
     md.push('\n');
     let _ = writeln!(
         md,
-        "> Exported by {} on {} · Schema v{}",
+        "> Exported by [{}](https://github.com/MattShelton04/TracePilot) on {} · Schema v{}",
         archive.header.exported_by,
         format_dt(&archive.header.exported_at),
         archive.header.schema_version,
+    );
+    let _ = writeln!(md, ">");
+    let _ = writeln!(
+        md,
+        "> Get [TracePilot](https://github.com/MattShelton04/TracePilot)"
     );
     md.push('\n');
 }

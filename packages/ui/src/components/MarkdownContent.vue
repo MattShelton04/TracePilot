@@ -19,6 +19,10 @@ const props = withDefaults(defineProps<{
   render: true
 });
 
+const emit = defineEmits<{
+  'open-external': [url: string];
+}>();
+
 // Safety net: trigger load if not already started (shouldn't happen in practice)
 watchEffect(() => {
   if (props.render && !mdReady.value) ensureMarkdownReady();
@@ -39,13 +43,13 @@ function handleLinkClick(event: MouseEvent) {
     if (href && href.startsWith('#')) {
       // Internal section link - prevent default to avoid 404 in SPA
       event.preventDefault();
-      
+
       const id = href.slice(1).toLowerCase();
       const container = (event.currentTarget as HTMLElement);
-      
+
       // 1. Try to find by ID (standard)
       let element = container.querySelector(`[id="${id}"], a[name="${id}"]`);
-      
+
       // 2. If not found, try to find a header that matches the slug
       if (!element) {
         const headers = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -58,21 +62,25 @@ function handleLinkClick(event: MouseEvent) {
             .replace(/\s/g, '-')
             .replace(/_/g, '-')
             .replace(/^-+|-+$/g, '');
-          
+
           if (slug === id || slug.replace(/-+/g, '-') === id.replace(/-+/g, '-')) {
             element = h;
             break;
           }
         }
       }
-      
+
       if (element) {
-        // Use scroll-margin-top on the target element if possible, 
+        // Use scroll-margin-top on the target element if possible,
         // otherwise just use scrollIntoView which is more reliable than manual relative math
         // in complex layouts.
         (element as HTMLElement).style.scrollMarginTop = '80px';
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    } else if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+      // External link - emit event for parent to handle (opens in external browser in Tauri)
+      event.preventDefault();
+      emit('open-external', href);
     }
   }
 }

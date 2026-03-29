@@ -17,6 +17,7 @@ import { SECTION_LABELS } from '@tracepilot/types';
 import { exportSessions, getSessionSections } from '@tracepilot/client';
 import { browseForSavePath } from '@/composables/useBrowseDirectory';
 import { logError, logInfo } from '@/utils/logger';
+import { openExternal } from '@/utils/openExternal';
 import {
   useExportConfig,
   EXPORT_PRESETS,
@@ -564,6 +565,7 @@ function copiedToClipboard() {
                   v-else-if="canRenderPreview"
                   :content="preview.content"
                   :render="true"
+                  @open-external="openExternal"
                 />
                 <!-- Rendered view fallback: formats without a renderer -->
                 <pre v-else class="preview-code"><code>{{ formattedPreviewContent }}</code></pre>
