@@ -3,7 +3,7 @@
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    load_summary_list_item, read_config, truncate_utf8, MAX_CHECKPOINT_CONTENT_BYTES,
+    load_summary_list_item, read_config, MAX_CHECKPOINT_CONTENT_BYTES,
 };
 use crate::types::{
     CachedTurns, EventItem, EventsResponse, FreshnessResponse, SessionIncidentItem,
@@ -361,7 +361,7 @@ pub async fn get_session_checkpoints(
 
         for checkpoint in &mut checkpoints {
             if let Some(content) = checkpoint.content.as_mut() {
-                truncate_utf8(content, MAX_CHECKPOINT_CONTENT_BYTES);
+                tracepilot_core::utils::truncate_string_utf8(content, MAX_CHECKPOINT_CONTENT_BYTES);
             }
         }
 
@@ -388,7 +388,7 @@ pub async fn get_session_plan(
         }
 
         let mut content = std::fs::read_to_string(&plan_path)?;
-        truncate_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
+        tracepilot_core::utils::truncate_string_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
 
         Ok(Some(serde_json::json!({ "content": content })))
     })

@@ -41,11 +41,6 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
     }
 }
 
-pub(crate) fn truncate_utf8(s: &mut String, max_bytes: usize) {
-    let truncated_len = tracepilot_core::utils::truncate_utf8(s.as_str(), max_bytes).len();
-    s.truncate(truncated_len);
-}
-
 pub(crate) fn summary_to_list_item(
     summary: tracepilot_core::SessionSummary,
     session_path: &Path,
