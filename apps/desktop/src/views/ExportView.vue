@@ -50,6 +50,8 @@ const {
   selectNone,
   saveAsPreset,
   deleteCustomPreset,
+  updateContentDetail,
+  updateRedaction,
 } = useExportConfig();
 
 const {
@@ -402,7 +404,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="contentDetail.includeSubagentInternals"
-                @update:model-value="contentDetail = { ...contentDetail, includeSubagentInternals: $event }"
+                @update:model-value="updateContentDetail('includeSubagentInternals', $event)"
               />
             </div>
             <div class="toggle-row">
@@ -413,7 +415,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="contentDetail.includeToolDetails"
-                @update:model-value="contentDetail = { ...contentDetail, includeToolDetails: $event }"
+                @update:model-value="updateContentDetail('includeToolDetails', $event)"
               />
             </div>
             <div class="toggle-row">
@@ -424,7 +426,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="contentDetail.includeFullToolResults"
-                @update:model-value="contentDetail = { ...contentDetail, includeFullToolResults: $event }"
+                @update:model-value="updateContentDetail('includeFullToolResults', $event)"
               />
             </div>
           </section>
@@ -440,7 +442,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="redaction.anonymizePaths"
-                @update:model-value="redaction = { ...redaction, anonymizePaths: $event }"
+                @update:model-value="updateRedaction('anonymizePaths', $event)"
               />
             </div>
             <div class="toggle-row">
@@ -451,7 +453,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="redaction.stripSecrets"
-                @update:model-value="redaction = { ...redaction, stripSecrets: $event }"
+                @update:model-value="updateRedaction('stripSecrets', $event)"
               />
             </div>
             <div class="toggle-row">
@@ -462,7 +464,7 @@ function copiedToClipboard() {
               </span>
               <FormSwitch
                 :model-value="redaction.stripPii"
-                @update:model-value="redaction = { ...redaction, stripPii: $event }"
+                @update:model-value="updateRedaction('stripPii', $event)"
               />
             </div>
           </section>
