@@ -131,12 +131,102 @@ fn bench_reindex_varied(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark FTS5 search content indexing (Phase 2).
+///
+/// This measures the full search indexing pipeline: session discovery, event parsing,
+/// content extraction, and FTS5 upsert. Phase 1 (reindex_all) is run as setup since
+/// search indexing depends on session metadata being present.
+fn bench_reindex_search_content(c: &mut Criterion) {
+    let mut group = c.benchmark_group("reindex_search_content");
+    group.sample_size(10);
+
+    for count in [10, 50, 100, 200] {
+        let events_per_session = match count {
+            10 => 200,   // larger sessions at small scale
+            50 => 100,
+            100 => 50,
+            _ => 50,
+        };
+        let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, events_per_session);
+
+        group.throughput(criterion::Throughput::Elements(count as u64));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &sessions_path,
+            |b, sessions_path| {
+                b.iter_batched(
+                    || {
+                        let db_dir = tempfile::tempdir().unwrap();
+                        let db_path = db_dir.path().join("bench.db");
+                        // Phase 1 must run first — search indexing depends on session metadata
+                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        (db_dir, db_path)
+                    },
+                    |(_db_dir, db_path)| {
+                        tracepilot_indexer::reindex_search_content(
+                            sessions_path,
+                            &db_path,
+                            |_| {},
+                            || false,
+                        )
+                        .unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmark search indexing with varied session profiles (realistic distribution).
+///
+/// Uses 40% Quick / 30% Standard / 20% AgentHeavy / 10% LargeRefactor sessions
+/// to approximate real-world indexing load.
+fn bench_reindex_search_varied(c: &mut Criterion) {
+    let mut group = c.benchmark_group("reindex_search_varied");
+    group.sample_size(10);
+
+    for count in [50, 100] {
+        let (_sessions_guard, sessions_path) = create_varied_session_fixture(count);
+
+        group.throughput(criterion::Throughput::Elements(count as u64));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &sessions_path,
+            |b, sessions_path| {
+                b.iter_batched(
+                    || {
+                        let db_dir = tempfile::tempdir().unwrap();
+                        let db_path = db_dir.path().join("bench.db");
+                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        (db_dir, db_path)
+                    },
+                    |(_db_dir, db_path)| {
+                        tracepilot_indexer::reindex_search_content(
+                            sessions_path,
+                            &db_path,
+                            |_| {},
+                            || false,
+                        )
+                        .unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_upsert_session,
     bench_reindex_all,
     bench_reindex_varied,
     bench_search,
-    bench_query_analytics
+    bench_query_analytics,
+    bench_reindex_search_content,
+    bench_reindex_search_varied,
 );
 criterion_main!(benches);

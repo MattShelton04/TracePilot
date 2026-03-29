@@ -78,6 +78,7 @@ This report identifies concrete bottlenecks with code-level examples, surveys th
 | 10-entry LRU turn cache in Tauri state | ✅ Done | Instant repeated session views |
 | Frontend session detail cache (10 sessions, background refresh) | ✅ Done | Instant tab switching for recent sessions |
 | Lazy-loaded Vue routes for all major views | ✅ Done | Reduced initial bundle load |
+| Bulk FTS5 write with trigger bypass | ✅ Done | 4.8× faster search indexing (44s → 9s for 327K FTS rows) |
 | `prepare_turns_for_ipc()` payload trimming | ✅ Done | 10-20% smaller IPC payloads |
 | Proper `spawn_blocking` for all DB/FS operations | ✅ Done | Never blocks Tokio event loop |
 | Event listener cleanup in Vue components | ✅ Done | All `addEventListener` calls have `onUnmounted` cleanup |
