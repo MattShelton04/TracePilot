@@ -455,5 +455,5 @@ export async function showSessionCommand(
     if (options.json) {
       console.log(JSON.stringify(jsonOutput, null, 2));
     }
-  });
+  }, "Failed to show session");
 }
