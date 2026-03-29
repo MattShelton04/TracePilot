@@ -207,48 +207,67 @@ function memoryLabel(tc: TurnToolCall): string {
 }
 
 // ─── Subagent completion tracking ─────────────────────────────────
-// Maps turnIndex → agent IDs whose LAST read_agent appears in that turn.
+// Maps turnIndex → subagent toolCallIds whose LAST read_agent appears in that turn.
 // Only one pill per subagent, positioned at the final read.
+// Bridge: read_agent uses agent_name (e.g. "explore-rust-backend") while
+// subagentMap is keyed by toolCallId (e.g. "tooluse_QVH..."). The launch
+// tool call's arguments.name provides the bridge.
 
-function parseAgentIdFromArgs(tc: TurnToolCall): string | null {
+function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
   try {
     const args = typeof tc.arguments === "string"
       ? JSON.parse(tc.arguments)
-      : tc.arguments;
+      : (tc.arguments as Record<string, unknown> | null);
     return (args?.agent_id as string) ?? null;
   } catch {
     return null;
   }
 }
 
+/** Reverse map: agent launch name → subagentMap toolCallId */
+const agentNameToToolCallId = computed(() => {
+  const map = new Map<string, string>();
+  for (const [toolCallId, sa] of subagentMap.value) {
+    const args = sa.toolCall.arguments as Record<string, unknown> | undefined;
+    const name = (args?.name as string) ?? undefined;
+    if (name) {
+      map.set(name, toolCallId);
+    }
+  }
+  return map;
+});
+
 const completionsByTurn = computed(() => {
-  const lastReadByAgent = new Map<string, number>();
+  const lastReadByAgent = new Map<string, number>(); // toolCallId → turnIndex
 
   for (const turn of turns.value) {
     for (const tc of turn.toolCalls) {
       if (tc.toolName === "read_agent" && !tc.parentToolCallId) {
-        const agentId = parseAgentIdFromArgs(tc);
-        if (agentId && subagentMap.value.has(agentId)) {
-          lastReadByAgent.set(agentId, turn.turnIndex);
+        const agentName = parseAgentNameFromReadAgent(tc);
+        if (agentName) {
+          const toolCallId = agentNameToToolCallId.value.get(agentName);
+          if (toolCallId) {
+            lastReadByAgent.set(toolCallId, turn.turnIndex);
+          }
         }
       }
     }
   }
 
   const byTurn = new Map<number, string[]>();
-  for (const [agentId, turnIdx] of lastReadByAgent) {
-    const sa = subagentMap.value.get(agentId);
+  for (const [toolCallId, turnIdx] of lastReadByAgent) {
+    const sa = subagentMap.value.get(toolCallId);
     if (sa?.toolCall.isComplete) {
       const list = byTurn.get(turnIdx) ?? [];
-      list.push(agentId);
+      list.push(toolCallId);
       byTurn.set(turnIdx, list);
     }
   }
   return byTurn;
 });
 
-function completionLabel(agentId: string): string {
-  const sa = subagentMap.value.get(agentId);
+function completionLabel(toolCallId: string): string {
+  const sa = subagentMap.value.get(toolCallId);
   if (sa) {
     const agentType = inferAgentTypeFromToolCall(sa.toolCall);
     const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
