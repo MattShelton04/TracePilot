@@ -10,7 +10,7 @@ import { useSearchResultState } from '@/composables/useSearchResultState';
 import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
 import type { IndexingProgressPayload, SearchContentType, SearchResult } from '@tracepilot/types';
 import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes, useToast } from '@tracepilot/ui';
-import { SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
+import { SearchActiveFilters, SearchGroupedResults, SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
 
 const store = useSearchStore();
 
@@ -257,40 +257,20 @@ onUnmounted(() => {
       </div>
 
       <!-- ═══ Active Filter Chips ═══ -->
-      <div v-if="activeContentTypeChips.length > 0 || store.repository || store.toolName || store.sessionId" class="active-filters-bar">
-        <span class="active-filters-label">Active filters:</span>
-        <div class="active-filter-chips">
-          <span
-            v-for="chip in activeContentTypeChips"
-            :key="`ct-${chip.mode}-${chip.type}`"
-            class="filter-chip"
-            :class="chip.mode === 'exclude' ? 'filter-chip-exclude' : 'filter-chip-include'"
-          >
-            <span
-              class="filter-chip-dot"
-              :style="{ background: contentTypeConfig[chip.type]?.color }"
-            />
-            <span v-if="chip.mode === 'exclude'" class="filter-chip-prefix">NOT</span>
-            {{ contentTypeConfig[chip.type]?.label ?? chip.type }}
-            <button class="filter-chip-remove" @click="removeContentTypeFilter(chip.type)" aria-label="Remove filter">×</button>
-          </span>
-          <span v-if="store.repository" class="filter-chip filter-chip-neutral">
-            Repo: {{ store.repository }}
-            <button class="filter-chip-remove" @click="store.repository = null" aria-label="Remove filter">×</button>
-          </span>
-          <span v-if="store.toolName" class="filter-chip filter-chip-neutral">
-            Tool: {{ store.toolName }}
-            <button class="filter-chip-remove" @click="store.toolName = null" aria-label="Remove filter">×</button>
-          </span>
-          <span v-if="store.sessionId" class="filter-chip filter-chip-include">
-            Session: {{ sessionDisplayName }}
-            <button class="filter-chip-remove" @click="store.sessionId = null; filteredSessionNameOverride = null" aria-label="Remove filter">×</button>
-          </span>
-          <button v-if="activeFilterCount > 1" class="filter-chip-clear-all" @click="handleClearFilters">
-            Clear all
-          </button>
-        </div>
-      </div>
+      <SearchActiveFilters
+        :active-content-type-chips="activeContentTypeChips"
+        :repository="store.repository"
+        :tool-name="store.toolName"
+        :session-id="store.sessionId"
+        :session-display-name="sessionDisplayName"
+        :active-filter-count="activeFilterCount"
+        :content-type-config="contentTypeConfig as any"
+        @remove-content-type="removeContentTypeFilter"
+        @clear-repository="store.repository = null"
+        @clear-tool-name="store.toolName = null"
+        @clear-session-id="store.sessionId = null; filteredSessionNameOverride = null"
+        @clear-all="handleClearFilters"
+      />
 
       <!-- ═══ Indexing Progress Banner ═══ -->
       <div v-if="isIndexing || store.searchIndexing || store.rebuilding" class="indexing-banner">
@@ -502,122 +482,20 @@ onUnmounted(() => {
             </div>
 
             <!-- Results: Grouped by session -->
-            <div v-else class="results-grouped">
-              <div
-                v-for="(group, gIdx) in store.groupedResults"
-                :key="group.sessionId"
-                class="session-group"
-                :style="{ animationDelay: `${Math.min(gIdx, 6) * 40}ms` }"
-              >
-                <div class="session-group-header" @click="toggleGroupCollapse(group.sessionId)">
-                  <span class="session-group-chevron" :class="{ collapsed: collapsedGroups.has(group.sessionId) }">▾</span>
-                  <div class="session-group-title">
-                    {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
-                  </div>
-                  <div v-if="group.sessionRepository || group.sessionBranch" class="session-group-badges">
-                    <span v-if="group.sessionRepository" class="badge badge-accent" style="font-size: 0.5625rem">{{ group.sessionRepository }}</span>
-                    <span v-if="group.sessionBranch" class="badge badge-success" style="font-size: 0.5625rem">{{ group.sessionBranch }}</span>
-                  </div>
-                  <div class="session-group-actions">
-                    <span class="session-group-count">{{ group.results.length }}{{ store.hasMore ? '+' : '' }} match{{ group.results.length !== 1 ? 'es' : '' }}</span>
-                    <button
-                      class="session-group-filter-btn"
-                      title="Filter search to this session"
-                      @click.stop="filterBySession(group.sessionId, group.sessionSummary)"
-                    >
-                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
-                        <path d="M2 4h12M4 8h8M6 12h4" />
-                      </svg>
-                    </button>
-                    <router-link
-                      :to="`/session/${group.sessionId}/conversation`"
-                      class="session-group-goto-btn"
-                      title="Go to session"
-                      @click.stop
-                    >
-                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
-                        <path d="M6 3l5 5-5 5" />
-                      </svg>
-                    </router-link>
-                  </div>
-                </div>
-                <div v-if="!collapsedGroups.has(group.sessionId)" class="session-group-results">
-                  <div
-                    v-for="result in group.results"
-                    :key="result.id"
-                    class="session-group-result"
-                    :class="{ expanded: expandedResults.has(result.id), 'result-focused': resultIndexMap.get(result.id) === focusedResultIndex }"
-                    :data-result-index="resultIndexMap.get(result.id)"
-                    @click="toggleExpand(result.id)"
-                  >
-                    <div class="session-group-result-row">
-                      <span
-                        class="ct-badge"
-                        :style="{
-                          background: contentTypeConfig[result.contentType]?.color + '20',
-                          color: contentTypeConfig[result.contentType]?.color,
-                        }"
-                      >
-                        {{ contentTypeConfig[result.contentType]?.label ?? result.contentType }}
-                      </span>
-                      <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
-                      <span class="session-group-snippet" v-html="result.snippet" />
-                      <span class="session-group-result-meta">
-                        <span v-if="result.timestampUnix != null" class="session-group-timestamp" :title="formatDateMedium(result.timestampUnix)">
-                          {{ formatRelativeTime(result.timestampUnix) }}
-                        </span>
-                        <span v-if="result.turnNumber != null">T{{ result.turnNumber }}</span>
-                        <span v-if="result.toolName" class="tool-name-badge">{{ result.toolName }}</span>
-                      </span>
-                      <router-link
-                        :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-                        class="session-group-view-btn"
-                        @click.stop
-                      >→</router-link>
-                    </div>
-                    <!-- Expanded details -->
-                    <div v-if="expandedResults.has(result.id)" class="session-group-expanded">
-                      <!-- Full snippet (un-truncated) -->
-                      <!-- eslint-disable-next-line vue/no-v-html -- server-controlled highlighted snippet -->
-                      <div class="result-snippet" v-html="result.snippet" />
-                      <div class="expanded-grid">
-                        <div v-if="result.sessionSummary" class="expanded-item">
-                          <span class="expanded-label">Session</span>
-                          <span class="expanded-value">{{ result.sessionSummary }}</span>
-                        </div>
-                        <div class="expanded-item">
-                          <span class="expanded-label">Session ID</span>
-                          <span class="expanded-value expanded-mono">{{ result.sessionId }}</span>
-                        </div>
-                        <div v-if="result.turnNumber != null" class="expanded-item">
-                          <span class="expanded-label">Turn</span>
-                          <span class="expanded-value">{{ result.turnNumber }}</span>
-                        </div>
-                        <div v-if="result.toolName" class="expanded-item">
-                          <span class="expanded-label">Tool</span>
-                          <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
-                        </div>
-                        <div v-if="result.eventIndex != null" class="expanded-item">
-                          <span class="expanded-label">Event Index</span>
-                          <span class="expanded-value">{{ result.eventIndex }}</span>
-                        </div>
-                        <div v-if="result.timestampUnix != null" class="expanded-item">
-                          <span class="expanded-label">Timestamp</span>
-                          <span class="expanded-value">{{ formatDateMedium(result.timestampUnix) }}</span>
-                        </div>
-                      </div>
-                      <router-link
-                        :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"
-                        class="expanded-view-btn"
-                        @click.stop
-                      >
-                        Open in Session Viewer →
-                      </router-link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <SearchGroupedResults
+              v-else
+              :grouped-results="store.groupedResults"
+              :collapsed-groups="collapsedGroups"
+              :expanded-results="expandedResults"
+              :result-index-map="resultIndexMap"
+              :focused-result-index="focusedResultIndex"
+              :has-more="store.hasMore"
+              :content-type-config="contentTypeConfig as any"
+              @toggle-group-collapse="toggleGroupCollapse"
+              @filter-by-session="filterBySession"
+              @toggle-expand="toggleExpand"
+              :session-link="sessionLink"
+            />
 
             <!-- ═══ Pagination (both views) ═══ -->
             <div v-if="store.totalPages > 1" class="pagination">
@@ -1718,220 +1596,6 @@ onUnmounted(() => {
   background: var(--canvas-default);
   color: var(--accent-fg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* -- Session-grouped results -- */
-.results-grouped {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.session-group {
-  background: var(--canvas-default);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  animation: resultFadeIn var(--transition-fast) ease both;
-}
-
-.session-group-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--canvas-subtle);
-  border-bottom: 1px solid var(--border-default);
-  cursor: pointer;
-  user-select: none;
-  transition: background var(--transition-fast);
-}
-
-.session-group-header:hover {
-  background: var(--canvas-overlay);
-}
-
-.session-group-chevron {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  transition: transform 0.15s ease;
-  flex-shrink: 0;
-}
-
-.session-group-chevron.collapsed {
-  transform: rotate(-90deg);
-}
-
-.session-group-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 0 0 auto;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.session-group-badges {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.session-group-badges :deep(.badge) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.session-group-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.session-group-count {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  font-weight: 500;
-}
-
-.session-group-filter-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.session-group-filter-btn:hover {
-  border-color: var(--accent-emphasis);
-  color: var(--accent-fg);
-  background: var(--accent-subtle);
-}
-
-.session-group-goto-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-tertiary);
-  text-decoration: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.session-group-goto-btn:hover {
-  border-color: var(--success-emphasis);
-  color: var(--success-fg);
-  background: var(--success-subtle);
-}
-
-.session-group-results {
-  display: flex;
-  flex-direction: column;
-}
-
-.session-group-result {
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid var(--border-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.session-group-result:last-child {
-  border-bottom: none;
-}
-
-.session-group-result:hover {
-  background: var(--canvas-subtle);
-}
-
-.session-group-result.expanded {
-  background: var(--canvas-subtle);
-}
-
-.session-group-result-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-}
-
-.session-group-result.expanded .session-group-snippet {
-  display: none;
-}
-
-.session-group-expanded {
-  padding: 0 16px 12px 36px;
-}
-
-.session-group-snippet {
-  flex: 1;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.session-group-snippet :deep(mark) {
-  background: rgba(251, 191, 36, 0.22);
-  color: var(--warning-fg);
-  border-radius: 2px;
-  padding: 0 2px;
-}
-
-.session-group-result-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.625rem;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.session-group-timestamp {
-  color: var(--text-placeholder);
-  font-size: 0.5625rem;
-}
-
-.session-group-view-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  text-decoration: none;
-  font-size: 0.75rem;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.session-group-view-btn:hover {
-  color: var(--accent-fg);
-  background: var(--accent-subtle);
 }
 
 /* ── Keyboard focus indicator ────────────────────────────── */
