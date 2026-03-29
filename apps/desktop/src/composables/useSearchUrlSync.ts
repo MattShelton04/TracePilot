@@ -24,6 +24,17 @@ export function useSearchUrlSync() {
     syncingFromUrl = true;
     store.beginHydration();
 
+    // Capture previous state to detect if anything actually changed
+    const prevQuery = store.query;
+    const prevContentTypes = store.contentTypes.slice();
+    const prevExcludeContentTypes = store.excludeContentTypes.slice();
+    const prevRepository = store.repository;
+    const prevToolName = store.toolName;
+    const prevSessionId = store.sessionId;
+    const prevDateFrom = store.dateFrom;
+    const prevDateTo = store.dateTo;
+    const prevSortBy = store.sortBy;
+
     store.query = typeof q.q === 'string' ? q.q : '';
     if (typeof q.sort === 'string' && ['relevance', 'newest', 'oldest'].includes(q.sort)) {
       store.sortBy = q.sort as 'relevance' | 'newest' | 'oldest';
@@ -53,19 +64,36 @@ export function useSearchUrlSync() {
     store.dateFrom = (typeof q.from === 'string' && q.from) ? q.from : null;
     store.dateTo = (typeof q.to === 'string' && q.to) ? q.to : null;
 
+    // Check if search-relevant state actually changed
+    const arraysEqual = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+    const stateChanged =
+      prevQuery !== store.query ||
+      !arraysEqual(prevContentTypes, store.contentTypes) ||
+      !arraysEqual(prevExcludeContentTypes, store.excludeContentTypes) ||
+      prevRepository !== store.repository ||
+      prevToolName !== store.toolName ||
+      prevSessionId !== store.sessionId ||
+      prevDateFrom !== store.dateFrom ||
+      prevDateTo !== store.dateTo ||
+      prevSortBy !== store.sortBy;
+
     // End hydration after Vue flushes watchers.
-    // The watchers in search.ts will automatically trigger a search when
-    // hydrating ends, so we DON'T need to call executeSearch() explicitly.
-    // This prevents double searches (one from watcher, one from explicit call).
+    // If state actually changed during hydration, watchers were suppressed and we need
+    // to trigger a search explicitly. If state didn't change (e.g., URL sync round-trip),
+    // skip the explicit search to avoid duplicates.
     setTimeout(() => {
       syncingFromUrl = false;
       store.endHydration();
-      // In browse mode (no query/filters), manually fetch stats since no watcher will fire
-      if (!store.hasQuery && !store.hasActiveFilters) {
-        store.fetchStatsOnly();
+
+      if (stateChanged) {
+        // State changed during hydration → watchers were suppressed → trigger search
+        if (store.hasQuery || store.hasActiveFilters) {
+          store.executeSearch();
+        } else {
+          store.fetchStatsOnly();
+        }
       }
-      // Note: If there IS a query or active filters, the watchers will automatically
-      // call scheduleSearch() → executeSearch() now that hydrating is false
+      // else: State didn't change → no suppressed watchers → no search needed
     }, 0);
   }
 
