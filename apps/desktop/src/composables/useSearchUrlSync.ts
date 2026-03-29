@@ -53,17 +53,19 @@ export function useSearchUrlSync() {
     store.dateFrom = (typeof q.from === 'string' && q.from) ? q.from : null;
     store.dateTo = (typeof q.to === 'string' && q.to) ? q.to : null;
 
-    // End hydration after Vue flushes watchers, then trigger a search
-    // only if there's an actual query or active filters (otherwise show browse presets)
+    // End hydration after Vue flushes watchers.
+    // The watchers in search.ts will automatically trigger a search when
+    // hydrating ends, so we DON'T need to call executeSearch() explicitly.
+    // This prevents double searches (one from watcher, one from explicit call).
     setTimeout(() => {
       syncingFromUrl = false;
       store.endHydration();
-      if (store.hasQuery || store.hasActiveFilters) {
-        store.executeSearch();
-      } else {
-        // Fetch stats/facets so the browse view can show counts
+      // In browse mode (no query/filters), manually fetch stats since no watcher will fire
+      if (!store.hasQuery && !store.hasActiveFilters) {
         store.fetchStatsOnly();
       }
+      // Note: If there IS a query or active filters, the watchers will automatically
+      // call scheduleSearch() → executeSearch() now that hydrating is false
     }, 0);
   }
 
