@@ -11,6 +11,11 @@
   justify-content: center;
   z-index: var(--z-modal);
   backdrop-filter: blur(8px);
+  animation: overlayFadeIn 0.18s ease;
+}
+@keyframes overlayFadeIn {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
 }
 .modal {
   background: var(--canvas-overlay);
@@ -23,6 +28,11 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: modalSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .modal-header {
   padding: 16px 20px;
@@ -57,6 +67,11 @@
   box-shadow: var(--shadow-lg), 0 0 60px rgba(99, 102, 241, 0.08);
   z-index: var(--z-modal);
   overflow: hidden;
+  animation: paletteDropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes paletteDropIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
 .command-palette-input {
   width: 100%;

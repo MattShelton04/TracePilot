@@ -270,7 +270,7 @@ defineExpose({ databaseSize, indexedSessionCount });
 .indexing-progress-bar-container {
   width: 160px;
   height: 6px;
-  background: var(--bg-tertiary, #e5e7eb);
+  background: var(--canvas-inset);
   border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;

@@ -9,10 +9,11 @@ import { initLogging, logError } from "./utils/logger";
 // Apply persisted theme before mount to prevent flash.
 // Uses a dedicated write-through cache key so we never parse the full config
 // blob synchronously on startup.
+const VALID_THEMES = ['dark', 'light'];
 const cachedTheme = localStorage.getItem("tracepilot-theme");
 document.documentElement.setAttribute(
   "data-theme",
-  cachedTheme === "light" ? "light" : "dark",
+  cachedTheme && VALID_THEMES.includes(cachedTheme) ? cachedTheme : "dark",
 );
 
 // Eagerly load markdown parser so MarkdownContent renders instantly (no layout shift).

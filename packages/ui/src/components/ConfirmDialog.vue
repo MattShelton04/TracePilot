@@ -213,7 +213,7 @@ function variantClass(v?: ConfirmVariant): string {
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--border-default, #444);
-  color: var(--fg-default, #ccc);
+  color: var(--text-primary, #ccc);
   padding: 0.4rem 1rem;
   border-radius: 6px;
   font-weight: 500;
@@ -221,6 +221,6 @@ function variantClass(v?: ConfirmVariant): string {
 }
 
 .btn-secondary:hover {
-  background-color: var(--bg-subtle, rgba(255, 255, 255, 0.06));
+  background-color: var(--canvas-subtle, rgba(255, 255, 255, 0.06));
 }
 </style>

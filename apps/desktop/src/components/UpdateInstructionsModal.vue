@@ -177,7 +177,7 @@ function handleOpenRelease() {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .modal-close {
@@ -191,7 +191,7 @@ function handleOpenRelease() {
 }
 
 .modal-close:hover {
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -205,7 +205,7 @@ function handleOpenRelease() {
 .method-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
@@ -216,7 +216,7 @@ function handleOpenRelease() {
 }
 
 .method-description a {
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
   text-decoration: none;
 }
 
@@ -230,7 +230,7 @@ function handleOpenRelease() {
   border-radius: 4px;
   font-size: 12px;
   font-family: 'Cascadia Code', 'Fira Code', monospace;
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
 }
 
 .update-intro {
@@ -243,7 +243,7 @@ function handleOpenRelease() {
   padding-left: 20px;
   font-size: 14px;
   line-height: 2;
-  color: var(--color-fg-default, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .update-steps code {
@@ -252,7 +252,7 @@ function handleOpenRelease() {
   border-radius: 4px;
   font-size: 12px;
   font-family: 'Cascadia Code', 'Fira Code', monospace;
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
 }
 
 .update-steps kbd {
@@ -288,7 +288,7 @@ function handleOpenRelease() {
 }
 
 .update-links a {
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
   text-decoration: none;
   font-size: 13px;
 }
