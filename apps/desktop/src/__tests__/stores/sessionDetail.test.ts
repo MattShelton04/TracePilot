@@ -13,17 +13,20 @@ const mockGetShutdownMetrics = vi.fn();
 const mockGetSessionIncidents = vi.fn();
 const mockCheckSessionFreshness = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  getSessionDetail: (...args: unknown[]) => mockGetSessionDetail(...args),
-  getSessionTurns: (...args: unknown[]) => mockGetSessionTurns(...args),
-  getSessionEvents: (...args: unknown[]) => mockGetSessionEvents(...args),
-  getSessionTodos: (...args: unknown[]) => mockGetSessionTodos(...args),
-  getSessionCheckpoints: (...args: unknown[]) => mockGetSessionCheckpoints(...args),
-  getSessionPlan: (...args: unknown[]) => mockGetSessionPlan(...args),
-  getShutdownMetrics: (...args: unknown[]) => mockGetShutdownMetrics(...args),
-  getSessionIncidents: (...args: unknown[]) => mockGetSessionIncidents(...args),
-  checkSessionFreshness: (...args: unknown[]) => mockCheckSessionFreshness(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    getSessionDetail: (...args: unknown[]) => mockGetSessionDetail(...args),
+    getSessionTurns: (...args: unknown[]) => mockGetSessionTurns(...args),
+    getSessionEvents: (...args: unknown[]) => mockGetSessionEvents(...args),
+    getSessionTodos: (...args: unknown[]) => mockGetSessionTodos(...args),
+    getSessionCheckpoints: (...args: unknown[]) => mockGetSessionCheckpoints(...args),
+    getSessionPlan: (...args: unknown[]) => mockGetSessionPlan(...args),
+    getShutdownMetrics: (...args: unknown[]) => mockGetShutdownMetrics(...args),
+    getSessionIncidents: (...args: unknown[]) => mockGetSessionIncidents(...args),
+    checkSessionFreshness: (...args: unknown[]) => mockCheckSessionFreshness(...args),
+  });
+});
 
 // ── Fixtures ───────────────────────────────────────────────────
 const SESSION_ID = "abc-123";

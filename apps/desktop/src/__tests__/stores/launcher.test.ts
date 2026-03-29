@@ -13,16 +13,19 @@ const mockRestoreDefaultTemplates = vi.fn();
 const mockIncrementTemplateUsage = vi.fn();
 const mockCheckSystemDeps = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  launchSession: (...args: unknown[]) => mockLaunchSession(...args),
-  getAvailableModels: (...args: unknown[]) => mockGetAvailableModels(...args),
-  listSessionTemplates: (...args: unknown[]) => mockListSessionTemplates(...args),
-  saveSessionTemplate: (...args: unknown[]) => mockSaveSessionTemplate(...args),
-  deleteSessionTemplate: (...args: unknown[]) => mockDeleteSessionTemplate(...args),
-  restoreDefaultTemplates: (...args: unknown[]) => mockRestoreDefaultTemplates(...args),
-  incrementTemplateUsage: (...args: unknown[]) => mockIncrementTemplateUsage(...args),
-  checkSystemDeps: (...args: unknown[]) => mockCheckSystemDeps(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    launchSession: (...args: unknown[]) => mockLaunchSession(...args),
+    getAvailableModels: (...args: unknown[]) => mockGetAvailableModels(...args),
+    listSessionTemplates: (...args: unknown[]) => mockListSessionTemplates(...args),
+    saveSessionTemplate: (...args: unknown[]) => mockSaveSessionTemplate(...args),
+    deleteSessionTemplate: (...args: unknown[]) => mockDeleteSessionTemplate(...args),
+    restoreDefaultTemplates: (...args: unknown[]) => mockRestoreDefaultTemplates(...args),
+    incrementTemplateUsage: (...args: unknown[]) => mockIncrementTemplateUsage(...args),
+    checkSystemDeps: (...args: unknown[]) => mockCheckSystemDeps(...args),
+  });
+});
 
 const MOCK_TEMPLATE: SessionTemplate = {
   id: "default-multi-agent-review",

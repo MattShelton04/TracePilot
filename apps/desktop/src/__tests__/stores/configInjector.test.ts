@@ -23,20 +23,23 @@ const mockGetActiveCopilotVersion = vi.fn();
 const mockGetMigrationDiffs = vi.fn();
 const mockMigrateAgentDefinition = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  getAgentDefinitions: (...args: unknown[]) => mockGetAgentDefinitions(...args),
-  saveAgentDefinition: (...args: unknown[]) => mockSaveAgentDefinition(...args),
-  getCopilotConfig: (...args: unknown[]) => mockGetCopilotConfig(...args),
-  saveCopilotConfig: (...args: unknown[]) => mockSaveCopilotConfig(...args),
-  createConfigBackup: (...args: unknown[]) => mockCreateConfigBackup(...args),
-  deleteConfigBackup: (...args: unknown[]) => mockDeleteConfigBackup(...args),
-  listConfigBackups: (...args: unknown[]) => mockListConfigBackups(...args),
-  restoreConfigBackup: (...args: unknown[]) => mockRestoreConfigBackup(...args),
-  discoverCopilotVersions: (...args: unknown[]) => mockDiscoverCopilotVersions(...args),
-  getActiveCopilotVersion: (...args: unknown[]) => mockGetActiveCopilotVersion(...args),
-  getMigrationDiffs: (...args: unknown[]) => mockGetMigrationDiffs(...args),
-  migrateAgentDefinition: (...args: unknown[]) => mockMigrateAgentDefinition(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    getAgentDefinitions: (...args: unknown[]) => mockGetAgentDefinitions(...args),
+    saveAgentDefinition: (...args: unknown[]) => mockSaveAgentDefinition(...args),
+    getCopilotConfig: (...args: unknown[]) => mockGetCopilotConfig(...args),
+    saveCopilotConfig: (...args: unknown[]) => mockSaveCopilotConfig(...args),
+    createConfigBackup: (...args: unknown[]) => mockCreateConfigBackup(...args),
+    deleteConfigBackup: (...args: unknown[]) => mockDeleteConfigBackup(...args),
+    listConfigBackups: (...args: unknown[]) => mockListConfigBackups(...args),
+    restoreConfigBackup: (...args: unknown[]) => mockRestoreConfigBackup(...args),
+    discoverCopilotVersions: (...args: unknown[]) => mockDiscoverCopilotVersions(...args),
+    getActiveCopilotVersion: (...args: unknown[]) => mockGetActiveCopilotVersion(...args),
+    getMigrationDiffs: (...args: unknown[]) => mockGetMigrationDiffs(...args),
+    migrateAgentDefinition: (...args: unknown[]) => mockMigrateAgentDefinition(...args),
+  });
+});
 
 // Mock toast store
 const mockToastSuccess = vi.fn();

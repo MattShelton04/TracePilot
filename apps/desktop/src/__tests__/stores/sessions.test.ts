@@ -6,10 +6,13 @@ import { useSessionsStore } from "../../stores/sessions";
 const mockListSessions = vi.fn();
 const mockReindexSessions = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  listSessions: (...args: unknown[]) => mockListSessions(...args),
-  reindexSessions: (...args: unknown[]) => mockReindexSessions(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    listSessions: (...args: unknown[]) => mockListSessions(...args),
+    reindexSessions: (...args: unknown[]) => mockReindexSessions(...args),
+  });
+});
 
 const MOCK_SESSION = {
   id: "abc-123",

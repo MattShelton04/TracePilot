@@ -3,9 +3,12 @@ import { ref, nextTick } from 'vue';
 import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
 
 // ── Mocks ──────────────────────────────────────────────────────
-vi.mock('@tracepilot/client', () => ({
-  previewExport: vi.fn(),
-}));
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return createClientMock({
+    previewExport: vi.fn(),
+  });
+});
 
 vi.mock('@/utils/logger', () => ({
   logError: vi.fn(),
@@ -26,7 +29,7 @@ vi.mock('vue', async () => {
 import { previewExport } from '@tracepilot/client';
 import { useExportPreview } from '../../composables/useExportPreview';
 
-const mockPreviewExport = previewExport as ReturnType<typeof vi.fn>;
+const mockPreviewExport = vi.mocked(previewExport);
 
 // ── Helpers ────────────────────────────────────────────────────
 

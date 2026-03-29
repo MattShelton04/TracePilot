@@ -7,17 +7,20 @@ import { useSessionDetailStore } from '@/stores/sessionDetail';
 
 const mockGetSessionTodos = vi.fn();
 
-vi.mock('@tracepilot/client', () => ({
-  getSessionDetail: vi.fn(),
-  getSessionTurns: vi.fn(),
-  checkSessionFreshness: vi.fn(),
-  getSessionEvents: vi.fn(),
-  getSessionTodos: (...args: unknown[]) => mockGetSessionTodos(...args),
-  getSessionCheckpoints: vi.fn(),
-  getSessionPlan: vi.fn(),
-  getShutdownMetrics: vi.fn(),
-  getSessionIncidents: vi.fn(),
-}));
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return createClientMock({
+    getSessionDetail: vi.fn(),
+    getSessionTurns: vi.fn(),
+    checkSessionFreshness: vi.fn(),
+    getSessionEvents: vi.fn(),
+    getSessionTodos: (...args: unknown[]) => mockGetSessionTodos(...args),
+    getSessionCheckpoints: vi.fn(),
+    getSessionPlan: vi.fn(),
+    getShutdownMetrics: vi.fn(),
+    getSessionIncidents: vi.fn(),
+  });
+});
 
 const LoadingOverlayStub = {
   name: 'LoadingOverlay',

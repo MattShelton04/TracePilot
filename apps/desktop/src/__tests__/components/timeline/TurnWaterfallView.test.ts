@@ -6,14 +6,17 @@ import TurnWaterfallView from "../../../components/timeline/TurnWaterfallView.vu
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
 
 // ── Mock @tracepilot/client ─────────────────────────────────────────
-vi.mock("@tracepilot/client", () => ({
-  getSessionDetail: vi.fn(),
-  getSessionTurns: vi.fn(),
-  getSessionEvents: vi.fn(),
-  getSessionTodos: vi.fn(),
-  getSessionCheckpoints: vi.fn(),
-  getShutdownMetrics: vi.fn(),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../../mocks/client");
+  return createClientMock({
+    getSessionDetail: vi.fn(),
+    getSessionTurns: vi.fn(),
+    getSessionEvents: vi.fn(),
+    getSessionTodos: vi.fn(),
+    getSessionCheckpoints: vi.fn(),
+    getShutdownMetrics: vi.fn(),
+  });
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

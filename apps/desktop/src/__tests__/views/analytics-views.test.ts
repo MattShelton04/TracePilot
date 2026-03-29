@@ -8,15 +8,14 @@ const mockGetAnalytics = vi.fn();
 const mockGetToolAnalysis = vi.fn();
 const mockGetCodeImpact = vi.fn();
 
-vi.mock('@tracepilot/client', () => ({
-  getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
-  getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
-  getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
-  // Preferences store hydrates on creation and needs these
-  checkConfigExists: vi.fn().mockResolvedValue(false),
-  getConfig: vi.fn().mockResolvedValue(null),
-  saveConfig: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return createClientMock({
+    getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
+    getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
+    getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
+  });
+});
 
 // ── Fixtures ──────────────────────────────────────────────────
 const FIXTURE_ANALYTICS: AnalyticsData = {

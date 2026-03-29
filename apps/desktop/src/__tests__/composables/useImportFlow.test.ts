@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ImportPreviewResult, ImportResult } from '@tracepilot/types';
+import { createClientMock } from '../mocks/client';
 
 // ── Mocks ──────────────────────────────────────────────────────
 vi.mock('@tracepilot/client', () => ({
+  ...createClientMock(),
   previewImport: vi.fn(),
   importSessions: vi.fn(),
 }));
