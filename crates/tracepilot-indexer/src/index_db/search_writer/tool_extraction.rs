@@ -130,9 +130,8 @@ pub(super) fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Va
     }
 }
 
-/// Split camelCase/PascalCase identifiers into space-separated words.
-/// Returns ONLY the expansion terms (not the original text).
 /// Expand camelCase and PascalCase identifiers into space-separated words.
+/// Returns ONLY the expansion terms (not the original text).
 /// Kept for potential future use in search enrichment.
 #[cfg(test)]
 fn expand_camel_case(text: &str) -> String {
