@@ -107,7 +107,11 @@ impl ValidationCheck {
         if self.passed {
             Ok(())
         } else {
-            Err(validation_err(self.error_message.as_ref().unwrap()))
+            Err(validation_err(
+                self.error_message
+                    .as_ref()
+                    .expect("failed check must have error_message"),
+            ))
         }
     }
 
@@ -277,6 +281,16 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
 // ── Security helpers ───────────────────────────────────────────────────────
 
 /// Check if a string contains path traversal sequences or absolute paths.
+///
+/// Uses three layers of defense to prevent attacks:
+/// 1. Rust's `Path::is_absolute()` for OS-aware absolute path detection
+/// 2. `Path::components()` iteration to catch `..` and prefix components
+/// 3. String-level checks for encoded attempts (`..` and `:/`)
+///
+/// This prevents attacks like:
+/// - Relative traversal: `../../../etc/passwd`
+/// - Absolute paths: `/etc/passwd`, `C:\Windows`
+/// - Windows UNC: `\\server\share`
 pub(crate) fn contains_path_traversal(s: &str) -> bool {
     use std::path::{Component, Path};
 
