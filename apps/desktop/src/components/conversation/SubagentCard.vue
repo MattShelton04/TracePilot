@@ -3,6 +3,7 @@ import type { TurnToolCall } from "@tracepilot/types";
 import {
   agentStatusFromToolCall,
   formatDuration,
+  formatLiveDuration,
   getAgentColor,
   getAgentIcon,
   inferAgentTypeFromToolCall,
@@ -39,7 +40,15 @@ const model = computed(() => {
   return (args?.model as string) || props.toolCall.model || "";
 });
 
-const duration = computed(() => formatDuration(props.toolCall.durationMs ?? 0));
+const duration = computed(() => {
+  if (status.value === "in-progress" && !props.toolCall.durationMs) {
+    return "";
+  }
+  if (status.value === "in-progress") {
+    return formatLiveDuration(props.toolCall.durationMs);
+  }
+  return formatDuration(props.toolCall.durationMs ?? 0);
+});
 
 function handleClick() {
   if (props.toolCall.toolCallId) {
@@ -66,7 +75,7 @@ function handleClick() {
         <span class="cv-subagent-desc">{{ description }}</span>
       </div>
       <span v-if="model" class="cv-subagent-model">{{ model }}</span>
-      <span class="cv-subagent-dur">{{ duration }}</span>
+      <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>
       <span
         :class="[
           'cv-subagent-status',
