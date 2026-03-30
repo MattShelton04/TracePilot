@@ -69,10 +69,11 @@ describe("useIncidentChartData", () => {
         layout,
       });
       const bar = chartData.value?.bars[2]; // third bar has all incident types
+      expect(bar).toBeDefined();
       // truncRect is at the bottom (highest y), rlRect is at the top (lowest y)
-      expect(bar.truncRect.y).toBeGreaterThanOrEqual(bar.compRect.y);
-      expect(bar.compRect.y).toBeGreaterThanOrEqual(bar.otherRect.y);
-      expect(bar.otherRect.y).toBeGreaterThanOrEqual(bar.rlRect.y);
+      expect(bar!.truncRect.y).toBeGreaterThanOrEqual(bar!.compRect.y);
+      expect(bar!.compRect.y).toBeGreaterThanOrEqual(bar!.otherRect.y);
+      expect(bar!.otherRect.y).toBeGreaterThanOrEqual(bar!.rlRect.y);
     });
 
     it("computes otherErrors = errors - rateLimits", () => {
@@ -112,13 +113,14 @@ describe("useIncidentChartData", () => {
         layout,
       });
       const bar = chartData.value?.bars[0];
-      expect(bar.rateLimits).toBeCloseTo(4 / 5);
-      expect(bar.otherErrors).toBeCloseTo(6 / 5);
-      expect(bar.compactions).toBeCloseTo(2 / 5);
-      expect(bar.truncations).toBeCloseTo(1 / 5);
+      expect(bar).toBeDefined();
+      expect(bar!.rateLimits).toBeCloseTo(4 / 5);
+      expect(bar!.otherErrors).toBeCloseTo(6 / 5);
+      expect(bar!.compactions).toBeCloseTo(2 / 5);
+      expect(bar!.truncations).toBeCloseTo(1 / 5);
       // Raw values should be unaffected
-      expect(bar.rawRateLimits).toBe(4);
-      expect(bar.rawOtherErrors).toBe(6);
+      expect(bar!.rawRateLimits).toBe(4);
+      expect(bar!.rawOtherErrors).toBe(6);
     });
 
     it("uses 1 as denominator when activity has no entry for a date", () => {
@@ -132,9 +134,10 @@ describe("useIncidentChartData", () => {
         layout,
       });
       const bar = chartData.value?.bars[0];
+      expect(bar).toBeDefined();
       // With no activity, denominator is 1, so values are unchanged
-      expect(bar.rateLimits).toBe(2);
-      expect(bar.otherErrors).toBe(6);
+      expect(bar!.rateLimits).toBe(2);
+      expect(bar!.otherErrors).toBe(6);
     });
 
     it("handles all-zero incident values", () => {
@@ -174,7 +177,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      expect(gridLines.value).toHaveLength(chartData.value?.yLabels.length);
+      expect(gridLines.value).toHaveLength(chartData.value!.yLabels.length);
     });
   });
 
@@ -188,7 +191,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]!);
       expect(text).toContain("2 rate limits");
       expect(text).toContain("3 errors");
       expect(text).toContain("3 compactions");
@@ -206,7 +209,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]!);
       expect(text).toContain("1 rate limit");
       expect(text).not.toMatch(/1 rate limits/);
       expect(text).toContain("1 compaction");
@@ -225,7 +228,7 @@ describe("useIncidentChartData", () => {
         normalize,
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]!);
       expect(text).toContain("rate limits/session");
       expect(text).toContain("errors/session");
       expect(text).toContain("compactions/session");
@@ -241,7 +244,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]!);
       expect(text).toContain("no incidents");
     });
 
@@ -254,7 +257,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(true),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]!);
       expect(text).toContain("no incidents");
     });
   });
