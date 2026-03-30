@@ -11,6 +11,10 @@ const mockGetCodeImpact = vi.fn();
 vi.mock('@tracepilot/client', async () => {
   const { createClientMock } = await import('../mocks/client');
   return createClientMock({
+    // Preferences store hydrates on creation — keep false/null to match
+    // pre-refactor behavior and avoid config-driven side effects in tests
+    checkConfigExists: vi.fn().mockResolvedValue(false),
+    getConfig: vi.fn().mockResolvedValue(null),
     getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
     getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
     getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),

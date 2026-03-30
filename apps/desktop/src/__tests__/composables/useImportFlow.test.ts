@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ImportPreviewResult, ImportResult } from '@tracepilot/types';
-import { createClientMock } from '../mocks/client';
 
 // ── Mocks ──────────────────────────────────────────────────────
-vi.mock('@tracepilot/client', () => ({
-  ...createClientMock(),
-  previewImport: vi.fn(),
-  importSessions: vi.fn(),
-}));
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return {
+    ...createClientMock(),
+    previewImport: vi.fn(),
+    importSessions: vi.fn(),
+  };
+});
 
 vi.mock('@/utils/logger', () => ({
   logError: vi.fn(),
