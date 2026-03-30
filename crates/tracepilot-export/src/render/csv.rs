@@ -73,8 +73,8 @@ fn render_session_files(
         render_summary_csv(session)?,
     ));
 
-    if let Some(conversation) = &session.conversation {
-        if !conversation.is_empty() {
+    if let Some(conversation) = &session.conversation
+        && !conversation.is_empty() {
             files.push(make_file(
                 prefix,
                 "conversation",
@@ -91,27 +91,24 @@ fn render_session_files(
                 ));
             }
         }
-    }
 
-    if let Some(events) = &session.events {
-        if !events.is_empty() {
+    if let Some(events) = &session.events
+        && !events.is_empty() {
             files.push(make_file(
                 prefix,
                 "events",
                 render_events_csv(events)?,
             ));
         }
-    }
 
-    if let Some(metrics) = &session.shutdown_metrics {
-        if !metrics.model_metrics.is_empty() {
+    if let Some(metrics) = &session.shutdown_metrics
+        && !metrics.model_metrics.is_empty() {
             files.push(make_file(
                 prefix,
                 "model-metrics",
                 render_model_metrics_csv(metrics)?,
             ));
         }
-    }
 
     Ok(())
 }
@@ -335,7 +332,7 @@ fn render_model_metrics_csv(metrics: &ShutdownMetrics) -> Result<Vec<u8>> {
 fn escape_csv(value: &str) -> String {
     // Formula-injection hardening
     let sanitized = if value
-        .starts_with(|c: char| matches!(c, '=' | '+' | '-' | '@' | '\t' | '\r'))
+        .starts_with(['=', '+', '-', '@', '\t', '\r'])
     {
         format!("'{}", value)
     } else {
@@ -344,7 +341,7 @@ fn escape_csv(value: &str) -> String {
 
     // Standard CSV quoting: if the value contains commas, quotes, or newlines,
     // wrap in double-quotes and escape internal quotes by doubling them.
-    if sanitized.contains(|c: char| matches!(c, ',' | '"' | '\n' | '\r')) {
+    if sanitized.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", sanitized.replace('"', "\"\""))
     } else {
         sanitized

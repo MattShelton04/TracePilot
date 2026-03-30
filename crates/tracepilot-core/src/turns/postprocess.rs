@@ -35,8 +35,8 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
             }
             // Propagate to subagents — prefer child model over parent's ToolExecComplete model
             for tc in turn.tool_calls.iter_mut() {
-                if tc.is_subagent {
-                    if let Some(ref id) = tc.tool_call_id {
+                if tc.is_subagent
+                    && let Some(ref id) = tc.tool_call_id {
                         if let Some(model) = child_models.get(id) {
                             if tc.model.as_deref() != Some(model.as_str()) {
                                 tc.model = Some(model.clone());
@@ -50,15 +50,13 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
                                 .and_then(|a| a.get("model"))
                                 .and_then(|m| m.as_str())
                                 .map(|s| s.to_string());
-                            if let Some(ref m) = args_model {
-                                if tc.model.as_deref() != Some(m.as_str()) {
+                            if let Some(ref m) = args_model
+                                && tc.model.as_deref() != Some(m.as_str()) {
                                     tc.model = args_model;
                                     changed = true;
                                 }
-                            }
                         }
                     }
-                }
             }
         }
         if !changed {
@@ -144,7 +142,7 @@ pub(crate) fn correct_turn_models(turns: &mut [ConversationTurn]) {
             .filter(|tc| {
                 tc.parent_tool_call_id
                     .as_ref()
-                    .map_or(true, |pid| !subagent_ids.contains(pid))
+                    .is_none_or(|pid| !subagent_ids.contains(pid))
             })
             .find_map(|tc| tc.model.clone());
 
@@ -221,11 +219,10 @@ pub(crate) fn resolve_agent_display_names(turns: &mut [ConversationTurn]) {
             .iter_mut()
             .chain(turn.reasoning_texts.iter_mut())
         {
-            if let Some(parent_id) = &msg.parent_tool_call_id {
-                if msg.agent_display_name.is_none() {
+            if let Some(parent_id) = &msg.parent_tool_call_id
+                && msg.agent_display_name.is_none() {
                     msg.agent_display_name = agent_names.get(parent_id).cloned();
                 }
-            }
         }
     }
 }

@@ -36,11 +36,10 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
     let session_state_dir = cfg.session_state_dir();
 
     tokio::task::spawn_blocking(move || {
-        if let Some(db) = open_index_db(&index_path) {
-            if let Ok(count) = db.session_count() {
+        if let Some(db) = open_index_db(&index_path)
+            && let Ok(count) = db.session_count() {
                 return Ok(count);
             }
-        }
         Ok(tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len())
     })
     .await?
@@ -232,8 +231,8 @@ fn is_windows_installed(exe: &Path) -> bool {
     // Heuristic: may false-positive if a portable exe sits in a directory that
     // happens to contain another app's uninstaller. Acceptable for v1 since
     // the path-based checks above cover the standard install locations.
-    if let Some(dir) = exe.parent() {
-        if let Ok(entries) = std::fs::read_dir(dir) {
+    if let Some(dir) = exe.parent()
+        && let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name();
                 let name = name.to_string_lossy().to_lowercase();
@@ -247,7 +246,6 @@ fn is_windows_installed(exe: &Path) -> bool {
                 }
             }
         }
-    }
 
     false
 }

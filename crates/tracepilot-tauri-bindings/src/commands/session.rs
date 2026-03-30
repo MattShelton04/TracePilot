@@ -392,11 +392,9 @@ pub async fn get_tool_result(
             if let tracepilot_core::parsing::events::TypedEventData::ToolExecutionComplete(
                 ref data,
             ) = event.typed_data
-            {
-                if data.tool_call_id.as_deref() == Some(&tool_call_id) {
+                && data.tool_call_id.as_deref() == Some(&tool_call_id) {
                     last_result = data.result.clone();
                 }
-            }
         }
         Ok(last_result)
     })

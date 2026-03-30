@@ -114,8 +114,8 @@ fn validate_session(session: &PortableSession) -> Result<()> {
     if let Some(checkpoints) = &session.checkpoints {
         for cp in checkpoints {
             validate_filename(&cp.filename)?;
-            if let Some(content) = &cp.content {
-                if content.len() > MAX_SECTION_SIZE {
+            if let Some(content) = &cp.content
+                && content.len() > MAX_SECTION_SIZE {
                     return Err(validation_err(&format!(
                         "checkpoint '{}' content too large: {} bytes (max {})",
                         cp.filename,
@@ -123,30 +123,27 @@ fn validate_session(session: &PortableSession) -> Result<()> {
                         MAX_SECTION_SIZE
                     )));
                 }
-            }
         }
     }
 
     // Size limits on text sections
-    if let Some(plan) = &session.plan {
-        if plan.len() > MAX_SECTION_SIZE {
+    if let Some(plan) = &session.plan
+        && plan.len() > MAX_SECTION_SIZE {
             return Err(validation_err(&format!(
                 "plan too large: {} bytes (max {})",
                 plan.len(),
                 MAX_SECTION_SIZE
             )));
         }
-    }
 
-    if let Some(events) = &session.events {
-        if events.len() > MAX_EVENTS {
+    if let Some(events) = &session.events
+        && events.len() > MAX_EVENTS {
             return Err(validation_err(&format!(
                 "too many events: {} (max {})",
                 events.len(),
                 MAX_EVENTS
             )));
         }
-    }
 
     Ok(())
 }
@@ -195,14 +192,13 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
                 )));
             }
             // Size limit check
-            if let Some(content) = &cp.content {
-                if content.len() > MAX_SECTION_SIZE {
+            if let Some(content) = &cp.content
+                && content.len() > MAX_SECTION_SIZE {
                     issues.push(ValidationIssue::error(&format!(
                         "{}: checkpoint '{}' content too large: {} bytes (max {})",
                         prefix, cp.filename, content.len(), MAX_SECTION_SIZE
                     )));
                 }
-            }
         }
     }
 

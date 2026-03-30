@@ -103,7 +103,7 @@ impl IndexDb {
         query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<Vec<SearchResult>> {
-        let sanitized = query.map(|q| sanitize_fts_query(q)).filter(|s| !s.is_empty());
+        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
         let is_fts = sanitized.is_some();
 
         let snippet_col = if is_fts {
@@ -183,7 +183,7 @@ impl IndexDb {
         query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<i64> {
-        let sanitized = query.map(|q| sanitize_fts_query(q)).filter(|s| !s.is_empty());
+        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
 
         let from_clause = if sanitized.is_some() {
             "FROM search_fts \
@@ -218,7 +218,7 @@ impl IndexDb {
         query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<SearchFacets> {
-        let sanitized = query.map(|q| sanitize_fts_query(q)).filter(|s| !s.is_empty());
+        let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
 
         let by_content_type = {
             let excl = SearchFilters { content_types: Vec::new(), ..filters.clone() };

@@ -45,6 +45,12 @@ pub struct TurnReconstructor {
 
 const CURRENT_TURN_SENTINEL: usize = usize::MAX;
 
+impl Default for TurnReconstructor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TurnReconstructor {
     pub fn new() -> Self {
         Self {
@@ -92,24 +98,22 @@ impl TurnReconstructor {
                 if turn.interaction_id.is_none() {
                     turn.interaction_id = data.interaction_id.clone();
                 }
-                if let Some(content) = &data.content {
-                    if !content.trim().is_empty() {
+                if let Some(content) = &data.content
+                    && !content.trim().is_empty() {
                         turn.assistant_messages.push(AttributedMessage {
                             content: content.clone(),
                             parent_tool_call_id: data.parent_tool_call_id.clone(),
                             agent_display_name: None, // resolved in finalize()
                         });
                     }
-                }
-                if let Some(reasoning) = &data.reasoning_text {
-                    if !reasoning.trim().is_empty() {
+                if let Some(reasoning) = &data.reasoning_text
+                    && !reasoning.trim().is_empty() {
                         turn.reasoning_texts.push(AttributedMessage {
                             content: reasoning.clone(),
                             parent_tool_call_id: data.parent_tool_call_id.clone(),
                             agent_display_name: None, // resolved in finalize()
                         });
                     }
-                }
                 if let Some(tokens) = data.output_tokens {
                     *turn.output_tokens.get_or_insert(0) += tokens;
                 }
@@ -118,24 +122,22 @@ impl TurnReconstructor {
                         if let (Some(id), Some(summary)) = (
                             req.get("toolCallId").and_then(|v| v.as_str()),
                             req.get("intentionSummary").and_then(|v| v.as_str()),
-                        ) {
-                            if !summary.trim().is_empty() {
+                        )
+                            && !summary.trim().is_empty() {
                                 self.tool_call_intentions
                                     .insert(id.to_string(), summary.to_string());
                             }
-                        }
                     }
                 }
             }
 
             (SessionEventType::ToolExecutionStart, TypedEventData::ToolExecutionStart(data)) => {
                 // Dedup: skip if we already have a tool call with this ID
-                if let Some(id) = &data.tool_call_id {
-                    if self.tool_call_index.contains_key(id) {
+                if let Some(id) = &data.tool_call_id
+                    && self.tool_call_index.contains_key(id) {
                         tracing::debug!(tool_call_id = %id, "Duplicate ToolExecutionStart — skipping");
                         return;
                     }
-                }
 
                 // Lookup intention before borrowing self mutably via ensure_current_turn
                 let intention = data
@@ -190,11 +192,10 @@ impl TurnReconstructor {
                 SessionEventType::ToolExecutionComplete,
                 TypedEventData::ToolExecutionComplete(data),
             ) => {
-                if let Some(turn) = self.current_turn.as_mut() {
-                    if turn.interaction_id.is_none() {
+                if let Some(turn) = self.current_turn.as_mut()
+                    && turn.interaction_id.is_none() {
                         turn.interaction_id = data.interaction_id.clone();
                     }
-                }
 
                 if let Some(tool_call) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
                     // For subagents, SubagentCompleted/Failed has authority over success/error.
@@ -227,11 +228,10 @@ impl TurnReconstructor {
                     if tool_call.parent_tool_call_id.is_none() {
                         tool_call.parent_tool_call_id = data.parent_tool_call_id.clone();
                     }
-                    if let Some(result) = &data.result {
-                        if let Some(preview) = extract_result_preview(result) {
+                    if let Some(result) = &data.result
+                        && let Some(preview) = extract_result_preview(result) {
                             tool_call.result_content = Some(preview);
                         }
-                    }
                 } else {
                     tracing::debug!(
                         tool_call_id = ?data.tool_call_id,
@@ -254,15 +254,12 @@ impl TurnReconstructor {
                             .and_then(|pid| self.find_tool_call_ref(Some(pid)))
                             .map(|p| p.is_subagent)
                             .unwrap_or(false);
-                        if !is_subagent && !parent_is_subagent {
-                            if let Some(turn) =
+                        if !is_subagent && !parent_is_subagent
+                            && let Some(turn) =
                                 self.find_owning_turn_mut(data.tool_call_id.as_deref())
-                            {
-                                if turn.model.is_none() {
+                                && turn.model.is_none() {
                                     turn.model = Some(model.clone());
                                 }
-                            }
-                        }
                     }
                 }
             }
@@ -326,11 +323,10 @@ impl TurnReconstructor {
             }
 
             (SessionEventType::AssistantTurnEnd, TypedEventData::TurnEnd(data)) => {
-                if let Some(turn) = self.current_turn.as_mut() {
-                    if turn.turn_id.is_none() {
+                if let Some(turn) = self.current_turn.as_mut()
+                    && turn.turn_id.is_none() {
                         turn.turn_id = data.turn_id.clone();
                     }
-                }
                 self.finalize_current_turn(true, event.raw.timestamp);
             }
 
@@ -339,11 +335,10 @@ impl TurnReconstructor {
                 if let Some(ref model) = data.new_model {
                     self.session_model = Some(model.clone());
                 }
-                if let Some(turn) = self.current_turn.as_mut() {
-                    if turn.model.is_none() {
+                if let Some(turn) = self.current_turn.as_mut()
+                    && turn.model.is_none() {
                         turn.model = data.new_model.clone();
                     }
-                }
             }
 
             // Abort: finalize the current turn as incomplete
@@ -353,8 +348,8 @@ impl TurnReconstructor {
 
             // Standalone reasoning block: append to current turn's reasoning texts
             (SessionEventType::AssistantReasoning, TypedEventData::AssistantReasoning(data)) => {
-                if let Some(content) = &data.content {
-                    if !content.trim().is_empty() {
+                if let Some(content) = &data.content
+                    && !content.trim().is_empty() {
                         let turn = self.ensure_current_turn(event.raw.timestamp);
                         turn.reasoning_texts.push(AttributedMessage {
                             content: content.clone(),
@@ -362,7 +357,6 @@ impl TurnReconstructor {
                             agent_display_name: None,
                         });
                     }
-                }
             }
 
             // ── Session-level events ────────────────────────────────────
@@ -484,11 +478,10 @@ impl TurnReconstructor {
 
             // Session start/resume: seed session_model from selected_model
             (SessionEventType::SessionStart, TypedEventData::SessionStart(data)) => {
-                if self.session_model.is_none() {
-                    if let Some(ref model) = data.selected_model {
+                if self.session_model.is_none()
+                    && let Some(ref model) = data.selected_model {
                         self.session_model = Some(model.clone());
                     }
-                }
                 self.push_session_event(
                     "session.start",
                     event.raw.timestamp,

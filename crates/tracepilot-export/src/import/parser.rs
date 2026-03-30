@@ -56,8 +56,8 @@ pub fn parse_archive(path: &Path) -> Result<SessionArchive> {
     }
 
     // 5. Enforce minimum reader version if the archive declares one
-    if let Some(min_reader) = &archive.header.minimum_reader_version {
-        if !schema::CURRENT_VERSION.satisfies_minimum(min_reader) {
+    if let Some(min_reader) = &archive.header.minimum_reader_version
+        && !schema::CURRENT_VERSION.satisfies_minimum(min_reader) {
             return Err(ExportError::UnsupportedVersion {
                 major: min_reader.major,
                 minor: min_reader.minor,
@@ -65,7 +65,6 @@ pub fn parse_archive(path: &Path) -> Result<SessionArchive> {
                 min_minor: schema::CURRENT_VERSION.minor,
             });
         }
-    }
 
     Ok(archive)
 }
