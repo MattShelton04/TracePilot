@@ -108,6 +108,40 @@ describe("groupTurnByAgent", () => {
     expect(mainAfter.toolCalls).toHaveLength(0);
   });
 
+  it("skips subagent tool call with missing toolCallId", () => {
+    const turn = makeTurn({
+      assistantMessages: [
+        { content: "Main message" },
+        { content: "Broken agent output", parentToolCallId: undefined },
+      ],
+      toolCalls: [
+        makeToolCall({
+          toolCallId: undefined, // Missing ID - should be skipped
+          toolName: "task",
+          isSubagent: true,
+          agentDisplayName: "Broken Agent",
+        }),
+        makeToolCall({
+          toolCallId: "tc-valid",
+          toolName: "edit",
+        }),
+      ],
+    });
+
+    const sections = groupTurnByAgent(turn);
+
+    // Should only have main section - broken subagent is gracefully skipped
+    expect(sections).toHaveLength(1);
+    expect(sections[0].agentType).toBe("main");
+    expect(sections[0].agentId).toBeUndefined();
+
+    // Main section should include both messages (since broken agent was skipped)
+    expect(sections[0].messages).toEqual(["Main message", "Broken agent output"]);
+
+    // Main section should include both tool calls
+    expect(sections[0].toolCalls).toHaveLength(2);
+  });
+
   it("handles multiple subagents ordered by startedAt", () => {
     const turn = makeTurn({
       assistantMessages: [
