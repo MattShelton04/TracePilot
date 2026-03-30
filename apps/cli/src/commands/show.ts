@@ -315,7 +315,7 @@ function displayTodos(todos: TodoItem[]) {
         break;
       case "blocked":
         icon = chalk.red("✗");
-        statusLabel = chalk.red(` [blocked${t.deps.length ? " by " + t.deps.join(", ") : ""}]`);
+        statusLabel = chalk.red(` [blocked${t.deps.length ? ` by ${t.deps.join(", ")}` : ""}]`);
         break;
       default:
         icon = chalk.dim("○");
@@ -358,7 +358,7 @@ export async function showSessionCommand(
       if (workspace) {
         for (const [key, val] of Object.entries(workspace)) {
           if (val != null && val !== "") {
-            console.log(`  ${chalk.dim(key + ":")} ${val}`);
+            console.log(`  ${chalk.dim(`${key}:`)} ${val}`);
           }
         }
         console.log();

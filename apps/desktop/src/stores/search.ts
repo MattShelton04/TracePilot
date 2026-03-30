@@ -466,7 +466,7 @@ export const useSearchStore = defineStore("search", () => {
     healthLoading.value = true;
     try {
       healthInfo.value = await ftsHealth();
-    } catch (e) {
+    } catch (_e) {
       healthInfo.value = null;
     } finally {
       healthLoading.value = false;

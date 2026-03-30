@@ -205,14 +205,14 @@ function toggleReasoning(index: number) {
 
 function reasoningPreview(content: string): string {
   const first = content.split("\n")[0] ?? "";
-  return first.length > 80 ? first.slice(0, 80) + "…" : first;
+  return first.length > 80 ? `${first.slice(0, 80)}…` : first;
 }
 
-function toggleToolDetail(tc: TurnToolCall, index: number) {
+function toggleToolDetail(_tc: TurnToolCall, index: number) {
   expandedToolDetails.toggle(`panel-${props.subagent?.agentId}-${index}`);
 }
 
-function isToolExpanded(tc: TurnToolCall, index: number): boolean {
+function isToolExpanded(_tc: TurnToolCall, index: number): boolean {
   return expandedToolDetails.has(`panel-${props.subagent?.agentId}-${index}`);
 }
 

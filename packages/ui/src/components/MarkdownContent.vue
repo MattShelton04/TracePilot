@@ -43,7 +43,7 @@ function handleLinkClick(event: MouseEvent) {
   const link = target.closest("a");
   if (link) {
     const href = link.getAttribute("href");
-    if (href && href.startsWith("#")) {
+    if (href?.startsWith("#")) {
       // Internal section link - prevent default to avoid 404 in SPA
       event.preventDefault();
 

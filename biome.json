@@ -27,6 +27,19 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ],
   "files": {
     "includes": [
       "**",
@@ -35,8 +48,15 @@
       "!**/target",
       "!**/.tauri",
       "!**/*.d.ts",
-      "!docs/design/prototypes"
+      "!docs/design/prototypes",
+      "!docs/presentation",
+      "!docs/theme-prototypes"
     ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "javascript": {
     "formatter": {

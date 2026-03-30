@@ -385,7 +385,7 @@ describe("AgentTreeView", () => {
     const nodes = wrapper.findAll(".agent-node");
     const childNode = nodes.find((n) => n.text().includes("Code Review Agent"));
     expect(childNode).toBeDefined();
-    await childNode!.trigger("click");
+    await childNode?.trigger("click");
     await nextTick();
 
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
@@ -412,7 +412,7 @@ describe("AgentTreeView", () => {
     const nodes = wrapper.findAll(".agent-node");
     const inProgressNode = nodes.find((n) => n.text().includes("Running Agent"));
     expect(inProgressNode).toBeDefined();
-    expect(inProgressNode!.classes()).toContain("agent-node--in-progress");
+    expect(inProgressNode?.classes()).toContain("agent-node--in-progress");
   });
 
   it("main agent tool list includes subagent-spawning tool calls with agent badge", async () => {
@@ -435,7 +435,7 @@ describe("AgentTreeView", () => {
     // Click main agent node to open detail panel
     const mainNode = wrapper.findAll(".agent-node").find((n) => n.text().includes("Main Agent"));
     expect(mainNode).toBeDefined();
-    await mainNode!.trigger("click");
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -494,7 +494,7 @@ describe("AgentTreeView", () => {
     const nodes = wrapper.findAll(".agent-node");
     const subagentNode = nodes.find((n) => n.text().includes("Explore Agent"));
     expect(subagentNode).toBeDefined();
-    await subagentNode!.trigger("click");
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -525,7 +525,7 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
     const subagentNode = nodes.find((n) => n.text().includes("Thinking Agent"));
-    await subagentNode!.trigger("click");
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -568,7 +568,7 @@ describe("AgentTreeView", () => {
     const nodes = wrapper.findAll(".agent-node");
     const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
     expect(mainNode).toBeDefined();
-    await mainNode!.trigger("click");
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -601,7 +601,7 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
     const subagentNode = nodes.find((n) => n.text().includes("Silent Agent"));
-    await subagentNode!.trigger("click");
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -758,7 +758,7 @@ describe("AgentTreeView", () => {
     // 1. Check Main Agent's tool list (should only include parentSub)
     const nodes = wrapper.findAll(".agent-node");
     const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
-    await mainNode!.trigger("click");
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -770,7 +770,7 @@ describe("AgentTreeView", () => {
 
     // 2. Check Parent Subagent's tool list (should include childSub)
     const parentNode = nodes.find((n) => n.text().includes("Parent Same Turn"));
-    await parentNode!.trigger("click");
+    await parentNode?.trigger("click");
     await nextTick();
 
     const parentTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
@@ -780,7 +780,7 @@ describe("AgentTreeView", () => {
 
     // 3. Check Child Subagent's tool list (should include childTool)
     const childNode = nodes.find((n) => n.text().includes("Child Same Turn"));
-    await childNode!.trigger("click");
+    await childNode?.trigger("click");
     await nextTick();
 
     const childTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
@@ -818,7 +818,7 @@ describe("AgentTreeView", () => {
 
     // Switch to Unified mode
     const unifiedBtn = wrapper.findAll(".view-mode-btn").find((b) => b.text().includes("Unified"));
-    await unifiedBtn!.trigger("click");
+    await unifiedBtn?.trigger("click");
     await nextTick();
 
     // Now shows both agents
@@ -857,7 +857,7 @@ describe("AgentTreeView", () => {
     const nodes = wrapper.findAll(".agent-node");
     const failedNode = nodes.find((n) => n.text().includes("Failing Agent"));
     expect(failedNode).toBeDefined();
-    await failedNode!.trigger("click");
+    await failedNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -890,7 +890,7 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
     const okNode = nodes.find((n) => n.text().includes("Success Agent"));
-    await okNode!.trigger("click");
+    await okNode?.trigger("click");
     await nextTick();
 
     expect(wrapper.find(".detail-failure").exists()).toBe(false);
@@ -918,7 +918,7 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
     const verboseNode = nodes.find((n) => n.text().includes("Verbose Agent"));
-    await verboseNode!.trigger("click");
+    await verboseNode?.trigger("click");
     await nextTick();
 
     // Output should be collapsed by default
@@ -954,7 +954,7 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
     const briefNode = nodes.find((n) => n.text().includes("Brief Agent"));
-    await briefNode!.trigger("click");
+    await briefNode?.trigger("click");
     await nextTick();
 
     // No toggle for short content

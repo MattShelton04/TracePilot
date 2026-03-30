@@ -193,7 +193,7 @@ export function useTimelineToolState(
     ? (turn: ConversationTurn) => {
         const sel = selectedTool.value;
         if (!sel) return false;
-        return options.turnOwnershipCheck!(turn, sel);
+        return options.turnOwnershipCheck?.(turn, sel);
       }
     : undefined;
 

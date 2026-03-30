@@ -44,7 +44,7 @@ export function useSearchUrlSync() {
     }
     if (typeof q.page === "string") {
       const p = parseInt(q.page, 10);
-      store.page = !isNaN(p) && p > 0 ? p : 1;
+      store.page = !Number.isNaN(p) && p > 0 ? p : 1;
     } else {
       store.page = 1;
     }

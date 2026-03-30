@@ -183,8 +183,8 @@ describe("useToast", () => {
       expect(t.message).toBe("done");
       expect(t.title).toBe("Saved");
       expect(t.description).toBe("Your file was saved");
-      expect(t.action!.label).toBe("View");
-      t.action!.onClick();
+      expect(t.action?.label).toBe("View");
+      t.action?.onClick();
       expect(onClick).toHaveBeenCalledOnce();
     });
   });

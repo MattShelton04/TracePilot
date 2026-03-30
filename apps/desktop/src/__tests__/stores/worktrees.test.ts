@@ -267,7 +267,7 @@ describe("useWorktreesStore", () => {
       expect(store.worktrees[0].branch).toBe("feature-b");
 
       // Now resolve first call — should be discarded
-      resolveFirst!(ALL_WORKTREES.map((w) => ({ ...w })));
+      resolveFirst?.(ALL_WORKTREES.map((w) => ({ ...w })));
       await call1;
       await flushPromises();
       // Worktrees should still be from call2 (stale result discarded)
@@ -299,7 +299,7 @@ describe("useWorktreesStore", () => {
       await flushPromises();
 
       // Now resolve the first load's disk-usage promise
-      resolveDiskUsage!(42000);
+      resolveDiskUsage?.(42000);
       await flushPromises();
 
       // The stale hydration (42000) should be discarded;
@@ -399,7 +399,7 @@ describe("useWorktreesStore", () => {
       expect(store.worktrees).toHaveLength(1);
       expect(store.worktrees[0].branch).toBe("feature-b");
 
-      resolveFirst!([{ ...FIXTURE_MAIN_WT }, { ...FIXTURE_FEATURE_WT }]);
+      resolveFirst?.([{ ...FIXTURE_MAIN_WT }, { ...FIXTURE_FEATURE_WT }]);
       await call1;
       await flushPromises();
       // First call's results should be discarded
@@ -446,7 +446,7 @@ describe("useWorktreesStore", () => {
       // loadWorktrees starts — this should NOT invalidate branchGuard
       await store.loadWorktrees(REPO_PATH);
 
-      resolveBranches!(["main", "dev"]);
+      resolveBranches?.(["main", "dev"]);
       await branchCall;
 
       // Branches should still be populated (not discarded)
@@ -1002,7 +1002,7 @@ describe("useWorktreesStore", () => {
         // Second toggle for same path should be a no-op
         const call2 = store.toggleFavourite(FIXTURE_REPO.path);
 
-        resolveToggle!(false);
+        resolveToggle?.(false);
         await call1;
         await call2;
 

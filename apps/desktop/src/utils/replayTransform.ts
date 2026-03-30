@@ -81,7 +81,7 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
 function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   if (turn.userMessage) {
     const msg = turn.userMessage.trim();
-    return msg.length > 100 ? msg.slice(0, 97) + "…" : msg;
+    return msg.length > 100 ? `${msg.slice(0, 97)}…` : msg;
   }
 
   // Check for report_intent tool call
@@ -96,7 +96,7 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   // First assistant message
   if (turn.assistantMessages.length > 0) {
     const msg = turn.assistantMessages[0].content.trim();
-    return msg.length > 100 ? msg.slice(0, 97) + "…" : msg;
+    return msg.length > 100 ? `${msg.slice(0, 97)}…` : msg;
   }
 
   // First tool call intention
@@ -146,7 +146,7 @@ function normalizePath(path: string): string {
   // Strip common prefixes for display
   const parts = path.replace(/\\/g, "/").split("/");
   if (parts.length > 4) {
-    return "…/" + parts.slice(-3).join("/");
+    return `…/${parts.slice(-3).join("/")}`;
   }
   return path.replace(/\\/g, "/");
 }
@@ -172,7 +172,7 @@ function extractToolCommand(tc: TurnToolCall): string | undefined {
     case "sql":
       return typeof args.query === "string"
         ? args.query.length > 80
-          ? args.query.slice(0, 77) + "…"
+          ? `${args.query.slice(0, 77)}…`
           : args.query
         : undefined;
     default:

@@ -36,7 +36,7 @@ describe("BtnGroup", () => {
     });
     await wrapper.findAll("button")[2].trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    expect(wrapper.emitted("update:modelValue")![0]).toEqual(["c"]);
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual(["c"]);
   });
 
   it("sets aria-pressed on active button", () => {

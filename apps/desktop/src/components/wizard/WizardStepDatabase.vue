@@ -12,7 +12,7 @@ const emit = defineEmits<{
 }>();
 
 function sanitizePath(raw: string): string {
-  // Strip null bytes and control characters
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally stripping control chars for path sanitization
   return raw.replace(/[\x00-\x1f]/g, "");
 }
 

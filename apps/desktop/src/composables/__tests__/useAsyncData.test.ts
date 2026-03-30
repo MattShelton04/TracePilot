@@ -171,13 +171,13 @@ describe("useAsyncData", () => {
       const second = execute();
 
       // Resolve second request first
-      resolveSecond!("second");
+      resolveSecond?.("second");
       await second;
 
       expect(data.value).toBe("second");
 
       // Resolve first request (should be ignored)
-      resolveFirst!("first");
+      resolveFirst?.("first");
       await first;
 
       // Data should still be 'second'
@@ -206,14 +206,14 @@ describe("useAsyncData", () => {
       const second = execute();
 
       // Resolve second request first
-      resolveSecond!("success");
+      resolveSecond?.("success");
       await second;
 
       expect(data.value).toBe("success");
       expect(error.value).toBeNull();
 
       // Reject first request (should be ignored)
-      rejectFirst!(new Error("old error"));
+      rejectFirst?.(new Error("old error"));
       await first.catch(() => {}); // Suppress unhandled rejection
 
       // Error should still be null
@@ -242,13 +242,13 @@ describe("useAsyncData", () => {
       expect(loading.value).toBe(true);
 
       // Resolve second (current)
-      resolveSecond!("second");
+      resolveSecond?.("second");
       await nextTick();
 
       expect(loading.value).toBe(false);
 
       // Resolve first (stale) - should not change loading
-      resolveFirst!("first");
+      resolveFirst?.("first");
       await nextTick();
 
       expect(loading.value).toBe(false);
@@ -328,13 +328,13 @@ describe("useAsyncData", () => {
       execute();
       execute();
 
-      resolveSecond!("second");
+      resolveSecond?.("second");
       await nextTick();
 
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(onSuccess).toHaveBeenCalledWith("second");
 
-      resolveFirst!("first");
+      resolveFirst?.("first");
       await nextTick();
 
       // Should still be called only once
@@ -576,7 +576,7 @@ describe("useAsyncData", () => {
       reset();
       expect(loading.value).toBe(false);
 
-      resolveAsync!("result");
+      resolveAsync?.("result");
       await promise;
 
       // Data should not be updated

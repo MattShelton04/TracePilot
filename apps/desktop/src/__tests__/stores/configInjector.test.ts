@@ -361,7 +361,7 @@ describe("useConfigInjectorStore", () => {
       const saveTask = store.saveAgent();
       expect(store.saving).toBe(true);
 
-      resolveSave!();
+      resolveSave?.();
       await saveTask;
       expect(store.saving).toBe(false);
     });
@@ -421,7 +421,7 @@ describe("useConfigInjectorStore", () => {
       const saveTask = store.saveGlobalConfig({});
       expect(store.saving).toBe(true);
 
-      resolveSave!();
+      resolveSave?.();
       await saveTask;
       expect(store.saving).toBe(false);
     });

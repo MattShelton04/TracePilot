@@ -340,8 +340,8 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(2);
-    expect(index.get("sub-a")!.messages).toEqual(["from agent A"]);
-    expect(index.get("sub-b")!.messages).toEqual(["from agent B"]);
+    expect(index.get("sub-a")?.messages).toEqual(["from agent A"]);
+    expect(index.get("sub-b")?.messages).toEqual(["from agent B"]);
   });
 
   it("excludes messages without parentToolCallId (main agent messages)", () => {
@@ -355,7 +355,7 @@ describe("buildSubagentContentIndex", () => {
       }),
     ];
     const index = buildSubagentContentIndex(turns);
-    expect(index.get("sub-1")!.messages).toEqual(["sub says"]);
+    expect(index.get("sub-1")?.messages).toEqual(["sub says"]);
   });
 
   it("excludes orphan parentToolCallIds that don't match any subagent", () => {
@@ -370,7 +370,7 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(1);
-    expect(index.get("sub-1")!.messages).toEqual(["valid msg"]);
+    expect(index.get("sub-1")?.messages).toEqual(["valid msg"]);
     expect(index.has("unknown-id")).toBe(false);
   });
 });

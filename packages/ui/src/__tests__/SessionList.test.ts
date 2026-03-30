@@ -48,7 +48,7 @@ describe("SessionList", () => {
     });
     await wrapper.find("[role='button']").trigger("click");
     expect(wrapper.emitted("select")).toBeTruthy();
-    expect(wrapper.emitted("select")![0]).toEqual(["click-me"]);
+    expect(wrapper.emitted("select")?.[0]).toEqual(["click-me"]);
   });
 
   it("renders responsive grid layout", () => {

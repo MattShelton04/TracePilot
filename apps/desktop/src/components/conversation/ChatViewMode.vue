@@ -413,9 +413,9 @@ function revealEvent(turnIndex: number, eventIndex?: number) {
   }
 
   nextTick(() => {
-    el!.scrollIntoView({ behavior: "smooth", block: "center" });
-    el!.classList.add("cv-highlight");
-    setTimeout(() => el!.classList.remove("cv-highlight"), 4000);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.classList.add("cv-highlight");
+    setTimeout(() => el?.classList.remove("cv-highlight"), 4000);
   });
 }
 

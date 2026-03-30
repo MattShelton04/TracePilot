@@ -60,11 +60,11 @@ describe("useLineAreaChartData", () => {
       });
       const result = chartData.value;
       expect(result).not.toBeNull();
-      expect(result!.coords).toHaveLength(5);
-      expect(result!.linePoints).toContain(",");
-      expect(result!.areaPoints).toContain(",");
-      expect(result!.yLabels.length).toBeGreaterThan(0);
-      expect(result!.xLabels.length).toBeGreaterThan(0);
+      expect(result?.coords).toHaveLength(5);
+      expect(result?.linePoints).toContain(",");
+      expect(result?.areaPoints).toContain(",");
+      expect(result?.yLabels.length).toBeGreaterThan(0);
+      expect(result?.xLabels.length).toBeGreaterThan(0);
     });
 
     it("preserves original data properties on coords", () => {
@@ -73,7 +73,7 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      const coords = chartData.value!.coords;
+      const coords = chartData.value?.coords;
       expect(coords[0]).toHaveProperty("date", "2025-01-01");
       expect(coords[0]).toHaveProperty("tokens", 100);
       expect(coords[0]).toHaveProperty("x");
@@ -87,7 +87,7 @@ describe("useLineAreaChartData", () => {
         accessor: (p) => p.tokens,
         yFormatter: (v) => `$${v.toFixed(2)}`,
       });
-      const labels = chartData.value!.yLabels;
+      const labels = chartData.value?.yLabels;
       expect(labels[0].value).toMatch(/^\$/);
     });
 
@@ -99,7 +99,7 @@ describe("useLineAreaChartData", () => {
         minPoints: 1,
       });
       expect(chartData.value).not.toBeNull();
-      expect(chartData.value!.coords).toHaveLength(1);
+      expect(chartData.value?.coords).toHaveLength(1);
     });
 
     it("uses maxFloor to prevent flat charts", () => {
@@ -115,7 +115,7 @@ describe("useLineAreaChartData", () => {
       });
       // All points should be at the bottom of the chart
       expect(chartData.value).not.toBeNull();
-      expect(chartData.value!.coords[0].y).toBe(layout.bottom);
+      expect(chartData.value?.coords[0].y).toBe(layout.bottom);
     });
 
     it("generates correct number of yTicks", () => {
@@ -125,7 +125,7 @@ describe("useLineAreaChartData", () => {
         accessor: (p) => p.tokens,
         yTicks: 3,
       });
-      expect(chartData.value!.yLabels).toHaveLength(3);
+      expect(chartData.value?.yLabels).toHaveLength(3);
     });
 
     it("reacts to data changes", () => {
@@ -135,10 +135,10 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      expect(chartData.value!.coords).toHaveLength(3);
+      expect(chartData.value?.coords).toHaveLength(3);
 
       dataRef.value = makePoints(5);
-      expect(chartData.value!.coords).toHaveLength(5);
+      expect(chartData.value?.coords).toHaveLength(5);
     });
 
     it("works with ComputedRef", () => {
@@ -149,7 +149,7 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      expect(chartData.value!.coords).toHaveLength(4);
+      expect(chartData.value?.coords).toHaveLength(4);
     });
   });
 
@@ -169,8 +169,8 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      expect(gridLines.value).toHaveLength(chartData.value!.yLabels.length);
-      expect(gridLines.value).toEqual(chartData.value!.yLabels.map((l) => l.y));
+      expect(gridLines.value).toHaveLength(chartData.value?.yLabels.length);
+      expect(gridLines.value).toEqual(chartData.value?.yLabels.map((l) => l.y));
     });
   });
 });

@@ -42,7 +42,7 @@ describe("SessionCard", () => {
     });
     await wrapper.trigger("click");
     expect(wrapper.emitted("select")).toBeTruthy();
-    expect(wrapper.emitted("select")![0]).toEqual(["test-id"]);
+    expect(wrapper.emitted("select")?.[0]).toEqual(["test-id"]);
   });
 
   it("shows event count and turn count", () => {

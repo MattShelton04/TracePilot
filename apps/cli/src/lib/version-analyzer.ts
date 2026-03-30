@@ -799,14 +799,14 @@ export async function findEventExamples(
 
 // ── Report Generation ────────────────────────────────────────────────
 
-function schemaTypeToString(st: SchemaType): string {
+function _schemaTypeToString(st: SchemaType): string {
   switch (st.kind) {
     case "enum":
       return st.enumValues ? st.enumValues.map((v) => `"${v}"`).join(" | ") : "enum";
     case "union":
       return "union";
     case "array":
-      return `${st.items ? schemaTypeToString(st.items) : "unknown"}[]`;
+      return `${st.items ? _schemaTypeToString(st.items) : "unknown"}[]`;
     case "object":
       return "object";
     case "const":
@@ -942,7 +942,7 @@ export function generateMarkdownReport(
   for (const obs of coverage.observations) {
     const cat = obs.category;
     if (!byCategory.has(cat)) byCategory.set(cat, []);
-    byCategory.get(cat)!.push(obs);
+    byCategory.get(cat)?.push(obs);
   }
 
   for (const [category, events] of byCategory) {
@@ -976,7 +976,7 @@ export function generateMarkdownReport(
   const byVersion = new Map<string, SessionVersionInfo[]>();
   for (const s of sessionInfo) {
     if (!byVersion.has(s.copilotVersion)) byVersion.set(s.copilotVersion, []);
-    byVersion.get(s.copilotVersion)!.push(s);
+    byVersion.get(s.copilotVersion)?.push(s);
   }
   const sortedVersions = [...byVersion.keys()].sort(compareVersions);
   lines.push("| CLI Version | Sessions | Unique Event Types | Example Session |");

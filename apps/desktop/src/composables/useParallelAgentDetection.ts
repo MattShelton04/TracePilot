@@ -178,7 +178,7 @@ export function useParallelAgentDetection<T extends TimeRangedItem>(
       if (!groupMap.has(root)) {
         groupMap.set(root, []);
       }
-      groupMap.get(root)!.push(item.id);
+      groupMap.get(root)?.push(item.id);
     }
 
     // Build parallel groups (only groups with 2+ items)

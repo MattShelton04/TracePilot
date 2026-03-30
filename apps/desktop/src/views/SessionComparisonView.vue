@@ -173,13 +173,13 @@ const metricsRows = computed<MetricRow[]>(() => {
   return [
     row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
     row("Turns", turnsA, turnsB, String, false),
-    row("Total Tokens" + suffix, tokA / divA, tokB / divB, fmtN, false),
-    row("Wholesale Cost" + suffix, wcA / divA, wcB / divB, formatCost, false),
-    row("Copilot Cost" + suffix, ccA / divA, ccB / divB, formatCost, false),
-    row("Tool Calls" + suffix, tcA / divA, tcB / divB, fmtInt, false),
+    row(`Total Tokens${suffix}`, tokA / divA, tokB / divB, fmtN, false),
+    row(`Wholesale Cost${suffix}`, wcA / divA, wcB / divB, formatCost, false),
+    row(`Copilot Cost${suffix}`, ccA / divA, ccB / divB, formatCost, false),
+    row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
     row("Success Rate", srA, srB, formatRate, true),
     row("Files Modified", fmA, fmB, String, false),
-    row("Lines Changed" + suffix, lcA / divA, lcB / divB, fmtInt, false),
+    row(`Lines Changed${suffix}`, lcA / divA, lcB / divB, fmtInt, false),
     row("Health Score", hsA, hsB, (v) => Math.round(v * 100).toString(), true),
   ];
 });

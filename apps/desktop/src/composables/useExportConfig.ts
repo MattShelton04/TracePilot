@@ -9,7 +9,7 @@ import type {
   RedactionOptions,
   SectionId,
 } from "@tracepilot/types";
-import { ALL_SECTION_IDS, SECTION_LABELS } from "@tracepilot/types";
+import { ALL_SECTION_IDS } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
 
 // ── Preset Definitions ──────────────────────────────────────────

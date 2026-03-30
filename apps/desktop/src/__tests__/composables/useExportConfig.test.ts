@@ -1,4 +1,3 @@
-import type { SectionId } from "@tracepilot/types";
 import { ALL_SECTION_IDS } from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
@@ -88,7 +87,7 @@ describe("useExportConfig", () => {
       vi.setSystemTime(new Date("2026-01-01"));
       saveAsPreset("My Custom");
       expect(allPresets.value.length).toBe(EXPORT_PRESETS.length + 1);
-      expect(allPresets.value.at(-1)!.label).toBe("My Custom");
+      expect(allPresets.value.at(-1)?.label).toBe("My Custom");
     });
   });
 
@@ -215,8 +214,13 @@ describe("useExportConfig", () => {
 
   describe("saveAsPreset", () => {
     it("creates a custom preset with current configuration", () => {
-      const { customPresets, format, enabledSections, saveAsPreset, toggleSection } =
-        useExportConfig();
+      const {
+        customPresets,
+        format,
+        enabledSections: _enabledSections,
+        saveAsPreset,
+        toggleSection,
+      } = useExportConfig();
 
       // Customize config
       format.value = "csv";
@@ -244,7 +248,12 @@ describe("useExportConfig", () => {
     });
 
     it("snapshots sections at call time", () => {
-      const { enabledSections, customPresets, saveAsPreset, toggleSection } = useExportConfig();
+      const {
+        enabledSections: _enabledSections,
+        customPresets,
+        saveAsPreset,
+        toggleSection,
+      } = useExportConfig();
 
       saveAsPreset("Before Toggle");
       const sectionsBefore = customPresets.value[0].sections.length;

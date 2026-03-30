@@ -6,6 +6,7 @@
 /** Strip null bytes and control characters from user-provided paths. */
 function sanitizePath(raw: string | null): string | null {
   if (!raw) return null;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally stripping control chars for path sanitization
   const cleaned = raw.replace(/[\x00-\x1f]/g, "").trim();
   return cleaned || null;
 }

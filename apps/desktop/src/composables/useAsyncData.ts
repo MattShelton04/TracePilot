@@ -5,7 +5,7 @@ import { useAsyncGuard } from "./useAsyncGuard";
 /**
  * Options for configuring async data fetching behavior.
  */
-export interface UseAsyncDataOptions<TData, TParams extends unknown[]> {
+export interface UseAsyncDataOptions<TData, _TParams extends unknown[]> {
   /**
    * Initial data value before the first fetch.
    * @default null

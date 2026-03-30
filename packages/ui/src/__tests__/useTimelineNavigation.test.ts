@@ -1,7 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { computed, defineComponent, nextTick, ref } from "vue";
-import type { TimelineNavigationReturn } from "../composables/useTimelineNavigation";
 import { useTimelineNavigation } from "../composables/useTimelineNavigation";
 
 function createWrapper(turnCount: number, options?: { onEscape?: () => void }) {
@@ -146,7 +145,7 @@ describe("useTimelineNavigation", () => {
 
     it("Escape calls onEscape callback", () => {
       const onEscape = vi.fn();
-      const w = createKeyboardWrapper(5, { onEscape });
+      const _w = createKeyboardWrapper(5, { onEscape });
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       expect(onEscape).toHaveBeenCalledOnce();
     });

@@ -47,7 +47,7 @@ describe("EditDiffRenderer", () => {
     // Create multiline input that exceeds line-level LCS threshold (100K)
     const lines = Array.from({ length: 500 }, (_, i) => `line ${i} content here`);
     const largeOld = lines.join("\n");
-    const largeNew = lines.map((l, i) => `changed ${i} content here`).join("\n");
+    const largeNew = lines.map((_l, i) => `changed ${i} content here`).join("\n");
 
     const wrapper = mount(EditDiffRenderer, {
       props: {

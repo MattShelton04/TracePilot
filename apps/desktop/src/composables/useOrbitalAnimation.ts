@@ -244,7 +244,9 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
     const svg = svgLayerRef.value;
     if (!svg) return;
 
-    laneEllipses.forEach((el) => el.remove());
+    laneEllipses.forEach((el) => {
+      el.remove();
+    });
     laneEllipses = [];
 
     LANES.forEach((lane) => {
@@ -282,7 +284,9 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
   }
 
   function setLaneEllipseOpacity(opacity: string) {
-    laneEllipses.forEach((el) => el.setAttribute("stroke-opacity", opacity));
+    laneEllipses.forEach((el) => {
+      el.setAttribute("stroke-opacity", opacity);
+    });
   }
 
   function updateLaneEllipsePositions() {
@@ -520,9 +524,13 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
     resizeObserver?.disconnect();
     resizeObserver = null;
 
-    connections.forEach((c) => c.el.remove());
+    connections.forEach((c) => {
+      c.el.remove();
+    });
     connections.length = 0;
-    laneEllipses.forEach((el) => el.remove());
+    laneEllipses.forEach((el) => {
+      el.remove();
+    });
     laneEllipses = [];
   }
 

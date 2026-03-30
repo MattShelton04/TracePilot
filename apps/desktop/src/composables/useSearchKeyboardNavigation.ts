@@ -1,5 +1,5 @@
 import type { ComputedRef, Ref } from "vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 export interface UseSearchKeyboardNavigationOptions {

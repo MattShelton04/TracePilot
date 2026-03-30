@@ -184,7 +184,7 @@ function subagents(turn: ConversationTurn): TurnToolCall[] {
   return turn.toolCalls.filter((tc) => tc.isSubagent);
 }
 
-function nestedTools(turn: ConversationTurn, agent: TurnToolCall): TurnToolCall[] {
+function nestedTools(_turn: ConversationTurn, agent: TurnToolCall): TurnToolCall[] {
   if (!agent.toolCallId) return [];
   return allToolCalls.value.filter(
     (tc) => tc.parentToolCallId === agent.toolCallId && !tc.isSubagent,

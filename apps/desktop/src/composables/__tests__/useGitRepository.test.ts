@@ -388,7 +388,7 @@ describe("useGitRepository", () => {
       const fetchPromise = fetchRemote();
       expect(fetchingRemote.value).toBe(true);
 
-      resolvePromise!();
+      resolvePromise?.();
       await fetchPromise;
 
       expect(fetchingRemote.value).toBe(false);

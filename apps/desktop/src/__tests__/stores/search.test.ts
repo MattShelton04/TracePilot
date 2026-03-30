@@ -192,7 +192,7 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 
-  const presetMethods = {
+  const _presetMethods = {
     browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
     browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
     browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),

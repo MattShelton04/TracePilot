@@ -13,7 +13,6 @@ import {
   discoverInstalledVersions,
   findEventExamples,
   generateMarkdownReport,
-  type SessionVersionInfo,
   scanSessionVersions,
 } from "../lib/version-analyzer.js";
 import { handleValidationError } from "../utils/errorHandler.js";
@@ -59,7 +58,7 @@ export async function versionsListCommand(opts: { json?: boolean }) {
   // Header
   const header = `  ${"Version".padEnd(12)} ${"Events".padStart(8)} ${"Methods".padStart(9)} ${"Agents".padStart(8)}  Agent Names`;
   console.log(chalk.dim(header));
-  console.log(chalk.dim("  " + "─".repeat(80)));
+  console.log(chalk.dim(`  ${"─".repeat(80)}`));
 
   for (const v of versions) {
     const agentNames = v.agents.map((a) => a.name).join(", ") || chalk.dim("—");
@@ -126,7 +125,7 @@ function printDiff(diff: ReturnType<typeof diffVersions>) {
   console.log(
     chalk.bold(`\n  ${diff.from} → ${diff.to}`) + chalk.dim(` (${totalChanges} changes)`),
   );
-  console.log(chalk.dim("  " + "─".repeat(60)));
+  console.log(chalk.dim(`  ${"─".repeat(60)}`));
 
   if (totalChanges === 0) {
     console.log(chalk.dim("  No significant changes"));
@@ -217,14 +216,14 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
   console.log(`  Persisted events:        ${coverage.persistedEventCount}`);
   console.log(`  ${chalk.green("Handled by TracePilot:")}  ${coverage.handledCount}`);
   console.log(`  ${chalk.red("Unhandled (persisted):")}  ${coverage.unhandledPersistedCount}`);
-  console.log(`  Coverage:                ${chalk.bold(coverage.coveragePercentage + "%")}`);
+  console.log(`  Coverage:                ${chalk.bold(`${coverage.coveragePercentage}%`)}`);
   console.log();
 
   // Group by category
   const byCategory = new Map<string, typeof coverage.observations>();
   for (const obs of coverage.observations) {
     if (!byCategory.has(obs.category)) byCategory.set(obs.category, []);
-    byCategory.get(obs.category)!.push(obs);
+    byCategory.get(obs.category)?.push(obs);
   }
 
   for (const [category, events] of byCategory) {

@@ -36,7 +36,7 @@ const relativePaths = computed(() => {
   return files.value
     .map((f) => {
       const norm = f.replace(/\\/g, "/");
-      if (norm.startsWith(root + "/")) return norm.slice(root.length + 1);
+      if (norm.startsWith(`${root}/`)) return norm.slice(root.length + 1);
       if (norm.startsWith(root)) return norm.slice(root.length);
       return norm;
     })

@@ -96,7 +96,7 @@ const sessionStartTime = computed(() => {
   const firstTurn = store.turns[0];
   if (!firstTurn?.timestamp) return undefined;
   const t = new Date(firstTurn.timestamp).getTime();
-  return isNaN(t) ? undefined : t;
+  return Number.isNaN(t) ? undefined : t;
 });
 
 /** Returns live elapsed ms for in-progress nodes, or the static durationMs for completed ones. */
@@ -311,7 +311,7 @@ const treeData = computed<TreeData | null>(() => {
       const tc = node.toolCallRef;
       const parentId = tc?.parentToolCallId;
       if (parentId && expandedSubagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-        nodeMap.get(parentId)!.children!.push(node);
+        nodeMap.get(parentId)?.children?.push(node);
       } else {
         rootChildren.push(node);
       }
@@ -371,7 +371,7 @@ const treeData = computed<TreeData | null>(() => {
       const tc = node.toolCallRef;
       const parentId = tc?.parentToolCallId;
       if (parentId && subagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-        nodeMap.get(parentId)!.children!.push(node);
+        nodeMap.get(parentId)?.children?.push(node);
       } else {
         rootChildren.push(node);
       }

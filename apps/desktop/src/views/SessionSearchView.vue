@@ -89,7 +89,9 @@ const { focusedResultIndex } = useSearchKeyboardNavigation({
 // Map result.id → flat index for keyboard nav in grouped view
 const resultIndexMap = computed(() => {
   const m = new Map<number, number>();
-  store.results.forEach((r, i) => m.set(r.id, i));
+  store.results.forEach((r, i) => {
+    m.set(r.id, i);
+  });
   return m;
 });
 

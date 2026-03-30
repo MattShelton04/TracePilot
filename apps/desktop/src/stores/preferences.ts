@@ -18,7 +18,7 @@ import {
 } from "@tracepilot/types";
 import { normalizePath } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 

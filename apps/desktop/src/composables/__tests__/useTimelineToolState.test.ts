@@ -1,7 +1,7 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { useTimelineToolState } from "../useTimelineToolState";

@@ -51,7 +51,7 @@ const parsedMatches = computed<GrepMatch[]>(() => {
     if (winMatchLine) {
       results.push({
         file: winMatchLine[1],
-        lineNum: parseInt(winMatchLine[2]),
+        lineNum: parseInt(winMatchLine[2], 10),
         text: winMatchLine[3],
         isContext: false,
       });
@@ -63,7 +63,7 @@ const parsedMatches = computed<GrepMatch[]>(() => {
     if (winCtxLine) {
       results.push({
         file: winCtxLine[1],
-        lineNum: parseInt(winCtxLine[2]),
+        lineNum: parseInt(winCtxLine[2], 10),
         text: winCtxLine[3],
         isContext: true,
       });
@@ -75,7 +75,7 @@ const parsedMatches = computed<GrepMatch[]>(() => {
     if (unixMatchLine) {
       results.push({
         file: unixMatchLine[1],
-        lineNum: parseInt(unixMatchLine[2]),
+        lineNum: parseInt(unixMatchLine[2], 10),
         text: unixMatchLine[3],
         isContext: false,
       });
@@ -87,7 +87,7 @@ const parsedMatches = computed<GrepMatch[]>(() => {
     if (unixCtxLine && (unixCtxLine[1].includes("/") || unixCtxLine[1].includes("\\"))) {
       results.push({
         file: unixCtxLine[1],
-        lineNum: parseInt(unixCtxLine[2]),
+        lineNum: parseInt(unixCtxLine[2], 10),
         text: unixCtxLine[3],
         isContext: true,
       });
@@ -130,8 +130,8 @@ const fileCount = computed(() => Object.keys(groupedByFile.value).length);
 const matchCount = computed(() => {
   if (outputMode.value === "count") {
     return parsedMatches.value.reduce((sum, m) => {
-      const n = parseInt(m.text);
-      return sum + (isNaN(n) ? 1 : n);
+      const n = parseInt(m.text, 10);
+      return sum + (Number.isNaN(n) ? 1 : n);
     }, 0);
   }
   return parsedMatches.value.filter((m) => !m.isContext).length;

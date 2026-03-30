@@ -42,7 +42,6 @@
 .skeleton {
   background: var(--neutral-muted);
   border-radius: var(--radius-md);
-  animation: pulse 1.5s infinite ease-in-out;
   background-image: linear-gradient(
     90deg,
     var(--neutral-muted) 0%,
@@ -194,10 +193,10 @@ select:focus-visible,
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
   }
 }
 
@@ -205,8 +204,8 @@ select:focus-visible,
 @media (prefers-contrast: more) {
   .gradient-value,
   [style*="background-clip"] {
-    background: none !important;
-    -webkit-background-clip: initial !important;
-    -webkit-text-fill-color: var(--accent-fg) !important;
+    background: none;
+    -webkit-background-clip: initial;
+    -webkit-text-fill-color: var(--accent-fg);
   }
 }

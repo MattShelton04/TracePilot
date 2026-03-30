@@ -7,13 +7,13 @@ describe("FormSwitch", () => {
     const wrapper = mount(FormSwitch, { props: { modelValue: false } });
     await wrapper.find("button").trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    expect(wrapper.emitted("update:modelValue")![0]).toEqual([true]);
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([true]);
   });
 
   it("emits false when toggling off", async () => {
     const wrapper = mount(FormSwitch, { props: { modelValue: true } });
     await wrapper.find("button").trigger("click");
-    expect(wrapper.emitted("update:modelValue")![0]).toEqual([false]);
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual([false]);
   });
 
   it("has role=switch", () => {

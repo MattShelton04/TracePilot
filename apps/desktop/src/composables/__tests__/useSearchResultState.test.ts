@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computed, nextTick, ref } from "vue";
 import type { UseSearchResultStateOptions } from "../useSearchResultState";
 import { useSearchResultState } from "../useSearchResultState";

@@ -62,7 +62,7 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === "glob" && a.pattern) return String(a.pattern);
   if (toolName === "powershell" && a.command) {
     const cmd = String(a.command);
-    return cmd.length > 150 ? cmd.slice(0, 150) + "…" : cmd;
+    return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }
   if (toolName === "task" && a.description) return String(a.description);
   if (toolName === "report_intent" && a.intent) return String(a.intent);

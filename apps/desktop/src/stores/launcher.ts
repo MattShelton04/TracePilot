@@ -36,6 +36,7 @@ export const useLauncherStore = defineStore("launcher", () => {
   const modelsByTier = computed(() => {
     const tiers: Record<string, ModelInfo[]> = {};
     for (const m of models.value) {
+      // biome-ignore lint/suspicious/noAssignInExpressions: intentional nullish-coalescing assignment for grouping
       (tiers[m.tier] ??= []).push(m);
     }
     return tiers;

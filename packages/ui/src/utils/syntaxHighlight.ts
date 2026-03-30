@@ -417,6 +417,7 @@ function tokenize(raw: string, rules: TokenRule[]): Token[] {
   for (const rule of rules) {
     rule.pattern.lastIndex = 0;
     let m: RegExpExecArray | null;
+    // biome-ignore lint/suspicious/noAssignInExpressions: standard regex exec loop
     while ((m = rule.pattern.exec(raw)) !== null) {
       const start = m.index;
       const end = start + m[0].length;

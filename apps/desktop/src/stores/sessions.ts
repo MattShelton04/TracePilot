@@ -97,7 +97,6 @@ export const useSessionsStore = defineStore("sessions", () => {
           return (b.eventCount ?? 0) - (a.eventCount ?? 0);
         case "turns":
           return (b.turnCount ?? 0) - (a.turnCount ?? 0);
-        case "updated":
         default:
           return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
       }

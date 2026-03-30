@@ -189,12 +189,12 @@ describe("useAsyncGuard", () => {
       });
 
       // Resolve second request FIRST
-      resolveSecond!("second");
+      resolveSecond?.("second");
       await promise2;
       expect(state.data).toBe("second");
 
       // Resolve first request LATER (should be ignored)
-      resolveFirst!("first");
+      resolveFirst?.("first");
       await promise1;
       expect(state.data).toBe("second"); // Should NOT change to 'first'
     });
@@ -207,14 +207,14 @@ describe("useAsyncGuard", () => {
       const requests = Array(3)
         .fill(null)
         .map(
-          (_, i) =>
+          (_, _i) =>
             new Promise<string>((resolve) => {
               resolvers.push(resolve);
             }),
         );
 
       // Start requests in order 1, 2, 3
-      const tokens = requests.map((req, i) => {
+      const _tokens = requests.map((req, _i) => {
         const token = guard.start();
         req.then((data) => {
           if (guard.isValid(token)) state.data = data;
@@ -343,7 +343,7 @@ describe("useAsyncGuard", () => {
         if (guard.isValid(token1)) errorState.error = e;
       });
 
-      const token2 = guard.start();
+      const _token2 = guard.start();
 
       await promise1;
       expect(errorState.error).toBeNull(); // First error should be ignored

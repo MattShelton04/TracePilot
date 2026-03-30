@@ -292,8 +292,8 @@ describe("useOrchestrationHomeStore", () => {
       expect(store.loading).toBe(false);
 
       // Second initialization (cache fresh < 5min)
-      const loadingSpy = vi.fn();
-      const originalLoading = store.loading;
+      const _loadingSpy = vi.fn();
+      const _originalLoading = store.loading;
       await store.initialize();
 
       // Should use cache refresh instead of loading

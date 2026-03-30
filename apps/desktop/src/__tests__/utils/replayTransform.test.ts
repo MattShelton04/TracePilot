@@ -133,7 +133,7 @@ describe("turnsToReplaySteps", () => {
     const steps = turnsToReplaySteps(turns);
 
     expect(steps[0].filesModified).toBeDefined();
-    expect(steps[0].filesModified!.length).toBeGreaterThanOrEqual(1);
+    expect(steps[0].filesModified?.length).toBeGreaterThanOrEqual(1);
   });
 
   it("derives title from user message for user-type steps", () => {
@@ -170,7 +170,7 @@ describe("turnsToReplaySteps", () => {
     const steps = turnsToReplaySteps(turns);
 
     expect(steps[0].sessionEvents).toHaveLength(1);
-    expect(steps[0].sessionEvents![0].eventType).toBe("session.compaction");
+    expect(steps[0].sessionEvents?.[0].eventType).toBe("session.compaction");
   });
 
   it("handles turns with reasoning texts", () => {

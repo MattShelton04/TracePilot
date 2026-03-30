@@ -32,7 +32,6 @@ export function buildTodoStatusStats(todos: TodoItem[]): TodoStatusStats {
       case "blocked":
         blocked++;
         break;
-      case "pending":
       default:
         pending++;
         break;
@@ -58,12 +57,12 @@ export function buildTodoRelations(todos: TodoItem[], deps: TodoDep[]): TodoRela
     if (!dependenciesByTodoId.has(dep.todoId)) {
       dependenciesByTodoId.set(dep.todoId, []);
     }
-    dependenciesByTodoId.get(dep.todoId)!.push(dep.dependsOn);
+    dependenciesByTodoId.get(dep.todoId)?.push(dep.dependsOn);
 
     if (!dependentsByTodoId.has(dep.dependsOn)) {
       dependentsByTodoId.set(dep.dependsOn, []);
     }
-    dependentsByTodoId.get(dep.dependsOn)!.push(dep.todoId);
+    dependentsByTodoId.get(dep.dependsOn)?.push(dep.todoId);
   }
 
   return { todoById, dependenciesByTodoId, dependentsByTodoId };

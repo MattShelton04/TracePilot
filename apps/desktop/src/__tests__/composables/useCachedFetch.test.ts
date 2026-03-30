@@ -49,7 +49,7 @@ describe("useCachedFetch", () => {
       const fetchPromise = fetch(undefined);
       expect(loading.value).toBe(true);
 
-      resolvePromise!({ data: "test" });
+      resolvePromise?.({ data: "test" });
       await fetchPromise;
 
       expect(loading.value).toBe(false);
@@ -218,7 +218,7 @@ describe("useCachedFetch", () => {
 
       expect(fetcher).toHaveBeenCalledTimes(1);
 
-      resolvePromise!({ data: "test" });
+      resolvePromise?.({ data: "test" });
       await Promise.all([promise1, promise2, promise3]);
 
       expect(fetcher).toHaveBeenCalledTimes(1);
@@ -738,7 +738,7 @@ describe("useCachedFetch", () => {
       const fetchPromise = fetch(undefined);
       expect(loading.value).toBe(false); // Should stay false
 
-      resolvePromise!({ data: "test" });
+      resolvePromise?.({ data: "test" });
       await fetchPromise;
 
       expect(loading.value).toBe(false);

@@ -26,7 +26,7 @@ export function pathDirname(path: string): string {
 export function shortenPath(path: string, segments = 2): string {
   if (!path) return "";
   const parts = normalizePath(path).split("/");
-  return parts.length > segments ? "…/" + parts.slice(-segments).join("/") : path;
+  return parts.length > segments ? `…/${parts.slice(-segments).join("/")}` : path;
 }
 
 /**

@@ -62,7 +62,7 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
     // Try grouped results
     const group = groupedResults.value.find((g) => g.sessionId === sessionId.value);
     if (group?.sessionSummary) return group.sessionSummary;
-    return sessionId.value.slice(0, 12) + "…";
+    return `${sessionId.value.slice(0, 12)}…`;
   });
 
   function filterBySession(sid: string, displayName: string | null) {

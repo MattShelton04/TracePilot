@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent } from "vue";
 import ErrorBoundary from "../../components/ErrorBoundary.vue";
 
 describe("ErrorBoundary", () => {
@@ -22,7 +22,7 @@ describe("ErrorBoundary", () => {
       },
     });
 
-    const wrapper = mount(ErrorBoundary, {
+    const _wrapper = mount(ErrorBoundary, {
       slots: { default: () => [ThrowingChild] },
     });
     // Error boundary should catch it
