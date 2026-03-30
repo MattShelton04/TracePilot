@@ -247,7 +247,7 @@ describe("useWorktreesStore", () => {
 
     it("discards stale response when newer load is in progress", async () => {
       // First call resolves after second call
-      let resolveFirst: (v: WorktreeInfo[]) => void;
+      let resolveFirst!: (v: WorktreeInfo[]) => void;
       const firstPromise = new Promise<WorktreeInfo[]>((resolve) => {
         resolveFirst = resolve;
       });
@@ -277,7 +277,7 @@ describe("useWorktreesStore", () => {
 
     it("discards stale disk-hydration when a newer load starts", async () => {
       // Disk usage resolves AFTER a second loadWorktrees call starts
-      let resolveDiskUsage: (v: number) => void;
+      let resolveDiskUsage!: (v: number) => void;
       const diskPromise = new Promise<number>((resolve) => {
         resolveDiskUsage = resolve;
       });
@@ -379,7 +379,7 @@ describe("useWorktreesStore", () => {
     });
 
     it("discards results when a newer loadAllWorktrees call starts", async () => {
-      let resolveFirst: (v: WorktreeInfo[]) => void;
+      let resolveFirst!: (v: WorktreeInfo[]) => void;
       const firstPromise = new Promise<WorktreeInfo[]>((resolve) => {
         resolveFirst = resolve;
       });
@@ -433,7 +433,7 @@ describe("useWorktreesStore", () => {
 
     it("uses independent guard from loadWorktrees", async () => {
       // loadBranches should not be invalidated by loadWorktrees
-      let resolveBranches: (v: string[]) => void;
+      let resolveBranches!: (v: string[]) => void;
       const branchPromise = new Promise<string[]>((resolve) => {
         resolveBranches = resolve;
       });
@@ -987,7 +987,7 @@ describe("useWorktreesStore", () => {
       });
 
       it("prevents concurrent toggle for the same path", async () => {
-        let resolveToggle: (v: boolean) => void;
+        let resolveToggle!: (v: boolean) => void;
         const togglePromise = new Promise<boolean>((resolve) => {
           resolveToggle = resolve;
         });

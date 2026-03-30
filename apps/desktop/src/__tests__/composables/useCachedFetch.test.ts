@@ -35,7 +35,7 @@ describe("useCachedFetch", () => {
     });
 
     it("sets loading state during fetch", async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePromise!: (value: any) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -203,7 +203,7 @@ describe("useCachedFetch", () => {
 
   describe("request deduplication", () => {
     it("deduplicates concurrent requests for same parameters", async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePromise!: (value: any) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -724,7 +724,7 @@ describe("useCachedFetch", () => {
 
   describe("silent mode", () => {
     it("does not update loading state when silent is true", async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePromise!: (value: any) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {

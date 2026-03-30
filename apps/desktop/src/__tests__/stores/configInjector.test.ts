@@ -348,7 +348,7 @@ describe("useConfigInjectorStore", () => {
     });
 
     it("sets saving=true during operation", async () => {
-      let resolveSave: () => void;
+      let resolveSave!: () => void;
       const savePromise = new Promise<void>((resolve) => {
         resolveSave = resolve;
       });
@@ -410,7 +410,7 @@ describe("useConfigInjectorStore", () => {
     });
 
     it("sets saving=true during operation", async () => {
-      let resolveSave: () => void;
+      let resolveSave!: () => void;
       const savePromise = new Promise<void>((resolve) => {
         resolveSave = resolve;
       });

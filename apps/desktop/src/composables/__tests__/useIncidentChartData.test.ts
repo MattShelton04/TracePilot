@@ -68,7 +68,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const bar = chartData.value?.bars[2]; // third bar has all incident types
+      const bar = chartData.value!.bars[2]; // third bar has all incident types
       // truncRect is at the bottom (highest y), rlRect is at the top (lowest y)
       expect(bar.truncRect.y).toBeGreaterThanOrEqual(bar.compRect.y);
       expect(bar.compRect.y).toBeGreaterThanOrEqual(bar.otherRect.y);
@@ -111,7 +111,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(true),
         layout,
       });
-      const bar = chartData.value?.bars[0];
+      const bar = chartData.value!.bars[0];
       expect(bar.rateLimits).toBeCloseTo(4 / 5);
       expect(bar.otherErrors).toBeCloseTo(6 / 5);
       expect(bar.compactions).toBeCloseTo(2 / 5);
@@ -131,7 +131,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(true),
         layout,
       });
-      const bar = chartData.value?.bars[0];
+      const bar = chartData.value!.bars[0];
       // With no activity, denominator is 1, so values are unchanged
       expect(bar.rateLimits).toBe(2);
       expect(bar.otherErrors).toBe(6);
@@ -174,7 +174,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      expect(gridLines.value).toHaveLength(chartData.value?.yLabels.length);
+      expect(gridLines.value).toHaveLength(chartData.value!.yLabels.length);
     });
   });
 
@@ -188,7 +188,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]);
       expect(text).toContain("2 rate limits");
       expect(text).toContain("3 errors");
       expect(text).toContain("3 compactions");
@@ -206,7 +206,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]);
       expect(text).toContain("1 rate limit");
       expect(text).not.toMatch(/1 rate limits/);
       expect(text).toContain("1 compaction");
@@ -225,7 +225,7 @@ describe("useIncidentChartData", () => {
         normalize,
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]);
       expect(text).toContain("rate limits/session");
       expect(text).toContain("errors/session");
       expect(text).toContain("compactions/session");
@@ -241,7 +241,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(false),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]);
       expect(text).toContain("no incidents");
     });
 
@@ -254,7 +254,7 @@ describe("useIncidentChartData", () => {
         normalize: ref(true),
         layout,
       });
-      const text = formatTooltip(chartData.value?.bars[0]);
+      const text = formatTooltip(chartData.value!.bars[0]);
       expect(text).toContain("no incidents");
     });
   });

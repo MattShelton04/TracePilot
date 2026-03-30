@@ -371,7 +371,7 @@ describe("useGitRepository", () => {
     });
 
     it("should maintain reactivity of fetchingRemote", async () => {
-      let resolvePromise: () => void;
+      let resolvePromise!: () => void;
       const promise = new Promise<string>((resolve) => {
         resolvePromise = () => resolve("");
       });
