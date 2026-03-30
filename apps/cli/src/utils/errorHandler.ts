@@ -8,14 +8,30 @@ import chalk from "chalk";
 /**
  * Format and display an error message, then exit with code 1.
  * Handles different error types: Error objects, strings, and unknown values.
+ * Preserves stack traces and cause chains for diagnostics.
  *
  * @param err - The error to display
  * @param context - Optional context label (e.g., "Failed to list sessions")
  */
 export function handleCommandError(err: unknown, context?: string): never {
-  const message = formatErrorMessage(err);
   const label = context ? `${context}:` : "Error:";
-  console.error(chalk.red(label), message);
+
+  if (err instanceof Error) {
+    // Print the main message in red, then the full error (with stack) for diagnostics
+    console.error(chalk.red(label), err.message);
+    if (err.stack) {
+      console.error(chalk.dim(err.stack));
+    }
+    if (err.cause) {
+      console.error(chalk.dim("Caused by:"), err.cause);
+    }
+  } else if (typeof err === "string") {
+    console.error(chalk.red(label), err);
+  } else {
+    // For unknown types, log the raw value to preserve structure
+    console.error(chalk.red(label), err);
+  }
+
   process.exit(1);
 }
 
@@ -58,19 +74,3 @@ export async function wrapCommand<T>(
   }
 }
 
-/**
- * Extract a user-friendly error message from various error types.
- *
- * @param err - The error to format
- * @returns A string representation of the error
- */
-function formatErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (typeof err === "string") {
-    return err;
-  }
-  // For unknown types, attempt string conversion
-  return String(err);
-}
