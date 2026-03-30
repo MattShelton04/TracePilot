@@ -39,7 +39,7 @@ import {
   type ToolGroupItem,
   type ToolSegment,
 } from "./chatViewUtils";
-import { computePanelWidthPx, computeScrollInsetPx, shouldReserveScrollInset } from "./panelLayout";
+import { computePanelWidthPx, shouldReserveScrollInset } from "./panelLayout";
 import SubagentCard from "./SubagentCard.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 
@@ -83,8 +83,8 @@ const { findToolCallIndex, getArgsSummary } = useConversationSections(() => stor
 
 const scrollEl = ref<HTMLElement | null>(null);
 const cvRootEl = ref<HTMLElement | null>(null);
-const PAGE_SCROLL_INSET_CLASS = "cv-page-scroll-inset";
 const panelWidthPx = ref(0);
+const scrollMaxHeightPx = ref(520);
 
 // ─── Panel top offset (fixed position below sticky action bar) ────
 
@@ -118,31 +118,25 @@ function updatePanelTop() {
   }
 }
 
-function applyPageScrollInset() {
-  if (!pageScrollEl) return;
-
+function updateLayoutMetrics() {
   const viewportWidth = window.innerWidth;
   panelWidthPx.value = shouldReserveScrollInset(viewportWidth) ? computePanelWidthPx(viewportWidth) : 0;
 
-  const insetPx = computeScrollInsetPx(panel.isPanelOpen.value, viewportWidth);
-  pageScrollEl.classList.toggle(PAGE_SCROLL_INSET_CLASS, insetPx > 0);
-  pageScrollEl.style.setProperty("--cv-page-scroll-inset", `${insetPx}px`);
-}
-
-function clearPageScrollInset() {
-  if (!pageScrollEl) return;
-  pageScrollEl.classList.remove(PAGE_SCROLL_INSET_CLASS);
-  pageScrollEl.style.removeProperty("--cv-page-scroll-inset");
+  const cvRoot = cvRootEl.value;
+  if (!cvRoot) return;
+  const cvRect = cvRoot.getBoundingClientRect();
+  // Keep chat scroller constrained to viewport so its own scrollbar can sit left of the panel.
+  scrollMaxHeightPx.value = Math.max(320, Math.floor(window.innerHeight - cvRect.top - 24));
 }
 
 function handleLayoutResize() {
-  applyPageScrollInset();
+  updateLayoutMetrics();
   updatePanelTop();
 }
 
 onMounted(() => {
   pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
-  applyPageScrollInset();
+  updateLayoutMetrics();
   updatePanelTop();
   window.addEventListener("resize", handleLayoutResize);
   // Listen to scroll on the page-content container (the page scroller)
@@ -154,8 +148,10 @@ onMounted(() => {
 watch(
   () => panel.isPanelOpen.value,
   () => {
-    applyPageScrollInset();
-    nextTick(() => updatePanelTop());
+    nextTick(() => {
+      updateLayoutMetrics();
+      updatePanelTop();
+    });
   },
 );
 
@@ -164,7 +160,6 @@ onUnmounted(() => {
   if (pageScrollEl) {
     pageScrollEl.removeEventListener("scroll", updatePanelTop);
   }
-  clearPageScrollInset();
 });
 
 // ─── Computed helpers ─────────────────────────────────────────────
@@ -456,7 +451,14 @@ defineExpose({ revealEvent });
 </script>
 
 <template>
-  <div :class="['cv-root', { 'panel-active': panel.isPanelOpen.value }]" ref="cvRootEl">
+  <div
+    :class="['cv-root', { 'panel-active': panel.isPanelOpen.value }]"
+    :style="{
+      '--cv-panel-width': `${panelWidthPx}px`,
+      '--cv-scroll-max-height': `${scrollMaxHeightPx}px`,
+    }"
+    ref="cvRootEl"
+  >
     <!-- Main column (shrinks when panel is open) -->
     <div :class="['cv-main', { 'panel-open': panel.isPanelOpen.value }]">
       <div class="cv-scroll" ref="scrollEl">
@@ -705,6 +707,11 @@ defineExpose({ revealEvent });
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: margin-right var(--transition-normal, 0.2s) ease;
+}
+
+.cv-main.panel-open {
+  margin-right: var(--cv-panel-width, min(38vw, 650px));
 }
 
 .cv-main.panel-open .cv-content {
@@ -719,6 +726,9 @@ defineExpose({ revealEvent });
 
 .cv-scroll {
   flex: 1;
+  overflow-y: auto;
+  max-height: var(--cv-scroll-max-height, none);
+  scrollbar-gutter: stable;
 }
 
 .cv-content {

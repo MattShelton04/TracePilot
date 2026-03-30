@@ -16,10 +16,3 @@ export function computePanelWidthPx(viewportWidth: number): number {
   return clamp(viewportWidth * PANEL_WIDTH_VW_RATIO, PANEL_MIN_WIDTH_PX, PANEL_MAX_WIDTH_PX);
 }
 
-export function computeScrollInsetPx(isPanelOpen: boolean, viewportWidth: number): number {
-  if (!isPanelOpen || !shouldReserveScrollInset(viewportWidth)) {
-    return 0;
-  }
-  return computePanelWidthPx(viewportWidth);
-}
-

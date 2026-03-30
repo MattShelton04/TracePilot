@@ -29,10 +29,6 @@
     padding-bottom: 72px;
   }
 
-  .page-content.cv-page-scroll-inset {
-    margin-right: 0;
-  }
-
   .app-layout {
     flex-direction: column;
   }
