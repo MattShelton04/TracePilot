@@ -578,16 +578,20 @@ mod tests {
     #[test]
     fn collect_issues_reports_too_many_events() {
         // Previously only validate_session checked event count — collect_issues did not.
-        // Allocating MAX_EVENTS + 1 (500K+) RawEvents is too expensive for a unit test.
-        // Instead we verify the check runs by confirming an under-limit count passes,
-        // and rely on the plan-size parity test (which exercises the same code path
-        // through check_session) to prove the unified approach works.
+        use crate::document::RawEvent;
+
+        let event = RawEvent {
+            event_type: "test".to_string(),
+            data: serde_json::Value::Null,
+            id: None,
+            timestamp: None,
+            parent_id: None,
+        };
         let mut session = minimal_session();
-        session.events = Some(Vec::new()); // 0 events — under limit
+        session.events = Some(vec![event; MAX_EVENTS + 1]);
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
-        assert!(!issues.iter().any(|i| i.message.contains("too many events")),
-            "empty events should not trigger event count limit");
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("too many events")));
     }
 
     #[test]
