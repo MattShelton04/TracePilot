@@ -16,6 +16,7 @@ import {
   formatTokens,
 } from "./utils.js";
 import { createRequire } from "node:module";
+import { wrapCommand } from "../utils/errorHandler.js";
 
 function getSessionDir(sessionId: string): string {
   return join(getSessionStateDir(), sessionId);
@@ -334,7 +335,7 @@ export async function showSessionCommand(
   sessionIdArg: string,
   options: { turns?: boolean; metrics?: boolean; todos?: boolean; json?: boolean }
 ) {
-  try {
+  return wrapCommand(async () => {
     const sessionId = await findSession(sessionIdArg);
     const dir = getSessionDir(sessionId);
     const eventsPath = join(dir, "events.jsonl");
@@ -454,8 +455,5 @@ export async function showSessionCommand(
     if (options.json) {
       console.log(JSON.stringify(jsonOutput, null, 2));
     }
-  } catch (err) {
-    console.error(chalk.red("Error:"), err);
-    process.exit(1);
-  }
+  }, "Failed to show session");
 }
