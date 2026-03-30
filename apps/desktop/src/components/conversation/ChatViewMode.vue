@@ -85,6 +85,7 @@ const scrollEl = ref<HTMLElement | null>(null);
 const cvRootEl = ref<HTMLElement | null>(null);
 const panelWidthPx = ref(0);
 const scrollMaxHeightPx = ref(520);
+const usePanelScrollViewport = ref(false);
 
 // ─── Panel top offset (fixed position below sticky action bar) ────
 
@@ -120,7 +121,9 @@ function updatePanelTop() {
 
 function updateLayoutMetrics() {
   const viewportWidth = window.innerWidth;
-  panelWidthPx.value = shouldReserveScrollInset(viewportWidth) ? computePanelWidthPx(viewportWidth) : 0;
+  const reserveInset = panel.isPanelOpen.value && shouldReserveScrollInset(viewportWidth);
+  panelWidthPx.value = reserveInset ? computePanelWidthPx(viewportWidth) : 0;
+  usePanelScrollViewport.value = reserveInset;
 
   const cvRoot = cvRootEl.value;
   if (!cvRoot) return;
@@ -134,6 +137,13 @@ function handleLayoutResize() {
   updatePanelTop();
 }
 
+function handlePageScroll() {
+  updatePanelTop();
+  if (usePanelScrollViewport.value) {
+    updateLayoutMetrics();
+  }
+}
+
 onMounted(() => {
   pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
   updateLayoutMetrics();
@@ -141,24 +151,22 @@ onMounted(() => {
   window.addEventListener("resize", handleLayoutResize);
   // Listen to scroll on the page-content container (the page scroller)
   if (pageScrollEl) {
-    pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
+    pageScrollEl.addEventListener("scroll", handlePageScroll, { passive: true });
   }
 });
 
 watch(
   () => panel.isPanelOpen.value,
   () => {
-    nextTick(() => {
-      updateLayoutMetrics();
-      updatePanelTop();
-    });
+    updateLayoutMetrics();
+    updatePanelTop();
   },
 );
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleLayoutResize);
   if (pageScrollEl) {
-    pageScrollEl.removeEventListener("scroll", updatePanelTop);
+    pageScrollEl.removeEventListener("scroll", handlePageScroll);
   }
 });
 
@@ -461,7 +469,7 @@ defineExpose({ revealEvent });
   >
     <!-- Main column (shrinks when panel is open) -->
     <div :class="['cv-main', { 'panel-open': panel.isPanelOpen.value }]">
-      <div class="cv-scroll" ref="scrollEl">
+      <div :class="['cv-scroll', { 'cv-scroll--panel-open': usePanelScrollViewport }]" ref="scrollEl">
         <div class="cv-content">
           <div class="cv-stream">
             <template v-for="(turn, ti) in turns" :key="turn.turnIndex">
@@ -726,6 +734,9 @@ defineExpose({ revealEvent });
 
 .cv-scroll {
   flex: 1;
+}
+
+.cv-scroll--panel-open {
   overflow-y: auto;
   max-height: var(--cv-scroll-max-height, none);
   scrollbar-gutter: stable;
