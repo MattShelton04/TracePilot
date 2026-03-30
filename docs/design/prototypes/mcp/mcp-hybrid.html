@@ -1,0 +1,2618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — MCP Server Manager</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--canvas-default); }
+
+    /* ─── View switching ─── */
+    .view-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .view-panel.hidden { display: none !important; }
+
+    /* ─── Stats Strip ─── */
+    .stats-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 0 2px;
+      flex-wrap: wrap;
+    }
+    .stats-strip .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+    }
+    .stat-chip .stat-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stat-chip .stat-dot.installed { background: var(--accent-fg); }
+    .stat-chip .stat-dot.active    { background: var(--success-fg); }
+    .stat-chip .stat-dot.paused    { background: var(--warning-fg); }
+    .stat-chip .stat-dot.error     { background: var(--danger-fg); }
+    .stat-sep {
+      color: var(--text-placeholder);
+      font-size: 0.625rem;
+      user-select: none;
+    }
+
+    /* ─── Token Usage Summary ─── */
+    .token-usage-summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      margin-top: 8px;
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+    }
+    .token-usage-icon {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      border: 1px solid var(--border-accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      color: var(--accent-fg);
+      flex-shrink: 0;
+    }
+    .token-usage-info { flex: 1; min-width: 0; }
+    .token-usage-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .token-usage-text strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .token-usage-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+    }
+    .token-usage-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--neutral-muted);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      max-width: 200px;
+    }
+    .token-usage-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--gradient-accent);
+      transition: width var(--transition-slow);
+    }
+    .token-usage-pct {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      font-variant-numeric: tabular-nums;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    /* ─── Page Title Row ─── */
+    .page-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 4px;
+    }
+    .page-title-row h1 {
+      font-size: 1.375rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .page-title-row h1 .title-icon {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-md);
+      background: var(--accent-muted);
+      border: 1px solid var(--border-accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      color: var(--accent-fg);
+    }
+    .btn-add-server {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: var(--gradient-accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 6px rgba(99,102,241,0.35);
+      transition: all var(--transition-fast);
+      letter-spacing: -0.01em;
+    }
+    .btn-add-server:hover {
+      box-shadow: 0 3px 14px rgba(99,102,241,0.45);
+      transform: translateY(-1px);
+    }
+    .btn-add-server:active { transform: translateY(0); }
+    .btn-add-server svg { width: 14px; height: 14px; }
+
+    /* ─── Filter Bar ─── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 0 20px;
+      flex-wrap: wrap;
+    }
+    .filter-bar .search-container { max-width: 260px; }
+
+    /* ─── Section Heading ─── */
+    .section-heading {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-default);
+    }
+
+    /* ─── Server Card Grid ─── */
+    .server-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+
+    /* ─── Server Card ─── */
+    .server-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+    .server-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+    .server-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-2px);
+    }
+    .server-card:hover::before { opacity: 1; }
+    .server-card.status-active::before  { background: var(--gradient-accent); opacity: 0; }
+    .server-card.status-active:hover::before { opacity: 1; }
+    .server-card.status-paused::before  { background: var(--warning-fg); }
+    .server-card.status-error::before   { background: var(--danger-fg); }
+    .server-card.status-error { border-color: var(--danger-muted); }
+
+    .server-card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .server-icon-card {
+      width: 38px; height: 38px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      border: 1px solid var(--border-default);
+      background: var(--canvas-default);
+      transition: all var(--transition-normal);
+    }
+    .server-card:hover .server-icon-card {
+      border-color: var(--border-accent);
+      box-shadow: 0 0 12px rgba(99,102,241,0.08);
+    }
+    .server-card.status-error .server-icon-card {
+      border-color: var(--danger-muted);
+      background: var(--danger-subtle);
+    }
+    .server-info { flex: 1; min-width: 0; }
+    .server-name-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 2px;
+    }
+    .server-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color var(--transition-fast);
+    }
+    .server-card:hover .server-name { color: var(--accent-fg); }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .status-dot.active {
+      background: var(--success-fg);
+      box-shadow: 0 0 6px rgba(52,211,153,0.5);
+    }
+    .status-dot.active::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(52,211,153,0.25);
+      animation: pulse-ring 2.5s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.8); }
+    }
+    .status-dot.paused {
+      background: var(--warning-fg);
+      box-shadow: 0 0 4px rgba(251,191,36,0.3);
+    }
+    .status-dot.error {
+      background: var(--danger-fg);
+      box-shadow: 0 0 6px rgba(251,113,133,0.4);
+      animation: error-blink 1.5s ease-in-out infinite;
+    }
+    @keyframes error-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .server-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.45;
+      margin-bottom: 0;
+    }
+    .server-card.status-error .server-desc { color: var(--danger-fg); }
+
+    .server-badges {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .badge-xs {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      font-size: 0.625rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .badge-tools { background: var(--accent-muted); color: var(--accent-fg); }
+    .badge-scope-global { background: var(--done-muted); color: var(--done-fg); }
+    .badge-scope-project { background: var(--neutral-muted); color: var(--neutral-fg); }
+    .badge-transport {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      color: var(--text-tertiary);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.5625rem;
+      letter-spacing: 0.03em;
+    }
+    .badge-tokens {
+      background: var(--success-subtle);
+      color: var(--success-fg);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.5625rem;
+      letter-spacing: 0.01em;
+    }
+
+    .server-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+    }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .action-btn:hover {
+      background: var(--neutral-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-default);
+    }
+    .action-btn svg { width: 13px; height: 13px; }
+    .action-btn.toggle-active { color: var(--success-fg); }
+    .action-btn.toggle-active:hover { background: var(--success-subtle); color: var(--success-fg); border-color: rgba(52,211,153,0.2); }
+    .action-btn.toggle-paused { color: var(--warning-fg); }
+    .action-btn.toggle-paused:hover { background: var(--warning-subtle); color: var(--warning-fg); border-color: rgba(251,191,36,0.2); }
+    .action-btn.danger:hover { color: var(--danger-fg); background: var(--danger-subtle); border-color: rgba(251,113,133,0.15); }
+    .action-spacer { flex: 1; }
+
+    /* ─── Stagger animation ─── */
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .server-card {
+      animation: card-in 0.35s ease backwards;
+    }
+    .server-card:nth-child(1) { animation-delay: 0.04s; }
+    .server-card:nth-child(2) { animation-delay: 0.08s; }
+    .server-card:nth-child(3) { animation-delay: 0.12s; }
+    .server-card:nth-child(4) { animation-delay: 0.16s; }
+    .server-card:nth-child(5) { animation-delay: 0.20s; }
+    .server-card:nth-child(6) { animation-delay: 0.24s; }
+
+    /* ─── Detail View ─── */
+    .detail-topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 28px;
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+      background: var(--canvas-subtle);
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+      border: none;
+      background: none;
+    }
+    .back-link:hover {
+      color: var(--text-primary);
+      background: var(--neutral-subtle);
+    }
+    .back-link svg { flex-shrink: 0; }
+    .topbar-spacer { flex: 1; }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .split-wrapper {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .panel-left {
+      flex: 1;
+      min-width: 380px;
+      max-width: 560px;
+      overflow-y: auto;
+      padding: 24px 28px;
+      border-right: 1px solid var(--border-default);
+    }
+    .panel-right {
+      flex: 1.3;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Detail: Server header */
+    .detail-server-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .detail-server-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      background: var(--canvas-raised);
+      border: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .detail-server-icon::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .server-meta { flex: 1; min-width: 0; }
+    .detail-server-name {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      color: var(--text-primary);
+    }
+    .detail-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .status-badge-detail {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+    }
+    .status-dot-sm {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .status-dot-sm.connected {
+      background: var(--success-fg);
+      box-shadow: 0 0 6px rgba(52,211,153,0.5);
+    }
+    .status-dot-sm.connected::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(52,211,153,0.25);
+      animation: pulse-ring 2.5s ease-out infinite;
+    }
+    .status-dot-sm.error-dot {
+      background: var(--danger-fg);
+      box-shadow: 0 0 6px rgba(251,113,133,0.4);
+      animation: error-blink 1.5s ease-in-out infinite;
+    }
+    .status-dot-sm.paused-dot {
+      background: var(--warning-fg);
+      box-shadow: 0 0 4px rgba(251,191,36,0.3);
+    }
+    .scope-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px;
+      border-radius: var(--radius-full);
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+    .scope-tag.project {
+      background: var(--neutral-muted);
+      color: var(--neutral-fg);
+      border-color: rgba(161,161,170,0.15);
+    }
+
+    /* Config sections */
+    .config-section { margin-bottom: 20px; }
+    .config-section-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .config-section-title svg { width: 13px; height: 13px; opacity: 0.5; }
+    .config-card {
+      background: var(--canvas-subtle);
+      background-image: var(--gradient-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .config-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+    }
+    .config-row:last-child { border-bottom: none; }
+    .config-row:hover { background: rgba(255,255,255,0.015); }
+    .config-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      min-width: 90px;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+    .config-value { flex: 1; min-width: 0; }
+    .transport-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: var(--radius-sm);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
+      background: var(--neutral-muted);
+      color: var(--neutral-fg);
+      letter-spacing: 0.02em;
+    }
+    .config-input {
+      width: 100%;
+      padding: 5px 10px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: "JetBrains Mono", monospace;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .config-input:hover { border-color: var(--border-muted); }
+    .config-input:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+
+    /* Tag list */
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      font-size: 0.75rem;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-primary);
+      transition: all var(--transition-fast);
+      cursor: default;
+    }
+    .tag:hover { border-color: var(--border-accent); }
+    .tag .tag-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      margin-left: 2px;
+      font-size: 11px;
+      line-height: 1;
+    }
+    .tag .tag-remove:hover { color: var(--danger-fg); background: var(--danger-subtle); }
+
+    /* Env table */
+    .env-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .env-table td {
+      padding: 8px 12px;
+      font-size: 0.8125rem;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+    .env-table tr:last-child td { border-bottom: none; }
+    .env-key {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 500;
+      color: var(--warning-fg);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+    .env-value-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .env-value {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      letter-spacing: 0.08em;
+    }
+    .env-value.revealed {
+      letter-spacing: 0;
+      color: var(--text-primary);
+    }
+    .toggle-vis {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px; height: 24px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+    .toggle-vis:hover { background: var(--neutral-subtle); color: var(--text-secondary); }
+    .toggle-vis svg { width: 14px; height: 14px; }
+
+    /* Actions row */
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .btn-success-state {
+      background: var(--success-muted) !important;
+      border-color: rgba(52,211,153,0.25) !important;
+      color: var(--success-fg) !important;
+      box-shadow: none !important;
+    }
+    .btn-testing-state {
+      background: var(--accent-muted) !important;
+      border-color: var(--border-accent) !important;
+      color: var(--accent-fg) !important;
+    }
+    .btn-error-state {
+      background: var(--danger-muted) !important;
+      border-color: rgba(251,113,133,0.25) !important;
+      color: var(--danger-fg) !important;
+    }
+    .btn-icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* Danger zone */
+    .danger-zone {
+      border: 1px solid rgba(251,113,133,0.2);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      background: var(--danger-subtle);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .danger-zone-text { flex: 1; min-width: 0; }
+    .danger-zone-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--danger-fg);
+      margin-bottom: 2px;
+    }
+    .danger-zone-desc {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      line-height: 1.45;
+    }
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(251,113,133,0.3);
+      color: var(--danger-fg);
+      white-space: nowrap;
+    }
+    .btn-danger:hover { background: var(--danger-muted); border-color: rgba(251,113,133,0.5); }
+
+    /* ─── Tools panel ─── */
+    .tools-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .tools-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .tools-count {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-left: 6px;
+      font-weight: 400;
+    }
+    .tools-toggle-all {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+    }
+    .tools-toggle-all:hover { color: var(--text-secondary); background: var(--neutral-subtle); }
+    .tools-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--canvas-subtle);
+    }
+    .tools-list::-webkit-scrollbar { width: 5px; }
+    .tools-list::-webkit-scrollbar-track { background: transparent; }
+    .tools-list::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+    .tool-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tool-item:last-child { border-bottom: none; }
+    .tool-item:hover { background: rgba(255,255,255,0.015); }
+
+    .tool-checkbox {
+      position: relative;
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+    }
+    .tool-checkbox input {
+      position: absolute;
+      opacity: 0;
+      width: 100%; height: 100%;
+      cursor: pointer;
+      margin: 0;
+      z-index: 2;
+    }
+    .tool-checkbox .checkmark {
+      position: absolute;
+      inset: 0;
+      background: var(--canvas-default);
+      border: 1.5px solid var(--border-default);
+      border-radius: 4px;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tool-checkbox .checkmark svg {
+      width: 10px; height: 10px;
+      opacity: 0;
+      color: white;
+      transform: scale(0.6);
+      transition: all var(--transition-fast);
+    }
+    .tool-checkbox input:checked + .checkmark {
+      background: var(--accent-emphasis);
+      border-color: var(--accent-emphasis);
+    }
+    .tool-checkbox input:checked + .checkmark svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .tool-checkbox input:hover + .checkmark { border-color: var(--accent-fg); }
+    .tool-info { flex: 1; min-width: 0; }
+    .tool-name {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+    .tool-desc {
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tool-item.disabled .tool-name { color: var(--text-tertiary); }
+    .tool-item.disabled .tool-desc { color: var(--text-placeholder); }
+    .tool-tokens {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.5625rem;
+      color: var(--text-placeholder);
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: 0.01em;
+    }
+    .tool-item:not(.disabled) .tool-tokens { color: var(--text-tertiary); }
+
+    /* Tools summary */
+    .tools-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--canvas-subtle);
+      font-size: 0.6875rem;
+      color: var(--text-tertiary);
+      margin-top: 10px;
+    }
+    .tools-summary strong { color: var(--text-secondary); font-weight: 600; }
+    .tools-summary .token-cost {
+      font-family: "JetBrains Mono", monospace;
+      color: var(--accent-fg);
+      font-weight: 500;
+    }
+
+    /* Health grid */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .health-stat {
+      background: var(--canvas-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      background-image: var(--gradient-card);
+    }
+    .health-stat-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--text-placeholder);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .health-stat-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .health-stat-value.mono {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8125rem;
+    }
+    .health-stat-value .unit {
+      font-size: 0.6875rem;
+      font-weight: 400;
+      color: var(--text-tertiary);
+      margin-left: 2px;
+    }
+    .health-stat-value .success-text { color: var(--success-fg); }
+
+    /* Diff preview */
+    .diff-section {
+      border-top: 1px solid var(--border-default);
+      background: var(--canvas-subtle);
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .diff-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 28px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .diff-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .diff-title svg { width: 14px; height: 14px; color: var(--text-tertiary); }
+    .diff-actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .diff-body {
+      padding: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .diff-body::-webkit-scrollbar { width: 5px; }
+    .diff-body::-webkit-scrollbar-track { background: transparent; }
+    .diff-body::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+    .diff-line {
+      display: flex;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      padding: 0 28px;
+    }
+    .diff-line-num {
+      min-width: 36px;
+      text-align: right;
+      color: var(--text-placeholder);
+      padding-right: 12px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .diff-line-content {
+      flex: 1;
+      white-space: pre;
+      min-width: 0;
+    }
+    .diff-line.added { background: rgba(52,211,153,0.07); }
+    .diff-line.added .diff-line-content { color: var(--success-fg); }
+    .diff-line.added .diff-line-num { color: rgba(52,211,153,0.4); }
+    .diff-line.removed { background: rgba(251,113,133,0.07); }
+    .diff-line.removed .diff-line-content { color: var(--danger-fg); }
+    .diff-line.removed .diff-line-num { color: rgba(251,113,133,0.4); }
+    .diff-line.context .diff-line-content { color: var(--text-tertiary); }
+    .diff-line.hunk { background: var(--accent-subtle); }
+    .diff-line.hunk .diff-line-content { color: var(--accent-fg); font-style: italic; }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: var(--z-modal);
+      animation: backdropIn 0.25s ease;
+    }
+    .modal-overlay.hidden { display: none; }
+    @keyframes backdropIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .add-modal {
+      width: 720px;
+      max-width: calc(100vw - 48px);
+      max-height: calc(100vh - 80px);
+      background: var(--canvas-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-glow), 0 0 80px rgba(99,102,241,0.06);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-header-wrap {
+      padding: 20px 24px 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-title-icon {
+      width: 26px; height: 26px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-muted);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent-fg);
+      font-size: 13px;
+    }
+    .modal-close {
+      width: 28px; height: 28px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-tertiary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all var(--transition-fast);
+    }
+    .modal-close:hover {
+      background: var(--danger-subtle);
+      border-color: var(--danger-muted);
+      color: var(--danger-fg);
+    }
+    .modal-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .modal-tab-btn {
+      padding: 10px 18px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: none;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .modal-tab-btn:hover { color: var(--text-primary); }
+    .modal-tab-btn.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent-emphasis);
+    }
+    .modal-tab-btn .tab-icon { font-size: 13px; opacity: 0.6; }
+    .modal-tab-btn.active .tab-icon { opacity: 1; }
+
+    .modal-body-area {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-tab-content { display: none; flex: 1; overflow: hidden; }
+    .modal-tab-content.active { display: flex; flex-direction: column; }
+
+    /* Modal: Custom form layout */
+    .custom-layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .custom-form-col {
+      flex: 1;
+      padding: 20px 24px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+    .custom-form-col::-webkit-scrollbar { width: 5px; }
+    .custom-form-col::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: var(--radius-full); }
+    .custom-preview-col {
+      width: 280px;
+      min-width: 280px;
+      background: var(--canvas-default);
+      border-left: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+    }
+    .custom-preview-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .custom-preview-body {
+      flex: 1;
+      padding: 14px 16px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .json-preview {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      white-space: pre;
+      word-break: break-all;
+    }
+    .json-key { color: var(--accent-fg); }
+    .json-string { color: var(--success-fg); }
+    .json-bracket { color: var(--text-tertiary); }
+
+    /* Form elements for modal */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+      letter-spacing: 0.01em;
+    }
+    .form-label-optional {
+      font-weight: 400;
+      color: var(--text-placeholder);
+      margin-left: 4px;
+    }
+    .form-input-modal,
+    .form-textarea-modal {
+      width: 100%;
+      padding: 8px 11px;
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .form-input-modal::placeholder,
+    .form-textarea-modal::placeholder { color: var(--text-placeholder); }
+    .form-input-modal:focus,
+    .form-textarea-modal:focus {
+      border-color: var(--accent-emphasis);
+      box-shadow: var(--shadow-glow-accent);
+    }
+    .form-textarea-modal {
+      resize: vertical;
+      min-height: 60px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+    .form-hint {
+      font-size: 0.625rem;
+      color: var(--text-placeholder);
+      margin-top: 4px;
+    }
+
+    /* Transport pills */
+    .transport-pills {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .transport-pill {
+      flex: 1;
+      padding: 7px 0;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--text-tertiary);
+      background: var(--canvas-default);
+      border: none;
+      border-right: 1px solid var(--border-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .transport-pill:last-child { border-right: none; }
+    .transport-pill.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+
+    /* Env rows in modal */
+    .env-rows { display: flex; flex-direction: column; gap: 6px; }
+    .env-row-modal {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .env-row-modal .form-input-modal {
+      flex: 1;
+      padding: 6px 9px;
+      font-size: 0.75rem;
+    }
+    .env-row-modal .env-key-input {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+    }
+    .env-add-btn,
+    .env-remove-btn {
+      width: 26px; height: 26px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-tertiary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+    }
+    .env-add-btn:hover { background: var(--accent-subtle); border-color: var(--accent-emphasis); color: var(--accent-fg); }
+    .env-remove-btn:hover { background: var(--danger-subtle); border-color: var(--danger-muted); color: var(--danger-fg); }
+
+    /* Scope toggle */
+    .scope-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .scope-option-btn {
+      padding: 6px 16px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: inherit;
+      background: var(--canvas-default);
+      color: var(--text-tertiary);
+      border: none;
+      border-right: 1px solid var(--border-default);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .scope-option-btn:last-child { border-right: none; }
+    .scope-option-btn:hover { color: var(--text-primary); }
+    .scope-option-btn.active {
+      background: var(--accent-muted);
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+
+    .modal-footer-bar {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      background: var(--canvas-overlay);
+    }
+    .modal-footer-bar .btn-cancel {
+      padding: 7px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      font-family: inherit;
+      background: transparent;
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .modal-footer-bar .btn-cancel:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+    .modal-footer-bar .btn-add {
+      padding: 7px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      font-family: inherit;
+      background: var(--gradient-accent);
+      border: none;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(99,102,241,0.3);
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .modal-footer-bar .btn-add:hover { box-shadow: 0 2px 12px rgba(99,102,241,0.5); transform: translateY(-1px); }
+    .modal-footer-bar .btn-add:active { transform: translateY(0); }
+
+    /* Advanced toggle */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 0;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: color var(--transition-fast);
+    }
+    .advanced-toggle:hover { color: var(--text-secondary); }
+    .advanced-toggle svg { width: 12px; height: 12px; transition: transform var(--transition-fast); }
+    .advanced-toggle.open svg { transform: rotate(90deg); }
+    .advanced-content { display: none; }
+    .advanced-content.open { display: block; }
+    .form-divider { height: 1px; background: var(--border-default); margin: 16px 0; }
+
+    /* ─── Notes view ─── */
+    .notes-section { margin-bottom: 28px; }
+    .notes-section-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.01em;
+    }
+    .notes-section-title .notes-icon {
+      font-size: 14px;
+      opacity: 0.7;
+    }
+    .notes-text {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      margin-bottom: 10px;
+    }
+    .notes-code {
+      background: var(--canvas-default);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.6875rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      white-space: pre;
+      margin-bottom: 12px;
+    }
+    .notes-code .kw { color: var(--done-fg); }
+    .notes-code .ty { color: var(--accent-fg); }
+    .notes-code .st { color: var(--success-fg); }
+    .notes-code .cm { color: var(--text-placeholder); font-style: italic; }
+    .notes-code .fn { color: var(--warning-fg); }
+    .notes-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 10px;
+    }
+    .notes-list li {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      padding: 4px 0 4px 18px;
+      position: relative;
+      line-height: 1.6;
+    }
+    .notes-list li::before {
+      content: '›';
+      position: absolute;
+      left: 4px;
+      color: var(--accent-fg);
+      font-weight: 600;
+    }
+
+    /* ─── Stagger entrance ─── */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .anim-in { animation: fadeSlideIn 0.35s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+    .anim-d1 { animation-delay: 0.04s; }
+    .anim-d2 { animation-delay: 0.08s; }
+    .anim-d3 { animation-delay: 0.12s; }
+    .anim-d4 { animation-delay: 0.16s; }
+    .anim-d5 { animation-delay: 0.20s; }
+    .anim-d6 { animation-delay: 0.24s; }
+
+    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .server-grid { grid-template-columns: 1fr; }
+      .filter-bar { gap: 6px; }
+      .filter-bar .search-container { max-width: 100%; flex: 1 1 100%; }
+      .split-wrapper { flex-direction: column; }
+      .panel-left { max-width: none; border-right: none; border-bottom: 1px solid var(--border-default); }
+      .health-grid { grid-template-columns: repeat(2, 1fr); }
+      .custom-layout { flex-direction: column; }
+      .custom-preview-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border-default); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ═══════ Sidebar ═══════ -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">⚡</div>
+        <span class="sidebar-brand-text">TracePilot</span>
+      </div>
+      <nav class="sidebar-nav">
+        <span class="sidebar-section-title">Main</span>
+        <a href="#" class="sidebar-nav-item" data-nav="dashboard">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm0 14.5a6.5 6.5 0 110-13 6.5 6.5 0 010 13zM8 4a.75.75 0 01.75.75v2.5h2.5a.75.75 0 010 1.5h-2.5v2.5a.75.75 0 01-1.5 0v-2.5h-2.5a.75.75 0 010-1.5h2.5v-2.5A.75.75 0 018 4z"/></svg>
+          Dashboard
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="sessions">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1.5 3.5h13v9h-13v-9z"/></svg>
+          Sessions
+          <span class="sidebar-nav-badge">12</span>
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="skills">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.823.8a.75.75 0 01.354 0l6 1.5a.75.75 0 01.573.728v5.947a4.75 4.75 0 01-2.3 4.074l-4.25 2.55a.75.75 0 01-.774 0l-4.25-2.55A4.75 4.75 0 01.876 9V3.028A.75.75 0 011.45 2.3l6-1.5z"/></svg>
+          Skills
+          <span class="sidebar-nav-badge">8</span>
+        </a>
+        <a href="#" class="sidebar-nav-item active" data-nav="mcp">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.75A.75.75 0 012.75 3h10.5a.75.75 0 010 1.5H2.75A.75.75 0 012 3.75zM2 8a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H2.75A.75.75 0 012 8zm0 4.25a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"/></svg>
+          MCP Servers
+          <span class="sidebar-nav-badge">6</span>
+        </a>
+        <span class="sidebar-section-title">Configure</span>
+        <a href="#" class="sidebar-nav-item" data-nav="profiles">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm0 2.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11z"/></svg>
+          Profiles
+        </a>
+        <a href="#" class="sidebar-nav-item" data-nav="settings">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 12.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>
+          Settings
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="sidebar-version">v0.4.2-alpha</span>
+        <button class="theme-toggle" onclick="document.documentElement.toggleAttribute('data-theme')" title="Toggle theme">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 12.5V2.5a5.5 5.5 0 010 11z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ═══════ Main Content ═══════ -->
+    <main class="main-content">
+
+      <!-- ═══ View 1: Server List ═══ -->
+      <div id="view-list" class="view-panel">
+        <div class="page-header-bar">
+          <nav class="breadcrumb">
+            <a href="#">Settings</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">MCP Servers</span>
+          </nav>
+        </div>
+        <div class="page-content">
+          <div class="page-content-inner">
+            <div class="page-title-row">
+              <h1>
+                <span class="title-icon">🔌</span>
+                MCP Servers
+              </h1>
+              <button class="btn-add-server" id="btn-open-add-modal">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+                Add Server
+              </button>
+            </div>
+
+            <!-- Tab nav: Servers / Implementation Notes -->
+            <div class="tab-nav" id="main-tab-nav">
+              <button class="tab-nav-item active" data-main-tab="servers">Servers <span class="tab-count">6</span></button>
+              <button class="tab-nav-item" data-main-tab="notes">Implementation Notes</button>
+            </div>
+
+            <!-- ── Servers tab content ── -->
+            <div id="tab-servers">
+              <div class="stats-strip" id="stats-strip">
+                <span class="stat-chip"><span class="stat-dot installed"></span><span id="stat-installed">6</span> Installed</span>
+                <span class="stat-sep">·</span>
+                <span class="stat-chip"><span class="stat-dot active"></span><span id="stat-active">4</span> Active</span>
+                <span class="stat-sep">·</span>
+                <span class="stat-chip"><span class="stat-dot paused"></span><span id="stat-paused">1</span> Paused</span>
+                <span class="stat-sep">·</span>
+                <span class="stat-chip"><span class="stat-dot error"></span><span id="stat-error">1</span> Error</span>
+              </div>
+
+              <!-- Token Usage Summary -->
+              <div class="token-usage-summary" id="token-usage-summary">
+                <div class="token-usage-icon">📊</div>
+                <div class="token-usage-info">
+                  <div class="token-usage-text">
+                    <strong id="token-total">~2,840</strong> tokens from <strong id="token-tool-count">37</strong> tools across <strong id="token-server-count">4</strong> active servers
+                  </div>
+                  <div class="token-usage-bar-wrap">
+                    <div class="token-usage-bar">
+                      <div class="token-usage-bar-fill" id="token-bar-fill" style="width: 2.2%"></div>
+                    </div>
+                    <span class="token-usage-pct" id="token-pct">2.2% of 128k context</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="filter-bar">
+                <div class="search-container">
+                  <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 7a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm-.82 4.74a6 6 0 111.06-1.06l3.04 3.04a.75.75 0 11-1.06 1.06l-3.04-3.04z"/></svg>
+                  <input type="text" class="search-input" id="search-input" placeholder="Search servers…">
+                  <span class="search-shortcut">⌘K</span>
+                </div>
+                <select class="filter-select" id="filter-scope">
+                  <option value="all">All Scopes</option>
+                  <option value="global">Global</option>
+                  <option value="project">Project</option>
+                </select>
+                <select class="filter-select" id="filter-status">
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="error">Error</option>
+                </select>
+                <select class="filter-select" id="filter-type">
+                  <option value="all">All Types</option>
+                  <option value="stdio">stdio</option>
+                  <option value="http">http</option>
+                </select>
+              </div>
+
+              <div class="section-heading">Installed Servers</div>
+              <div class="server-grid" id="server-grid">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+
+            <!-- ── Implementation Notes tab content ── -->
+            <div id="tab-notes" class="hidden">
+
+              <div class="notes-section anim-in anim-d1">
+                <div class="notes-section-title"><span class="notes-icon">📁</span> Config File Locations</div>
+                <div class="notes-text">MCP server configurations are stored as JSON. TracePilot reads from multiple locations with a merge strategy (project overrides global).</div>
+                <div class="notes-code"><span class="cm">// Global config (all projects)</span>
+~/.config/tracepilot/mcp-servers.json
+
+<span class="cm">// Project-specific config</span>
+&lt;project-root&gt;/.tracepilot/mcp-servers.json
+
+<span class="cm">// VS Code compatibility (read-only import)</span>
+&lt;project-root&gt;/.vscode/mcp.json</div>
+                <ul class="notes-list">
+                  <li>Global config is created on first launch</li>
+                  <li>Project configs are optional and override global settings</li>
+                  <li>VS Code configs can be imported via the "Import from VS Code" action</li>
+                </ul>
+              </div>
+
+              <div class="notes-section anim-in anim-d2">
+                <div class="notes-section-title"><span class="notes-icon">🦀</span> Rust Types</div>
+                <div class="notes-text">Core types for MCP server configuration in the Tauri backend.</div>
+                <div class="notes-code"><span class="kw">use</span> std::collections::<span class="ty">HashMap</span>;
+<span class="kw">use</span> serde::{<span class="ty">Serialize</span>, <span class="ty">Deserialize</span>};
+
+<span class="cm">/// Transport type for MCP communication</span>
+#[derive(Serialize, Deserialize, Clone)]
+<span class="kw">enum</span> <span class="ty">McpTransport</span> {
+    Stdio { command: <span class="ty">String</span>, args: <span class="ty">Vec</span>&lt;<span class="ty">String</span>&gt; },
+    Http  { url: <span class="ty">String</span> },
+    Sse   { url: <span class="ty">String</span> },
+}
+
+<span class="cm">/// Configuration for a single MCP server</span>
+#[derive(Serialize, Deserialize, Clone)]
+<span class="kw">struct</span> <span class="ty">McpServerConfig</span> {
+    name: <span class="ty">String</span>,
+    transport: <span class="ty">McpTransport</span>,
+    env: <span class="ty">HashMap</span>&lt;<span class="ty">String</span>, <span class="ty">String</span>&gt;,
+    scope: <span class="ty">McpScope</span>,
+    enabled_tools: <span class="ty">Option</span>&lt;<span class="ty">Vec</span>&lt;<span class="ty">String</span>&gt;&gt;,
+    status: <span class="ty">McpServerStatus</span>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+<span class="kw">enum</span> <span class="ty">McpScope</span>    { Global, Project }
+
+#[derive(Serialize, Deserialize, Clone)]
+<span class="kw">enum</span> <span class="ty">McpServerStatus</span> { Active, Paused, Error(<span class="ty">String</span>) }</div>
+              </div>
+
+              <div class="notes-section anim-in anim-d3">
+                <div class="notes-section-title"><span class="notes-icon">⚡</span> IPC Commands (Tauri)</div>
+                <div class="notes-text">All MCP operations use Tauri's IPC command system. Commands are async and return Result types.</div>
+                <div class="notes-code"><span class="cm">// List all configured servers</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_list_servers</span>() -&gt; <span class="ty">Result</span>&lt;<span class="ty">Vec</span>&lt;<span class="ty">McpServer</span>&gt;&gt;
+
+<span class="cm">// Add a new server configuration</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_add_server</span>(config: <span class="ty">McpServerConfig</span>) -&gt; <span class="ty">Result</span>&lt;<span class="ty">McpServer</span>&gt;
+
+<span class="cm">// Remove a server by ID</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_remove_server</span>(id: <span class="ty">String</span>) -&gt; <span class="ty">Result</span>&lt;()&gt;
+
+<span class="cm">// Test connectivity to a server</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_test_connection</span>(id: <span class="ty">String</span>) -&gt; <span class="ty">Result</span>&lt;<span class="ty">ConnectionResult</span>&gt;
+
+<span class="cm">// Toggle a specific tool on/off</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_toggle_tool</span>(server_id: <span class="ty">String</span>, tool: <span class="ty">String</span>, enabled: <span class="ty">bool</span>) -&gt; <span class="ty">Result</span>&lt;()&gt;
+
+<span class="cm">// Update server config (triggers diff preview)</span>
+#[<span class="fn">tauri::command</span>]
+<span class="kw">async fn</span> <span class="fn">mcp_update_server</span>(id: <span class="ty">String</span>, config: <span class="ty">McpServerConfig</span>) -&gt; <span class="ty">Result</span>&lt;()&gt;</div>
+              </div>
+
+              <div class="notes-section anim-in anim-d4">
+                <div class="notes-section-title"><span class="notes-icon">🔄</span> Test Connection Flow</div>
+                <div class="notes-text">The test connection button triggers a multi-step validation sequence.</div>
+                <ul class="notes-list">
+                  <li><strong>1. Spawn process</strong> — For stdio: spawn command with args. For http/sse: open connection to URL.</li>
+                  <li><strong>2. Protocol handshake</strong> — Send <code style="color:var(--accent-fg)">initialize</code> request, validate server capabilities and protocol version.</li>
+                  <li><strong>3. List tools</strong> — Call <code style="color:var(--accent-fg)">tools/list</code> to discover available tools. Compare with cached tool list.</li>
+                  <li><strong>4. Report status</strong> — Return response time, tool count, protocol version. Update health stats.</li>
+                  <li><strong>5. Teardown</strong> — Close connection gracefully. For stdio: send SIGTERM then SIGKILL after 5s timeout.</li>
+                </ul>
+              </div>
+
+              <div class="notes-section anim-in anim-d5">
+                <div class="notes-section-title"><span class="notes-icon">🔧</span> Enable/Disable Strategy</div>
+                <div class="notes-text">Tool toggling is implemented at the proxy layer. Disabled tools are never forwarded to the LLM context, reducing token consumption.</div>
+                <div class="notes-code"><span class="cm">// In the MCP proxy middleware:</span>
+<span class="kw">fn</span> <span class="fn">filter_tools</span>(tools: <span class="ty">Vec</span>&lt;<span class="ty">Tool</span>&gt;, config: &amp;<span class="ty">McpServerConfig</span>) -&gt; <span class="ty">Vec</span>&lt;<span class="ty">Tool</span>&gt; {
+    <span class="kw">match</span> &amp;config.enabled_tools {
+        <span class="ty">Some</span>(allowed) =&gt; tools.into_iter()
+            .filter(|t| allowed.contains(&amp;t.name))
+            .collect(),
+        <span class="ty">None</span> =&gt; tools, <span class="cm">// All tools enabled by default</span>
+    }
+}</div>
+                <ul class="notes-list">
+                  <li>Default: all tools enabled (<code style="color:var(--accent-fg)">enabled_tools: None</code>)</li>
+                  <li>Toggling stores explicit list in config file</li>
+                  <li>Token savings are estimated at ~4 chars per token from tool schemas</li>
+                  <li>Changes take effect on next LLM interaction (no server restart needed)</li>
+                </ul>
+              </div>
+
+              <div class="notes-section anim-in anim-d5">
+                <div class="notes-section-title"><span class="notes-icon">💾</span> VS Code Import</div>
+                <div class="notes-text">TracePilot can import MCP server configs from VS Code's <code style="color:var(--accent-fg)">.vscode/mcp.json</code> format.</div>
+                <div class="notes-code"><span class="cm">// VS Code format (.vscode/mcp.json)</span>
+{
+  <span class="json-key">"mcpServers"</span>: {
+    <span class="json-key">"github"</span>: {
+      <span class="json-key">"command"</span>: <span class="st">"npx"</span>,
+      <span class="json-key">"args"</span>: [<span class="st">"-y"</span>, <span class="st">"@modelcontextprotocol/server-github"</span>],
+      <span class="json-key">"env"</span>: { <span class="json-key">"GITHUB_TOKEN"</span>: <span class="st">"${env:GITHUB_TOKEN}"</span> }
+    }
+  }
+}
+
+<span class="cm">// Import resolves ${env:VAR} references and merges</span>
+<span class="cm">// into TracePilot's config with conflict detection</span></div>
+              </div>
+
+              <div class="notes-section anim-in anim-d6">
+                <div class="notes-section-title"><span class="notes-icon">🏪</span> Pinia Store Pattern</div>
+                <div class="notes-text">Frontend state is managed via a Pinia store with typed state, computed getters, and IPC-backed actions.</div>
+                <div class="notes-code"><span class="cm">// stores/mcpServers.ts</span>
+<span class="kw">export const</span> <span class="fn">useServerStore</span> = <span class="fn">defineStore</span>(<span class="st">'mcpServers'</span>, () =&gt; {
+  <span class="kw">const</span> servers = <span class="fn">ref</span>&lt;<span class="ty">McpServer</span>[]&gt;([]);
+  <span class="kw">const</span> loading = <span class="fn">ref</span>(<span class="kw">false</span>);
+
+  <span class="cm">// Computed</span>
+  <span class="kw">const</span> activeServers = <span class="fn">computed</span>(() =&gt;
+    servers.value.filter(s =&gt; s.status === <span class="st">'active'</span>)
+  );
+  <span class="kw">const</span> totalTokens = <span class="fn">computed</span>(() =&gt;
+    activeServers.value.reduce((sum, s) =&gt;
+      sum + s.tools.filter(t =&gt; t.enabled)
+        .reduce((ts, t) =&gt; ts + t.estimatedTokens, 0), 0)
+  );
+
+  <span class="cm">// Actions</span>
+  <span class="kw">async function</span> <span class="fn">fetchServers</span>() {
+    loading.value = <span class="kw">true</span>;
+    servers.value = <span class="kw">await</span> <span class="fn">invoke</span>(<span class="st">'mcp_list_servers'</span>);
+    loading.value = <span class="kw">false</span>;
+  }
+
+  <span class="kw">async function</span> <span class="fn">toggleTool</span>(serverId: <span class="ty">string</span>, tool: <span class="ty">string</span>) {
+    <span class="kw">await</span> <span class="fn">invoke</span>(<span class="st">'mcp_toggle_tool'</span>, { serverId, tool });
+    <span class="kw">await</span> <span class="fn">fetchServers</span>();
+  }
+
+  <span class="kw">return</span> { servers, loading, activeServers, totalTokens,
+           fetchServers, toggleTool };
+});</div>
+              </div>
+
+            </div><!-- /tab-notes -->
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ View 2: Server Detail ═══ -->
+      <div id="view-detail" class="view-panel hidden">
+        <div class="detail-topbar anim-in">
+          <button class="back-link" id="btn-back-to-list">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+            Back to MCP Servers
+          </button>
+          <div class="topbar-spacer"></div>
+          <div class="topbar-actions">
+            <span class="text-caption" style="color:var(--text-placeholder)" id="detail-last-saved">Last saved 2 min ago</span>
+          </div>
+        </div>
+
+        <div class="split-wrapper">
+          <!-- Left: Configuration -->
+          <div class="panel-left">
+            <div class="detail-server-header anim-in anim-d1">
+              <div class="detail-server-icon" id="detail-icon"></div>
+              <div class="server-meta">
+                <div class="detail-server-name" id="detail-name"></div>
+                <div class="detail-badges" id="detail-badges"></div>
+              </div>
+            </div>
+
+            <div class="config-section anim-in anim-d2">
+              <div class="config-section-title">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8h3m6 0h3M8 2v3m0 6v3"/><circle cx="8" cy="8" r="2.5"/></svg>
+                Connection
+              </div>
+              <div class="config-card" id="detail-config-card">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+
+            <div class="config-section anim-in anim-d3" id="detail-env-section">
+              <div class="config-section-title">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 6h1m4 0h1M5 10h6"/></svg>
+                Environment Variables
+              </div>
+              <div class="config-card">
+                <table class="env-table" id="detail-env-table">
+                  <!-- Rendered by JS -->
+                </table>
+              </div>
+            </div>
+
+            <div class="config-section anim-in anim-d4">
+              <div class="config-section-title">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 3L3 13M3 3l10 10"/></svg>
+                Actions
+              </div>
+              <div class="actions-row">
+                <button class="btn" id="btn-test-conn">
+                  <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8h2l2-4 3 8 2-4h3"/></svg>
+                  Test Connection
+                </button>
+                <button class="btn">
+                  <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 10v3h8v-3M8 2v8M5 5l3-3 3 3"/></svg>
+                  Export JSON
+                </button>
+              </div>
+            </div>
+
+            <div class="anim-in anim-d5">
+              <div class="danger-zone">
+                <div class="danger-zone-text">
+                  <div class="danger-zone-title">Remove Server</div>
+                  <div class="danger-zone-desc">This will remove the server configuration and disconnect all active sessions.</div>
+                </div>
+                <button class="btn btn-danger btn-sm">
+                  <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6 7v5M10 7v5"/><path d="M3 4l1 9a2 2 0 002 2h4a2 2 0 002-2l1-9"/></svg>
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Tools & Health -->
+          <div class="panel-right">
+            <div class="anim-in anim-d2">
+              <div class="tools-header">
+                <div>
+                  <span class="tools-title">Tools</span>
+                  <span class="tools-count" id="detail-tools-count"></span>
+                </div>
+                <button class="tools-toggle-all" id="btn-toggle-all-tools">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5.5"/></svg>
+                  <span id="toggle-all-label">Toggle All</span>
+                </button>
+              </div>
+              <div class="tools-list" id="detail-tools-list">
+                <!-- Rendered by JS -->
+              </div>
+              <div class="tools-summary" id="detail-tools-summary">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+
+            <div class="anim-in anim-d4">
+              <div class="config-section-title" style="margin-top: 4px;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8h2l2-4 3 8 2-4h3"/></svg>
+                Health
+              </div>
+              <div class="health-grid" id="detail-health-grid">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diff Preview -->
+        <div class="diff-section anim-in anim-d6" id="detail-diff-section">
+          <div class="diff-header-bar">
+            <div class="diff-title">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2z"/><path d="M6 6h4M6 9h2"/></svg>
+              Pending Configuration Changes
+              <span class="badge badge-warning" style="margin-left: 4px;">2 changes</span>
+            </div>
+            <div class="diff-actions-bar">
+              <button class="btn btn-ghost btn-sm">Discard</button>
+              <button class="btn btn-primary btn-sm">
+                <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5.5"/></svg>
+                Save Changes
+              </button>
+            </div>
+          </div>
+          <div class="diff-body" id="detail-diff-body">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ═══════ Add Server Modal ═══════ -->
+  <div id="modal-add-server" class="modal-overlay hidden">
+    <div class="add-modal">
+      <div class="modal-header-wrap">
+        <div class="modal-title-row">
+          <div class="modal-title">
+            <div class="modal-title-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+            </div>
+            Add MCP Server
+          </div>
+          <button class="modal-close" id="btn-close-modal" title="Close">✕</button>
+        </div>
+        <div class="modal-tabs">
+          <button class="modal-tab-btn active" data-modal-tab="custom">
+            <span class="tab-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+            Custom Server
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body-area">
+        <div class="modal-tab-content active" id="modal-tab-custom">
+          <div class="custom-layout">
+            <div class="custom-form-col">
+              <div class="form-group">
+                <label class="form-label">Server Name</label>
+                <input type="text" class="form-input-modal" id="modal-server-name" placeholder="my-custom-server" value="my-api-server">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Transport Type</label>
+                <div class="transport-pills" id="transport-pills">
+                  <button class="transport-pill active" data-transport="stdio">stdio</button>
+                  <button class="transport-pill" data-transport="http">http</button>
+                  <button class="transport-pill" data-transport="sse">sse</button>
+                </div>
+              </div>
+              <div id="fields-stdio">
+                <div class="form-group">
+                  <label class="form-label">Command</label>
+                  <input type="text" class="form-input-modal" id="modal-cmd" placeholder="npx, python, node…" value="npx">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Arguments</label>
+                  <textarea class="form-textarea-modal" id="modal-args" placeholder="One argument per line" rows="2">-y
+@modelcontextprotocol/server-everything</textarea>
+                </div>
+              </div>
+              <div id="fields-http" class="hidden">
+                <div class="form-group">
+                  <label class="form-label">URL</label>
+                  <input type="text" class="form-input-modal" id="modal-url" placeholder="http://localhost:3000/mcp">
+                </div>
+              </div>
+              <div class="form-divider"></div>
+              <div class="form-group">
+                <label class="form-label">Environment Variables <span class="form-label-optional">(optional)</span></label>
+                <div class="env-rows" id="modal-env-rows">
+                  <div class="env-row-modal">
+                    <input type="text" class="form-input-modal env-key-input" placeholder="KEY" value="API_TOKEN" data-env-key>
+                    <input type="text" class="form-input-modal" placeholder="Value" value="sk-proj-xxxx" data-env-val>
+                    <button class="env-remove-btn" title="Remove" onclick="this.parentElement.remove(); updateModalPreview();">✕</button>
+                  </div>
+                </div>
+                <button class="env-add-btn" style="margin-top: 6px;" id="btn-add-env" title="Add variable">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+
+              <button class="advanced-toggle" id="btn-advanced-toggle">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
+                Advanced Options
+              </button>
+              <div class="advanced-content" id="advanced-content">
+                <div class="form-group">
+                  <label class="form-label">Working Directory <span class="form-label-optional">(optional)</span></label>
+                  <input type="text" class="form-input-modal" id="modal-cwd" placeholder="/path/to/project">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Instructions <span class="form-label-optional">(optional)</span></label>
+                  <textarea class="form-textarea-modal" id="modal-instructions" placeholder="Custom instructions for the LLM when using this server" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Scope</label>
+                  <div class="scope-toggle" id="modal-scope-toggle">
+                    <button class="scope-option-btn active" data-scope="global">🌐 Global</button>
+                    <button class="scope-option-btn" data-scope="project">📁 Project</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="custom-preview-col">
+              <div class="custom-preview-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                JSON Preview
+              </div>
+              <div class="custom-preview-body">
+                <pre class="json-preview" id="modal-json-preview"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-bar">
+        <button class="btn-cancel" id="btn-modal-cancel">Cancel</button>
+        <button class="btn-add">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add Server
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ═══════ JavaScript ═══════ -->
+  <script>
+    /* ────────────────────────────────────────────────────
+       DATA
+       ──────────────────────────────────────────────────── */
+    const SERVERS = [
+      {
+        id: 'github', name: 'GitHub Server', icon: '🐙',
+        status: 'active', scope: 'global', transport: 'stdio',
+        desc: 'GitHub API integration — repos, issues, PRs, search',
+        command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'],
+        env: [{ key: 'GITHUB_TOKEN', value: 'ghp_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6' }],
+        tools: [
+          { name: 'search_repositories', desc: 'Find repositories by name, topic, or description', tokens: 86, enabled: true },
+          { name: 'get_file_contents', desc: 'Read file or directory contents from a repository', tokens: 76, enabled: true },
+          { name: 'create_issue', desc: 'Create a new issue in a repository', tokens: 94, enabled: false },
+          { name: 'list_pull_requests', desc: 'List and filter pull requests', tokens: 88, enabled: false },
+          { name: 'get_commit', desc: 'Get details for a specific commit', tokens: 62, enabled: true },
+          { name: 'search_code', desc: 'Search for code across repositories', tokens: 72, enabled: false },
+          { name: 'create_pull_request', desc: 'Create a new pull request with title, body, and branch', tokens: 124, enabled: false },
+          { name: 'list_branches', desc: 'List branches in a repository', tokens: 52, enabled: true },
+          { name: 'get_issue', desc: 'Get details of a specific issue', tokens: 68, enabled: false },
+          { name: 'list_commits', desc: 'List commits on a branch or repository', tokens: 78, enabled: false },
+          { name: 'search_issues', desc: 'Search issues and pull requests with filters', tokens: 86, enabled: false },
+          { name: 'create_repository', desc: 'Create a new GitHub repository with options', tokens: 96, enabled: false },
+          { name: 'fork_repository', desc: 'Fork a repository to your account', tokens: 56, enabled: true },
+          { name: 'get_pull_request_diff', desc: 'Get the diff of a pull request', tokens: 88, enabled: true },
+        ]
+      },
+      {
+        id: 'filesystem', name: 'Filesystem', icon: '📂',
+        status: 'active', scope: 'global', transport: 'stdio',
+        desc: 'Read, write, search, and manage local files',
+        command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/home/user/projects'],
+        env: [],
+        tools: [
+          { name: 'read_file', desc: 'Read complete contents of a file from disk', tokens: 80, enabled: true },
+          { name: 'write_file', desc: 'Write content to a new or existing file', tokens: 84, enabled: true },
+          { name: 'list_directory', desc: 'List files and directories in a path', tokens: 76, enabled: true },
+          { name: 'search_files', desc: 'Search for files matching a glob pattern', tokens: 92, enabled: true },
+          { name: 'get_file_info', desc: 'Get metadata like size, modified date', tokens: 72, enabled: true },
+          { name: 'create_directory', desc: 'Create a new directory recursively', tokens: 68, enabled: true },
+          { name: 'move_file', desc: 'Move or rename a file or directory', tokens: 88, enabled: true },
+        ]
+      },
+      {
+        id: 'playwright', name: 'Playwright', icon: '🎭',
+        status: 'paused', scope: 'project', transport: 'stdio',
+        desc: 'Browser automation, testing, and web scraping',
+        command: 'npx', args: ['-y', '@playwright/mcp-server'],
+        env: [],
+        tools: [
+          { name: 'navigate', desc: 'Navigate browser to a URL', tokens: 72, enabled: true },
+          { name: 'screenshot', desc: 'Take a screenshot of the current page', tokens: 84, enabled: true },
+          { name: 'click', desc: 'Click an element on the page by selector', tokens: 68, enabled: true },
+          { name: 'fill', desc: 'Fill a form input with text', tokens: 76, enabled: true },
+          { name: 'evaluate', desc: 'Evaluate JavaScript in the browser context', tokens: 100, enabled: true },
+        ]
+      },
+      {
+        id: 'brave', name: 'Brave Search', icon: '🦁',
+        status: 'active', scope: 'global', transport: 'http',
+        desc: 'Privacy-first web search and summarization',
+        url: 'https://api.search.brave.com/mcp',
+        env: [{ key: 'BRAVE_API_KEY', value: 'bsk_xxxxxxxxxxxxxxxxxxxx' }],
+        tools: [
+          { name: 'web_search', desc: 'Search the web with privacy-focused engine', tokens: 88, enabled: true },
+          { name: 'local_search', desc: 'Search for local businesses and places', tokens: 76, enabled: true },
+          { name: 'summarize', desc: 'Summarize search results into key points', tokens: 76, enabled: true },
+        ]
+      },
+      {
+        id: 'postgres', name: 'PostgreSQL', icon: '🐘',
+        status: 'error', scope: 'project', transport: 'stdio',
+        desc: 'Connection refused — check pg credentials',
+        command: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'],
+        env: [{ key: 'DATABASE_URL', value: 'postgresql://user:pass@localhost:5432/mydb' }],
+        tools: [
+          { name: 'query', desc: 'Execute a read-only SQL query', tokens: 92, enabled: true },
+          { name: 'list_tables', desc: 'List all tables in the database', tokens: 68, enabled: true },
+          { name: 'describe_table', desc: 'Get column types and constraints', tokens: 84, enabled: true },
+          { name: 'list_databases', desc: 'List available databases on the server', tokens: 64, enabled: true },
+          { name: 'create_table', desc: 'Create a new database table with schema', tokens: 96, enabled: false },
+          { name: 'insert_row', desc: 'Insert a new row into a table', tokens: 76, enabled: false },
+          { name: 'update_row', desc: 'Update existing rows with conditions', tokens: 80, enabled: false },
+          { name: 'delete_row', desc: 'Delete rows matching a condition', tokens: 80, enabled: false },
+        ]
+      },
+      {
+        id: 'custom', name: 'Custom Internal API', icon: '⚙️',
+        status: 'active', scope: 'project', transport: 'http',
+        desc: 'Internal tooling — deploy, rollback, monitoring',
+        url: 'http://internal.api.corp:8080/mcp',
+        env: [{ key: 'API_SECRET', value: 'sk-internal-xxxxxxxxxxxx' }],
+        tools: [
+          { name: 'deploy', desc: 'Deploy application to target environment', tokens: 92, enabled: true },
+          { name: 'rollback', desc: 'Rollback to a previous deployment version', tokens: 76, enabled: true },
+          { name: 'status', desc: 'Check current service health and status', tokens: 68, enabled: true },
+          { name: 'logs', desc: 'Retrieve recent application logs', tokens: 84, enabled: true },
+        ]
+      }
+    ];
+
+    let currentServerIdx = null;
+    let revealedEnvKeys = new Set();
+
+    /* ────────────────────────────────────────────────────
+       HELPERS
+       ──────────────────────────────────────────────────── */
+    function getEnabledTokens(server) {
+      return server.tools.filter(t => t.enabled).reduce((s, t) => s + t.tokens, 0);
+    }
+    function getEnabledCount(server) {
+      return server.tools.filter(t => t.enabled).length;
+    }
+    function formatTokens(n) {
+      return n >= 1000 ? `~${(n/1000).toFixed(1)}k` : `~${n}`;
+    }
+
+    /* ────────────────────────────────────────────────────
+       VIEW SWITCHING
+       ──────────────────────────────────────────────────── */
+    function showView(view) {
+      document.querySelectorAll('.view-panel').forEach(v => v.classList.add('hidden'));
+      document.getElementById('view-' + view).classList.remove('hidden');
+    }
+
+    /* ────────────────────────────────────────────────────
+       MAIN TAB SWITCHING (Servers / Notes)
+       ──────────────────────────────────────────────────── */
+    document.querySelectorAll('[data-main-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-main-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.mainTab;
+        document.getElementById('tab-servers').classList.toggle('hidden', tab !== 'servers');
+        document.getElementById('tab-notes').classList.toggle('hidden', tab !== 'notes');
+        document.querySelector('.btn-add-server').style.display = tab === 'servers' ? '' : 'none';
+      });
+    });
+
+    /* ────────────────────────────────────────────────────
+       STATS
+       ──────────────────────────────────────────────────── */
+    function updateStats() {
+      const installed = SERVERS.length;
+      const active = SERVERS.filter(s => s.status === 'active');
+      const paused = SERVERS.filter(s => s.status === 'paused').length;
+      const errors = SERVERS.filter(s => s.status === 'error').length;
+
+      document.getElementById('stat-installed').textContent = installed;
+      document.getElementById('stat-active').textContent = active.length;
+      document.getElementById('stat-paused').textContent = paused;
+      document.getElementById('stat-error').textContent = errors;
+
+      const totalTokens = active.reduce((s, sv) => s + getEnabledTokens(sv), 0);
+      const totalTools = active.reduce((s, sv) => s + getEnabledCount(sv), 0);
+      const pct = ((totalTokens / 128000) * 100).toFixed(1);
+
+      document.getElementById('token-total').textContent = `~${totalTokens.toLocaleString()}`;
+      document.getElementById('token-tool-count').textContent = totalTools;
+      document.getElementById('token-server-count').textContent = active.length;
+      document.getElementById('token-bar-fill').style.width = pct + '%';
+      document.getElementById('token-pct').textContent = pct + '% of 128k context';
+    }
+
+    /* ────────────────────────────────────────────────────
+       RENDER SERVER GRID
+       ──────────────────────────────────────────────────── */
+    const SVG_GEAR = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.95 1.4a1.13 1.13 0 012.1 0l.53 1.28a1.13 1.13 0 001.05.68l1.38.04a1.13 1.13 0 01.65 2l-1.1.84a1.13 1.13 0 00-.4 1.24l.4 1.32a1.13 1.13 0 01-1.7 1.24l-1.16-.76a1.13 1.13 0 00-1.26 0l-1.16.76a1.13 1.13 0 01-1.7-1.24l.4-1.32a1.13 1.13 0 00-.4-1.24l-1.1-.84a1.13 1.13 0 01.65-2l1.38-.04a1.13 1.13 0 001.05-.68L6.95 1.4z"/>';
+    const SVG_TRASH = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z"/>';
+
+    function renderServerGrid() {
+      const grid = document.getElementById('server-grid');
+      grid.innerHTML = SERVERS.map((s, idx) => {
+        const tokens = getEnabledTokens(s);
+        const enabledCount = getEnabledCount(s);
+        const scopeClass = s.scope === 'global' ? 'badge-scope-global' : 'badge-scope-project';
+        const scopeLabel = s.scope === 'global' ? 'Global' : 'Project';
+
+        let toggleBtn = '';
+        if (s.status === 'active') {
+          toggleBtn = `<button class="action-btn toggle-active" data-toggle="${idx}" title="Click to pause">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="8" cy="8" r="3" fill="currentColor"/></svg>
+            Active</button>`;
+        } else if (s.status === 'paused') {
+          toggleBtn = `<button class="action-btn toggle-paused" data-toggle="${idx}" title="Click to resume">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1" fill="none"/><rect x="5.5" y="5.5" width="2" height="5" rx="0.5" fill="currentColor"/><rect x="8.5" y="5.5" width="2" height="5" rx="0.5" fill="currentColor"/></svg>
+            Paused</button>`;
+        } else {
+          toggleBtn = `<button class="action-btn" data-toggle="${idx}" title="Retry" style="color:var(--warning-fg)">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2.5a5.5 5.5 0 00-4.95 3.09.75.75 0 01-1.39-.57A7 7 0 0115 8a7 7 0 01-12.34 4.48.75.75 0 011.18-.92A5.5 5.5 0 108 2.5z"/><path d="M1.5 2v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retry</button>`;
+        }
+
+        return `<div class="server-card status-${s.status}" data-idx="${idx}" data-scope="${s.scope}" data-status="${s.status}" data-transport="${s.transport}">
+          <div class="server-card-top">
+            <div class="server-icon-card">${s.icon}</div>
+            <div class="server-info">
+              <div class="server-name-row">
+                <span class="server-name">${s.name}</span>
+                <span class="status-dot ${s.status}" title="${s.status}"></span>
+              </div>
+              <div class="server-desc">${s.desc}</div>
+            </div>
+          </div>
+          <div class="server-badges">
+            <span class="badge-xs badge-tools">🔧 ${s.tools.length} tools</span>
+            <span class="badge-xs ${scopeClass}">${scopeLabel}</span>
+            <span class="badge-xs badge-transport">${s.transport}</span>
+            <span class="badge-xs badge-tokens">⚡ ${formatTokens(tokens)} tok</span>
+          </div>
+          <div class="server-card-actions">
+            <button class="action-btn" data-configure="${idx}" title="Configure">${SVG_GEAR} Configure</button>
+            ${toggleBtn}
+            <span class="action-spacer"></span>
+            <button class="action-btn danger" title="Remove">${SVG_TRASH}</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      // Bind configure clicks
+      grid.querySelectorAll('[data-configure]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showServerDetail(parseInt(btn.dataset.configure));
+        });
+      });
+
+      // Bind toggle clicks
+      grid.querySelectorAll('[data-toggle]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.toggle);
+          const s = SERVERS[idx];
+          if (s.status === 'active') s.status = 'paused';
+          else if (s.status === 'paused') s.status = 'active';
+          renderServerGrid();
+          updateStats();
+        });
+      });
+    }
+
+    /* ────────────────────────────────────────────────────
+       FILTER SERVERS
+       ──────────────────────────────────────────────────── */
+    function filterServers() {
+      const q = document.getElementById('search-input').value.toLowerCase();
+      const scope = document.getElementById('filter-scope').value;
+      const status = document.getElementById('filter-status').value;
+      const type = document.getElementById('filter-type').value;
+
+      document.querySelectorAll('.server-card').forEach(card => {
+        const idx = parseInt(card.dataset.idx);
+        const s = SERVERS[idx];
+        const matchQ = !q || s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q);
+        const matchScope = scope === 'all' || card.dataset.scope === scope;
+        const matchStatus = status === 'all' || card.dataset.status === status;
+        const matchType = type === 'all' || card.dataset.transport === type;
+        card.style.display = (matchQ && matchScope && matchStatus && matchType) ? '' : 'none';
+      });
+    }
+
+    document.getElementById('search-input').addEventListener('input', filterServers);
+    document.getElementById('filter-scope').addEventListener('change', filterServers);
+    document.getElementById('filter-status').addEventListener('change', filterServers);
+    document.getElementById('filter-type').addEventListener('change', filterServers);
+
+    /* ────────────────────────────────────────────────────
+       DETAIL VIEW
+       ──────────────────────────────────────────────────── */
+    function showServerDetail(idx) {
+      currentServerIdx = idx;
+      revealedEnvKeys = new Set();
+      const s = SERVERS[idx];
+
+      document.getElementById('detail-icon').textContent = s.icon;
+      document.getElementById('detail-name').textContent = s.name;
+
+      // Status badge
+      const statusMap = { active: ['connected', 'Connected', 'success'], paused: ['paused-dot', 'Paused', 'warning'], error: ['error-dot', 'Error', 'danger'] };
+      const [dotClass, label, color] = statusMap[s.status];
+      const scopeTagClass = s.scope === 'project' ? 'scope-tag project' : 'scope-tag';
+      document.getElementById('detail-badges').innerHTML = `
+        <span class="status-badge-detail" style="color:var(--${color}-fg)">
+          <span class="status-dot-sm ${dotClass}"></span>${label}
+        </span>
+        <span class="${scopeTagClass}">${s.scope === 'global' ? '🌐 Global' : '📁 Project'}</span>`;
+
+      // Config card
+      let configHTML = `<div class="config-row"><div class="config-label">Transport</div><div class="config-value"><span class="transport-badge">${s.transport}</span></div></div>`;
+      if (s.transport === 'stdio') {
+        configHTML += `<div class="config-row"><div class="config-label">Command</div><div class="config-value"><input type="text" class="config-input" value="${s.command}" spellcheck="false"></div></div>`;
+        configHTML += `<div class="config-row"><div class="config-label">Args</div><div class="config-value"><div class="tag-list">${s.args.map(a => `<span class="tag">${a}<span class="tag-remove" title="Remove">×</span></span>`).join('')}</div></div></div>`;
+      } else {
+        configHTML += `<div class="config-row"><div class="config-label">URL</div><div class="config-value"><input type="text" class="config-input" value="${s.url || ''}" spellcheck="false"></div></div>`;
+      }
+      document.getElementById('detail-config-card').innerHTML = configHTML;
+
+      // Env vars
+      const envSection = document.getElementById('detail-env-section');
+      if (s.env.length === 0) {
+        envSection.style.display = 'none';
+      } else {
+        envSection.style.display = '';
+        document.getElementById('detail-env-table').innerHTML = s.env.map(e => `
+          <tr>
+            <td><span class="env-key">${e.key}</span></td>
+            <td>
+              <div class="env-value-wrap">
+                <span class="env-value" data-env-display="${e.key}">••••••••••••••••</span>
+                <button class="toggle-vis" data-env-toggle="${e.key}" title="Show/hide">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>`).join('');
+
+        // Bind toggle vis
+        document.querySelectorAll('[data-env-toggle]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.envToggle;
+            const display = document.querySelector(`[data-env-display="${key}"]`);
+            const envItem = s.env.find(e => e.key === key);
+            if (revealedEnvKeys.has(key)) {
+              revealedEnvKeys.delete(key);
+              display.textContent = '••••••••••••••••';
+              display.classList.remove('revealed');
+            } else {
+              revealedEnvKeys.add(key);
+              display.textContent = envItem.value;
+              display.classList.add('revealed');
+            }
+          });
+        });
+      }
+
+      // Tools list
+      renderDetailTools(s);
+
+      // Health grid
+      const tokens = getEnabledTokens(s);
+      const enabled = getEnabledCount(s);
+      document.getElementById('detail-health-grid').innerHTML = `
+        <div class="health-stat">
+          <div class="health-stat-label">Status</div>
+          <div class="health-stat-value"><span class="${s.status === 'active' ? 'success-text' : s.status === 'error' ? '' : ''}" style="color:var(--${color}-fg)">${label}</span></div>
+        </div>
+        <div class="health-stat">
+          <div class="health-stat-label">Response</div>
+          <div class="health-stat-value mono">${s.status === 'error' ? '—' : '<span class="success-text">120</span><span class="unit">ms</span>'}</div>
+        </div>
+        <div class="health-stat">
+          <div class="health-stat-label">Tools</div>
+          <div class="health-stat-value">${s.tools.length}<span class="unit"> total</span></div>
+        </div>
+        <div class="health-stat">
+          <div class="health-stat-label">Context Cost</div>
+          <div class="health-stat-value mono" style="color:var(--accent-fg)">${formatTokens(tokens)}<span class="unit"> tok</span></div>
+        </div>`;
+
+      // Diff preview
+      renderDiffPreview(s);
+
+      showView('detail');
+    }
+
+    function renderDetailTools(server) {
+      const list = document.getElementById('detail-tools-list');
+      const checkSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5.5"/></svg>';
+
+      list.innerHTML = server.tools.map((tool, i) => `
+        <div class="tool-item ${tool.enabled ? '' : 'disabled'}">
+          <label class="tool-checkbox">
+            <input type="checkbox" ${tool.enabled ? 'checked' : ''} data-tool-idx="${i}">
+            <span class="checkmark">${checkSvg}</span>
+          </label>
+          <div class="tool-info">
+            <div class="tool-name">${tool.name}</div>
+            <div class="tool-desc">${tool.desc}</div>
+          </div>
+          <span class="tool-tokens">~${tool.tokens} tok</span>
+        </div>`).join('');
+
+      document.getElementById('detail-tools-count').textContent = `${server.tools.length} tools available`;
+
+      // Bind checkboxes
+      list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const ti = parseInt(cb.dataset.toolIdx);
+          server.tools[ti].enabled = cb.checked;
+          cb.closest('.tool-item').classList.toggle('disabled', !cb.checked);
+          updateDetailToolsSummary(server);
+          updateStats();
+        });
+        // Click on row toggles checkbox
+        cb.closest('.tool-item').addEventListener('click', (e) => {
+          if (e.target.tagName !== 'INPUT') {
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change'));
+          }
+        });
+      });
+
+      updateDetailToolsSummary(server);
+      updateToggleAllLabel(server);
+    }
+
+    function updateDetailToolsSummary(server) {
+      const enabled = getEnabledCount(server);
+      const tokens = getEnabledTokens(server);
+      document.getElementById('detail-tools-summary').innerHTML = `
+        <span><strong>${enabled}</strong> of ${server.tools.length} enabled</span>
+        <span class="token-cost">~${tokens.toLocaleString()} estimated tokens</span>`;
+    }
+
+    function updateToggleAllLabel(server) {
+      const allOn = server.tools.every(t => t.enabled);
+      document.getElementById('toggle-all-label').textContent = allOn ? 'Deselect All' : 'Select All';
+    }
+
+    // Toggle all
+    document.getElementById('btn-toggle-all-tools').addEventListener('click', () => {
+      if (currentServerIdx === null) return;
+      const server = SERVERS[currentServerIdx];
+      const allOn = server.tools.every(t => t.enabled);
+      const next = !allOn;
+      server.tools.forEach(t => { t.enabled = next; });
+      renderDetailTools(server);
+      updateStats();
+    });
+
+    function renderDiffPreview(server) {
+      const name = server.id;
+      document.getElementById('detail-diff-body').innerHTML = `
+        <div class="diff-line hunk"><span class="diff-line-num"></span><span class="diff-line-content">@@ mcp-servers.${name} @@</span></div>
+        <div class="diff-line context"><span class="diff-line-num">1</span><span class="diff-line-content">  "${name}": {</span></div>
+        <div class="diff-line context"><span class="diff-line-num">2</span><span class="diff-line-content">    "command": "${server.command || 'npx'}",</span></div>
+        <div class="diff-line removed"><span class="diff-line-num">3</span><span class="diff-line-content">-   "args": ["-y", "${server.args ? server.args[server.args.length-1] : ''}@0.5.0"],</span></div>
+        <div class="diff-line added"><span class="diff-line-num">3</span><span class="diff-line-content">+   "args": ["-y", "${server.args ? server.args[server.args.length-1] : ''}"],</span></div>
+        <div class="diff-line context"><span class="diff-line-num">4</span><span class="diff-line-content">    "env": {</span></div>
+        ${server.env.length ? `<div class="diff-line removed"><span class="diff-line-num">5</span><span class="diff-line-content">-     "${server.env[0].key}": "\${env:${server.env[0].key}_OLD}"</span></div>
+        <div class="diff-line added"><span class="diff-line-num">5</span><span class="diff-line-content">+     "${server.env[0].key}": "\${env:${server.env[0].key}}"</span></div>` : ''}
+        <div class="diff-line context"><span class="diff-line-num">6</span><span class="diff-line-content">    }</span></div>
+        <div class="diff-line context"><span class="diff-line-num">7</span><span class="diff-line-content">  }</span></div>`;
+    }
+
+    // Back button
+    document.getElementById('btn-back-to-list').addEventListener('click', () => {
+      showView('list');
+      renderServerGrid();
+    });
+
+    // Test connection
+    document.getElementById('btn-test-conn').addEventListener('click', function() {
+      const btn = this;
+      btn.disabled = true;
+      btn.className = 'btn btn-testing-state';
+      btn.innerHTML = '<svg class="btn-icon" style="animation:spin 0.8s linear infinite" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 8a6 6 0 01-6 6 6 6 0 01-6-6 6 6 0 016-6"/></svg> Testing…';
+      const server = SERVERS[currentServerIdx];
+      const isError = server.status === 'error';
+
+      setTimeout(() => {
+        btn.disabled = false;
+        if (isError) {
+          btn.className = 'btn btn-error-state';
+          btn.innerHTML = '<svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg> Connection Failed';
+        } else {
+          btn.className = 'btn btn-success-state';
+          btn.innerHTML = '<svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5.5"/></svg> Connection OK';
+        }
+      }, 1200);
+    });
+
+    /* ────────────────────────────────────────────────────
+       MODAL: ADD SERVER
+       ──────────────────────────────────────────────────── */
+    document.getElementById('btn-open-add-modal').addEventListener('click', () => {
+      document.getElementById('modal-add-server').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      updateModalPreview();
+    });
+
+    function closeModal() {
+      document.getElementById('modal-add-server').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
+
+    // Close on backdrop click
+    document.getElementById('modal-add-server').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Transport pills
+    document.querySelectorAll('#transport-pills .transport-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#transport-pills .transport-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const t = pill.dataset.transport;
+        document.getElementById('fields-stdio').classList.toggle('hidden', t !== 'stdio');
+        document.getElementById('fields-http').classList.toggle('hidden', t === 'stdio');
+        updateModalPreview();
+      });
+    });
+
+    // Add env row
+    document.getElementById('btn-add-env').addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'env-row-modal';
+      row.innerHTML = `
+        <input type="text" class="form-input-modal env-key-input" placeholder="KEY" data-env-key>
+        <input type="text" class="form-input-modal" placeholder="Value" data-env-val>
+        <button class="env-remove-btn" title="Remove" onclick="this.parentElement.remove(); updateModalPreview();">✕</button>`;
+      document.getElementById('modal-env-rows').appendChild(row);
+      row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateModalPreview));
+      row.querySelector('[data-env-key]').focus();
+    });
+
+    // Advanced toggle
+    document.getElementById('btn-advanced-toggle').addEventListener('click', function() {
+      this.classList.toggle('open');
+      document.getElementById('advanced-content').classList.toggle('open');
+    });
+
+    // Scope toggle
+    document.querySelectorAll('#modal-scope-toggle .scope-option-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#modal-scope-toggle .scope-option-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // JSON preview
+    function updateModalPreview() {
+      const name = document.getElementById('modal-server-name').value || 'my-server';
+      const activePill = document.querySelector('#transport-pills .transport-pill.active');
+      const transport = activePill ? activePill.dataset.transport : 'stdio';
+
+      const envObj = {};
+      document.querySelectorAll('#modal-env-rows .env-row-modal').forEach(row => {
+        const k = row.querySelector('[data-env-key]');
+        const v = row.querySelector('[data-env-val]');
+        if (k && k.value) envObj[k.value] = v ? v.value : '';
+      });
+
+      let config;
+      if (transport === 'stdio') {
+        const cmd = document.getElementById('modal-cmd').value || 'npx';
+        const argsRaw = document.getElementById('modal-args').value || '';
+        const args = argsRaw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        config = { [name]: { command: cmd, args: args } };
+      } else {
+        const url = document.getElementById('modal-url').value || 'http://localhost:3000/mcp';
+        config = { [name]: { type: transport, url: url } };
+      }
+      if (Object.keys(envObj).length) config[name].env = envObj;
+
+      const wrapper = { mcpServers: config };
+      const raw = JSON.stringify(wrapper, null, 2);
+
+      const highlighted = raw
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"([^"]+)"(\s*:)/g, '<span class="json-key">"$1"</span>$2')
+        .replace(/:\s*"([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+        .replace(/[{}\[\]]/g, '<span class="json-bracket">$&</span>');
+
+      document.getElementById('modal-json-preview').innerHTML = highlighted;
+    }
+
+    // Bind form inputs for live preview
+    document.querySelectorAll('.custom-form-col input, .custom-form-col textarea').forEach(el => {
+      el.addEventListener('input', updateModalPreview);
+    });
+
+    /* ────────────────────────────────────────────────────
+       INIT
+       ──────────────────────────────────────────────────── */
+    renderServerGrid();
+    updateStats();
+    updateModalPreview();
+  </script>
+</body>
+</html>
