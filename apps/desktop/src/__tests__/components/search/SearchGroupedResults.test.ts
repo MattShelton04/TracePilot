@@ -1,18 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchGroupedResults from '../../../components/search/SearchGroupedResults.vue';
+import type { ContentTypeStyle } from '@tracepilot/ui';
+import type { SessionGroup } from '../../../stores/search';
 
 vi.mock('@tracepilot/ui', () => ({
   formatRelativeTime: (ts: number) => `${ts}s ago`,
   formatDateMedium: (ts: number) => `2025-01-01 ${ts}`,
 }));
 
-const CONTENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-  message: { label: 'Message', color: '#3b82f6' },
+const CONTENT_TYPE_CONFIG: Record<string, ContentTypeStyle> = {
+  user_message: { label: 'User Message', color: '#3b82f6' },
   tool_call: { label: 'Tool Call', color: '#f59e0b' },
 };
 
-const MOCK_GROUP = {
+const MOCK_GROUP: SessionGroup = {
   sessionId: 'sess-abc',
   sessionSummary: 'OAuth Implementation',
   sessionRepository: 'org/web',
@@ -22,12 +24,16 @@ const MOCK_GROUP = {
       id: 1,
       sessionId: 'sess-abc',
       sessionSummary: 'OAuth Implementation',
-      contentType: 'message',
+      contentType: 'user_message',
       snippet: 'test <mark>highlight</mark>',
       turnNumber: 3,
       eventIndex: 5,
       toolName: null,
       timestampUnix: 1700000000,
+      metadataJson: null,
+      sessionRepository: 'org/web',
+      sessionBranch: 'main',
+      sessionUpdatedAt: null,
     },
     {
       id: 2,
@@ -39,6 +45,10 @@ const MOCK_GROUP = {
       eventIndex: 6,
       toolName: 'read_file',
       timestampUnix: 1700000100,
+      metadataJson: null,
+      sessionRepository: 'org/web',
+      sessionBranch: 'main',
+      sessionUpdatedAt: null,
     },
   ],
 };
@@ -86,7 +96,7 @@ describe('SearchGroupedResults', () => {
     const wrapper = mountResults();
     const badges = wrapper.findAll('.ct-badge');
     expect(badges.length).toBe(2);
-    expect(badges[0].text()).toBe('Message');
+    expect(badges[0].text()).toBe('User Message');
     expect(badges[1].text()).toBe('Tool Call');
   });
 
