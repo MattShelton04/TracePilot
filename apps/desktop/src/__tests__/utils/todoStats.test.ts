@@ -8,7 +8,7 @@ describe("buildTodoStatusStats", () => {
       { id: "1", title: "Done", status: "done" },
       { id: "2", title: "In progress", status: "in_progress" },
       { id: "3", title: "Blocked", status: "blocked" },
-      { id: "4", title: "Paused", status: "paused" },
+      { id: "4", title: "Paused", status: "pending" },
     ];
 
     const stats = buildTodoStatusStats(todos);

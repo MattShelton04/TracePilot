@@ -32,6 +32,7 @@ export function buildTodoStatusStats(todos: TodoItem[]): TodoStatusStats {
       case "blocked":
         blocked++;
         break;
+      case "pending":
       default:
         pending++;
         break;

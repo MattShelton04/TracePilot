@@ -107,12 +107,15 @@ export interface HealthFlag {
 
 // ─── Session Artifacts ────────────────────────────────────────────
 
+/** Valid todo status values as stored in session.db */
+export type TodoStatus = 'done' | 'in_progress' | 'blocked' | 'pending';
+
 /** Todo item from session.db */
 export interface TodoItem {
   id: string;
   title: string;
   description?: string;
-  status: string;
+  status: TodoStatus;
   createdAt?: string;
   updatedAt?: string;
 }
