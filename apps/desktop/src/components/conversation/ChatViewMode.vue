@@ -119,11 +119,43 @@ function updatePanelTop() {
   }
 }
 
+function getChatStartOffset(): number {
+  if (!pageScrollEl || !cvRootEl.value) return 0;
+  const pageRect = pageScrollEl.getBoundingClientRect();
+  const cvRect = cvRootEl.value.getBoundingClientRect();
+  return pageScrollEl.scrollTop + (cvRect.top - pageRect.top);
+}
+
+function syncToLocalScroll(chatStart: number) {
+  if (!pageScrollEl || !scrollEl.value) return;
+  const localTop = Math.max(0, pageScrollEl.scrollTop - chatStart);
+  scrollEl.value.scrollTop = localTop;
+  pageScrollEl.scrollTo({ top: chatStart, behavior: "auto" });
+}
+
+function syncToPageScroll(chatStart: number) {
+  if (!pageScrollEl || !scrollEl.value) return;
+  const pageTop = Math.max(0, chatStart + scrollEl.value.scrollTop);
+  pageScrollEl.scrollTo({ top: pageTop, behavior: "auto" });
+}
+
 function updateLayoutMetrics() {
   const viewportWidth = window.innerWidth;
   const reserveInset = panel.isPanelOpen.value && shouldReserveScrollInset(viewportWidth);
   panelWidthPx.value = reserveInset ? computePanelWidthPx(viewportWidth) : 0;
-  usePanelScrollViewport.value = reserveInset;
+
+  const chatStart = getChatStartOffset();
+  const shouldUseLocalScroll = reserveInset && !!pageScrollEl && pageScrollEl.scrollTop >= chatStart - 1;
+
+  if (shouldUseLocalScroll !== usePanelScrollViewport.value) {
+    if (shouldUseLocalScroll) {
+      syncToLocalScroll(chatStart);
+    } else if (panel.isPanelOpen.value) {
+      syncToPageScroll(chatStart);
+    }
+  }
+
+  usePanelScrollViewport.value = shouldUseLocalScroll;
 
   const cvRoot = cvRootEl.value;
   if (!cvRoot) return;
@@ -139,9 +171,7 @@ function handleLayoutResize() {
 
 function handlePageScroll() {
   updatePanelTop();
-  if (usePanelScrollViewport.value) {
-    updateLayoutMetrics();
-  }
+  updateLayoutMetrics();
 }
 
 onMounted(() => {
@@ -157,9 +187,15 @@ onMounted(() => {
 
 watch(
   () => panel.isPanelOpen.value,
-  () => {
-    updateLayoutMetrics();
-    updatePanelTop();
+  (isOpen, wasOpen) => {
+    if (!isOpen && wasOpen && usePanelScrollViewport.value) {
+      syncToPageScroll(getChatStartOffset());
+      usePanelScrollViewport.value = false;
+    }
+    nextTick(() => {
+      updateLayoutMetrics();
+      updatePanelTop();
+    });
   },
 );
 
