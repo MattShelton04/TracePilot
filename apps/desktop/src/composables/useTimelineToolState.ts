@@ -189,11 +189,12 @@ export function useTimelineToolState(
   });
 
   // Turn ownership check (if provided)
-  const turnOwnsSelected = options.turnOwnershipCheck
+  const checkFn = options.turnOwnershipCheck;
+  const turnOwnsSelected = checkFn
     ? (turn: ConversationTurn) => {
         const sel = selectedTool.value;
         if (!sel) return false;
-        return options.turnOwnershipCheck?.(turn, sel);
+        return checkFn(turn, sel);
       }
     : undefined;
 

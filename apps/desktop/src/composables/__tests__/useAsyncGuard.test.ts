@@ -166,8 +166,8 @@ describe("useAsyncGuard", () => {
       const state = { data: null as string | null };
 
       // Simulate async operations with explicit timing control
-      let resolveFirst: (value: string) => void;
-      let resolveSecond: (value: string) => void;
+      let resolveFirst!: (value: string) => void;
+      let resolveSecond!: (value: string) => void;
 
       const firstRequest = new Promise<string>((resolve) => {
         resolveFirst = resolve;

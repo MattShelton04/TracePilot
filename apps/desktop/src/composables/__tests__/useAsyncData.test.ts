@@ -150,8 +150,8 @@ describe("useAsyncData", () => {
 
   describe("Stale Request Prevention", () => {
     it("should ignore results from superseded requests", async () => {
-      let resolveFirst: (value: string) => void;
-      let resolveSecond: (value: string) => void;
+      let resolveFirst!: (value: string) => void;
+      let resolveSecond!: (value: string) => void;
 
       const firstPromise = new Promise<string>((resolve) => {
         resolveFirst = resolve;
@@ -185,8 +185,8 @@ describe("useAsyncData", () => {
     });
 
     it("should ignore errors from superseded requests", async () => {
-      let rejectFirst: (error: Error) => void;
-      let resolveSecond: (value: string) => void;
+      let rejectFirst!: (error: Error) => void;
+      let resolveSecond!: (value: string) => void;
 
       const firstPromise = new Promise<string>((_, reject) => {
         rejectFirst = reject;
@@ -221,8 +221,8 @@ describe("useAsyncData", () => {
     });
 
     it("should not update loading state for stale requests", async () => {
-      let resolveFirst: (value: string) => void;
-      let resolveSecond: (value: string) => void;
+      let resolveFirst!: (value: string) => void;
+      let resolveSecond!: (value: string) => void;
 
       const firstPromise = new Promise<string>((resolve) => {
         resolveFirst = resolve;
@@ -311,8 +311,8 @@ describe("useAsyncData", () => {
 
     it("should not call onSuccess for stale requests", async () => {
       const onSuccess = vi.fn();
-      let resolveFirst: (value: string) => void;
-      let resolveSecond: (value: string) => void;
+      let resolveFirst!: (value: string) => void;
+      let resolveSecond!: (value: string) => void;
 
       const firstPromise = new Promise<string>((resolve) => {
         resolveFirst = resolve;
@@ -562,7 +562,7 @@ describe("useAsyncData", () => {
     });
 
     it("should invalidate in-flight requests", async () => {
-      let resolveAsync: (value: string) => void;
+      let resolveAsync!: (value: string) => void;
       const asyncPromise = new Promise<string>((resolve) => {
         resolveAsync = resolve;
       });
