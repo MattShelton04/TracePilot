@@ -541,6 +541,7 @@ impl IndexDb {
 /// Build the FROM clause for search queries.
 /// When `is_fts` is true, joins through search_fts for full-text matching.
 /// When false, queries search_content directly for browse-mode filtering.
+#[inline]
 fn build_from_clause(is_fts: bool) -> &'static str {
     if is_fts {
         "FROM search_fts \
