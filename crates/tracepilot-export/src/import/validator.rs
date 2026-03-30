@@ -6,7 +6,7 @@
 
 use std::collections::HashSet;
 
-use crate::document::{PortableSession, SessionArchive};
+use crate::document::{CheckpointExport, PortableSession, SessionArchive};
 use crate::error::{ExportError, Result};
 
 /// Maximum number of sessions in a single import archive.
@@ -87,63 +87,131 @@ pub fn collect_issues(archive: &SessionArchive) -> Vec<ValidationIssue> {
 
 // ── Per-session validation ─────────────────────────────────────────────────
 
-fn validate_session(session: &PortableSession) -> Result<()> {
-    let id = &session.metadata.id;
+/// Internal helper for validation checks that can be used in both strict and permissive modes.
+#[derive(Debug)]
+struct ValidationCheck {
+    passed: bool,
+    error_message: Option<String>,
+}
 
-    // Required: session ID
-    if id.is_empty() {
-        return Err(validation_err("session ID is empty"));
+impl ValidationCheck {
+    fn fail(msg: impl Into<String>) -> Self {
+        Self {
+            passed: false,
+            error_message: Some(msg.into()),
+        }
     }
+
+    /// Convert to Result for strict validation (early exit)
+    fn to_result(&self) -> Result<()> {
+        if self.passed {
+            Ok(())
+        } else {
+            Err(validation_err(self.error_message.as_ref().unwrap()))
+        }
+    }
+
+    /// Convert to ValidationIssue for permissive validation (collect all)
+    fn to_issue(&self, prefix: &str) -> Option<ValidationIssue> {
+        self.error_message.as_ref().map(|msg| {
+            let full_msg = if prefix.is_empty() {
+                msg.clone()
+            } else {
+                format!("{}: {}", prefix, msg)
+            };
+            ValidationIssue::error(&full_msg)
+        })
+    }
+}
+
+/// Validate session ID - checks empty, length, and path traversal.
+/// Returns a list of validation checks (may be empty if all pass).
+fn validate_session_id(id: &str) -> Vec<ValidationCheck> {
+    let mut checks = Vec::new();
+
+    if id.is_empty() {
+        checks.push(ValidationCheck::fail("session ID is empty"));
+        return checks; // Early exit if empty
+    }
+
     if id.len() > MAX_ID_LENGTH {
-        return Err(validation_err(&format!(
+        checks.push(ValidationCheck::fail(format!(
             "session ID too long: {} chars (max {})",
             id.len(),
             MAX_ID_LENGTH
         )));
     }
 
-    // Security: path traversal in ID
     if contains_path_traversal(id) {
-        return Err(validation_err(&format!(
+        checks.push(ValidationCheck::fail(format!(
             "session ID contains path traversal: {:?}",
             id
         )));
     }
 
-    // Security: check checkpoint filenames and content sizes
-    if let Some(checkpoints) = &session.checkpoints {
+    checks
+}
+
+/// Validate checkpoints - checks filenames and content sizes.
+/// Returns a list of validation checks (may be empty if all pass).
+fn validate_checkpoints(checkpoints: Option<&Vec<CheckpointExport>>) -> Vec<ValidationCheck> {
+    let mut checks = Vec::new();
+
+    if let Some(checkpoints) = checkpoints {
         for cp in checkpoints {
-            validate_filename(&cp.filename)?;
+            // Filename validation (uses existing helper)
+            if let Err(e) = validate_filename(&cp.filename) {
+                checks.push(ValidationCheck::fail(e.to_string()));
+            }
+
+            // Size limit check
             if let Some(content) = &cp.content
-                && content.len() > MAX_SECTION_SIZE {
-                    return Err(validation_err(&format!(
-                        "checkpoint '{}' content too large: {} bytes (max {})",
-                        cp.filename,
-                        content.len(),
-                        MAX_SECTION_SIZE
-                    )));
-                }
+                && content.len() > MAX_SECTION_SIZE
+            {
+                checks.push(ValidationCheck::fail(format!(
+                    "checkpoint '{}' content too large: {} bytes (max {})",
+                    cp.filename,
+                    content.len(),
+                    MAX_SECTION_SIZE
+                )));
+            }
         }
     }
 
-    // Size limits on text sections
+    checks
+}
+
+fn validate_session(session: &PortableSession) -> Result<()> {
+    // ID validation using shared helper
+    for check in validate_session_id(&session.metadata.id) {
+        check.to_result()?; // Early exit on first error
+    }
+
+    // Checkpoint validation using shared helper
+    for check in validate_checkpoints(session.checkpoints.as_ref()) {
+        check.to_result()?;
+    }
+
+    // Size limits on text sections (strict mode only - not in permissive mode)
     if let Some(plan) = &session.plan
-        && plan.len() > MAX_SECTION_SIZE {
-            return Err(validation_err(&format!(
-                "plan too large: {} bytes (max {})",
-                plan.len(),
-                MAX_SECTION_SIZE
-            )));
-        }
+        && plan.len() > MAX_SECTION_SIZE
+    {
+        return Err(validation_err(&format!(
+            "plan too large: {} bytes (max {})",
+            plan.len(),
+            MAX_SECTION_SIZE
+        )));
+    }
 
     if let Some(events) = &session.events
-        && events.len() > MAX_EVENTS {
-            return Err(validation_err(&format!(
-                "too many events: {} (max {})",
-                events.len(),
-                MAX_EVENTS
-            )));
-        }
+        && events.len() > MAX_EVENTS
+    {
+        return Err(validation_err(&format!(
+            "too many events: {} (max {})",
+            events.len(),
+            MAX_EVENTS
+        )));
+    }
 
     Ok(())
 }
@@ -152,24 +220,14 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
     let prefix = format!("Session {}", idx);
     let id = &session.metadata.id;
 
-    if id.is_empty() {
-        issues.push(ValidationIssue::error(&format!("{}: ID is empty", prefix)));
-    }
-    if id.len() > MAX_ID_LENGTH {
-        issues.push(ValidationIssue::error(&format!(
-            "{}: ID too long ({} chars)",
-            prefix,
-            id.len()
-        )));
-    }
-    if contains_path_traversal(id) {
-        issues.push(ValidationIssue::error(&format!(
-            "{}: ID contains path traversal",
-            prefix
-        )));
+    // ID validation using shared helper - collect all errors
+    for check in validate_session_id(id) {
+        if let Some(issue) = check.to_issue(&prefix) {
+            issues.push(issue);
+        }
     }
 
-    // Warn if the ID doesn't look like a UUID — session discovery may not find it
+    // UUID warning (unique to permissive mode)
     if !id.is_empty() && !looks_like_uuid(id) {
         issues.push(ValidationIssue::warning(&format!(
             "{}: ID {:?} is not a UUID — imported session may not appear in session list",
@@ -177,32 +235,37 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
         )));
     }
 
+    // Checkpoint validation
     if let Some(checkpoints) = &session.checkpoints {
         let mut seen_filenames = HashSet::new();
+
         for cp in checkpoints {
-            // Run the same validation as validate_filename (path traversal,
-            // path separators, reserved names, dangerous characters)
+            // Shared filename validation
             if let Err(e) = validate_filename_with_prefix(&cp.filename, &prefix) {
                 issues.push(ValidationIssue::error(&e.to_string()));
             }
+
+            // Duplicate check (unique to permissive mode)
             if !seen_filenames.insert(&cp.filename) {
                 issues.push(ValidationIssue::error(&format!(
                     "{}: duplicate checkpoint filename: {:?}",
                     prefix, cp.filename
                 )));
             }
-            // Size limit check
+
+            // Shared size validation
             if let Some(content) = &cp.content
-                && content.len() > MAX_SECTION_SIZE {
-                    issues.push(ValidationIssue::error(&format!(
-                        "{}: checkpoint '{}' content too large: {} bytes (max {})",
-                        prefix, cp.filename, content.len(), MAX_SECTION_SIZE
-                    )));
-                }
+                && content.len() > MAX_SECTION_SIZE
+            {
+                issues.push(ValidationIssue::error(&format!(
+                    "{}: checkpoint '{}' content too large: {} bytes (max {})",
+                    prefix, cp.filename, content.len(), MAX_SECTION_SIZE
+                )));
+            }
         }
     }
 
-    // Warnings (non-blocking)
+    // Empty content warning (unique to permissive mode)
     if session.conversation.is_none() && session.events.is_none() {
         issues.push(ValidationIssue::warning(&format!(
             "{}: no conversation or events data",
