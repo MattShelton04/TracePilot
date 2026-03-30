@@ -39,6 +39,7 @@ pub async fn export_sessions(
     if session_ids.is_empty() {
         return Err(BindingsError::Validation("No sessions selected".into()));
     }
+    crate::validators::validate_session_id_list(&session_ids)?;
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
@@ -292,6 +293,10 @@ pub async fn import_sessions(
     session_filter: Option<Vec<String>>,
     dry_run: Option<bool>,
 ) -> CmdResult<ImportSessionsResult> {
+    if let Some(ref ids) = session_filter {
+        crate::validators::validate_session_id_list(ids)?;
+    }
+
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
 

@@ -11,9 +11,10 @@ pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 /// Resolve a session directory path and run a blocking closure with it.
 ///
 /// Encapsulates the standard pattern used by most single-session commands:
-/// 1. Read `session_state_dir` from shared config
-/// 2. Spawn a blocking task to resolve the session path on disk
-/// 3. Execute command-specific logic with the resolved `PathBuf`
+/// 1. Validate that `session_id` is a well-formed UUID
+/// 2. Read `session_state_dir` from shared config
+/// 3. Spawn a blocking task to resolve the session path on disk
+/// 4. Execute command-specific logic with the resolved `PathBuf`
 ///
 /// This eliminates repeated boilerplate across session, export, and state
 /// commands.  For the analytics equivalent, see
@@ -27,6 +28,8 @@ where
     T: Send + 'static,
     F: FnOnce(PathBuf) -> Result<T, BindingsError> + Send + 'static,
 {
+    crate::validators::validate_session_id(&session_id)?;
+
     let session_state_dir = read_config(state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
@@ -219,7 +222,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn with_session_path_propagates_missing_session_error() {
+    async fn with_session_path_rejects_invalid_session_id() {
         let dir = tempfile::tempdir().unwrap();
         let state = make_shared_config(dir.path().to_str().unwrap());
 
@@ -228,10 +231,29 @@ mod tests {
         })
         .await;
 
+        assert!(result.is_err(), "invalid UUID should produce an error");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Invalid session ID format"),
+            "error should be a validation error: {err_msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn with_session_path_propagates_missing_session_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = make_shared_config(dir.path().to_str().unwrap());
+
+        // Valid UUID that doesn't exist on disk
+        let result = with_session_path(&state, "00000000-0000-0000-0000-000000000000".into(), |_path| {
+            Ok("should not reach here".to_string())
+        })
+        .await;
+
         assert!(result.is_err(), "missing session should produce an error");
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("nonexistent-session-id"),
+            err_msg.contains("00000000-0000-0000-0000-000000000000"),
             "error should reference the session id: {err_msg}"
         );
     }
