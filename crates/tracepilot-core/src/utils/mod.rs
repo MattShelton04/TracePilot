@@ -17,6 +17,12 @@ pub fn truncate_utf8(input: &str, max_bytes: usize) -> &str {
     &input[..end]
 }
 
+/// Truncate a mutable string in place to a maximum number of bytes, ensuring valid UTF-8.
+pub fn truncate_string_utf8(s: &mut String, max_bytes: usize) {
+    let truncated_len = truncate_utf8(s.as_str(), max_bytes).len();
+    s.truncate(truncated_len);
+}
+
 /// Resolve the user's home directory with a platform-specific fallback.
 /// Returns `C:\Users\default` on Windows or `/tmp` on Unix if env vars are missing.
 /// Use [`home_dir_opt`] when a missing home dir is a meaningful signal.
