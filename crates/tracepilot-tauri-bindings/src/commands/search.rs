@@ -2,7 +2,9 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{emit_indexing_progress, load_summary_list_item, read_config};
+use crate::helpers::{
+    emit_indexing_progress, load_summary_list_item, read_config, remove_index_db_files,
+};
 use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
     SearchStatsResponse, SessionListItem,
@@ -101,7 +103,10 @@ pub async fn reindex_sessions(
             .map(|n| (n, n))
             .map_err(Into::into),
         };
-        tracing::debug!(elapsed_ms = start.elapsed().as_millis(), "reindex_sessions Phase 1 wall time");
+        tracing::debug!(
+            elapsed_ms = start.elapsed().as_millis(),
+            "reindex_sessions Phase 1 wall time"
+        );
         res
     })
     .await;
@@ -135,12 +140,23 @@ pub async fn reindex_sessions(
                     || false,
                 ) {
                     Ok((indexed, skipped)) => {
-                        tracing::debug!(indexed, skipped, elapsed_ms = start.elapsed().as_millis(), "reindex_sessions Phase 2 wall time");
-                        let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
+                        tracing::debug!(
+                            indexed,
+                            skipped,
+                            elapsed_ms = start.elapsed().as_millis(),
+                            "reindex_sessions Phase 2 wall time"
+                        );
+                        let _ = app2.emit(
+                            "search-indexing-finished",
+                            serde_json::json!({"success": true}),
+                        );
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "Phase 2 search indexing failed");
-                        let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": false, "error": e.to_string()}));
+                        let _ = app2.emit(
+                            "search-indexing-finished",
+                            serde_json::json!({"success": false, "error": e.to_string()}),
+                        );
                     }
                 }
             });
@@ -173,13 +189,7 @@ pub async fn reindex_sessions_full(
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
 
-        if index_path.exists() {
-            let _ = std::fs::remove_file(&index_path);
-            let wal = index_path.with_extension("db-wal");
-            let shm = index_path.with_extension("db-shm");
-            let _ = std::fs::remove_file(&wal);
-            let _ = std::fs::remove_file(&shm);
-        }
+        remove_index_db_files(&index_path)?;
 
         tracepilot_indexer::reindex_all_with_rich_progress(
             &session_state_dir,
@@ -222,12 +232,23 @@ pub async fn reindex_sessions_full(
                     || false,
                 ) {
                     Ok((indexed, skipped)) => {
-                        tracing::debug!(indexed, skipped, elapsed_ms = start.elapsed().as_millis(), "rebuild_search_index Phase 2 wall time");
-                        let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": true}));
+                        tracing::debug!(
+                            indexed,
+                            skipped,
+                            elapsed_ms = start.elapsed().as_millis(),
+                            "rebuild_search_index Phase 2 wall time"
+                        );
+                        let _ = app2.emit(
+                            "search-indexing-finished",
+                            serde_json::json!({"success": true}),
+                        );
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "Phase 2 search rebuild failed");
-                        let _ = app2.emit("search-indexing-finished", serde_json::json!({"success": false, "error": e.to_string()}));
+                        let _ = app2.emit(
+                            "search-indexing-finished",
+                            serde_json::json!({"success": false, "error": e.to_string()}),
+                        );
                     }
                 }
             });
@@ -459,15 +480,16 @@ pub async fn rebuild_search_index(
     .await;
 
     let success = result.as_ref().map(|r| r.is_ok()).unwrap_or(false);
-    let _ = app.emit("search-indexing-finished", serde_json::json!({"success": success}));
+    let _ = app.emit(
+        "search-indexing-finished",
+        serde_json::json!({"success": success}),
+    );
     result?
 }
 
 /// Run FTS integrity check.
 #[tauri::command]
-pub async fn fts_integrity_check(
-    state: tauri::State<'_, SharedConfig>,
-) -> CmdResult<String> {
+pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
     tokio::task::spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
@@ -478,9 +500,7 @@ pub async fn fts_integrity_check(
 
 /// Optimize the FTS index.
 #[tauri::command]
-pub async fn fts_optimize(
-    state: tauri::State<'_, SharedConfig>,
-) -> CmdResult<String> {
+pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
     tokio::task::spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
@@ -508,7 +528,10 @@ pub async fn get_result_context(
     state: tauri::State<'_, SharedConfig>,
     result_id: i64,
     radius: Option<usize>,
-) -> CmdResult<(Vec<tracepilot_indexer::index_db::ContextSnippet>, Vec<tracepilot_indexer::index_db::ContextSnippet>)> {
+) -> CmdResult<(
+    Vec<tracepilot_indexer::index_db::ContextSnippet>,
+    Vec<tracepilot_indexer::index_db::ContextSnippet>,
+)> {
     let cfg = read_config(&state);
     tokio::task::spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;

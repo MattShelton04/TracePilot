@@ -112,3 +112,72 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
     }
     Ok(())
 }
+
+/// Delete the index database and its WAL/SHM sidecar files, surfacing I/O errors.
+/// Missing files are silently ignored to avoid TOCTOU races (WAL/SHM are managed
+/// dynamically by SQLite and may vanish between checks).
+pub(crate) fn remove_index_db_files(index_path: &Path) -> Result<(), BindingsError> {
+    let wal = index_path.with_extension("db-wal");
+    let shm = index_path.with_extension("db-shm");
+
+    for path in [index_path.to_path_buf(), wal, shm] {
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                let err: BindingsError = e.into();
+                tracing::warn!(path = %path.display(), error = %err, "Failed to remove index database file");
+                return Err(err);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn remove_index_files_deletes_existing_artifacts() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+        let wal = index_path.with_extension("db-wal");
+        let shm = index_path.with_extension("db-shm");
+
+        fs::write(&index_path, b"db").unwrap();
+        fs::write(&wal, b"wal").unwrap();
+        fs::write(&shm, b"shm").unwrap();
+
+        remove_index_db_files(&index_path).unwrap();
+
+        assert!(!index_path.exists());
+        assert!(!wal.exists());
+        assert!(!shm.exists());
+    }
+
+    #[test]
+    fn remove_index_files_propagates_io_errors() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+
+        // Directory in place of the DB file triggers an I/O error on removal.
+        fs::create_dir(&index_path).unwrap();
+
+        let err = remove_index_db_files(&index_path).unwrap_err();
+        assert!(matches!(err, BindingsError::Io(_)));
+        assert!(index_path.exists());
+    }
+
+    #[test]
+    fn remove_index_files_succeeds_when_no_files_exist() {
+        let dir = tempdir().unwrap();
+        let index_path = dir.path().join("index.db");
+
+        // None of the files exist — should succeed without error.
+        remove_index_db_files(&index_path).unwrap();
+    }
+}
