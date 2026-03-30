@@ -563,8 +563,8 @@ export function computeCoverage(
       for (const et of session.eventTypesObserved) {
         observedTypes.add(et);
         if (!examplesByType.has(et)) examplesByType.set(et, []);
-        const examples = examplesByType.get(et)!;
-        if (examples.length < 3) {
+        const examples = examplesByType.get(et);
+        if (examples && examples.length < 3) {
           examples.push({
             sessionId: session.sessionId,
             copilotVersion: session.copilotVersion,
@@ -982,7 +982,8 @@ export function generateMarkdownReport(
   lines.push("| CLI Version | Sessions | Unique Event Types | Example Session |");
   lines.push("|------------|----------|-------------------|-----------------|");
   for (const v of sortedVersions) {
-    const sessions = byVersion.get(v)!;
+    const sessions = byVersion.get(v);
+    if (!sessions) continue;
     const allTypes = new Set<string>();
     for (const s of sessions) {
       for (const t of s.eventTypesObserved) allTypes.add(t);

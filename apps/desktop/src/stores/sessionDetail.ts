@@ -18,8 +18,8 @@ import type {
   SessionIncident,
   SessionPlan,
   ShutdownMetrics,
-  TurnToolCall,
   TodosResponse,
+  TurnToolCall,
 } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
@@ -68,8 +68,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     let hash = 2166136261;
     for (let i = 0; i < value.length; i++) {
       hash ^= value.charCodeAt(i);
-      hash +=
-        (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
     }
     return hash >>> 0;
   }

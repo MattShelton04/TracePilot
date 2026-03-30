@@ -16,4 +16,3 @@ describe("chart shared theme styles", () => {
     expect(css).toContain("filter: saturate(1.35) brightness(1.1)");
   });
 });
-
