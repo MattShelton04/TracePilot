@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SearchContentType } from '@tracepilot/types';
+import type { ContentTypeStyle } from '@tracepilot/ui';
 
 defineProps<{
   activeContentTypeChips: { type: SearchContentType; mode: 'include' | 'exclude' }[];
@@ -8,7 +9,7 @@ defineProps<{
   sessionId: string | null;
   sessionDisplayName: string | null;
   activeFilterCount: number;
-  contentTypeConfig: Record<string, { label: string; color: string }>;
+  contentTypeConfig: Record<string, ContentTypeStyle>;
 }>();
 
 const emit = defineEmits<{

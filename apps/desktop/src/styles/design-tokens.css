@@ -5,6 +5,7 @@
 :root {
   /* --- Font --- */
   --font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-family: var(--font-family);
 
   /* --- Canvas --- */
@@ -14,12 +15,18 @@
   --canvas-overlay: #18181b;
   --canvas-raised: #1c1c1f;
 
+  /* --- Surface layers --- */
+  --surface-secondary: var(--canvas-raised);
+  --surface-tertiary: #27272a;
+
   /* --- Border --- */
   --border-default: rgba(255, 255, 255, 0.10);
   --border-muted: rgba(255, 255, 255, 0.06);
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-accent: rgba(99, 102, 241, 0.5);
   --border-glow: rgba(99, 102, 241, 0.15);
+  --border-emphasis: rgba(255, 255, 255, 0.20);
+  --border: var(--border-default);
 
   /* --- Text --- */
   --text-primary: #fafafa;
@@ -30,11 +37,17 @@
   --text-inverse: #09090b;                            /* Dark text for use on light backgrounds */
   --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Light text for use on colored emphasis backgrounds (badges, buttons) */
 
+  /* --- Attention (Orange — distinct from Warning/Amber for notice-level emphasis) --- */
+  --attention-fg: #fb923c;
+  --attention-subtle: rgba(251, 146, 60, 0.10);
+
   /* --- Accent (Indigo) --- */
   --accent-fg: #818cf8;
   --accent-emphasis: #6366f1;
+  --accent-emphasis-hover: #4f46e5;
   --accent-muted: rgba(99, 102, 241, 0.25);
   --accent-subtle: rgba(99, 102, 241, 0.10);
+  --accent-primary: var(--accent-fg);
 
   /* --- Success (Emerald) --- */
   --success-fg: #34d399;
@@ -139,11 +152,16 @@
   --canvas-overlay: #ffffff;
   --canvas-raised: #ffffff;
 
+  /* --- Surface layers --- */
+  --surface-secondary: #e4e4e7;
+  --surface-tertiary: #d4d4d8;
+
   --border-default: rgba(0, 0, 0, 0.10);
   --border-muted: rgba(0, 0, 0, 0.06);
   --border-subtle: rgba(0, 0, 0, 0.04);
   --border-accent: rgba(99, 102, 241, 0.4);
   --border-glow: rgba(99, 102, 241, 0.10);
+  --border-emphasis: rgba(0, 0, 0, 0.20);
 
   --text-primary: #18181b;
   --text-secondary: #52525b;
@@ -153,10 +171,16 @@
   --text-inverse: #fafafa;
   --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Same as dark - always high contrast on emphasis colors */
 
+  /* --- Attention (Orange) --- */
+  --attention-fg: #ea580c;
+  --attention-subtle: rgba(234, 88, 12, 0.08);
+
   --accent-fg: #6366f1;
   --accent-emphasis: #4f46e5;
+  --accent-emphasis-hover: #4338ca;
   --accent-muted: rgba(99, 102, 241, 0.15);
   --accent-subtle: rgba(99, 102, 241, 0.06);
+  --accent-primary: var(--accent-fg);
 
   --success-fg: #059669;
   --success-emphasis: #047857;
