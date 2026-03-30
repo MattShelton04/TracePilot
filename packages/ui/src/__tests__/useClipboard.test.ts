@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import { useClipboard } from "../composables/useClipboard";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, nextTick } from "vue";
 import type { UseClipboardReturn } from "../composables/useClipboard";
+import { useClipboard } from "../composables/useClipboard";
 
 const writeTextMock = vi.fn<(text: string) => Promise<void>>();
 

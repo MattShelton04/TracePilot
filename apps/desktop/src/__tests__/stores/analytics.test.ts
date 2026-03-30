@@ -1,15 +1,15 @@
-import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from '@tracepilot/types';
-import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAnalyticsStore } from '../../stores/analytics';
+import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useAnalyticsStore } from "../../stores/analytics";
 
 // ── Mock client functions ─────────────────────────────────────
 const mockGetAnalytics = vi.fn();
 const mockGetToolAnalysis = vi.fn();
 const mockGetCodeImpact = vi.fn();
 
-vi.mock('@tracepilot/client', async () => {
-  const { createClientMock } = await import('../mocks/client');
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
   return createClientMock({
     getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
     getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
@@ -24,10 +24,21 @@ const FIXTURE_ANALYTICS: AnalyticsData = {
   totalCost: 5.0,
   totalPremiumRequests: 25,
   averageHealthScore: 0.8,
-  tokenUsageByDay: [{ date: '2025-01-01', tokens: 50_000 }],
-  activityPerDay: [{ date: '2025-01-01', count: 3 }],
-  modelDistribution: [{ model: 'gpt-4', tokens: 500_000, percentage: 100, inputTokens: 250_000, outputTokens: 250_000, cacheReadTokens: 0, premiumRequests: 5, requestCount: 50 }],
-  costByDay: [{ date: '2025-01-01', cost: 5.0 }],
+  tokenUsageByDay: [{ date: "2025-01-01", tokens: 50_000 }],
+  activityPerDay: [{ date: "2025-01-01", count: 3 }],
+  modelDistribution: [
+    {
+      model: "gpt-4",
+      tokens: 500_000,
+      percentage: 100,
+      inputTokens: 250_000,
+      outputTokens: 250_000,
+      cacheReadTokens: 0,
+      premiumRequests: 5,
+      requestCount: 50,
+    },
+  ],
+  costByDay: [{ date: "2025-01-01", cost: 5.0 }],
   apiDurationStats: {
     avgMs: 1_000_000,
     medianMs: 900_000,
@@ -67,10 +78,10 @@ const FIXTURE_TOOL_ANALYSIS: ToolAnalysisData = {
   totalCalls: 50,
   successRate: 0.95,
   avgDurationMs: 500,
-  mostUsedTool: 'edit',
+  mostUsedTool: "edit",
   tools: [
-    { name: 'edit', callCount: 30, successRate: 0.97, avgDurationMs: 400, totalDurationMs: 12_000 },
-    { name: 'view', callCount: 20, successRate: 0.92, avgDurationMs: 650, totalDurationMs: 13_000 },
+    { name: "edit", callCount: 30, successRate: 0.97, avgDurationMs: 400, totalDurationMs: 12_000 },
+    { name: "view", callCount: 20, successRate: 0.92, avgDurationMs: 650, totalDurationMs: 13_000 },
   ],
   activityHeatmap: [{ day: 0, hour: 10, count: 5 }],
 };
@@ -80,36 +91,36 @@ const FIXTURE_CODE_IMPACT: CodeImpactData = {
   linesAdded: 1000,
   linesRemoved: 300,
   netChange: 700,
-  fileTypeBreakdown: [{ extension: '.ts', count: 10, percentage: 66.7 }],
-  mostModifiedFiles: [{ path: 'src/index.ts', additions: 100, deletions: 30 }],
-  changesByDay: [{ date: '2025-01-01', additions: 200, deletions: 60 }],
+  fileTypeBreakdown: [{ extension: ".ts", count: 10, percentage: 66.7 }],
+  mostModifiedFiles: [{ path: "src/index.ts", additions: 100, deletions: 30 }],
+  changesByDay: [{ date: "2025-01-01", additions: 200, deletions: 60 }],
 };
 
 // ── Tests ─────────────────────────────────────────────────────
 
-describe('useAnalyticsStore', () => {
+describe("useAnalyticsStore", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 
   // ── Initial state ─────────────────────────────────────────
-  describe('initial state', () => {
-    it('initializes with null data and no errors', () => {
+  describe("initial state", () => {
+    it("initializes with null data and no errors", () => {
       const store = useAnalyticsStore();
       expect(store.analytics).toBeNull();
       expect(store.toolAnalysis).toBeNull();
       expect(store.codeImpact).toBeNull();
     });
 
-    it('initializes with loading states false', () => {
+    it("initializes with loading states false", () => {
       const store = useAnalyticsStore();
       expect(store.analyticsLoading).toBe(false);
       expect(store.toolAnalysisLoading).toBe(false);
       expect(store.codeImpactLoading).toBe(false);
     });
 
-    it('initializes with no errors', () => {
+    it("initializes with no errors", () => {
       const store = useAnalyticsStore();
       expect(store.analyticsError).toBeNull();
       expect(store.toolAnalysisError).toBeNull();
@@ -118,8 +129,8 @@ describe('useAnalyticsStore', () => {
   });
 
   // ── fetchAnalytics ────────────────────────────────────────
-  describe('fetchAnalytics', () => {
-    it('fetches and stores analytics data', async () => {
+  describe("fetchAnalytics", () => {
+    it("fetches and stores analytics data", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
@@ -130,7 +141,7 @@ describe('useAnalyticsStore', () => {
       expect(store.analyticsError).toBeNull();
     });
 
-    it('sets loading state during fetch', async () => {
+    it("sets loading state during fetch", async () => {
       let resolvePromise: ((value: AnalyticsData) => void) | undefined;
       mockGetAnalytics.mockReturnValue(
         new Promise<AnalyticsData>((resolve) => {
@@ -147,40 +158,40 @@ describe('useAnalyticsStore', () => {
       expect(store.analyticsLoading).toBe(false);
     });
 
-    it('handles errors gracefully', async () => {
-      mockGetAnalytics.mockRejectedValue(new Error('Network error'));
+    it("handles errors gracefully", async () => {
+      mockGetAnalytics.mockRejectedValue(new Error("Network error"));
       const store = useAnalyticsStore();
 
       await store.fetchAnalytics();
 
       expect(store.analytics).toBeNull();
-      expect(store.analyticsError).toBe('Network error');
+      expect(store.analyticsError).toBe("Network error");
       expect(store.analyticsLoading).toBe(false);
     });
 
-    it('handles non-Error rejection values', async () => {
-      mockGetAnalytics.mockRejectedValue('string error');
+    it("handles non-Error rejection values", async () => {
+      mockGetAnalytics.mockRejectedValue("string error");
       const store = useAnalyticsStore();
 
       await store.fetchAnalytics();
 
-      expect(store.analyticsError).toBe('string error');
+      expect(store.analyticsError).toBe("string error");
     });
 
-    it('passes date filters to client function', async () => {
+    it("passes date filters to client function", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
-      await store.fetchAnalytics({ fromDate: '2025-01-01', toDate: '2025-01-31' });
+      await store.fetchAnalytics({ fromDate: "2025-01-01", toDate: "2025-01-31" });
 
       expect(mockGetAnalytics).toHaveBeenCalledWith({
-        fromDate: '2025-01-01',
-        toDate: '2025-01-31',
+        fromDate: "2025-01-01",
+        toDate: "2025-01-31",
         hideEmpty: true,
       });
     });
 
-    it('skips fetch when already loaded (cache hit)', async () => {
+    it("skips fetch when already loaded (cache hit)", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
@@ -190,7 +201,7 @@ describe('useAnalyticsStore', () => {
       expect(mockGetAnalytics).toHaveBeenCalledTimes(1);
     });
 
-    it('re-fetches when forced', async () => {
+    it("re-fetches when forced", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
@@ -200,22 +211,22 @@ describe('useAnalyticsStore', () => {
       expect(mockGetAnalytics).toHaveBeenCalledTimes(2);
     });
 
-    it('fetches again with different date range', async () => {
+    it("fetches again with different date range", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
-      await store.fetchAnalytics({ fromDate: '2025-01-01' });
-      await store.fetchAnalytics({ fromDate: '2025-02-01' });
+      await store.fetchAnalytics({ fromDate: "2025-01-01" });
+      await store.fetchAnalytics({ fromDate: "2025-02-01" });
 
       expect(mockGetAnalytics).toHaveBeenCalledTimes(2);
     });
 
-    it('clears previous error on retry', async () => {
-      mockGetAnalytics.mockRejectedValueOnce(new Error('fail'));
+    it("clears previous error on retry", async () => {
+      mockGetAnalytics.mockRejectedValueOnce(new Error("fail"));
       const store = useAnalyticsStore();
 
       await store.fetchAnalytics();
-      expect(store.analyticsError).toBe('fail');
+      expect(store.analyticsError).toBe("fail");
 
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       await store.fetchAnalytics({ force: true });
@@ -225,8 +236,8 @@ describe('useAnalyticsStore', () => {
   });
 
   // ── fetchToolAnalysis ─────────────────────────────────────
-  describe('fetchToolAnalysis', () => {
-    it('fetches and stores tool analysis data', async () => {
+  describe("fetchToolAnalysis", () => {
+    it("fetches and stores tool analysis data", async () => {
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       const store = useAnalyticsStore();
 
@@ -237,30 +248,30 @@ describe('useAnalyticsStore', () => {
       expect(store.toolAnalysisError).toBeNull();
     });
 
-    it('handles errors', async () => {
-      mockGetToolAnalysis.mockRejectedValue(new Error('parse error'));
+    it("handles errors", async () => {
+      mockGetToolAnalysis.mockRejectedValue(new Error("parse error"));
       const store = useAnalyticsStore();
 
       await store.fetchToolAnalysis();
 
       expect(store.toolAnalysis).toBeNull();
-      expect(store.toolAnalysisError).toBe('parse error');
+      expect(store.toolAnalysisError).toBe("parse error");
     });
 
-    it('caches by date range', async () => {
+    it("caches by date range", async () => {
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       const store = useAnalyticsStore();
 
-      await store.fetchToolAnalysis({ fromDate: '2025-01-01' });
-      await store.fetchToolAnalysis({ fromDate: '2025-01-01' });
+      await store.fetchToolAnalysis({ fromDate: "2025-01-01" });
+      await store.fetchToolAnalysis({ fromDate: "2025-01-01" });
 
       expect(mockGetToolAnalysis).toHaveBeenCalledTimes(1);
     });
   });
 
   // ── fetchCodeImpact ───────────────────────────────────────
-  describe('fetchCodeImpact', () => {
-    it('fetches and stores code impact data', async () => {
+  describe("fetchCodeImpact", () => {
+    it("fetches and stores code impact data", async () => {
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
       const store = useAnalyticsStore();
 
@@ -271,20 +282,20 @@ describe('useAnalyticsStore', () => {
       expect(store.codeImpactError).toBeNull();
     });
 
-    it('handles errors', async () => {
-      mockGetCodeImpact.mockRejectedValue(new Error('disk error'));
+    it("handles errors", async () => {
+      mockGetCodeImpact.mockRejectedValue(new Error("disk error"));
       const store = useAnalyticsStore();
 
       await store.fetchCodeImpact();
 
       expect(store.codeImpact).toBeNull();
-      expect(store.codeImpactError).toBe('disk error');
+      expect(store.codeImpactError).toBe("disk error");
     });
   });
 
   // ── refreshAll ────────────────────────────────────────────
-  describe('refreshAll', () => {
-    it('fetches all three datasets in parallel', async () => {
+  describe("refreshAll", () => {
+    it("fetches all three datasets in parallel", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
@@ -297,7 +308,7 @@ describe('useAnalyticsStore', () => {
       expect(store.codeImpact).toEqual(FIXTURE_CODE_IMPACT);
     });
 
-    it('clears cache and re-fetches everything', async () => {
+    it("clears cache and re-fetches everything", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
@@ -314,28 +325,28 @@ describe('useAnalyticsStore', () => {
       expect(mockGetCodeImpact).toHaveBeenCalledTimes(2);
     });
 
-    it('handles partial failures', async () => {
+    it("handles partial failures", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-      mockGetToolAnalysis.mockRejectedValue(new Error('tool fail'));
+      mockGetToolAnalysis.mockRejectedValue(new Error("tool fail"));
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
       const store = useAnalyticsStore();
 
       await store.refreshAll();
 
       expect(store.analytics).toEqual(FIXTURE_ANALYTICS);
-      expect(store.toolAnalysisError).toBe('tool fail');
+      expect(store.toolAnalysisError).toBe("tool fail");
       expect(store.codeImpact).toEqual(FIXTURE_CODE_IMPACT);
     });
 
-    it('passes date options through to all fetches', async () => {
+    it("passes date options through to all fetches", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
       const store = useAnalyticsStore();
 
-      await store.refreshAll({ fromDate: '2025-03-01', toDate: '2025-03-31' });
+      await store.refreshAll({ fromDate: "2025-03-01", toDate: "2025-03-31" });
 
-      const expected = { fromDate: '2025-03-01', toDate: '2025-03-31', hideEmpty: true };
+      const expected = { fromDate: "2025-03-01", toDate: "2025-03-31", hideEmpty: true };
       expect(mockGetAnalytics).toHaveBeenCalledWith(expected);
       expect(mockGetToolAnalysis).toHaveBeenCalledWith(expected);
       expect(mockGetCodeImpact).toHaveBeenCalledWith(expected);
@@ -343,8 +354,8 @@ describe('useAnalyticsStore', () => {
   });
 
   // ── $reset ────────────────────────────────────────────────
-  describe('$reset', () => {
-    it('resets all state to initial values', async () => {
+  describe("$reset", () => {
+    it("resets all state to initial values", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
@@ -366,7 +377,7 @@ describe('useAnalyticsStore', () => {
       expect(store.codeImpactError).toBeNull();
     });
 
-    it('clears cache so next fetch re-requests data', async () => {
+    it("clears cache so next fetch re-requests data", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
@@ -379,8 +390,8 @@ describe('useAnalyticsStore', () => {
   });
 
   // ── Independence ──────────────────────────────────────────
-  describe('independence', () => {
-    it('fetching one dataset does not affect others', async () => {
+  describe("independence", () => {
+    it("fetching one dataset does not affect others", async () => {
       mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
       const store = useAnalyticsStore();
 
@@ -393,15 +404,15 @@ describe('useAnalyticsStore', () => {
       expect(store.codeImpactLoading).toBe(false);
     });
 
-    it('error in one dataset does not affect others', async () => {
-      mockGetAnalytics.mockRejectedValue(new Error('analytics fail'));
+    it("error in one dataset does not affect others", async () => {
+      mockGetAnalytics.mockRejectedValue(new Error("analytics fail"));
       mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
       const store = useAnalyticsStore();
 
       await store.fetchAnalytics();
       await store.fetchToolAnalysis();
 
-      expect(store.analyticsError).toBe('analytics fail');
+      expect(store.analyticsError).toBe("analytics fail");
       expect(store.toolAnalysis).toEqual(FIXTURE_TOOL_ANALYSIS);
       expect(store.toolAnalysisError).toBeNull();
     });

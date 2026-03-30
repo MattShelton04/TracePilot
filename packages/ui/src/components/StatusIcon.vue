@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
-  status: 'done' | 'in_progress' | 'blocked' | 'pending';
-  size?: 'sm' | 'md';
+  status: "done" | "in_progress" | "blocked" | "pending";
+  size?: "sm" | "md";
 }>();
 </script>
 

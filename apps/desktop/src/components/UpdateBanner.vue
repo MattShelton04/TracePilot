@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useUpdateCheck } from '@/composables/useUpdateCheck';
+import { computed, ref } from "vue";
+import { useUpdateCheck } from "@/composables/useUpdateCheck";
 
 const emit = defineEmits<{
-  'view-details': [];
+  "view-details": [];
   dismiss: [];
 }>();
 
 const { updateResult } = useUpdateCheck();
 
-const dismissedVersion = ref(localStorage.getItem('tracepilot-dismissed-update'));
+const dismissedVersion = ref(localStorage.getItem("tracepilot-dismissed-update"));
 
 const visible = computed(() => {
   if (!updateResult.value?.hasUpdate) return false;
@@ -19,10 +19,10 @@ const visible = computed(() => {
 function dismiss() {
   if (updateResult.value?.latestVersion) {
     const version = updateResult.value.latestVersion;
-    localStorage.setItem('tracepilot-dismissed-update', version);
+    localStorage.setItem("tracepilot-dismissed-update", version);
     dismissedVersion.value = version;
   }
-  emit('dismiss');
+  emit("dismiss");
 }
 </script>
 

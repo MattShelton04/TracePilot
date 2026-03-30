@@ -1,7 +1,7 @@
-import { ref, nextTick } from "vue";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { getToolResult } from "@tracepilot/client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick, ref } from "vue";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");

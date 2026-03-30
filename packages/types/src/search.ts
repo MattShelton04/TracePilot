@@ -4,17 +4,17 @@
 
 /** Content types that can be indexed for full-text search. */
 export type SearchContentType =
-  | 'user_message'
-  | 'assistant_message'
-  | 'reasoning'
-  | 'tool_call'
-  | 'tool_result'
-  | 'tool_error'
-  | 'error'
-  | 'compaction_summary'
-  | 'system_message'
-  | 'subagent'
-  | 'checkpoint';
+  | "user_message"
+  | "assistant_message"
+  | "reasoning"
+  | "tool_call"
+  | "tool_result"
+  | "tool_error"
+  | "error"
+  | "compaction_summary"
+  | "system_message"
+  | "subagent"
+  | "checkpoint";
 
 /** A single search result from the FTS index. */
 export interface SearchResult {
@@ -54,7 +54,7 @@ export interface SearchFilters {
   dateToUnix?: number;
   limit?: number;
   offset?: number;
-  sortBy?: 'relevance' | 'newest' | 'oldest';
+  sortBy?: "relevance" | "newest" | "oldest";
 }
 
 /** Facet counts returned from search. Tuples are [name, count]. */

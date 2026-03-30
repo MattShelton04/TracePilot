@@ -1,4 +1,4 @@
-import { ref, readonly, type Ref } from "vue";
+import { type Ref, readonly, ref } from "vue";
 
 export type ConfirmVariant = "danger" | "warning" | "info";
 

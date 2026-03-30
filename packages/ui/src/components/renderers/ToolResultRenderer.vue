@@ -9,12 +9,13 @@
  *  - no renderer is registered for this tool
  *  - content is empty/null
  */
-import { computed, type Component } from "vue";
+
 import type { TurnToolCall } from "@tracepilot/types";
-import { getRendererEntry } from "./registry";
-import PlainTextRenderer from "./PlainTextRenderer.vue";
+import { type Component, computed } from "vue";
 import MarkdownContent from "../MarkdownContent.vue";
+import PlainTextRenderer from "./PlainTextRenderer.vue";
 import RendererShell from "./RendererShell.vue";
+import { getRendererEntry } from "./registry";
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -29,7 +30,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [toolCallId: string];
+  "load-full": [toolCallId: string];
 }>();
 
 const entry = computed(() => getRendererEntry(props.tc.toolName));

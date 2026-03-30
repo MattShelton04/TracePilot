@@ -4,9 +4,10 @@
  * Accepts a reactive list of ReplaySteps and provides transport controls
  * (play, pause, step, scrub, speed) with optional proportional timing.
  */
-import { ref, computed, watch, onUnmounted, type Ref } from 'vue';
-import type { ReplayStep } from '@tracepilot/types';
-import { formatClockTime } from '@tracepilot/ui';
+
+import type { ReplayStep } from "@tracepilot/types";
+import { formatClockTime } from "@tracepilot/ui";
+import { computed, onUnmounted, type Ref, ref, watch } from "vue";
 
 export interface ReplayControllerOptions {
   /** Use actual step durations (scaled by speed) instead of fixed interval. Default: false. */
@@ -21,11 +22,7 @@ export function useReplayController(
   steps: Ref<ReplayStep[]>,
   options: ReplayControllerOptions = {},
 ) {
-  const {
-    proportionalTiming = false,
-    maxStepDelayMs = 3000,
-    fixedIntervalMs = 1500,
-  } = options;
+  const { proportionalTiming = false, maxStepDelayMs = 3000, fixedIntervalMs = 1500 } = options;
 
   const currentStep = ref(0);
   const isPlaying = ref(false);
@@ -35,9 +32,7 @@ export function useReplayController(
   const totalSteps = computed(() => steps.value.length);
   const currentStepData = computed(() => steps.value[currentStep.value] ?? null);
 
-  const totalDurationMs = computed(() =>
-    steps.value.reduce((sum, s) => sum + s.durationMs, 0),
-  );
+  const totalDurationMs = computed(() => steps.value.reduce((sum, s) => sum + s.durationMs, 0));
 
   const elapsedMs = computed(() =>
     steps.value.slice(0, currentStep.value + 1).reduce((sum, s) => sum + s.durationMs, 0),
@@ -150,34 +145,34 @@ export function useReplayController(
   function handleKeydown(e: KeyboardEvent) {
     // Don't intercept when user is typing in an input/textarea
     const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
     switch (e.key) {
-      case ' ':
+      case " ":
         e.preventDefault();
         togglePlayPause();
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         e.preventDefault();
         nextStep();
         break;
-      case 'ArrowLeft':
+      case "ArrowLeft":
         e.preventDefault();
         prevStep();
         break;
-      case 'Home':
+      case "Home":
         e.preventDefault();
         goToStep(0);
         break;
-      case 'End':
+      case "End":
         e.preventDefault();
         goToStep(totalSteps.value - 1);
         break;
-      case '[':
+      case "[":
         e.preventDefault();
         setSpeed(Math.max(0.5, speed.value / 2));
         break;
-      case ']':
+      case "]":
         e.preventDefault();
         setSpeed(Math.min(4, speed.value * 2));
         break;

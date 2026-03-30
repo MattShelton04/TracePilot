@@ -5,18 +5,18 @@
  */
 
 import { readdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import chalk from "chalk";
+import { wrapCommand } from "../utils/errorHandler.js";
 import {
-  getSessionStateDir,
+  fileExists,
   findSession,
+  formatTokens,
+  getSessionStateDir,
   parseWorkspace,
   streamEvents,
-  fileExists,
-  formatTokens,
 } from "./utils.js";
-import { createRequire } from "node:module";
-import { wrapCommand } from "../utils/errorHandler.js";
 
 function getSessionDir(sessionId: string): string {
   return join(getSessionStateDir(), sessionId);
@@ -43,15 +43,17 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
   // Track pending tool calls by toolCallId so we can match names on completion
   const pendingTools = new Map<string, string>(); // toolCallId → toolName
 
-  function ensureCurrentTurn(data: Record<string, unknown> | undefined, timestamp?: string): TurnInfo {
+  function ensureCurrentTurn(
+    data: Record<string, unknown> | undefined,
+    timestamp?: string,
+  ): TurnInfo {
     if (!currentTurn) {
       currentTurn = {
         turnId: (data?.turnId as string) ?? String(turns.length),
         tools: [],
         startTime: timestamp,
-        userMessage: pendingUserMessage !== lastAssignedUserMessage
-          ? pendingUserMessage
-          : undefined,
+        userMessage:
+          pendingUserMessage !== lastAssignedUserMessage ? pendingUserMessage : undefined,
       };
       if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
     }
@@ -72,9 +74,8 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
     }
 
     if (type === "assistant.turn_start") {
-      const userMsg = pendingUserMessage !== lastAssignedUserMessage
-        ? pendingUserMessage
-        : undefined;
+      const userMsg =
+        pendingUserMessage !== lastAssignedUserMessage ? pendingUserMessage : undefined;
       if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
 
       currentTurn = {
@@ -136,8 +137,7 @@ async function reconstructTurns(eventsPath: string): Promise<TurnInfo[]> {
       currentTurn.endTime = timestamp;
       if (currentTurn.startTime && currentTurn.endTime) {
         currentTurn.durationMs =
-          new Date(currentTurn.endTime).getTime() -
-          new Date(currentTurn.startTime).getTime();
+          new Date(currentTurn.endTime).getTime() - new Date(currentTurn.startTime).getTime();
       }
       turns.push(currentTurn);
       currentTurn = null;
@@ -154,9 +154,7 @@ function displayTurns(turns: TurnInfo[]) {
   console.log(chalk.bold.blue("\n  Conversation Turns\n"));
   for (let i = 0; i < turns.length; i++) {
     const t = turns[i];
-    const dur = t.durationMs
-      ? chalk.dim(`${(t.durationMs / 1000).toFixed(1)}s`)
-      : "";
+    const dur = t.durationMs ? chalk.dim(`${(t.durationMs / 1000).toFixed(1)}s`) : "";
     const model = t.model ? chalk.magenta(`[${t.model}]`) : "";
     console.log(`  ${chalk.bold(`Turn ${i}`)}  ${model}  ${dur}`);
 
@@ -165,7 +163,7 @@ function displayTurns(turns: TurnInfo[]) {
     }
     if (t.assistantSnippet) {
       console.log(
-        `    ${chalk.green("Assistant:")} ${t.assistantSnippet}${t.assistantSnippet.length >= 120 ? "…" : ""}`
+        `    ${chalk.green("Assistant:")} ${t.assistantSnippet}${t.assistantSnippet.length >= 120 ? "…" : ""}`,
       );
     }
     if (t.tools.length > 0) {
@@ -178,9 +176,10 @@ function displayTurns(turns: TurnInfo[]) {
         toolMap.set(tool.name, entry);
       }
       const parts = [...toolMap.entries()].map(([name, counts]) => {
-        const label = counts.fail > 0
-          ? `${name} (${chalk.green("✓")}${counts.ok} ${chalk.red("✗")}${counts.fail})`
-          : `${name} (${chalk.green("✓")})`;
+        const label =
+          counts.fail > 0
+            ? `${name} (${chalk.green("✓")}${counts.ok} ${chalk.red("✗")}${counts.fail})`
+            : `${name} (${chalk.green("✓")})`;
         return label;
       });
       console.log(`    ${chalk.dim("Tools:")} ${parts.join(", ")}`);
@@ -233,15 +232,13 @@ function displayMetrics(m: ShutdownMetrics) {
   if (m.totalPremiumRequests != null)
     console.log(`    ${chalk.dim("Premium requests:")} ${m.totalPremiumRequests}`);
   if (m.totalApiDurationMs != null)
-    console.log(
-      `    ${chalk.dim("API duration:")} ${(m.totalApiDurationMs / 1000).toFixed(1)}s`
-    );
+    console.log(`    ${chalk.dim("API duration:")} ${(m.totalApiDurationMs / 1000).toFixed(1)}s`);
 
   if (m.codeChanges) {
     const c = m.codeChanges;
     const files = c.filesModified?.length ?? 0;
     console.log(
-      `    ${chalk.dim("Code changes:")} ${chalk.green(`+${c.linesAdded ?? 0}`)} ${chalk.red(`-${c.linesRemoved ?? 0}`)} (${files} files)`
+      `    ${chalk.dim("Code changes:")} ${chalk.green(`+${c.linesAdded ?? 0}`)} ${chalk.red(`-${c.linesRemoved ?? 0}`)} (${files} files)`,
     );
   }
 
@@ -252,7 +249,7 @@ function displayMetrics(m: ShutdownMetrics) {
       const input = formatTokens(info.usage?.inputTokens ?? 0);
       const output = formatTokens(info.usage?.outputTokens ?? 0);
       console.log(
-        `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}`
+        `      ${chalk.cyan(model.padEnd(28))} requests: ${String(reqs).padEnd(4)} input: ${input.padEnd(8)} output: ${output}`,
       );
     }
   }
@@ -279,9 +276,10 @@ function loadTodos(dbPath: string): TodoItem[] {
       .prepare("SELECT id, title, description, status FROM todos ORDER BY created_at")
       .all() as Array<{ id: string; title: string; description: string | null; status: string }>;
 
-    const deps = db
-      .prepare("SELECT todo_id, depends_on FROM todo_deps")
-      .all() as Array<{ todo_id: string; depends_on: string }>;
+    const deps = db.prepare("SELECT todo_id, depends_on FROM todo_deps").all() as Array<{
+      todo_id: string;
+      depends_on: string;
+    }>;
 
     const depMap = new Map<string, string[]>();
     for (const d of deps) {
@@ -333,7 +331,7 @@ function displayTodos(todos: TodoItem[]) {
 
 export async function showSessionCommand(
   sessionIdArg: string,
-  options: { turns?: boolean; metrics?: boolean; todos?: boolean; json?: boolean }
+  options: { turns?: boolean; metrics?: boolean; todos?: boolean; json?: boolean },
 ) {
   return wrapCommand(async () => {
     const sessionId = await findSession(sessionIdArg);
@@ -347,7 +345,9 @@ export async function showSessionCommand(
     let workspace: Record<string, unknown> | undefined;
     try {
       workspace = await parseWorkspace(dir);
-    } catch { /* no workspace.yaml */ }
+    } catch {
+      /* no workspace.yaml */
+    }
 
     if (options.json) {
       jsonOutput.sessionId = sessionId;
@@ -431,9 +431,7 @@ export async function showSessionCommand(
           jsonOutput.eventCounts = Object.fromEntries(typeCounts);
         } else {
           console.log(`  ${chalk.cyan("Events:")} ${total}`);
-          for (const [type, count] of [...typeCounts.entries()].sort(
-            (a, b) => b[1] - a[1]
-          )) {
+          for (const [type, count] of [...typeCounts.entries()].sort((a, b) => b[1] - a[1])) {
             console.log(`    ${chalk.dim(type)}: ${count}`);
           }
           console.log();

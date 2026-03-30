@@ -6,7 +6,7 @@ withDefaults(
     retryable?: boolean;
   }>(),
   {
-    heading: 'Something went wrong',
+    heading: "Something went wrong",
     retryable: true,
   },
 );

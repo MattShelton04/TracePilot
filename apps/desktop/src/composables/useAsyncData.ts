@@ -1,6 +1,6 @@
-import { ref, type Ref } from 'vue';
-import { toErrorMessage } from '@tracepilot/ui';
-import { useAsyncGuard } from './useAsyncGuard';
+import { toErrorMessage } from "@tracepilot/ui";
+import { type Ref, ref } from "vue";
+import { useAsyncGuard } from "./useAsyncGuard";
 
 /**
  * Options for configuring async data fetching behavior.
@@ -189,7 +189,7 @@ export interface UseAsyncDataReturn<TData, TParams extends unknown[]> {
  */
 export function useAsyncData<TData, TParams extends unknown[]>(
   asyncFn: (...params: TParams) => Promise<TData>,
-  options: UseAsyncDataOptions<TData, TParams> = {}
+  options: UseAsyncDataOptions<TData, TParams> = {},
 ): UseAsyncDataReturn<TData, TParams> {
   const {
     initialData = null,
@@ -283,7 +283,7 @@ export function useAsyncData<TData, TParams extends unknown[]>(
 
     // Exponential backoff: delay * 2^(retryCount - 1)
     const baseDelay = retryOptions.delay ?? 1000;
-    const delay = baseDelay * Math.pow(2, retryCount - 1);
+    const delay = baseDelay * 2 ** (retryCount - 1);
 
     await new Promise((resolve) => setTimeout(resolve, delay));
     await execute(...lastParams);

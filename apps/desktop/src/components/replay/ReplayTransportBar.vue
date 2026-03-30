@@ -15,11 +15,11 @@ defineProps<{
 const emit = defineEmits<{
   play: [];
   pause: [];
-  'toggle-play-pause': [];
+  "toggle-play-pause": [];
   next: [];
   prev: [];
-  'set-speed': [speed: number];
-  'scrub-click': [event: MouseEvent];
+  "set-speed": [speed: number];
+  "scrub-click": [event: MouseEvent];
 }>();
 
 const speeds = [0.5, 1, 2, 4];

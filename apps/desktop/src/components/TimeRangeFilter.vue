@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { computed, ref } from "vue";
+import { useAnalyticsStore } from "@/stores/analytics";
 
-type RangePreset = 'all' | '7d' | '30d' | '90d' | 'custom';
+type RangePreset = "all" | "7d" | "30d" | "90d" | "custom";
 
 const store = useAnalyticsStore();
 
 const presets: { value: RangePreset; label: string }[] = [
-  { value: 'all', label: 'All Time' },
-  { value: '7d', label: '7 Days' },
-  { value: '30d', label: '30 Days' },
-  { value: '90d', label: '90 Days' },
-  { value: 'custom', label: 'Custom' },
+  { value: "all", label: "All Time" },
+  { value: "7d", label: "7 Days" },
+  { value: "30d", label: "30 Days" },
+  { value: "90d", label: "90 Days" },
+  { value: "custom", label: "Custom" },
 ];
 
 // These refs hold the last *committed* value. The DOM input is uncontrolled
 // during editing — we only read it back on blur / Enter.
-const committedFrom = ref(store.customFromDate ?? '');
-const committedTo = ref(store.customToDate ?? '');
+const committedFrom = ref(store.customFromDate ?? "");
+const committedTo = ref(store.customToDate ?? "");
 
-const isCustom = computed(() => store.selectedTimeRange === 'custom');
+const isCustom = computed(() => store.selectedTimeRange === "custom");
 
 /** 4-digit-year YYYY-MM-DD that actually parses. */
 function isValidDate(v: string): boolean {
@@ -27,8 +27,8 @@ function isValidDate(v: string): boolean {
 }
 
 function selectPreset(preset: RangePreset) {
-  if (preset === 'custom') {
-    store.setTimeRange('custom', committedFrom.value || undefined, committedTo.value || undefined);
+  if (preset === "custom") {
+    store.setTimeRange("custom", committedFrom.value || undefined, committedTo.value || undefined);
   } else {
     store.setTimeRange(preset);
   }
@@ -62,11 +62,7 @@ function onToBlur(e: Event) {
 
 function commitDates() {
   if (!isCustom.value) return;
-  store.setTimeRange(
-    'custom',
-    committedFrom.value || undefined,
-    committedTo.value || undefined,
-  );
+  store.setTimeRange("custom", committedFrom.value || undefined, committedTo.value || undefined);
 }
 </script>
 

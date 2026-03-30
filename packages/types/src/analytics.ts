@@ -162,13 +162,13 @@ export interface HealthScoringData {
     sessionId: string;
     sessionName: string;
     score: number;
-    flags: Array<{ name: string; severity: 'warning' | 'danger' }>;
+    flags: Array<{ name: string; severity: "warning" | "danger" }>;
   }>;
   /** All health flags with aggregate counts */
   healthFlags: Array<{
     name: string;
     count: number;
-    severity: 'warning' | 'danger';
+    severity: "warning" | "danger";
     description: string;
   }>;
 }

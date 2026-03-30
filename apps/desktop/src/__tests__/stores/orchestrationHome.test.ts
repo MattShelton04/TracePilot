@@ -1,7 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
+import type {
+  CopilotVersion,
+  RegisteredRepo,
+  SessionListItem,
+  SystemDependencies,
+  WorktreeInfo,
+} from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
-import type { SystemDependencies, CopilotVersion, SessionListItem, WorktreeInfo, RegisteredRepo } from "@tracepilot/types";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockCheckSystemDeps = vi.fn();
@@ -308,7 +314,7 @@ describe("useOrchestrationHomeStore", () => {
 
       // Mock stale cache (> 5 min old)
       // @ts-expect-error - accessing private field for testing
-      store.lastInitialized = Date.now() - (6 * 60 * 1000);
+      store.lastInitialized = Date.now() - 6 * 60 * 1000;
 
       // Second initialization should show cached data immediately
       const initPromise = store.initialize();
@@ -339,9 +345,7 @@ describe("useOrchestrationHomeStore", () => {
 
     it("handles repos with no worktrees gracefully", async () => {
       mockListRegisteredRepos.mockResolvedValue(FIXTURE_REPOS);
-      mockListWorktrees
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      mockListWorktrees.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
       const store = useOrchestrationHomeStore();
       await store.loadWorktreeStatsFromRegistry();
@@ -578,7 +582,7 @@ describe("useOrchestrationHomeStore", () => {
 
       // Force cache staleness
       // @ts-expect-error - accessing private field for testing
-      store.lastInitialized = Date.now() - (10 * 60 * 1000);
+      store.lastInitialized = Date.now() - 10 * 60 * 1000;
 
       await store.initialize();
 

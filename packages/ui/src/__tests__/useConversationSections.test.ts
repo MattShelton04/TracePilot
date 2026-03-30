@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ref, nextTick } from "vue";
-import { useConversationSections } from "../composables/useConversationSections";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import { beforeEach, describe, expect, it } from "vitest";
+import { nextTick, ref } from "vue";
+import { useConversationSections } from "../composables/useConversationSections";
 
 function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {

@@ -6,19 +6,19 @@ defineProps<{
 
 const emit = defineEmits<{
   next: [];
-  'update:dbPath': [value: string];
+  "update:dbPath": [value: string];
   browse: [];
   reset: [];
 }>();
 
 function sanitizePath(raw: string): string {
   // Strip null bytes and control characters
-  return raw.replace(/[\x00-\x1f]/g, '');
+  return raw.replace(/[\x00-\x1f]/g, "");
 }
 
 function onPathInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value;
-  emit('update:dbPath', sanitizePath(raw));
+  emit("update:dbPath", sanitizePath(raw));
 }
 </script>
 

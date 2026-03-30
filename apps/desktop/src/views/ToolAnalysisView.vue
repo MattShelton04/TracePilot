@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import type { ToolUsageEntry } from '@tracepilot/types';
-import { ErrorState, formatDuration, formatNumberFull, formatRate, LoadingOverlay, useChartTooltip } from '@tracepilot/ui';
-import { computed } from 'vue';
-import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
-import { CHART_COLORS } from '@/utils/chartColors';
+import type { ToolUsageEntry } from "@tracepilot/types";
+import {
+  ErrorState,
+  formatDuration,
+  formatNumberFull,
+  formatRate,
+  LoadingOverlay,
+  useChartTooltip,
+} from "@tracepilot/ui";
+import { computed } from "vue";
+import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { CHART_COLORS } from "@/utils/chartColors";
 
-const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } = useChartTooltip();
-const { store } = useAnalyticsPage('fetchToolAnalysis');
+const { tooltip, positionTooltip, dismissTooltip, onBarMouseEnter, findNearestIndex } =
+  useChartTooltip();
+const { store } = useAnalyticsPage("fetchToolAnalysis");
 
 const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);
 
 const pageSubtitle = computed(() => {
-  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
   return `Performance and usage metrics across all tool invocations${repoSuffix}`;
 });
 
@@ -25,8 +33,8 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   if (tooltip.pinned) return;
   const chart = successFailureChart.value;
   if (!chart) return;
-  const svg = (event.target as SVGElement)?.closest('svg');
-  const container = (event.target as SVGElement)?.closest('.tooltip-area') as HTMLElement;
+  const svg = (event.target as SVGElement)?.closest("svg");
+  const container = (event.target as SVGElement)?.closest(".tooltip-area") as HTMLElement;
   if (!svg || !container) return;
   const ctm = svg.getScreenCTM();
   if (!ctm) return;
@@ -34,20 +42,23 @@ function onSuccessFailureMouseMove(event: MouseEvent) {
   pt.x = event.clientX;
   pt.y = event.clientY;
   const svgPt = pt.matrixTransform(ctm.inverse());
-  const bestIdx = findNearestIndex(chart.rows.map(r => r.y + BAR_HEIGHT / 2), svgPt.y);
+  const bestIdx = findNearestIndex(
+    chart.rows.map((r) => r.y + BAR_HEIGHT / 2),
+    svgPt.y,
+  );
   if (bestIdx < 0) return;
   const row = chart.rows[bestIdx];
   const total = row.successCount + row.failureCount;
-  const rate = total > 0 ? ((row.successCount / total) * 100).toFixed(1) : '0.0';
+  const rate = total > 0 ? ((row.successCount / total) * 100).toFixed(1) : "0.0";
   tooltip.visible = true;
   tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate}%)`;
-  tooltip.chartId = 'success-failure';
+  tooltip.chartId = "success-failure";
   tooltip.highlightIndex = bestIdx;
   positionTooltip(event, container);
 }
 
 function onSuccessFailureClick(event: MouseEvent) {
-  if (tooltip.pinned && tooltip.chartId === 'success-failure') {
+  if (tooltip.pinned && tooltip.chartId === "success-failure") {
     tooltip.pinned = false;
     return;
   }
@@ -69,10 +80,10 @@ const maxInvocations = computed(() => {
 });
 
 // ── Heatmap ──────────────────────────────────────────────────
-const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const hourLabels = Array.from({ length: 24 }, (_, i) => {
   if (i % 3 === 0) return `${i}:00`;
-  return '';
+  return "";
 });
 
 const heatmapData = computed<number[][]>(() => {
@@ -110,7 +121,7 @@ const heatmapMax = computed(() => {
 });
 
 function getHeatmapColor(val: number): string {
-  if (val === 0) return 'var(--heatmap-empty, rgba(99, 102, 241, 0.04))';
+  if (val === 0) return "var(--heatmap-empty, rgba(99, 102, 241, 0.04))";
   const intensity = Math.min(val / heatmapMax.value, 1);
   const opacity = 0.1 + intensity * 0.8;
   return `rgba(99, 102, 241, ${opacity.toFixed(2)})`;

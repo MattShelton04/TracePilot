@@ -1,6 +1,6 @@
-import { createApp } from "vue";
+import { ensureMarkdownReady, toErrorMessage } from "@tracepilot/ui";
 import { createPinia } from "pinia";
-import { toErrorMessage, ensureMarkdownReady } from "@tracepilot/ui";
+import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import "./styles.css";
@@ -9,7 +9,7 @@ import { initLogging, logError } from "./utils/logger";
 // Apply persisted theme before mount to prevent flash.
 // Uses a dedicated write-through cache key so we never parse the full config
 // blob synchronously on startup.
-const VALID_THEMES = ['dark', 'light'];
+const VALID_THEMES = ["dark", "light"];
 const cachedTheme = localStorage.getItem("tracepilot-theme");
 document.documentElement.setAttribute(
   "data-theme",
@@ -34,11 +34,11 @@ app.use(router);
 app.mount("#root");
 
 // Window-level error handlers — catch errors that escape Vue's boundary
-window.addEventListener('error', (event) => {
+window.addEventListener("error", (event) => {
   logError(`[window.onerror] ${toErrorMessage(event.error)}`, event.error);
 });
 
-window.addEventListener('unhandledrejection', (event) => {
+window.addEventListener("unhandledrejection", (event) => {
   logError(`[unhandledrejection] ${toErrorMessage(event.reason)}`, event.reason);
 });
 
@@ -47,5 +47,5 @@ initLogging();
 
 // Dev-only: observe long tasks (>50ms main-thread blocks)
 if (import.meta.env.DEV) {
-  import('./utils/longTaskObserver').then((m) => m.startLongTaskObserver());
+  import("./utils/longTaskObserver").then((m) => m.startLongTaskObserver());
 }

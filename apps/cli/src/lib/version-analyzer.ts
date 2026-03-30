@@ -5,18 +5,27 @@
  * analyzes TracePilot coverage gaps, and scans sessions for real examples.
  */
 
-import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { createReadStream } from "node:fs";
+import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
-import yaml from "js-yaml";
 import { TRACEPILOT_KNOWN_EVENTS } from "@tracepilot/types";
+import yaml from "js-yaml";
 
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface SchemaType {
-  kind: "string" | "number" | "boolean" | "object" | "array" | "null" | "union" | "enum" | "const" | "unknown";
+  kind:
+    | "string"
+    | "number"
+    | "boolean"
+    | "object"
+    | "array"
+    | "null"
+    | "union"
+    | "enum"
+    | "const"
+    | "unknown";
   enumValues?: string[];
   constValue?: unknown;
   items?: SchemaType;
@@ -179,10 +188,7 @@ function normalizeSchemaType(schema: unknown): SchemaType {
   }
 }
 
-function normalizeProperties(
-  props: Record<string, unknown>,
-  required: string[],
-): PropertyInfo[] {
+function normalizeProperties(props: Record<string, unknown>, required: string[]): PropertyInfo[] {
   return Object.entries(props).map(([name, schema]) => {
     const s = schema as Record<string, unknown> | null;
     return {
@@ -274,8 +280,9 @@ export function parseApiSchema(schemaPath: string): RpcMethodInfo[] {
                   (resultObj.required as string[]) ?? [],
                 )
               : [],
-            isExperimental:
-              ((v.description as string) ?? "").toLowerCase().includes("experimental"),
+            isExperimental: ((v.description as string) ?? "")
+              .toLowerCase()
+              .includes("experimental"),
             description: v.description as string | undefined,
           });
         } else if (v && typeof v === "object") {
@@ -343,32 +350,32 @@ export function discoverInstalledVersions(): CopilotVersion[] {
     return statSync(full).isDirectory() && /^\d+\.\d+\.\d+/.test(d);
   });
 
-  return dirs
-    .sort(compareVersions)
-    .map((version) => {
-      const versionDir = join(pkgDir, version);
-      const eventsSchemaPath = join(versionDir, "schemas", "session-events.schema.json");
-      const apiSchemaPath = join(versionDir, "schemas", "api.schema.json");
+  return dirs.sort(compareVersions).map((version) => {
+    const versionDir = join(pkgDir, version);
+    const eventsSchemaPath = join(versionDir, "schemas", "session-events.schema.json");
+    const apiSchemaPath = join(versionDir, "schemas", "api.schema.json");
 
-      // Try to get git commit from package.json
-      let gitCommit: string | undefined;
-      const pkgJsonPath = join(versionDir, "package.json");
-      if (existsSync(pkgJsonPath)) {
-        try {
-          const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-          gitCommit = pkg.gitHead ?? pkg.gitCommit;
-        } catch { /* ignore */ }
+    // Try to get git commit from package.json
+    let gitCommit: string | undefined;
+    const pkgJsonPath = join(versionDir, "package.json");
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+        gitCommit = pkg.gitHead ?? pkg.gitCommit;
+      } catch {
+        /* ignore */
       }
+    }
 
-      return {
-        version,
-        gitCommit,
-        path: versionDir,
-        eventTypes: existsSync(eventsSchemaPath) ? parseSessionEventsSchema(eventsSchemaPath) : [],
-        rpcMethods: existsSync(apiSchemaPath) ? parseApiSchema(apiSchemaPath) : [],
-        agents: parseAgentDefinitions(versionDir),
-      };
-    });
+    return {
+      version,
+      gitCommit,
+      path: versionDir,
+      eventTypes: existsSync(eventsSchemaPath) ? parseSessionEventsSchema(eventsSchemaPath) : [],
+      rpcMethods: existsSync(apiSchemaPath) ? parseApiSchema(apiSchemaPath) : [],
+      agents: parseAgentDefinitions(versionDir),
+    };
+  });
 }
 
 // ── Diffing ──────────────────────────────────────────────────────────
@@ -417,7 +424,9 @@ function schemaTypeFingerprint(st: SchemaType): string {
       if (Array.isArray(st.raw)) {
         const members = (st.raw as SchemaType[]).map((m) => {
           if (m.kind === "object" && m.properties) {
-            const typeConst = m.properties.find((p) => p.name === "type" && p.type.kind === "const");
+            const typeConst = m.properties.find(
+              (p) => p.name === "type" && p.type.kind === "const",
+            );
             if (typeConst) return String(typeConst.type.constValue);
           }
           return schemaTypeFingerprint(m);
@@ -628,9 +637,7 @@ function getSessionStateDir(): string {
  * Scan sessions to extract copilotVersion and observed event types.
  * Reads all events in each session for complete coverage data.
  */
-export async function scanSessionVersions(
-  maxSessions = 10000,
-): Promise<SessionVersionInfo[]> {
+export async function scanSessionVersions(maxSessions = 10000): Promise<SessionVersionInfo[]> {
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];
 
@@ -666,17 +673,24 @@ export async function scanSessionVersions(
         eventTypesObserved.add(eventType);
 
         // Full parse only for session.start/resume to extract copilotVersion
-        if (eventType === "session.start" || (eventType === "session.resume" && copilotVersion === "unknown")) {
+        if (
+          eventType === "session.start" ||
+          (eventType === "session.resume" && copilotVersion === "unknown")
+        ) {
           try {
             const event = JSON.parse(trimmed) as Record<string, unknown>;
             const data = event.data as Record<string, unknown> | undefined;
             if (data?.copilotVersion) {
               copilotVersion = String(data.copilotVersion);
             }
-          } catch { /* skip malformed */ }
+          } catch {
+            /* skip malformed */
+          }
         }
       }
-    } catch { /* skip unreadable files */ }
+    } catch {
+      /* skip unreadable files */
+    }
 
     if (eventTypesObserved.size > 0) {
       // Defer workspace.yaml read until we know this session has useful data
@@ -689,7 +703,9 @@ export async function scanSessionVersions(
           summary = ws.summary as string | undefined;
           const ca = ws.created_at;
           createdAt = ca instanceof Date ? ca.toISOString() : (ca as string);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       results.push({
@@ -717,9 +733,7 @@ export async function findEventExamples(
   const sessionsDir = getSessionStateDir();
   if (!existsSync(sessionsDir)) return [];
 
-  const sessionDirs = readdirSync(sessionsDir).filter((d) =>
-    /^[0-9a-f]{8}-/.test(d),
-  );
+  const sessionDirs = readdirSync(sessionsDir).filter((d) => /^[0-9a-f]{8}-/.test(d));
 
   const results: SessionExample[] = [];
   let sessionsChecked = 0;
@@ -751,9 +765,13 @@ export async function findEventExamples(
             rl.close();
             break;
           }
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
 
     if (found) {
       // Get summary from workspace.yaml
@@ -763,7 +781,9 @@ export async function findEventExamples(
         try {
           const ws = yaml.load(readFileSync(workspacePath, "utf-8")) as Record<string, unknown>;
           summary = ws.summary as string | undefined;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       results.push({
@@ -814,16 +834,24 @@ export function generateMarkdownReport(
   // ── Executive Summary
   lines.push("## 1. Executive Summary");
   lines.push("");
-  lines.push(`TracePilot has **${versions.length} installed Copilot CLI versions** spanning from v${versions[0]?.version} to v${versions[versions.length - 1]?.version}.`);
+  lines.push(
+    `TracePilot has **${versions.length} installed Copilot CLI versions** spanning from v${versions[0]?.version} to v${versions[versions.length - 1]?.version}.`,
+  );
   lines.push("");
-  lines.push(`**Coverage:** TracePilot handles **${coverage.handledCount}/${coverage.persistedEventCount}** persisted event types (**${coverage.coveragePercentage}%**). An additional ${coverage.alwaysEphemeralCount} event types are always-ephemeral (never written to disk) and don't need handling.`);
+  lines.push(
+    `**Coverage:** TracePilot handles **${coverage.handledCount}/${coverage.persistedEventCount}** persisted event types (**${coverage.coveragePercentage}%**). An additional ${coverage.alwaysEphemeralCount} event types are always-ephemeral (never written to disk) and don't need handling.`,
+  );
   lines.push("");
   if (coverage.unhandledPersistedCount > 0) {
-    lines.push(`**Gap:** ${coverage.unhandledPersistedCount} persisted event types are defined in the schema but not yet handled by TracePilot.`);
+    lines.push(
+      `**Gap:** ${coverage.unhandledPersistedCount} persisted event types are defined in the schema but not yet handled by TracePilot.`,
+    );
     lines.push("");
   }
   const uniqueVersions = new Set(sessionInfo.map((s) => s.copilotVersion));
-  lines.push(`**Session corpus:** ${sessionInfo.length} sessions across ${uniqueVersions.size} distinct CLI versions.`);
+  lines.push(
+    `**Session corpus:** ${sessionInfo.length} sessions across ${uniqueVersions.size} distinct CLI versions.`,
+  );
   lines.push("");
 
   // ── Installed Versions Table
@@ -832,7 +860,9 @@ export function generateMarkdownReport(
   lines.push("| Version | Event Types | RPC Methods | Agents |");
   lines.push("|---------|------------|-------------|--------|");
   for (const v of versions) {
-    lines.push(`| ${v.version} | ${v.eventTypes.length} | ${v.rpcMethods.length} | ${v.agents.length} |`);
+    lines.push(
+      `| ${v.version} | ${v.eventTypes.length} | ${v.rpcMethods.length} | ${v.agents.length} |`,
+    );
   }
   lines.push("");
 
@@ -840,9 +870,15 @@ export function generateMarkdownReport(
   lines.push("## 3. Schema Evolution Timeline");
   lines.push("");
   for (const diff of diffs) {
-    const totalChanges = diff.addedEvents.length + diff.removedEvents.length +
-      diff.modifiedEvents.length + diff.addedRpcMethods.length + diff.removedRpcMethods.length +
-      diff.modifiedRpcMethods.length + diff.addedAgents.length + diff.removedAgents.length;
+    const totalChanges =
+      diff.addedEvents.length +
+      diff.removedEvents.length +
+      diff.modifiedEvents.length +
+      diff.addedRpcMethods.length +
+      diff.removedRpcMethods.length +
+      diff.modifiedRpcMethods.length +
+      diff.addedAgents.length +
+      diff.removedAgents.length;
     lines.push(`### ${diff.from} → ${diff.to} (${totalChanges} changes)`);
     lines.push("");
 
@@ -888,7 +924,9 @@ export function generateMarkdownReport(
       lines.push("");
     }
     if (diff.addedAgents.length > 0) {
-      lines.push(`**+${diff.addedAgents.length} new agents:** ${diff.addedAgents.map((a) => `\`${a}\``).join(", ")}`);
+      lines.push(
+        `**+${diff.addedAgents.length} new agents:** ${diff.addedAgents.map((a) => `\`${a}\``).join(", ")}`,
+      );
       lines.push("");
     }
   }
@@ -920,11 +958,13 @@ export function generateMarkdownReport(
           : obs.observedLocally
             ? "⚠️ Gap"
             : "ℹ️ Not seen";
-      const eph = obs.ephemeral === "always" ? "Always" : obs.ephemeral === "optional" ? "Optional" : "No";
+      const eph =
+        obs.ephemeral === "always" ? "Always" : obs.ephemeral === "optional" ? "Optional" : "No";
       const observed = obs.observedLocally ? "Yes" : "No";
-      const examples = obs.exampleSessions.length > 0
-        ? obs.exampleSessions.map((e) => `${e.sessionId.slice(0, 8)}…`).join(", ")
-        : "—";
+      const examples =
+        obs.exampleSessions.length > 0
+          ? obs.exampleSessions.map((e) => `${e.sessionId.slice(0, 8)}…`).join(", ")
+          : "—";
       lines.push(`| \`${obs.eventType}\` | ${status} | ${eph} | ${observed} | ${examples} |`);
     }
     lines.push("");
@@ -949,7 +989,9 @@ export function generateMarkdownReport(
     }
     const example = sessions[0];
     const summary = example?.summary ? example.summary.slice(0, 40) : "—";
-    lines.push(`| ${v} | ${sessions.length} | ${allTypes.size} | ${example?.sessionId.slice(0, 8)}… — ${summary} |`);
+    lines.push(
+      `| ${v} | ${sessions.length} | ${allTypes.size} | ${example?.sessionId.slice(0, 8)}… — ${summary} |`,
+    );
   }
   lines.push("");
 
@@ -1006,7 +1048,9 @@ export function generateMarkdownReport(
   lines.push("## 8. Forward Compatibility Assessment");
   lines.push("");
   lines.push("### Strengths");
-  lines.push("- `Unknown(String)` catch-all variant in `SessionEventType` gracefully handles new event types");
+  lines.push(
+    "- `Unknown(String)` catch-all variant in `SessionEventType` gracefully handles new event types",
+  );
   lines.push("- All data struct fields use `Option<T>` for missing-field tolerance");
   lines.push("- `ParseDiagnostics` tracks unknown events and deserialization failures");
   lines.push("- Unknown events don't reduce session health scores (Info severity, 0.0 deduction)");
@@ -1015,7 +1059,9 @@ export function generateMarkdownReport(
   lines.push("### Risks");
   lines.push("- ~4 releases/week with potential schema changes");
   lines.push("- No formal deprecation process from GitHub");
-  lines.push("- `session.start.data.version` field is always `1` (unreliable for version detection)");
+  lines.push(
+    "- `session.start.data.version` field is always `1` (unreliable for version detection)",
+  );
   lines.push("- `additionalProperties: false` in schema means strict validation would break");
   lines.push("");
 
@@ -1054,9 +1100,15 @@ export function generateMarkdownReport(
 
   lines.push("### Suggested next steps");
   lines.push("");
-  lines.push("1. **Expand `SessionEventType` enum** to cover all schema-defined event types (reduces `Unknown` noise in diagnostics)");
-  lines.push("2. **Add `copilot_version` to index DB** for version-aware filtering in the desktop app");
-  lines.push("3. **Add typed data structs** for high-value observed events (e.g., `assistant.usage` for per-turn token tracking)");
+  lines.push(
+    "1. **Expand `SessionEventType` enum** to cover all schema-defined event types (reduces `Unknown` noise in diagnostics)",
+  );
+  lines.push(
+    "2. **Add `copilot_version` to index DB** for version-aware filtering in the desktop app",
+  );
+  lines.push(
+    "3. **Add typed data structs** for high-value observed events (e.g., `assistant.usage` for per-turn token tracking)",
+  );
   lines.push("4. **Run this analysis periodically** when new Copilot CLI versions are installed");
   lines.push("5. **Consider automated schema diffing** in CI to catch breaking changes early");
   lines.push("");

@@ -1,7 +1,7 @@
-import { watch, onMounted, onBeforeUnmount } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useSearchStore } from '@/stores/search';
-import type { SearchContentType } from '@tracepilot/types';
+import type { SearchContentType } from "@tracepilot/types";
+import { onBeforeUnmount, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useSearchStore } from "@/stores/search";
 
 /**
  * Syncs search store state ↔ URL query params.
@@ -36,37 +36,40 @@ export function useSearchUrlSync() {
     const prevSortBy = store.sortBy;
     const prevPage = store.page;
 
-    store.query = typeof q.q === 'string' ? q.q : '';
-    if (typeof q.sort === 'string' && ['relevance', 'newest', 'oldest'].includes(q.sort)) {
-      store.sortBy = q.sort as 'relevance' | 'newest' | 'oldest';
+    store.query = typeof q.q === "string" ? q.q : "";
+    if (typeof q.sort === "string" && ["relevance", "newest", "oldest"].includes(q.sort)) {
+      store.sortBy = q.sort as "relevance" | "newest" | "oldest";
     } else {
-      store.sortBy = 'relevance';
+      store.sortBy = "relevance";
     }
-    if (typeof q.page === 'string') {
+    if (typeof q.page === "string") {
       const p = parseInt(q.page, 10);
-      store.page = (!isNaN(p) && p > 0) ? p : 1;
+      store.page = !isNaN(p) && p > 0 ? p : 1;
     } else {
       store.page = 1;
     }
-    if (typeof q.view === 'string' && ['flat', 'grouped'].includes(q.view)) {
-      store.resultViewMode = q.view as 'flat' | 'grouped';
+    if (typeof q.view === "string" && ["flat", "grouped"].includes(q.view)) {
+      store.resultViewMode = q.view as "flat" | "grouped";
     } else {
-      store.resultViewMode = 'flat';
+      store.resultViewMode = "flat";
     }
-    store.contentTypes = (typeof q.types === 'string' && q.types.length > 0)
-      ? q.types.split(',') as SearchContentType[]
-      : [];
-    store.excludeContentTypes = (typeof q.exclude === 'string' && q.exclude.length > 0)
-      ? q.exclude.split(',') as SearchContentType[]
-      : [];
-    store.repository = (typeof q.repo === 'string' && q.repo) ? q.repo : null;
-    store.toolName = (typeof q.tool === 'string' && q.tool) ? q.tool : null;
-    store.sessionId = (typeof q.session === 'string' && q.session) ? q.session : null;
-    store.dateFrom = (typeof q.from === 'string' && q.from) ? q.from : null;
-    store.dateTo = (typeof q.to === 'string' && q.to) ? q.to : null;
+    store.contentTypes =
+      typeof q.types === "string" && q.types.length > 0
+        ? (q.types.split(",") as SearchContentType[])
+        : [];
+    store.excludeContentTypes =
+      typeof q.exclude === "string" && q.exclude.length > 0
+        ? (q.exclude.split(",") as SearchContentType[])
+        : [];
+    store.repository = typeof q.repo === "string" && q.repo ? q.repo : null;
+    store.toolName = typeof q.tool === "string" && q.tool ? q.tool : null;
+    store.sessionId = typeof q.session === "string" && q.session ? q.session : null;
+    store.dateFrom = typeof q.from === "string" && q.from ? q.from : null;
+    store.dateTo = typeof q.to === "string" && q.to ? q.to : null;
 
     // Check if search-relevant state actually changed
-    const arraysEqual = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+    const arraysEqual = (a: unknown[], b: unknown[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
     const stateChanged =
       prevQuery !== store.query ||
       !arraysEqual(prevContentTypes, store.contentTypes) ||
@@ -103,15 +106,15 @@ export function useSearchUrlSync() {
   function writeStoreToUrl() {
     if (syncingFromUrl) return;
     // Guard: only write if we're still on the search route
-    if (!route.path.includes('search')) return;
+    if (!route.path.includes("search")) return;
 
     const query: Record<string, string> = {};
     if (store.query) query.q = store.query;
-    if (store.sortBy !== 'relevance') query.sort = store.sortBy;
+    if (store.sortBy !== "relevance") query.sort = store.sortBy;
     if (store.page > 1) query.page = String(store.page);
-    if (store.resultViewMode !== 'flat') query.view = store.resultViewMode;
-    if (store.contentTypes.length > 0) query.types = store.contentTypes.join(',');
-    if (store.excludeContentTypes.length > 0) query.exclude = store.excludeContentTypes.join(',');
+    if (store.resultViewMode !== "flat") query.view = store.resultViewMode;
+    if (store.contentTypes.length > 0) query.types = store.contentTypes.join(",");
+    if (store.excludeContentTypes.length > 0) query.exclude = store.excludeContentTypes.join(",");
     if (store.repository) query.repo = store.repository;
     if (store.toolName) query.tool = store.toolName;
     if (store.sessionId) query.session = store.sessionId;
@@ -120,8 +123,9 @@ export function useSearchUrlSync() {
 
     // Only update if query actually changed
     const current = { ...route.query } as Record<string, string>;
-    const same = Object.keys(query).length === Object.keys(current).length
-      && Object.entries(query).every(([k, v]) => current[k] === v);
+    const same =
+      Object.keys(query).length === Object.keys(current).length &&
+      Object.entries(query).every(([k, v]) => current[k] === v);
     if (same) return;
 
     router.replace({ query });
@@ -136,10 +140,17 @@ export function useSearchUrlSync() {
   // Watch all search-relevant state and sync to URL
   watch(
     () => [
-      store.query, store.sortBy, store.page, store.resultViewMode,
-      store.contentTypes, store.excludeContentTypes,
-      store.repository, store.toolName, store.sessionId,
-      store.dateFrom, store.dateTo,
+      store.query,
+      store.sortBy,
+      store.page,
+      store.resultViewMode,
+      store.contentTypes,
+      store.excludeContentTypes,
+      store.repository,
+      store.toolName,
+      store.sessionId,
+      store.dateFrom,
+      store.dateTo,
     ],
     scheduleUrlWrite,
     { deep: true },

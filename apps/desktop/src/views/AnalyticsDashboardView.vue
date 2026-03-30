@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import {
   ChartFrame,
-  ErrorState,
-  LoadingOverlay,
   computeBarWidth,
   computeGridLines,
   createChartLayout,
+  ErrorState,
   formatCost,
   formatDateMedium,
   formatDateShort,
@@ -15,30 +14,31 @@ import {
   formatPercent,
   generateXLabels,
   generateYLabels,
+  LoadingOverlay,
   useChartTooltip,
-} from '@tracepilot/ui';
-import { computed, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
-import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import LineAreaChart from '@/components/charts/LineAreaChart.vue';
-import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
-import { useIncidentChartData } from '@/composables/useIncidentChartData';
-import { useLineAreaChartData } from '@/composables/useLineAreaChartData';
-import { usePerfMonitor } from '@/composables/usePerfMonitor';
-import { usePreferencesStore } from '@/stores/preferences';
-import { CHART_COLORS, DONUT_PALETTE } from '@/utils/chartColors';
+} from "@tracepilot/ui";
+import { computed, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
+import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import LineAreaChart from "@/components/charts/LineAreaChart.vue";
+import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { useIncidentChartData } from "@/composables/useIncidentChartData";
+import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
+import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { usePreferencesStore } from "@/stores/preferences";
+import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
 
 const prefs = usePreferencesStore();
-usePerfMonitor('AnalyticsDashboardView');
+usePerfMonitor("AnalyticsDashboardView");
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
-const { store } = useAnalyticsPage('fetchAnalytics');
+const { store } = useAnalyticsPage("fetchAnalytics");
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
 
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo ? '' : 'all ';
-  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  const allPrefix = store.selectedRepo ? "" : "all ";
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
   return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} sessions${repoSuffix}`;
 });
 
@@ -67,10 +67,10 @@ const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
 // ── Dynamic aria-label based on time range ───────────────────
 const timeRangeLabel = computed(() => {
   const tr = store.selectedTimeRange;
-  if (tr === '7d') return 'the past 7 days';
-  if (tr === '30d') return 'the past 30 days';
-  if (tr === '90d') return 'the past 90 days';
-  if (tr === 'custom') {
+  if (tr === "7d") return "the past 7 days";
+  if (tr === "30d") return "the past 30 days";
+  if (tr === "90d") return "the past 90 days";
+  if (tr === "custom") {
     const range = store.dateRange;
     if (range?.fromDate && range?.toDate) {
       const from = new Date(range.fromDate);
@@ -78,9 +78,9 @@ const timeRangeLabel = computed(() => {
       const days = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
       return `${days} days`;
     }
-    return 'the selected period';
+    return "the selected period";
   }
-  return 'all time';
+  return "all time";
 });
 
 // ── Token Usage Line/Area Chart ──────────────────────────────
@@ -152,11 +152,12 @@ watch(donutSegments, () => {
 });
 
 // ── Cost Trend Area Chart ────────────────────────────────────
-const costPoints = computed(() =>
-  data.value?.costByDay.map((p) => ({
-    date: p.date,
-    cost: p.cost * prefs.costPerPremiumRequest,
-  })) ?? null,
+const costPoints = computed(
+  () =>
+    data.value?.costByDay.map((p) => ({
+      date: p.date,
+      cost: p.cost * prefs.costPerPremiumRequest,
+    })) ?? null,
 );
 
 const { chartData: costChart } = useLineAreaChartData({

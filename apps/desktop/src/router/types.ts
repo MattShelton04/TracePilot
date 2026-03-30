@@ -1,6 +1,6 @@
-import 'vue-router';
+import "vue-router";
 
-declare module 'vue-router' {
+declare module "vue-router" {
   interface RouteMeta {
     /** Page title for breadcrumbs/header */
     title?: string;

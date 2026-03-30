@@ -4,8 +4,8 @@
  * amber pattern highlighting, context/match distinction, and separator gaps.
  */
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
 import { normalizePath } from "../../utils/pathUtils";
+import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -14,15 +14,15 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const pattern = computed(() =>
-  typeof props.args?.pattern === "string" ? props.args.pattern : null
+  typeof props.args?.pattern === "string" ? props.args.pattern : null,
 );
 
 const outputMode = computed(() =>
-  typeof props.args?.output_mode === "string" ? props.args.output_mode : "files_with_matches"
+  typeof props.args?.output_mode === "string" ? props.args.output_mode : "files_with_matches",
 );
 
 interface GrepMatch {
@@ -35,7 +35,10 @@ interface GrepMatch {
 /** Parse grep output into structured matches. */
 const parsedMatches = computed<GrepMatch[]>(() => {
   if (!props.content) return [];
-  const lines = props.content.split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.trim());
+  const lines = props.content
+    .split("\n")
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.trim());
 
   const results: GrepMatch[] = [];
 
@@ -131,7 +134,7 @@ const matchCount = computed(() => {
       return sum + (isNaN(n) ? 1 : n);
     }, 0);
   }
-  return parsedMatches.value.filter(m => !m.isContext).length;
+  return parsedMatches.value.filter((m) => !m.isContext).length;
 });
 
 /** Highlight pattern matches in text with amber spans (safe — escapes HTML first). */
@@ -140,7 +143,7 @@ function highlightPattern(text: string): string {
   try {
     return escapeHtml(text).replace(
       new RegExp(`(${escapeRegex(escapeHtml(pattern.value))})`, "gi"),
-      '<span class="grep-highlight">$1</span>'
+      '<span class="grep-highlight">$1</span>',
     );
   } catch {
     return escapeHtml(text);
@@ -148,7 +151,11 @@ function highlightPattern(text: string): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function escapeRegex(s: string): string {

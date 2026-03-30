@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { flushPromises } from "@vue/test-utils";
-import { useWorktreesStore } from "../../stores/worktrees";
 import type {
-  WorktreeInfo,
-  WorktreeDetails,
   CreateWorktreeRequest,
   PruneResult,
   RegisteredRepo,
+  WorktreeDetails,
+  WorktreeInfo,
 } from "@tracepilot/types";
+import { flushPromises } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useWorktreesStore } from "../../stores/worktrees";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockListWorktrees = vi.fn();
@@ -110,11 +110,21 @@ const FIXTURE_REPO_2: RegisteredRepo = {
 // ── Helpers ────────────────────────────────────────────────────
 function allMocks() {
   return [
-    mockListWorktrees, mockCreateWorktree, mockRemoveWorktree,
-    mockPruneWorktrees, mockListBranches, mockGetWorktreeDiskUsage,
-    mockLockWorktree, mockUnlockWorktree, mockGetWorktreeDetails,
-    mockListRegisteredRepos, mockAddRegisteredRepo, mockRemoveRegisteredRepo,
-    mockDiscoverReposFromSessions, mockToggleRepoFavourite, mockLogWarn,
+    mockListWorktrees,
+    mockCreateWorktree,
+    mockRemoveWorktree,
+    mockPruneWorktrees,
+    mockListBranches,
+    mockGetWorktreeDiskUsage,
+    mockLockWorktree,
+    mockUnlockWorktree,
+    mockGetWorktreeDetails,
+    mockListRegisteredRepos,
+    mockAddRegisteredRepo,
+    mockRemoveRegisteredRepo,
+    mockDiscoverReposFromSessions,
+    mockToggleRepoFavourite,
+    mockLogWarn,
   ];
 }
 
@@ -308,14 +318,14 @@ describe("useWorktreesStore", () => {
       store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
 
       const repo1Wts = [FIXTURE_MAIN_WT, FIXTURE_FEATURE_WT];
-      const repo2Wts: WorktreeInfo[] = [{
-        ...FIXTURE_STALE_WT,
-        repoRoot: FIXTURE_REPO_2.path,
-        path: `${FIXTURE_REPO_2.path}/.worktrees/dev`,
-      }];
-      mockListWorktrees
-        .mockResolvedValueOnce(repo1Wts)
-        .mockResolvedValueOnce(repo2Wts);
+      const repo2Wts: WorktreeInfo[] = [
+        {
+          ...FIXTURE_STALE_WT,
+          repoRoot: FIXTURE_REPO_2.path,
+          path: `${FIXTURE_REPO_2.path}/.worktrees/dev`,
+        },
+      ];
+      mockListWorktrees.mockResolvedValueOnce(repo1Wts).mockResolvedValueOnce(repo2Wts);
 
       await store.loadAllWorktrees();
 
@@ -502,11 +512,7 @@ describe("useWorktreesStore", () => {
 
       await store.deleteWorktree(FIXTURE_FEATURE_WT.path);
 
-      expect(mockRemoveWorktree).toHaveBeenCalledWith(
-        REPO_PATH,
-        FIXTURE_FEATURE_WT.path,
-        false,
-      );
+      expect(mockRemoveWorktree).toHaveBeenCalledWith(REPO_PATH, FIXTURE_FEATURE_WT.path, false);
     });
 
     it("sets error and returns false on failure", async () => {
@@ -601,11 +607,7 @@ describe("useWorktreesStore", () => {
 
       await store.lockWorktree(FIXTURE_FEATURE_WT.path, "test");
 
-      expect(mockLockWorktree).toHaveBeenCalledWith(
-        REPO_PATH,
-        FIXTURE_FEATURE_WT.path,
-        "test",
-      );
+      expect(mockLockWorktree).toHaveBeenCalledWith(REPO_PATH, FIXTURE_FEATURE_WT.path, "test");
     });
 
     it("sets error and returns false on failure", async () => {
@@ -641,10 +643,7 @@ describe("useWorktreesStore", () => {
 
       await store.unlockWorktree(FIXTURE_STALE_WT.path);
 
-      expect(mockUnlockWorktree).toHaveBeenCalledWith(
-        REPO_PATH,
-        FIXTURE_STALE_WT.path,
-      );
+      expect(mockUnlockWorktree).toHaveBeenCalledWith(REPO_PATH, FIXTURE_STALE_WT.path);
     });
 
     it("sets error and returns false on failure", async () => {

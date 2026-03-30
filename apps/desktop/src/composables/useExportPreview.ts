@@ -3,10 +3,16 @@
  * Watches sessionId, format, sections, contentDetail, and redaction — re-fetches on any change.
  */
 
-import { ref, watch, onUnmounted, type Ref, type ComputedRef } from 'vue';
-import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
-import { previewExport } from '@tracepilot/client';
-import { logError } from '@/utils/logger';
+import { previewExport } from "@tracepilot/client";
+import type {
+  ContentDetailOptions,
+  ExportFormat,
+  ExportPreviewResult,
+  RedactionOptions,
+  SectionId,
+} from "@tracepilot/types";
+import { type ComputedRef, onUnmounted, type Ref, ref, watch } from "vue";
+import { logError } from "@/utils/logger";
 
 const DEBOUNCE_MS = 400;
 
@@ -51,7 +57,7 @@ export function useExportPreview(
       preview.value = result;
     } catch (err) {
       if (thisRequest !== requestId) return;
-      logError('[export] Preview failed:', err);
+      logError("[export] Preview failed:", err);
       error.value = err instanceof Error ? err.message : String(err);
       preview.value = null;
     } finally {

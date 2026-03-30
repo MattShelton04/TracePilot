@@ -6,9 +6,10 @@
  * to save space. For tools where the rich result renderer already conveys
  * the argument info (edit, create), args are hidden entirely.
  */
-import { computed, ref, type Component } from "vue";
+
 import type { TurnToolCall } from "@tracepilot/types";
-import { getRendererEntry, shouldHideArgsWithRichResult, hasResultRenderer } from "./registry";
+import { type Component, computed, ref } from "vue";
+import { getRendererEntry, hasResultRenderer, shouldHideArgsWithRichResult } from "./registry";
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -36,11 +37,12 @@ const formattedJson = computed(() => {
 });
 
 /** True when the rich result renderer already shows the args info AND a result exists. */
-const shouldHideCompletely = computed(() =>
-  props.richEnabled
-  && shouldHideArgsWithRichResult(props.tc.toolName)
-  && hasResultRenderer(props.tc.toolName)
-  && (!!props.tc.resultContent || props.tc.isComplete === true)
+const shouldHideCompletely = computed(
+  () =>
+    props.richEnabled &&
+    shouldHideArgsWithRichResult(props.tc.toolName) &&
+    hasResultRenderer(props.tc.toolName) &&
+    (!!props.tc.resultContent || props.tc.isComplete === true),
 );
 </script>
 

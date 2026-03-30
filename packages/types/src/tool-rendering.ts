@@ -4,22 +4,22 @@
 
 /** Tool names that have dedicated rich renderers. */
 export type RichRenderableToolName =
-  | 'edit'
-  | 'view'
-  | 'create'
-  | 'grep'
-  | 'glob'
-  | 'powershell'
-  | 'read_powershell'
-  | 'write_powershell'
-  | 'sql'
-  | 'task'
-  | 'read_agent'
-  | 'ask_user'
-  | 'web_search'
-  | 'web_fetch'
-  | 'store_memory'
-  | 'report_intent';
+  | "edit"
+  | "view"
+  | "create"
+  | "grep"
+  | "glob"
+  | "powershell"
+  | "read_powershell"
+  | "write_powershell"
+  | "sql"
+  | "task"
+  | "read_agent"
+  | "ask_user"
+  | "web_search"
+  | "web_fetch"
+  | "store_memory"
+  | "report_intent";
 
 /** User preferences for tool rendering: global toggle + per-tool overrides. */
 export interface ToolRenderingPreferences {

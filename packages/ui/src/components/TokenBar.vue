@@ -2,7 +2,7 @@
 defineProps<{
   label: string;
   value: string | number;
-  percentage: number;  // 0-100
+  percentage: number; // 0-100
   color?: string;
 }>();
 </script>

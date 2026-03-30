@@ -40,7 +40,7 @@ export interface ConversationTurn {
 }
 
 /** Severity level for session events embedded in a conversation turn. */
-export type SessionEventSeverity = 'error' | 'warning' | 'info';
+export type SessionEventSeverity = "error" | "warning" | "info";
 
 /** A session-level event that occurred during a conversation turn. */
 export interface TurnSessionEvent {

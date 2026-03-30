@@ -1,14 +1,14 @@
-import type { TodosResponse } from '@tracepilot/types';
-import { flushPromises, mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import TodosTab from '../../views/tabs/TodosTab.vue';
-import { useSessionDetailStore } from '@/stores/sessionDetail';
+import type { TodosResponse } from "@tracepilot/types";
+import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
+import TodosTab from "../../views/tabs/TodosTab.vue";
 
 const mockGetSessionTodos = vi.fn();
 
-vi.mock('@tracepilot/client', async () => {
-  const { createClientMock } = await import('../mocks/client');
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
   return createClientMock({
     getSessionDetail: vi.fn(),
     getSessionTurns: vi.fn(),
@@ -23,19 +23,20 @@ vi.mock('@tracepilot/client', async () => {
 });
 
 const LoadingOverlayStub = {
-  name: 'LoadingOverlay',
+  name: "LoadingOverlay",
   props: { loading: Boolean, message: String },
-  template: '<div><div v-if="loading" class="loading-overlay">{{ message }}</div><slot v-else /></div>',
+  template:
+    '<div><div v-if="loading" class="loading-overlay">{{ message }}</div><slot v-else /></div>',
 };
 
 const EmptyStateStub = {
-  name: 'EmptyState',
+  name: "EmptyState",
   props: { message: String },
   template: '<div class="empty-state">{{ message }}</div>',
 };
 
 const ErrorAlertStub = {
-  name: 'ErrorAlert',
+  name: "ErrorAlert",
   props: { message: String },
   template: '<div class="error-alert">{{ message }}</div>',
 };
@@ -50,18 +51,18 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe('TodosTab', () => {
+describe("TodosTab", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 
-  it('shows loading overlay before data arrives then renders empty state', async () => {
+  it("shows loading overlay before data arrives then renders empty state", async () => {
     const deferred = createDeferred<TodosResponse>();
     mockGetSessionTodos.mockReturnValue(deferred.promise);
 
     const store = useSessionDetailStore();
-    store.sessionId = 'session-1';
+    store.sessionId = "session-1";
 
     const wrapper = mount(TodosTab, {
       global: {
@@ -79,21 +80,21 @@ describe('TodosTab', () => {
 
     await flushPromises();
 
-    expect(wrapper.find('.loading-overlay').exists()).toBe(true);
-    expect(wrapper.find('.empty-state').exists()).toBe(false);
+    expect(wrapper.find(".loading-overlay").exists()).toBe(true);
+    expect(wrapper.find(".empty-state").exists()).toBe(false);
 
     deferred.resolve({ todos: [], deps: [] });
     await flushPromises();
 
-    expect(wrapper.find('.loading-overlay').exists()).toBe(false);
-    expect(wrapper.find('.empty-state').exists()).toBe(true);
+    expect(wrapper.find(".loading-overlay").exists()).toBe(false);
+    expect(wrapper.find(".empty-state").exists()).toBe(true);
   });
 
-  it('surfaces load errors without showing empty state', async () => {
-    mockGetSessionTodos.mockRejectedValue(new Error('fail to load'));
+  it("surfaces load errors without showing empty state", async () => {
+    mockGetSessionTodos.mockRejectedValue(new Error("fail to load"));
 
     const store = useSessionDetailStore();
-    store.sessionId = 'session-err';
+    store.sessionId = "session-err";
 
     const wrapper = mount(TodosTab, {
       global: {
@@ -111,8 +112,8 @@ describe('TodosTab', () => {
 
     await flushPromises();
 
-    expect(wrapper.find('.error-alert').exists()).toBe(true);
-    expect(wrapper.find('.empty-state').exists()).toBe(false);
-    expect(wrapper.find('.loading-overlay').exists()).toBe(false);
+    expect(wrapper.find(".error-alert").exists()).toBe(true);
+    expect(wrapper.find(".empty-state").exists()).toBe(false);
+    expect(wrapper.find(".loading-overlay").exists()).toBe(false);
   });
 });

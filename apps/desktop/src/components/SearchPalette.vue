@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { searchContent } from '@tracepilot/client';
-import type { SearchContentType, SearchResult, SearchResultsResponse } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, toErrorMessage } from '@tracepilot/ui';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
+import { searchContent } from "@tracepilot/client";
+import type { SearchContentType, SearchResult, SearchResultsResponse } from "@tracepilot/types";
+import { CONTENT_TYPE_CONFIG, formatRelativeTime, toErrorMessage } from "@tracepilot/ui";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 // ── Stores & Router ──────────────────────────────────────────
 const router = useRouter();
 
 // ── Palette state ────────────────────────────────────────────
 const isOpen = ref(false);
-const query = ref('');
+const query = ref("");
 const results = ref<SearchResult[]>([]);
 const totalCount = ref(0);
 const latencyMs = ref(0);
@@ -52,16 +52,14 @@ const groupedResults = computed<ResultGroup[]>(() => {
     out.push({
       contentType: ct,
       label: config?.label ?? ct,
-      color: config?.color ?? '#71717a',
+      color: config?.color ?? "#71717a",
       results: items,
     });
   }
   return out;
 });
 
-const flatResults = computed<SearchResult[]>(() =>
-  groupedResults.value.flatMap((g) => g.results),
-);
+const flatResults = computed<SearchResult[]>(() => groupedResults.value.flatMap((g) => g.results));
 
 const hasResults = computed(() => results.value.length > 0);
 const hasQuery = computed(() => query.value.trim().length > 0);
@@ -95,7 +93,7 @@ async function executeSearch() {
     if (gen !== searchGeneration) return;
     results.value = [];
     totalCount.value = 0;
-    searchError.value = toErrorMessage(e, 'Search failed');
+    searchError.value = toErrorMessage(e, "Search failed");
   } finally {
     if (gen === searchGeneration) loading.value = false;
   }
@@ -122,7 +120,7 @@ function open() {
 
 function close() {
   isOpen.value = false;
-  query.value = '';
+  query.value = "";
   results.value = [];
   totalCount.value = 0;
   latencyMs.value = 0;
@@ -155,9 +153,9 @@ function scrollSelectedIntoView() {
   nextTick(() => {
     const container = resultsRef.value;
     if (!container) return;
-    const selected = container.querySelector('.palette-item.selected') as HTMLElement | null;
+    const selected = container.querySelector(".palette-item.selected") as HTMLElement | null;
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest' });
+      selected.scrollIntoView({ block: "nearest" });
     }
   });
 }
@@ -173,7 +171,7 @@ function moveSelection(delta: number) {
 function handleGlobalKeydown(e: KeyboardEvent) {
   if (shouldIgnoreGlobalShortcut(e)) return;
 
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+  if ((e.metaKey || e.ctrlKey) && e.key === "k") {
     e.preventDefault();
     if (isOpen.value) {
       close();
@@ -181,7 +179,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
       open();
     }
   }
-  if (e.key === 'Escape' && isOpen.value) {
+  if (e.key === "Escape" && isOpen.value) {
     e.preventDefault();
     close();
   }
@@ -189,31 +187,31 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 
 function handlePaletteKeydown(e: KeyboardEvent) {
   switch (e.key) {
-    case 'Escape':
+    case "Escape":
       e.preventDefault();
       close();
       break;
-    case 'ArrowDown':
+    case "ArrowDown":
       e.preventDefault();
       moveSelection(1);
       break;
-    case 'ArrowUp':
+    case "ArrowUp":
       e.preventDefault();
       moveSelection(-1);
       break;
-    case 'Enter':
+    case "Enter":
       e.preventDefault();
       selectCurrent();
       break;
-    case 'Tab': {
+    case "Tab": {
       // Focus trap: cycle through focusable elements within the palette
       e.preventDefault();
-      const dialog = (e.target as HTMLElement).closest('.palette-dialog');
+      const dialog = (e.target as HTMLElement).closest(".palette-dialog");
       if (!dialog) break;
       const focusable = Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
       );
       if (focusable.length === 0) break;
       const current = focusable.indexOf(e.target as HTMLElement);
@@ -254,11 +252,11 @@ function uniqueSessionCount(): number {
 let previouslyFocused: HTMLElement | null = null;
 
 onMounted(() => {
-  window.addEventListener('keydown', handleGlobalKeydown);
+  window.addEventListener("keydown", handleGlobalKeydown);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleGlobalKeydown);
+  window.removeEventListener("keydown", handleGlobalKeydown);
   if (debounceTimer) clearTimeout(debounceTimer);
 });
 </script>

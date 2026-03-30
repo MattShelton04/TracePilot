@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { usePreferencesStore, BASE_FONT_SIZE_PX } from "../../stores/preferences";
-import { nextTick } from "vue";
 import * as client from "@tracepilot/client";
 import { createDefaultConfig } from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import { BASE_FONT_SIZE_PX, usePreferencesStore } from "../../stores/preferences";
 
 vi.mock("@tracepilot/client", async () => {
   const actual = await vi.importActual("@tracepilot/client");
   return {
-    ...actual as any,
+    ...(actual as any),
     getConfig: vi.fn(),
   };
 });
@@ -27,16 +27,16 @@ describe("usePreferencesStore DOM side effects", () => {
     const mockConfig = createDefaultConfig();
     mockConfig.ui.contentMaxWidth = 200; // Too small (min 400)
     mockConfig.ui.uiScale = 5.0; // Too large (max 1.3)
-    
+
     vi.mocked(client.getConfig).mockResolvedValue(mockConfig);
-    
+
     const store = usePreferencesStore();
     await store.whenReady;
-    
+
     // Check store state (should be clamped)
     expect(store.contentMaxWidth).toBe(400);
     expect(store.uiScale).toBe(1.3);
-    
+
     // Check DOM (should match clamped values)
     await nextTick();
     expect(document.documentElement.style.fontSize).toBe(`${BASE_FONT_SIZE_PX * 1.3}px`);

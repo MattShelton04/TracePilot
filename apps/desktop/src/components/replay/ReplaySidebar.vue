@@ -2,12 +2,16 @@
 /**
  * ReplaySidebar — right panel with current step details, metrics, files, todos, stats.
  */
-import type { ReplayStep, SessionDetail, ShutdownMetrics } from '@tracepilot/types';
+import type { ReplayStep, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
 import {
-  StatCard, Badge, MiniTimeline,
-  formatDuration, formatNumber, formatTime,
+  Badge,
+  formatDuration,
+  formatNumber,
+  formatTime,
+  MiniTimeline,
+  StatCard,
   toolIcon,
-} from '@tracepilot/ui';
+} from "@tracepilot/ui";
 
 const props = defineProps<{
   step: ReplayStep | null;
@@ -19,7 +23,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'go-to-step': [index: number];
+  "go-to-step": [index: number];
 }>();
 </script>
 

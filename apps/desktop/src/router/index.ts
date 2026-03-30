@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
-import type {} from "./types";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
+import type {} from "./types";
 
 // Lazy-loaded view imports for code splitting
 const SessionListView = () => import("@/views/SessionListView.vue");
@@ -247,11 +247,11 @@ router.beforeEach(async (to) => {
 // Guard against infinite reload loops with a sessionStorage timestamp
 router.onError((error, to) => {
   if (
-    error.message?.includes('Failed to fetch dynamically imported module') ||
-    error.message?.includes('Loading chunk') ||
-    error.message?.includes('Loading CSS chunk')
+    error.message?.includes("Failed to fetch dynamically imported module") ||
+    error.message?.includes("Loading chunk") ||
+    error.message?.includes("Loading CSS chunk")
   ) {
-    const key = 'chunk-reload-ts';
+    const key = "chunk-reload-ts";
     const last = Number(sessionStorage.getItem(key) || 0);
     const now = Date.now();
     if (now - last > 10_000) {
@@ -259,8 +259,11 @@ router.onError((error, to) => {
       logError(`[router] Chunk load failed for ${to.fullPath}, reloading…`, error);
       window.location.reload();
     } else {
-      logError(`[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`, error);
-      router.replace({ name: 'sessions' });
+      logError(
+        `[router] Chunk load failed for ${to.fullPath}, skipping reload (already retried recently)`,
+        error,
+      );
+      router.replace({ name: "sessions" });
     }
   }
 });

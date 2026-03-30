@@ -1,23 +1,34 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useSearchStore } from '@/stores/search';
-
-import { useSearchUrlSync } from '@/composables/useSearchUrlSync';
-import { useIndexingEvents } from '@/composables/useIndexingEvents';
-import { useSearchPagination } from '@/composables/useSearchPagination';
-import { useSearchKeyboardNavigation } from '@/composables/useSearchKeyboardNavigation';
-import { useSearchResultState } from '@/composables/useSearchResultState';
-import { shouldIgnoreGlobalShortcut } from '@/utils/keyboardShortcuts';
-import { toFriendlyErrorMessage } from '@/utils/backendErrors';
-import type { IndexingProgressPayload, SearchContentType, SearchResult } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, formatRelativeTime, formatDateMedium, formatBytes, useToast } from '@tracepilot/ui';
-import { SearchActiveFilters, SearchGroupedResults, SearchBrowsePresets, SearchFilterSidebar, SearchResultCard, SearchSyntaxHelpModal } from '@/components/search';
+import type { IndexingProgressPayload, SearchContentType, SearchResult } from "@tracepilot/types";
+import {
+  CONTENT_TYPE_CONFIG,
+  formatBytes,
+  formatDateMedium,
+  formatRelativeTime,
+  useToast,
+} from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import {
+  SearchActiveFilters,
+  SearchBrowsePresets,
+  SearchFilterSidebar,
+  SearchGroupedResults,
+  SearchResultCard,
+  SearchSyntaxHelpModal,
+} from "@/components/search";
+import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
+import { useSearchPagination } from "@/composables/useSearchPagination";
+import { useSearchResultState } from "@/composables/useSearchResultState";
+import { useSearchUrlSync } from "@/composables/useSearchUrlSync";
+import { useSearchStore } from "@/stores/search";
+import { toFriendlyErrorMessage } from "@/utils/backendErrors";
+import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
 
 const store = useSearchStore();
 
 // Sync search state ↔ URL query params
 useSearchUrlSync();
-
 
 // ── Main indexing progress (local to this view) ──────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
@@ -25,9 +36,17 @@ const isIndexing = ref(false);
 let healthRefreshInterval: number | undefined;
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
-  onStarted: () => { indexingProgress.value = null; isIndexing.value = true; },
-  onProgress: (p) => { indexingProgress.value = p; },
-  onFinished: () => { indexingProgress.value = null; isIndexing.value = false; },
+  onStarted: () => {
+    indexingProgress.value = null;
+    isIndexing.value = true;
+  },
+  onProgress: (p) => {
+    indexingProgress.value = p;
+  },
+  onFinished: () => {
+    indexingProgress.value = null;
+    isIndexing.value = false;
+  },
 });
 
 // ── Result expansion/collapse state ──────────────────────────
@@ -42,13 +61,17 @@ const {
 } = useSearchResultState({
   sessionId: computed({
     get: () => store.sessionId,
-    set: (v) => { store.sessionId = v; },
+    set: (v) => {
+      store.sessionId = v;
+    },
   }),
   results: computed(() => store.results),
   groupedResults: computed(() => store.groupedResults),
   resultViewMode: computed({
     get: () => store.resultViewMode,
-    set: (v) => { store.resultViewMode = v; },
+    set: (v) => {
+      store.resultViewMode = v;
+    },
   }),
 });
 
@@ -80,7 +103,7 @@ const { pageStart, pageEnd, visiblePages } = useSearchPagination({
 
 // ── Local UI state ───────────────────────────────────────────
 const filtersOpen = ref(true);
-const activeDatePreset = ref<string>('all');
+const activeDatePreset = ref<string>("all");
 const { success: toastSuccess, error: toastError, dismiss: toastDismiss } = useToast();
 let lastCopyToastId: string | null = null;
 const showSyntaxHelp = ref(false);
@@ -94,12 +117,12 @@ function showCopyToast(ok: boolean, message: string) {
 
 async function handleCopyResult(result: SearchResult) {
   const ok = await store.copySingleResult(result);
-  showCopyToast(ok, ok ? 'Copied to clipboard' : 'Copy failed');
+  showCopyToast(ok, ok ? "Copied to clipboard" : "Copy failed");
 }
 
 async function handleCopyAllResults() {
   const ok = await store.copyResultsToClipboard();
-  showCopyToast(ok, ok ? `Copied ${store.results.length} results` : 'Copy failed');
+  showCopyToast(ok, ok ? `Copied ${store.results.length} results` : "Copy failed");
 }
 
 // ── Content type config (shared) ─────────────────────────────
@@ -126,12 +149,12 @@ function removeContentTypeFilter(ct: SearchContentType) {
 
 // Active filter chips: collect all active include/exclude filters
 const activeContentTypeChips = computed(() => {
-  const chips: { type: SearchContentType; mode: 'include' | 'exclude' }[] = [];
+  const chips: { type: SearchContentType; mode: "include" | "exclude" }[] = [];
   for (const ct of store.contentTypes) {
-    chips.push({ type: ct, mode: 'include' });
+    chips.push({ type: ct, mode: "include" });
   }
   for (const ct of store.excludeContentTypes) {
-    chips.push({ type: ct, mode: 'exclude' });
+    chips.push({ type: ct, mode: "exclude" });
   }
   return chips;
 });
@@ -155,16 +178,20 @@ const statsContentTypeFacets = computed(() => {
 // ÔöÇÔöÇ Clear all filters ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function handleClearFilters() {
   store.clearFilters();
-  activeDatePreset.value = 'all';
+  activeDatePreset.value = "all";
   filteredSessionNameOverride.value = null;
 }
 
 // ── Session link path ──────────────────────────────────────────────────────────
-function sessionLink(sessionId: string, turnNumber: number | null, eventIndex: number | null = null): string {
+function sessionLink(
+  sessionId: string,
+  turnNumber: number | null,
+  eventIndex: number | null = null,
+): string {
   const base = `/session/${sessionId}/conversation`;
   const params = new URLSearchParams();
-  if (turnNumber != null) params.set('turn', String(turnNumber));
-  if (eventIndex != null) params.set('event', String(eventIndex));
+  if (turnNumber != null) params.set("turn", String(turnNumber));
+  if (eventIndex != null) params.set("event", String(eventIndex));
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }

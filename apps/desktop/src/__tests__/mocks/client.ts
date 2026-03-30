@@ -1,5 +1,5 @@
-import { createDefaultConfig } from "@tracepilot/types";
 import type * as ClientModule from "@tracepilot/client";
+import { createDefaultConfig } from "@tracepilot/types";
 import { vi } from "vitest";
 
 type ClientExports = Partial<typeof ClientModule>;

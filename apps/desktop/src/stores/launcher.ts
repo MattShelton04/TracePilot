@@ -1,27 +1,27 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  checkSystemDeps,
+  deleteSessionTemplate as deleteTemplateApi,
+  getAvailableModels,
+  incrementTemplateUsage as incrementUsageApi,
+  launchSession as launchSessionApi,
+  listSessionTemplates,
+  restoreDefaultTemplates as restoreDefaultsApi,
+  saveSessionTemplate as saveTemplateApi,
+} from "@tracepilot/client";
 import type {
   LaunchConfig,
   LaunchedSession,
   ModelInfo,
   SessionTemplate,
   SystemDependencies,
-} from '@tracepilot/types';
-import {
-  launchSession as launchSessionApi,
-  getAvailableModels,
-  listSessionTemplates,
-  saveSessionTemplate as saveTemplateApi,
-  deleteSessionTemplate as deleteTemplateApi,
-  restoreDefaultTemplates as restoreDefaultsApi,
-  incrementTemplateUsage as incrementUsageApi,
-  checkSystemDeps,
-} from '@tracepilot/client';
-import { toErrorMessage } from '@tracepilot/ui';
-import { logWarn } from '@/utils/logger';
-import { aggregateSettledErrors } from '@/utils/settleErrors';
+} from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
+import { logWarn } from "@/utils/logger";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
-export const useLauncherStore = defineStore('launcher', () => {
+export const useLauncherStore = defineStore("launcher", () => {
   const models = ref<ModelInfo[]>([]);
   const templates = ref<SessionTemplate[]>([]);
   const recentLaunches = ref<LaunchedSession[]>([]);
@@ -50,9 +50,9 @@ export const useLauncherStore = defineStore('launcher', () => {
         getAvailableModels(),
         listSessionTemplates(),
       ]);
-      if (depsResult.status === 'fulfilled') systemDeps.value = depsResult.value;
-      if (modelsResult.status === 'fulfilled') models.value = modelsResult.value;
-      if (templatesResult.status === 'fulfilled') templates.value = templatesResult.value;
+      if (depsResult.status === "fulfilled") systemDeps.value = depsResult.value;
+      if (modelsResult.status === "fulfilled") models.value = modelsResult.value;
+      if (templatesResult.status === "fulfilled") templates.value = templatesResult.value;
       error.value = aggregateSettledErrors([depsResult, modelsResult, templatesResult]);
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -114,7 +114,7 @@ export const useLauncherStore = defineStore('launcher', () => {
       if (tpl) tpl.usageCount += 1;
     } catch (e) {
       // Non-critical — don't surface errors for usage tracking
-      logWarn('[launcher] Failed to increment template usage', { id, error: e });
+      logWarn("[launcher] Failed to increment template usage", { id, error: e });
     }
   }
 

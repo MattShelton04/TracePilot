@@ -1,4 +1,4 @@
-import { ref, watch, onBeforeUnmount, type Ref } from "vue";
+import { onBeforeUnmount, type Ref, ref, watch } from "vue";
 
 /**
  * Provides a reactive `nowMs` timestamp that ticks at 1-second boundaries.

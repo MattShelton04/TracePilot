@@ -3,18 +3,15 @@
  *
  * Steps: select → validating → review → importing → complete
  */
-import { ref, computed, type ComputedRef, type Ref } from 'vue';
-import type {
-  ConflictStrategy,
-  ImportPreviewResult,
-  ImportResult,
-} from '@tracepilot/types';
-import { previewImport, importSessions } from '@tracepilot/client';
-import { logError, logInfo } from '@/utils/logger';
+
+import { importSessions, previewImport } from "@tracepilot/client";
+import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@tracepilot/types";
+import { type ComputedRef, computed, type Ref, ref } from "vue";
+import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────
 
-export type ImportStep = 'select' | 'validating' | 'review' | 'importing' | 'complete';
+export type ImportStep = "select" | "validating" | "review" | "importing" | "complete";
 
 // ── Composable Return Type ─────────────────────────────────────
 
@@ -64,12 +61,12 @@ export interface ImportFlowState {
 export function useImportFlow(): ImportFlowState {
   // ── Reactive state ──
 
-  const step = ref<ImportStep>('select');
-  const filePath = ref('');
-  const fileName = ref('');
+  const step = ref<ImportStep>("select");
+  const filePath = ref("");
+  const fileName = ref("");
   const preview = ref<ImportPreviewResult | null>(null);
   const error = ref<string | null>(null);
-  const conflictStrategy = ref<ConflictStrategy>('skip');
+  const conflictStrategy = ref<ConflictStrategy>("skip");
   const selectedSessions = ref<string[]>([]);
   const importProgress = ref(0);
   const importedCount = ref(0);
@@ -82,19 +79,19 @@ export function useImportFlow(): ImportFlowState {
 
   // ── Computed ──
 
-  const hasErrors = computed(() =>
-    preview.value?.issues.some((i) => i.severity === 'error') ?? false,
+  const hasErrors = computed(
+    () => preview.value?.issues.some((i) => i.severity === "error") ?? false,
   );
 
-  const canImport = computed(() =>
-    step.value === 'review' && !hasErrors.value && selectedSessions.value.length > 0,
+  const canImport = computed(
+    () => step.value === "review" && !hasErrors.value && selectedSessions.value.length > 0,
   );
 
   // ── Helpers ──
 
   /** Extract file name from a path (cross-platform). */
   function extractFileName(path: string): string {
-    const parts = path.replace(/\\/g, '/').split('/');
+    const parts = path.replace(/\\/g, "/").split("/");
     return parts[parts.length - 1] || path;
   }
 
@@ -109,25 +106,25 @@ export function useImportFlow(): ImportFlowState {
 
   async function browseFile(): Promise<void> {
     // Non-Tauri fallback
-    if (!('__TAURI_INTERNALS__' in window)) {
-      const input = prompt('Enter .tpx.json file path:');
+    if (!("__TAURI_INTERNALS__" in window)) {
+      const input = prompt("Enter .tpx.json file path:");
       if (input) await selectFile(input.trim());
       return;
     }
 
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
-        title: 'Select TracePilot export file',
-        filters: [{ name: 'TracePilot Export', extensions: ['json'] }],
+        title: "Select TracePilot export file",
+        filters: [{ name: "TracePilot Export", extensions: ["json"] }],
       });
       if (selected) {
-        await selectFile(typeof selected === 'string' ? selected : selected[0]);
+        await selectFile(typeof selected === "string" ? selected : selected[0]);
       }
     } catch (e) {
       // Dialog failed — fall back to prompt
-      logError('[useImportFlow] File dialog failed, falling back to prompt:', e);
-      const input = prompt('Enter .tpx.json file path:');
+      logError("[useImportFlow] File dialog failed, falling back to prompt:", e);
+      const input = prompt("Enter .tpx.json file path:");
       if (input) await selectFile(input.trim());
     }
   }
@@ -136,7 +133,7 @@ export function useImportFlow(): ImportFlowState {
     if (!filePath.value) return;
 
     const thisRequest = ++validateRequestId;
-    step.value = 'validating';
+    step.value = "validating";
     error.value = null;
     preview.value = null;
 
@@ -150,21 +147,23 @@ export function useImportFlow(): ImportFlowState {
 
       // Auto-select all sessions from the preview
       selectedSessions.value = result.sessions.map((s) => s.id);
-      step.value = 'review';
-      logInfo(`[useImportFlow] Validated ${result.sessions.length} session(s) from ${fileName.value}`);
+      step.value = "review";
+      logInfo(
+        `[useImportFlow] Validated ${result.sessions.length} session(s) from ${fileName.value}`,
+      );
     } catch (e) {
       if (thisRequest !== validateRequestId) return;
       const msg = e instanceof Error ? e.message : String(e);
       error.value = msg;
-      step.value = 'select';
-      logError('[useImportFlow] Validation failed:', msg);
+      step.value = "select";
+      logError("[useImportFlow] Validation failed:", msg);
     }
   }
 
   async function executeImport(): Promise<void> {
     if (!canImport.value) return;
 
-    step.value = 'importing';
+    step.value = "importing";
     error.value = null;
     importProgress.value = 0;
     importedCount.value = 0;
@@ -192,7 +191,7 @@ export function useImportFlow(): ImportFlowState {
       importedCount.value = result.importedCount;
       skippedCount.value = result.skippedCount;
       importErrors.value = result.warnings;
-      step.value = 'complete';
+      step.value = "complete";
 
       logInfo(
         `[useImportFlow] Import complete: ${result.importedCount} imported, ${result.skippedCount} skipped`,
@@ -203,8 +202,8 @@ export function useImportFlow(): ImportFlowState {
       const msg = e instanceof Error ? e.message : String(e);
       error.value = msg;
       importProgress.value = 0;
-      step.value = 'review';
-      logError('[useImportFlow] Import failed:', msg);
+      step.value = "review";
+      logError("[useImportFlow] Import failed:", msg);
     }
   }
 
@@ -212,12 +211,12 @@ export function useImportFlow(): ImportFlowState {
     if (activeProgressTimer) clearInterval(activeProgressTimer);
     activeProgressTimer = null;
     validateRequestId++;
-    step.value = 'select';
-    filePath.value = '';
-    fileName.value = '';
+    step.value = "select";
+    filePath.value = "";
+    fileName.value = "";
     preview.value = null;
     error.value = null;
-    conflictStrategy.value = 'skip';
+    conflictStrategy.value = "skip";
     selectedSessions.value = [];
     importProgress.value = 0;
     importedCount.value = 0;

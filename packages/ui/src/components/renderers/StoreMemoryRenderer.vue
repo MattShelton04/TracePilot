@@ -12,21 +12,17 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
-const fact = computed(() =>
-  typeof props.args?.fact === "string" ? props.args.fact : null
-);
+const fact = computed(() => (typeof props.args?.fact === "string" ? props.args.fact : null));
 const subject = computed(() =>
-  typeof props.args?.subject === "string" ? props.args.subject : null
+  typeof props.args?.subject === "string" ? props.args.subject : null,
 );
 const category = computed(() =>
-  typeof props.args?.category === "string" ? props.args.category : null
+  typeof props.args?.category === "string" ? props.args.category : null,
 );
-const reason = computed(() =>
-  typeof props.args?.reason === "string" ? props.args.reason : null
-);
+const reason = computed(() => (typeof props.args?.reason === "string" ? props.args.reason : null));
 </script>
 
 <template>

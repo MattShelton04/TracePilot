@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { groupTurnByAgent, hasSubagents, buildSubagentIndex, buildSubagentContentIndex } from "../utils/agentGrouping";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import { describe, expect, it } from "vitest";
+import {
+  buildSubagentContentIndex,
+  buildSubagentIndex,
+  groupTurnByAgent,
+  hasSubagents,
+} from "../utils/agentGrouping";
 
 function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
   return {
@@ -50,9 +55,7 @@ describe("groupTurnByAgent", () => {
         { content: "Found it!", parentToolCallId: "sub-1", agentDisplayName: "Explore Agent" },
         { content: "Done!" },
       ],
-      reasoningTexts: [
-        { content: "let me think...", parentToolCallId: "sub-1" },
-      ],
+      reasoningTexts: [{ content: "let me think...", parentToolCallId: "sub-1" }],
       toolCalls: [
         makeToolCall({
           toolCallId: "sub-1",
@@ -84,7 +87,7 @@ describe("groupTurnByAgent", () => {
     expect(main.messages).toEqual(["I'll explore this."]);
     expect(main.reasoning).toEqual([]);
     // Main includes the subagent launch call + the direct edit
-    expect(main.toolCalls.map(tc => tc.toolName)).toEqual(["task", "edit"]);
+    expect(main.toolCalls.map((tc) => tc.toolName)).toEqual(["task", "edit"]);
 
     // Subagent section
     const sub = sections[1];
@@ -163,9 +166,7 @@ describe("groupTurnByAgent", () => {
 
   it("orphan parentToolCallId falls to main agent", () => {
     const turn = makeTurn({
-      assistantMessages: [
-        { content: "orphan msg", parentToolCallId: "nonexistent-id" },
-      ],
+      assistantMessages: [{ content: "orphan msg", parentToolCallId: "nonexistent-id" }],
       toolCalls: [],
     });
 
@@ -208,7 +209,11 @@ describe("groupTurnByAgent", () => {
     const turnB = makeTurn({
       turnIndex: 6,
       assistantMessages: [
-        { content: "Found the file!", parentToolCallId: "sub-cross", agentDisplayName: "Explore codebase" },
+        {
+          content: "Found the file!",
+          parentToolCallId: "sub-cross",
+          agentDisplayName: "Explore codebase",
+        },
       ],
       toolCalls: [
         makeToolCall({
@@ -290,12 +295,8 @@ describe("buildSubagentContentIndex", () => {
           { content: "main msg" },
           { content: "sub output", parentToolCallId: "sub-1" },
         ],
-        reasoningTexts: [
-          { content: "sub thinking", parentToolCallId: "sub-1" },
-        ],
-        toolCalls: [
-          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
-        ],
+        reasoningTexts: [{ content: "sub thinking", parentToolCallId: "sub-1" }],
+        toolCalls: [makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true })],
       }),
     ];
     const index = buildSubagentContentIndex(turns);
@@ -309,21 +310,13 @@ describe("buildSubagentContentIndex", () => {
     const turns = [
       makeTurn({
         turnIndex: 0,
-        toolCalls: [
-          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
-        ],
-        assistantMessages: [
-          { content: "early output", parentToolCallId: "sub-1" },
-        ],
+        toolCalls: [makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true })],
+        assistantMessages: [{ content: "early output", parentToolCallId: "sub-1" }],
       }),
       makeTurn({
         turnIndex: 1,
-        assistantMessages: [
-          { content: "late output", parentToolCallId: "sub-1" },
-        ],
-        reasoningTexts: [
-          { content: "late reasoning", parentToolCallId: "sub-1" },
-        ],
+        assistantMessages: [{ content: "late output", parentToolCallId: "sub-1" }],
+        reasoningTexts: [{ content: "late reasoning", parentToolCallId: "sub-1" }],
       }),
     ];
     const index = buildSubagentContentIndex(turns);
@@ -358,9 +351,7 @@ describe("buildSubagentContentIndex", () => {
           { content: "main agent says" },
           { content: "sub says", parentToolCallId: "sub-1" },
         ],
-        toolCalls: [
-          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
-        ],
+        toolCalls: [makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true })],
       }),
     ];
     const index = buildSubagentContentIndex(turns);
@@ -374,9 +365,7 @@ describe("buildSubagentContentIndex", () => {
           { content: "orphaned msg", parentToolCallId: "unknown-id" },
           { content: "valid msg", parentToolCallId: "sub-1" },
         ],
-        toolCalls: [
-          makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true }),
-        ],
+        toolCalls: [makeToolCall({ toolCallId: "sub-1", toolName: "task", isSubagent: true })],
       }),
     ];
     const index = buildSubagentContentIndex(turns);
@@ -392,7 +381,6 @@ describe("buildSubagentContentIndex", () => {
 import { agentStatusFromToolCall } from "../utils/agentTypes";
 
 describe("agentStatusFromToolCall", () => {
-
   it("returns completed for a complete subagent with success=true", () => {
     const tc = makeToolCall({ isSubagent: true, isComplete: true, success: true });
     expect(agentStatusFromToolCall(tc)).toBe("completed");

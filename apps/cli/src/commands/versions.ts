@@ -2,19 +2,19 @@
  * `tracepilot versions` — Analyze installed Copilot CLI versions and schema changes.
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import chalk from "chalk";
 import {
-  discoverInstalledVersions,
-  diffVersions,
-  diffAllVersions,
+  type CopilotVersion,
   computeCoverage,
-  scanSessionVersions,
+  diffAllVersions,
+  diffVersions,
+  discoverInstalledVersions,
   findEventExamples,
   generateMarkdownReport,
-  type CopilotVersion,
   type SessionVersionInfo,
+  scanSessionVersions,
 } from "../lib/version-analyzer.js";
 import { handleValidationError } from "../utils/errorHandler.js";
 
@@ -23,9 +23,7 @@ import { handleValidationError } from "../utils/errorHandler.js";
 function ensureVersions(): CopilotVersion[] {
   const versions = discoverInstalledVersions();
   if (versions.length === 0) {
-    handleValidationError(
-      "No installed Copilot CLI versions found at ~/.copilot/pkg/universal/",
-    );
+    handleValidationError("No installed Copilot CLI versions found at ~/.copilot/pkg/universal/");
   }
   return versions;
 }
@@ -74,21 +72,21 @@ export async function versionsListCommand(opts: { json?: boolean }) {
 
 // ── tracepilot versions diff ─────────────────────────────────────────
 
-export async function versionsDiffCommand(
-  v1?: string,
-  v2?: string,
-  opts?: { json?: boolean },
-) {
+export async function versionsDiffCommand(v1?: string, v2?: string, opts?: { json?: boolean }) {
   const versions = ensureVersions();
 
   if (v1 && v2) {
     const ver1 = findVersion(versions, v1);
     const ver2 = findVersion(versions, v2);
     if (!ver1) {
-      handleValidationError(`Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`);
+      handleValidationError(
+        `Version "${v1}" not found. Available: ${versions.map((v) => v.version).join(", ")}`,
+      );
     }
     if (!ver2) {
-      handleValidationError(`Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`);
+      handleValidationError(
+        `Version "${v2}" not found. Available: ${versions.map((v) => v.version).join(", ")}`,
+      );
     }
 
     const diff = diffVersions(ver1, ver2);
@@ -126,8 +124,7 @@ function printDiff(diff: ReturnType<typeof diffVersions>) {
   const totalChanges = countDiffChanges(diff);
 
   console.log(
-    chalk.bold(`\n  ${diff.from} → ${diff.to}`) +
-      chalk.dim(` (${totalChanges} changes)`),
+    chalk.bold(`\n  ${diff.from} → ${diff.to}`) + chalk.dim(` (${totalChanges} changes)`),
   );
   console.log(chalk.dim("  " + "─".repeat(60)));
 
@@ -210,25 +207,17 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
     return;
   }
 
-  console.log(chalk.bold(`\n  TracePilot Event Type Coverage (vs schema v${coverage.schemaVersion})\n`));
   console.log(
-    `  Total schema events:     ${coverage.totalSchemaEvents}`,
+    chalk.bold(`\n  TracePilot Event Type Coverage (vs schema v${coverage.schemaVersion})\n`),
   );
+  console.log(`  Total schema events:     ${coverage.totalSchemaEvents}`);
   console.log(
     `  Always ephemeral:        ${coverage.alwaysEphemeralCount} ${chalk.dim("(never on disk, no handling needed)")}`,
   );
-  console.log(
-    `  Persisted events:        ${coverage.persistedEventCount}`,
-  );
-  console.log(
-    `  ${chalk.green("Handled by TracePilot:")}  ${coverage.handledCount}`,
-  );
-  console.log(
-    `  ${chalk.red("Unhandled (persisted):")}  ${coverage.unhandledPersistedCount}`,
-  );
-  console.log(
-    `  Coverage:                ${chalk.bold(coverage.coveragePercentage + "%")}`,
-  );
+  console.log(`  Persisted events:        ${coverage.persistedEventCount}`);
+  console.log(`  ${chalk.green("Handled by TracePilot:")}  ${coverage.handledCount}`);
+  console.log(`  ${chalk.red("Unhandled (persisted):")}  ${coverage.unhandledPersistedCount}`);
+  console.log(`  Coverage:                ${chalk.bold(coverage.coveragePercentage + "%")}`);
   console.log();
 
   // Group by category
@@ -256,7 +245,9 @@ export async function versionsCoverageCommand(opts: { json?: boolean }) {
         icon = "  ";
         color = chalk.dim;
       }
-      const suffix = obs.observedLocally ? chalk.dim(` (seen in ${obs.exampleSessions.length} session(s))`) : "";
+      const suffix = obs.observedLocally
+        ? chalk.dim(` (seen in ${obs.exampleSessions.length} session(s))`)
+        : "";
       console.log(`    ${icon} ${color(obs.eventType)}${suffix}`);
     }
     console.log();
@@ -291,10 +282,7 @@ export async function versionsReportCommand(opts: { output?: string }) {
 
 // ── tracepilot versions examples ─────────────────────────────────────
 
-export async function versionsExamplesCommand(opts: {
-  eventType?: string;
-  json?: boolean;
-}) {
+export async function versionsExamplesCommand(opts: { eventType?: string; json?: boolean }) {
   if (opts.eventType) {
     if (!opts.json) console.log(chalk.dim(`  Searching for "${opts.eventType}" in sessions...`));
     const examples = await findEventExamples(opts.eventType);
@@ -306,20 +294,24 @@ export async function versionsExamplesCommand(opts: {
 
     if (examples.length === 0) {
       console.log(chalk.yellow(`\n  No sessions found containing "${opts.eventType}"`));
-      console.log(chalk.dim("  This event may be ephemeral (never written to disk) or not yet triggered.\n"));
+      console.log(
+        chalk.dim("  This event may be ephemeral (never written to disk) or not yet triggered.\n"),
+      );
       console.log(chalk.dim("  To generate this event, try:"));
       console.log(chalk.dim("    - Start a new Copilot CLI session with: copilot"));
       console.log(chalk.dim("    - Use features that might trigger this event type"));
-      console.log(chalk.dim("    - Check if this is an ephemeral event (use `versions coverage`)\n"));
+      console.log(
+        chalk.dim("    - Check if this is an ephemeral event (use `versions coverage`)\n"),
+      );
       return;
     }
 
-    console.log(chalk.bold(`\n  Sessions containing "${opts.eventType}" (${examples.length} found):\n`));
+    console.log(
+      chalk.bold(`\n  Sessions containing "${opts.eventType}" (${examples.length} found):\n`),
+    );
     for (const ex of examples) {
       const summary = ex.summary ? chalk.dim(` — ${ex.summary.slice(0, 50)}`) : "";
-      console.log(
-        `  ${chalk.cyan(ex.sessionId.slice(0, 8))}… v${ex.copilotVersion}${summary}`,
-      );
+      console.log(`  ${chalk.cyan(ex.sessionId.slice(0, 8))}… v${ex.copilotVersion}${summary}`);
     }
     console.log();
   } else {
@@ -359,7 +351,9 @@ export async function versionsExamplesCommand(opts: {
       return;
     }
 
-    console.log(chalk.bold(`\n  Event Type Observations (${sessionInfo.length} sessions scanned)\n`));
+    console.log(
+      chalk.bold(`\n  Event Type Observations (${sessionInfo.length} sessions scanned)\n`),
+    );
 
     // Show observed types sorted by frequency
     const sorted = [...observedTypes.entries()].sort((a, b) => b[1] - a[1]);

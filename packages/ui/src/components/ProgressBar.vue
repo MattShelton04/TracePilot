@@ -1,15 +1,15 @@
 <script setup lang="ts">
 const props = defineProps<{
   percent: number;
-  color?: 'accent' | 'success' | 'warning' | 'danger';
+  color?: "accent" | "success" | "warning" | "danger";
   ariaLabel?: string;
 }>();
 
 const colorMap: Record<string, string> = {
-  accent: 'var(--accent-fg)',
-  success: 'var(--success-fg)',
-  warning: 'var(--warning-fg)',
-  danger: 'var(--danger-fg)',
+  accent: "var(--accent-fg)",
+  success: "var(--success-fg)",
+  warning: "var(--warning-fg)",
+  danger: "var(--danger-fg)",
 };
 </script>
 

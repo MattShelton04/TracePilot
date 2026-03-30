@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
+import { computed } from "vue";
 import { formatDuration } from "../utils/formatters";
-import { toolIcon, toolCategory, categoryColor, formatArgsSummary } from "../utils/toolCall";
+import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";
 
@@ -24,11 +24,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   toggle: [];
-  'load-full-result': [toolCallId: string];
-  'retry-full-result': [toolCallId: string];
+  "load-full-result": [toolCallId: string];
+  "retry-full-result": [toolCallId: string];
 }>();
 
-const summary = computed(() => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName));
+const summary = computed(
+  () => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName),
+);
 </script>
 
 <template>

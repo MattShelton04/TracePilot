@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref } from 'vue';
-import type { ReplayStep } from '@tracepilot/types';
-import { useReplayController } from '../../composables/useReplayController';
+import type { ReplayStep } from "@tracepilot/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
+import { useReplayController } from "../../composables/useReplayController";
 
 // Mock onMounted/onUnmounted lifecycle hooks outside of components
-vi.mock('vue', async () => {
-  const actual = await vi.importActual<typeof import('vue')>('vue');
+vi.mock("vue", async () => {
+  const actual = await vi.importActual<typeof import("vue")>("vue");
   return {
     ...actual,
     onMounted: vi.fn((fn) => fn()),
@@ -18,14 +18,14 @@ function makeSteps(count: number): ReplayStep[] {
     index: i,
     turnIndex: i,
     title: `Step ${i}`,
-    type: i % 2 === 0 ? 'user' as const : 'assistant' as const,
+    type: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
     timestamp: new Date(Date.now() + i * 5000).toISOString(),
     durationMs: 1000 + i * 500,
     tokens: 100 * (i + 1),
   }));
 }
 
-describe('useReplayController', () => {
+describe("useReplayController", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -34,7 +34,7 @@ describe('useReplayController', () => {
     vi.useRealTimers();
   });
 
-  it('initializes at step 0, not playing', () => {
+  it("initializes at step 0, not playing", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
@@ -44,7 +44,7 @@ describe('useReplayController', () => {
     expect(ctrl.totalSteps.value).toBe(5);
   });
 
-  it('nextStep advances and prevStep retreats', () => {
+  it("nextStep advances and prevStep retreats", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
@@ -58,7 +58,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(1);
   });
 
-  it('prevStep does not go below 0', () => {
+  it("prevStep does not go below 0", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
@@ -66,7 +66,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(0);
   });
 
-  it('nextStep does not exceed last step', () => {
+  it("nextStep does not exceed last step", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
@@ -75,7 +75,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(2);
   });
 
-  it('goToStep clamps to valid range', () => {
+  it("goToStep clamps to valid range", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
@@ -86,7 +86,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(4);
   });
 
-  it('play/pause controls timer', () => {
+  it("play/pause controls timer", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps, { fixedIntervalMs: 1000 });
 
@@ -105,7 +105,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(1);
   });
 
-  it('auto-pauses at end of steps', () => {
+  it("auto-pauses at end of steps", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps, { fixedIntervalMs: 1000 });
 
@@ -118,7 +118,7 @@ describe('useReplayController', () => {
     expect(ctrl.isPlaying.value).toBe(false);
   });
 
-  it('setSpeed changes playback rate', () => {
+  it("setSpeed changes playback rate", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps, { fixedIntervalMs: 2000 });
 
@@ -131,7 +131,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStep.value).toBe(1);
   });
 
-  it('restart goes to step 0 and plays', () => {
+  it("restart goes to step 0 and plays", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
@@ -141,7 +141,7 @@ describe('useReplayController', () => {
     expect(ctrl.isPlaying.value).toBe(true);
   });
 
-  it('togglePlayPause toggles state', () => {
+  it("togglePlayPause toggles state", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
@@ -152,7 +152,7 @@ describe('useReplayController', () => {
     expect(ctrl.isPlaying.value).toBe(false);
   });
 
-  it('computed properties update correctly', () => {
+  it("computed properties update correctly", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
@@ -162,7 +162,7 @@ describe('useReplayController', () => {
     expect(ctrl.currentStepData.value).toEqual(steps.value[1]);
   });
 
-  it('totalDurationMs sums all step durations', () => {
+  it("totalDurationMs sums all step durations", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
@@ -170,7 +170,7 @@ describe('useReplayController', () => {
     expect(ctrl.totalDurationMs.value).toBe(expected);
   });
 
-  it('elapsedMs sums durations up to current step', () => {
+  it("elapsedMs sums durations up to current step", () => {
     const steps = ref(makeSteps(4));
     const ctrl = useReplayController(steps);
 
@@ -179,7 +179,7 @@ describe('useReplayController', () => {
     expect(ctrl.elapsedMs.value).toBe(expected);
   });
 
-  it('scrubberPercent is 0 at start and 100 at end', () => {
+  it("scrubberPercent is 0 at start and 100 at end", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
@@ -189,7 +189,7 @@ describe('useReplayController', () => {
     expect(ctrl.scrubberPercent.value).toBe(100);
   });
 
-  it('handles empty steps gracefully', () => {
+  it("handles empty steps gracefully", () => {
     const steps = ref<ReplayStep[]>([]);
     const ctrl = useReplayController(steps);
 
@@ -199,12 +199,12 @@ describe('useReplayController', () => {
     expect(ctrl.currentStepData.value).toBeNull();
   });
 
-  it('handleKeydown responds to Space for play/pause', () => {
+  it("handleKeydown responds to Space for play/pause", () => {
     const steps = ref(makeSteps(3));
     const ctrl = useReplayController(steps);
 
-    const spaceEvent = new KeyboardEvent('keydown', { key: ' ' });
-    Object.defineProperty(spaceEvent, 'preventDefault', { value: vi.fn() });
+    const spaceEvent = new KeyboardEvent("keydown", { key: " " });
+    Object.defineProperty(spaceEvent, "preventDefault", { value: vi.fn() });
 
     ctrl.handleKeydown(spaceEvent);
     expect(ctrl.isPlaying.value).toBe(true);
@@ -213,32 +213,32 @@ describe('useReplayController', () => {
     expect(ctrl.isPlaying.value).toBe(false);
   });
 
-  it('handleKeydown responds to arrow keys', () => {
+  it("handleKeydown responds to arrow keys", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
-    const rightEvent = new KeyboardEvent('keydown', { key: 'ArrowRight' });
-    Object.defineProperty(rightEvent, 'preventDefault', { value: vi.fn() });
+    const rightEvent = new KeyboardEvent("keydown", { key: "ArrowRight" });
+    Object.defineProperty(rightEvent, "preventDefault", { value: vi.fn() });
     ctrl.handleKeydown(rightEvent);
     expect(ctrl.currentStep.value).toBe(1);
 
-    const leftEvent = new KeyboardEvent('keydown', { key: 'ArrowLeft' });
-    Object.defineProperty(leftEvent, 'preventDefault', { value: vi.fn() });
+    const leftEvent = new KeyboardEvent("keydown", { key: "ArrowLeft" });
+    Object.defineProperty(leftEvent, "preventDefault", { value: vi.fn() });
     ctrl.handleKeydown(leftEvent);
     expect(ctrl.currentStep.value).toBe(0);
   });
 
-  it('handleKeydown Home/End jump to boundaries', () => {
+  it("handleKeydown Home/End jump to boundaries", () => {
     const steps = ref(makeSteps(5));
     const ctrl = useReplayController(steps);
 
-    const endEvent = new KeyboardEvent('keydown', { key: 'End' });
-    Object.defineProperty(endEvent, 'preventDefault', { value: vi.fn() });
+    const endEvent = new KeyboardEvent("keydown", { key: "End" });
+    Object.defineProperty(endEvent, "preventDefault", { value: vi.fn() });
     ctrl.handleKeydown(endEvent);
     expect(ctrl.currentStep.value).toBe(4);
 
-    const homeEvent = new KeyboardEvent('keydown', { key: 'Home' });
-    Object.defineProperty(homeEvent, 'preventDefault', { value: vi.fn() });
+    const homeEvent = new KeyboardEvent("keydown", { key: "Home" });
+    Object.defineProperty(homeEvent, "preventDefault", { value: vi.fn() });
     ctrl.handleKeydown(homeEvent);
     expect(ctrl.currentStep.value).toBe(0);
   });

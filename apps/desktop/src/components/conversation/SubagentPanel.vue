@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
-import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
-import { usePreferencesStore } from "@/stores/preferences";
 import {
-  formatDuration,
-  toolIcon,
-  truncateText,
+  agentStatusFromToolCall,
   formatArgsSummary,
-  inferAgentTypeFromToolCall,
+  formatDuration,
   getAgentColor,
   getAgentIcon,
-  agentStatusFromToolCall,
+  inferAgentTypeFromToolCall,
   MarkdownContent,
   ToolCallItem,
+  toolIcon,
+  truncateText,
   useToggleSet,
 } from "@tracepilot/ui";
+import { computed, nextTick, ref, watch } from "vue";
+import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const preferences = usePreferencesStore();
@@ -24,9 +24,13 @@ const renderMd = computed(() => preferences.isFeatureEnabled("renderMarkdown"));
 
 const store = useSessionDetailStore();
 const expandedToolDetails = useToggleSet<string>();
-const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const {
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult: handleLoadFullResult,
+  retryFullResult: handleRetryResult,
+} = useToolResultLoader(() => store.sessionId);
 
 const props = defineProps<{
   subagent: SubagentFullData | null;
@@ -60,11 +64,7 @@ const agentIcon = computed(() => getAgentIcon(agentType.value));
 
 const agentLabel = computed(() => {
   if (!props.subagent) return "Subagent";
-  return (
-    props.subagent.toolCall.agentDisplayName ||
-    props.subagent.toolCall.toolName ||
-    "Subagent"
-  );
+  return props.subagent.toolCall.agentDisplayName || props.subagent.toolCall.toolName || "Subagent";
 });
 
 const status = computed(() =>
@@ -87,12 +87,7 @@ const description = computed(() => {
   if (!props.subagent) return "";
   const tc = props.subagent.toolCall;
   const args = tc.arguments as Record<string, unknown> | undefined;
-  return (
-    tc.intentionSummary ||
-    (args?.description as string) ||
-    (args?.name as string) ||
-    ""
-  );
+  return tc.intentionSummary || (args?.description as string) || (args?.name as string) || "";
 });
 
 const prompt = computed(() => {
@@ -115,7 +110,14 @@ const isResultLong = computed(() => resultContent.value.length > 400);
 type ActivityItem =
   | { kind: "reasoning"; index: number; sortKey: number; content: string; agentName?: string }
   | { kind: "tool"; index: number; sortKey: number; toolCall: TurnToolCall }
-  | { kind: "pill"; index: number; sortKey: number; type: "intent" | "memory" | "read_agent"; label: string; toolCall: TurnToolCall }
+  | {
+      kind: "pill";
+      index: number;
+      sortKey: number;
+      type: "intent" | "memory" | "read_agent";
+      label: string;
+      toolCall: TurnToolCall;
+    }
   | { kind: "message"; index: number; sortKey: number; content: string; agentName?: string }
   | { kind: "nested-subagent"; index: number; sortKey: number; toolCall: TurnToolCall };
 
@@ -143,16 +145,18 @@ const activities = computed<ActivityItem[]>(() => {
     if (tc.isSubagent) {
       items.push({ kind: "nested-subagent", index: idx++, sortKey, toolCall: tc });
     } else if (PILL_TOOLS.has(tc.toolName)) {
-      const pillType = tc.toolName === "report_intent"
-        ? "intent" as const
-        : tc.toolName === "store_memory"
-          ? "memory" as const
-          : "read_agent" as const;
-      const label = tc.toolName === "report_intent"
-        ? formatArgsSummary(tc.arguments, tc.toolName) || "Intent update"
-        : tc.toolName === "store_memory"
-          ? formatArgsSummary(tc.arguments, tc.toolName) || "Stored memory"
-          : formatArgsSummary(tc.arguments, tc.toolName) || "Read agent";
+      const pillType =
+        tc.toolName === "report_intent"
+          ? ("intent" as const)
+          : tc.toolName === "store_memory"
+            ? ("memory" as const)
+            : ("read_agent" as const);
+      const label =
+        tc.toolName === "report_intent"
+          ? formatArgsSummary(tc.arguments, tc.toolName) || "Intent update"
+          : tc.toolName === "store_memory"
+            ? formatArgsSummary(tc.arguments, tc.toolName) || "Stored memory"
+            : formatArgsSummary(tc.arguments, tc.toolName) || "Read agent";
       items.push({ kind: "pill", index: idx++, sortKey, type: pillType, label, toolCall: tc });
     } else {
       items.push({ kind: "tool", index: idx++, sortKey, toolCall: tc });

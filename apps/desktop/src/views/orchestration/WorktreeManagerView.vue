@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import type { CreateWorktreeRequest, WorktreeInfo, WorktreeDetails } from '@tracepilot/types';
-import { openInExplorer, openInTerminal } from '@tracepilot/client';
-import { formatBytes, formatRelativeTime, LoadingSpinner, useToast, useConfirmDialog, normalizePath, SearchableSelect } from '@tracepilot/ui';
-import { useWorktreesStore } from '@/stores/worktrees';
-import { usePreferencesStore } from '@/stores/preferences';
-import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { useGitRepository } from '@/composables/useGitRepository';
+import { openInExplorer, openInTerminal } from "@tracepilot/client";
+import type { CreateWorktreeRequest, WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
+import {
+  formatBytes,
+  formatRelativeTime,
+  LoadingSpinner,
+  normalizePath,
+  SearchableSelect,
+  useConfirmDialog,
+  useToast,
+} from "@tracepilot/ui";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import { browseForDirectory } from "@/composables/useBrowseDirectory";
+import { useGitRepository } from "@/composables/useGitRepository";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useWorktreesStore } from "@/stores/worktrees";
 
 const router = useRouter();
 const store = useWorktreesStore();
@@ -17,7 +25,7 @@ const { confirm } = useConfirmDialog();
 
 /* ─── Local State ─────────────────────────────────────────────── */
 const loaded = ref(false);
-const searchQuery = ref('');
+const searchQuery = ref("");
 const selectedWorktree = ref<WorktreeInfo | null>(null);
 const selectedRepoPath = ref<string | null>(null);
 const showCreateModal = ref(false);
@@ -28,10 +36,10 @@ const detailsLoading = ref(false);
 const refreshing = ref(false);
 
 // Create form state
-const newBranch = ref('');
-const newBaseBranch = ref('');
-const newTargetDir = ref('');
-const createModalRepoPath = ref('');
+const newBranch = ref("");
+const newBaseBranch = ref("");
+const newTargetDir = ref("");
+const createModalRepoPath = ref("");
 
 // ── Git repository operations ───────────────────────────────────────
 const {
@@ -43,7 +51,7 @@ const {
 } = useGitRepository({
   repoPath: computed(() => createModalRepoPath.value),
   onFetchSuccess: () => {
-    toastSuccess('Fetched latest from remote');
+    toastSuccess("Fetched latest from remote");
   },
   onFetchError: (error) => {
     toastError(error);
@@ -66,13 +74,11 @@ const totalDiskUsage = computed(() =>
 
 const staleDiskUsage = computed(() =>
   store.worktrees
-    .filter((w) => w.status === 'stale')
+    .filter((w) => w.status === "stale")
     .reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
 );
 
-const staleWorktrees = computed(() =>
-  store.worktrees.filter((w) => w.status === 'stale'),
-);
+const staleWorktrees = computed(() => store.worktrees.filter((w) => w.status === "stale"));
 
 const maxWorktreeDisk = computed(() =>
   Math.max(...filteredWorktrees.value.map((w) => w.diskUsageBytes ?? 0), 1),
@@ -107,7 +113,7 @@ const filteredWorktrees = computed(() => {
 });
 
 const computedWorktreePath = computed(() => {
-  if (!newBranch.value.trim()) return '';
+  if (!newBranch.value.trim()) return "";
   return computeWorktreePath(newBranch.value);
 });
 
@@ -120,19 +126,19 @@ function diskBarPercent(wt: WorktreeInfo): number {
 
 function diskBarColor(wt: WorktreeInfo): string {
   const pct = diskBarPercent(wt);
-  if (pct < 40) return 'var(--success-fg)';
-  if (pct < 75) return 'var(--accent-fg)';
-  return 'var(--warning-fg)';
+  if (pct < 40) return "var(--success-fg)";
+  if (pct < 75) return "var(--accent-fg)";
+  return "var(--warning-fg)";
 }
 
-function sortIcon(field: 'branch' | 'status' | 'createdAt' | 'diskUsageBytes'): string {
-  if (store.sortBy !== field) return '';
-  return store.sortDirection === 'asc' ? '↑' : '↓';
+function sortIcon(field: "branch" | "status" | "createdAt" | "diskUsageBytes"): string {
+  if (store.sortBy !== field) return "";
+  return store.sortDirection === "asc" ? "↑" : "↓";
 }
 
 /* ─── Repo Registry Actions ──────────────────────────────────── */
 async function handleAddRepo() {
-  const selected = await browseForDirectory({ title: 'Select Git Repository' });
+  const selected = await browseForDirectory({ title: "Select Git Repository" });
   if (selected) {
     const result = await store.addRepo(selected);
     if (result) {
@@ -151,7 +157,7 @@ async function handleRemoveRepo(path: string) {
     if (selectedRepoPath.value === path) {
       selectedRepoPath.value = null;
     }
-    toastSuccess('Repository removed');
+    toastSuccess("Repository removed");
   }
 }
 
@@ -159,10 +165,10 @@ async function handleDiscoverRepos() {
   const found = await store.discoverRepos();
   if (found.length > 0) {
     loaded.value = true;
-    toastSuccess(`Discovered ${found.length} repo${found.length > 1 ? 's' : ''}`);
+    toastSuccess(`Discovered ${found.length} repo${found.length > 1 ? "s" : ""}`);
     await store.loadAllWorktrees();
   } else {
-    toastSuccess('No new repositories discovered');
+    toastSuccess("No new repositories discovered");
   }
 }
 
@@ -176,7 +182,7 @@ async function handleSelectRepo(repoPath: string | null) {
     // Load branches for the selected repo (for create modal)
     store.loadBranches(repoPath);
   } else {
-    store.currentRepoPath = '';
+    store.currentRepoPath = "";
   }
   // Always load ALL worktrees so sidebar counts remain correct.
   // filteredWorktrees handles per-repo filtering in the view.
@@ -211,12 +217,12 @@ async function selectWorktree(wt: WorktreeInfo) {
 
 async function openCreateModal() {
   store.error = null;
-  newBranch.value = '';
-  newBaseBranch.value = '';
-  newTargetDir.value = '';
+  newBranch.value = "";
+  newBaseBranch.value = "";
+  newTargetDir.value = "";
 
   // In per-repo mode use the selected repo; in "All Worktrees" mode default to first registered repo
-  createModalRepoPath.value = selectedRepoPath.value ?? store.registeredRepos[0]?.path ?? '';
+  createModalRepoPath.value = selectedRepoPath.value ?? store.registeredRepos[0]?.path ?? "";
 
   if (selectedRepoPath.value) {
     store.currentRepoPath = selectedRepoPath.value;
@@ -266,11 +272,11 @@ async function onCreateRepoChange() {
 async function confirmDelete(wt: WorktreeInfo) {
   store.error = null;
   const { confirmed, checked } = await confirm({
-    title: 'Remove Worktree',
+    title: "Remove Worktree",
     message: `This will permanently remove the worktree and its working directory for "${wt.branch}". This action cannot be undone.`,
-    variant: 'danger',
-    confirmLabel: 'Remove',
-    checkbox: 'Force delete (even if there are uncommitted changes)',
+    variant: "danger",
+    confirmLabel: "Remove",
+    checkbox: "Force delete (even if there are uncommitted changes)",
   });
   if (!confirmed) return;
   const ok = await store.deleteWorktree(wt.path, checked, wt.repoRoot);
@@ -279,10 +285,10 @@ async function confirmDelete(wt: WorktreeInfo) {
       selectedWorktree.value = null;
       worktreeDetails.value = null;
     }
-    toastSuccess('Worktree removed');
+    toastSuccess("Worktree removed");
   } else {
     await store.loadAllWorktrees();
-    toastError(store.error || 'Failed to remove worktree');
+    toastError(store.error || "Failed to remove worktree");
   }
 }
 
@@ -295,7 +301,7 @@ async function handlePrune() {
       pruneMessage.value =
         result.prunedCount > 0
           ? `Pruned ${result.prunedCount} stale worktree(s).`
-          : 'Nothing to prune — all worktrees are clean.';
+          : "Nothing to prune — all worktrees are clean.";
     }
   } else {
     // Prune all registered repos
@@ -307,7 +313,7 @@ async function handlePrune() {
     pruneMessage.value =
       totalPruned > 0
         ? `Pruned ${totalPruned} stale worktree(s) across all repos.`
-        : 'Nothing to prune — all worktrees are clean.';
+        : "Nothing to prune — all worktrees are clean.";
   }
 }
 
@@ -332,7 +338,7 @@ async function handleLockInline(wt: WorktreeInfo) {
     if (selectedWorktree.value?.path === wt.path) {
       selectedWorktree.value = { ...selectedWorktree.value, isLocked: true };
     }
-    toastSuccess('Worktree locked');
+    toastSuccess("Worktree locked");
   }
 }
 
@@ -340,9 +346,13 @@ async function handleUnlock(wt: WorktreeInfo) {
   const ok = await store.unlockWorktree(wt.path, wt.repoRoot);
   if (ok) {
     if (selectedWorktree.value?.path === wt.path) {
-      selectedWorktree.value = { ...selectedWorktree.value, isLocked: false, lockedReason: undefined };
+      selectedWorktree.value = {
+        ...selectedWorktree.value,
+        isLocked: false,
+        lockedReason: undefined,
+      };
     }
-    toastSuccess('Worktree unlocked');
+    toastSuccess("Worktree unlocked");
   }
 }
 
@@ -361,12 +371,12 @@ async function handleFetchRemote() {
 
 /* ─── Navigation ──────────────────────────────────────────────── */
 function navigateToSession(sessionId: string) {
-  router.push({ name: 'session-overview', params: { id: sessionId } });
+  router.push({ name: "session-overview", params: { id: sessionId } });
 }
 
 function navigateToLauncher(wt: WorktreeInfo) {
   router.push({
-    path: '/orchestration/launcher',
+    path: "/orchestration/launcher",
     query: { repoPath: wt.path, branch: wt.branch },
   });
 }
@@ -406,17 +416,21 @@ async function handleOpenTerminal(path: string) {
 }
 
 /* ─── Watchers ────────────────────────────────────────────────── */
-watch(() => store.worktrees, () => {
-  if (selectedWorktree.value) {
-    const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
-    if (!still) {
-      selectedWorktree.value = null;
-      worktreeDetails.value = null;
-    } else {
-      selectedWorktree.value = still;
+watch(
+  () => store.worktrees,
+  () => {
+    if (selectedWorktree.value) {
+      const still = store.worktrees.find((w) => w.path === selectedWorktree.value?.path);
+      if (!still) {
+        selectedWorktree.value = null;
+        worktreeDetails.value = null;
+      } else {
+        selectedWorktree.value = still;
+      }
     }
-  }
-}, { deep: true });
+  },
+  { deep: true },
+);
 </script>
 
 <template>

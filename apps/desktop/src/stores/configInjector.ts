@@ -1,36 +1,36 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  createConfigBackup as createBackupApi,
+  deleteConfigBackup as deleteBackupApi,
+  discoverCopilotVersions,
+  getActiveCopilotVersion,
+  getAgentDefinitions,
+  getCopilotConfig,
+  getMigrationDiffs,
+  listConfigBackups,
+  migrateAgentDefinition as migrateAgentApi,
+  restoreConfigBackup as restoreBackupApi,
+  saveAgentDefinition as saveAgentApi,
+  saveCopilotConfig as saveCopilotApi,
+} from "@tracepilot/client";
 import type {
   AgentDefinition,
   BackupEntry,
   CopilotConfig,
   CopilotVersion,
   MigrationDiff,
-} from '@tracepilot/types';
-import {
-  getAgentDefinitions,
-  saveAgentDefinition as saveAgentApi,
-  getCopilotConfig,
-  saveCopilotConfig as saveCopilotApi,
-  createConfigBackup as createBackupApi,
-  deleteConfigBackup as deleteBackupApi,
-  listConfigBackups,
-  restoreConfigBackup as restoreBackupApi,
-  discoverCopilotVersions,
-  getActiveCopilotVersion,
-  getMigrationDiffs,
-  migrateAgentDefinition as migrateAgentApi,
-} from '@tracepilot/client';
-import { toErrorMessage } from '@tracepilot/ui';
-import { aggregateSettledErrors } from '@/utils/settleErrors';
-import { useToastStore } from '@/stores/toast';
+} from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
+import { useToastStore } from "@/stores/toast";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
-export type ConfigTab = 'agents' | 'global' | 'versions' | 'backups';
+export type ConfigTab = "agents" | "global" | "versions" | "backups";
 
-export const useConfigInjectorStore = defineStore('configInjector', () => {
+export const useConfigInjectorStore = defineStore("configInjector", () => {
   const toastStore = useToastStore();
 
-  const activeTab = ref<ConfigTab>('agents');
+  const activeTab = ref<ConfigTab>("agents");
   const agents = ref<AgentDefinition[]>([]);
   const copilotConfig = ref<CopilotConfig | null>(null);
   const versions = ref<CopilotVersion[]>([]);
@@ -38,13 +38,13 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   const backups = ref<BackupEntry[]>([]);
   const migrationDiffs = ref<MigrationDiff[]>([]);
   const selectedAgent = ref<AgentDefinition | null>(null);
-  const editingYaml = ref('');
+  const editingYaml = ref("");
   const loading = ref(false);
   const saving = ref(false);
   const error = ref<string | null>(null);
 
   const hasCustomizations = computed(() => versions.value.some((v) => v.hasCustomizations));
-  const activeVersionStr = computed(() => activeVersion.value?.version ?? 'unknown');
+  const activeVersionStr = computed(() => activeVersion.value?.version ?? "unknown");
 
   async function initialize() {
     loading.value = true;
@@ -57,13 +57,19 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
         getActiveCopilotVersion(),
         listConfigBackups(),
       ]);
-      if (agentsRes.status === 'fulfilled') agents.value = agentsRes.value;
-      if (configRes.status === 'fulfilled') copilotConfig.value = configRes.value;
-      if (versionsRes.status === 'fulfilled') versions.value = versionsRes.value;
-      if (activeRes.status === 'fulfilled') activeVersion.value = activeRes.value;
-      if (backupsRes.status === 'fulfilled') backups.value = backupsRes.value;
+      if (agentsRes.status === "fulfilled") agents.value = agentsRes.value;
+      if (configRes.status === "fulfilled") copilotConfig.value = configRes.value;
+      if (versionsRes.status === "fulfilled") versions.value = versionsRes.value;
+      if (activeRes.status === "fulfilled") activeVersion.value = activeRes.value;
+      if (backupsRes.status === "fulfilled") backups.value = backupsRes.value;
 
-      error.value = aggregateSettledErrors([agentsRes, configRes, versionsRes, activeRes, backupsRes]);
+      error.value = aggregateSettledErrors([
+        agentsRes,
+        configRes,
+        versionsRes,
+        activeRes,
+        backupsRes,
+      ]);
     } catch (e) {
       error.value = toErrorMessage(e);
     } finally {
@@ -100,7 +106,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await saveCopilotApi(config);
       copilotConfig.value = await getCopilotConfig();
-      toastStore.success('Global config saved');
+      toastStore.success("Global config saved");
       return true;
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -115,7 +121,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
       await createBackupApi(filePath, label);
       backups.value = await listConfigBackups();
       if (!silent) {
-        toastStore.success('Backup created');
+        toastStore.success("Backup created");
       }
       return true;
     } catch (e) {
@@ -127,7 +133,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
     try {
       await restoreBackupApi(backupPath, restoreTo);
-      toastStore.success('Backup restored');
+      toastStore.success("Backup restored");
       await initialize(); // Reload everything
       return true;
     } catch (e) {
@@ -140,7 +146,7 @@ export const useConfigInjectorStore = defineStore('configInjector', () => {
     try {
       await deleteBackupApi(backupPath);
       backups.value = await listConfigBackups();
-      toastStore.success('Backup deleted');
+      toastStore.success("Backup deleted");
       return true;
     } catch (e) {
       error.value = toErrorMessage(e);

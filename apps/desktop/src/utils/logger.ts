@@ -1,14 +1,14 @@
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-let tauriLog: typeof import('@tauri-apps/plugin-log') | null = null;
+let tauriLog: typeof import("@tauri-apps/plugin-log") | null = null;
 
 async function ensureLog() {
   if (!isTauri) return null;
-  if (!tauriLog) tauriLog = await import('@tauri-apps/plugin-log');
+  if (!tauriLog) tauriLog = await import("@tauri-apps/plugin-log");
   return tauriLog;
 }
 
-let detach: (() => void) | null = null;
+const detach: (() => void) | null = null;
 
 /**
  * Initialize logging — call once from main.ts AFTER mount.
@@ -34,7 +34,7 @@ export async function initLogging(): Promise<void> {
     // const log = await ensureLog();
     // if (log) detach = await log.attachConsole();
   } catch (e) {
-    console.warn('[TracePilot] Failed to initialize logging:', e);
+    console.warn("[TracePilot] Failed to initialize logging:", e);
   }
 }
 
@@ -45,23 +45,28 @@ export function teardownLogging(): void {
 // Browser-safe re-exports: no-op in browser, write to backend log file in Tauri
 export async function debug(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.debug(msg); else console.debug(msg);
+  if (log) await log.debug(msg);
+  else console.debug(msg);
 }
 export async function info(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.info(msg); else console.info(msg);
+  if (log) await log.info(msg);
+  else console.info(msg);
 }
 export async function warn(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.warn(msg); else console.warn(msg);
+  if (log) await log.warn(msg);
+  else console.warn(msg);
 }
 export async function error(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.error(msg); else console.error(msg);
+  if (log) await log.error(msg);
+  else console.error(msg);
 }
 export async function trace(msg: string): Promise<void> {
   const log = await ensureLog();
-  if (log) await log.trace(msg); else console.debug(msg);
+  if (log) await log.trace(msg);
+  else console.debug(msg);
 }
 
 // ── Synchronous logging facades ─────────────────────────────────
@@ -76,22 +81,24 @@ export async function trace(msg: string): Promise<void> {
 /** Serialize extra arguments for the backend log (string-only). */
 export function stringifyExtra(v: unknown): string {
   if (v instanceof Error) return v.stack ?? v.message;
-  if (typeof v === 'string') return v;
-  if (v === undefined) return 'undefined';
+  if (typeof v === "string") return v;
+  if (v === undefined) return "undefined";
   try {
     const json = JSON.stringify(v);
     // JSON.stringify returns undefined for top-level symbols, functions,
     // and undefined values — fall back to String() for those.
     return json !== undefined ? json : String(v);
   } catch {
-    try { return String(v); } catch { return '[unserializable]'; }
+    try {
+      return String(v);
+    } catch {
+      return "[unserializable]";
+    }
   }
 }
 
 function buildLogMessage(msg: string, extra: unknown[]): string {
-  return extra.length
-    ? `${msg} ${extra.map(stringifyExtra).join(' ')}`
-    : msg;
+  return extra.length ? `${msg} ${extra.map(stringifyExtra).join(" ")}` : msg;
 }
 
 export function logDebug(msg: string, ...extra: unknown[]): void {

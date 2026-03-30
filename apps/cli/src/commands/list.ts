@@ -5,9 +5,8 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
-import { getSessionStateDir, parseWorkspace, fileExists } from "./utils.js";
-import { UUID_REGEX } from "./utils.js";
-import { wrapCommand, handleValidationError } from "../utils/errorHandler.js";
+import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
+import { fileExists, getSessionStateDir, parseWorkspace, UUID_REGEX } from "./utils.js";
 
 interface SessionInfo {
   id: string;
@@ -21,7 +20,7 @@ interface SessionInfo {
 }
 
 async function discoverSessions(): Promise<SessionInfo[]> {
-   const baseDir = getSessionStateDir();
+  const baseDir = getSessionStateDir();
   const entries = await readdir(baseDir, { withFileTypes: true });
   const sessions: SessionInfo[] = [];
 
@@ -42,7 +41,9 @@ async function discoverSessions(): Promise<SessionInfo[]> {
       info.branch = ws.branch;
       info.createdAt = ws.createdAt;
       info.updatedAt = ws.updatedAt;
-    } catch { /* no workspace.yaml */ }
+    } catch {
+      /* no workspace.yaml */
+    }
 
     info.hasEvents = await fileExists(join(sessionDir, "events.jsonl"));
     info.hasDb = await fileExists(join(sessionDir, "session.db"));
@@ -66,22 +67,20 @@ export async function listSessionsCommand(options: {
     // Filters
     if (options.repo) {
       const r = options.repo.toLowerCase();
-      sessions = sessions.filter(
-        (s) => s.repository?.toLowerCase().includes(r)
-      );
+      sessions = sessions.filter((s) => s.repository?.toLowerCase().includes(r));
     }
     if (options.branch) {
       const b = options.branch.toLowerCase();
-      sessions = sessions.filter(
-        (s) => s.branch?.toLowerCase().includes(b)
-      );
+      sessions = sessions.filter((s) => s.branch?.toLowerCase().includes(b));
     }
 
     // Sort
     const validSorts = ["updated", "created", "name"] as const;
     const sortField = options.sort || "updated";
-    if (!validSorts.includes(sortField as typeof validSorts[number])) {
-      handleValidationError(`Invalid --sort value "${options.sort}". Must be one of: ${validSorts.join(", ")}`);
+    if (!validSorts.includes(sortField as (typeof validSorts)[number])) {
+      handleValidationError(
+        `Invalid --sort value "${options.sort}". Must be one of: ${validSorts.join(", ")}`,
+      );
     }
     sessions.sort((a, b) => {
       if (sortField === "name") {
@@ -103,7 +102,9 @@ export async function listSessionsCommand(options: {
     // Limit
     const parsedLimit = parseInt(options.limit, 10);
     if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
-      handleValidationError(`Invalid --limit value "${options.limit}". Must be a positive integer.`);
+      handleValidationError(
+        `Invalid --limit value "${options.limit}". Must be a positive integer.`,
+      );
     }
     const limit = parsedLimit;
     sessions = sessions.slice(0, limit);
@@ -119,15 +120,8 @@ export async function listSessionsCommand(options: {
       const title = s.summary || chalk.dim("Untitled");
       const repo = s.repository ? chalk.cyan(s.repository) : "";
       const branch = s.branch ? chalk.green(s.branch) : "";
-      const date = s.updatedAt
-        ? chalk.dim(new Date(s.updatedAt).toLocaleDateString())
-        : "";
-      const indicators = [
-        s.hasEvents ? "📝" : "",
-        s.hasDb ? "🗄️" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
+      const date = s.updatedAt ? chalk.dim(new Date(s.updatedAt).toLocaleDateString()) : "";
+      const indicators = [s.hasEvents ? "📝" : "", s.hasDb ? "🗄️" : ""].filter(Boolean).join(" ");
 
       console.log(`  ${chalk.yellow(s.id.slice(0, 8))}  ${title}`);
       if (repo || branch) console.log(`           ${repo} ${branch}`);

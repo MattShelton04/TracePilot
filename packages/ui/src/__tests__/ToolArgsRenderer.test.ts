@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import ToolArgsRenderer from "../components/renderers/ToolArgsRenderer.vue";
 import type { TurnToolCall } from "@tracepilot/types";
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import ToolArgsRenderer from "../components/renderers/ToolArgsRenderer.vue";
 
 function makeTc(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
@@ -16,7 +16,10 @@ describe("ToolArgsRenderer", () => {
   it("renders JSON fallback when richEnabled is false", () => {
     const wrapper = mount(ToolArgsRenderer, {
       props: {
-        tc: makeTc({ toolName: "edit", arguments: { path: "test.ts", old_str: "a", new_str: "b" } }),
+        tc: makeTc({
+          toolName: "edit",
+          arguments: { path: "test.ts", old_str: "a", new_str: "b" },
+        }),
         richEnabled: false,
       },
     });

@@ -1,7 +1,7 @@
-import { onMounted, watch } from 'vue';
-import { useAnalyticsStore } from '@/stores/analytics';
+import { onMounted, watch } from "vue";
+import { useAnalyticsStore } from "@/stores/analytics";
 
-type AnalyticsFetchMethod = 'fetchAnalytics' | 'fetchToolAnalysis' | 'fetchCodeImpact';
+type AnalyticsFetchMethod = "fetchAnalytics" | "fetchToolAnalysis" | "fetchCodeImpact";
 
 /**
  * Shared lifecycle boilerplate for analytics pages.
@@ -23,7 +23,9 @@ export function useAnalyticsPage(method: AnalyticsFetchMethod) {
 
   watch(
     [() => store.selectedRepo, () => store.dateRange],
-    () => { store[method]({ force: true }); },
+    () => {
+      store[method]({ force: true });
+    },
     { deep: true },
   );
 

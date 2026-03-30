@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import EditArgsRenderer from "../components/renderers/EditArgsRenderer.vue";
 
 describe("EditArgsRenderer", () => {
@@ -19,7 +19,7 @@ describe("EditArgsRenderer", () => {
       },
     });
     const labels = wrapper.findAll(".edit-args-label");
-    expect(labels.some(l => l.text() === "Find")).toBe(true);
+    expect(labels.some((l) => l.text() === "Find")).toBe(true);
     expect(wrapper.find(".edit-args-code--old").text()).toBe("old code");
   });
 
@@ -30,7 +30,7 @@ describe("EditArgsRenderer", () => {
       },
     });
     const labels = wrapper.findAll(".edit-args-label");
-    expect(labels.some(l => l.text() === "Replace")).toBe(true);
+    expect(labels.some((l) => l.text() === "Replace")).toBe(true);
     expect(wrapper.find(".edit-args-code--new").text()).toBe("new code");
   });
 

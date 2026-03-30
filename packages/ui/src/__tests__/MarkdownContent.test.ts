@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { mount, flushPromises } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
+import { beforeAll, describe, expect, it } from "vitest";
 import MarkdownContent from "../components/MarkdownContent.vue";
 import { ensureMarkdownReady } from "../utils/markdownLoader";
 
@@ -63,7 +63,7 @@ describe("MarkdownContent", () => {
     expect(wrapper.html()).toContain("&lt;script&gt;");
 
     // 2. Test that malicious links are neutralized or not rendered as links
-    const wrapper2 = await mountAndWait({ content: '[click](javascript:alert(1))' });
+    const wrapper2 = await mountAndWait({ content: "[click](javascript:alert(1))" });
     // markdown-it or dompurify will prevent this from being a clickable javascript link
     expect(wrapper2.html()).not.toContain('href="javascript:');
   });

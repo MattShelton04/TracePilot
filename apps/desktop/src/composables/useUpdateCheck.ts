@@ -1,10 +1,10 @@
-import { getVersion } from '@tauri-apps/api/app';
-import { checkForUpdates } from '@tracepilot/client';
-import type { UpdateCheckResult } from '@tracepilot/types';
-import { toErrorMessage } from '@tracepilot/ui';
-import { ref } from 'vue';
+import { getVersion } from "@tauri-apps/api/app";
+import { checkForUpdates } from "@tracepilot/client";
+import type { UpdateCheckResult } from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { ref } from "vue";
 
-const CACHE_KEY = 'tracepilot-update-check';
+const CACHE_KEY = "tracepilot-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const updateResult = ref<UpdateCheckResult | null>(null);
@@ -15,7 +15,7 @@ async function getCurrentVersion(): Promise<string> {
   try {
     return await getVersion();
   } catch {
-    return 'dev';
+    return "dev";
   }
 }
 
@@ -55,7 +55,7 @@ export async function runUpdateCheck(force = false): Promise<void> {
     );
     updateResult.value = result;
   } catch (e) {
-    updateCheckError.value = toErrorMessage(e, 'Update check failed');
+    updateCheckError.value = toErrorMessage(e, "Update check failed");
   } finally {
     updateCheckLoading.value = false;
   }

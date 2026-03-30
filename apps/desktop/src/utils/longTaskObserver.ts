@@ -10,7 +10,7 @@
 let observer: PerformanceObserver | null = null;
 
 export function startLongTaskObserver(): void {
-  if (typeof PerformanceObserver === 'undefined') return;
+  if (typeof PerformanceObserver === "undefined") return;
   if (observer) return;
 
   try {
@@ -25,7 +25,7 @@ export function startLongTaskObserver(): void {
       }
     });
 
-    observer.observe({ type: 'longtask', buffered: false });
+    observer.observe({ type: "longtask", buffered: false });
   } catch {
     // PerformanceObserver 'longtask' not supported in this WebView
   }

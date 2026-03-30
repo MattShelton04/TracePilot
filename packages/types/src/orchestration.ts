@@ -11,7 +11,7 @@ export interface WorktreeInfo {
   isMainWorktree: boolean;
   isBare: boolean;
   diskUsageBytes?: number;
-  status: 'active' | 'stale';
+  status: "active" | "stale";
   isLocked: boolean;
   lockedReason?: string;
   linkedSessionId?: string;
@@ -45,7 +45,7 @@ export interface RegisteredRepo {
   name: string;
   addedAt: string;
   lastUsedAt?: string;
-  source: 'manual' | 'session-discovery';
+  source: "manual" | "session-discovery";
   favourite?: boolean;
 }
 

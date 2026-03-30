@@ -2,9 +2,9 @@
 defineProps<{
   value: string | number;
   label: string;
-  color?: 'accent' | 'success' | 'warning' | 'danger' | 'done';
+  color?: "accent" | "success" | "warning" | "danger" | "done";
   trend?: string;
-  trendDirection?: 'up' | 'down' | 'neutral';
+  trendDirection?: "up" | "down" | "neutral";
   gradient?: boolean;
   mini?: boolean;
   tooltip?: string;

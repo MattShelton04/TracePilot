@@ -1,6 +1,4 @@
-import type { ComputedRef, Ref } from 'vue';
-import { computed } from 'vue';
-import type { ChartCoord, ChartLayout, XAxisLabel, YAxisLabel } from '@tracepilot/ui';
+import type { ChartCoord, ChartLayout, XAxisLabel, YAxisLabel } from "@tracepilot/ui";
 import {
   formatDateShort,
   generateXLabels,
@@ -8,7 +6,9 @@ import {
   mapToLineCoords,
   toAreaPoints,
   toPolylinePoints,
-} from '@tracepilot/ui';
+} from "@tracepilot/ui";
+import type { ComputedRef, Ref } from "vue";
+import { computed } from "vue";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -83,7 +83,11 @@ export function useLineAreaChartData<T extends { date: string }>(
     const linePoints = toPolylinePoints(coords);
     const areaPoints = toAreaPoints(coords, layout);
     const yLabels = generateYLabels(max, layout, yTicks, yFormatter);
-    const xLabels = generateXLabels(coords, (c) => c.x, (c) => formatDateShort(c.date));
+    const xLabels = generateXLabels(
+      coords,
+      (c) => c.x,
+      (c) => formatDateShort(c.date),
+    );
 
     return { coords, linePoints, areaPoints, yLabels, xLabels };
   });

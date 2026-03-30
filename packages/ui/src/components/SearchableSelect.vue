@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
   options: string[];
@@ -10,12 +10,10 @@ const props = defineProps<{
   allowCustom?: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void;
-}>();
+const emit = defineEmits<(e: "update:modelValue", value: string) => void>();
 
 const isOpen = ref(false);
-const searchQuery = ref('');
+const searchQuery = ref("");
 const selectedIndex = ref(-1);
 const containerRef = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -48,13 +46,13 @@ function updateDropdownPosition() {
 
   dropdownStyle.value = openAbove
     ? {
-        position: 'fixed',
+        position: "fixed",
         bottom: `${window.innerHeight - rect.top + 4}px`,
         left: `${rect.left}px`,
         width: `${rect.width}px`,
       }
     : {
-        position: 'fixed',
+        position: "fixed",
         top: `${rect.bottom + 4}px`,
         left: `${rect.left}px`,
         width: `${rect.width}px`,
@@ -71,11 +69,11 @@ function openDropdown() {
 function close() {
   isOpen.value = false;
   if (!searchQuery.value && props.clearable) {
-    if (props.modelValue !== '') {
-      emit('update:modelValue', '');
+    if (props.modelValue !== "") {
+      emit("update:modelValue", "");
     }
   } else if (props.allowCustom && searchQuery.value !== props.modelValue) {
-    emit('update:modelValue', searchQuery.value);
+    emit("update:modelValue", searchQuery.value);
   } else if (!props.allowCustom && searchQuery.value !== props.modelValue) {
     searchQuery.value = props.modelValue;
   }
@@ -83,15 +81,15 @@ function close() {
 
 function selectOption(option: string) {
   searchQuery.value = option;
-  emit('update:modelValue', option);
+  emit("update:modelValue", option);
   isOpen.value = false;
   inputRef.value?.blur();
 }
 
 function clear(e: Event) {
   e.stopPropagation();
-  searchQuery.value = '';
-  emit('update:modelValue', '');
+  searchQuery.value = "";
+  emit("update:modelValue", "");
   if (!isOpen.value) {
     inputRef.value?.focus();
   }
@@ -105,8 +103,8 @@ function handleInput() {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (!isOpen.value && e.key !== 'Escape' && e.key !== 'Tab') {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+  if (!isOpen.value && e.key !== "Escape" && e.key !== "Tab") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
       openDropdown();
       e.preventDefault();
     }
@@ -114,20 +112,20 @@ function handleKeydown(e: KeyboardEvent) {
   }
 
   switch (e.key) {
-    case 'ArrowDown':
+    case "ArrowDown":
       e.preventDefault();
       selectedIndex.value = Math.min(selectedIndex.value + 1, filteredOptions.value.length - 1);
       scrollIntoView();
       break;
-    case 'ArrowUp':
+    case "ArrowUp":
       e.preventDefault();
       selectedIndex.value = Math.max(selectedIndex.value - 1, 0);
       scrollIntoView();
       break;
-    case 'Enter':
+    case "Enter":
       e.preventDefault();
       if (!searchQuery.value && props.clearable) {
-        selectOption('');
+        selectOption("");
       } else if (selectedIndex.value >= 0) {
         selectOption(filteredOptions.value[selectedIndex.value]);
       } else if (filteredOptions.value.length === 1 && !props.allowCustom && searchQuery.value) {
@@ -136,7 +134,7 @@ function handleKeydown(e: KeyboardEvent) {
         selectOption(searchQuery.value);
       }
       break;
-    case 'Escape':
+    case "Escape":
       e.preventDefault();
       close();
       inputRef.value?.blur();
@@ -146,9 +144,9 @@ function handleKeydown(e: KeyboardEvent) {
 
 function scrollIntoView() {
   nextTick(() => {
-    const el = listRef.value?.querySelector('.option-item.selected') as HTMLElement;
+    const el = listRef.value?.querySelector(".option-item.selected") as HTMLElement;
     if (el) {
-      el.scrollIntoView({ block: 'nearest' });
+      el.scrollIntoView({ block: "nearest" });
     }
   });
 }
@@ -170,15 +168,15 @@ function handleScrollOrResize() {
 }
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
-  window.addEventListener('scroll', handleScrollOrResize, true);
-  window.addEventListener('resize', handleScrollOrResize);
+  document.addEventListener("mousedown", handleClickOutside);
+  window.addEventListener("scroll", handleScrollOrResize, true);
+  window.addEventListener("resize", handleScrollOrResize);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
-  window.removeEventListener('scroll', handleScrollOrResize, true);
-  window.removeEventListener('resize', handleScrollOrResize);
+  document.removeEventListener("mousedown", handleClickOutside);
+  window.removeEventListener("scroll", handleScrollOrResize, true);
+  window.removeEventListener("resize", handleScrollOrResize);
 });
 
 watch(filteredOptions, () => {

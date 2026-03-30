@@ -13,12 +13,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
-const query = computed(() =>
-  typeof props.args?.query === "string" ? props.args.query : null
-);
+const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
 
 /** Extract URLs from markdown link format. */
 const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
@@ -30,7 +28,11 @@ const sources = computed<Array<{ title: string; url: string; domain: string }>>(
     if (!seen.has(m[2])) {
       seen.add(m[2]);
       let domain = "";
-      try { domain = new URL(m[2]).hostname.replace(/^www\./, ""); } catch { /* */ }
+      try {
+        domain = new URL(m[2]).hostname.replace(/^www\./, "");
+      } catch {
+        /* */
+      }
       results.push({ title: m[1], url: m[2], domain });
     }
   }
@@ -51,71 +53,66 @@ const renderedBody = computed(() => {
   html = html.replace(/^---+$/gm, '<hr class="ws-hr">');
 
   // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   // Italic (single *)
-  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="ws-inline-code">$1</code>');
 
   // Citation references like [1], [2] — only match standalone numeric refs
   // Use negative lookbehind/lookahead to avoid matching markdown link text
-  html = html.replace(
-    /(?<!\[)\[(\d+)\](?!\()/g,
-    '<span class="ws-citation">$1</span>'
-  );
+  html = html.replace(/(?<!\[)\[(\d+)\](?!\()/g, '<span class="ws-citation">$1</span>');
 
   // Markdown links → clickable (handles one level of nested parentheses in URL)
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>'
+    '<a href="$2" target="_blank" rel="noopener" class="ws-link">$1</a>',
   );
 
   // Unordered lists (- or * at line start)
-  html = html.replace(
-    /(?:^|\n)((?:(?:- |\* ).+\n?)+)/g,
-    (_match, block: string) => {
-      const items = block.split("\n")
-        .filter(l => l.trim())
-        .map(l => `<li>${l.replace(/^(?:- |\* )/, "")}</li>`)
-        .join("");
-      return `<ul class="ws-list">${items}</ul>`;
-    }
-  );
+  html = html.replace(/(?:^|\n)((?:(?:- |\* ).+\n?)+)/g, (_match, block: string) => {
+    const items = block
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => `<li>${l.replace(/^(?:- |\* )/, "")}</li>`)
+      .join("");
+    return `<ul class="ws-list">${items}</ul>`;
+  });
 
   // Ordered lists (1. 2. etc.)
-  html = html.replace(
-    /(?:^|\n)((?:\d+\. .+\n?)+)/g,
-    (_match, block: string) => {
-      const items = block.split("\n")
-        .filter(l => l.trim())
-        .map(l => `<li>${l.replace(/^\d+\. /, "")}</li>`)
-        .join("");
-      return `<ol class="ws-list ws-list--ordered">${items}</ol>`;
-    }
-  );
+  html = html.replace(/(?:^|\n)((?:\d+\. .+\n?)+)/g, (_match, block: string) => {
+    const items = block
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => `<li>${l.replace(/^\d+\. /, "")}</li>`)
+      .join("");
+    return `<ol class="ws-list ws-list--ordered">${items}</ol>`;
+  });
 
   // Blockquotes (> at line start)
-  html = html.replace(
-    /(?:^|\n)((?:&gt; .+\n?)+)/g,
-    (_match, block: string) => {
-      const content = block.split("\n")
-        .filter(l => l.trim())
-        .map(l => l.replace(/^&gt; /, ""))
-        .join("<br>");
-      return `<blockquote class="ws-blockquote">${content}</blockquote>`;
-    }
-  );
+  html = html.replace(/(?:^|\n)((?:&gt; .+\n?)+)/g, (_match, block: string) => {
+    const content = block
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => l.replace(/^&gt; /, ""))
+      .join("<br>");
+    return `<blockquote class="ws-blockquote">${content}</blockquote>`;
+  });
 
   // Line breaks (double newline = paragraph, single = br)
   html = html.replace(/\n\n+/g, '</p><p class="ws-paragraph">');
-  html = html.replace(/\n/g, '<br>');
+  html = html.replace(/\n/g, "<br>");
   html = `<p class="ws-paragraph">${html}</p>`;
 
   return html;
 });
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function faviconUrl(domain: string): string {

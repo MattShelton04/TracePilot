@@ -1,30 +1,30 @@
 <script setup lang="ts">
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { computed, ref, watch } from "vue";
 import {
   Badge,
-  ExpandChevron,
+  categoryColor,
   EmptyState,
-  LoadingSpinner,
-  ToolDetailPanel,
-  TerminologyLegend,
+  ExpandChevron,
+  extractPrompt,
+  formatArgsSummary,
   formatDuration,
   formatLiveDuration,
   formatTime,
-  truncateText,
-  toolIcon,
-  toolCategory,
-  categoryColor,
-  formatArgsSummary,
-  extractPrompt,
   getAgentColor,
   getToolStatusColor,
   inferAgentTypeFromToolCall,
-  useToggleSet,
+  LoadingSpinner,
+  TerminologyLegend,
+  ToolDetailPanel,
+  toolCategory,
+  toolIcon,
+  truncateText,
   useLiveDuration,
+  useToggleSet,
 } from "@tracepilot/ui";
-import { useTimelineToolState } from "@/composables/useTimelineToolState";
+import { computed, ref, watch } from "vue";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
+import { useTimelineToolState } from "@/composables/useTimelineToolState";
 
 // Define the turn ownership check logic for the composable
 const turnOwnershipCheck = (turn: ConversationTurn, tool: TurnToolCall): boolean => {
@@ -35,14 +35,14 @@ const turnOwnershipCheck = (turn: ConversationTurn, tool: TurnToolCall): boolean
   // identity/ID check below, since they are rendered as lanes in their own turn.
   if (tool.parentToolCallId && !tool.isSubagent) {
     const turnSubagentIds = new Set(
-      turn.toolCalls.filter(tc => tc.isSubagent && tc.toolCallId).map(tc => tc.toolCallId!),
+      turn.toolCalls.filter((tc) => tc.isSubagent && tc.toolCallId).map((tc) => tc.toolCallId!),
     );
     return turnSubagentIds.has(tool.parentToolCallId);
   }
 
   // For direct tools / subagent headers, use object identity or ID match
   if (tool.toolCallId) {
-    return turn.toolCalls.some(tc => tc.toolCallId === tool.toolCallId);
+    return turn.toolCalls.some((tc) => tc.toolCallId === tool.toolCallId);
   }
   return turn.toolCalls.includes(tool);
 };
@@ -65,7 +65,7 @@ const {
 
 // ── Live-ticking for in-progress subagents ───────────────────
 const hasInProgressAgents = computed(() =>
-  store.turns.some(t => t.toolCalls.some(tc => tc.isSubagent && !tc.isComplete)),
+  store.turns.some((t) => t.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)),
 );
 const { nowMs } = useLiveDuration(hasInProgressAgents);
 
@@ -78,9 +78,9 @@ function agentLiveDuration(agent: TurnToolCall): number | undefined {
 
 // ── Collapse / expand state ──────────────────────────────────
 
-const phases = useToggleSet<number>();    // phase index → collapsed
-const turnSet = useToggleSet<string>();   // `${phaseIdx}-${turnIdx}` → collapsed
-const agentSet = useToggleSet<string>();  // `${turnKey}-${toolCallId}` → collapsed
+const phases = useToggleSet<number>(); // phase index → collapsed
+const turnSet = useToggleSet<string>(); // `${phaseIdx}-${turnIdx}` → collapsed
+const agentSet = useToggleSet<string>(); // `${turnKey}-${toolCallId}` → collapsed
 
 // ── Expandable swimlane messages ─────────────────────────────
 const expandedMessages = useToggleSet<string>(); // `${turnIndex}-user` or `${turnIndex}-assistant`
@@ -145,16 +145,20 @@ const groupedPhases = computed<Phase[]>(() => {
 
 // ── Default collapsed for large sessions ─────────────────────
 let lastPhaseCount = 0;
-watch(groupedPhases, (newPhases) => {
-  // Only auto-collapse on initial load or when phase count changes
-  // (not on soft refresh which returns the same structure)
-  if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
-    for (let i = 1; i < newPhases.length; i++) {
-      phases.set.value.add(i);
+watch(
+  groupedPhases,
+  (newPhases) => {
+    // Only auto-collapse on initial load or when phase count changes
+    // (not on soft refresh which returns the same structure)
+    if (newPhases.length > 3 && newPhases.length !== lastPhaseCount) {
+      for (let i = 1; i < newPhases.length; i++) {
+        phases.set.value.add(i);
+      }
     }
-  }
-  lastPhaseCount = newPhases.length;
-}, { immediate: true });
+    lastPhaseCount = newPhases.length;
+  },
+  { immediate: true },
+);
 
 // ── Phase-level summaries ────────────────────────────────────
 
@@ -167,10 +171,7 @@ function phaseToolCount(phase: Phase): number {
 }
 
 function phaseAgentCount(phase: Phase): number {
-  return phase.turns.reduce(
-    (sum, t) => sum + t.toolCalls.filter((tc) => tc.isSubagent).length,
-    0,
-  );
+  return phase.turns.reduce((sum, t) => sum + t.toolCalls.filter((tc) => tc.isSubagent).length, 0);
 }
 
 // ── Turn-level helpers ───────────────────────────────────────
@@ -191,15 +192,17 @@ function nestedTools(turn: ConversationTurn, agent: TurnToolCall): TurnToolCall[
 }
 
 // Set of all subagent toolCallIds across all turns (for filtering cross-turn children)
-const allSubagentIds = computed(() => new Set(
-  allToolCalls.value
-    .filter((tc) => tc.isSubagent && tc.toolCallId)
-    .map((tc) => tc.toolCallId),
-));
+const allSubagentIds = computed(
+  () =>
+    new Set(
+      allToolCalls.value.filter((tc) => tc.isSubagent && tc.toolCallId).map((tc) => tc.toolCallId),
+    ),
+);
 
 function directTools(turn: ConversationTurn): TurnToolCall[] {
   return turn.toolCalls.filter(
-    (tc) => !tc.isSubagent && (!tc.parentToolCallId || !allSubagentIds.value.has(tc.parentToolCallId)),
+    (tc) =>
+      !tc.isSubagent && (!tc.parentToolCallId || !allSubagentIds.value.has(tc.parentToolCallId)),
   );
 }
 
@@ -289,10 +292,21 @@ const { parallelIds: parallelAgentIds } = useParallelAgentDetection(allAgentTool
 
 // ── Terminology legend items ─────────────────────────────────
 const swimlaneTerms = [
-  { term: 'Phase', definition: 'A group of turns initiated by one user prompt' },
-  { term: 'Turn', definition: 'A single assistant response cycle (may include tool calls and subagent invocations)' },
-  { term: 'Subagent', definition: 'An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)' },
-  { term: 'Direct Tools', definition: 'Tool calls made directly by the main agent (not delegated to subagents)' },
+  { term: "Phase", definition: "A group of turns initiated by one user prompt" },
+  {
+    term: "Turn",
+    definition:
+      "A single assistant response cycle (may include tool calls and subagent invocations)",
+  },
+  {
+    term: "Subagent",
+    definition:
+      "An autonomous agent spawned to handle a specific subtask (e.g. explore, code-review)",
+  },
+  {
+    term: "Direct Tools",
+    definition: "Tool calls made directly by the main agent (not delegated to subagents)",
+  },
 ];
 </script>
 

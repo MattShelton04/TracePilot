@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onErrorCaptured } from 'vue';
-import { logError } from '@/utils/logger';
+import { onErrorCaptured, ref } from "vue";
+import { logError } from "@/utils/logger";
 
 const error = ref<Error | null>(null);
-const errorInfo = ref<string>('');
+const errorInfo = ref<string>("");
 
 onErrorCaptured((err: Error, _instance, info) => {
   error.value = err;
@@ -15,7 +15,7 @@ onErrorCaptured((err: Error, _instance, info) => {
 
 function retry() {
   error.value = null;
-  errorInfo.value = '';
+  errorInfo.value = "";
 }
 </script>
 

@@ -10,8 +10,8 @@ export async function indexCommand(options: { full?: boolean }) {
   console.log(
     chalk.yellow(
       "\n  Index command uses the Rust indexer — run from the desktop app " +
-        "or wait for NAPI-RS integration.\n"
-    )
+        "or wait for NAPI-RS integration.\n",
+    ),
   );
   if (options.full) {
     console.log(chalk.dim("  (--full flag noted; will be used once Rust indexer is integrated)\n"));

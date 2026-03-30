@@ -1,27 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { useUpdateCheck } from '@/composables/useUpdateCheck';
-import { useAutoUpdate } from '@/composables/useAutoUpdate';
-import { openExternal } from '@/utils/openExternal';
+import { computed, onMounted } from "vue";
+import { useAutoUpdate } from "@/composables/useAutoUpdate";
+import { useUpdateCheck } from "@/composables/useUpdateCheck";
+import { openExternal } from "@/utils/openExternal";
 
 const emit = defineEmits<{
   close: [];
 }>();
 
 const { updateResult } = useUpdateCheck();
-const { status, progress, errorMessage, installType, detectInstallType, installUpdate } = useAutoUpdate();
+const { status, progress, errorMessage, installType, detectInstallType, installUpdate } =
+  useAutoUpdate();
 
-const version = computed(() => updateResult.value?.latestVersion ?? '');
+const version = computed(() => updateResult.value?.latestVersion ?? "");
 const releaseUrl = computed(() => updateResult.value?.releaseUrl);
-const isUpdating = computed(() => ['checking', 'downloading', 'installing', 'done'].includes(status.value));
+const isUpdating = computed(() =>
+  ["checking", "downloading", "installing", "done"].includes(status.value),
+);
 
 const statusText = computed(() => {
   switch (status.value) {
-    case 'checking': return 'Checking for update…';
-    case 'downloading': return `Downloading… ${progress.value}%`;
-    case 'installing': return 'Installing…';
-    case 'done': return 'Relaunching…';
-    default: return '';
+    case "checking":
+      return "Checking for update…";
+    case "downloading":
+      return `Downloading… ${progress.value}%`;
+    case "installing":
+      return "Installing…";
+    case "done":
+      return "Relaunching…";
+    default:
+      return "";
   }
 });
 

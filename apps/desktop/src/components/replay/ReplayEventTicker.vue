@@ -3,9 +3,10 @@
  * ReplayEventTicker — scrolling horizontal event ticker at the bottom.
  * Shows session events from all steps up to the current step.
  */
-import { computed } from 'vue';
-import type { ReplayStep } from '@tracepilot/types';
-import { formatTime } from '@tracepilot/ui';
+
+import type { ReplayStep } from "@tracepilot/types";
+import { formatTime } from "@tracepilot/ui";
+import { computed } from "vue";
 
 const props = defineProps<{
   steps: ReplayStep[];
@@ -13,7 +14,7 @@ const props = defineProps<{
 }>();
 
 interface TickerEvent {
-  type: 'user' | 'assistant' | 'tool' | 'session' | 'context';
+  type: "user" | "assistant" | "tool" | "session" | "context";
   label: string;
   time: string;
 }
@@ -23,22 +24,22 @@ const tickerEvents = computed<TickerEvent[]>(() => {
 
   for (let i = 0; i <= props.currentStep && i < props.steps.length; i++) {
     const step = props.steps[i];
-    const time = formatTime(step.timestamp) || '';
+    const time = formatTime(step.timestamp) || "";
 
     if (step.userMessage) {
-      events.push({ type: 'user', label: 'user.message', time });
+      events.push({ type: "user", label: "user.message", time });
     }
 
     if (step.assistantMessages?.length) {
-      events.push({ type: 'assistant', label: 'assistant.message', time });
+      events.push({ type: "assistant", label: "assistant.message", time });
     }
 
     // Tool call events
     if (step.richToolCalls) {
       for (const tc of step.richToolCalls) {
-        const suffix = tc.success === false ? ' ✗' : tc.success === true ? ' ✓' : '';
+        const suffix = tc.success === false ? " ✗" : tc.success === true ? " ✓" : "";
         events.push({
-          type: 'tool',
+          type: "tool",
           label: `tool.${tc.toolName}${suffix}`,
           time: formatTime(tc.startedAt) || time,
         });
@@ -49,7 +50,7 @@ const tickerEvents = computed<TickerEvent[]>(() => {
     if (step.sessionEvents) {
       for (const se of step.sessionEvents) {
         events.push({
-          type: 'session',
+          type: "session",
           label: se.eventType,
           time: formatTime(se.timestamp) || time,
         });
@@ -59,7 +60,7 @@ const tickerEvents = computed<TickerEvent[]>(() => {
     // Model switch
     if (step.modelSwitchFrom && step.model) {
       events.push({
-        type: 'context',
+        type: "context",
         label: `model: ${step.modelSwitchFrom} → ${step.model}`,
         time,
       });

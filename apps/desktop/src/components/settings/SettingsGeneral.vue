@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { BtnGroup, FormInput, FormSwitch, SectionPanel } from '@tracepilot/ui';
-import { type ThemeOption, usePreferencesStore } from '@/stores/preferences';
-import { useSessionsStore } from '@/stores/sessions';
+import { BtnGroup, FormInput, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import { type ThemeOption, usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 
 const preferences = usePreferencesStore();
 const sessionsStore = useSessionsStore();
 
 const themeOptions = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 </script>
 

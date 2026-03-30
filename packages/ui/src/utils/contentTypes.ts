@@ -21,17 +21,17 @@ export interface ContentTypeStyle {
  * to the union will cause a compile error until this map is updated.
  */
 export const CONTENT_TYPE_CONFIG: Record<SearchContentType, ContentTypeStyle> = {
-  user_message:       { label: "User Message",      color: "#4ade80" },
-  assistant_message:  { label: "Assistant Message",  color: "#60a5fa" },
-  reasoning:          { label: "Reasoning",          color: "#a78bfa" },
-  tool_call:          { label: "Tool Call",          color: "#f59e0b" },
-  tool_result:        { label: "Tool Result",        color: "#fb923c" },
-  tool_error:         { label: "Tool Error",         color: "#ef4444" },
-  error:              { label: "Error",              color: "#ef4444" },
-  compaction_summary: { label: "Compaction",         color: "#818cf8" },
-  system_message:     { label: "System Message",     color: "#94a3b8" },
-  subagent:           { label: "Subagent",           color: "#c084fc" },
-  checkpoint:         { label: "Checkpoint",         color: "#06b6d4" },
+  user_message: { label: "User Message", color: "#4ade80" },
+  assistant_message: { label: "Assistant Message", color: "#60a5fa" },
+  reasoning: { label: "Reasoning", color: "#a78bfa" },
+  tool_call: { label: "Tool Call", color: "#f59e0b" },
+  tool_result: { label: "Tool Result", color: "#fb923c" },
+  tool_error: { label: "Tool Error", color: "#ef4444" },
+  error: { label: "Error", color: "#ef4444" },
+  compaction_summary: { label: "Compaction", color: "#818cf8" },
+  system_message: { label: "System Message", color: "#94a3b8" },
+  subagent: { label: "Subagent", color: "#c084fc" },
+  checkpoint: { label: "Checkpoint", color: "#06b6d4" },
 };
 
 /**

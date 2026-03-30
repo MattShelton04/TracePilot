@@ -5,22 +5,25 @@
  * The parser is eagerly loaded at app startup via ensureMarkdownReady() in main.ts.
  * This component simply uses the shared singleton — no layout shift from async loading.
  */
-import { computed, watchEffect } from 'vue';
-import { mdReady, ensureMarkdownReady, renderMarkdown, escapeHtml } from '../utils/markdownLoader';
+import { computed, watchEffect } from "vue";
+import { ensureMarkdownReady, escapeHtml, mdReady, renderMarkdown } from "../utils/markdownLoader";
 
-const props = withDefaults(defineProps<{
-  /** Markdown text to render. */
-  content: string;
-  /** Maximum height before showing a scrollbar (CSS value). */
-  maxHeight?: string;
-  /** Whether to render markdown (true) or show as raw text (false). */
-  render?: boolean;
-}>(), {
-  render: true
-});
+const props = withDefaults(
+  defineProps<{
+    /** Markdown text to render. */
+    content: string;
+    /** Maximum height before showing a scrollbar (CSS value). */
+    maxHeight?: string;
+    /** Whether to render markdown (true) or show as raw text (false). */
+    render?: boolean;
+  }>(),
+  {
+    render: true,
+  },
+);
 
 const emit = defineEmits<{
-  'open-external': [url: string];
+  "open-external": [url: string];
 }>();
 
 // Safety net: trigger load if not already started (shouldn't happen in practice)
@@ -37,33 +40,34 @@ const rendered = computed(() => {
 
 function handleLinkClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
-  const link = target.closest('a');
+  const link = target.closest("a");
   if (link) {
-    const href = link.getAttribute('href');
-    if (href && href.startsWith('#')) {
+    const href = link.getAttribute("href");
+    if (href && href.startsWith("#")) {
       // Internal section link - prevent default to avoid 404 in SPA
       event.preventDefault();
 
       const id = href.slice(1).toLowerCase();
-      const container = (event.currentTarget as HTMLElement);
+      const container = event.currentTarget as HTMLElement;
 
       // 1. Try to find by ID (standard)
       let element = container.querySelector(`[id="${id}"], a[name="${id}"]`);
 
       // 2. If not found, try to find a header that matches the slug
       if (!element) {
-        const headers = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        const headers = container.querySelectorAll("h1, h2, h3, h4, h5, h6");
         for (const h of Array.from(headers)) {
-          const text = h.textContent || '';
+          const text = h.textContent || "";
           // Standard slugging: don't collapse multiple dashes if they come from multiple spaces/chars
-          const slug = text.toLowerCase()
+          const slug = text
+            .toLowerCase()
             .trim()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/\s/g, '-')
-            .replace(/_/g, '-')
-            .replace(/^-+|-+$/g, '');
+            .replace(/[^\w\s-]/g, "")
+            .replace(/\s/g, "-")
+            .replace(/_/g, "-")
+            .replace(/^-+|-+$/g, "");
 
-          if (slug === id || slug.replace(/-+/g, '-') === id.replace(/-+/g, '-')) {
+          if (slug === id || slug.replace(/-+/g, "-") === id.replace(/-+/g, "-")) {
             element = h;
             break;
           }
@@ -74,13 +78,13 @@ function handleLinkClick(event: MouseEvent) {
         // Use scroll-margin-top on the target element if possible,
         // otherwise just use scrollIntoView which is more reliable than manual relative math
         // in complex layouts.
-        (element as HTMLElement).style.scrollMarginTop = '80px';
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        (element as HTMLElement).style.scrollMarginTop = "80px";
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    } else if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+    } else if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
       // External link - emit event for parent to handle (opens in external browser in Tauri)
       event.preventDefault();
-      emit('open-external', href);
+      emit("open-external", href);
     }
   }
 }

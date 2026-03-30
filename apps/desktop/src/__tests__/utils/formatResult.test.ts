@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { formatObjectResult } from "../../utils/formatResult";
 
 describe("formatObjectResult", () => {
@@ -35,35 +35,29 @@ describe("formatObjectResult", () => {
     });
 
     it("prefers content over detailedContent when both are present", () => {
-      expect(
-        formatObjectResult({ content: "primary", detailedContent: "fallback" }),
-      ).toBe("primary");
+      expect(formatObjectResult({ content: "primary", detailedContent: "fallback" })).toBe(
+        "primary",
+      );
     });
 
     it("falls back to detailedContent when content is empty", () => {
-      expect(
-        formatObjectResult({ content: "", detailedContent: "fallback" }),
-      ).toBe("fallback");
+      expect(formatObjectResult({ content: "", detailedContent: "fallback" })).toBe("fallback");
     });
 
     it("falls back to detailedContent when content is whitespace-only", () => {
-      expect(
-        formatObjectResult({ content: "   ", detailedContent: "fallback" }),
-      ).toBe("fallback");
+      expect(formatObjectResult({ content: "   ", detailedContent: "fallback" })).toBe("fallback");
     });
 
     it("extracts content even when empty counterpart is present", () => {
       // Object keys: content (non-empty) + detailedContent (empty) → still extract
-      expect(
-        formatObjectResult({ content: "text", detailedContent: "" }),
-      ).toBe("text");
+      expect(formatObjectResult({ content: "text", detailedContent: "" })).toBe("text");
     });
 
     it("extracts content when other fields are null/empty/false", () => {
       // These "empty" values are filtered out by the meaningful-keys check
-      expect(
-        formatObjectResult({ content: "text", extra: null, flag: false, note: "" }),
-      ).toBe("text");
+      expect(formatObjectResult({ content: "text", extra: null, flag: false, note: "" })).toBe(
+        "text",
+      );
     });
   });
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   total: number;
-  current: number;  // 0-based
+  current: number; // 0-based
 }>();
 </script>
 

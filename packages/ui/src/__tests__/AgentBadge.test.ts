@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import AgentBadge from "../components/AgentBadge.vue";
 
 describe("AgentBadge", () => {
@@ -61,9 +61,7 @@ describe("AgentBadge", () => {
     const wrapper = mount(AgentBadge, {
       props: { agentName: "Code Review", model: "gpt-4" },
     });
-    expect(wrapper.find(".agent-badge").attributes("title")).toBe(
-      "Code Review (gpt-4)",
-    );
+    expect(wrapper.find(".agent-badge").attributes("title")).toBe("Code Review (gpt-4)");
   });
 
   it("applies agent color to dot", () => {

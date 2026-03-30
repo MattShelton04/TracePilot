@@ -1,13 +1,11 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import ErrorState from "../components/ErrorState.vue";
 
 describe("ErrorState", () => {
   it("renders default heading", () => {
     const wrapper = mount(ErrorState);
-    expect(wrapper.find(".error-state__heading").text()).toBe(
-      "Something went wrong",
-    );
+    expect(wrapper.find(".error-state__heading").text()).toBe("Something went wrong");
   });
 
   it("renders custom heading prop", () => {

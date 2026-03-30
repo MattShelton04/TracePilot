@@ -7,7 +7,7 @@
  * between static (CSS) and dynamic (JS-driven charts) visuals, and enabling theme support.
  */
 
-import { getChartColors } from './designTokens'
+import { getChartColors } from "./designTokens";
 
 /**
  * Chart color constants derived from design tokens.
@@ -16,7 +16,7 @@ import { getChartColors } from './designTokens'
  * Note: Values are computed at module load time. If you need theme-reactive colors,
  * call getChartColors() directly after theme changes.
  */
-export const CHART_COLORS = getChartColors()
+export const CHART_COLORS = getChartColors();
 
 /** Default palette for donut/pie charts. */
 export const DONUT_PALETTE = [

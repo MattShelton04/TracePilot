@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { useLauncherStore } from '@/stores/launcher';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useWorktreesStore } from '@/stores/worktrees';
-import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { useGitRepository } from '@/composables/useGitRepository';
+import type { LaunchConfig, SessionTemplate } from "@tracepilot/types";
+import { DEFAULT_MODEL_ID, getTierLabel } from "@tracepilot/types";
 import {
-  truncateText,
-  formatCost,
-  toErrorMessage,
-  useToast,
-  useConfirmDialog,
-  useClipboard,
   ErrorAlert,
+  formatCost,
   SearchableSelect,
-} from '@tracepilot/ui';
-import type { LaunchConfig, SessionTemplate } from '@tracepilot/types';
-import { DEFAULT_MODEL_ID, getTierLabel } from '@tracepilot/types';
+  toErrorMessage,
+  truncateText,
+  useClipboard,
+  useConfirmDialog,
+  useToast,
+} from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import { browseForDirectory } from "@/composables/useBrowseDirectory";
+import { useGitRepository } from "@/composables/useGitRepository";
+import { useLauncherStore } from "@/stores/launcher";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useWorktreesStore } from "@/stores/worktrees";
 
 const store = useLauncherStore();
 const prefsStore = usePreferencesStore();
@@ -29,21 +29,21 @@ const { confirm } = useConfirmDialog();
 const { copy: copyToClipboard } = useClipboard();
 
 // ── Form state ──────────────────────────────────────────────────────
-const repoPath = ref('');
-const branch = ref('');
-const selectedModel = ref('');
+const repoPath = ref("");
+const branch = ref("");
+const selectedModel = ref("");
 const createWorktree = ref(false);
 const autoApprove = ref(false);
 const headless = ref(false);
-const reasoningEffort = ref<'low' | 'medium' | 'high'>('medium');
-const prompt = ref('');
-const customInstructions = ref('');
+const reasoningEffort = ref<"low" | "medium" | "high">("medium");
+const prompt = ref("");
+const customInstructions = ref("");
 const envVars = reactive<{ key: string; value: string }[]>([]);
 
 const selectedTemplateId = ref<string | null>(null);
 const showAdvanced = ref(false);
 const showTemplateForm = ref(false);
-const templateForm = reactive({ name: '', description: '', category: '', icon: '' });
+const templateForm = reactive({ name: "", description: "", category: "", icon: "" });
 const contextMenuTpl = ref<{ id: string; x: number; y: number } | null>(null);
 const confirmingDeleteId = ref<string | null>(null);
 
@@ -51,8 +51,8 @@ const confirmingDeleteId = ref<string | null>(null);
 const selectedModelInfo = computed(() => store.models.find((m) => m.id === selectedModel.value));
 
 const selectedTemplateName = computed(() => {
-  if (!selectedTemplateId.value) return 'Custom';
-  return store.templates.find((t) => t.id === selectedTemplateId.value)?.name ?? 'Custom';
+  if (!selectedTemplateId.value) return "Custom";
+  return store.templates.find((t) => t.id === selectedTemplateId.value)?.name ?? "Custom";
 });
 
 const envVarsRecord = computed(() => {
@@ -63,7 +63,7 @@ const envVarsRecord = computed(() => {
   return rec;
 });
 
-const baseBranch = ref('');
+const baseBranch = ref("");
 
 // ── Git repository operations ───────────────────────────────────────
 const {
@@ -75,7 +75,7 @@ const {
   repoPath,
   onFetchSuccess: async () => {
     await worktreeStore.loadBranches(repoPath.value);
-    toastSuccess('Fetched latest from remote');
+    toastSuccess("Fetched latest from remote");
   },
   onFetchError: (error) => {
     toastError(error);
@@ -103,49 +103,49 @@ const launchConfig = computed<LaunchConfig>(() => ({
   createWorktree: createWorktree.value,
   autoApprove: autoApprove.value,
   envVars: envVarsRecord.value,
-  cliCommand: prefsStore.cliCommand || 'copilot',
+  cliCommand: prefsStore.cliCommand || "copilot",
 }));
 
-const effectiveCli = computed(() => prefsStore.cliCommand || 'copilot');
+const effectiveCli = computed(() => prefsStore.cliCommand || "copilot");
 
 const cliCommand = computed(() => {
   const parts = [effectiveCli.value];
   if (launchConfig.value.model) parts.push(`--model ${launchConfig.value.model}`);
-  if (launchConfig.value.autoApprove) parts.push('--allow-all');
+  if (launchConfig.value.autoApprove) parts.push("--allow-all");
   if (launchConfig.value.reasoningEffort)
     parts.push(`--reasoning-effort ${launchConfig.value.reasoningEffort}`);
   if (launchConfig.value.prompt) {
     parts.push(`--interactive '${launchConfig.value.prompt.replace(/'/g, "''")}'`);
   }
-  return parts.join(' ');
+  return parts.join(" ");
 });
 
 const cliCommandParts = computed<{ flag: string; value?: string }[]>(() => {
   const parts: { flag: string; value?: string }[] = [{ flag: effectiveCli.value }];
   if (launchConfig.value.model) {
-    parts.push({ flag: '--model', value: launchConfig.value.model });
+    parts.push({ flag: "--model", value: launchConfig.value.model });
   }
-  if (launchConfig.value.autoApprove) parts.push({ flag: '--allow-all' });
+  if (launchConfig.value.autoApprove) parts.push({ flag: "--allow-all" });
   if (launchConfig.value.reasoningEffort) {
-    parts.push({ flag: '--reasoning-effort', value: launchConfig.value.reasoningEffort });
+    parts.push({ flag: "--reasoning-effort", value: launchConfig.value.reasoningEffort });
   }
   if (launchConfig.value.prompt) {
-    parts.push({ flag: '--interactive', value: launchConfig.value.prompt });
+    parts.push({ flag: "--interactive", value: launchConfig.value.prompt });
   }
   return parts;
 });
 
 // Preview path for worktree creation
 const worktreePreviewPath = computed(() => {
-  if (!createWorktree.value || !branch.value) return '';
-  return computeWorktreePath(branch.value).replace(/\//g, '\\');
+  if (!createWorktree.value || !branch.value) return "";
+  return computeWorktreePath(branch.value).replace(/\//g, "\\");
 });
 
 const estimatedCost = computed(() => {
   const modelId = selectedModel.value || DEFAULT_MODEL_ID;
   const pr = prefsStore.getPremiumRequests(modelId);
   const cost = pr * prefsStore.costPerPremiumRequest;
-  if (pr === 0) return 'Free';
+  if (pr === 0) return "Free";
   return `~${formatCost(cost)} (${pr}x premium requests)`;
 });
 
@@ -155,13 +155,13 @@ const canLaunch = computed(() => {
   return true;
 });
 
-const defaultTemplateIds = ['default-multi-agent-review', 'default-write-tests'];
+const defaultTemplateIds = ["default-multi-agent-review", "default-write-tests"];
 const hasDismissedDefaults = computed(() =>
   defaultTemplateIds.some((id) => !store.templates.some((t) => t.id === id)),
 );
 
 function tierLabel(tier: string): string {
-  if (tier === 'premium' || tier === 'standard' || tier === 'fast') {
+  if (tier === "premium" || tier === "standard" || tier === "fast") {
     return getTierLabel(tier);
   }
   // For non-tier strings (e.g. reasoning effort: low/medium/high), capitalize
@@ -170,7 +170,7 @@ function tierLabel(tier: string): string {
 
 function extractEmoji(name: string): string {
   const match = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-  return match ? match[0] : '📄';
+  return match ? match[0] : "📄";
 }
 
 function templateIcon(tpl: SessionTemplate): string {
@@ -178,7 +178,7 @@ function templateIcon(tpl: SessionTemplate): string {
 }
 
 function templateDisplayName(name: string): string {
-  return name.replace(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u, '');
+  return name.replace(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u, "");
 }
 
 // ── Actions ─────────────────────────────────────────────────────────
@@ -194,15 +194,15 @@ function applyTemplate(tplId: string) {
   if (tpl.config.repoPath) {
     repoPath.value = tpl.config.repoPath;
   }
-  branch.value = tpl.config.branch ?? '';
-  selectedModel.value = tpl.config.model ?? '';
+  branch.value = tpl.config.branch ?? "";
+  selectedModel.value = tpl.config.model ?? "";
   createWorktree.value = tpl.config.createWorktree;
-  baseBranch.value = tpl.config.baseBranch ?? '';
+  baseBranch.value = tpl.config.baseBranch ?? "";
   autoApprove.value = tpl.config.autoApprove;
   headless.value = tpl.config.headless;
-  reasoningEffort.value = (tpl.config.reasoningEffort as 'low' | 'medium' | 'high') ?? 'medium';
-  prompt.value = tpl.config.prompt ?? '';
-  customInstructions.value = tpl.config.customInstructions ?? '';
+  reasoningEffort.value = (tpl.config.reasoningEffort as "low" | "medium" | "high") ?? "medium";
+  prompt.value = tpl.config.prompt ?? "";
+  customInstructions.value = tpl.config.customInstructions ?? "";
   envVars.length = 0;
   if (tpl.config.envVars) {
     for (const [k, v] of Object.entries(tpl.config.envVars)) {
@@ -215,8 +215,8 @@ function clearTemplateSelection() {
   selectedTemplateId.value = null;
 }
 
-function moveTemplate(idx: number, direction: 'up' | 'down') {
-  const target = direction === 'up' ? idx - 1 : idx + 1;
+function moveTemplate(idx: number, direction: "up" | "down") {
+  const target = direction === "up" ? idx - 1 : idx + 1;
   if (target < 0 || target >= store.templates.length) return;
   const arr = [...store.templates];
   [arr[idx], arr[target]] = [arr[target], arr[idx]];
@@ -246,7 +246,7 @@ function selectRecentRepo(event: Event) {
 }
 
 async function handleBrowseRepo() {
-  const dir = await browseForDirectory({ title: 'Select repository directory' });
+  const dir = await browseForDirectory({ title: "Select repository directory" });
   if (dir) {
     repoPath.value = dir;
     clearTemplateSelection();
@@ -254,7 +254,7 @@ async function handleBrowseRepo() {
 }
 
 function addEnvVar() {
-  envVars.push({ key: '', value: '' });
+  envVars.push({ key: "", value: "" });
 }
 
 function removeEnvVar(idx: number) {
@@ -276,9 +276,9 @@ async function handleLaunch(asHeadless = false) {
         store.incrementUsage(selectedTemplateId.value);
       }
       toastSuccess(`PID ${session.pid}`, {
-        title: 'Session launched',
+        title: "Session launched",
         description:
-          session.command + (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ''),
+          session.command + (session.worktreePath ? `\n📂 Worktree: ${session.worktreePath}` : ""),
         duration: 8000,
       });
     }
@@ -294,10 +294,10 @@ async function handleSaveTemplate() {
   );
   if (existing) {
     const { confirmed } = await confirm({
-      title: 'Overwrite Template',
+      title: "Overwrite Template",
       message: `Template '${existing.name}' already exists. Do you want to overwrite it?`,
-      variant: 'warning',
-      confirmLabel: 'Overwrite',
+      variant: "warning",
+      confirmLabel: "Overwrite",
     });
     if (!confirmed) return;
   }
@@ -313,10 +313,10 @@ async function handleSaveTemplate() {
     usageCount: existing?.usageCount ?? 0,
   });
   showTemplateForm.value = false;
-  templateForm.name = '';
-  templateForm.description = '';
-  templateForm.category = '';
-  templateForm.icon = '';
+  templateForm.name = "";
+  templateForm.description = "";
+  templateForm.category = "";
+  templateForm.icon = "";
 }
 
 function openContextMenu(e: MouseEvent, tplId: string) {
@@ -339,7 +339,7 @@ function closeContextMenu() {
 
 async function copyCommand() {
   const ok = await copyToClipboard(cliCommand.value);
-  if (ok) toastSuccess('Command copied to clipboard');
+  if (ok) toastSuccess("Command copied to clipboard");
 }
 
 // Note: repoPath watcher removed - now handled by useGitRepository composable
@@ -352,7 +352,7 @@ watch(repoPath, (newPath) => {
 
 onMounted(async () => {
   store.initialize();
-  document.addEventListener('click', closeContextMenu);
+  document.addEventListener("click", closeContextMenu);
 
   // Load registered repos for the dropdown, discovering from sessions if needed
   if (worktreeStore.registeredRepos.length === 0) {
@@ -370,14 +370,14 @@ onMounted(async () => {
   if (route.query.branch) {
     branch.value = String(route.query.branch);
   }
-  if (route.query.createWorktree === 'true') {
+  if (route.query.createWorktree === "true") {
     createWorktree.value = true;
     showAdvanced.value = true;
   }
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeContextMenu);
+  document.removeEventListener("click", closeContextMenu);
 });
 </script>
 

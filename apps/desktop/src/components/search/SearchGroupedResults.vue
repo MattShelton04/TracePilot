@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
-import type { ContentTypeStyle } from '@tracepilot/ui';
-import type { SessionGroup } from '@/stores/search';
+import type { ContentTypeStyle } from "@tracepilot/ui";
+import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
+import type { SessionGroup } from "@/stores/search";
 
 defineProps<{
   groupedResults: SessionGroup[];
@@ -15,9 +15,9 @@ defineProps<{
 }>();
 
 defineEmits<{
-  'toggle-group-collapse': [sessionId: string];
-  'filter-by-session': [sessionId: string, sessionSummary: string | null];
-  'toggle-expand': [resultId: number];
+  "toggle-group-collapse": [sessionId: string];
+  "filter-by-session": [sessionId: string, sessionSummary: string | null];
+  "toggle-expand": [resultId: number];
 }>();
 </script>
 

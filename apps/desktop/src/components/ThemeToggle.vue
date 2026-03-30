@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { usePreferencesStore } from '@/stores/preferences';
+import { usePreferencesStore } from "@/stores/preferences";
 
 const prefs = usePreferencesStore();
 
 function toggle() {
-  prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', prefs.theme);
+  prefs.theme = prefs.theme === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", prefs.theme);
 }
 </script>
 

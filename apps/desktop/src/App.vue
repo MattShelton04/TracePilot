@@ -1,32 +1,32 @@
 <script setup lang="ts">
-import { checkConfigExists, getConfig, saveConfig } from '@tracepilot/client';
-import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
-import { ConfirmDialog, ToastContainer } from '@tracepilot/ui';
-import { logError } from '@/utils/logger';
-import ErrorBoundary from '@/components/ErrorBoundary.vue';
-import IndexingLoadingScreen from '@/components/IndexingLoadingScreen.vue';
-import SearchPalette from '@/components/SearchPalette.vue';
-import AppSidebar from '@/components/layout/AppSidebar.vue';
-import BreadcrumbNav from '@/components/layout/BreadcrumbNav.vue';
-import SetupWizard from '@/components/SetupWizard.vue';
-import UpdateInstructionsModal from '@/components/UpdateInstructionsModal.vue';
-import WhatsNewModal from '@/components/WhatsNewModal.vue';
-import { initAppVersion, useAppVersion } from '@/composables/useAppVersion';
-import { runUpdateCheck } from '@/composables/useUpdateCheck';
-import { useWhatsNew } from '@/composables/useWhatsNew';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useSessionsStore } from '@/stores/sessions';
-import { openExternal } from '@/utils/openExternal';
+import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
+import { ConfirmDialog, ToastContainer } from "@tracepilot/ui";
+import { computed, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+import ErrorBoundary from "@/components/ErrorBoundary.vue";
+import IndexingLoadingScreen from "@/components/IndexingLoadingScreen.vue";
+import AppSidebar from "@/components/layout/AppSidebar.vue";
+import BreadcrumbNav from "@/components/layout/BreadcrumbNav.vue";
+import SearchPalette from "@/components/SearchPalette.vue";
+import SetupWizard from "@/components/SetupWizard.vue";
+import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
+import WhatsNewModal from "@/components/WhatsNewModal.vue";
+import { initAppVersion, useAppVersion } from "@/composables/useAppVersion";
+import { runUpdateCheck } from "@/composables/useUpdateCheck";
+import { useWhatsNew } from "@/composables/useWhatsNew";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
+import { logError } from "@/utils/logger";
+import { openExternal } from "@/utils/openExternal";
 
-type AppPhase = 'loading' | 'setup' | 'indexing' | 'app';
+type AppPhase = "loading" | "setup" | "indexing" | "app";
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 const { appVersion } = useAppVersion();
 
-const phase = ref<AppPhase>('loading');
+const phase = ref<AppPhase>("loading");
 const expectedSessionCount = ref(0);
 const showUpdateModal = ref(false);
 
@@ -51,11 +51,11 @@ onMounted(async () => {
       // setup wizard during indexing.  Restart the entire setup flow.
       const cfg = await getConfig();
       if (!cfg.general.setupComplete) {
-        phase.value = 'setup';
+        phase.value = "setup";
         return;
       }
 
-      phase.value = 'app';
+      phase.value = "app";
       sessionsStore.fetchSessions();
       // Wait for preferences to load from config.toml before using config-backed values
       await prefsStore.whenReady;
@@ -65,17 +65,17 @@ onMounted(async () => {
         runUpdateCheck();
       }
     } else {
-      phase.value = 'setup';
+      phase.value = "setup";
     }
   } catch {
-    phase.value = 'app';
+    phase.value = "app";
     sessionsStore.fetchSessions();
   }
 });
 
 async function checkVersionChange() {
   const current = appVersion.value;
-  if (current === 'dev') return;
+  if (current === "dev") return;
 
   const previous = prefsStore.lastSeenVersion;
   if (previous && previous !== current) {
@@ -86,7 +86,7 @@ async function checkVersionChange() {
 
 function onSetupSaved(sessionCount: number) {
   expectedSessionCount.value = sessionCount;
-  phase.value = 'indexing';
+  phase.value = "indexing";
   // Config.toml now exists — re-hydrate preferences so the auto-save watcher
   // is armed and any preference changes made in this session will persist.
   prefsStore.hydrate();
@@ -95,7 +95,7 @@ function onSetupSaved(sessionCount: number) {
 }
 
 function onSetupComplete() {
-  phase.value = 'app';
+  phase.value = "app";
   // Config.toml now exists — arm the auto-save watcher
   prefsStore.hydrate();
   sessionsStore.fetchSessions();
@@ -108,17 +108,17 @@ async function onIndexingComplete() {
     cfg.general.setupComplete = true;
     await saveConfig(cfg);
   } catch (e) {
-    logError('[app] Failed to save setupComplete flag:', e);
+    logError("[app] Failed to save setupComplete flag:", e);
   }
-  phase.value = 'app';
+  phase.value = "app";
   sessionsStore.fetchSessions();
 }
 
 const breadcrumbs = computed(() => {
-  const crumbs: { label: string; to?: string }[] = [{ label: 'Sessions', to: '/' }];
+  const crumbs: { label: string; to?: string }[] = [{ label: "Sessions", to: "/" }];
 
-  if (route.name === 'sessions' || route.name === 'not-found') {
-    return [{ label: 'Sessions' }];
+  if (route.name === "sessions" || route.name === "not-found") {
+    return [{ label: "Sessions" }];
   }
 
   // Session detail pages
@@ -128,7 +128,7 @@ const breadcrumbs = computed(() => {
       detail?.summary?.slice(0, 40) || `Session ${String(route.params.id).slice(0, 8)}`;
     crumbs.push({ label: sessionLabel, to: `/session/${route.params.id}/overview` });
 
-    if (route.meta?.title && route.meta.title !== 'Session Detail') {
+    if (route.meta?.title && route.meta.title !== "Session Detail") {
       crumbs.push({ label: route.meta.title as string });
     }
     return crumbs;

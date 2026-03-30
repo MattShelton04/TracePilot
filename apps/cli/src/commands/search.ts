@@ -7,9 +7,14 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
-import { getSessionStateDir, parseWorkspace, streamEvents, fileExists } from "./utils.js";
-import { UUID_REGEX } from "./utils.js";
-import { wrapCommand, handleValidationError } from "../utils/errorHandler.js";
+import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
+import {
+  fileExists,
+  getSessionStateDir,
+  parseWorkspace,
+  streamEvents,
+  UUID_REGEX,
+} from "./utils.js";
 
 interface SearchHit {
   sessionId: string;
@@ -34,12 +39,7 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
     // Search workspace.yaml
     try {
       const ws = await parseWorkspace(sessionDir);
-      const haystack = [
-        ws.summary,
-        ws.repository,
-        ws.branch,
-        ws.cwd,
-      ]
+      const haystack = [ws.summary, ws.repository, ws.branch, ws.cwd]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -55,7 +55,9 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
         });
         matched = true;
       }
-    } catch { /* no workspace */ }
+    } catch {
+      /* no workspace */
+    }
 
     // Search user messages in events.jsonl
     if (!matched) {
@@ -65,7 +67,9 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
           let ws: { summary?: string; repository?: string; branch?: string } = {};
           try {
             ws = await parseWorkspace(sessionDir);
-          } catch { /* ok */ }
+          } catch {
+            /* ok */
+          }
 
           for await (const evt of streamEvents(eventsPath)) {
             if ((evt.type as string) === "user.message") {
@@ -75,7 +79,8 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
                 const idx = content.toLowerCase().indexOf(q);
                 const start = Math.max(0, idx - 40);
                 const end = Math.min(content.length, idx + query.length + 40);
-                const snippet = (start > 0 ? "…" : "") +
+                const snippet =
+                  (start > 0 ? "…" : "") +
                   content.slice(start, end).replace(/\n/g, " ") +
                   (end < content.length ? "…" : "");
 
@@ -91,7 +96,9 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
               }
             }
           }
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
     }
   }
@@ -99,10 +106,7 @@ async function searchSessions(query: string): Promise<SearchHit[]> {
   return hits;
 }
 
-export async function searchCommand(
-  query: string,
-  options: { json?: boolean }
-) {
+export async function searchCommand(query: string, options: { json?: boolean }) {
   if (!query.trim()) {
     handleValidationError("Search query cannot be empty.");
   }
@@ -121,14 +125,15 @@ export async function searchCommand(
     }
 
     console.log(
-      chalk.bold.blue(`\n  Search: "${query}" — ${hits.length} result${hits.length === 1 ? "" : "s"}\n`)
+      chalk.bold.blue(
+        `\n  Search: "${query}" — ${hits.length} result${hits.length === 1 ? "" : "s"}\n`,
+      ),
     );
 
     for (const h of hits) {
       const title = h.summary || chalk.dim("Untitled");
-      const source = h.matchSource === "metadata"
-        ? chalk.dim("[metadata]")
-        : chalk.dim("[message]");
+      const source =
+        h.matchSource === "metadata" ? chalk.dim("[metadata]") : chalk.dim("[message]");
       console.log(`  ${chalk.yellow(h.sessionId.slice(0, 8))}  ${title}  ${source}`);
       if (h.repository) console.log(`           ${chalk.cyan(h.repository)}`);
       console.log(`           ${chalk.dim(h.snippet)}\n`);

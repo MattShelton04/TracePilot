@@ -5,14 +5,29 @@
    ============================ */
 
 @media (max-width: 1200px) {
-  .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
-  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .grid-4,
+  .grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
-  .grid-4, .grid-5, .grid-3, .grid-2 { grid-template-columns: 1fr; }
-  .grid-cards { grid-template-columns: 1fr; }
-  .page-content { padding: 16px; padding-bottom: 72px; }
+  .grid-4,
+  .grid-5,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .grid-cards {
+    grid-template-columns: 1fr;
+  }
+  .page-content {
+    padding: 16px;
+    padding-bottom: 72px;
+  }
 
   .app-layout {
     flex-direction: column;

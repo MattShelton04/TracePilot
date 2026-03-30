@@ -4,13 +4,13 @@ import type {
   CodeImpactData,
   ConversationTurn,
   EventsResponse,
+  ExportResult,
   HealthScoringData,
-  ShutdownMetrics,
   SessionDetail,
   SessionListItem,
-  ToolAnalysisData,
+  ShutdownMetrics,
   TodosResponse,
-  ExportResult,
+  ToolAnalysisData,
 } from "@tracepilot/types";
 
 // Deterministic timestamps keep tests and snapshots stable.
@@ -92,12 +92,18 @@ export const MOCK_TURNS: ConversationTurn[] = [
     turnIndex: 0,
     userMessage: "Please refactor the auth module into plugins and keep JWT refresh working.",
     assistantMessages: [
-      { content: "I'll design a plugin registry and ensure refresh tokens remain backward compatible." },
+      {
+        content:
+          "I'll design a plugin registry and ensure refresh tokens remain backward compatible.",
+      },
     ],
     model: "gpt-5.4",
     isComplete: true,
     reasoningTexts: [
-      { content: "The auth module has tight coupling between JWT refresh logic and the login handler. I should extract a plugin interface so providers can be swapped without touching the core refresh flow." },
+      {
+        content:
+          "The auth module has tight coupling between JWT refresh logic and the login handler. I should extract a plugin interface so providers can be swapped without touching the core refresh flow.",
+      },
     ],
     toolCalls: [
       {
@@ -130,7 +136,10 @@ export const MOCK_TURNS: ConversationTurn[] = [
     turnIndex: 1,
     userMessage: "Add search preset coverage and avoid duplicate searches.",
     assistantMessages: [
-      { content: "I'll consolidate browse presets and ensure only one search triggers after hydration." },
+      {
+        content:
+          "I'll consolidate browse presets and ensure only one search triggers after hydration.",
+      },
     ],
     model: "claude-opus-4.6",
     isComplete: true,
@@ -199,9 +208,7 @@ export const MOCK_TURNS: ConversationTurn[] = [
   {
     turnIndex: 3,
     userMessage: "Explore the test suite and verify nothing is broken.",
-    assistantMessages: [
-      { content: "Launching an explore agent to scan the test suite." },
-    ],
+    assistantMessages: [{ content: "Launching an explore agent to scan the test suite." }],
     model: "gpt-5.4",
     isComplete: true,
     toolCalls: [
@@ -285,8 +292,18 @@ export const MOCK_TODOS: TodosResponse = {
 };
 
 export const MOCK_CHECKPOINTS: CheckpointEntry[] = [
-  { number: 1, title: "Auth plugin scaffolded", filename: "checkpoint-1.md", content: "Created plugin registry" },
-  { number: 2, title: "Search presets consolidated", filename: "checkpoint-2.md", content: "applyBrowsePreset added" },
+  {
+    number: 1,
+    title: "Auth plugin scaffolded",
+    filename: "checkpoint-1.md",
+    content: "Created plugin registry",
+  },
+  {
+    number: 2,
+    title: "Search presets consolidated",
+    filename: "checkpoint-2.md",
+    content: "applyBrowsePreset added",
+  },
 ];
 
 export const MOCK_SHUTDOWN_METRICS: ShutdownMetrics = {
@@ -459,11 +476,29 @@ export const MOCK_TOOL_ANALYSIS: ToolAnalysisData = {
   tools: [
     { name: "edit", callCount: 34, successRate: 0.98, avgDurationMs: 450, totalDurationMs: 15_300 },
     { name: "view", callCount: 27, successRate: 0.99, avgDurationMs: 120, totalDurationMs: 3_240 },
-    { name: "create", callCount: 18, successRate: 0.95, avgDurationMs: 380, totalDurationMs: 6_840 },
-    { name: "powershell", callCount: 22, successRate: 0.88, avgDurationMs: 2_100, totalDurationMs: 46_200 },
+    {
+      name: "create",
+      callCount: 18,
+      successRate: 0.95,
+      avgDurationMs: 380,
+      totalDurationMs: 6_840,
+    },
+    {
+      name: "powershell",
+      callCount: 22,
+      successRate: 0.88,
+      avgDurationMs: 2_100,
+      totalDurationMs: 46_200,
+    },
     { name: "grep", callCount: 11, successRate: 0.97, avgDurationMs: 340, totalDurationMs: 3_740 },
     { name: "glob", callCount: 8, successRate: 0.99, avgDurationMs: 180, totalDurationMs: 1_440 },
-    { name: "task", callCount: 7, successRate: 0.91, avgDurationMs: 8_500, totalDurationMs: 59_500 },
+    {
+      name: "task",
+      callCount: 7,
+      successRate: 0.91,
+      avgDurationMs: 8_500,
+      totalDurationMs: 59_500,
+    },
   ],
   activityHeatmap: deterministicHeatmap(168),
 };
@@ -500,20 +535,50 @@ export const MOCK_HEALTH_SCORING: HealthScoringData = {
   attentionCount: 3,
   criticalCount: 1,
   attentionSessions: [
-    { sessionId: "sess-auth-refactor", sessionName: "Auth refactor", score: 0.62, flags: [{ name: "High retry rate", severity: "warning" }] },
-    { sessionId: "sess-search-polish", sessionName: "Search polish", score: 0.71, flags: [{ name: "Excessive tool calls", severity: "warning" }] },
+    {
+      sessionId: "sess-auth-refactor",
+      sessionName: "Auth refactor",
+      score: 0.62,
+      flags: [{ name: "High retry rate", severity: "warning" }],
+    },
+    {
+      sessionId: "sess-search-polish",
+      sessionName: "Search polish",
+      score: 0.71,
+      flags: [{ name: "Excessive tool calls", severity: "warning" }],
+    },
   ],
   healthFlags: [
-    { name: "High retry rate", count: 4, severity: "warning", description: "Session had more than 3 consecutive retries" },
-    { name: "Many errors", count: 2, severity: "danger", description: "More than 10 tool call failures" },
-    { name: "High token usage", count: 3, severity: "warning", description: "Token usage exceeded 500K" },
-    { name: "Low success rate", count: 1, severity: "warning", description: "Tool success rate below 85%" },
+    {
+      name: "High retry rate",
+      count: 4,
+      severity: "warning",
+      description: "Session had more than 3 consecutive retries",
+    },
+    {
+      name: "Many errors",
+      count: 2,
+      severity: "danger",
+      description: "More than 10 tool call failures",
+    },
+    {
+      name: "High token usage",
+      count: 3,
+      severity: "warning",
+      description: "Token usage exceeded 500K",
+    },
+    {
+      name: "Low success rate",
+      count: 1,
+      severity: "warning",
+      description: "Tool success rate below 85%",
+    },
   ],
 };
 
 export const MOCK_EXPORT_RESULT: ExportResult = {
   sessionsExported: 1,
-  filePath: '/tmp/tracepilot-export.json',
+  filePath: "/tmp/tracepilot-export.json",
   fileSizeBytes: 12345,
   exportedAt: new Date().toISOString(),
 };

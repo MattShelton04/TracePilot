@@ -1,14 +1,6 @@
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  type Ref,
-  type ComputedRef,
-} from "vue";
-import type { SubagentFullData } from "./useCrossTurnSubagents";
+import { type ComputedRef, computed, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
 import { shouldIgnoreGlobalShortcut } from "@/utils/keyboardShortcuts";
+import type { SubagentFullData } from "./useCrossTurnSubagents";
 
 /**
  * Manages the slide-out subagent detail panel state.
@@ -24,9 +16,7 @@ export function useSubagentPanel(
 
   const selectedIndex = computed(() => {
     if (!selectedAgentId.value) return -1;
-    return allSubagents.value.findIndex(
-      (s) => s.agentId === selectedAgentId.value,
-    );
+    return allSubagents.value.findIndex((s) => s.agentId === selectedAgentId.value);
   });
 
   const selectedSubagent = computed<SubagentFullData | null>(() => {
@@ -36,9 +26,7 @@ export function useSubagentPanel(
 
   const hasPrev = computed(() => selectedIndex.value > 0);
   const hasNext = computed(
-    () =>
-      selectedIndex.value >= 0 &&
-      selectedIndex.value < allSubagents.value.length - 1,
+    () => selectedIndex.value >= 0 && selectedIndex.value < allSubagents.value.length - 1,
   );
 
   function selectSubagent(agentId: string) {

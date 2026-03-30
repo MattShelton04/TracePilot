@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useAnalyticsStore } from '@/stores/analytics';
-import TimeRangeFilter from './TimeRangeFilter.vue';
+import { useAnalyticsStore } from "@/stores/analytics";
+import TimeRangeFilter from "./TimeRangeFilter.vue";
 
 defineProps<{
   title: string;

@@ -4,7 +4,7 @@
  * Each ConversationTurn becomes exactly one ReplayStep.
  * Model switches are detected and annotated inline (not as separate steps).
  */
-import type { ConversationTurn, ReplayStep, TurnToolCall } from '@tracepilot/types';
+import type { ConversationTurn, ReplayStep, TurnToolCall } from "@tracepilot/types";
 
 /**
  * Convert an array of ConversationTurns into ReplaySteps.
@@ -23,10 +23,10 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
     const turn = turns[i];
 
     const stepType = turn.userMessage
-      ? 'user'
+      ? "user"
       : turn.toolCalls.length > 0 && turn.assistantMessages.length === 0
-        ? 'tool'
-        : 'assistant';
+        ? "tool"
+        : "assistant";
 
     const title = deriveStepTitle(turn, stepType);
     const filesModified = extractFilesModified(turn.toolCalls);
@@ -44,7 +44,7 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
       turnIndex: turn.turnIndex,
       title,
       type: stepType,
-      timestamp: turn.timestamp ?? '',
+      timestamp: turn.timestamp ?? "",
       durationMs: turn.durationMs ?? 0,
       tokens: turn.outputTokens ?? 0,
       model: turn.model,
@@ -81,16 +81,14 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
 function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   if (turn.userMessage) {
     const msg = turn.userMessage.trim();
-    return msg.length > 100 ? msg.slice(0, 97) + '…' : msg;
+    return msg.length > 100 ? msg.slice(0, 97) + "…" : msg;
   }
 
   // Check for report_intent tool call
-  const intentCall = turn.toolCalls.find(
-    (tc) => tc.toolName === 'report_intent' && tc.arguments,
-  );
+  const intentCall = turn.toolCalls.find((tc) => tc.toolName === "report_intent" && tc.arguments);
   if (intentCall) {
     const args = intentCall.arguments as Record<string, unknown> | undefined;
-    if (args?.intent && typeof args.intent === 'string') {
+    if (args?.intent && typeof args.intent === "string") {
       return args.intent;
     }
   }
@@ -98,7 +96,7 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   // First assistant message
   if (turn.assistantMessages.length > 0) {
     const msg = turn.assistantMessages[0].content.trim();
-    return msg.length > 100 ? msg.slice(0, 97) + '…' : msg;
+    return msg.length > 100 ? msg.slice(0, 97) + "…" : msg;
   }
 
   // First tool call intention
@@ -107,8 +105,8 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
   }
 
   // Fallback
-  if (stepType === 'tool' && turn.toolCalls.length > 0) {
-    return `${turn.toolCalls.length} tool call${turn.toolCalls.length !== 1 ? 's' : ''}`;
+  if (stepType === "tool" && turn.toolCalls.length > 0) {
+    return `${turn.toolCalls.length} tool call${turn.toolCalls.length !== 1 ? "s" : ""}`;
   }
 
   return `Turn ${turn.turnIndex}`;
@@ -116,18 +114,26 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
 
 /** Extract file paths from mutating tool call arguments only. */
 function extractFilesModified(toolCalls: TurnToolCall[]): string[] {
-  const MUTATING_TOOLS = new Set(['edit', 'create', 'apply_patch', 'delete', 'move', 'rename', 'write']);
+  const MUTATING_TOOLS = new Set([
+    "edit",
+    "create",
+    "apply_patch",
+    "delete",
+    "move",
+    "rename",
+    "write",
+  ]);
   const files = new Set<string>();
 
   for (const tc of toolCalls) {
-    if (!tc.arguments || typeof tc.arguments !== 'object') continue;
+    if (!tc.arguments || typeof tc.arguments !== "object") continue;
     if (!MUTATING_TOOLS.has(tc.toolName)) continue;
     const args = tc.arguments as Record<string, unknown>;
 
-    if (typeof args.path === 'string' && args.path) {
+    if (typeof args.path === "string" && args.path) {
       files.add(normalizePath(args.path));
     }
-    if (typeof args.file === 'string' && args.file) {
+    if (typeof args.file === "string" && args.file) {
       files.add(normalizePath(args.file));
     }
   }
@@ -138,35 +144,35 @@ function extractFilesModified(toolCalls: TurnToolCall[]): string[] {
 /** Normalize a file path for display (strip long prefixes). */
 function normalizePath(path: string): string {
   // Strip common prefixes for display
-  const parts = path.replace(/\\/g, '/').split('/');
+  const parts = path.replace(/\\/g, "/").split("/");
   if (parts.length > 4) {
-    return '…/' + parts.slice(-3).join('/');
+    return "…/" + parts.slice(-3).join("/");
   }
-  return path.replace(/\\/g, '/');
+  return path.replace(/\\/g, "/");
 }
 
 /** Extract a short command/summary string from tool call arguments. */
 function extractToolCommand(tc: TurnToolCall): string | undefined {
-  if (!tc.arguments || typeof tc.arguments !== 'object') return undefined;
+  if (!tc.arguments || typeof tc.arguments !== "object") return undefined;
   const args = tc.arguments as Record<string, unknown>;
 
   switch (tc.toolName) {
-    case 'powershell':
-    case 'read_powershell':
-    case 'write_powershell':
-      return typeof args.command === 'string' ? args.command : undefined;
-    case 'edit':
-    case 'view':
-    case 'create':
-      return typeof args.path === 'string' ? `${tc.toolName} ${args.path}` : undefined;
-    case 'grep':
-      return typeof args.pattern === 'string' ? `grep "${args.pattern}"` : undefined;
-    case 'glob':
-      return typeof args.pattern === 'string' ? `glob "${args.pattern}"` : undefined;
-    case 'sql':
-      return typeof args.query === 'string'
+    case "powershell":
+    case "read_powershell":
+    case "write_powershell":
+      return typeof args.command === "string" ? args.command : undefined;
+    case "edit":
+    case "view":
+    case "create":
+      return typeof args.path === "string" ? `${tc.toolName} ${args.path}` : undefined;
+    case "grep":
+      return typeof args.pattern === "string" ? `grep "${args.pattern}"` : undefined;
+    case "glob":
+      return typeof args.pattern === "string" ? `glob "${args.pattern}"` : undefined;
+    case "sql":
+      return typeof args.query === "string"
         ? args.query.length > 80
-          ? args.query.slice(0, 77) + '…'
+          ? args.query.slice(0, 77) + "…"
           : args.query
         : undefined;
     default:

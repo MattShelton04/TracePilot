@@ -43,17 +43,15 @@
  * @example
  * const accentColor = getDesignToken('--accent-fg', '#818cf8')
  */
-export function getDesignToken(propertyName: string, fallback = ''): string {
+export function getDesignToken(propertyName: string, fallback = ""): string {
   // Require a mounted DOM to read computed styles
-  if (typeof window === 'undefined' || !document.documentElement) {
-    return fallback
+  if (typeof window === "undefined" || !document.documentElement) {
+    return fallback;
   }
 
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(propertyName)
-    .trim()
+  const value = getComputedStyle(document.documentElement).getPropertyValue(propertyName).trim();
 
-  return value || fallback
+  return value || fallback;
 }
 
 /**
@@ -64,20 +62,20 @@ export function getDesignToken(propertyName: string, fallback = ''): string {
  */
 export function getChartColors() {
   return {
-    success: getDesignToken('--chart-success', '#34d399'),
-    successLight: getDesignToken('--chart-success-light', '#6ee7b7'),
-    danger: getDesignToken('--chart-danger', '#fb7185'),
-    dangerLight: getDesignToken('--chart-danger-light', '#fca5a5'),
-    primary: getDesignToken('--chart-primary', '#6366f1'),
-    primaryLight: getDesignToken('--chart-primary-light', '#818cf8'),
-    secondary: getDesignToken('--chart-secondary', '#a78bfa'),
-    warning: getDesignToken('--chart-warning', '#fbbf24'),
-    warningLight: getDesignToken('--chart-warning-light', '#fde68a'),
-    info: getDesignToken('--chart-info', '#38bdf8'),
-    cyan: getDesignToken('--chart-cyan', '#22d3ee'),
-    orange: getDesignToken('--chart-orange', '#f97316'),
-    lime: getDesignToken('--chart-lime', '#84cc16'),
-  } as const
+    success: getDesignToken("--chart-success", "#34d399"),
+    successLight: getDesignToken("--chart-success-light", "#6ee7b7"),
+    danger: getDesignToken("--chart-danger", "#fb7185"),
+    dangerLight: getDesignToken("--chart-danger-light", "#fca5a5"),
+    primary: getDesignToken("--chart-primary", "#6366f1"),
+    primaryLight: getDesignToken("--chart-primary-light", "#818cf8"),
+    secondary: getDesignToken("--chart-secondary", "#a78bfa"),
+    warning: getDesignToken("--chart-warning", "#fbbf24"),
+    warningLight: getDesignToken("--chart-warning-light", "#fde68a"),
+    info: getDesignToken("--chart-info", "#38bdf8"),
+    cyan: getDesignToken("--chart-cyan", "#22d3ee"),
+    orange: getDesignToken("--chart-orange", "#f97316"),
+    lime: getDesignToken("--chart-lime", "#84cc16"),
+  } as const;
 }
 
 /**
@@ -86,12 +84,12 @@ export function getChartColors() {
  */
 export function getAgentColors() {
   return {
-    main: getDesignToken('--agent-color-main', '#6366f1'),
-    explore: getDesignToken('--agent-color-explore', '#22d3ee'),
-    generalPurpose: getDesignToken('--agent-color-general-purpose', '#a78bfa'),
-    codeReview: getDesignToken('--agent-color-code-review', '#f472b6'),
-    task: getDesignToken('--agent-color-task', '#fbbf24'),
-  } as const
+    main: getDesignToken("--agent-color-main", "#6366f1"),
+    explore: getDesignToken("--agent-color-explore", "#22d3ee"),
+    generalPurpose: getDesignToken("--agent-color-general-purpose", "#a78bfa"),
+    codeReview: getDesignToken("--agent-color-code-review", "#f472b6"),
+    task: getDesignToken("--agent-color-task", "#fbbf24"),
+  } as const;
 }
 
 /**
@@ -100,11 +98,11 @@ export function getAgentColors() {
  */
 export function getStatusColors() {
   return {
-    done: getDesignToken('--success-fg', '#34d399'),
-    inProgress: getDesignToken('--accent-fg', '#818cf8'),
-    pending: getDesignToken('--neutral-fg', '#a1a1aa'),
-    blocked: getDesignToken('--danger-fg', '#fb7185'),
-  } as const
+    done: getDesignToken("--success-fg", "#34d399"),
+    inProgress: getDesignToken("--accent-fg", "#818cf8"),
+    pending: getDesignToken("--neutral-fg", "#a1a1aa"),
+    blocked: getDesignToken("--danger-fg", "#fb7185"),
+  } as const;
 }
 
 /**
@@ -112,15 +110,15 @@ export function getStatusColors() {
  */
 export function getSemanticColors() {
   return {
-    accentFg: getDesignToken('--accent-fg', '#818cf8'),
-    accentEmphasis: getDesignToken('--accent-emphasis', '#6366f1'),
-    successFg: getDesignToken('--success-fg', '#34d399'),
-    warningFg: getDesignToken('--warning-fg', '#fbbf24'),
-    dangerFg: getDesignToken('--danger-fg', '#fb7185'),
-    doneFg: getDesignToken('--done-fg', '#a78bfa'),
-    neutralFg: getDesignToken('--neutral-fg', '#a1a1aa'),
-    textPrimary: getDesignToken('--text-primary', '#fafafa'),
-    textSecondary: getDesignToken('--text-secondary', '#a1a1aa'),
-    textTertiary: getDesignToken('--text-tertiary', '#71717a'),
-  } as const
+    accentFg: getDesignToken("--accent-fg", "#818cf8"),
+    accentEmphasis: getDesignToken("--accent-emphasis", "#6366f1"),
+    successFg: getDesignToken("--success-fg", "#34d399"),
+    warningFg: getDesignToken("--warning-fg", "#fbbf24"),
+    dangerFg: getDesignToken("--danger-fg", "#fb7185"),
+    doneFg: getDesignToken("--done-fg", "#a78bfa"),
+    neutralFg: getDesignToken("--neutral-fg", "#a1a1aa"),
+    textPrimary: getDesignToken("--text-primary", "#fafafa"),
+    textSecondary: getDesignToken("--text-secondary", "#a1a1aa"),
+    textTertiary: getDesignToken("--text-tertiary", "#71717a"),
+  } as const;
 }

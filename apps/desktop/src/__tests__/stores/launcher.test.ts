@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
+import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLauncherStore } from "../../stores/launcher";
-import type { SessionTemplate, ModelInfo, SystemDependencies } from "@tracepilot/types";
 
 // Mock the client module
 const mockLaunchSession = vi.fn();

@@ -28,7 +28,7 @@ export interface SessionIncident {
   eventType: string;
   sourceEventType: string;
   timestamp?: string;
-  severity: 'error' | 'warning' | 'info';
+  severity: "error" | "warning" | "info";
   summary: string;
   detailJson?: unknown;
 }
@@ -100,7 +100,7 @@ export interface SessionHealth {
 }
 
 export interface HealthFlag {
-  severity: 'info' | 'warning' | 'error';
+  severity: "info" | "warning" | "error";
   category: string;
   message: string;
 }
@@ -108,7 +108,7 @@ export interface HealthFlag {
 // ─── Session Artifacts ────────────────────────────────────────────
 
 /** Valid todo status values as stored in session.db */
-export type TodoStatus = 'done' | 'in_progress' | 'blocked' | 'pending';
+export type TodoStatus = "done" | "in_progress" | "blocked" | "pending";
 
 /** Todo item from session.db */
 export interface TodoItem {

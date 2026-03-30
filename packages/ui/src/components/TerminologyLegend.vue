@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import ExpandChevron from './ExpandChevron.vue';
+import { ref } from "vue";
+import ExpandChevron from "./ExpandChevron.vue";
 
 defineProps<{
   items: { term: string; definition: string }[];

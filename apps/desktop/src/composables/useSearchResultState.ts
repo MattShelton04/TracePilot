@@ -1,16 +1,20 @@
-import { ref, computed, watch } from 'vue';
-import type { Ref, ComputedRef } from 'vue';
-import { useToggleSet } from '@tracepilot/ui';
+import { useToggleSet } from "@tracepilot/ui";
+import type { ComputedRef, Ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 export interface UseSearchResultStateOptions {
   /** Session ID filter from the search store. */
   sessionId: Ref<string | null>;
   /** Flat search results (for resolving session display names). */
-  results: ComputedRef<{ sessionId: string; sessionSummary: string | null }[]> | Ref<{ sessionId: string; sessionSummary: string | null }[]>;
+  results:
+    | ComputedRef<{ sessionId: string; sessionSummary: string | null }[]>
+    | Ref<{ sessionId: string; sessionSummary: string | null }[]>;
   /** Grouped search results (for resolving session display names). */
-  groupedResults: ComputedRef<{ sessionId: string; sessionSummary: string | null }[]> | Ref<{ sessionId: string; sessionSummary: string | null }[]>;
+  groupedResults:
+    | ComputedRef<{ sessionId: string; sessionSummary: string | null }[]>
+    | Ref<{ sessionId: string; sessionSummary: string | null }[]>;
   /** Current result view mode. */
-  resultViewMode: Ref<'flat' | 'grouped'>;
+  resultViewMode: Ref<"flat" | "grouped">;
 }
 
 /**
@@ -26,16 +30,10 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
   const { sessionId, results, groupedResults, resultViewMode } = options;
 
   // ── Expand/collapse individual results ──
-  const {
-    set: expandedResults,
-    toggle: toggleExpand,
-  } = useToggleSet<number>();
+  const { set: expandedResults, toggle: toggleExpand } = useToggleSet<number>();
 
   // ── Collapse/expand session groups ──
-  const {
-    set: collapsedGroups,
-    toggle: toggleGroupCollapse,
-  } = useToggleSet<string>();
+  const { set: collapsedGroups, toggle: toggleGroupCollapse } = useToggleSet<string>();
 
   // ── Session filter display name ──
   // Track the display name for the currently filtered session (set explicitly via filterBySession)
@@ -59,19 +57,19 @@ export function useSearchResultState(options: UseSearchResultStateOptions) {
     if (!sessionId.value) return null;
     if (filteredSessionNameOverride.value) return filteredSessionNameOverride.value;
     // Try to find a name from current results
-    const match = results.value.find(r => r.sessionId === sessionId.value);
+    const match = results.value.find((r) => r.sessionId === sessionId.value);
     if (match?.sessionSummary) return match.sessionSummary;
     // Try grouped results
-    const group = groupedResults.value.find(g => g.sessionId === sessionId.value);
+    const group = groupedResults.value.find((g) => g.sessionId === sessionId.value);
     if (group?.sessionSummary) return group.sessionSummary;
-    return sessionId.value.slice(0, 12) + '…';
+    return sessionId.value.slice(0, 12) + "…";
   });
 
   function filterBySession(sid: string, displayName: string | null) {
     lastFilterBySessionId = sid;
     sessionId.value = sid;
     filteredSessionNameOverride.value = displayName || null;
-    resultViewMode.value = 'flat';
+    resultViewMode.value = "flat";
   }
 
   return {

@@ -1,18 +1,18 @@
-import { describe, it, expect } from "vitest";
+import type { TurnToolCall } from "@tracepilot/types";
+import { describe, expect, it } from "vitest";
 import {
   AGENT_COLORS,
   AGENT_ICONS,
-  STATUS_ICONS,
-  inferAgentType,
-  inferAgentTypeFromToolCall,
+  type AgentType,
   agentStatusFromToolCall,
   getAgentColor,
   getAgentIcon,
-  getToolStatusColor,
   getToolCallColor,
-  type AgentType,
+  getToolStatusColor,
+  inferAgentType,
+  inferAgentTypeFromToolCall,
+  STATUS_ICONS,
 } from "../utils/agentTypes";
-import type { TurnToolCall } from "@tracepilot/types";
 
 function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
@@ -130,11 +130,15 @@ describe("agentStatusFromToolCall", () => {
   });
 
   it("returns 'failed' when complete and success is false", () => {
-    expect(agentStatusFromToolCall(makeToolCall({ isComplete: true, success: false }))).toBe("failed");
+    expect(agentStatusFromToolCall(makeToolCall({ isComplete: true, success: false }))).toBe(
+      "failed",
+    );
   });
 
   it("returns 'completed' when complete and success is true", () => {
-    expect(agentStatusFromToolCall(makeToolCall({ isComplete: true, success: true }))).toBe("completed");
+    expect(agentStatusFromToolCall(makeToolCall({ isComplete: true, success: true }))).toBe(
+      "completed",
+    );
   });
 
   it("returns 'completed' when complete and success is undefined", () => {

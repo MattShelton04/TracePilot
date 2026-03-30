@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { ref, useSlots, onMounted, onUpdated } from 'vue';
+import { onMounted, onUpdated, ref, useSlots } from "vue";
 
 defineProps<{
-  variant?: 'default' | 'accent' | 'success' | 'warning' | 'danger' | 'done' | 'neutral';
+  variant?: "default" | "accent" | "success" | "warning" | "danger" | "done" | "neutral";
 }>();
 
 const variantClass: Record<string, string> = {
-  default: 'badge-neutral',
-  neutral: 'badge-neutral',
-  accent: 'badge-accent',
-  success: 'badge-success',
-  warning: 'badge-warning',
-  danger: 'badge-danger',
-  done: 'badge-done',
+  default: "badge-neutral",
+  neutral: "badge-neutral",
+  accent: "badge-accent",
+  success: "badge-success",
+  warning: "badge-warning",
+  danger: "badge-danger",
+  done: "badge-done",
 };
 
 const el = ref<HTMLElement>();
-const slotText = ref('');
+const slotText = ref("");
 const slots = useSlots();
 
 function updateSlotText() {
   if (el.value) {
-    slotText.value = el.value.textContent?.trim() ?? '';
+    slotText.value = el.value.textContent?.trim() ?? "";
   }
 }
 onMounted(updateSlotText);

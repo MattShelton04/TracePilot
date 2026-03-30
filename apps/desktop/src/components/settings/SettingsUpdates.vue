@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ActionButton, FormSwitch, SectionPanel } from '@tracepilot/ui';
-import { useAppVersion } from '@/composables/useAppVersion';
-import { useUpdateCheck } from '@/composables/useUpdateCheck';
-import { useWhatsNew } from '@/composables/useWhatsNew';
-import { openExternal } from '@/utils/openExternal';
-import { usePreferencesStore } from '@/stores/preferences';
+import { ActionButton, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import { useAppVersion } from "@/composables/useAppVersion";
+import { useUpdateCheck } from "@/composables/useUpdateCheck";
+import { useWhatsNew } from "@/composables/useWhatsNew";
+import { usePreferencesStore } from "@/stores/preferences";
+import { openExternal } from "@/utils/openExternal";
 
 const preferences = usePreferencesStore();
 const { appVersion } = useAppVersion();
@@ -23,7 +23,7 @@ async function handleViewWhatsNew() {
       updateResult.value.releaseUrl ?? undefined,
     );
   } else {
-    await openWhatsNew('0.0.0', appVersion.value);
+    await openWhatsNew("0.0.0", appVersion.value);
   }
 }
 

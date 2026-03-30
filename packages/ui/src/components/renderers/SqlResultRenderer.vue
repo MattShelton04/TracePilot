@@ -4,8 +4,8 @@
  * striped table with semantic cell styling, and row count badge.
  */
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
 import { highlightSql } from "../../utils/syntaxHighlight";
+import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -14,15 +14,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
-const query = computed(() =>
-  typeof props.args?.query === "string" ? props.args.query : null
-);
+const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
 
 const description = computed(() =>
-  typeof props.args?.description === "string" ? props.args.description : null
+  typeof props.args?.description === "string" ? props.args.description : null,
 );
 
 /** Highlighted SQL query (safe HTML). */
@@ -36,11 +34,14 @@ const parsedTable = computed<{ headers: string[]; rows: string[][] } | null>(() 
   if (!props.content) return null;
   try {
     const parsed = JSON.parse(props.content);
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && parsed[0] !== null) {
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      typeof parsed[0] === "object" &&
+      parsed[0] !== null
+    ) {
       const headers = Object.keys(parsed[0]);
-      const rows = parsed.map(obj =>
-        headers.map(h => String(obj[h] ?? ""))
-      );
+      const rows = parsed.map((obj) => headers.map((h) => String(obj[h] ?? "")));
       return { headers, rows };
     }
   } catch {

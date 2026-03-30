@@ -30,5 +30,5 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number }>(), { size: 24 })
+withDefaults(defineProps<{ size?: number }>(), { size: 24 });
 </script>

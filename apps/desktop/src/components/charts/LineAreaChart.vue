@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { ChartLayout, ChartTooltipState } from '@tracepilot/ui';
-import { ChartFrame } from '@tracepilot/ui';
-import type { LineAreaChartResult } from '@/composables/useLineAreaChartData';
+import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
+import { ChartFrame } from "@tracepilot/ui";
+import type { LineAreaChartResult } from "@/composables/useLineAreaChartData";
 
 defineProps<{
   /** Pre-computed chart data from useLineAreaChartData. */
@@ -27,7 +27,7 @@ defineProps<{
 defineEmits<{
   mousemove: [event: MouseEvent];
   click: [event: MouseEvent];
-  'dismiss-tooltip': [];
+  "dismiss-tooltip": [];
 }>();
 </script>
 

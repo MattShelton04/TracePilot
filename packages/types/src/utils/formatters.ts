@@ -8,7 +8,7 @@
 
 /** Format milliseconds into a human-readable duration string. */
 export function formatDuration(ms?: number | null): string {
-  if (ms == null || !Number.isFinite(ms) || ms < 0) return '';
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
   if (ms < 1000) return `${Math.round(ms * 100) / 100}ms`;
   const totalSeconds = ms / 1000;
   const hours = Math.floor(totalSeconds / 3600);
@@ -22,39 +22,37 @@ export function formatDuration(ms?: number | null): string {
 
 /** Format an ISO date string to locale date+time. */
 export function formatDate(dateStr?: string | null): string {
-  if (!dateStr) return '';
+  if (!dateStr) return "";
   return new Date(dateStr).toLocaleString();
 }
 
 /** Format an ISO date string to a compact date (e.g. "Mar 22"). */
 export function formatShortDate(dateStr?: string | null): string {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 /** Format an ISO date string to locale time only (HH:MM:SS). */
 export function formatTime(dateStr?: string | null): string {
-  if (!dateStr) return '';
+  if (!dateStr) return "";
   return new Date(dateStr).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 
 /** Format a date to a relative time string (e.g. "3m ago").
  *  Accepts an ISO date string or a Unix timestamp in **seconds**. */
 export function formatRelativeTime(value?: string | number | null): string {
-  if (value == null || value === '') return '';
-  if (typeof value === 'number' && !Number.isFinite(value)) return '';
-  const ms = typeof value === 'number'
-    ? value * 1000
-    : new Date(value).getTime();
-  if (Number.isNaN(ms)) return '';
+  if (value == null || value === "") return "";
+  if (typeof value === "number" && !Number.isFinite(value)) return "";
+  const ms = typeof value === "number" ? value * 1000 : new Date(value).getTime();
+  if (Number.isNaN(ms)) return "";
   const diff = Date.now() - ms;
-  if (diff < 0) return 'just now';
+  if (diff < 0) return "just now";
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
@@ -67,7 +65,7 @@ export function formatRelativeTime(value?: string | number | null): string {
 
 /** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
 export function formatNumber(n?: number | null): string {
-  if (n == null || !Number.isFinite(n)) return '0';
+  if (n == null || !Number.isFinite(n)) return "0";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
@@ -81,8 +79,8 @@ export function formatTokens(n?: number | null): string {
 
 /** Format a cost value as USD with comma separators. */
 export function formatCost(cost?: number | null): string {
-  if (cost == null || !Number.isFinite(cost)) return '$0.00';
-  return `$${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (cost == null || !Number.isFinite(cost)) return "$0.00";
+  return `$${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Truncate a string to a max length, appending ellipsis. */
@@ -94,7 +92,7 @@ export function truncateText(text: string, maxLen = 1000): string {
 /** Format a live duration (in-progress timer) as clean whole seconds.
  *  Floors to nearest second to avoid fractional ticking. */
 export function formatLiveDuration(ms?: number | null): string {
-  if (ms == null || !Number.isFinite(ms) || ms < 0) return '';
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
   // Floor to whole seconds for clean second-by-second ticking
   const floored = Math.floor(ms / 1000) * 1000;
   return formatDuration(floored);
@@ -102,19 +100,19 @@ export function formatLiveDuration(ms?: number | null): string {
 
 /** Format a rate (0–1) as a percentage string (e.g. 0.95 → "95.0%"). */
 export function formatRate(rate?: number | null): string {
-  if (rate == null || !Number.isFinite(rate)) return '0.0%';
+  if (rate == null || !Number.isFinite(rate)) return "0.0%";
   return `${(rate * 100).toFixed(1)}%`;
 }
 
 /** Format a percentage value (0–100) as a string (e.g. 95.1 → "95.1%"). */
 export function formatPercent(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '0.0%';
+  if (value == null || !Number.isFinite(value)) return "0.0%";
   return `${value.toFixed(1)}%`;
 }
 
 /** Format an ISO date as a short M/D string (e.g. "3/19"). Uses UTC. */
 export function formatDateShort(iso?: string | null): string {
-  if (!iso) return '';
+  if (!iso) return "";
   const d = new Date(iso);
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
@@ -122,32 +120,30 @@ export function formatDateShort(iso?: string | null): string {
 /** Format a date as "Mar 19, 2026". Uses UTC.
  *  Accepts an ISO date string or a Unix timestamp in **seconds**. */
 export function formatDateMedium(value?: string | number | null): string {
-  if (value == null || value === '') return '';
-  if (typeof value === 'number' && !Number.isFinite(value)) return '';
-  const d = typeof value === 'number'
-    ? new Date(value * 1000)
-    : new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
+  if (value == null || value === "") return "";
+  if (typeof value === "number" && !Number.isFinite(value)) return "";
+  const d = typeof value === "number" ? new Date(value * 1000) : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
   });
 }
 
 /** Format a number with locale thousand separators (e.g. 1234 → "1,234"). */
 export function formatNumberFull(n?: number | null): string {
-  if (n == null || !Number.isFinite(n)) return '0';
-  return n.toLocaleString('en-US');
+  if (n == null || !Number.isFinite(n)) return "0";
+  return n.toLocaleString("en-US");
 }
 
 /** Format a byte count as a human-readable string (e.g. 1536 → "1.5 KB"). */
 export function formatBytes(bytes?: number | null): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return '—';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
+  const value = bytes / 1024 ** i;
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
@@ -155,22 +151,22 @@ export function formatBytes(bytes?: number | null): string {
  *  Shows total elapsed minutes — does not wrap at 60 (e.g. 3661000 → "61:01").
  *  Intended for media-player / replay timer displays. */
 export function formatClockTime(ms?: number | null): string {
-  if (ms == null || !Number.isFinite(ms) || ms < 0) return '00:00';
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "00:00";
   const totalSec = Math.floor(ms / 1000);
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /** Convert a caught value into an error message string.
  *  @param e — the caught value (may be Error, string, or anything)
  *  @param fallback — returned when `e` is null/undefined or stringifies to empty */
-export function toErrorMessage(e: unknown, fallback = 'Unknown error'): string {
+export function toErrorMessage(e: unknown, fallback = "Unknown error"): string {
   if (e instanceof Error) return e.message;
   if (e == null) return fallback;
-  if (typeof e === 'object' && 'message' in e) {
+  if (typeof e === "object" && "message" in e) {
     const msg = (e as { message: unknown }).message;
-    if (typeof msg === 'string') return msg || fallback;
+    if (typeof msg === "string") return msg || fallback;
   }
   const s = String(e);
   return s || fallback;

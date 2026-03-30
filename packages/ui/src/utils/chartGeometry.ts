@@ -59,11 +59,7 @@ export function createChartLayout(
  *   number of lines differs from the number of divisions (e.g. 5 lines
  *   across 4 divisions to include both the top and bottom edges).
  */
-export function computeGridLines(
-  layout: ChartLayout,
-  count: number,
-  divisions?: number,
-): number[] {
+export function computeGridLines(layout: ChartLayout, count: number, divisions?: number): number[] {
   const div = divisions ?? count;
   return Array.from({ length: count }, (_, i) => layout.top + (i * layout.height) / div);
 }
@@ -148,7 +144,7 @@ export function mapToLineCoords<T>(
 
 /** Convert coordinates to a SVG polyline points string. */
 export function toPolylinePoints(coords: ChartCoord[]): string {
-  return coords.map((c) => `${c.x},${c.y}`).join(' ');
+  return coords.map((c) => `${c.x},${c.y}`).join(" ");
 }
 
 /**
@@ -156,7 +152,7 @@ export function toPolylinePoints(coords: ChartCoord[]): string {
  * Closes the shape by extending to the bottom-right and bottom-left corners.
  */
 export function toAreaPoints(coords: ChartCoord[], layout: ChartLayout): string {
-  if (coords.length === 0) return '';
+  if (coords.length === 0) return "";
   const line = toPolylinePoints(coords);
   return `${line} ${layout.right},${layout.bottom} ${layout.left},${layout.bottom}`;
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { EmptyState } from '@tracepilot/ui';
-import { useRouter } from 'vue-router';
+import { EmptyState } from "@tracepilot/ui";
+import { useRouter } from "vue-router";
 
 const router = useRouter();
 </script>

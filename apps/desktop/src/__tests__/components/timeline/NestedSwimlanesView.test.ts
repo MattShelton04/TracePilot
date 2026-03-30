@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, VueWrapper } from "@vue/test-utils";
-import { setActivePinia, createPinia } from "pinia";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import NestedSwimlanesView from "../../../components/timeline/NestedSwimlanesView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
@@ -133,9 +133,7 @@ describe("NestedSwimlanesView", () => {
   });
 
   it("clicking phase header toggles collapse", async () => {
-    store.turns = [
-      makeTurn({ turnIndex: 0, userMessage: "Phase one" }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, userMessage: "Phase one" })] as any;
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -333,7 +331,7 @@ describe("NestedSwimlanesView", () => {
     // The child tool should NOT appear as a direct tool in turn 1
     // (it's a child of agent-cross in turn 0)
     const directToolBars = wrapper.findAll(".swimlane-bar--tool");
-    const grepBars = directToolBars.filter(b => b.text().includes("grep"));
+    const grepBars = directToolBars.filter((b) => b.text().includes("grep"));
     // grep should appear only under the agent's nested lane, not as a standalone
     expect(grepBars.length).toBe(1);
   });
@@ -348,9 +346,7 @@ describe("NestedSwimlanesView", () => {
       durationMs: 30000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -362,7 +358,9 @@ describe("NestedSwimlanesView", () => {
     }
     // Click the subagent bar to open detail
     const agentBars = wrapper.findAll(".tool-bar");
-    const bar = agentBars.find(b => b.text().includes("Code Review Agent") || b.text().includes("code-review"));
+    const bar = agentBars.find(
+      (b) => b.text().includes("Code Review Agent") || b.text().includes("code-review"),
+    );
     if (bar) {
       await bar.trigger("click");
       await nextTick();

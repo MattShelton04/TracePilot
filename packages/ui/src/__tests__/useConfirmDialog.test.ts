@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { defineComponent } from "vue";
 import { mount } from "@vue/test-utils";
+import { beforeEach, describe, expect, it } from "vitest";
+import { defineComponent } from "vue";
 import { useConfirmDialog } from "../composables/useConfirmDialog";
 
 function setup() {
@@ -83,14 +83,11 @@ describe("useConfirmDialog", () => {
     expect(vm2.options).toMatchObject(defaultOpts);
   });
 
-  it.each(["danger", "warning", "info"] as const)(
-    "stores variant '%s' in options",
-    (variant) => {
-      const vm = setup();
-      vm.confirm({ ...defaultOpts, variant });
-      expect(vm.options?.variant).toBe(variant);
-    },
-  );
+  it.each(["danger", "warning", "info"] as const)("stores variant '%s' in options", (variant) => {
+    const vm = setup();
+    vm.confirm({ ...defaultOpts, variant });
+    expect(vm.options?.variant).toBe(variant);
+  });
 
   it("propagates custom labels to options", () => {
     const vm = setup();

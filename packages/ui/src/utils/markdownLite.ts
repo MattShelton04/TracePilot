@@ -9,23 +9,23 @@
  * or footnotes (not needed for assistant message rendering).
  */
 
-import { highlightLine } from './syntaxHighlight';
+import { highlightLine } from "./syntaxHighlight";
 
 /** Escape HTML entities to prevent XSS. */
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /** Highlight a code block (multi-line) using per-line highlighter. */
 function highlightCode(code: string, language: string): string {
   return code
-    .split('\n')
+    .split("\n")
     .map((line) => highlightLine(line, language))
-    .join('\n');
+    .join("\n");
 }
 
 /** Allowed URL protocols for rendered links. */
@@ -34,10 +34,10 @@ const SAFE_URL_RE = /^(https?:\/\/|mailto:|#|\/)/i;
 /** Sanitize a URL — returns '#' for dangerous protocols. */
 function sanitizeUrl(url: string): string {
   const trimmed = url.trim();
-  if (!trimmed) return '#';
+  if (!trimmed) return "#";
   if (SAFE_URL_RE.test(trimmed)) return trimmed;
   // Block javascript:, data:, vbscript:, etc.
-  return '#';
+  return "#";
 }
 
 /**
@@ -52,14 +52,14 @@ function sanitizeUrl(url: string): string {
  * 6. Restore code blocks
  */
 export function renderMarkdown(text: string): string {
-  if (!text) return '';
+  if (!text) return "";
 
   // Step 1: Extract fenced code blocks from raw text BEFORE escaping
   // so that code content is only escaped once (by highlightLine).
   const codeBlocks: string[] = [];
-  let raw = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
-    const detectedLang = lang || 'text';
-    const highlighted = highlightCode(code.replace(/\n$/, ''), detectedLang);
+  const raw = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang: string, code: string) => {
+    const detectedLang = lang || "text";
+    const highlighted = highlightCode(code.replace(/\n$/, ""), detectedLang);
     const placeholder = `%%CODEBLOCK_${codeBlocks.length}%%`;
     codeBlocks.push(
       `<div class="md-code-block"><div class="md-code-lang">${escapeHtml(detectedLang)}</div><pre><code>${highlighted}</code></pre></div>`,
@@ -74,24 +74,21 @@ export function renderMarkdown(text: string): string {
   html = html.replace(/`([^`\n]+)`/g, '<code class="md-inline-code">$1</code>');
 
   // Step 4: Bold and italic
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
 
   // Step 5: Links — with URL sanitization
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    (_match, linkText: string, url: string) => {
-      const safeUrl = sanitizeUrl(url);
-      return `<a href="${safeUrl}" class="md-link" target="_blank" rel="noopener">${linkText}</a>`;
-    },
-  );
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText: string, url: string) => {
+    const safeUrl = sanitizeUrl(url);
+    return `<a href="${safeUrl}" class="md-link" target="_blank" rel="noopener">${linkText}</a>`;
+  });
 
   // Step 6: Process lines for block elements
-  const lines = html.split('\n');
+  const lines = html.split("\n");
   const processed: string[] = [];
   let inList = false;
-  let listType = '';
+  let listType = "";
   let inBlockquote = false;
 
   for (let i = 0; i < lines.length; i++) {
@@ -99,8 +96,14 @@ export function renderMarkdown(text: string): string {
 
     // Check for code block placeholders — pass through as-is
     if (line.match(/%%CODEBLOCK_\d+%%/)) {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (inBlockquote) { processed.push('</blockquote>'); inBlockquote = false; }
+      if (inList) {
+        processed.push(listType === "ul" ? "</ul>" : "</ol>");
+        inList = false;
+      }
+      if (inBlockquote) {
+        processed.push("</blockquote>");
+        inBlockquote = false;
+      }
       processed.push(line);
       continue;
     }
@@ -108,32 +111,44 @@ export function renderMarkdown(text: string): string {
     // Headings
     const headingMatch = line.match(/^(#{1,4})\s+(.+)$/);
     if (headingMatch) {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (inBlockquote) { processed.push('</blockquote>'); inBlockquote = false; }
+      if (inList) {
+        processed.push(listType === "ul" ? "</ul>" : "</ol>");
+        inList = false;
+      }
+      if (inBlockquote) {
+        processed.push("</blockquote>");
+        inBlockquote = false;
+      }
       const level = headingMatch[1].length;
       processed.push(`<h${level} class="md-heading md-h${level}">${headingMatch[2]}</h${level}>`);
       continue;
     }
 
     // Blockquotes
-    if (line.startsWith('&gt; ') || line === '&gt;') {
-      if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
-      if (!inBlockquote) { processed.push('<blockquote class="md-blockquote">'); inBlockquote = true; }
-      processed.push(`${line.replace(/^&gt;\s?/, '')}<br>`);
+    if (line.startsWith("&gt; ") || line === "&gt;") {
+      if (inList) {
+        processed.push(listType === "ul" ? "</ul>" : "</ol>");
+        inList = false;
+      }
+      if (!inBlockquote) {
+        processed.push('<blockquote class="md-blockquote">');
+        inBlockquote = true;
+      }
+      processed.push(`${line.replace(/^&gt;\s?/, "")}<br>`);
       continue;
     } else if (inBlockquote) {
-      processed.push('</blockquote>');
+      processed.push("</blockquote>");
       inBlockquote = false;
     }
 
     // Unordered lists
     const ulMatch = line.match(/^(\s*)[-*+]\s+(.+)$/);
     if (ulMatch) {
-      if (!inList || listType !== 'ul') {
-        if (inList) processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+      if (!inList || listType !== "ul") {
+        if (inList) processed.push(listType === "ul" ? "</ul>" : "</ol>");
         processed.push('<ul class="md-list">');
         inList = true;
-        listType = 'ul';
+        listType = "ul";
       }
       processed.push(`<li>${ulMatch[2]}</li>`);
       continue;
@@ -142,11 +157,11 @@ export function renderMarkdown(text: string): string {
     // Ordered lists
     const olMatch = line.match(/^(\s*)\d+[.)]\s+(.+)$/);
     if (olMatch) {
-      if (!inList || listType !== 'ol') {
-        if (inList) processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+      if (!inList || listType !== "ol") {
+        if (inList) processed.push(listType === "ul" ? "</ul>" : "</ol>");
         processed.push('<ol class="md-list">');
         inList = true;
-        listType = 'ol';
+        listType = "ol";
       }
       processed.push(`<li>${olMatch[2]}</li>`);
       continue;
@@ -154,7 +169,7 @@ export function renderMarkdown(text: string): string {
 
     // Close list if we hit a non-list line
     if (inList) {
-      processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+      processed.push(listType === "ul" ? "</ul>" : "</ol>");
       inList = false;
     }
 
@@ -165,8 +180,8 @@ export function renderMarkdown(text: string): string {
     }
 
     // Empty line
-    if (line.trim() === '') {
-      processed.push('');
+    if (line.trim() === "") {
+      processed.push("");
       continue;
     }
 
@@ -175,10 +190,10 @@ export function renderMarkdown(text: string): string {
   }
 
   // Close any open tags
-  if (inList) processed.push(listType === 'ul' ? '</ul>' : '</ol>');
-  if (inBlockquote) processed.push('</blockquote>');
+  if (inList) processed.push(listType === "ul" ? "</ul>" : "</ol>");
+  if (inBlockquote) processed.push("</blockquote>");
 
-  html = processed.join('\n');
+  html = processed.join("\n");
 
   // Wrap consecutive non-block lines in <p> tags
   html = html.replace(
@@ -187,7 +202,7 @@ export function renderMarkdown(text: string): string {
       const trimmed = match.trim();
       if (!trimmed) return match;
       // Don't wrap if already wrapped or is a block element
-      if (trimmed.startsWith('<')) return match;
+      if (trimmed.startsWith("<")) return match;
       return `\n<p class="md-paragraph">${trimmed}</p>`;
     },
   );

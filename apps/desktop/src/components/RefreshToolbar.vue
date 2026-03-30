@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
   refreshing: boolean;
@@ -21,22 +21,27 @@ const showSpinner = ref(false);
 let spinStart = 0;
 let spinTimer: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => props.refreshing, (isRefreshing) => {
-  if (isRefreshing) {
-    showSpinner.value = true;
-    spinStart = Date.now();
-    if (spinTimer) clearTimeout(spinTimer);
-    spinTimer = null;
-  } else if (showSpinner.value) {
-    const elapsed = Date.now() - spinStart;
-    const remaining = MIN_SPIN_MS - elapsed;
-    if (remaining > 0) {
-      spinTimer = setTimeout(() => { showSpinner.value = false; }, remaining);
-    } else {
-      showSpinner.value = false;
+watch(
+  () => props.refreshing,
+  (isRefreshing) => {
+    if (isRefreshing) {
+      showSpinner.value = true;
+      spinStart = Date.now();
+      if (spinTimer) clearTimeout(spinTimer);
+      spinTimer = null;
+    } else if (showSpinner.value) {
+      const elapsed = Date.now() - spinStart;
+      const remaining = MIN_SPIN_MS - elapsed;
+      if (remaining > 0) {
+        spinTimer = setTimeout(() => {
+          showSpinner.value = false;
+        }, remaining);
+      } else {
+        showSpinner.value = false;
+      }
     }
-  }
-});
+  },
+);
 
 const intervalLabel = computed(() => {
   const s = props.intervalSeconds;

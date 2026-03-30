@@ -11,7 +11,7 @@
  *
  * @see docs/design/adding-tool-renderers.md for the full guide
  */
-import { defineAsyncComponent, type Component } from "vue";
+import { type Component, defineAsyncComponent } from "vue";
 
 export interface RendererEntry {
   /** Human-friendly label shown in the settings UI. */

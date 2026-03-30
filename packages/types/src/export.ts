@@ -6,55 +6,55 @@
 
 /** Matches Rust `SectionId` enum variants (kebab-case for IPC). */
 export type SectionId =
-  | 'conversation'
-  | 'events'
-  | 'todos'
-  | 'plan'
-  | 'checkpoints'
-  | 'rewind_snapshots'
-  | 'metrics'
-  | 'incidents'
-  | 'health'
-  | 'custom_tables'
-  | 'parse_diagnostics';
+  | "conversation"
+  | "events"
+  | "todos"
+  | "plan"
+  | "checkpoints"
+  | "rewind_snapshots"
+  | "metrics"
+  | "incidents"
+  | "health"
+  | "custom_tables"
+  | "parse_diagnostics";
 
 /** All available section IDs. */
 export const ALL_SECTION_IDS: readonly SectionId[] = [
-  'conversation',
-  'events',
-  'todos',
-  'plan',
-  'checkpoints',
-  'rewind_snapshots',
-  'metrics',
-  'incidents',
-  'health',
-  'custom_tables',
-  'parse_diagnostics',
+  "conversation",
+  "events",
+  "todos",
+  "plan",
+  "checkpoints",
+  "rewind_snapshots",
+  "metrics",
+  "incidents",
+  "health",
+  "custom_tables",
+  "parse_diagnostics",
 ] as const;
 
 /** Human-readable labels for each section. */
 export const SECTION_LABELS: Record<SectionId, string> = {
-  conversation: 'Conversation',
-  events: 'Raw Events',
-  todos: 'Todos',
-  plan: 'Plan',
-  checkpoints: 'Checkpoints',
-  rewind_snapshots: 'Rewind Snapshots',
-  metrics: 'Metrics',
-  incidents: 'Incidents',
-  health: 'Health',
-  custom_tables: 'Custom Tables',
-  parse_diagnostics: 'Parse Diagnostics',
+  conversation: "Conversation",
+  events: "Raw Events",
+  todos: "Todos",
+  plan: "Plan",
+  checkpoints: "Checkpoints",
+  rewind_snapshots: "Rewind Snapshots",
+  metrics: "Metrics",
+  incidents: "Incidents",
+  health: "Health",
+  custom_tables: "Custom Tables",
+  parse_diagnostics: "Parse Diagnostics",
 };
 
 // ── Export Format ────────────────────────────────────────────────
 
-export type ExportFormat = 'json' | 'markdown' | 'csv';
+export type ExportFormat = "json" | "markdown" | "csv";
 
 // ── Conflict Strategy (for import) ──────────────────────────────
 
-export type ConflictStrategy = 'skip' | 'replace' | 'duplicate';
+export type ConflictStrategy = "skip" | "replace" | "duplicate";
 
 // ── Content Detail Options ─────────────────────────────────────
 
@@ -174,7 +174,7 @@ export interface ImportPreviewResult {
 
 /** A single validation issue. Matches Rust `ImportIssue`. */
 export interface ImportIssue {
-  severity: 'error' | 'warning' | 'info';
+  severity: "error" | "warning" | "info";
   message: string;
 }
 

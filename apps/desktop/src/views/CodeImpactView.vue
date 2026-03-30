@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {
-  ErrorState,
   computeGridLines,
   createChartLayout,
+  ErrorState,
   formatDateShort,
   formatNumberFull,
   generateYLabels,
@@ -10,21 +10,22 @@ import {
   mapToLineCoords,
   toPolylinePoints,
   useChartTooltip,
-} from '@tracepilot/ui';
-import { computed } from 'vue';
-import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
-import { CHART_COLORS } from '@/utils/chartColors';
+} from "@tracepilot/ui";
+import { computed } from "vue";
+import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { CHART_COLORS } from "@/utils/chartColors";
 
-const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } = useChartTooltip();
-const { store } = useAnalyticsPage('fetchCodeImpact');
+const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } =
+  useChartTooltip();
+const { store } = useAnalyticsPage("fetchCodeImpact");
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
 
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo ? '' : 'all ';
-  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  const allPrefix = store.selectedRepo ? "" : "all ";
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
   return `Code changes and file modifications across ${allPrefix}sessions${repoSuffix}`;
 });
 
@@ -51,7 +52,14 @@ function addPct(adds: number, dels: number): number {
 
 // ── Changes Over Time Area Chart ─────────────────────────────
 const chartLayout = createChartLayout(50, 680, 30, 200);
-const { left: CHART_LEFT, right: CHART_RIGHT, top: CHART_TOP, bottom: CHART_BOTTOM, width: CHART_W, height: CHART_H } = chartLayout;
+const {
+  left: CHART_LEFT,
+  right: CHART_RIGHT,
+  top: CHART_TOP,
+  bottom: CHART_BOTTOM,
+  width: CHART_W,
+  height: CHART_H,
+} = chartLayout;
 
 const GRID_ROWS = 4;
 const gridYPositions = computed(() => computeGridLines(chartLayout, GRID_ROWS + 1, GRID_ROWS));

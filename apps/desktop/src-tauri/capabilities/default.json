@@ -10,10 +10,7 @@
     "log:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [
-        { "url": "https://github.com/*" },
-        { "url": "https://api.github.com/*" }
-      ]
+      "allow": [{ "url": "https://github.com/*" }, { "url": "https://api.github.com/*" }]
     },
     "process:allow-restart",
     "updater:default"

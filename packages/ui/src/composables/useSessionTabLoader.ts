@@ -7,7 +7,7 @@ import { watch } from "vue";
 export function useSessionTabLoader(
   getSessionId: () => string | null | undefined,
   loadFn: () => Promise<void> | void,
-  options?: { onClear?: () => void }
+  options?: { onClear?: () => void },
 ) {
   watch(
     getSessionId,
@@ -16,6 +16,6 @@ export function useSessionTabLoader(
       if (!id) return;
       void loadFn();
     },
-    { immediate: true }
+    { immediate: true },
   );
 }

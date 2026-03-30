@@ -10,25 +10,28 @@ import { computed } from "vue";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
 import { highlightLine } from "../../utils/syntaxHighlight";
 
-const props = withDefaults(defineProps<{
-  code: string;
-  /** File path — used for language detection and display. */
-  filePath?: string;
-  /** Override language (skips auto-detection). */
-  language?: string;
-  /** Show line numbers (default: true). */
-  lineNumbers?: boolean;
-  /** Starting line number (default: 1). */
-  startLine?: number;
-  /** Max lines before collapsing (0 = unlimited). */
-  maxLines?: number;
-  /** Whether to show the language badge (default: true). */
-  showLanguageBadge?: boolean;
-}>(), {
-  lineNumbers: true,
-  startLine: 1,
-  showLanguageBadge: true,
-});
+const props = withDefaults(
+  defineProps<{
+    code: string;
+    /** File path — used for language detection and display. */
+    filePath?: string;
+    /** Override language (skips auto-detection). */
+    language?: string;
+    /** Show line numbers (default: true). */
+    lineNumbers?: boolean;
+    /** Starting line number (default: 1). */
+    startLine?: number;
+    /** Max lines before collapsing (0 = unlimited). */
+    maxLines?: number;
+    /** Whether to show the language badge (default: true). */
+    showLanguageBadge?: boolean;
+  }>(),
+  {
+    lineNumbers: true,
+    startLine: 1,
+    showLanguageBadge: true,
+  },
+);
 
 const lang = computed(() => props.language ?? detectLanguage(props.filePath ?? ""));
 const langDisplay = computed(() => languageDisplayName(lang.value));
@@ -50,15 +53,13 @@ const visibleRawLines = computed(() => {
 });
 
 const visibleLines = computed(() =>
-  visibleRawLines.value.map(line => highlightLine(line, lang.value))
+  visibleRawLines.value.map((line) => highlightLine(line, lang.value)),
 );
 
-const isCollapsed = computed(() =>
-  props.maxLines ? lines.value.length > props.maxLines : false
-);
+const isCollapsed = computed(() => (props.maxLines ? lines.value.length > props.maxLines : false));
 
 const hiddenCount = computed(() =>
-  isCollapsed.value ? lines.value.length - (props.maxLines ?? 0) : 0
+  isCollapsed.value ? lines.value.length - (props.maxLines ?? 0) : 0,
 );
 
 const lineNumberWidth = computed(() => {

@@ -6,20 +6,21 @@
  * into ReplaySteps, and renders them with rich content (markdown, tool call
  * renderers, agent grouping, reasoning blocks).
  */
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { Badge, EmptyState, SkeletonLoader, ErrorAlert, SessionCard } from '@tracepilot/ui';
-import { useSessionDetailStore } from '@/stores/sessionDetail';
-import { useSessionsStore } from '@/stores/sessions';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useToolResultLoader } from '@/composables/useToolResultLoader';
-import { useReplayController } from '@/composables/useReplayController';
-import { turnsToReplaySteps } from '@/utils/replayTransform';
-import ReplayTransportBar from '@/components/replay/ReplayTransportBar.vue';
-import ReplayStepContent from '@/components/replay/ReplayStepContent.vue';
-import ReplaySidebar from '@/components/replay/ReplaySidebar.vue';
-import ModelSwitchBanner from '@/components/replay/ModelSwitchBanner.vue';
-import ReplayEventTicker from '@/components/replay/ReplayEventTicker.vue';
+
+import { Badge, EmptyState, ErrorAlert, SessionCard, SkeletonLoader } from "@tracepilot/ui";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import ModelSwitchBanner from "@/components/replay/ModelSwitchBanner.vue";
+import ReplayEventTicker from "@/components/replay/ReplayEventTicker.vue";
+import ReplaySidebar from "@/components/replay/ReplaySidebar.vue";
+import ReplayStepContent from "@/components/replay/ReplayStepContent.vue";
+import ReplayTransportBar from "@/components/replay/ReplayTransportBar.vue";
+import { useReplayController } from "@/composables/useReplayController";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionsStore } from "@/stores/sessions";
+import { turnsToReplaySteps } from "@/utils/replayTransform";
 
 const route = useRoute();
 const router = useRouter();
@@ -43,7 +44,7 @@ const recentSessions = computed(() => {
 });
 
 function openReplay(id: string) {
-  router.push({ name: 'replay', params: { id } });
+  router.push({ name: "replay", params: { id } });
 }
 
 // Tool result lazy loader
@@ -73,8 +74,8 @@ const tickerEvents = computed(() => {
     if (step.sessionEvents) {
       for (const se of step.sessionEvents) {
         events.push({
-          type: se.severity ?? 'info',
-          label: `${se.eventType.replace('session.', '')}: ${se.summary}`,
+          type: se.severity ?? "info",
+          label: `${se.eventType.replace("session.", "")}: ${se.summary}`,
           timestamp: se.timestamp,
         });
       }
@@ -90,9 +91,11 @@ watch(
   async () => {
     await nextTick();
     if (!conversationRef.value) return;
-    const stepEl = conversationRef.value.querySelector(`[data-step="${controller.currentStep.value}"]`);
+    const stepEl = conversationRef.value.querySelector(
+      `[data-step="${controller.currentStep.value}"]`,
+    );
     if (stepEl) {
-      stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      stepEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   },
 );
@@ -100,19 +103,23 @@ watch(
 // Keyboard shortcut handler (delegated to controller)
 function handleKeydown(e: KeyboardEvent) {
   // Don't capture when user is in an input/textarea
-  if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return;
+  if (
+    (e.target as HTMLElement)?.tagName === "INPUT" ||
+    (e.target as HTMLElement)?.tagName === "TEXTAREA"
+  )
+    return;
   controller.handleKeydown(e);
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener("keydown", handleKeydown);
   // Load sessions list for empty-state picker (if not already loaded)
   if (sessionsStore.sessions.length === 0) {
     sessionsStore.fetchSessions();
   }
 });
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener("keydown", handleKeydown);
 });
 
 // Data loading with stale-request guard
@@ -134,7 +141,7 @@ async function loadSession(id: string) {
 }
 
 function retryLoadTurns() {
-  store.loaded.delete('turns');
+  store.loaded.delete("turns");
   store.loadTurns();
 }
 
@@ -151,13 +158,13 @@ watch(
 const MAX_FUTURE_SKELETONS = 5;
 const visibleSteps = computed(() => {
   const current = controller.currentStep.value;
-  return replaySteps.value.filter(
-    (s) => s.index <= current + MAX_FUTURE_SKELETONS,
-  );
+  return replaySteps.value.filter((s) => s.index <= current + MAX_FUTURE_SKELETONS);
 });
 
 // Summary stats
-const totalToolCalls = computed(() => replaySteps.value.reduce((s, st) => s + (st.richToolCalls?.length ?? 0), 0));
+const totalToolCalls = computed(() =>
+  replaySteps.value.reduce((s, st) => s + (st.richToolCalls?.length ?? 0), 0),
+);
 </script>
 
 <template>

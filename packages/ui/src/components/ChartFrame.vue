@@ -24,8 +24,8 @@
  * ```
  */
 
-import type { ChartTooltipState } from '../composables/useChartTooltip';
-import type { ChartLayout, XAxisLabel, YAxisLabel } from '../utils/chartGeometry';
+import type { ChartTooltipState } from "../composables/useChartTooltip";
+import type { ChartLayout, XAxisLabel, YAxisLabel } from "../utils/chartGeometry";
 
 withDefaults(
   defineProps<{
@@ -46,13 +46,13 @@ withDefaults(
     /** SVG viewBox attribute. */
     viewBox?: string;
   }>(),
-  { viewBox: '0 0 500 200' },
+  { viewBox: "0 0 500 200" },
 );
 
 const emit = defineEmits<{
   mousemove: [event: MouseEvent];
   click: [event: MouseEvent];
-  'dismiss-tooltip': [];
+  "dismiss-tooltip": [];
 }>();
 </script>
 
