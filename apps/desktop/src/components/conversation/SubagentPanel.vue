@@ -40,7 +40,6 @@ const props = defineProps<{
   hasPrev: boolean;
   hasNext: boolean;
   topOffset: number;
-  panelWidthPx: number;
 }>();
 
 const emit = defineEmits<{
@@ -230,12 +229,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
     <div
       v-if="isOpen && subagent"
       class="cv-panel"
-      :style="{
-        top: `${topOffset}px`,
-        width: panelWidthPx > 0 ? `${panelWidthPx}px` : undefined,
-        minWidth: panelWidthPx > 0 ? `${panelWidthPx}px` : undefined,
-        maxWidth: panelWidthPx > 0 ? `${panelWidthPx}px` : undefined,
-      }"
+      :style="{ top: `${topOffset}px` }"
       role="dialog"
       aria-label="Subagent detail panel"
       @keydown.esc="emit('close')"

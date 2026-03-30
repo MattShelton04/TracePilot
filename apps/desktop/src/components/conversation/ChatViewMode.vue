@@ -21,7 +21,7 @@ import {
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
@@ -39,7 +39,6 @@ import {
   type ToolGroupItem,
   type ToolSegment,
 } from "./chatViewUtils";
-import { computePanelWidthPx, shouldReserveScrollInset } from "./panelLayout";
 import SubagentCard from "./SubagentCard.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 
@@ -83,9 +82,6 @@ const { findToolCallIndex, getArgsSummary } = useConversationSections(() => stor
 
 const scrollEl = ref<HTMLElement | null>(null);
 const cvRootEl = ref<HTMLElement | null>(null);
-const panelWidthPx = ref(0);
-const scrollMaxHeightPx = ref(520);
-const usePanelScrollViewport = ref(false);
 
 // ─── Panel top offset (fixed position below sticky action bar) ────
 
@@ -104,7 +100,8 @@ function updatePanelTop() {
   // Panel top = whichever is lower: cv-root top or sticky bar bottom
   panelTopPx.value = Math.max(cvRect.top, actionsBottom);
 
-  // Preserve chat edge alignment when page-content is centered with max-width.
+  // Compute breakout offsets so .cv-root can extend beyond .page-content-inner
+  // when the panel is open, without affecting sibling elements (toolbar, badges, etc.)
   const pc = cvRoot.closest(".page-content") as HTMLElement | null;
   const pci = cvRoot.closest(".page-content-inner") as HTMLElement | null;
   if (pc && pci) {
@@ -115,94 +112,25 @@ function updatePanelTop() {
     const pciWidth = pci.offsetWidth;
     const sideGap = Math.max(0, (pcContentWidth - pciWidth) / 2);
     cvRoot.style.setProperty("--breakout-left", `${sideGap}px`);
+    // Extend right through page-content padding so content meets the panel edge
     cvRoot.style.setProperty("--breakout-right", `${sideGap + padR}px`);
   }
 }
 
-function getChatStartOffset(): number {
-  if (!pageScrollEl || !cvRootEl.value) return 0;
-  const pageRect = pageScrollEl.getBoundingClientRect();
-  const cvRect = cvRootEl.value.getBoundingClientRect();
-  return pageScrollEl.scrollTop + (cvRect.top - pageRect.top);
-}
-
-function syncToLocalScroll(chatStart: number) {
-  if (!pageScrollEl || !scrollEl.value) return;
-  const localTop = Math.max(0, pageScrollEl.scrollTop - chatStart);
-  scrollEl.value.scrollTop = localTop;
-  pageScrollEl.scrollTo({ top: chatStart, behavior: "auto" });
-}
-
-function syncToPageScroll(chatStart: number) {
-  if (!pageScrollEl || !scrollEl.value) return;
-  const pageTop = Math.max(0, chatStart + scrollEl.value.scrollTop);
-  pageScrollEl.scrollTo({ top: pageTop, behavior: "auto" });
-}
-
-function updateLayoutMetrics() {
-  const viewportWidth = window.innerWidth;
-  const reserveInset = panel.isPanelOpen.value && shouldReserveScrollInset(viewportWidth);
-  panelWidthPx.value = reserveInset ? computePanelWidthPx(viewportWidth) : 0;
-
-  const chatStart = getChatStartOffset();
-  const shouldUseLocalScroll = reserveInset && !!pageScrollEl && pageScrollEl.scrollTop >= chatStart - 1;
-
-  if (shouldUseLocalScroll !== usePanelScrollViewport.value) {
-    if (shouldUseLocalScroll) {
-      syncToLocalScroll(chatStart);
-    } else if (panel.isPanelOpen.value) {
-      syncToPageScroll(chatStart);
-    }
-  }
-
-  usePanelScrollViewport.value = shouldUseLocalScroll;
-
-  const cvRoot = cvRootEl.value;
-  if (!cvRoot) return;
-  const cvRect = cvRoot.getBoundingClientRect();
-  // Keep chat scroller constrained to viewport so its own scrollbar can sit left of the panel.
-  scrollMaxHeightPx.value = Math.max(320, Math.floor(window.innerHeight - cvRect.top - 24));
-}
-
-function handleLayoutResize() {
-  updateLayoutMetrics();
-  updatePanelTop();
-}
-
-function handlePageScroll() {
-  updatePanelTop();
-  updateLayoutMetrics();
-}
-
 onMounted(() => {
-  pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
-  updateLayoutMetrics();
   updatePanelTop();
-  window.addEventListener("resize", handleLayoutResize);
+  window.addEventListener("resize", updatePanelTop);
   // Listen to scroll on the page-content container (the page scroller)
+  pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
   if (pageScrollEl) {
-    pageScrollEl.addEventListener("scroll", handlePageScroll, { passive: true });
+    pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
   }
 });
 
-watch(
-  () => panel.isPanelOpen.value,
-  (isOpen, wasOpen) => {
-    if (!isOpen && wasOpen && usePanelScrollViewport.value) {
-      syncToPageScroll(getChatStartOffset());
-      usePanelScrollViewport.value = false;
-    }
-    nextTick(() => {
-      updateLayoutMetrics();
-      updatePanelTop();
-    });
-  },
-);
-
 onUnmounted(() => {
-  window.removeEventListener("resize", handleLayoutResize);
+  window.removeEventListener("resize", updatePanelTop);
   if (pageScrollEl) {
-    pageScrollEl.removeEventListener("scroll", handlePageScroll);
+    pageScrollEl.removeEventListener("scroll", updatePanelTop);
   }
 });
 
@@ -495,17 +423,10 @@ defineExpose({ revealEvent });
 </script>
 
 <template>
-  <div
-    :class="['cv-root', { 'panel-active': panel.isPanelOpen.value }]"
-    :style="{
-      '--cv-panel-width': `${panelWidthPx}px`,
-      '--cv-scroll-max-height': `${scrollMaxHeightPx}px`,
-    }"
-    ref="cvRootEl"
-  >
+  <div :class="['cv-root', { 'panel-active': panel.isPanelOpen.value }]" ref="cvRootEl">
     <!-- Main column (shrinks when panel is open) -->
     <div :class="['cv-main', { 'panel-open': panel.isPanelOpen.value }]">
-      <div :class="['cv-scroll', { 'cv-scroll--panel-open': usePanelScrollViewport }]" ref="scrollEl">
+      <div class="cv-scroll" ref="scrollEl">
         <div class="cv-content">
           <div class="cv-stream">
             <template v-for="(turn, ti) in turns" :key="turn.turnIndex">
@@ -724,7 +645,6 @@ defineExpose({ revealEvent });
       :has-prev="panel.hasPrev.value"
       :has-next="panel.hasNext.value"
       :top-offset="panelTopPx"
-      :panel-width-px="panelWidthPx"
       @close="panel.closePanel"
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
@@ -755,7 +675,7 @@ defineExpose({ revealEvent });
 }
 
 .cv-main.panel-open {
-  margin-right: var(--cv-panel-width, min(38vw, 650px));
+  margin-right: min(38vw, 650px);
 }
 
 .cv-main.panel-open .cv-content {
@@ -770,12 +690,6 @@ defineExpose({ revealEvent });
 
 .cv-scroll {
   flex: 1;
-}
-
-.cv-scroll--panel-open {
-  overflow-y: auto;
-  max-height: var(--cv-scroll-max-height, none);
-  scrollbar-gutter: stable;
 }
 
 .cv-content {
