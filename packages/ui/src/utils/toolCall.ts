@@ -65,6 +65,10 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }
   if (toolName === "task" && a.description) return String(a.description);
+  if (toolName === "read_agent") {
+    const candidate = a.agent_id ?? a.agent_name ?? a.name;
+    if (candidate) return String(candidate);
+  }
   if (toolName === "report_intent" && a.intent) return String(a.intent);
   if (toolName === "sql" && a.description) return String(a.description);
   if (toolName === "web_search" && a.query) return String(a.query);

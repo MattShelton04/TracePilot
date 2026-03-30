@@ -10,6 +10,7 @@ import {
   getShutdownMetrics,
 } from "@tracepilot/client";
 import type {
+  AttributedMessage,
   CheckpointEntry,
   ConversationTurn,
   EventsResponse,
@@ -17,6 +18,7 @@ import type {
   SessionIncident,
   SessionPlan,
   ShutdownMetrics,
+  TurnToolCall,
   TodosResponse,
 } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
@@ -29,6 +31,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   const sessionId = ref<string | null>(null);
   const detail = ref<SessionDetail | null>(null);
   const turns = ref<ConversationTurn[]>([]);
+  const turnsVersion = ref(0);
   const events = ref<EventsResponse | null>(null);
   const todos = ref<TodosResponse | null>(null);
   const checkpoints = ref<CheckpointEntry[]>([]);
@@ -51,34 +54,189 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
 
   // Track file size for freshness detection (avoids redundant turn re-fetches)
   let lastEventsFileSize = 0;
+  let turnFingerprints: string[] = [];
+
+  // Restrict deep fingerprinting to turns likely to change retroactively:
+  // any turn with an in-progress subagent, plus the tail turn.
+  let deepCompareTurnIndexes = new Set<number>();
+
+  function bumpTurnsVersion() {
+    turnsVersion.value += 1;
+  }
+
+  function hashText(value: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash +=
+        (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return hash >>> 0;
+  }
+
+  function messageFingerprint(msg: AttributedMessage): string {
+    return [
+      msg.parentToolCallId ?? "",
+      msg.agentDisplayName ?? "",
+      msg.content.length,
+      hashText(msg.content),
+    ].join("|");
+  }
+
+  function toolCallFingerprint(tc: TurnToolCall): string {
+    return [
+      tc.toolCallId ?? "",
+      tc.parentToolCallId ?? "",
+      tc.toolName,
+      tc.eventIndex ?? "",
+      tc.isSubagent ? "1" : "0",
+      tc.isComplete ? "1" : "0",
+      tc.success == null ? "u" : tc.success ? "1" : "0",
+      tc.startedAt ?? "",
+      tc.completedAt ?? "",
+      tc.durationMs ?? "",
+      tc.error ?? "",
+      tc.model ?? "",
+      tc.argsSummary ?? "",
+      tc.resultContent?.length ?? 0,
+      tc.resultContent ? hashText(tc.resultContent) : "",
+      tc.agentDisplayName ?? "",
+    ].join("|");
+  }
+
+  function turnFingerprint(turn: ConversationTurn): string {
+    const reasoning = turn.reasoningTexts ?? [];
+    const events = turn.sessionEvents ?? [];
+    return [
+      turn.turnIndex,
+      turn.eventIndex ?? "",
+      turn.turnId ?? "",
+      turn.interactionId ?? "",
+      turn.model ?? "",
+      turn.timestamp ?? "",
+      turn.endTimestamp ?? "",
+      turn.isComplete ? "1" : "0",
+      turn.durationMs ?? "",
+      turn.outputTokens ?? "",
+      turn.userMessage?.length ?? 0,
+      turn.assistantMessages.length,
+      turn.assistantMessages.map(messageFingerprint).join(","),
+      reasoning.length,
+      reasoning.map(messageFingerprint).join(","),
+      events.length,
+      events
+        .map(
+          (evt) =>
+            `${evt.eventType}:${evt.severity}:${evt.summary.length}:${hashText(evt.summary)}:${evt.timestamp ?? ""}`,
+        )
+        .join(","),
+      turn.toolCalls.length,
+      turn.toolCalls.map(toolCallFingerprint).join(","),
+    ].join("||");
+  }
+
+  function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
+    const indexes = new Set<number>();
+    if (turnList.length > 0) {
+      indexes.add(turnList.length - 1);
+    }
+    for (let i = 0; i < turnList.length; i++) {
+      if (turnList[i]?.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)) {
+        indexes.add(i);
+      }
+    }
+    return indexes;
+  }
+
+  function replaceTurns(incoming: ConversationTurn[]) {
+    const hadData = turns.value.length > 0;
+    const hasIncoming = incoming.length > 0;
+    turns.value = incoming;
+    turnFingerprints = incoming.map(turnFingerprint);
+    deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
+    if (hadData || hasIncoming) {
+      bumpTurnsVersion();
+    }
+  }
 
   /**
    * Smart-merge incoming turns into the reactive array.
    *
-   * During auto-refresh of active sessions, only the last turn changes
-   * (receives new tool calls) and new turns are appended. By mutating
-   * the existing reactive array in-place instead of wholesale replacement,
-   * Vue's reactivity system only triggers updates for the changed indices,
-   * dramatically reducing re-render work for long sessions (900+ turns).
+   * During auto-refresh of active sessions, updates are usually append-only,
+   * but subagent lifecycle events can retroactively update older turns.
+   * We preserve the in-place mutation strategy for performance by replacing
+   * only changed indices and appending new turns.
    *
    * Falls back to full replacement on first load or when lengths shrink.
    */
   function mergeTurns(incoming: ConversationTurn[]) {
     const existing = turns.value;
 
-    // Full replacement: first load, reset, or truncation (shouldn't happen)
+    // Full replacement: first load, reset, or truncation.
     if (existing.length === 0 || incoming.length < existing.length) {
-      turns.value = incoming;
+      replaceTurns(incoming);
       return;
     }
 
-    // Update the last existing turn (may have gained new tool calls / messages)
-    const lastIdx = existing.length - 1;
-    existing[lastIdx] = incoming[lastIdx];
+    const nextFingerprints = [...turnFingerprints];
+    let changed = false;
+    const overlapLength = Math.min(existing.length, incoming.length);
+
+    const candidateIndexes = new Set<number>([
+      Math.max(0, overlapLength - 1),
+      ...deepCompareTurnIndexes,
+    ]);
+    for (const idx of candidateIndexes) {
+      if (idx < 0 || idx >= overlapLength) continue;
+      const nextFingerprint = turnFingerprint(incoming[idx]);
+      nextFingerprints[idx] = nextFingerprint;
+      if (turnFingerprints[idx] !== nextFingerprint) {
+        existing[idx] = incoming[idx];
+        changed = true;
+      }
+    }
+
+    // Cheap metadata compare across all turns catches changes that don't require
+    // deep hashing (model, completion, timestamps, etc.).
+    for (let i = 0; i < overlapLength; i++) {
+      if (candidateIndexes.has(i)) continue;
+      const current = existing[i];
+      const next = incoming[i];
+      if (
+        current.turnIndex !== next.turnIndex ||
+        current.eventIndex !== next.eventIndex ||
+        current.turnId !== next.turnId ||
+        current.interactionId !== next.interactionId ||
+        current.model !== next.model ||
+        current.timestamp !== next.timestamp ||
+        current.endTimestamp !== next.endTimestamp ||
+        current.isComplete !== next.isComplete ||
+        current.durationMs !== next.durationMs ||
+        current.outputTokens !== next.outputTokens ||
+        current.userMessage !== next.userMessage
+      ) {
+        existing[i] = next;
+        nextFingerprints[i] = turnFingerprint(next);
+        changed = true;
+      }
+    }
 
     // Append any new turns
     for (let i = existing.length; i < incoming.length; i++) {
       existing.push(incoming[i]);
+      nextFingerprints[i] = turnFingerprint(incoming[i]);
+      changed = true;
+    }
+
+    if (turnFingerprints.length !== nextFingerprints.length) {
+      changed = true;
+    }
+
+    turnFingerprints = nextFingerprints;
+    deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
+
+    if (changed) {
+      bumpTurnsVersion();
     }
   }
 
@@ -296,7 +454,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
    *  Do NOT use in the cache-hit path — that restores specific fields. */
   function resetSectionData() {
     detail.value = null;
-    turns.value = [];
+    replaceTurns([]);
     events.value = null;
     for (const sec of standardSections) {
       sec.resetData();
@@ -325,7 +483,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     if (cached) {
       // Restore ALL sections immediately — zero IPC, zero spinner
       detail.value = cached.detail;
-      turns.value = cached.turns;
+      replaceTurns(cached.turns);
       lastEventsFileSize = cached.eventsFileSize;
       checkpoints.value = cached.checkpoints;
       plan.value = cached.plan;
@@ -400,7 +558,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     errorRef: turnsError,
     fetchFn: (id) => getSessionTurns(id),
     onResult: (result) => {
-      turns.value = result.turns;
+      replaceTurns(result.turns);
       lastEventsFileSize = result.eventsFileSize;
     },
   });
@@ -546,6 +704,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     sessionId,
     detail,
     turns,
+    turnsVersion,
     events,
     todos,
     checkpoints,

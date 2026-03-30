@@ -17,6 +17,7 @@ export type ToolGroupItem =
   | { type: "intent"; toolCall: TurnToolCall }
   | { type: "memory"; toolCall: TurnToolCall }
   | { type: "ask-user"; toolCall: TurnToolCall }
+  | { type: "read-agent"; toolCall: TurnToolCall }
   | { type: "tool"; toolCall: TurnToolCall };
 
 /** Maximum tool rows shown before progressive disclosure collapse. */
@@ -33,7 +34,7 @@ export const COLLAPSE_THRESHOLD = 3;
  * - Regular tools are grouped together
  * - Consecutive subagent launches are grouped
  * - Child tools (parentToolCallId set) are skipped (belong to panel)
- * - read_agent calls become subagent-complete pills
+ * - top-level read_agent calls are shown as rows and can also drive completion pills
  */
 export function segmentToolCalls(toolCalls: TurnToolCall[]): ToolSegment[] {
   const segments: ToolSegment[] = [];
@@ -66,8 +67,6 @@ export function segmentToolCalls(toolCalls: TurnToolCall[]): ToolSegment[] {
       currentSubagents.push(tc);
     } else if (tc.parentToolCallId) {
       // Skip — child data belongs to subagent panel
-    } else if (tc.toolName === "read_agent") {
-      // Skip — completion pills are rendered separately via completionsByTurn
     } else {
       flushSubagents();
       currentRegular.push(tc);
@@ -88,6 +87,8 @@ function classifyTool(tc: TurnToolCall): ToolGroupItem {
       return { type: "memory", toolCall: tc };
     case "ask_user":
       return { type: "ask-user", toolCall: tc };
+    case "read_agent":
+      return { type: "read-agent", toolCall: tc };
     default:
       return { type: "tool", toolCall: tc };
   }
