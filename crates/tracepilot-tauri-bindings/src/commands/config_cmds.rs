@@ -2,7 +2,7 @@
 
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{copilot_home, read_config, remove_index_db_files, validate_path_within};
+use crate::helpers::{copilot_home, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
@@ -117,9 +117,11 @@ pub async fn get_agent_definitions(
 #[tauri::command]
 pub async fn save_agent_definition(file_path: String, yaml_content: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
+        let home = copilot_home()?;
+        let validated = validate_write_path_within(&file_path, &home)?;
         Ok(
             tracepilot_orchestrator::config_injector::write_agent_definition(
-                std::path::Path::new(&file_path),
+                &validated,
                 &yaml_content,
             )?,
         )
@@ -151,9 +153,11 @@ pub async fn create_config_backup(
     label: String,
 ) -> CmdResult<tracepilot_orchestrator::BackupEntry> {
     tokio::task::spawn_blocking(move || {
+        let home = copilot_home()?;
+        let validated = validate_path_within(&file_path, &home)?;
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         Ok(tracepilot_orchestrator::config_injector::create_backup(
-            std::path::Path::new(&file_path),
+            &validated,
             &backup_dir,
             &label,
         )?)
@@ -176,22 +180,12 @@ pub async fn list_config_backups() -> CmdResult<Vec<tracepilot_orchestrator::Bac
 pub async fn restore_config_backup(backup_path: String, restore_to: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
-        validate_path_within(&backup_path, &backup_dir)?;
-        let copilot_home = copilot_home()?;
-        let restore_path = std::path::Path::new(&restore_to);
-        if let Some(parent) = restore_path.parent()
-            && parent.exists() {
-                let canonical = parent.canonicalize()?;
-                let canonical_home = copilot_home.canonicalize().unwrap_or(copilot_home);
-                if !canonical.starts_with(&canonical_home) {
-                    return Err(BindingsError::Validation(
-                        "Restore path is outside the Copilot directory".into(),
-                    ));
-                }
-            }
+        let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
+        let home = copilot_home()?;
+        let validated_restore = validate_write_path_within(&restore_to, &home)?;
         Ok(tracepilot_orchestrator::config_injector::restore_backup(
-            std::path::Path::new(&backup_path),
-            restore_path,
+            &validated_backup,
+            &validated_restore,
         )?)
     })
     .await?
@@ -200,8 +194,10 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
 #[tauri::command]
 pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
     tokio::task::spawn_blocking(move || {
+        let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
+        let validated = validate_path_within(&backup_path, &backup_dir)?;
         Ok(tracepilot_orchestrator::config_injector::delete_backup(
-            std::path::Path::new(&backup_path),
+            &validated,
         )?)
     })
     .await?
@@ -214,25 +210,14 @@ pub async fn preview_backup_restore(
 ) -> CmdResult<tracepilot_orchestrator::BackupDiffPreview> {
     tokio::task::spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
-        validate_path_within(&backup_path, &backup_dir)?;
-
+        let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
-        let source = std::path::Path::new(&source_path);
-        if let Some(parent) = source.parent()
-            && parent.exists() {
-                let canonical = parent.canonicalize()?;
-                let canonical_home = home.canonicalize().unwrap_or(home);
-                if !canonical.starts_with(&canonical_home) {
-                    return Err(BindingsError::Validation(
-                        "Source path is outside the Copilot directory".into(),
-                    ));
-                }
-            }
+        let validated_source = validate_path_within(&source_path, &home)?;
 
         Ok(
             tracepilot_orchestrator::config_injector::preview_backup_restore(
-                std::path::Path::new(&backup_path),
-                source,
+                &validated_backup,
+                &validated_source,
             )?,
         )
     })
@@ -245,9 +230,12 @@ pub async fn diff_config_files(
     new_path: String,
 ) -> CmdResult<tracepilot_orchestrator::ConfigDiff> {
     tokio::task::spawn_blocking(move || {
+        let home = copilot_home()?;
+        let validated_old = validate_path_within(&old_path, &home)?;
+        let validated_new = validate_path_within(&new_path, &home)?;
         Ok(tracepilot_orchestrator::config_injector::diff_files(
-            std::path::Path::new(&old_path),
-            std::path::Path::new(&new_path),
+            &validated_old,
+            &validated_new,
         )?)
     })
     .await?
