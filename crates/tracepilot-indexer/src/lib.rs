@@ -42,8 +42,8 @@ pub struct IndexingProgress {
 ///
 /// # Thread Safety
 ///
-/// This type is `!Send` and must only be used on the main thread after
-/// parallel parsing completes via Rayon. Do not attempt to share across threads.
+/// All fields are `Send`, but this type is intended for single-threaded use
+/// after parallel parsing completes via Rayon. Do not share across threads.
 ///
 /// # Progress Semantics
 ///
@@ -63,7 +63,6 @@ struct ProgressTracker {
 
 impl ProgressTracker {
     /// Create a new tracker for indexing `total` sessions.
-    #[inline]
     fn new(total: usize) -> Self {
         Self {
             current: 0,
@@ -79,7 +78,6 @@ impl ProgressTracker {
     /// Accumulate metrics from a successfully indexed session.
     ///
     /// Note: Sessions with `repository = None` are handled correctly.
-    #[inline]
     fn accumulate(&mut self, info: &SessionIndexInfo) {
         self.running_tokens += info.total_tokens;
         self.running_events += info.event_count as u64;
@@ -92,7 +90,6 @@ impl ProgressTracker {
     ///
     /// This should be called for every session processed, whether successfully
     /// indexed or skipped.
-    #[inline]
     fn increment(&mut self) {
         self.current += 1;
     }
@@ -102,13 +99,11 @@ impl ProgressTracker {
     /// Returns true if either:
     /// - We've reached the final session (always emit completion)
     /// - Sufficient time has passed since the last emission
-    #[inline]
     fn should_emit(&self) -> bool {
         self.is_complete() || self.last_emit.elapsed() >= self.throttle
     }
 
     /// Check if we've reached the final session.
-    #[inline]
     fn is_complete(&self) -> bool {
         self.current >= self.total
     }
@@ -141,7 +136,6 @@ impl ProgressTracker {
     }
 
     /// Internal helper to construct and emit progress, updating timestamp.
-    #[inline]
     fn emit_internal(
         &mut self,
         on_progress: &mut impl FnMut(&IndexingProgress),
@@ -320,10 +314,8 @@ pub fn reindex_incremental_with_rich_progress(
         }
     }
 
-    // If nothing needs reindex, emit a final progress event so the UI reaches 100%
-    if stale_sessions.is_empty() && total > 0 {
-        tracker.emit(&mut on_progress, None);
-    }
+    // Note: is_complete() in should_emit() guarantees the last emit_if_ready
+    // in the skip loop fires unconditionally, so no explicit final emit needed.
 
     // Step 2: Parse stale sessions in parallel (no DB access)
     let prepared: Vec<_> = stale_sessions
