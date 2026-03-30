@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{open_index_db, read_config};
+use crate::helpers::{open_index_db, read_config, with_session_path};
 use crate::types::{GitInfo, UpdateCheckResult};
 use std::ffi::OsStr;
 use std::path::Path;
@@ -23,16 +23,10 @@ pub async fn is_session_running(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<bool> {
-    let session_state_dir = read_config(&state).session_state_dir();
-
-    tokio::task::spawn_blocking(move || {
-        let path = tracepilot_core::session::discovery::resolve_session_path_in(
-            &session_id,
-            &session_state_dir,
-        )?;
+    with_session_path(&state, session_id, |path| {
         Ok(tracepilot_core::session::discovery::has_lock_file(&path))
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
