@@ -35,7 +35,7 @@ describe("useCachedFetch", () => {
     });
 
     it("sets loading state during fetch", async () => {
-      let resolvePromise!: (value: any) => void;
+      let resolvePromise!: (value: unknown) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -61,7 +61,7 @@ describe("useCachedFetch", () => {
         name: string;
       }
       const fetcher = vi.fn().mockResolvedValue({ result: "ok" });
-      const { fetch } = useCachedFetch<any, Params>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, Params>({ fetcher });
 
       await fetch({ id: 123, name: "test" });
 
@@ -203,14 +203,14 @@ describe("useCachedFetch", () => {
 
   describe("request deduplication", () => {
     it("deduplicates concurrent requests for same parameters", async () => {
-      let resolvePromise!: (value: any) => void;
+      let resolvePromise!: (value: unknown) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {
             resolvePromise = resolve;
           }),
       );
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const promise1 = fetch({ id: 1 });
       const promise2 = fetch({ id: 1 });
@@ -227,7 +227,7 @@ describe("useCachedFetch", () => {
     it("does not deduplicate requests for different parameters", async () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const promise1 = fetch({ id: 1 });
       const promise2 = fetch({ id: 2 });
@@ -257,7 +257,7 @@ describe("useCachedFetch", () => {
     it("prevents stale writes when newer request completes first", async () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { data, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { data, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       // Start first request
       const req1 = fetch({ id: 1 });
@@ -287,7 +287,7 @@ describe("useCachedFetch", () => {
             resolvers.push({ resolve, reject });
           }),
       );
-      const { error, data, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { error, data, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
@@ -310,7 +310,7 @@ describe("useCachedFetch", () => {
     it("prevents stale loading state updates", async () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { loading, fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { loading, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
       expect(loading.value).toBe(true);
@@ -335,7 +335,7 @@ describe("useCachedFetch", () => {
   describe("reset", () => {
     it("resets all state to initial values", async () => {
       const fetcher = vi.fn().mockResolvedValue({ data: "test" });
-      const { data, error, loading, fetch, reset } = useCachedFetch<any, { id: number }>({
+      const { data, error, loading, fetch, reset } = useCachedFetch<unknown, { id: number }>({
         fetcher,
       });
 
@@ -351,7 +351,7 @@ describe("useCachedFetch", () => {
 
     it("clears cache so next fetch refetches", async () => {
       const fetcher = vi.fn().mockResolvedValue({ data: "test" });
-      const { fetch, reset, isCached } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { fetch, reset, isCached } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       await fetch({ id: 1 });
       expect(isCached({ id: 1 })).toBe(true);
@@ -366,7 +366,7 @@ describe("useCachedFetch", () => {
     it("increments generation to prevent stale writes after reset", async () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { data, fetch, reset } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { data, fetch, reset } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
 
@@ -402,7 +402,7 @@ describe("useCachedFetch", () => {
         filter?: string;
       }
       const fetcher = vi.fn().mockResolvedValue({ result: "ok" });
-      const { fetch } = useCachedFetch<any, MyParams>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, MyParams>({ fetcher });
 
       await fetch({ id: 1 });
       await fetch({ id: 2, filter: "test" });
@@ -415,7 +415,7 @@ describe("useCachedFetch", () => {
   describe("edge cases", () => {
     it("handles void parameters correctly", async () => {
       const fetcher = vi.fn().mockResolvedValue({ data: "test" });
-      const { fetch } = useCachedFetch<any, void>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, void>({ fetcher });
 
       await fetch(undefined);
       await fetch(undefined); // Should use cache
@@ -439,7 +439,7 @@ describe("useCachedFetch", () => {
         name?: string;
       }
       const fetcher = vi.fn().mockResolvedValue({ data: "test" });
-      const { fetch } = useCachedFetch<any, Params>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, Params>({ fetcher });
 
       await fetch({ id: null });
       await fetch({ id: null }); // Should use cache
@@ -453,7 +453,7 @@ describe("useCachedFetch", () => {
         name?: string;
       }
       const fetcher = vi.fn().mockResolvedValue({ data: "test" });
-      const { fetch } = useCachedFetch<any, Params>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, Params>({ fetcher });
 
       await fetch({ id: undefined, name: undefined });
       await fetch({ id: undefined, name: undefined }); // Should use cache (same as above)
@@ -511,7 +511,7 @@ describe("useCachedFetch", () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onSuccess = vi.fn();
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onSuccess });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onSuccess });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
@@ -539,7 +539,7 @@ describe("useCachedFetch", () => {
           }),
       );
       const onError = vi.fn();
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onError });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onError });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
@@ -561,7 +561,7 @@ describe("useCachedFetch", () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onFinally = vi.fn();
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher, onFinally });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onFinally });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
@@ -724,7 +724,7 @@ describe("useCachedFetch", () => {
 
   describe("silent mode", () => {
     it("does not update loading state when silent is true", async () => {
-      let resolvePromise!: (value: any) => void;
+      let resolvePromise!: (value: unknown) => void;
       const fetcher = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -828,7 +828,7 @@ describe("useCachedFetch", () => {
     it("returns undefined for stale requests", async () => {
       const resolvers: Array<(value: any) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
-      const { fetch } = useCachedFetch<any, { id: number }>({ fetcher });
+      const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const req1 = fetch({ id: 1 });
       const req2 = fetch({ id: 2 });
