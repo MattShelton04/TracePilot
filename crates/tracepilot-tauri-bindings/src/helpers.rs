@@ -3,10 +3,41 @@
 use crate::config::{SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::types::{IndexingProgressPayload, SessionListItem};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::Emitter;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
+
+/// Resolve a session directory path and run a blocking closure with it.
+///
+/// Encapsulates the standard pattern used by most single-session commands:
+/// 1. Read `session_state_dir` from shared config
+/// 2. Spawn a blocking task to resolve the session path on disk
+/// 3. Execute command-specific logic with the resolved `PathBuf`
+///
+/// This eliminates repeated boilerplate across session, export, and state
+/// commands.  For the analytics equivalent, see
+/// [`analytics_executor::execute_analytics_query`](super::commands::analytics_executor::execute_analytics_query).
+pub(crate) async fn with_session_path<T, F>(
+    state: &SharedConfig,
+    session_id: String,
+    f: F,
+) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(PathBuf) -> Result<T, BindingsError> + Send + 'static,
+{
+    let session_state_dir = read_config(state).session_state_dir();
+
+    tokio::task::spawn_blocking(move || {
+        let path = tracepilot_core::session::discovery::resolve_session_path_in(
+            &session_id,
+            &session_state_dir,
+        )?;
+        f(path)
+    })
+    .await?
+}
 
 /// Convert an `IndexingProgress` from the indexer into our Tauri event payload and emit it.
 pub(crate) fn emit_indexing_progress(
@@ -39,11 +70,6 @@ pub(crate) fn read_config(state: &SharedConfig) -> TracePilotConfig {
             poisoned.into_inner().clone().unwrap_or_default()
         }
     }
-}
-
-pub(crate) fn truncate_utf8(s: &mut String, max_bytes: usize) {
-    let truncated_len = tracepilot_core::utils::truncate_utf8(s.as_str(), max_bytes).len();
-    s.truncate(truncated_len);
 }
 
 pub(crate) fn summary_to_list_item(
@@ -139,7 +165,18 @@ pub(crate) fn remove_index_db_files(index_path: &Path) -> Result<(), BindingsErr
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::{Arc, RwLock};
     use tempfile::tempdir;
+
+    fn make_shared_config(session_state_dir: &str) -> SharedConfig {
+        Arc::new(RwLock::new(Some(crate::config::TracePilotConfig {
+            paths: crate::config::PathsConfig {
+                session_state_dir: session_state_dir.to_string(),
+                index_db_path: String::new(),
+            },
+            ..Default::default()
+        })))
+    }
 
     #[test]
     fn remove_index_files_deletes_existing_artifacts() {
@@ -179,5 +216,65 @@ mod tests {
 
         // None of the files exist — should succeed without error.
         remove_index_db_files(&index_path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn with_session_path_propagates_missing_session_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = make_shared_config(dir.path().to_str().unwrap());
+
+        let result = with_session_path(&state, "nonexistent-session-id".into(), |_path| {
+            Ok("should not reach here".to_string())
+        })
+        .await;
+
+        assert!(result.is_err(), "missing session should produce an error");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("nonexistent-session-id"),
+            "error should reference the session id: {err_msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn with_session_path_runs_closure_on_resolved_path() {
+        // Session directories must be valid UUIDs (discover_sessions filters by uuid::Uuid::parse_str)
+        let dir = tempfile::tempdir().unwrap();
+        let session_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+        let session_dir = dir.path().join(session_id);
+        std::fs::create_dir_all(&session_dir).unwrap();
+
+        let state = make_shared_config(dir.path().to_str().unwrap());
+
+        let result = with_session_path(&state, session_id.into(), |path| {
+            Ok(path.to_string_lossy().to_string())
+        })
+        .await;
+
+        assert!(result.is_ok(), "valid session should succeed: {:?}", result.err());
+        let resolved = result.unwrap();
+        assert!(
+            resolved.contains(session_id),
+            "resolved path should contain session id: {resolved}"
+        );
+    }
+
+    #[tokio::test]
+    async fn with_session_path_propagates_closure_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_id = "b2c3d4e5-f6a7-8901-bcde-f12345678901";
+        let session_dir = dir.path().join(session_id);
+        std::fs::create_dir_all(&session_dir).unwrap();
+
+        let state = make_shared_config(dir.path().to_str().unwrap());
+
+        let result: CmdResult<()> = with_session_path(&state, session_id.into(), |_path| {
+            Err(BindingsError::Validation("deliberate test error".into()))
+        })
+        .await;
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert_eq!(err_msg, "deliberate test error");
     }
 }

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { formatRelativeTime, formatDateMedium } from '@tracepilot/ui';
+import type { ContentTypeStyle } from '@tracepilot/ui';
+import type { SessionGroup } from '@/stores/search';
 
 defineProps<{
-  groupedResults: any[];
+  groupedResults: SessionGroup[];
   collapsedGroups: Set<string>;
   expandedResults: Set<number>;
   resultIndexMap: Map<number, number>;
   focusedResultIndex: number | null;
   hasMore: boolean;
-  contentTypeConfig: Record<string, any>;
+  contentTypeConfig: Record<string, ContentTypeStyle>;
   sessionLink: (sessionId: string, turnNumber: number | null, eventIndex: number | null) => string;
 }>();
 

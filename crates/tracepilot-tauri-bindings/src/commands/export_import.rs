@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{read_config, with_session_path};
 use crate::types::{
     ExportPreviewResult, ExportSessionsResult, ImportIssue, ImportPreviewResult,
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
@@ -131,12 +131,12 @@ pub async fn preview_export(
     strip_secrets: Option<bool>,
     strip_pii: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
+    // Parse format and sections *before* entering spawn_blocking — these are
+    // validation-only steps that don't depend on the resolved session path.
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
-    tokio::task::spawn_blocking(move || {
+    with_session_path(&state, session_id, move |session_path| {
         let options = ExportOptions {
             format: export_format,
             sections: section_set.clone(),
@@ -152,11 +152,6 @@ pub async fn preview_export(
                 strip_pii: strip_pii.unwrap_or(false),
             },
         };
-
-        let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
-            &session_id,
-            &session_state_dir,
-        )?;
 
         let full_content = tracepilot_export::preview_export(
             &session_path,
@@ -181,7 +176,7 @@ pub async fn preview_export(
             section_count: section_set.len(),
         })
     })
-    .await?
+    .await
 }
 
 /// Get info about which sections have data for a given session.
@@ -190,15 +185,7 @@ pub async fn get_session_sections(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<SessionSectionsInfo> {
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-
-    tokio::task::spawn_blocking(move || {
-        let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
-            &session_id,
-            &session_state_dir,
-        )?;
-
+    with_session_path(&state, session_id.clone(), move |session_path| {
         let events_path = session_path.join("events.jsonl");
         let db_path = session_path.join("session.db");
         let plan_path = session_path.join("plan.md");
@@ -234,7 +221,7 @@ pub async fn get_session_sections(
             turn_count: summary.as_ref().and_then(|s| s.turn_count),
         })
     })
-    .await?
+    .await
 }
 
 // ── Import Commands ───────────────────────────────────────────────────────

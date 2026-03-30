@@ -22,9 +22,7 @@ pub async fn save_config(
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cfg = config.clone();
-    tokio::task::spawn_blocking(move || cfg.save())
-        .await?
-        .map_err(|e| BindingsError::Validation(e))?;
+    tokio::task::spawn_blocking(move || cfg.save()).await??;
 
     let mut guard = state
         .write()
