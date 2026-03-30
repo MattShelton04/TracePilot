@@ -21,7 +21,7 @@ import {
   useConversationSections,
   useToggleSet,
 } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
@@ -39,6 +39,7 @@ import {
   type ToolGroupItem,
   type ToolSegment,
 } from "./chatViewUtils";
+import { computePanelWidthPx, computeScrollInsetPx, shouldReserveScrollInset } from "./panelLayout";
 import SubagentCard from "./SubagentCard.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 
@@ -82,6 +83,8 @@ const { findToolCallIndex, getArgsSummary } = useConversationSections(() => stor
 
 const scrollEl = ref<HTMLElement | null>(null);
 const cvRootEl = ref<HTMLElement | null>(null);
+const PAGE_SCROLL_INSET_CLASS = "cv-page-scroll-inset";
+const panelWidthPx = ref(0);
 
 // ─── Panel top offset (fixed position below sticky action bar) ────
 
@@ -100,8 +103,7 @@ function updatePanelTop() {
   // Panel top = whichever is lower: cv-root top or sticky bar bottom
   panelTopPx.value = Math.max(cvRect.top, actionsBottom);
 
-  // Compute breakout offsets so .cv-root can extend beyond .page-content-inner
-  // when the panel is open, without affecting sibling elements (toolbar, badges, etc.)
+  // Preserve chat edge alignment when page-content is centered with max-width.
   const pc = cvRoot.closest(".page-content") as HTMLElement | null;
   const pci = cvRoot.closest(".page-content-inner") as HTMLElement | null;
   if (pc && pci) {
@@ -112,26 +114,57 @@ function updatePanelTop() {
     const pciWidth = pci.offsetWidth;
     const sideGap = Math.max(0, (pcContentWidth - pciWidth) / 2);
     cvRoot.style.setProperty("--breakout-left", `${sideGap}px`);
-    // Extend right through page-content padding so content meets the panel edge
     cvRoot.style.setProperty("--breakout-right", `${sideGap + padR}px`);
   }
 }
 
-onMounted(() => {
+function applyPageScrollInset() {
+  if (!pageScrollEl) return;
+
+  const viewportWidth = window.innerWidth;
+  panelWidthPx.value = shouldReserveScrollInset(viewportWidth) ? computePanelWidthPx(viewportWidth) : 0;
+
+  const insetPx = computeScrollInsetPx(panel.isPanelOpen.value, viewportWidth);
+  pageScrollEl.classList.toggle(PAGE_SCROLL_INSET_CLASS, insetPx > 0);
+  pageScrollEl.style.setProperty("--cv-page-scroll-inset", `${insetPx}px`);
+}
+
+function clearPageScrollInset() {
+  if (!pageScrollEl) return;
+  pageScrollEl.classList.remove(PAGE_SCROLL_INSET_CLASS);
+  pageScrollEl.style.removeProperty("--cv-page-scroll-inset");
+}
+
+function handleLayoutResize() {
+  applyPageScrollInset();
   updatePanelTop();
-  window.addEventListener("resize", updatePanelTop);
-  // Listen to scroll on the page-content container (the page scroller)
+}
+
+onMounted(() => {
   pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
+  applyPageScrollInset();
+  updatePanelTop();
+  window.addEventListener("resize", handleLayoutResize);
+  // Listen to scroll on the page-content container (the page scroller)
   if (pageScrollEl) {
     pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
   }
 });
 
+watch(
+  () => panel.isPanelOpen.value,
+  () => {
+    applyPageScrollInset();
+    nextTick(() => updatePanelTop());
+  },
+);
+
 onUnmounted(() => {
-  window.removeEventListener("resize", updatePanelTop);
+  window.removeEventListener("resize", handleLayoutResize);
   if (pageScrollEl) {
     pageScrollEl.removeEventListener("scroll", updatePanelTop);
   }
+  clearPageScrollInset();
 });
 
 // ─── Computed helpers ─────────────────────────────────────────────
@@ -645,6 +678,7 @@ defineExpose({ revealEvent });
       :has-prev="panel.hasPrev.value"
       :has-next="panel.hasNext.value"
       :top-offset="panelTopPx"
+      :panel-width-px="panelWidthPx"
       @close="panel.closePanel"
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
@@ -671,11 +705,6 @@ defineExpose({ revealEvent });
   display: flex;
   flex-direction: column;
   min-width: 0;
-  transition: margin-right var(--transition-normal, 0.2s) ease;
-}
-
-.cv-main.panel-open {
-  margin-right: min(38vw, 650px);
 }
 
 .cv-main.panel-open .cv-content {

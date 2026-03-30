@@ -120,6 +120,9 @@
 
   /* --- Interaction States --- */
   --state-hover-overlay: rgba(255, 255, 255, 0.12); /* Subtle overlay for hover states */
+  --chart-tooltip-bg: rgba(24, 24, 27, 0.94);
+  --chart-tooltip-fg: #fafafa;
+  --chart-active-emphasis: 28%;
 
   /* --- Gradients --- */
   --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -230,6 +233,9 @@
     0,
     0.08
   ); /* Inverted and slightly more visible for light theme */
+  --chart-tooltip-bg: rgba(24, 24, 27, 0.88);
+  --chart-tooltip-fg: #fafafa;
+  --chart-active-emphasis: 20%;
 
   --gradient-card: linear-gradient(145deg, #ffffff, #f4f4f5);
   --gradient-surface: linear-gradient(180deg, #f4f4f5 0%, #ffffff 100%);

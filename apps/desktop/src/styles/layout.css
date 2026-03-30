@@ -299,6 +299,13 @@
   flex: 1;
   overflow-y: auto;
   padding: 28px;
+  transition:
+    margin-right var(--transition-normal),
+    padding-right var(--transition-normal);
+}
+
+.page-content.cv-page-scroll-inset {
+  margin-right: var(--cv-page-scroll-inset, 0px);
 }
 .page-content-inner {
   max-width: var(--content-max-width);
