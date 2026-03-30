@@ -47,6 +47,14 @@ pub enum BindingsError {
     #[error(transparent)]
     Export(#[from] tracepilot_export::ExportError),
 
+    /// TOML serialization error (config save).
+    #[error(transparent)]
+    TomlSerialize(#[from] toml::ser::Error),
+
+    /// TOML deserialization error (config load).
+    #[error(transparent)]
+    TomlDeserialize(#[from] toml::de::Error),
+
     /// A reindex is already running; callers should retry later.
     #[error("ALREADY_INDEXING")]
     AlreadyIndexing,

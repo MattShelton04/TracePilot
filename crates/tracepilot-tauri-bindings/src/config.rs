@@ -1,8 +1,9 @@
 //! TracePilot configuration — loaded from `~/.copilot/tracepilot/config.toml`.
 
+use crate::error::BindingsError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 /// The canonical config file location.
@@ -326,40 +327,65 @@ impl TracePilotConfig {
     /// Applies pending migrations and auto-saves if the version was bumped.
     pub fn load() -> Option<Self> {
         let path = config_file_path()?;
-        let content = std::fs::read_to_string(&path).ok()?;
-        match toml::from_str::<Self>(&content) {
+        match Self::load_from(&path) {
             Ok(mut config) => {
                 tracing::info!(path = %path.display(), version = config.version, "Loaded config.toml");
                 if config.migrate() {
                     tracing::info!(new_version = config.version, "Config migrated — saving");
-                    if let Err(e) = config.save() {
+                    if let Err(e) = config.save_to(&path) {
                         tracing::warn!(error = %e, "Failed to save migrated config");
                     }
                 }
                 Some(config)
             }
+            Err(BindingsError::Io(ref io_err)) if io_err.kind() == std::io::ErrorKind::NotFound => {
+                // Config file doesn't exist yet — normal on first run.
+                None
+            }
             Err(e) => {
                 tracing::warn!(
                     path = %path.display(),
                     error = %e,
-                    "Failed to parse config.toml; using defaults"
+                    "Failed to load config.toml; using defaults"
                 );
                 None
             }
         }
     }
 
+    /// Read and parse a config file from an arbitrary path.
+    ///
+    /// Unlike [`load()`](Self::load) this does **not** apply migrations or
+    /// auto-save.  It is the low-level "read + deserialize" primitive used by
+    /// `load()` and available directly for testing.
+    pub fn load_from(path: &Path) -> Result<Self, BindingsError> {
+        let content = std::fs::read_to_string(path)?;
+        let config = toml::from_str::<Self>(&content)?;
+        Ok(config)
+    }
+
     /// Save config to the standard location.
-    pub fn save(&self) -> Result<(), String> {
+    pub fn save(&self) -> Result<(), BindingsError> {
         let path = config_file_path()
-            .ok_or_else(|| "Cannot determine home directory for config file".to_string())?;
+            .ok_or_else(|| BindingsError::Validation("Cannot determine home directory for config file".into()))?;
+        self.save_to(&path)
+    }
+
+    /// Write the config to an arbitrary path, creating parent directories as
+    /// needed.
+    ///
+    /// This is the low-level "serialize + write" primitive used by [`save()`](Self::save)
+    /// and available directly for testing.
+    ///
+    /// Note: this is **not** atomic — a crash mid-write could leave a truncated
+    /// file.  A future improvement could use write-to-temp + rename for
+    /// crash-safety.
+    pub fn save_to(&self, path: &Path) -> Result<(), BindingsError> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create config directory: {e}"))?;
+            std::fs::create_dir_all(parent)?;
         }
-        let content =
-            toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {e}"))?;
-        std::fs::write(&path, content).map_err(|e| format!("Failed to write config file: {e}"))?;
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(path, content)?;
         Ok(())
     }
 
@@ -441,9 +467,9 @@ mod tests {
         "#;
         let config: TracePilotConfig = toml::from_str(minimal).expect("parse minimal config");
         assert_eq!(config.version, 2); // still v2 in TOML, migration upgrades it
-        assert_eq!(config.general.auto_index_on_launch, true);
+        assert!(config.general.auto_index_on_launch);
         assert_eq!(config.ui.theme, "dark");
-        assert_eq!(config.features.render_markdown, true);
+        assert!(config.features.render_markdown);
     }
 
     #[test]
@@ -466,6 +492,166 @@ mod tests {
         assert_eq!(config.paths.index_db_path, "/custom/path/index.db");
         assert_eq!(config.ui.theme, "light");
         // New v2 field gets default value
-        assert_eq!(config.features.render_markdown, true);
+        assert!(config.features.render_markdown);
+    }
+
+    // ── File I/O tests (use tempfile) ──────────────────────────────
+
+    #[test]
+    fn save_to_load_from_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let config = TracePilotConfig::default();
+        config.save_to(&path).expect("save_to should succeed");
+
+        let loaded = TracePilotConfig::load_from(&path).expect("load_from should succeed");
+        assert_eq!(loaded.version, config.version);
+        assert_eq!(loaded.paths.session_state_dir, config.paths.session_state_dir);
+        assert_eq!(loaded.paths.index_db_path, config.paths.index_db_path);
+        assert_eq!(loaded.ui.theme, config.ui.theme);
+        assert_eq!(loaded.pricing.cost_per_premium_request, config.pricing.cost_per_premium_request);
+    }
+
+    #[test]
+    fn save_to_creates_parent_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a").join("b").join("c").join("config.toml");
+
+        let config = TracePilotConfig::default();
+        config.save_to(&nested).expect("save_to should create parent dirs");
+
+        assert!(nested.exists());
+        let loaded = TracePilotConfig::load_from(&nested).expect("load_from nested path");
+        assert_eq!(loaded.version, config.version);
+    }
+
+    #[test]
+    fn save_to_preserves_user_settings_through_io() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut config = TracePilotConfig::default();
+        config.ui.theme = "midnight-aurora".to_string();
+        config.ui.check_for_updates = false;
+        config.pricing.cost_per_premium_request = 0.08;
+        config.features.export_view = true;
+        config.general.cli_command = "gh-copilot".to_string();
+
+        config.save_to(&path).expect("save");
+        let loaded = TracePilotConfig::load_from(&path).expect("load");
+
+        assert_eq!(loaded.ui.theme, "midnight-aurora");
+        assert!(!loaded.ui.check_for_updates);
+        assert_eq!(loaded.pricing.cost_per_premium_request, 0.08);
+        assert!(loaded.features.export_view);
+        assert_eq!(loaded.general.cli_command, "gh-copilot");
+    }
+
+    #[test]
+    fn save_to_overwrites_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut config = TracePilotConfig::default();
+        config.save_to(&path).expect("initial save");
+
+        config.ui.theme = "arctic".to_string();
+        config.save_to(&path).expect("overwrite save");
+
+        let loaded = TracePilotConfig::load_from(&path).expect("load after overwrite");
+        assert_eq!(loaded.ui.theme, "arctic");
+    }
+
+    #[test]
+    fn load_from_nonexistent_file_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("does_not_exist.toml");
+
+        let err = TracePilotConfig::load_from(&missing).unwrap_err();
+        assert!(
+            matches!(err, BindingsError::Io(_)),
+            "expected Io error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn load_from_empty_file_returns_toml_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.toml");
+        std::fs::write(&path, "").unwrap();
+
+        let err = TracePilotConfig::load_from(&path).unwrap_err();
+        assert!(
+            matches!(err, BindingsError::TomlDeserialize(_)),
+            "expected TomlDeserialize error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn load_from_corrupt_toml_returns_toml_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("corrupt.toml");
+        std::fs::write(&path, "this is not {{valid}} toml!!!").unwrap();
+
+        let err = TracePilotConfig::load_from(&path).unwrap_err();
+        assert!(
+            matches!(err, BindingsError::TomlDeserialize(_)),
+            "expected TomlDeserialize error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn load_from_wrong_schema_returns_toml_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wrong_schema.toml");
+        // version should be u32, paths.sessionStateDir should be string
+        std::fs::write(&path, r#"
+            version = "not_a_number"
+
+            [paths]
+            sessionStateDir = 42
+            indexDbPath = true
+        "#).unwrap();
+
+        let err = TracePilotConfig::load_from(&path).unwrap_err();
+        assert!(
+            matches!(err, BindingsError::TomlDeserialize(_)),
+            "expected TomlDeserialize error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn migration_through_file_io_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        // Write a v1 config directly to disk
+        let v1_toml = r#"
+            version = 1
+
+            [paths]
+            indexDbPath = "/test/index.db"
+            sessionStateDir = "/test/sessions"
+
+            [ui]
+            theme = "solar-flare"
+        "#;
+        std::fs::write(&path, v1_toml).unwrap();
+
+        // Load, migrate, save
+        let mut config = TracePilotConfig::load_from(&path).expect("load v1");
+        assert_eq!(config.version, 1);
+        assert!(config.migrate());
+        assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+        config.save_to(&path).expect("save migrated");
+
+        // Reload and verify migration persisted
+        let reloaded = TracePilotConfig::load_from(&path).expect("reload");
+        assert_eq!(reloaded.version, TracePilotConfig::CURRENT_VERSION);
+        assert_eq!(reloaded.ui.theme, "solar-flare");
+        assert_eq!(reloaded.paths.index_db_path, "/test/index.db");
+        // v2 default applied
+        assert!(reloaded.features.render_markdown);
     }
 }
