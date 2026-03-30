@@ -73,6 +73,27 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   const staleCount = computed(() => worktrees.value.filter((w) => w.status === 'stale').length);
   const lockedCount = computed(() => worktrees.value.filter((w) => w.isLocked).length);
 
+  // ─── Disk Usage Hydration ─────────────────────────────────────────
+  // Shared helper — hydrates diskUsageBytes for each worktree in `items`.
+  // When `guardToken` is provided, results are discarded if the token has
+  // become stale (prevents out-of-order async overwrites).
+
+  function hydrateDiskUsageBatch(items: WorktreeInfo[], guardToken?: number) {
+    for (const wt of items) {
+      getWorktreeDiskUsage(wt.path)
+        .then((bytes) => {
+          if (guardToken != null && !loadGuard.isValid(guardToken)) return;
+          const idx = worktrees.value.findIndex((w) => w.path === wt.path);
+          if (idx >= 0) {
+            worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
+          }
+        })
+        .catch((e) => {
+          logWarn('[worktrees] Failed to hydrate disk usage', { path: wt.path, error: e });
+        });
+    }
+  }
+
   // ─── Worktree Actions ─────────────────────────────────────────────
 
   async function loadWorktrees(repoPath: string) {
@@ -84,22 +105,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       const result = await listWorktrees(repoPath);
       if (!loadGuard.isValid(token)) return; // stale response — discard
       worktrees.value = result;
-      // Load disk usage async — capture snapshot to avoid race conditions
-      const snapshot = [...result];
-      for (const wt of snapshot) {
-        getWorktreeDiskUsage(wt.path)
-          .then((bytes) => {
-            if (!loadGuard.isValid(token)) return;
-            const idx = worktrees.value.findIndex((w) => w.path === wt.path);
-            if (idx >= 0) {
-              worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
-            }
-          })
-          .catch((e) => {
-            // Non-critical - disk usage is supplementary info
-            logWarn('[worktrees] Failed to load disk usage for worktree in loadWorktrees', e);
-          });
-      }
+      hydrateDiskUsageBatch([...result], token);
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
@@ -126,22 +132,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       }
       if (!loadGuard.isValid(token)) return;
       worktrees.value = allWorktrees;
-      // Hydrate disk usage asynchronously (same as loadWorktrees)
-      const snapshot = [...allWorktrees];
-      for (const wt of snapshot) {
-        getWorktreeDiskUsage(wt.path)
-          .then((bytes) => {
-            if (!loadGuard.isValid(token)) return;
-            const idx = worktrees.value.findIndex((w) => w.path === wt.path);
-            if (idx >= 0) {
-              worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
-            }
-          })
-          .catch((e) => {
-            // Non-critical - disk usage is supplementary info
-            logWarn('[worktrees] Failed to load disk usage for worktree in loadAllWorktrees', e);
-          });
-      }
+      hydrateDiskUsageBatch([...allWorktrees], token);
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
@@ -265,17 +256,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   }
 
   function hydrateDiskUsage(worktreePath: string) {
-    getWorktreeDiskUsage(worktreePath)
-      .then((bytes) => {
-        const idx = worktrees.value.findIndex((w) => w.path === worktreePath);
-        if (idx >= 0) {
-          worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
-        }
-      })
-      .catch((e) => {
-        // Non-critical - disk usage is supplementary info
-        logWarn('[worktrees] Failed to hydrate disk usage', { worktreePath, error: e });
-      });
+    const wt = worktrees.value.find((w) => w.path === worktreePath);
+    if (wt) {
+      hydrateDiskUsageBatch([wt]);
+    }
   }
 
   // ─── Repository Registry Actions ──────────────────────────────────
