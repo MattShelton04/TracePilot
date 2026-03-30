@@ -26,7 +26,7 @@ import {
 } from "@tracepilot/ui";
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import type ChatViewMode from "@/components/conversation/ChatViewMode.vue";
+import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";

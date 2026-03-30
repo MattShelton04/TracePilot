@@ -35,6 +35,9 @@
           "correctness": {
             "noUnusedImports": "off",
             "noUnusedVariables": "off"
+          },
+          "style": {
+            "useImportType": "off"
           }
         }
       }
@@ -50,7 +53,8 @@
       "!**/*.d.ts",
       "!docs/design/prototypes",
       "!docs/presentation",
-      "!docs/theme-prototypes"
+      "!docs/theme-prototypes",
+      "!**/gen/schemas"
     ]
   },
   "css": {

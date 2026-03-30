@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import SettingsAbout from "@/components/settings/SettingsAbout.vue";
 import SettingsAppearance from "@/components/settings/SettingsAppearance.vue";
-import type SettingsDataStorage from "@/components/settings/SettingsDataStorage.vue";
+import SettingsDataStorage from "@/components/settings/SettingsDataStorage.vue";
 import SettingsExperimental from "@/components/settings/SettingsExperimental.vue";
 import SettingsGeneral from "@/components/settings/SettingsGeneral.vue";
 import SettingsLogging from "@/components/settings/SettingsLogging.vue";
