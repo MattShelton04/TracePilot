@@ -4,8 +4,9 @@
 
 :root {
   /* --- Font --- */
-  --font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-family: "Inter Variable", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-family: var(--font-family);
 
   /* --- Canvas --- */
@@ -20,12 +21,12 @@
   --surface-tertiary: #27272a;
 
   /* --- Border --- */
-  --border-default: rgba(255, 255, 255, 0.10);
+  --border-default: rgba(255, 255, 255, 0.1);
   --border-muted: rgba(255, 255, 255, 0.06);
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-accent: rgba(99, 102, 241, 0.5);
   --border-glow: rgba(99, 102, 241, 0.15);
-  --border-emphasis: rgba(255, 255, 255, 0.20);
+  --border-emphasis: rgba(255, 255, 255, 0.2);
   --border: var(--border-default);
 
   /* --- Text --- */
@@ -34,50 +35,55 @@
   --text-tertiary: #71717a;
   --text-placeholder: #52525b;
   --text-link: #818cf8;
-  --text-inverse: #09090b;                            /* Dark text for use on light backgrounds */
-  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Light text for use on colored emphasis backgrounds (badges, buttons) */
+  --text-inverse: #09090b; /* Dark text for use on light backgrounds */
+  --text-on-emphasis: rgba(
+    255,
+    255,
+    255,
+    0.95
+  ); /* Light text for use on colored emphasis backgrounds (badges, buttons) */
 
   /* --- Attention (Orange — distinct from Warning/Amber for notice-level emphasis) --- */
   --attention-fg: #fb923c;
-  --attention-subtle: rgba(251, 146, 60, 0.10);
+  --attention-subtle: rgba(251, 146, 60, 0.1);
 
   /* --- Accent (Indigo) --- */
   --accent-fg: #818cf8;
   --accent-emphasis: #6366f1;
   --accent-emphasis-hover: #4f46e5;
   --accent-muted: rgba(99, 102, 241, 0.25);
-  --accent-subtle: rgba(99, 102, 241, 0.10);
+  --accent-subtle: rgba(99, 102, 241, 0.1);
   --accent-primary: var(--accent-fg);
 
   /* --- Success (Emerald) --- */
   --success-fg: #34d399;
   --success-emphasis: #10b981;
   --success-muted: rgba(16, 185, 129, 0.25);
-  --success-subtle: rgba(16, 185, 129, 0.10);
+  --success-subtle: rgba(16, 185, 129, 0.1);
 
   /* --- Warning (Amber) --- */
   --warning-fg: #fbbf24;
   --warning-emphasis: #f59e0b;
   --warning-muted: rgba(245, 158, 11, 0.25);
-  --warning-subtle: rgba(245, 158, 11, 0.10);
+  --warning-subtle: rgba(245, 158, 11, 0.1);
 
   /* --- Danger (Rose) --- */
   --danger-fg: #fb7185;
   --danger-emphasis: #f43f5e;
   --danger-muted: rgba(244, 63, 94, 0.25);
-  --danger-subtle: rgba(244, 63, 94, 0.10);
+  --danger-subtle: rgba(244, 63, 94, 0.1);
 
   /* --- Done (Violet) --- */
   --done-fg: #a78bfa;
   --done-emphasis: #8b5cf6;
   --done-muted: rgba(139, 92, 246, 0.25);
-  --done-subtle: rgba(139, 92, 246, 0.10);
+  --done-subtle: rgba(139, 92, 246, 0.1);
 
   /* --- Neutral --- */
   --neutral-fg: #a1a1aa;
   --neutral-emphasis: #71717a;
   --neutral-muted: rgba(113, 113, 122, 0.25);
-  --neutral-subtle: rgba(113, 113, 122, 0.10);
+  --neutral-subtle: rgba(113, 113, 122, 0.1);
 
   /* --- Shadows --- */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -113,7 +119,7 @@
   --z-tooltip: 80;
 
   /* --- Interaction States --- */
-  --state-hover-overlay: rgba(255, 255, 255, 0.12);   /* Subtle overlay for hover states */
+  --state-hover-overlay: rgba(255, 255, 255, 0.12); /* Subtle overlay for hover states */
 
   /* --- Gradients --- */
   --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -142,7 +148,6 @@
   --chart-cyan: #22d3ee;
   --chart-orange: #f97316;
   --chart-lime: #84cc16;
-
 }
 
 /* ===== LIGHT THEME ===== */
@@ -157,12 +162,12 @@
   --surface-secondary: #e4e4e7;
   --surface-tertiary: #d4d4d8;
 
-  --border-default: rgba(0, 0, 0, 0.10);
+  --border-default: rgba(0, 0, 0, 0.1);
   --border-muted: rgba(0, 0, 0, 0.06);
   --border-subtle: rgba(0, 0, 0, 0.04);
   --border-accent: rgba(99, 102, 241, 0.4);
-  --border-glow: rgba(99, 102, 241, 0.10);
-  --border-emphasis: rgba(0, 0, 0, 0.20);
+  --border-glow: rgba(99, 102, 241, 0.1);
+  --border-emphasis: rgba(0, 0, 0, 0.2);
 
   --text-primary: #18181b;
   --text-secondary: #52525b;
@@ -170,7 +175,12 @@
   --text-placeholder: #a1a1aa;
   --text-link: #6366f1;
   --text-inverse: #fafafa;
-  --text-on-emphasis: rgba(255, 255, 255, 0.95);      /* Same as dark - always high contrast on emphasis colors */
+  --text-on-emphasis: rgba(
+    255,
+    255,
+    255,
+    0.95
+  ); /* Same as dark - always high contrast on emphasis colors */
 
   /* --- Attention (Orange) --- */
   --attention-fg: #ea580c;
@@ -214,7 +224,12 @@
   --shadow-glow-accent: 0 0 20px rgba(99, 102, 241, 0.08);
   --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.08);
 
-  --state-hover-overlay: rgba(0, 0, 0, 0.08);         /* Inverted and slightly more visible for light theme */
+  --state-hover-overlay: rgba(
+    0,
+    0,
+    0,
+    0.08
+  ); /* Inverted and slightly more visible for light theme */
 
   --gradient-card: linear-gradient(145deg, #ffffff, #f4f4f5);
   --gradient-surface: linear-gradient(180deg, #f4f4f5 0%, #ffffff 100%);

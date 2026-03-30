@@ -1,7 +1,12 @@
-import type { ComputedRef, Ref } from 'vue';
-import { computed } from 'vue';
-import type { ChartLayout, XAxisLabel } from '@tracepilot/ui';
-import { computeBarWidth, formatDateMedium, formatDateShort, generateXLabels } from '@tracepilot/ui';
+import type { ChartLayout, XAxisLabel } from "@tracepilot/ui";
+import {
+  computeBarWidth,
+  formatDateMedium,
+  formatDateShort,
+  generateXLabels,
+} from "@tracepilot/ui";
+import type { ComputedRef, Ref } from "vue";
+import { computed } from "vue";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -51,9 +56,13 @@ export interface IncidentChartData {
 /** Options for the incident chart composable. */
 export interface UseIncidentChartDataOptions {
   /** Reactive incident-per-day data. */
-  incidents: Ref<IncidentPoint[] | null | undefined> | ComputedRef<IncidentPoint[] | null | undefined>;
+  incidents:
+    | Ref<IncidentPoint[] | null | undefined>
+    | ComputedRef<IncidentPoint[] | null | undefined>;
   /** Reactive session-activity-per-day data (used for normalization). */
-  activity: Ref<ActivityPoint[] | null | undefined> | ComputedRef<ActivityPoint[] | null | undefined>;
+  activity:
+    | Ref<ActivityPoint[] | null | undefined>
+    | ComputedRef<ActivityPoint[] | null | undefined>;
   /** Whether to normalize incident counts per session. */
   normalize: Ref<boolean>;
   /** Chart layout dimensions. */
@@ -162,18 +171,18 @@ export function useIncidentChartData(options: UseIncidentChartDataOptions) {
       if (bar.otherErrors > 0) parts.push(`${bar.otherErrors.toFixed(1)} errors/session`);
       if (bar.compactions > 0) parts.push(`${bar.compactions.toFixed(1)} compactions/session`);
       if (bar.truncations > 0) parts.push(`${bar.truncations.toFixed(1)} truncations/session`);
-      return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
+      return parts.length > 0 ? `${d} — ${parts.join(", ")}` : `${d} — no incidents`;
     }
     const parts: string[] = [];
     if (bar.rawRateLimits > 0)
-      parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? 's' : ''}`);
+      parts.push(`${bar.rawRateLimits} rate limit${bar.rawRateLimits !== 1 ? "s" : ""}`);
     if (bar.rawOtherErrors > 0)
-      parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? 's' : ''}`);
+      parts.push(`${bar.rawOtherErrors} error${bar.rawOtherErrors !== 1 ? "s" : ""}`);
     if (bar.rawCompactions > 0)
-      parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? 's' : ''}`);
+      parts.push(`${bar.rawCompactions} compaction${bar.rawCompactions !== 1 ? "s" : ""}`);
     if (bar.rawTruncations > 0)
-      parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? 's' : ''}`);
-    return parts.length > 0 ? `${d} — ${parts.join(', ')}` : `${d} — no incidents`;
+      parts.push(`${bar.rawTruncations} truncation${bar.rawTruncations !== 1 ? "s" : ""}`);
+    return parts.length > 0 ? `${d} — ${parts.join(", ")}` : `${d} — no incidents`;
   }
 
   return { chartData, gridLines, formatTooltip };

@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { SectionPanel, BtnGroup, FormSwitch } from '@tracepilot/ui';
-import { computed } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
-import {
-  DEFAULT_CONTENT_MAX_WIDTH,
-  DEFAULT_UI_SCALE,
-} from '@tracepilot/types';
+import { DEFAULT_CONTENT_MAX_WIDTH, DEFAULT_UI_SCALE } from "@tracepilot/types";
+import { BtnGroup, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import { computed } from "vue";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const preferences = usePreferencesStore();
 
 // ── Content width ──────────────────────────────────────────────
 const presetOptions = [
-  { value: '1200', label: 'Compact' },
-  { value: '1600', label: 'Standard' },
-  { value: '2000', label: 'Wide' },
-  { value: '0', label: 'Full' },
+  { value: "1200", label: "Compact" },
+  { value: "1600", label: "Standard" },
+  { value: "2000", label: "Wide" },
+  { value: "0", label: "Full" },
 ];
 
 const selectedPreset = computed({
@@ -27,7 +24,7 @@ const selectedPreset = computed({
 const isFullWidth = computed(() => preferences.contentMaxWidth === 0);
 
 const contentWidthLabel = computed(() => {
-  if (isFullWidth.value) return 'No limit — content stretches to fill the window';
+  if (isFullWidth.value) return "No limit — content stretches to fill the window";
   return `Content capped at ${preferences.contentMaxWidth}px`;
 });
 

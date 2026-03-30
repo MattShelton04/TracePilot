@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import ToolResultRenderer from "../components/renderers/ToolResultRenderer.vue";
 import type { TurnToolCall } from "@tracepilot/types";
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import ToolResultRenderer from "../components/renderers/ToolResultRenderer.vue";
 
 function makeTc(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {

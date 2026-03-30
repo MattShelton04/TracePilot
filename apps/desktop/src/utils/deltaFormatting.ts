@@ -26,19 +26,15 @@ export interface FormattedDelta {
  * Direction: `b − a` (session B vs session A).
  * Percentage base: `max(|a|, 1)`.
  */
-export function formatSessionDelta(
-  a: number,
-  b: number,
-  higherIsBetter: boolean,
-): FormattedDelta {
-  if (a === 0 && b === 0) return { delta: '—', deltaClass: 'delta-neutral', arrow: '' };
+export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean): FormattedDelta {
+  if (a === 0 && b === 0) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
   const diff = b - a;
-  if (Math.abs(diff) < 0.001) return { delta: '—', deltaClass: 'delta-neutral', arrow: '' };
+  if (Math.abs(diff) < 0.001) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
   const base = Math.max(Math.abs(a), 1);
   const pct = Math.abs(diff / base) * 100;
   const isBetter = higherIsBetter ? diff > 0 : diff < 0;
-  const arrow = diff > 0 ? '↑' : '↓';
-  const cls = isBetter ? 'delta-positive' : 'delta-negative';
+  const arrow = diff > 0 ? "↑" : "↓";
+  const cls = isBetter ? "delta-positive" : "delta-negative";
   const label = pct > 1 ? `${pct.toFixed(0)}%` : `${Math.abs(diff).toFixed(1)}`;
   return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
 }
@@ -50,9 +46,9 @@ export interface ModelDelta {
   /** Human-readable label, e.g. "+12.5%" or "—" */
   delta: string;
   /** Direction of the change */
-  direction: 'up' | 'down' | 'neutral';
+  direction: "up" | "down" | "neutral";
   /** Which side is "better" */
-  better: 'a' | 'b' | 'neutral';
+  better: "a" | "b" | "neutral";
 }
 
 /**
@@ -61,15 +57,11 @@ export interface ModelDelta {
  * Direction: `a − b` (model A vs model B).
  * Percentage base: `|b|` (with ∞ fallback for b = 0).
  */
-export function formatModelDelta(
-  a: number,
-  b: number,
-  higherIsBetter: boolean,
-): ModelDelta {
+export function formatModelDelta(a: number, b: number, higherIsBetter: boolean): ModelDelta {
   const diff = a - b;
-  if (Math.abs(diff) < 0.001) return { delta: '—', direction: 'neutral', better: 'neutral' };
-  const pct = b !== 0 ? ((diff / Math.abs(b)) * 100).toFixed(1) : (diff > 0 ? '∞' : '-∞');
-  const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down';
-  const better: 'a' | 'b' = higherIsBetter ? (diff > 0 ? 'a' : 'b') : diff < 0 ? 'a' : 'b';
-  return { delta: `${diff > 0 ? '+' : ''}${pct}%`, direction, better };
+  if (Math.abs(diff) < 0.001) return { delta: "—", direction: "neutral", better: "neutral" };
+  const pct = b !== 0 ? ((diff / Math.abs(b)) * 100).toFixed(1) : diff > 0 ? "∞" : "-∞";
+  const direction: "up" | "down" = diff > 0 ? "up" : "down";
+  const better: "a" | "b" = higherIsBetter ? (diff > 0 ? "a" : "b") : diff < 0 ? "a" : "b";
+  return { delta: `${diff > 0 ? "+" : ""}${pct}%`, direction, better };
 }

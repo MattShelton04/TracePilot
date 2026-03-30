@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive } from "vue";
 
 export interface ChartTooltipState {
   visible: boolean;
@@ -74,8 +74,8 @@ export function useChartTooltip(): UseChartTooltipReturn {
     pinned: false,
     x: 0,
     y: 0,
-    content: '',
-    chartId: '',
+    content: "",
+    chartId: "",
     highlightIndex: -1,
   });
 
@@ -93,7 +93,7 @@ export function useChartTooltip(): UseChartTooltipReturn {
   function dismissTooltip(): void {
     tooltip.visible = false;
     tooltip.pinned = false;
-    tooltip.chartId = '';
+    tooltip.chartId = "";
     tooltip.highlightIndex = -1;
   }
 
@@ -116,10 +116,10 @@ export function useChartTooltip(): UseChartTooltipReturn {
     coords: { x: number }[],
     formatContent: (idx: number) => string,
     chartId: string,
-    containerSelector = '.tooltip-area',
+    containerSelector = ".tooltip-area",
   ): void {
     if (tooltip.pinned) return;
-    const svg = (event.target as SVGElement)?.closest('svg');
+    const svg = (event.target as SVGElement)?.closest("svg");
     const container = (event.target as SVGElement)?.closest(containerSelector) as HTMLElement;
     if (!svg || !container || coords.length === 0) return;
 
@@ -149,7 +149,7 @@ export function useChartTooltip(): UseChartTooltipReturn {
     coords: { x: number }[],
     formatContent: (idx: number) => string,
     chartId: string,
-    containerSelector = '.tooltip-area',
+    containerSelector = ".tooltip-area",
   ): void {
     if (tooltip.pinned && tooltip.chartId === chartId) {
       tooltip.pinned = false;
@@ -167,7 +167,7 @@ export function useChartTooltip(): UseChartTooltipReturn {
     event: MouseEvent,
     content: string,
     chartId: string,
-    containerSelector = '.tooltip-area',
+    containerSelector = ".tooltip-area",
   ): void {
     if (tooltip.pinned) return;
     const container = (event.target as HTMLElement)?.closest(containerSelector) as HTMLElement;

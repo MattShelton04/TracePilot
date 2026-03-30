@@ -99,7 +99,7 @@ fn build_portable_session(
     if !workspace_path.exists() {
         return Err(ExportError::SessionNotFound(session_dir.to_path_buf()));
     }
-    let ws = parse_workspace_yaml(&workspace_path).map_err(|e| ExportError::session_data(e))?;
+    let ws = parse_workspace_yaml(&workspace_path).map_err(ExportError::session_data)?;
 
     // 2. Parse events if any event-dependent section is requested
     let needs_events = options.includes(SectionId::Conversation)
@@ -111,7 +111,7 @@ fn build_portable_session(
 
     let events_path = session_dir.join("events.jsonl");
     let (typed_events, raw_events, diagnostics) = if needs_events && events_path.exists() {
-        let parsed = parse_typed_events(&events_path).map_err(|e| ExportError::session_data(e))?;
+        let parsed = parse_typed_events(&events_path).map_err(ExportError::session_data)?;
         let raw: Vec<RawEvent> = parsed.events.iter().map(|te| te.raw.clone()).collect();
         (Some(parsed.events), Some(raw), Some(parsed.diagnostics))
     } else {
@@ -200,11 +200,10 @@ fn build_conversation(
         let full_results = build_full_result_map(events);
         for turn in &mut turns {
             for tc in &mut turn.tool_calls {
-                if let Some(tc_id) = tc.tool_call_id.as_deref() {
-                    if let Some(full) = full_results.get(tc_id) {
+                if let Some(tc_id) = tc.tool_call_id.as_deref()
+                    && let Some(full) = full_results.get(tc_id) {
                         tc.result_content = Some(full.clone());
                     }
-                }
             }
         }
     }
@@ -219,13 +218,11 @@ fn build_conversation(
 fn build_full_result_map(events: &[TypedEvent]) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
     for event in events {
-        if let TypedEventData::ToolExecutionComplete(data) = &event.typed_data {
-            if let (Some(id), Some(result)) = (&data.tool_call_id, &data.result) {
-                if let Some(text) = extract_full_result(result) {
+        if let TypedEventData::ToolExecutionComplete(data) = &event.typed_data
+            && let (Some(id), Some(result)) = (&data.tool_call_id, &data.result)
+                && let Some(text) = extract_full_result(result) {
                     map.insert(id.clone(), text);
                 }
-            }
-        }
     }
     map
 }

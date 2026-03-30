@@ -179,8 +179,8 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
         validate_path_within(&backup_path, &backup_dir)?;
         let copilot_home = copilot_home()?;
         let restore_path = std::path::Path::new(&restore_to);
-        if let Some(parent) = restore_path.parent() {
-            if parent.exists() {
+        if let Some(parent) = restore_path.parent()
+            && parent.exists() {
                 let canonical = parent.canonicalize()?;
                 let canonical_home = copilot_home.canonicalize().unwrap_or(copilot_home);
                 if !canonical.starts_with(&canonical_home) {
@@ -189,7 +189,6 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
                     ));
                 }
             }
-        }
         Ok(tracepilot_orchestrator::config_injector::restore_backup(
             std::path::Path::new(&backup_path),
             restore_path,
@@ -219,8 +218,8 @@ pub async fn preview_backup_restore(
 
         let home = copilot_home()?;
         let source = std::path::Path::new(&source_path);
-        if let Some(parent) = source.parent() {
-            if parent.exists() {
+        if let Some(parent) = source.parent()
+            && parent.exists() {
                 let canonical = parent.canonicalize()?;
                 let canonical_home = home.canonicalize().unwrap_or(home);
                 if !canonical.starts_with(&canonical_home) {
@@ -229,7 +228,6 @@ pub async fn preview_backup_restore(
                     ));
                 }
             }
-        }
 
         Ok(
             tracepilot_orchestrator::config_injector::preview_backup_restore(

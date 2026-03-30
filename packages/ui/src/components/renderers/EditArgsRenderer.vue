@@ -2,7 +2,7 @@
 /**
  * EditArgsRenderer — shows edit tool arguments in a structured layout.
  */
-import { truncateText } from '../../utils/formatters';
+import { truncateText } from "../../utils/formatters";
 
 defineProps<{
   args: Record<string, unknown>;

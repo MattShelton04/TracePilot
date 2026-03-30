@@ -1,5 +1,5 @@
-import { computed } from 'vue';
-import type { Ref, ComputedRef } from 'vue';
+import type { ComputedRef, Ref } from "vue";
+import { computed } from "vue";
 
 export interface UseSearchPaginationOptions {
   /** Current page number (1-based). */

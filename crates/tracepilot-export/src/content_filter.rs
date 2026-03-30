@@ -59,21 +59,21 @@ fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashS
     turn.tool_calls.retain(|tc| {
         tc.parent_tool_call_id
             .as_ref()
-            .map_or(true, |pid| !subagent_ids.contains(pid))
+            .is_none_or(|pid| !subagent_ids.contains(pid))
     });
 
     // Remove assistant messages attributed to subagents
     turn.assistant_messages.retain(|msg| {
         msg.parent_tool_call_id
             .as_ref()
-            .map_or(true, |pid| !subagent_ids.contains(pid))
+            .is_none_or(|pid| !subagent_ids.contains(pid))
     });
 
     // Remove reasoning texts attributed to subagents
     turn.reasoning_texts.retain(|msg| {
         msg.parent_tool_call_id
             .as_ref()
-            .map_or(true, |pid| !subagent_ids.contains(pid))
+            .is_none_or(|pid| !subagent_ids.contains(pid))
     });
 }
 

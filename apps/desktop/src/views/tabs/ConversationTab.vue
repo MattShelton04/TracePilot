@@ -1,21 +1,36 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import { useAutoScroll } from "@/composables/useAutoScroll";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import {
-  StatCard, Badge, BtnGroup, EmptyState, ErrorAlert,
-  ExpandChevron, ToolCallItem, ToolCallDetail, AgentBadge, ReasoningBlock,
-  MarkdownContent,
-  formatDuration, formatTime, formatNumber, truncateText,
-  toolIcon, toolCategory, categoryColor,
-  useSessionTabLoader, useToggleSet, useConversationSections,
+  AgentBadge,
+  Badge,
+  BtnGroup,
+  categoryColor,
+  EmptyState,
+  ErrorAlert,
+  ExpandChevron,
+  formatDuration,
+  formatNumber,
+  formatTime,
   getAgentColor,
+  MarkdownContent,
+  ReasoningBlock,
+  StatCard,
+  ToolCallDetail,
+  ToolCallItem,
+  toolCategory,
+  toolIcon,
+  truncateText,
+  useConversationSections,
+  useSessionTabLoader,
+  useToggleSet,
 } from "@tracepilot/ui";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import ChatViewMode from "@/components/conversation/ChatViewMode.vue";
+import { useAutoScroll } from "@/composables/useAutoScroll";
+import { useToolResultLoader } from "@/composables/useToolResultLoader";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const route = useRoute();
 const store = useSessionDetailStore();
@@ -27,9 +42,13 @@ const activeView = ref("chat");
 // Chat view ref for deep-link delegation
 const chatViewRef = ref<InstanceType<typeof ChatViewMode> | null>(null);
 
-const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const {
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult: handleLoadFullResult,
+  retryFullResult: handleRetryResult,
+} = useToolResultLoader(() => store.sessionId);
 
 // Shared derived data from turns
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
@@ -38,20 +57,21 @@ const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDur
 // Auto-scroll
 const scrollContainer = ref<HTMLElement | null>(null);
 onMounted(() => {
-  scrollContainer.value = document.querySelector('.page-content');
+  scrollContainer.value = document.querySelector(".page-content");
 });
-const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } = useAutoScroll({
-  containerRef: scrollContainer,
-  watchSource: () => store.turns,
-  viewModeSource: () => activeView.value,
-});
+const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
+  useAutoScroll({
+    containerRef: scrollContainer,
+    watchSource: () => store.turns,
+    viewModeSource: () => activeView.value,
+  });
 
 // Scroll to a specific element when navigated from search.
 const activeTimers: ReturnType<typeof setTimeout>[] = [];
 let activeObserver: IntersectionObserver | null = null;
 
 function scrollAndHighlight(el: HTMLElement) {
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
 
   activeObserver?.disconnect();
   const observer = new IntersectionObserver(
@@ -59,8 +79,8 @@ function scrollAndHighlight(el: HTMLElement) {
       if (entries[0]?.isIntersecting) {
         observer.disconnect();
         if (activeObserver === observer) activeObserver = null;
-        el.classList.add('turn-highlight');
-        const t = setTimeout(() => el.classList.remove('turn-highlight'), 4000);
+        el.classList.add("turn-highlight");
+        const t = setTimeout(() => el.classList.remove("turn-highlight"), 4000);
         activeTimers.push(t);
       }
     },
@@ -101,24 +121,24 @@ watch(
     const eventIndex = eventParam ? Number(eventParam) : null;
     const key = `${turnIndex}-${eventIndex}`;
     if (key === lastScrolledKey) return;
-    if (!store.turns.some(t => t.turnIndex === turnIndex)) return;
+    if (!store.turns.some((t) => t.turnIndex === turnIndex)) return;
     lastScrolledKey = key;
 
     nextTick(() => {
       // For chat view, delegate to ChatViewMode's revealEvent
-      if (activeView.value === 'chat' && chatViewRef.value) {
+      if (activeView.value === "chat" && chatViewRef.value) {
         chatViewRef.value.revealEvent(turnIndex, eventIndex ?? undefined);
         return;
       }
 
       // Compact/Timeline: use original expand logic
       if (eventIndex != null) {
-        const turn = store.turns.find(t => t.turnIndex === turnIndex);
+        const turn = store.turns.find((t) => t.turnIndex === turnIndex);
         if (turn) {
-          const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
+          const tc = turn.toolCalls.find((t) => t.eventIndex === eventIndex);
           if (tc) {
             const idx = findToolCallIndex(turn, tc);
-            const prefix = activeView.value === 'timeline' ? 'tl-' : 'compact-';
+            const prefix = activeView.value === "timeline" ? "tl-" : "compact-";
             const detailKey = `${prefix}${turnIndex}-${idx}`;
             if (!expandedToolDetails.has(detailKey)) expandedToolDetails.toggle(detailKey);
           }
@@ -145,11 +165,16 @@ useSessionTabLoader(
       expandedReasoning.clear();
       lastScrolledKey = null;
     },
-  }
+  },
 );
 
 /** Build prop object for ToolCallItem — eliminates repeated 10-prop bindings. */
-function tcProps(turn: ConversationTurn, tc: TurnToolCall, prefix = "", variant: "full" | "compact" = "full") {
+function tcProps(
+  turn: ConversationTurn,
+  tc: TurnToolCall,
+  prefix = "",
+  variant: "full" | "compact" = "full",
+) {
   const idx = findToolCallIndex(turn, tc);
   const key = `${prefix}${turn.turnIndex}-${idx}`;
   return {
@@ -174,30 +199,30 @@ function toggleToolDetail(turn: ConversationTurn, tc: TurnToolCall, prefix = "")
 
 import type { SessionEventSeverity } from "@tracepilot/types";
 
-function severityVariant(severity: SessionEventSeverity): 'danger' | 'warning' | 'neutral' {
-  if (severity === 'error') return 'danger';
-  if (severity === 'warning') return 'warning';
-  return 'neutral';
+function severityVariant(severity: SessionEventSeverity): "danger" | "warning" | "neutral" {
+  if (severity === "error") return "danger";
+  if (severity === "warning") return "warning";
+  return "neutral";
 }
 
 function severityIcon(severity: SessionEventSeverity): string {
-  if (severity === 'error') return '🔴';
-  if (severity === 'warning') return '🟡';
-  return 'ℹ️';
+  if (severity === "error") return "🔴";
+  if (severity === "warning") return "🟡";
+  return "ℹ️";
 }
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  'session.error': 'Error',
-  'session.warning': 'Warning',
-  'session.compaction_start': 'Compaction',
-  'session.compaction_complete': 'Compaction',
-  'session.truncation': 'Truncation',
-  'session.plan_changed': 'Plan',
-  'session.mode_changed': 'Mode',
+  "session.error": "Error",
+  "session.warning": "Warning",
+  "session.compaction_start": "Compaction",
+  "session.compaction_complete": "Compaction",
+  "session.truncation": "Truncation",
+  "session.plan_changed": "Plan",
+  "session.mode_changed": "Mode",
 };
 
 function eventTypeLabel(eventType: string): string {
-  return EVENT_TYPE_LABELS[eventType] ?? eventType.replace('session.', '');
+  return EVENT_TYPE_LABELS[eventType] ?? eventType.replace("session.", "");
 }
 
 function retryLoadTurns() {

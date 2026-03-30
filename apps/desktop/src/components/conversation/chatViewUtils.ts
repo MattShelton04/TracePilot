@@ -5,11 +5,7 @@
  * subagent groups, pills) and provides helpers for extracting main-agent
  * content from a turn.
  */
-import type {
-  ConversationTurn,
-  TurnToolCall,
-  AttributedMessage,
-} from "@tracepilot/types";
+import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
 
 // ─── Segment Types ────────────────────────────────────────────────
 
@@ -108,9 +104,7 @@ export function getMainReasoning(turn: ConversationTurn): string[] {
 
 /** Extract main-agent messages (not from subagents). */
 export function getMainMessages(turn: ConversationTurn): AttributedMessage[] {
-  return turn.assistantMessages.filter(
-    (m) => !m.parentToolCallId && m.content?.trim(),
-  );
+  return turn.assistantMessages.filter((m) => !m.parentToolCallId && m.content?.trim());
 }
 
 /**
@@ -123,10 +117,7 @@ export function countRegularTools(items: ToolGroupItem[]): number {
 /**
  * Get unique tool names from items beyond the visible threshold.
  */
-export function getCollapsedToolNames(
-  items: ToolGroupItem[],
-  maxVisible: number,
-): string[] {
+export function getCollapsedToolNames(items: ToolGroupItem[], maxVisible: number): string[] {
   const names = new Set<string>();
   let toolIdx = 0;
   for (const item of items) {

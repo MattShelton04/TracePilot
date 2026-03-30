@@ -298,7 +298,7 @@ impl IndexDb {
         let current_ws_mtime = get_workspace_mtime(session_path);
         let current_events = get_events_mtime_and_size(session_path);
 
-        let stored: Option<(Option<String>, Option<String>, Option<i64>, Option<i64>)> = self
+        let stored: Option<super::types::StalenessRow> = self
             .conn
             .query_row(
                 "SELECT workspace_mtime, events_mtime, events_size, analytics_version
@@ -562,8 +562,8 @@ pub(crate) fn extract_session_analytics(
                 }
                 TypedEventData::ToolExecutionComplete(d) => {
                     actual_tool_call_count += 1;
-                    if let Some(ref tool_call_id) = d.tool_call_id {
-                        if let Some((tool_name, start_ts)) =
+                    if let Some(ref tool_call_id) = d.tool_call_id
+                        && let Some((tool_name, start_ts)) =
                             tool_starts.remove(tool_call_id)
                         {
                             let acc = tool_accum
@@ -592,7 +592,6 @@ pub(crate) fn extract_session_analytics(
                                 *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
                             }
                         }
-                    }
                 }
                 TypedEventData::SessionError(d) => {
                     error_count += 1;
@@ -726,9 +725,9 @@ pub(crate) fn extract_session_analytics(
     };
 
     // Modified files from shutdown metrics
-    if let Some(ref metrics) = summary.shutdown_metrics {
-        if let Some(ref cc) = metrics.code_changes {
-            if let Some(ref files) = cc.files_modified {
+    if let Some(ref metrics) = summary.shutdown_metrics
+        && let Some(ref cc) = metrics.code_changes
+            && let Some(ref files) = cc.files_modified {
                 for file in files {
                     let ext = std::path::Path::new(file)
                         .extension()
@@ -740,8 +739,6 @@ pub(crate) fn extract_session_analytics(
                     });
                 }
             }
-        }
-    }
 
     // Health score
     let incident_counts = tracepilot_core::health::SessionIncidentCounts {

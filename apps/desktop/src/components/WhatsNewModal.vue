@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ReleaseManifestEntry } from '@tracepilot/types';
-import { computed } from 'vue';
+import type { ReleaseManifestEntry } from "@tracepilot/types";
+import { computed } from "vue";
 
 const props = defineProps<{
   previousVersion: string;
@@ -11,13 +11,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  'open-external': [url: string];
+  "open-external": [url: string];
 }>();
 
 /** Compare two semver strings numerically. Returns -1, 0, or 1. */
 function compareSemver(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const na = pa[i] ?? 0;
     const nb = pb[i] ?? 0;

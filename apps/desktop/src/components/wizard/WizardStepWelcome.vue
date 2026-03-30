@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import LogoIcon from '@/components/icons/LogoIcon.vue';
+import LogoIcon from "@/components/icons/LogoIcon.vue";
 
 defineProps<{
   appVersion: string;

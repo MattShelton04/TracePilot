@@ -187,7 +187,7 @@ pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     let sum: u64 = sorted.iter().sum();
 
     let avg_ms = sum as f64 / n as f64;
-    let median_ms = if n % 2 == 0 {
+    let median_ms = if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) as f64 / 2.0
     } else {
         sorted[n / 2] as f64

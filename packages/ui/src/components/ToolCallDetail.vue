@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
+import { computed } from "vue";
 import { formatDuration, formatTime } from "../utils/formatters";
-import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
+import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -19,8 +19,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full-result': [toolCallId: string];
-  'retry-full-result': [toolCallId: string];
+  "load-full-result": [toolCallId: string];
+  "retry-full-result": [toolCallId: string];
 }>();
 
 const displayResult = computed(() => {
@@ -28,8 +28,11 @@ const displayResult = computed(() => {
   return props.tc.resultContent ?? null;
 });
 
-const isTruncated = computed(() =>
-  !props.fullResult && !!props.tc.toolCallId && (props.tc.resultContent?.includes("…[truncated]") ?? false)
+const isTruncated = computed(
+  () =>
+    !props.fullResult &&
+    !!props.tc.toolCallId &&
+    (props.tc.resultContent?.includes("…[truncated]") ?? false),
 );
 
 const isRichEnabled = computed(() => props.richEnabled !== false);

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
+import { createPinia, setActivePinia } from "pinia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { useSearchStore } from "../../stores/search";
 
@@ -62,7 +62,12 @@ function resetAllMocks() {
 function setupDefaultMocks() {
   mockSearchContent.mockResolvedValue(emptySearchResponse);
   mockGetSearchFacets.mockResolvedValue(emptyFacets);
-  mockGetSearchStats.mockResolvedValue({ totalRows: 0, indexedSessions: 0, totalSessions: 0, contentTypeCounts: [] });
+  mockGetSearchStats.mockResolvedValue({
+    totalRows: 0,
+    indexedSessions: 0,
+    totalSessions: 0,
+    contentTypeCounts: [],
+  });
   mockGetSearchRepositories.mockResolvedValue([]);
   mockGetSearchToolNames.mockResolvedValue([]);
   mockRebuildSearchIndex.mockResolvedValue(undefined);
@@ -187,7 +192,7 @@ describe("useSearchStore browse presets", () => {
     expect(options.sortBy).toBe("newest");
   });
 
-  const presetMethods = {
+  const _presetMethods = {
     browseErrors: (s: ReturnType<typeof useSearchStore>) => s.browseErrors(),
     browseUserMessages: (s: ReturnType<typeof useSearchStore>) => s.browseUserMessages(),
     browseReasoning: (s: ReturnType<typeof useSearchStore>) => s.browseReasoning(),

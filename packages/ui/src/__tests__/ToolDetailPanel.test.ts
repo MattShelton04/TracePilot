@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import ToolDetailPanel from "../components/ToolDetailPanel.vue";
 import type { TurnToolCall } from "@tracepilot/types";
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import ToolDetailPanel from "../components/ToolDetailPanel.vue";
 
 /** Minimal stub that renders a placeholder div. */
 const Stub = { template: "<div />" };
@@ -128,9 +128,7 @@ describe("ToolDetailPanel", () => {
   it("shows error section when error present", () => {
     const wrapper = mountPanel({ error: "ENOENT: file not found" });
     expect(wrapper.find(".detail-error").exists()).toBe(true);
-    expect(wrapper.find(".detail-error-body").text()).toBe(
-      "ENOENT: file not found",
-    );
+    expect(wrapper.find(".detail-error-body").text()).toBe("ENOENT: file not found");
   });
 
   it("hides error section when no error", () => {
@@ -154,17 +152,19 @@ describe("ToolDetailPanel", () => {
         ],
       },
     );
-    const badgeTexts = wrapper
-      .findAll(".detail-badges .badge")
-      .map((b) => b.text());
+    const badgeTexts = wrapper.findAll(".detail-badges .badge").map((b) => b.text());
     expect(badgeTexts).toContain("parallel");
     expect(badgeTexts).toContain("slow");
   });
 
   it("renders before-renderers slot content", () => {
-    const wrapper = mountPanel({}, {}, {
-      "before-renderers": '<div class="custom-slot">Extra Content</div>',
-    });
+    const wrapper = mountPanel(
+      {},
+      {},
+      {
+        "before-renderers": '<div class="custom-slot">Extra Content</div>',
+      },
+    );
     expect(wrapper.find(".custom-slot").exists()).toBe(true);
     expect(wrapper.find(".custom-slot").text()).toBe("Extra Content");
   });
@@ -176,9 +176,7 @@ describe("ToolDetailPanel", () => {
 
   it('shows "agent" badge for subagent', () => {
     const wrapper = mountPanel({ isSubagent: true });
-    const badgeTexts = wrapper
-      .findAll(".detail-badges .badge")
-      .map((b) => b.text());
+    const badgeTexts = wrapper.findAll(".detail-badges .badge").map((b) => b.text());
     expect(badgeTexts).toContain("agent");
   });
 });

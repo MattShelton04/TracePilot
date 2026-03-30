@@ -521,7 +521,7 @@ fn combine_shutdown_data(
             // keeping the last one seen as the start time.
             let mut last_resume: Option<&DateTime<Utc>> = None;
             while let Some(&&rt) = resume_iter.peek().as_ref() {
-                if ts.map_or(true, |shutdown_ts| *rt <= shutdown_ts) {
+                if ts.is_none_or(|shutdown_ts| *rt <= shutdown_ts) {
                     last_resume = Some(resume_iter.next().unwrap());
                 } else {
                     break;
@@ -540,7 +540,7 @@ fn combine_shutdown_data(
                     tokens += usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0);
                 }
                 if let Some(ref req) = detail.requests {
-                    total_requests += req.count.unwrap_or(0) as u64;
+                    total_requests += req.count.unwrap_or(0);
                 }
             }
         }
@@ -577,11 +577,9 @@ fn combine_shutdown_data(
 fn sum_opt_f64(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
     let mut has_any = false;
     let mut total = 0.0;
-    for v in values {
-        if let Some(n) = v {
-            has_any = true;
-            total += n;
-        }
+    for n in values.flatten() {
+        has_any = true;
+        total += n;
     }
     if has_any { Some(total) } else { None }
 }
@@ -590,11 +588,9 @@ fn sum_opt_f64(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
 fn sum_opt_u64(values: impl Iterator<Item = Option<u64>>) -> Option<u64> {
     let mut has_any = false;
     let mut total = 0u64;
-    for v in values {
-        if let Some(n) = v {
-            has_any = true;
-            total += n;
-        }
+    for n in values.flatten() {
+        has_any = true;
+        total += n;
     }
     if has_any { Some(total) } else { None }
 }

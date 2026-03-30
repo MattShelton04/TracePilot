@@ -4,9 +4,19 @@
  */
 
 const TOOL_ICONS: Record<string, string> = {
-  view: "👁", edit: "✏️", create: "📄", grep: "🔍", glob: "📁",
-  powershell: "💻", task: "🤖", report_intent: "🎯", ask_user: "💬",
-  web_search: "🌐", web_fetch: "🌐", sql: "🗄️", skill: "⚡",
+  view: "👁",
+  edit: "✏️",
+  create: "📄",
+  grep: "🔍",
+  glob: "📁",
+  powershell: "💻",
+  task: "🤖",
+  report_intent: "🎯",
+  ask_user: "💬",
+  web_search: "🌐",
+  web_fetch: "🌐",
+  sql: "🗄️",
+  skill: "⚡",
 };
 
 export function toolIcon(toolName: string): string {
@@ -17,7 +27,8 @@ export type ToolCategory = "file" | "shell" | "agent" | "github" | "web" | "data
 
 export function toolCategory(toolName: string): ToolCategory {
   if (["view", "edit", "create", "grep", "glob"].includes(toolName)) return "file";
-  if (["powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(toolName)) return "shell";
+  if (["powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(toolName))
+    return "shell";
   if (["task", "read_agent", "write_agent", "list_agents"].includes(toolName)) return "agent";
   if (toolName.startsWith("github-mcp-server")) return "github";
   if (["web_search", "web_fetch"].includes(toolName)) return "web";
@@ -51,7 +62,7 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === "glob" && a.pattern) return String(a.pattern);
   if (toolName === "powershell" && a.command) {
     const cmd = String(a.command);
-    return cmd.length > 150 ? cmd.slice(0, 150) + "…" : cmd;
+    return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }
   if (toolName === "task" && a.description) return String(a.description);
   if (toolName === "report_intent" && a.intent) return String(a.intent);

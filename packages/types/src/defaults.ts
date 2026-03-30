@@ -6,8 +6,8 @@
  * defaults from the same place.
  */
 
-import type { TracePilotConfig } from './config.js';
-import { DEFAULT_FAVOURITE_MODELS } from './models.js';
+import type { TracePilotConfig } from "./config.js";
+import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
 export const CONFIG_VERSION = 3;
@@ -16,7 +16,7 @@ export const CONFIG_VERSION = 3;
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
 
 /** Default CLI command name. */
-export const DEFAULT_CLI_COMMAND = 'copilot';
+export const DEFAULT_CLI_COMMAND = "copilot";
 
 /** Default auto-refresh interval in seconds. */
 export const DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS = 5;
@@ -42,20 +42,20 @@ export const DEFAULT_UI_SCALE = 1.0;
  */
 export function createDefaultConfig(
   overrides?: Partial<{
-    paths: Partial<TracePilotConfig['paths']>;
-    general: Partial<TracePilotConfig['general']>;
-    ui: Partial<TracePilotConfig['ui']>;
-    pricing: Partial<TracePilotConfig['pricing']>;
-    toolRendering: Partial<TracePilotConfig['toolRendering']>;
-    features: Partial<TracePilotConfig['features']>;
-    logging: Partial<TracePilotConfig['logging']>;
+    paths: Partial<TracePilotConfig["paths"]>;
+    general: Partial<TracePilotConfig["general"]>;
+    ui: Partial<TracePilotConfig["ui"]>;
+    pricing: Partial<TracePilotConfig["pricing"]>;
+    toolRendering: Partial<TracePilotConfig["toolRendering"]>;
+    features: Partial<TracePilotConfig["features"]>;
+    logging: Partial<TracePilotConfig["logging"]>;
   }>,
 ): TracePilotConfig {
   return {
     version: CONFIG_VERSION,
     paths: {
-      sessionStateDir: '',
-      indexDbPath: '',
+      sessionStateDir: "",
+      indexDbPath: "",
       ...overrides?.paths,
     },
     general: {
@@ -65,7 +65,7 @@ export function createDefaultConfig(
       ...overrides?.general,
     },
     ui: {
-      theme: 'dark',
+      theme: "dark",
       hideEmptySessions: true,
       autoRefreshEnabled: false,
       autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
@@ -94,7 +94,7 @@ export function createDefaultConfig(
       ...overrides?.features,
     },
     logging: {
-      level: 'info',
+      level: "info",
       ...overrides?.logging,
     },
   };

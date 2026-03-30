@@ -6,7 +6,7 @@
  * notice, error boundary, and a loading skeleton. Individual renderers
  * only supply the body content via the default slot.
  */
-import { useClipboard } from '../../composables/useClipboard';
+import { useClipboard } from "../../composables/useClipboard";
 
 const props = defineProps<{
   label?: string;
@@ -16,7 +16,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const { copy, copied } = useClipboard();

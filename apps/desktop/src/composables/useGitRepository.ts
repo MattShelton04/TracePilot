@@ -10,10 +10,10 @@
  * ~150 lines of duplicated code and provide a single source of truth.
  */
 
-import { ref, watch } from 'vue';
-import type { Ref } from 'vue';
-import { getDefaultBranch, fetchRemote } from '@tracepilot/client';
-import { pathBasename, pathDirname, sanitizeBranchForPath } from '@tracepilot/ui';
+import { fetchRemote, getDefaultBranch } from "@tracepilot/client";
+import { pathBasename, pathDirname, sanitizeBranchForPath } from "@tracepilot/ui";
+import type { Ref } from "vue";
+import { ref, watch } from "vue";
 
 export interface UseGitRepositoryOptions {
   /**
@@ -107,7 +107,7 @@ export interface UseGitRepositoryReturn {
 export function useGitRepository(options: UseGitRepositoryOptions): UseGitRepositoryReturn {
   const { repoPath, onFetchSuccess, onFetchError } = options;
 
-  const defaultBranch = ref('');
+  const defaultBranch = ref("");
   const fetchingRemote = ref(false);
 
   // Auto-load default branch when repoPath changes
@@ -117,7 +117,7 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
       if (newPath) {
         await loadDefaultBranch();
       } else {
-        defaultBranch.value = '';
+        defaultBranch.value = "";
       }
     },
     { immediate: true },
@@ -125,7 +125,7 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
 
   async function loadDefaultBranch() {
     if (!repoPath.value) {
-      defaultBranch.value = '';
+      defaultBranch.value = "";
       return;
     }
 
@@ -133,7 +133,7 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
       defaultBranch.value = await getDefaultBranch(repoPath.value);
     } catch {
       // Silently fail - some repos might not have a default branch configured
-      defaultBranch.value = '';
+      defaultBranch.value = "";
     }
   }
 
@@ -153,7 +153,7 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
   }
 
   function computeWorktreePath(branchName: string): string {
-    if (!repoPath.value || !branchName) return '';
+    if (!repoPath.value || !branchName) return "";
 
     const repoName = pathBasename(repoPath.value);
     const parent = pathDirname(repoPath.value);

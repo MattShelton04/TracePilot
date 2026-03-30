@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { formatBytes, formatRelativeTime } from '@tracepilot/ui';
-import { ErrorState, LoadingOverlay } from '@tracepilot/ui';
-import { useOrchestrationHomeStore } from '@/stores/orchestrationHome';
+import { ErrorState, formatBytes, formatRelativeTime, LoadingOverlay } from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
 const store = useOrchestrationHomeStore();
 const router = useRouter();
@@ -14,9 +13,9 @@ let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const liveTime = computed(() => {
   const d = now.value;
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
   return `${hh}:${mm}:${ss}`;
 });
 
@@ -28,50 +27,92 @@ const idleSessions = computed(() => Math.max(0, store.totalSessions - store.acti
 const budgetPercent = 62; // Hardcoded for now
 
 const budgetBarClass = computed(() => {
-  if (budgetPercent >= 90) return 'danger';
-  if (budgetPercent >= 70) return 'warning';
-  return 'ok';
+  if (budgetPercent >= 90) return "danger";
+  if (budgetPercent >= 70) return "warning";
+  return "ok";
 });
 
 const feedIconClass = (type: string) => {
   const map: Record<string, string> = {
-    session_launched: 'feed-icon--accent',
-    session_error: 'feed-icon--danger',
-    batch_completed: 'feed-icon--success',
-    budget_alert: 'feed-icon--warning',
-    config_changed: 'feed-icon--accent',
+    session_launched: "feed-icon--accent",
+    session_error: "feed-icon--danger",
+    batch_completed: "feed-icon--success",
+    budget_alert: "feed-icon--warning",
+    config_changed: "feed-icon--accent",
   };
-  return map[type] ?? 'feed-icon--accent';
+  return map[type] ?? "feed-icon--accent";
 };
 
 const feedIconLabel = (type: string) => {
   const map: Record<string, string> = {
-    session_launched: '🚀',
-    session_error: '❌',
-    batch_completed: '✅',
-    budget_alert: '💰',
-    config_changed: '🔧',
+    session_launched: "🚀",
+    session_error: "❌",
+    batch_completed: "✅",
+    budget_alert: "💰",
+    config_changed: "🔧",
   };
-  return map[type] ?? '📋';
+  return map[type] ?? "📋";
 };
 
 const mockFeed = [
-  { id: 'mock-1', type: 'session_launched', message: 'Session started in tracepilot', timestamp: new Date(Date.now() - 300_000).toISOString() },
-  { id: 'mock-2', type: 'batch_completed', message: 'Batch run completed (3 sessions)', timestamp: new Date(Date.now() - 900_000).toISOString() },
-  { id: 'mock-3', type: 'budget_alert', message: 'Budget threshold reached 60%', timestamp: new Date(Date.now() - 3_600_000).toISOString() },
-  { id: 'mock-4', type: 'config_changed', message: 'Agent config updated', timestamp: new Date(Date.now() - 7_200_000).toISOString() },
+  {
+    id: "mock-1",
+    type: "session_launched",
+    message: "Session started in tracepilot",
+    timestamp: new Date(Date.now() - 300_000).toISOString(),
+  },
+  {
+    id: "mock-2",
+    type: "batch_completed",
+    message: "Batch run completed (3 sessions)",
+    timestamp: new Date(Date.now() - 900_000).toISOString(),
+  },
+  {
+    id: "mock-3",
+    type: "budget_alert",
+    message: "Budget threshold reached 60%",
+    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
+  },
+  {
+    id: "mock-4",
+    type: "config_changed",
+    message: "Agent config updated",
+    timestamp: new Date(Date.now() - 7_200_000).toISOString(),
+  },
 ];
 
-const feedItems = computed(() =>
-  store.activityFeed.length > 0 ? store.activityFeed : mockFeed,
-);
+const feedItems = computed(() => (store.activityFeed.length > 0 ? store.activityFeed : mockFeed));
 
 // ── Quick Actions ───────────────────────────────────────────
 const quickActions = [
-  { emoji: '🚀', title: 'Launch Session', desc: 'Start a new Copilot CLI session', to: '/orchestration/launcher', disabled: false },
-  { emoji: '📊', title: 'Open Mission Control', desc: 'Real-time session dashboard', to: '', disabled: true },
-  { emoji: '🔧', title: 'Configure Agents', desc: 'Edit agent definitions & configs', to: '/orchestration/config', disabled: false },
-  { emoji: '🌳', title: 'Manage Worktrees', desc: 'Create, list, and prune worktrees', to: '/orchestration/worktrees', disabled: false },
+  {
+    emoji: "🚀",
+    title: "Launch Session",
+    desc: "Start a new Copilot CLI session",
+    to: "/orchestration/launcher",
+    disabled: false,
+  },
+  {
+    emoji: "📊",
+    title: "Open Mission Control",
+    desc: "Real-time session dashboard",
+    to: "",
+    disabled: true,
+  },
+  {
+    emoji: "🔧",
+    title: "Configure Agents",
+    desc: "Edit agent definitions & configs",
+    to: "/orchestration/config",
+    disabled: false,
+  },
+  {
+    emoji: "🌳",
+    title: "Manage Worktrees",
+    desc: "Create, list, and prune worktrees",
+    to: "/orchestration/worktrees",
+    disabled: false,
+  },
 ];
 
 function navigateAction(action: (typeof quickActions)[0]) {

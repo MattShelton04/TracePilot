@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
+import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLauncherStore } from "../../stores/launcher";
-import type { SessionTemplate, ModelInfo, SystemDependencies } from "@tracepilot/types";
 
 // Mock the client module
 const mockLaunchSession = vi.fn();
@@ -210,10 +210,10 @@ describe("useLauncherStore", () => {
 
       const tpl = store.templates.find((t) => t.id === "default-multi-agent-review");
       expect(tpl).toBeDefined();
-      expect(tpl!.config.model).toBe("claude-opus-4.6");
-      expect(tpl!.config.reasoningEffort).toBe("high");
-      expect(tpl!.config.prompt).toContain("Spin up opus 4.6");
-      expect(tpl!.icon).toBe("🔍");
+      expect(tpl?.config.model).toBe("claude-opus-4.6");
+      expect(tpl?.config.reasoningEffort).toBe("high");
+      expect(tpl?.config.prompt).toContain("Spin up opus 4.6");
+      expect(tpl?.icon).toBe("🔍");
     });
 
     it("write tests template has correct config", async () => {
@@ -226,11 +226,11 @@ describe("useLauncherStore", () => {
 
       const tpl = store.templates.find((t) => t.id === "default-write-tests");
       expect(tpl).toBeDefined();
-      expect(tpl!.config.model).toBe("claude-sonnet-4.6");
-      expect(tpl!.config.reasoningEffort).toBe("high");
-      expect(tpl!.config.createWorktree).toBe(false);
-      expect(tpl!.config.autoApprove).toBe(false);
-      expect(tpl!.icon).toBe("🧪");
+      expect(tpl?.config.model).toBe("claude-sonnet-4.6");
+      expect(tpl?.config.reasoningEffort).toBe("high");
+      expect(tpl?.config.createWorktree).toBe(false);
+      expect(tpl?.config.autoApprove).toBe(false);
+      expect(tpl?.icon).toBe("🧪");
     });
   });
 

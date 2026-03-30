@@ -1,20 +1,27 @@
 <script setup lang="ts">
-import { EmptyState, ErrorState, formatCost, formatNumber, formatPercent, LoadingOverlay } from '@tracepilot/ui';
-import { computed, ref, watch } from 'vue';
-import AnalyticsPageHeader from '@/components/AnalyticsPageHeader.vue';
-import { useAnalyticsPage } from '@/composables/useAnalyticsPage';
-import { usePreferencesStore } from '@/stores/preferences';
-import { MODEL_PALETTE } from '@/utils/chartColors';
-import { formatModelDelta } from '@/utils/deltaFormatting';
+import {
+  EmptyState,
+  ErrorState,
+  formatCost,
+  formatNumber,
+  formatPercent,
+  LoadingOverlay,
+} from "@tracepilot/ui";
+import { computed, ref, watch } from "vue";
+import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { usePreferencesStore } from "@/stores/preferences";
+import { MODEL_PALETTE } from "@/utils/chartColors";
+import { formatModelDelta } from "@/utils/deltaFormatting";
 
 const prefs = usePreferencesStore();
-const { store } = useAnalyticsPage('fetchAnalytics');
+const { store } = useAnalyticsPage("fetchAnalytics");
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
 
 const pageSubtitle = computed(() => {
-  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : '';
+  const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
   return `Performance and cost metrics across all models${repoSuffix}`;
 });
 
@@ -75,11 +82,11 @@ const totalCopilotCost = computed(() => modelRows.value.reduce((sum, m) => sum +
 const modelCount = computed(() => modelRows.value.length);
 
 // ── Cost & normalization toggles ─────────────────────────────
-type CostMode = 'wholesale' | 'copilot' | 'both';
-const costMode = ref<CostMode>('both');
+type CostMode = "wholesale" | "copilot" | "both";
+const costMode = ref<CostMode>("both");
 
-type NormMode = 'raw' | 'per-10m-tokens' | 'share';
-const normMode = ref<NormMode>('raw');
+type NormMode = "raw" | "per-10m-tokens" | "share";
+const normMode = ref<NormMode>("raw");
 
 // ── Best/worst highlighting ──────────────────────────────────
 function bestIdx(arr: number[], higher = true): number {
@@ -106,35 +113,35 @@ const bestCopilotCostIdx = computed(() =>
 
 // ── Sort state ───────────────────────────────────────────────
 type SortKey =
-  | 'model'
-  | 'tokens'
-  | 'inputTokens'
-  | 'outputTokens'
-  | 'cacheReadTokens'
-  | 'percentage'
-  | 'premiumRequests'
-  | 'cacheHitRate'
-  | 'cost'
-  | 'copilotCost';
-const sortKey = ref<SortKey>('tokens');
-const sortDir = ref<'asc' | 'desc'>('desc');
+  | "model"
+  | "tokens"
+  | "inputTokens"
+  | "outputTokens"
+  | "cacheReadTokens"
+  | "percentage"
+  | "premiumRequests"
+  | "cacheHitRate"
+  | "cost"
+  | "copilotCost";
+const sortKey = ref<SortKey>("tokens");
+const sortDir = ref<"asc" | "desc">("desc");
 
 function toggleSort(key: SortKey) {
   if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+    sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
   } else {
     sortKey.value = key;
-    sortDir.value = key === 'model' ? 'asc' : 'desc';
+    sortDir.value = key === "model" ? "asc" : "desc";
   }
 }
 
 const sortedRows = computed(() => {
   const rows = [...modelRows.value];
-  const dir = sortDir.value === 'asc' ? 1 : -1;
+  const dir = sortDir.value === "asc" ? 1 : -1;
   const key = sortKey.value;
   return rows.sort((a, b) => {
-    if (key === 'model') return dir * a.model.localeCompare(b.model);
-    if (key === 'cost') {
+    if (key === "model") return dir * a.model.localeCompare(b.model);
+    if (key === "cost") {
       const ac = a.cost ?? Infinity;
       const bc = b.cost ?? Infinity;
       if (ac === Infinity && bc === Infinity) return 0;
@@ -147,16 +154,16 @@ const sortedRows = computed(() => {
 });
 
 function sortArrow(key: SortKey): string {
-  if (sortKey.value !== key) return '⇅';
-  return sortDir.value === 'asc' ? '↑' : '↓';
+  if (sortKey.value !== key) return "⇅";
+  return sortDir.value === "asc" ? "↑" : "↓";
 }
 
 // ── Normalized display rows ──────────────────────────────────
 const displayRows = computed<ModelRow[]>(() => {
   const rows = sortedRows.value;
-  if (normMode.value === 'raw') return rows;
+  if (normMode.value === "raw") return rows;
 
-  if (normMode.value === 'per-10m-tokens') {
+  if (normMode.value === "per-10m-tokens") {
     return rows.map((r) => {
       const divisor = r.tokens / 10_000_000 || 1;
       return {
@@ -209,14 +216,14 @@ const displayRows = computed<ModelRow[]>(() => {
 });
 
 function fmtNorm(value: number | null, isCost = false): string {
-  if (value == null) return '—';
-  if (normMode.value === 'share') return `${value.toFixed(1)}%`;
+  if (value == null) return "—";
+  if (normMode.value === "share") return `${value.toFixed(1)}%`;
   if (isCost) {
     // Compact cost format for large values
     if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
     return formatCost(value);
   }
-  if (normMode.value === 'per-10m-tokens') {
+  if (normMode.value === "per-10m-tokens") {
     if (Math.abs(value) >= 1_000) return formatNumber(value);
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   }
@@ -228,7 +235,7 @@ const radarModels = computed(() => {
   return [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3);
 });
 
-const radarAxes = ['Token Vol.', 'Cache Eff.', 'Premium Req.', 'Cost Eff.', 'Token Share'];
+const radarAxes = ["Token Vol.", "Cache Eff.", "Premium Req.", "Cost Eff.", "Token Share"];
 
 function radarValues(row: ModelRow): number[] {
   const maxTokens = Math.max(...modelRows.value.map((m) => m.tokens), 1);
@@ -264,7 +271,7 @@ function radarPolygon(values: number[]): string {
       const p = radarPoint(i, v);
       return `${p.x},${p.y}`;
     })
-    .join(' ');
+    .join(" ");
 }
 
 function radarAxisEnd(idx: number): { x: number; y: number } {
@@ -274,9 +281,9 @@ function radarAxisEnd(idx: number): { x: number; y: number } {
 function radarLabelPos(idx: number): { x: number; y: number; anchor: string } {
   const p = radarPoint(idx, 1.2);
   const angle = (Math.PI * 2 * idx) / 5 - Math.PI / 2;
-  let anchor = 'middle';
-  if (Math.cos(angle) > 0.3) anchor = 'start';
-  else if (Math.cos(angle) < -0.3) anchor = 'end';
+  let anchor = "middle";
+  if (Math.cos(angle) > 0.3) anchor = "start";
+  else if (Math.cos(angle) < -0.3) anchor = "end";
   return { x: p.x, y: p.y, anchor };
 }
 
@@ -311,8 +318,8 @@ function scatterRadius(cacheHitRate: number): number {
 }
 
 // ── Side-by-side comparison ──────────────────────────────────
-const compareA = ref<string>('');
-const compareB = ref<string>('');
+const compareA = ref<string>("");
+const compareB = ref<string>("");
 
 watch(
   modelRows,
@@ -324,7 +331,7 @@ watch(
         compareB.value = rows[1].model;
     } else if (rows.length === 1) {
       compareA.value = rows[0].model;
-      compareB.value = '';
+      compareB.value = "";
     }
   },
   { immediate: true },
@@ -338,8 +345,8 @@ interface CompareMetric {
   valueA: string;
   valueB: string;
   delta: string;
-  direction: 'up' | 'down' | 'neutral';
-  better: 'a' | 'b' | 'neutral';
+  direction: "up" | "down" | "neutral";
+  better: "a" | "b" | "neutral";
 }
 
 const compareMetrics = computed<CompareMetric[]>(() => {
@@ -349,55 +356,55 @@ const compareMetrics = computed<CompareMetric[]>(() => {
 
   return [
     {
-      label: 'Total Tokens',
+      label: "Total Tokens",
       valueA: fmtNorm(a.tokens),
       valueB: fmtNorm(b.tokens),
       ...formatModelDelta(a.tokens, b.tokens, true),
     },
     {
-      label: 'Input Tokens',
+      label: "Input Tokens",
       valueA: fmtNorm(a.inputTokens),
       valueB: fmtNorm(b.inputTokens),
       ...formatModelDelta(a.inputTokens, b.inputTokens, true),
     },
     {
-      label: 'Output Tokens',
+      label: "Output Tokens",
       valueA: fmtNorm(a.outputTokens),
       valueB: fmtNorm(b.outputTokens),
       ...formatModelDelta(a.outputTokens, b.outputTokens, true),
     },
     {
-      label: 'Cache Read',
+      label: "Cache Read",
       valueA: fmtNorm(a.cacheReadTokens),
       valueB: fmtNorm(b.cacheReadTokens),
       ...formatModelDelta(a.cacheReadTokens, b.cacheReadTokens, true),
     },
     {
-      label: 'Token Share',
+      label: "Token Share",
       valueA: formatPercent(a.percentage),
       valueB: formatPercent(b.percentage),
       ...formatModelDelta(a.percentage, b.percentage, true),
     },
     {
-      label: 'Premium Requests',
+      label: "Premium Requests",
       valueA: fmtNorm(a.premiumRequests),
       valueB: fmtNorm(b.premiumRequests),
       ...formatModelDelta(a.premiumRequests, b.premiumRequests, true),
     },
     {
-      label: 'Cache Hit Rate',
+      label: "Cache Hit Rate",
       valueA: formatPercent(a.cacheHitRate),
       valueB: formatPercent(b.cacheHitRate),
       ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
     {
-      label: 'Wholesale Cost',
+      label: "Wholesale Cost",
       valueA: fmtNorm(a.cost, true),
       valueB: fmtNorm(b.cost, true),
       ...formatModelDelta(a.cost ?? 0, b.cost ?? 0, false),
     },
     {
-      label: 'Copilot Cost',
+      label: "Copilot Cost",
       valueA: fmtNorm(a.copilotCost, true),
       valueB: fmtNorm(b.copilotCost, true),
       ...formatModelDelta(a.copilotCost, b.copilotCost, false),

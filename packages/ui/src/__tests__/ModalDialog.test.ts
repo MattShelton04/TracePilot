@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import ModalDialog from "../components/ModalDialog.vue";
 
 describe("ModalDialog", () => {
@@ -51,7 +51,7 @@ describe("ModalDialog", () => {
     });
     await wrapper.find("button[aria-label='Close']").trigger("click");
     expect(wrapper.emitted("update:visible")).toBeTruthy();
-    expect(wrapper.emitted("update:visible")![0]).toEqual([false]);
+    expect(wrapper.emitted("update:visible")?.[0]).toEqual([false]);
   });
 
   it("emits update:visible false on Escape key", async () => {
@@ -61,7 +61,7 @@ describe("ModalDialog", () => {
     });
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(wrapper.emitted("update:visible")).toBeTruthy();
-    expect(wrapper.emitted("update:visible")![0]).toEqual([false]);
+    expect(wrapper.emitted("update:visible")?.[0]).toEqual([false]);
   });
 
   it("renders default slot content", () => {

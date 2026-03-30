@@ -318,11 +318,10 @@ fn write_todos(md: &mut String, todos: &TodoExport) {
             _ => "[ ]",
         };
         let _ = writeln!(md, "- {} **{}**: {}", checkbox, item.id, item.title);
-        if let Some(desc) = &item.description {
-            if !desc.is_empty() {
+        if let Some(desc) = &item.description
+            && !desc.is_empty() {
                 let _ = writeln!(md, "  {}", desc);
             }
-        }
     }
 
     // Dependency graph if present
@@ -468,7 +467,7 @@ fn write_incidents(md: &mut String, incidents: &[IncidentExport]) {
         let time = inc
             .timestamp
             .as_ref()
-            .map(|t| format_dt(t))
+            .map(format_dt)
             .unwrap_or_else(|| "—".to_string());
         let _ = writeln!(
             md,

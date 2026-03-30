@@ -1,4 +1,4 @@
-import { ref, watch, onMounted, onBeforeUnmount, nextTick, type Ref, type WatchSource } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, type Ref, ref, type WatchSource, watch } from "vue";
 
 export interface AutoScrollOptions {
   /** Ref to the scrollable container element. */
@@ -88,7 +88,9 @@ export function useAutoScroll(options: AutoScrollOptions) {
     isLockedToBottom.value = true;
     if (useSmooth) {
       // Clear guard after animation completes (fallback timeout)
-      setTimeout(() => { isProgrammaticScroll = false; }, 500);
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 500);
     }
   }
 
@@ -101,7 +103,9 @@ export function useAutoScroll(options: AutoScrollOptions) {
     el.scrollTo({ top: 0, behavior });
     isLockedToBottom.value = false;
     if (useSmooth) {
-      setTimeout(() => { isProgrammaticScroll = false; }, 500);
+      setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 500);
     }
   }
 

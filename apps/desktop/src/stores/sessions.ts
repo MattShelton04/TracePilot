@@ -1,10 +1,10 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import type { SessionListItem } from "@tracepilot/types";
 import { listSessions, reindexSessions } from "@tracepilot/client";
+import type { SessionListItem } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
-import { logError, logWarn } from "@/utils/logger";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
+import { logError, logWarn } from "@/utils/logger";
 import { usePreferencesStore } from "./preferences";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
@@ -40,13 +40,16 @@ export const useSessionsStore = defineStore("sessions", () => {
   // Pre-compute lowercased search fields — rebuilt only when session list changes,
   // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
   const searchFieldCache = computed(() => {
-    const cache = new Map<string, { id: string; summary: string; repository: string; branch: string }>();
+    const cache = new Map<
+      string,
+      { id: string; summary: string; repository: string; branch: string }
+    >();
     for (const s of sessions.value) {
       cache.set(s.id, {
         id: s.id.toLowerCase(),
-        summary: (s.summary ?? '').toLowerCase(),
-        repository: (s.repository ?? '').toLowerCase(),
-        branch: (s.branch ?? '').toLowerCase(),
+        summary: (s.summary ?? "").toLowerCase(),
+        repository: (s.repository ?? "").toLowerCase(),
+        branch: (s.branch ?? "").toLowerCase(),
       });
     }
     return cache;
@@ -66,12 +69,16 @@ export const useSessionsStore = defineStore("sessions", () => {
 
       if (q) {
         const fields = cache.get(s.id);
-        if (!fields || !(
-          fields.summary.includes(q) ||
-          fields.repository.includes(q) ||
-          fields.branch.includes(q) ||
-          fields.id.includes(q)
-        )) return false;
+        if (
+          !fields ||
+          !(
+            fields.summary.includes(q) ||
+            fields.repository.includes(q) ||
+            fields.branch.includes(q) ||
+            fields.id.includes(q)
+          )
+        )
+          return false;
       }
 
       if (repo && s.repository !== repo) return false;
@@ -90,7 +97,6 @@ export const useSessionsStore = defineStore("sessions", () => {
           return (b.eventCount ?? 0) - (a.eventCount ?? 0);
         case "turns":
           return (b.turnCount ?? 0) - (a.turnCount ?? 0);
-        case "updated":
         default:
           return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
       }
@@ -113,14 +119,14 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const emptySessionCount = computed(() => {
-    return sessions.value.filter(s => (s.turnCount ?? 0) === 0).length;
+    return sessions.value.filter((s) => (s.turnCount ?? 0) === 0).length;
   });
 
   /** Session count respecting hideEmptySessions but not search/repo/branch filters. */
   const visibleSessionCount = computed(() => {
     const prefs = usePreferencesStore();
     if (prefs.hideEmptySessions) {
-      return sessions.value.filter(s => (s.turnCount ?? 0) !== 0).length;
+      return sessions.value.filter((s) => (s.turnCount ?? 0) !== 0).length;
     }
     return sessions.value.length;
   });
@@ -198,13 +204,17 @@ export const useSessionsStore = defineStore("sessions", () => {
    */
   async function ensureIndex() {
     if (indexingPromise) {
-      try { await indexingPromise; } catch (e) {
+      try {
+        await indexingPromise;
+      } catch (e) {
         // Background reindex already running - log warning if it fails
-        logWarn('[sessions] Background reindex in progress failed', e);
+        logWarn("[sessions] Background reindex in progress failed", e);
       }
-      try { sessions.value = await listSessions(); } catch (e) {
+      try {
+        sessions.value = await listSessions();
+      } catch (e) {
         // Silent refresh failed
-        logWarn('[sessions] Failed to refresh session list after background reindex', e);
+        logWarn("[sessions] Failed to refresh session list after background reindex", e);
       }
       return;
     }
@@ -215,7 +225,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       sessions.value = await listSessions();
     } catch (e) {
       // Silent — this is a background optimization, not user-initiated
-      logWarn('[sessions] Background ensureIndex failed', e);
+      logWarn("[sessions] Background ensureIndex failed", e);
     } finally {
       indexingPromise = null;
     }

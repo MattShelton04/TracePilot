@@ -1,6 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { useConfigInjectorStore } from "@/stores/configInjector";
 import type {
   AgentDefinition,
   BackupEntry,
@@ -8,6 +5,9 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useConfigInjectorStore } from "@/stores/configInjector";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockGetAgentDefinitions = vi.fn();
@@ -316,7 +316,7 @@ describe("useConfigInjectorStore", () => {
       expect(result).toBe(true);
       expect(mockSaveAgentDefinition).toHaveBeenCalledWith(
         FIXTURE_AGENT.filePath,
-        "name: updated\nmodel: new-model\n"
+        "name: updated\nmodel: new-model\n",
       );
       expect(mockToastSuccess).toHaveBeenCalledWith("Saved code-reviewer agent");
     });
@@ -349,7 +349,9 @@ describe("useConfigInjectorStore", () => {
 
     it("sets saving=true during operation", async () => {
       let resolveSave: () => void;
-      const savePromise = new Promise<void>((resolve) => { resolveSave = resolve; });
+      const savePromise = new Promise<void>((resolve) => {
+        resolveSave = resolve;
+      });
       mockSaveAgentDefinition.mockReturnValue(savePromise);
       mockGetAgentDefinitions.mockResolvedValue(FIXTURE_AGENTS);
 
@@ -359,7 +361,7 @@ describe("useConfigInjectorStore", () => {
       const saveTask = store.saveAgent();
       expect(store.saving).toBe(true);
 
-      resolveSave!();
+      resolveSave?.();
       await saveTask;
       expect(store.saving).toBe(false);
     });
@@ -409,7 +411,9 @@ describe("useConfigInjectorStore", () => {
 
     it("sets saving=true during operation", async () => {
       let resolveSave: () => void;
-      const savePromise = new Promise<void>((resolve) => { resolveSave = resolve; });
+      const savePromise = new Promise<void>((resolve) => {
+        resolveSave = resolve;
+      });
       mockSaveCopilotConfig.mockReturnValue(savePromise);
       mockGetCopilotConfig.mockResolvedValue(FIXTURE_CONFIG);
 
@@ -417,7 +421,7 @@ describe("useConfigInjectorStore", () => {
       const saveTask = store.saveGlobalConfig({});
       expect(store.saving).toBe(true);
 
-      resolveSave!();
+      resolveSave?.();
       await saveTask;
       expect(store.saving).toBe(false);
     });
@@ -577,7 +581,11 @@ describe("useConfigInjectorStore", () => {
       const result = await store.migrateAgent("code-reviewer.yaml", "1.0.8", "1.0.9");
 
       expect(result).toBe(true);
-      expect(mockMigrateAgentDefinition).toHaveBeenCalledWith("code-reviewer.yaml", "1.0.8", "1.0.9");
+      expect(mockMigrateAgentDefinition).toHaveBeenCalledWith(
+        "code-reviewer.yaml",
+        "1.0.8",
+        "1.0.9",
+      );
       expect(mockToastSuccess).toHaveBeenCalledWith("Migrated code-reviewer.yaml");
     });
 

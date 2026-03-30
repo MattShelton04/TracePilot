@@ -4,15 +4,7 @@
  * Provides: index tracking, prev/next/jumpTo, keyboard handlers (ArrowLeft/Right),
  * and auto-reset when the turn list changes.
  */
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  type Ref,
-  type ComputedRef,
-} from "vue";
+import { type ComputedRef, computed, onBeforeUnmount, onMounted, type Ref, ref, watch } from "vue";
 
 export interface TimelineNavigationOptions {
   /** Reactive list of turns to navigate through. */
@@ -82,8 +74,7 @@ export function useTimelineNavigation(
   function onKeyDown(e: KeyboardEvent) {
     // When rootRef is provided and mounted, only handle keys when focus is inside it.
     // When rootRef is not provided, allow global keyboard navigation.
-    if (rootRef?.value && !rootRef.value.contains(document.activeElement))
-      return;
+    if (rootRef?.value && !rootRef.value.contains(document.activeElement)) return;
     switch (e.key) {
       case "ArrowLeft":
         e.preventDefault();

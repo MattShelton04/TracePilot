@@ -1,39 +1,39 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {
+  addRegisteredRepo as addRegisteredRepoApi,
+  createWorktree as createWorktreeApi,
+  discoverReposFromSessions as discoverReposApi,
+  getWorktreeDetails as getWorktreeDetailsApi,
+  getWorktreeDiskUsage,
+  listBranches as listBranchesApi,
+  listRegisteredRepos,
+  listWorktrees,
+  lockWorktree as lockWorktreeApi,
+  pruneWorktrees as pruneWorktreesApi,
+  removeRegisteredRepo as removeRegisteredRepoApi,
+  removeWorktree as removeWorktreeApi,
+  toggleRepoFavourite,
+  unlockWorktree as unlockWorktreeApi,
+} from "@tracepilot/client";
 import type {
-  WorktreeInfo,
-  WorktreeDetails,
   CreateWorktreeRequest,
   PruneResult,
   RegisteredRepo,
-} from '@tracepilot/types';
-import {
-  listWorktrees,
-  createWorktree as createWorktreeApi,
-  removeWorktree as removeWorktreeApi,
-  pruneWorktrees as pruneWorktreesApi,
-  listBranches as listBranchesApi,
-  getWorktreeDiskUsage,
-  lockWorktree as lockWorktreeApi,
-  unlockWorktree as unlockWorktreeApi,
-  getWorktreeDetails as getWorktreeDetailsApi,
-  listRegisteredRepos,
-  addRegisteredRepo as addRegisteredRepoApi,
-  removeRegisteredRepo as removeRegisteredRepoApi,
-  discoverReposFromSessions as discoverReposApi,
-  toggleRepoFavourite,
-} from '@tracepilot/client';
-import { toErrorMessage } from '@tracepilot/ui';
-import { useAsyncGuard } from '@/composables/useAsyncGuard';
-import { logWarn } from '@/utils/logger';
+  WorktreeDetails,
+  WorktreeInfo,
+} from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
+import { logWarn } from "@/utils/logger";
 
-export const useWorktreesStore = defineStore('worktrees', () => {
+export const useWorktreesStore = defineStore("worktrees", () => {
   // ─── State ────────────────────────────────────────────────────────
   const worktrees = ref<WorktreeInfo[]>([]);
   const branches = ref<string[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const currentRepoPath = ref('');
+  const currentRepoPath = ref("");
   const loadGuard = useAsyncGuard(); // guards against out-of-order async overwrites
 
   // Repository registry
@@ -41,8 +41,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
   const reposLoading = ref(false);
 
   // Sort state
-  const sortBy = ref<'branch' | 'status' | 'createdAt' | 'diskUsageBytes'>('branch');
-  const sortDirection = ref<'asc' | 'desc'>('asc');
+  const sortBy = ref<"branch" | "status" | "createdAt" | "diskUsageBytes">("branch");
+  const sortDirection = ref<"asc" | "desc">("asc");
 
   // ─── Computed ─────────────────────────────────────────────────────
   const mainWorktree = computed(() => worktrees.value.find((w) => w.isMainWorktree));
@@ -51,16 +51,16 @@ export const useWorktreesStore = defineStore('worktrees', () => {
 
   const sortedWorktrees = computed(() => {
     const sorted = [...worktrees.value];
-    const dir = sortDirection.value === 'asc' ? 1 : -1;
+    const dir = sortDirection.value === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
       switch (sortBy.value) {
-        case 'branch':
+        case "branch":
           return dir * a.branch.localeCompare(b.branch);
-        case 'status':
+        case "status":
           return dir * a.status.localeCompare(b.status);
-        case 'createdAt':
-          return dir * ((a.createdAt ?? '') < (b.createdAt ?? '') ? -1 : 1);
-        case 'diskUsageBytes':
+        case "createdAt":
+          return dir * ((a.createdAt ?? "") < (b.createdAt ?? "") ? -1 : 1);
+        case "diskUsageBytes":
           return dir * ((a.diskUsageBytes ?? 0) - (b.diskUsageBytes ?? 0));
         default:
           return 0;
@@ -69,8 +69,8 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     return sorted;
   });
 
-  const activeCount = computed(() => worktrees.value.filter((w) => w.status === 'active').length);
-  const staleCount = computed(() => worktrees.value.filter((w) => w.status === 'stale').length);
+  const activeCount = computed(() => worktrees.value.filter((w) => w.status === "active").length);
+  const staleCount = computed(() => worktrees.value.filter((w) => w.status === "stale").length);
   const lockedCount = computed(() => worktrees.value.filter((w) => w.isLocked).length);
 
   // ─── Disk Usage Hydration ─────────────────────────────────────────
@@ -89,7 +89,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           }
         })
         .catch((e) => {
-          logWarn('[worktrees] Failed to hydrate disk usage', { path: wt.path, error: e });
+          logWarn("[worktrees] Failed to hydrate disk usage", { path: wt.path, error: e });
         });
     }
   }
@@ -127,7 +127,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
           allWorktrees.push(...repoWorktrees);
         } catch (e) {
           // Skip repos that fail (e.g., deleted from disk)
-          logWarn('[worktrees] Failed to load worktrees for repo', { repo: repo.path, error: e });
+          logWarn("[worktrees] Failed to load worktrees for repo", { repo: repo.path, error: e });
         }
       }
       if (!loadGuard.isValid(token)) return;
@@ -152,7 +152,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     } catch (e) {
       if (!branchGuard.isValid(token)) return;
       // Non-critical - branch list is optional for some operations
-      logWarn('[worktrees] Failed to load branches', { repoPath, error: e });
+      logWarn("[worktrees] Failed to load branches", { repoPath, error: e });
       branches.value = [];
     }
   }
@@ -250,7 +250,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
       return await getWorktreeDetailsApi(worktreePath);
     } catch (e) {
       // Non-critical - details are optional UI enhancement
-      logWarn('[worktrees] Failed to fetch worktree details', { worktreePath, error: e });
+      logWarn("[worktrees] Failed to fetch worktree details", { worktreePath, error: e });
       return null;
     }
   }
@@ -323,7 +323,7 @@ export const useWorktreesStore = defineStore('worktrees', () => {
     togglingFavourites.value.add(path);
     try {
       const newState = await toggleRepoFavourite(path);
-      const repo = registeredRepos.value.find(r => r.path === path);
+      const repo = registeredRepos.value.find((r) => r.path === path);
       if (repo) {
         repo.favourite = newState;
       }
@@ -346,10 +346,10 @@ export const useWorktreesStore = defineStore('worktrees', () => {
 
   function setSortBy(field: typeof sortBy.value) {
     if (sortBy.value === field) {
-      sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+      sortDirection.value = sortDirection.value === "asc" ? "desc" : "asc";
     } else {
       sortBy.value = field;
-      sortDirection.value = 'asc';
+      sortDirection.value = "asc";
     }
   }
 

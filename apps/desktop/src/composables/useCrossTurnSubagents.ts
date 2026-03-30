@@ -1,9 +1,5 @@
-import { computed, type ComputedRef, type Ref } from "vue";
-import type {
-  ConversationTurn,
-  TurnToolCall,
-  AttributedMessage,
-} from "@tracepilot/types";
+import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import { type ComputedRef, computed, type Ref } from "vue";
 
 /** Full activity data for a subagent, aggregated across turns. */
 export interface SubagentFullData {

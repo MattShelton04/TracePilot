@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from "vue";
+import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
+import { Badge, ErrorAlert, SkeletonLoader, TabNav, useClipboard } from "@tracepilot/ui";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import { useAutoRefresh } from "@/composables/useAutoRefresh";
-import { logError } from "@/utils/logger";
-import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { TabNav, Badge, ErrorAlert, SkeletonLoader, useClipboard } from "@tracepilot/ui";
-import { resumeSessionInTerminal, isSessionRunning, openInExplorer } from "@tracepilot/client";
+import { useAutoRefresh } from "@/composables/useAutoRefresh";
+import { usePerfMonitor } from "@/composables/usePerfMonitor";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { logError } from "@/utils/logger";
 
 const route = useRoute();
 const router = useRouter();
 const store = useSessionDetailStore();
-usePerfMonitor('SessionDetailView');
+usePerfMonitor("SessionDetailView");
 const prefs = usePreferencesStore();
 
 const sessionId = computed(() => route.params.id as string);
@@ -32,7 +32,7 @@ async function openSessionFolder() {
   try {
     await openInExplorer(path);
   } catch (e) {
-    logError('[sessionDetail] Failed to open folder:', e);
+    logError("[sessionDetail] Failed to open folder:", e);
   }
 }
 
@@ -45,7 +45,7 @@ async function checkRunning() {
     isSessionActive.value = await isSessionRunning(sessionId.value);
   } catch (e) {
     isSessionActive.value = false;
-    logError('[sessionDetail] Failed to check if session is running:', e);
+    logError("[sessionDetail] Failed to check if session is running:", e);
   }
 }
 
@@ -80,7 +80,7 @@ async function resumeInTerminal() {
   try {
     await resumeSessionInTerminal(resolvedSessionId.value, prefs.cliCommand);
   } catch (e) {
-    logError('[sessionDetail] Failed to open terminal:', e);
+    logError("[sessionDetail] Failed to open terminal:", e);
   }
 }
 
@@ -90,17 +90,25 @@ function cancelResume() {
 
 const tabs = computed(() => [
   { name: "overview", routeName: "session-overview", label: "Overview" },
-  { name: "conversation", routeName: "session-conversation", label: "Conversation", count: store.detail?.turnCount ?? undefined },
-  { name: "events", routeName: "session-events", label: "Events", count: store.detail?.eventCount ?? undefined },
+  {
+    name: "conversation",
+    routeName: "session-conversation",
+    label: "Conversation",
+    count: store.detail?.turnCount ?? undefined,
+  },
+  {
+    name: "events",
+    routeName: "session-events",
+    label: "Events",
+    count: store.detail?.eventCount ?? undefined,
+  },
   { name: "todos", routeName: "session-todos", label: "Todos" },
   { name: "metrics", routeName: "session-metrics", label: "Metrics" },
   { name: "token-flow", routeName: "session-token-flow", label: "Token Flow" },
   { name: "timeline", routeName: "session-timeline", label: "Timeline" },
 ]);
 
-const currentModel = computed(() =>
-  store.detail?.shutdownMetrics?.currentModel ?? "",
-);
+const currentModel = computed(() => store.detail?.shutdownMetrics?.currentModel ?? "");
 
 onMounted(async () => {
   store.loadDetail(sessionId.value);

@@ -75,7 +75,7 @@ impl IndexDb {
     pub fn needs_search_reindex(&self, session_id: &str, session_path: &Path) -> bool {
         let current_events = super::types::get_events_mtime_and_size(session_path);
 
-        let stored: Option<(Option<String>, Option<String>, Option<i64>, Option<i64>)> = self
+        let stored: Option<super::types::StalenessRow> = self
             .conn
             .query_row(
                 "SELECT search_indexed_at, events_mtime, events_size, search_extractor_version
@@ -123,11 +123,10 @@ impl IndexDb {
         }
 
         // Compare search_indexed_at < events_mtime
-        if let (Some(sia), Some(em)) = (&search_indexed_at, &stored_ev_mtime) {
-            if sia < em {
+        if let (Some(sia), Some(em)) = (&search_indexed_at, &stored_ev_mtime)
+            && sia < em {
                 return true;
             }
-        }
 
         false
     }
@@ -413,8 +412,8 @@ pub fn extract_search_content(
                 current_turn += 1;
                 turn_is_open = true;
                 flush_pending(&mut pending_session_rows, &mut rows, current_turn);
-                if let Some(ref content) = d.content {
-                    if !content.is_empty() {
+                if let Some(ref content) = d.content
+                    && !content.is_empty() {
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
                             content_type: "user_message",
@@ -426,15 +425,14 @@ pub fn extract_search_content(
                             metadata_json: None,
                         });
                     }
-                }
             }
 
             TypedEventData::AssistantMessage(d) => {
                 if ensure_turn(&mut current_turn, &mut turn_is_open) {
                     flush_pending(&mut pending_session_rows, &mut rows, current_turn);
                 }
-                if let Some(ref content) = d.content {
-                    if !content.is_empty() {
+                if let Some(ref content) = d.content
+                    && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
@@ -447,10 +445,9 @@ pub fn extract_search_content(
                             metadata_json: None,
                         });
                     }
-                }
                 // Also index reasoning text if present
-                if let Some(ref reasoning) = d.reasoning_text {
-                    if !reasoning.is_empty() {
+                if let Some(ref reasoning) = d.reasoning_text
+                    && !reasoning.is_empty() {
                         let truncated = truncate_utf8(reasoning, MAX_REASONING_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
@@ -463,15 +460,14 @@ pub fn extract_search_content(
                             metadata_json: None,
                         });
                     }
-                }
             }
 
             TypedEventData::AssistantReasoning(d) => {
                 if ensure_turn(&mut current_turn, &mut turn_is_open) {
                     flush_pending(&mut pending_session_rows, &mut rows, current_turn);
                 }
-                if let Some(ref content) = d.content {
-                    if !content.is_empty() {
+                if let Some(ref content) = d.content
+                    && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_REASONING_BYTES);
                         rows.push(SearchContentRow {
                             session_id: session_id.to_string(),
@@ -484,7 +480,6 @@ pub fn extract_search_content(
                             metadata_json: None,
                         });
                     }
-                }
             }
 
             TypedEventData::ToolExecutionStart(d) => {
@@ -617,8 +612,8 @@ pub fn extract_search_content(
             }
 
             TypedEventData::CompactionComplete(d) => {
-                if let Some(ref summary) = d.summary_content {
-                    if !summary.is_empty() {
+                if let Some(ref summary) = d.summary_content
+                    && !summary.is_empty() {
                         let truncated = truncate_utf8(summary, MAX_COMPACTION_BYTES);
                         let row = SearchContentRow {
                             session_id: session_id.to_string(),
@@ -638,12 +633,11 @@ pub fn extract_search_content(
                             pending_session_rows.push(row);
                         }
                     }
-                }
             }
 
             TypedEventData::SystemMessage(d) => {
-                if let Some(ref content) = d.content {
-                    if !content.is_empty() {
+                if let Some(ref content) = d.content
+                    && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_SYSTEM_MESSAGE_BYTES);
                         let row = SearchContentRow {
                             session_id: session_id.to_string(),
@@ -663,7 +657,6 @@ pub fn extract_search_content(
                             pending_session_rows.push(row);
                         }
                     }
-                }
             }
 
             TypedEventData::SubagentStarted(d) => {
@@ -842,12 +835,11 @@ fn extract_tool_result(tool_name_lower: &str, result: &serde_json::Value) -> Str
                 let t = truncate_utf8(output, EXTRACT_SHELL_OUTPUT);
                 return t.to_string();
             }
-            if let Some(stderr) = result.get("stderr").and_then(|v| v.as_str()) {
-                if !stderr.is_empty() {
+            if let Some(stderr) = result.get("stderr").and_then(|v| v.as_str())
+                && !stderr.is_empty() {
                     let t = truncate_utf8(stderr, EXTRACT_SHELL_STDERR);
                     return t.to_string();
                 }
-            }
             let full = flatten_json_with_keys(result);
             truncate_utf8(&full, EXTRACT_SHELL_FALLBACK).to_string()
         }

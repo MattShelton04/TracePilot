@@ -95,6 +95,7 @@ impl Default for ContentDetailOptions {
 /// placeholder text (e.g., `<REDACTED_PATH>`). All flags default to `false`
 /// (no redaction), making exports fully transparent by default.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct RedactionOptions {
     /// Replace filesystem paths (Windows, Unix home, system dirs) with `<REDACTED_PATH>`.
     pub anonymize_paths: bool,
@@ -111,15 +112,6 @@ impl RedactionOptions {
     }
 }
 
-impl Default for RedactionOptions {
-    fn default() -> Self {
-        Self {
-            anonymize_paths: false,
-            strip_secrets: false,
-            strip_pii: false,
-        }
-    }
-}
 
 /// Complete export configuration provided by the user.
 #[derive(Debug, Clone)]

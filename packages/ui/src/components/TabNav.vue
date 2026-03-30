@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
   tabs: Array<{ name: string; routeName: string; label: string; count?: number }>;
@@ -14,10 +14,14 @@ const activeTab = computed(() => route.name as string);
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
 const focusedIndex = ref(0);
 
-watch(activeTab, (name) => {
-  const idx = props.tabs.findIndex((t) => t.routeName === name);
-  if (idx >= 0) focusedIndex.value = idx;
-}, { immediate: true });
+watch(
+  activeTab,
+  (name) => {
+    const idx = props.tabs.findIndex((t) => t.routeName === name);
+    if (idx >= 0) focusedIndex.value = idx;
+  },
+  { immediate: true },
+);
 
 const tabRefs = ref<HTMLButtonElement[]>([]);
 
@@ -28,21 +32,21 @@ function navigate(routeName: string) {
 function handleKeydown(e: KeyboardEvent, index: number) {
   let target = -1;
   switch (e.key) {
-    case 'ArrowRight':
-    case 'ArrowDown':
+    case "ArrowRight":
+    case "ArrowDown":
       e.preventDefault();
       target = (index + 1) % props.tabs.length;
       break;
-    case 'ArrowLeft':
-    case 'ArrowUp':
+    case "ArrowLeft":
+    case "ArrowUp":
       e.preventDefault();
       target = (index - 1 + props.tabs.length) % props.tabs.length;
       break;
-    case 'Home':
+    case "Home":
       e.preventDefault();
       target = 0;
       break;
-    case 'End':
+    case "End":
       e.preventDefault();
       target = props.tabs.length - 1;
       break;

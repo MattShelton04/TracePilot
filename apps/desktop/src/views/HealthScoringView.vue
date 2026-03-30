@@ -3,11 +3,11 @@
 // STUB: Replace with real health scoring from backend Phase 4 API.
 // STUB: SessionHealth and HealthFlag types are already defined in @tracepilot/types.
 
-import { ref, onMounted, computed } from 'vue';
-import type { HealthScoringData } from '@tracepilot/types';
-import { getHealthScores } from '@tracepilot/client';
-import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from '@tracepilot/ui';
-import StubBanner from '@/components/StubBanner.vue';
+import { getHealthScores } from "@tracepilot/client";
+import type { HealthScoringData } from "@tracepilot/types";
+import { ErrorState, HealthRing, LoadingOverlay, toErrorMessage } from "@tracepilot/ui";
+import { computed, onMounted, ref } from "vue";
+import StubBanner from "@/components/StubBanner.vue";
 
 const data = ref<HealthScoringData | null>(null);
 const loading = ref(true);
@@ -20,7 +20,7 @@ async function reload() {
   try {
     data.value = await getHealthScores();
   } catch (e) {
-    error.value = toErrorMessage(e, 'Failed to load health scores');
+    error.value = toErrorMessage(e, "Failed to load health scores");
   } finally {
     loading.value = false;
   }
@@ -28,14 +28,14 @@ async function reload() {
 
 onMounted(reload);
 
-const avgScoreDisplay = computed(() => data.value?.overallScore.toFixed(2) ?? '—');
+const avgScoreDisplay = computed(() => data.value?.overallScore.toFixed(2) ?? "—");
 
-function severityBadgeClass(severity: 'warning' | 'danger'): string {
-  return severity === 'danger' ? 'badge badge-danger' : 'badge badge-warning';
+function severityBadgeClass(severity: "warning" | "danger"): string {
+  return severity === "danger" ? "badge badge-danger" : "badge badge-warning";
 }
 
-function severityLabel(severity: 'warning' | 'danger'): string {
-  return severity === 'danger' ? 'Critical' : 'Warning';
+function severityLabel(severity: "warning" | "danger"): string {
+  return severity === "danger" ? "Critical" : "Warning";
 }
 </script>
 

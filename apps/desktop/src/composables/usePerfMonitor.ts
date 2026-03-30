@@ -1,4 +1,4 @@
-import { onMounted, getCurrentInstance } from 'vue';
+import { getCurrentInstance, onMounted } from "vue";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,7 +41,7 @@ function record(name: string, duration: number): void {
  */
 export function usePerfMonitor(label?: string) {
   const instance = getCurrentInstance();
-  const componentName = label ?? instance?.type.__name ?? 'Unknown';
+  const componentName = label ?? instance?.type.__name ?? "Unknown";
   const mountStart = performance.now();
 
   onMounted(() => {
@@ -61,10 +61,7 @@ export function usePerfMonitor(label?: string) {
   /** Measure between a previous `mark` and now. */
   function measure(name: string, startMark: string): number {
     try {
-      const m = performance.measure(
-        `${componentName}:${name}`,
-        `${componentName}:${startMark}`,
-      );
+      const m = performance.measure(`${componentName}:${name}`, `${componentName}:${startMark}`);
       record(`${componentName}:${name}`, m.duration);
       return m.duration;
     } catch {
@@ -111,7 +108,7 @@ export function clearPerfLog(): void {
 export function dumpPerfSummary(): void {
   const grouped = new Map<string, number[]>();
   for (const entry of perfLog) {
-    const key = entry.name.split(':').slice(0, 2).join(':');
+    const key = entry.name.split(":").slice(0, 2).join(":");
     const durations = grouped.get(key) ?? [];
     durations.push(entry.duration);
     grouped.set(key, durations);
@@ -129,7 +126,7 @@ export function dumpPerfSummary(): void {
 }
 
 // Expose on window for easy console access during development
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).__TRACEPILOT_PERF__ = {
     getPerfLog,
     getSlowEntries,

@@ -7,7 +7,7 @@
  *
  * The loader is a singleton: multiple calls are safe and share one promise.
  */
-import { ref } from 'vue';
+import { ref } from "vue";
 
 export type MarkdownRenderer = {
   render: (content: string) => string;
@@ -26,8 +26,8 @@ export function ensureMarkdownReady(): Promise<void> {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     const [{ default: MarkdownIt }, { default: DOMPurify }] = await Promise.all([
-      import('markdown-it'),
-      import('dompurify'),
+      import("markdown-it"),
+      import("dompurify"),
     ]);
     mdInstance = new MarkdownIt({
       html: false,
@@ -52,8 +52,8 @@ export function renderMarkdown(content: string): string {
 
 export function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

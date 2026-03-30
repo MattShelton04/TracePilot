@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { save } from '@tauri-apps/plugin-dialog';
-import { exportLogs, getLogPath } from '@tracepilot/client';
-import { ActionButton, SectionPanel, toErrorMessage } from '@tracepilot/ui';
-import { onMounted, ref, watch } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
+import { save } from "@tauri-apps/plugin-dialog";
+import { exportLogs, getLogPath } from "@tracepilot/client";
+import { ActionButton, SectionPanel, toErrorMessage } from "@tracepilot/ui";
+import { onMounted, ref, watch } from "vue";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const prefsStore = usePreferencesStore();
 
-const logPath = ref('—');
+const logPath = ref("—");
 const exportResult = ref<string | null>(null);
 const exporting = ref(false);
-const logLevel = ref('info');
+const logLevel = ref("info");
 
 onMounted(async () => {
   try {
     logPath.value = await getLogPath();
   } catch {
-    logPath.value = 'Unable to determine';
+    logPath.value = "Unable to determine";
   }
 
   await prefsStore.whenReady;
@@ -29,8 +29,8 @@ watch(logLevel, (value) => {
 
 async function openLogDirectory() {
   try {
-    const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
-    await tauriInvoke('plugin:tracepilot|open_in_explorer', { path: logPath.value });
+    const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
+    await tauriInvoke("plugin:tracepilot|open_in_explorer", { path: logPath.value });
   } catch (e) {
     exportResult.value = `Failed to open directory: ${toErrorMessage(e)}`;
   }
@@ -41,9 +41,9 @@ async function doExportLogs() {
   exportResult.value = null;
   try {
     const dest = await save({
-      title: 'Export TracePilot Logs',
-      defaultPath: 'tracepilot-logs.txt',
-      filters: [{ name: 'Text Files', extensions: ['txt', 'log'] }],
+      title: "Export TracePilot Logs",
+      defaultPath: "tracepilot-logs.txt",
+      filters: [{ name: "Text Files", extensions: ["txt", "log"] }],
     });
     if (!dest) {
       exporting.value = false;

@@ -121,7 +121,7 @@ pub fn compute_analytics(sessions: &[SessionAnalyticsInput]) -> AnalyticsData {
                 if let Some(ref requests) = detail.requests {
                     let cost = requests.cost.unwrap_or(0.0);
                     total_cost += cost;
-                    let req_count = requests.count.map(|c| c as u64).unwrap_or(0);
+                    let req_count = requests.count.unwrap_or(0);
                     let entry = model_tokens
                         .entry(model_name.clone())
                         .or_insert((0, 0, 0, 0, 0.0, 0));
@@ -351,7 +351,7 @@ fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     let sum: u64 = sorted.iter().sum();
 
     let avg_ms = sum as f64 / n as f64;
-    let median_ms = if n % 2 == 0 {
+    let median_ms = if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) as f64 / 2.0
     } else {
         sorted[n / 2] as f64

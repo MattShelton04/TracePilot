@@ -13,34 +13,34 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const pattern = computed(() =>
-  typeof props.args?.pattern === "string" ? props.args.pattern : null
+  typeof props.args?.pattern === "string" ? props.args.pattern : null,
 );
 
 /** The search root path from args — used to make tree relative. */
 const searchRoot = computed(() =>
   typeof props.args?.path === "string"
     ? props.args.path.replace(/\\/g, "/").replace(/\/+$/, "")
-    : null
+    : null,
 );
 
-const files = computed(() =>
-  props.content.split("\n").filter(l => l.trim())
-);
+const files = computed(() => props.content.split("\n").filter((l) => l.trim()));
 
 /** Strip the search root prefix from paths to build a relative tree. */
 const relativePaths = computed(() => {
   const root = searchRoot.value;
   if (!root) return files.value;
-  return files.value.map(f => {
-    const norm = f.replace(/\\/g, "/");
-    if (norm.startsWith(root + "/")) return norm.slice(root.length + 1);
-    if (norm.startsWith(root)) return norm.slice(root.length);
-    return norm;
-  }).filter(p => p);
+  return files.value
+    .map((f) => {
+      const norm = f.replace(/\\/g, "/");
+      if (norm.startsWith(`${root}/`)) return norm.slice(root.length + 1);
+      if (norm.startsWith(root)) return norm.slice(root.length);
+      return norm;
+    })
+    .filter((p) => p);
 });
 
 const fileCount = computed(() => files.value.length);
@@ -64,7 +64,7 @@ function buildTree(paths: string[]): TreeNode[] {
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isLast = i === parts.length - 1;
-      let child = current.children.find(c => c.name === part);
+      let child = current.children.find((c) => c.name === part);
 
       if (!child) {
         child = {
@@ -87,10 +87,12 @@ function buildTree(paths: string[]): TreeNode[] {
 }
 
 function sortNodes(nodes: TreeNode[]): TreeNode[] {
-  return [...nodes].sort((a, b) => {
-    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  }).map(n => n.isDir ? { ...n, children: sortNodes(n.children) } : n);
+  return [...nodes]
+    .sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .map((n) => (n.isDir ? { ...n, children: sortNodes(n.children) } : n));
 }
 
 const tree = computed(() => buildTree(relativePaths.value));
@@ -138,9 +140,23 @@ function countFiles(node: TreeNode): number {
 function fileIcon(name: string): string {
   const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
   const icons: Record<string, string> = {
-    ts: "📘", tsx: "📘", js: "📒", jsx: "📒", vue: "💚", json: "📋",
-    md: "📝", rs: "🦀", py: "🐍", go: "🐹", css: "🎨", html: "🌐",
-    yaml: "⚙️", yml: "⚙️", toml: "⚙️", lock: "🔒", sql: "🗃️",
+    ts: "📘",
+    tsx: "📘",
+    js: "📒",
+    jsx: "📒",
+    vue: "💚",
+    json: "📋",
+    md: "📝",
+    rs: "🦀",
+    py: "🐍",
+    go: "🐹",
+    css: "🎨",
+    html: "🌐",
+    yaml: "⚙️",
+    yml: "⚙️",
+    toml: "⚙️",
+    lock: "🔒",
+    sql: "🗃️",
   };
   return icons[ext ?? ""] ?? "📄";
 }

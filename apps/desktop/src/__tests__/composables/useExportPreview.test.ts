@@ -1,22 +1,28 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref, nextTick } from 'vue';
-import type { ExportFormat, SectionId, ExportPreviewResult, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
+import type {
+  ContentDetailOptions,
+  ExportFormat,
+  ExportPreviewResult,
+  RedactionOptions,
+  SectionId,
+} from "@tracepilot/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick, ref } from "vue";
 
 // ── Mocks ──────────────────────────────────────────────────────
-vi.mock('@tracepilot/client', async () => {
-  const { createClientMock } = await import('../mocks/client');
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
   return createClientMock({
     previewExport: vi.fn(),
   });
 });
 
-vi.mock('@/utils/logger', () => ({
+vi.mock("@/utils/logger", () => ({
   logError: vi.fn(),
 }));
 
 // Mock onUnmounted since we're outside component context
-vi.mock('vue', async () => {
-  const actual = await vi.importActual('vue');
+vi.mock("vue", async () => {
+  const actual = await vi.importActual("vue");
   return {
     ...actual,
     onUnmounted: vi.fn((cb: () => void) => {
@@ -26,17 +32,17 @@ vi.mock('vue', async () => {
   };
 });
 
-import { previewExport } from '@tracepilot/client';
-import { useExportPreview } from '../../composables/useExportPreview';
+import { previewExport } from "@tracepilot/client";
+import { useExportPreview } from "../../composables/useExportPreview";
 
 const mockPreviewExport = vi.mocked(previewExport);
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function makePreviewResult(content = '# Preview'): ExportPreviewResult {
+function makePreviewResult(content = "# Preview"): ExportPreviewResult {
   return {
     content,
-    format: 'markdown',
+    format: "markdown",
     estimatedSizeBytes: content.length,
     sectionCount: 2,
   };
@@ -44,9 +50,9 @@ function makePreviewResult(content = '# Preview'): ExportPreviewResult {
 
 function createRefs() {
   return {
-    sessionId: ref(''),
-    format: ref<ExportFormat>('json'),
-    sections: ref<SectionId[]>(['conversation', 'todos']),
+    sessionId: ref(""),
+    format: ref<ExportFormat>("json"),
+    sections: ref<SectionId[]>(["conversation", "todos"]),
     contentDetail: ref<ContentDetailOptions>({
       includeSubagentInternals: true,
       includeToolDetails: true,
@@ -69,10 +75,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useExportPreview', () => {
+describe("useExportPreview", () => {
   // ── Initial State ──────────────────────────────────────────
 
-  it('starts with null preview, not loading, no error', () => {
+  it("starts with null preview, not loading, no error", () => {
     const refs = createRefs();
     const { preview, loading, error } = useExportPreview(
       refs.sessionId,
@@ -87,16 +93,12 @@ describe('useExportPreview', () => {
 
   // ── Fetch Behavior ─────────────────────────────────────────
 
-  it('does not fetch when sessionId is empty', async () => {
+  it("does not fetch when sessionId is empty", async () => {
     const refs = createRefs();
-    const { preview, error } = useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    const { preview, error } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
     // Trigger the watcher
-    refs.sessionId.value = '';
+    refs.sessionId.value = "";
     await nextTick();
     vi.advanceTimersByTime(500);
 
@@ -105,17 +107,13 @@ describe('useExportPreview', () => {
     expect(error.value).toBeNull();
   });
 
-  it('fetches preview after debounce when sessionId is set', async () => {
+  it("fetches preview after debounce when sessionId is set", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockResolvedValue(makePreviewResult('# Hello'));
+    mockPreviewExport.mockResolvedValue(makePreviewResult("# Hello"));
 
-    useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    useExportPreview(refs.sessionId, refs.format, refs.sections);
 
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
 
     // Before debounce fires
@@ -126,15 +124,15 @@ describe('useExportPreview', () => {
     await vi.runAllTimersAsync();
 
     expect(mockPreviewExport).toHaveBeenCalledWith({
-      sessionId: 'sess-1',
-      format: 'json',
-      sections: ['conversation', 'todos'],
+      sessionId: "sess-1",
+      format: "json",
+      sections: ["conversation", "todos"],
       contentDetail: undefined,
       redaction: undefined,
     });
   });
 
-  it('passes contentDetail and redaction when provided', async () => {
+  it("passes contentDetail and redaction when provided", async () => {
     const refs = createRefs();
     mockPreviewExport.mockResolvedValue(makePreviewResult());
 
@@ -146,7 +144,7 @@ describe('useExportPreview', () => {
       refs.redaction,
     );
 
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await vi.runAllTimersAsync();
@@ -161,9 +159,9 @@ describe('useExportPreview', () => {
 
   // ── Error Handling ─────────────────────────────────────────
 
-  it('sets error state on fetch failure', async () => {
+  it("sets error state on fetch failure", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockRejectedValue(new Error('Network error'));
+    mockPreviewExport.mockRejectedValue(new Error("Network error"));
 
     const { error, preview, loading } = useExportPreview(
       refs.sessionId,
@@ -171,37 +169,33 @@ describe('useExportPreview', () => {
       refs.sections,
     );
 
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await vi.runAllTimersAsync();
 
-    expect(error.value).toBe('Network error');
+    expect(error.value).toBe("Network error");
     expect(preview.value).toBeNull();
     expect(loading.value).toBe(false);
   });
 
-  it('handles non-Error rejection', async () => {
+  it("handles non-Error rejection", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockRejectedValue('string error');
+    mockPreviewExport.mockRejectedValue("string error");
 
-    const { error } = useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    const { error } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await vi.runAllTimersAsync();
 
-    expect(error.value).toBe('string error');
+    expect(error.value).toBe("string error");
   });
 
   // ── Stale Response Handling ────────────────────────────────
 
-  it('discards stale responses when inputs change rapidly', async () => {
+  it("discards stale responses when inputs change rapidly", async () => {
     const refs = createRefs();
     let resolveFirst!: (v: ExportPreviewResult) => void;
     let resolveSecond!: (v: ExportPreviewResult) => void;
@@ -218,41 +212,37 @@ describe('useExportPreview', () => {
         }),
       );
 
-    const { preview } = useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    const { preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
     // First change
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await nextTick();
 
     // Second change before first resolves
-    refs.format.value = 'markdown';
+    refs.format.value = "markdown";
     await nextTick();
     vi.advanceTimersByTime(400);
     await nextTick();
 
     // Resolve second first
-    resolveSecond(makePreviewResult('Second'));
+    resolveSecond(makePreviewResult("Second"));
     await vi.runAllTimersAsync();
 
     // Resolve stale first
-    resolveFirst(makePreviewResult('First'));
+    resolveFirst(makePreviewResult("First"));
     await vi.runAllTimersAsync();
 
     // Only the latest result should be used
-    expect(preview.value?.content).toBe('Second');
+    expect(preview.value?.content).toBe("Second");
   });
 
   // ── Reactivity to Detail/Redaction Changes ──────────────────
 
-  it('re-fetches when contentDetail changes', async () => {
+  it("re-fetches when contentDetail changes", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockResolvedValue(makePreviewResult('Initial'));
+    mockPreviewExport.mockResolvedValue(makePreviewResult("Initial"));
 
     useExportPreview(
       refs.sessionId,
@@ -263,14 +253,14 @@ describe('useExportPreview', () => {
     );
 
     // Trigger initial fetch by changing sessionId after composable is created
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await vi.runAllTimersAsync();
     expect(mockPreviewExport).toHaveBeenCalledTimes(1);
 
     // Change contentDetail
-    mockPreviewExport.mockResolvedValue(makePreviewResult('Updated'));
+    mockPreviewExport.mockResolvedValue(makePreviewResult("Updated"));
     refs.contentDetail.value = { ...refs.contentDetail.value, includeFullToolResults: true };
     await nextTick();
     vi.advanceTimersByTime(400);
@@ -284,9 +274,9 @@ describe('useExportPreview', () => {
     );
   });
 
-  it('re-fetches when redaction changes', async () => {
+  it("re-fetches when redaction changes", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockResolvedValue(makePreviewResult('Initial'));
+    mockPreviewExport.mockResolvedValue(makePreviewResult("Initial"));
 
     useExportPreview(
       refs.sessionId,
@@ -297,7 +287,7 @@ describe('useExportPreview', () => {
     );
 
     // Trigger initial fetch
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await vi.runAllTimersAsync();
@@ -318,26 +308,22 @@ describe('useExportPreview', () => {
 
   // ── Manual Refresh ─────────────────────────────────────────
 
-  it('refresh() fetches immediately without debounce', async () => {
+  it("refresh() fetches immediately without debounce", async () => {
     const refs = createRefs();
-    refs.sessionId.value = 'sess-1';
-    mockPreviewExport.mockResolvedValue(makePreviewResult('Refreshed'));
+    refs.sessionId.value = "sess-1";
+    mockPreviewExport.mockResolvedValue(makePreviewResult("Refreshed"));
 
-    const { refresh, preview } = useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    const { refresh, preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
     await refresh();
 
     expect(mockPreviewExport).toHaveBeenCalled();
-    expect(preview.value?.content).toBe('Refreshed');
+    expect(preview.value?.content).toBe("Refreshed");
   });
 
-  it('refresh() clears preview when sessionId is empty', async () => {
+  it("refresh() clears preview when sessionId is empty", async () => {
     const refs = createRefs();
-    mockPreviewExport.mockResolvedValue(makePreviewResult('Data'));
+    mockPreviewExport.mockResolvedValue(makePreviewResult("Data"));
 
     const { refresh, preview, error } = useExportPreview(
       refs.sessionId,
@@ -354,7 +340,7 @@ describe('useExportPreview', () => {
 
   // ── Unmount Cleanup ────────────────────────────────────────
 
-  it('invalidates in-flight requests on unmount', async () => {
+  it("invalidates in-flight requests on unmount", async () => {
     const refs = createRefs();
     let resolvePreview!: (v: ExportPreviewResult) => void;
     mockPreviewExport.mockReturnValue(
@@ -363,14 +349,10 @@ describe('useExportPreview', () => {
       }),
     );
 
-    const { preview } = useExportPreview(
-      refs.sessionId,
-      refs.format,
-      refs.sections,
-    );
+    const { preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
     // Start a fetch
-    refs.sessionId.value = 'sess-1';
+    refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
     await nextTick();
@@ -380,7 +362,7 @@ describe('useExportPreview', () => {
     if (unmountCb) unmountCb();
 
     // Resolve the in-flight request
-    resolvePreview(makePreviewResult('Stale'));
+    resolvePreview(makePreviewResult("Stale"));
     await vi.runAllTimersAsync();
 
     // Preview should not be updated after unmount

@@ -2,7 +2,7 @@
 // Types for the session replay view: playback state and per-step
 // data derived from ConversationTurn.
 
-import type { AttributedMessage, TurnToolCall, TurnSessionEvent } from './conversation.js';
+import type { AttributedMessage, TurnSessionEvent, TurnToolCall } from "./conversation.js";
 
 /** Replay state for session replay view */
 export interface ReplayState {
@@ -29,7 +29,7 @@ export interface ReplayStep {
   /** Human-readable title for this step. */
   title: string;
   /** Primary step type (determined by content). */
-  type: 'user' | 'assistant' | 'tool';
+  type: "user" | "assistant" | "tool";
   /** ISO timestamp for this step. */
   timestamp: string;
   /** Duration of this step in ms. */

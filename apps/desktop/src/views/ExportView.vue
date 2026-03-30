@@ -1,33 +1,33 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { useSessionsStore } from '@/stores/sessions';
+import { exportSessions, getSessionSections } from "@tracepilot/client";
+import type { ExportFormat, SectionId, SessionSectionsInfo } from "@tracepilot/types";
+import { SECTION_LABELS } from "@tracepilot/types";
 import {
-  FormSwitch,
-  BtnGroup,
   Badge,
+  BtnGroup,
   EmptyState,
+  FormSwitch,
+  formatBytes,
   MarkdownContent,
   ProgressBar,
-  formatBytes,
   useToast,
-} from '@tracepilot/ui';
-import type { ExportFormat, SectionId, SessionSectionsInfo } from '@tracepilot/types';
-import { SECTION_LABELS } from '@tracepilot/types';
-import { exportSessions, getSessionSections } from '@tracepilot/client';
-import { browseForSavePath } from '@/composables/useBrowseDirectory';
-import { logError, logInfo } from '@/utils/logger';
-import { openExternal } from '@/utils/openExternal';
+} from "@tracepilot/ui";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import { browseForSavePath } from "@/composables/useBrowseDirectory";
 import {
-  useExportConfig,
   EXPORT_PRESETS,
+  type ExportPreset,
+  FORMAT_DESCRIPTIONS,
   SECTION_GROUPS,
   SECTION_ICONS,
-  FORMAT_DESCRIPTIONS,
-  type ExportPreset,
-} from '@/composables/useExportConfig';
-import { useExportPreview } from '@/composables/useExportPreview';
-import { useImportFlow } from '@/composables/useImportFlow';
+  useExportConfig,
+} from "@/composables/useExportConfig";
+import { useExportPreview } from "@/composables/useExportPreview";
+import { useImportFlow } from "@/composables/useImportFlow";
+import { useSessionsStore } from "@/stores/sessions";
+import { logError, logInfo } from "@/utils/logger";
+import { openExternal } from "@/utils/openExternal";
 
 // ── Stores & Composables ─────────────────────────────────────
 
@@ -65,8 +65,8 @@ const importFlow = useImportFlow();
 
 // ── Tab State ────────────────────────────────────────────────
 
-type TabId = 'export' | 'import';
-const activeTab = ref<TabId>('export');
+type TabId = "export" | "import";
+const activeTab = ref<TabId>("export");
 
 // ── Session Sections Info (which sections actually have data) ─
 
@@ -91,27 +91,29 @@ const exporting = ref(false);
 async function handleExport() {
   if (!selectedSessionId.value) return;
 
-  const ext = format.value === 'json' ? 'tpx.json' : format.value === 'markdown' ? 'md' : 'csv';
+  const ext = format.value === "json" ? "tpx.json" : format.value === "markdown" ? "md" : "csv";
 
   // Build a descriptive filename from session name + datetime
   const session = selectedSession.value;
-  const slug = (session?.summary || session?.repository || '')
-    .replace(/[^\w\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .toLowerCase()
-    .slice(0, 60) || 'session-export';
-  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  const slug =
+    (session?.summary || session?.repository || "")
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .toLowerCase()
+      .slice(0, 60) || "session-export";
+  const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
   const defaultName = `${slug}-${timestamp}.${ext}`;
 
-  const filters = format.value === 'json'
-    ? [{ name: 'TracePilot Export (.tpx.json)', extensions: ['json'] }]
-    : format.value === 'markdown'
-      ? [{ name: 'Markdown', extensions: ['md'] }]
-      : [{ name: 'CSV', extensions: ['csv'] }];
+  const filters =
+    format.value === "json"
+      ? [{ name: "TracePilot Export (.tpx.json)", extensions: ["json"] }]
+      : format.value === "markdown"
+        ? [{ name: "Markdown", extensions: ["md"] }]
+        : [{ name: "CSV", extensions: ["csv"] }];
 
   const outputPath = await browseForSavePath({
-    title: 'Save export as',
+    title: "Save export as",
     defaultPath: defaultName,
     filters,
   });
@@ -132,8 +134,8 @@ async function handleExport() {
     );
     logInfo(`[export] Saved to ${result.filePath}`);
   } catch (err) {
-    logError('[export] Failed:', err);
-    toastError(err instanceof Error ? err.message : 'Export failed');
+    logError("[export] Failed:", err);
+    toastError(err instanceof Error ? err.message : "Export failed");
   } finally {
     exporting.value = false;
   }
@@ -141,19 +143,19 @@ async function handleExport() {
 
 // ── Preview View Toggle ─────────────────────────────────────
 
-type PreviewView = 'raw' | 'rendered';
-const previewView = ref<PreviewView>('raw');
+type PreviewView = "raw" | "rendered";
+const previewView = ref<PreviewView>("raw");
 
 // ── Save Preset Dialog ──────────────────────────────────────
 
 const showSavePreset = ref(false);
-const newPresetName = ref('');
+const newPresetName = ref("");
 
 function handleSavePreset() {
   const name = newPresetName.value.trim();
   if (!name) return;
   saveAsPreset(name);
-  newPresetName.value = '';
+  newPresetName.value = "";
   showSavePreset.value = false;
   toastSuccess(`Saved preset "${name}"`);
 }
@@ -161,12 +163,12 @@ function handleSavePreset() {
 // ── Rendered Preview ────────────────────────────────────────
 
 /** Whether the current format supports a rendered view */
-const canRenderPreview = computed(() => format.value === 'markdown');
+const canRenderPreview = computed(() => format.value === "markdown");
 
 /** For JSON, pretty-print for the raw view */
 const formattedPreviewContent = computed(() => {
-  if (!preview.value?.content) return '';
-  if (format.value === 'json') {
+  if (!preview.value?.content) return "";
+  if (format.value === "json") {
     try {
       return JSON.stringify(JSON.parse(preview.value.content), null, 2);
     } catch {
@@ -179,9 +181,9 @@ const formattedPreviewContent = computed(() => {
 // ── Format Options ──────────────────────────────────────────
 
 const formatOptions: { value: ExportFormat; label: string }[] = [
-  { value: 'json', label: 'JSON' },
-  { value: 'markdown', label: 'Markdown' },
-  { value: 'csv', label: 'CSV' },
+  { value: "json", label: "JSON" },
+  { value: "markdown", label: "Markdown" },
+  { value: "csv", label: "CSV" },
 ];
 
 // ── Selected Session Info ───────────────────────────────────
@@ -192,15 +194,15 @@ const selectedSession = computed(() =>
 
 // ── Session Search / Filter ─────────────────────────────────
 
-const sessionSearchQuery = ref('');
+const sessionSearchQuery = ref("");
 const sessionDropdownOpen = ref(false);
 
 const filteredSessions = computed(() => {
   const q = sessionSearchQuery.value.toLowerCase().trim();
   if (!q) return sessionsStore.sessions;
   return sessionsStore.sessions.filter((s) => {
-    const summary = (s.summary || '').toLowerCase();
-    const repo = (s.repository || '').toLowerCase();
+    const summary = (s.summary || "").toLowerCase();
+    const repo = (s.repository || "").toLowerCase();
     const id = s.id.toLowerCase();
     return summary.includes(q) || repo.includes(q) || id.includes(q);
   });
@@ -209,7 +211,7 @@ const filteredSessions = computed(() => {
 function selectSession(id: string) {
   selectedSessionId.value = id;
   sessionDropdownOpen.value = false;
-  sessionSearchQuery.value = '';
+  sessionSearchQuery.value = "";
 }
 
 // ── Lifecycle ───────────────────────────────────────────────
@@ -244,7 +246,7 @@ function sectionHasData(sectionId: SectionId): boolean | null {
 function copiedToClipboard() {
   if (preview.value?.content) {
     navigator.clipboard.writeText(preview.value.content);
-    toastSuccess('Copied to clipboard');
+    toastSuccess("Copied to clipboard");
   }
 }
 </script>

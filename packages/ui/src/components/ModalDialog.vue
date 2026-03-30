@@ -1,35 +1,35 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from "vue";
 
 const props = defineProps<{
   visible: boolean;
   title?: string;
   /** ARIA role for the dialog element. Defaults to 'dialog'. Use 'alertdialog' for confirmations. */
-  role?: 'dialog' | 'alertdialog';
+  role?: "dialog" | "alertdialog";
 }>();
 
 const emit = defineEmits<{
-  'update:visible': [value: boolean];
+  "update:visible": [value: boolean];
 }>();
 
 const overlayRef = ref<HTMLElement | null>(null);
 
 function close() {
-  emit('update:visible', false);
+  emit("update:visible", false);
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.visible) {
+  if (e.key === "Escape" && props.visible) {
     // Only close if this is the topmost modal
-    const allOverlays = document.querySelectorAll('.modal-overlay');
+    const allOverlays = document.querySelectorAll(".modal-overlay");
     if (allOverlays.length === 0 || allOverlays[allOverlays.length - 1] === overlayRef.value) {
       close();
     }
   }
 }
 
-onMounted(() => document.addEventListener('keydown', onKeydown));
-onUnmounted(() => document.removeEventListener('keydown', onKeydown));
+onMounted(() => document.addEventListener("keydown", onKeydown));
+onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>

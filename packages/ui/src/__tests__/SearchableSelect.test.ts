@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mount, VueWrapper } from "@vue/test-utils";
-import SearchableSelect from "../components/SearchableSelect.vue";
+import { mount, type VueWrapper } from "@vue/test-utils";
+import { afterEach, describe, expect, it } from "vitest";
 import { nextTick } from "vue";
+import SearchableSelect from "../components/SearchableSelect.vue";
 
 describe("SearchableSelect", () => {
   let wrapper: VueWrapper<any>;
@@ -12,7 +12,7 @@ describe("SearchableSelect", () => {
     if (wrapper) {
       wrapper.unmount();
     }
-    document.body.innerHTML = '';
+    document.body.innerHTML = "";
   });
 
   const mountComponent = (propsData = {}) => {
@@ -38,7 +38,7 @@ describe("SearchableSelect", () => {
 
     // Clear and blur
     await input.setValue("not-an-option");
-    
+
     // Simulate clicking outside to trigger close
     document.dispatchEvent(new MouseEvent("mousedown"));
     await nextTick();

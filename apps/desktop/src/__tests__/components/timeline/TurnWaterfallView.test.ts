@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { setActivePinia, createPinia } from "pinia";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import TurnWaterfallView from "../../../components/timeline/TurnWaterfallView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
@@ -145,9 +145,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [tc1, tc2] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc1, tc2] })] as any;
 
     const wrapper = mountComponent();
     const rows = wrapper.findAll(".wf-row");
@@ -166,9 +164,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 2000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [subagentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [subagentTc] })] as any;
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Explore Agent");
@@ -193,9 +189,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [parentTc, childTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [parentTc, childTc] })] as any;
 
     const wrapper = mountComponent();
     const childRows = wrapper.findAll(".wf-row.child");
@@ -216,16 +210,14 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [tc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })] as any;
 
     const wrapper = mountComponent();
     // No detail panel initially
     expect(wrapper.find(".detail-panel").exists()).toBe(false);
 
     // Click the first non-message wf-row
-    const rows = wrapper.findAll('.wf-row:not(.message-row)');
+    const rows = wrapper.findAll(".wf-row:not(.message-row)");
     expect(rows.length).toBeGreaterThan(0);
     await rows[0].trigger("click");
     await nextTick();
@@ -242,12 +234,10 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [tc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })] as any;
 
     const wrapper = mountComponent();
-    const rows = wrapper.findAll('.wf-row:not(.message-row)');
+    const rows = wrapper.findAll(".wf-row:not(.message-row)");
 
     // Click to pin
     await rows[0].trigger("click");
@@ -323,14 +313,14 @@ describe("TurnWaterfallView", () => {
       completedAt: "2025-01-01T00:00:30.000Z",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     // Click the waterfall row to pin detail
     const rows = wrapper.findAll(".waterfall-row");
-    const agentRow = rows.find(r => r.text().includes("Code Review Agent") || r.text().includes("code-review"));
+    const agentRow = rows.find(
+      (r) => r.text().includes("Code Review Agent") || r.text().includes("code-review"),
+    );
     if (agentRow) {
       await agentRow.trigger("click");
       await nextTick();

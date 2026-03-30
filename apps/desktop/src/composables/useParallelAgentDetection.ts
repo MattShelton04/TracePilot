@@ -1,4 +1,4 @@
-import { computed, type ComputedRef, type Ref } from 'vue';
+import { type ComputedRef, computed, type Ref } from "vue";
 
 /**
  * An item with a time range that can be checked for overlap with other items.
@@ -80,7 +80,7 @@ export function useParallelAgentDetection<T extends TimeRangedItem>(
   items: Ref<T[]> | ComputedRef<T[]>,
   options: UseParallelAgentDetectionOptions = {},
 ): UseParallelAgentDetectionReturn {
-  const { generateLabels = true, labelPrefix = 'Parallel Group' } = options;
+  const { generateLabels = true, labelPrefix = "Parallel Group" } = options;
 
   /**
    * Internal representation of a timed item with parsed timestamps.
@@ -178,7 +178,7 @@ export function useParallelAgentDetection<T extends TimeRangedItem>(
       if (!groupMap.has(root)) {
         groupMap.set(root, []);
       }
-      groupMap.get(root)!.push(item.id);
+      groupMap.get(root)?.push(item.id);
     }
 
     // Build parallel groups (only groups with 2+ items)
@@ -189,7 +189,7 @@ export function useParallelAgentDetection<T extends TimeRangedItem>(
       if (ids.length > 1) {
         const label = generateLabels
           ? `${labelPrefix} ${String.fromCharCode(65 + labelIndex)}`
-          : '';
+          : "";
         labelIndex++;
         result.push({ label, ids });
       }

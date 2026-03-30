@@ -18,11 +18,10 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
     for entry in std::fs::read_dir(&defs_dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("yaml") {
-            if let Some(agent) = parse_agent_yaml(&path)? {
+        if path.extension().and_then(|e| e.to_str()) == Some("yaml")
+            && let Some(agent) = parse_agent_yaml(&path)? {
                 agents.push(agent);
             }
-        }
     }
 
     agents.sort_by(|a, b| a.name.cmp(&b.name));

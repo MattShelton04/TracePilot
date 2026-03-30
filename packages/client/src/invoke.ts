@@ -6,7 +6,7 @@
 
 /** Detect whether we are running inside Tauri's webview. */
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ function recordIpcTiming(cmd: string, startTime: number, failed = false): void {
   }
 
   if (duration > IPC_SLOW_THRESHOLD_MS) {
-    const prefix = failed ? '[ipc:FAIL]' : '[ipc:SLOW]';
+    const prefix = failed ? "[ipc:FAIL]" : "[ipc:SLOW]";
     console.warn(`${prefix} ${cmd} took ${duration.toFixed(1)}ms`);
   }
 }
@@ -57,7 +57,7 @@ export function clearIpcPerfLog(): void {
  * Access the log via `getIpcPerfLog()` in the browser console.
  */
 export async function invokePlugin<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
+  const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
   const start = performance.now();
   try {
     const result = await tauriInvoke<T>(`plugin:tracepilot|${cmd}`, args);

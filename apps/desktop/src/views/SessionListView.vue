@@ -1,20 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import type { IndexingProgressPayload } from "@tracepilot/types";
+import {
+  Badge,
+  EmptyState,
+  ErrorAlert,
+  FilterSelect,
+  formatRelativeTime,
+  LoadingSpinner,
+  ProgressBar,
+  SearchInput,
+  SkeletonLoader,
+} from "@tracepilot/ui";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useSessionsStore, type SortOption } from "@/stores/sessions";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
+import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useAutoRefresh } from "@/composables/useAutoRefresh";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
-import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import { formatRelativeTime } from "@tracepilot/ui";
-import { SearchInput, FilterSelect, Badge, ErrorAlert, SkeletonLoader, EmptyState, ProgressBar, LoadingSpinner } from "@tracepilot/ui";
-import type { IndexingProgressPayload } from '@tracepilot/types';
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { type SortOption, useSessionsStore } from "@/stores/sessions";
 
 const router = useRouter();
 const store = useSessionsStore();
-usePerfMonitor('SessionListView');
+usePerfMonitor("SessionListView");
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const { refreshing, refresh } = useAutoRefresh({
@@ -26,9 +35,15 @@ const { refreshing, refresh } = useAutoRefresh({
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
-  onStarted: () => { indexingProgress.value = null; },
-  onProgress: (p) => { indexingProgress.value = p; },
-  onFinished: () => { indexingProgress.value = null; },
+  onStarted: () => {
+    indexingProgress.value = null;
+  },
+  onProgress: (p) => {
+    indexingProgress.value = p;
+  },
+  onFinished: () => {
+    indexingProgress.value = null;
+  },
 });
 
 function prefetchTopSessions() {
@@ -36,7 +51,7 @@ function prefetchTopSessions() {
   const MAX_TURN_COUNT = 500;
   const top = store.sessions
     .slice()
-    .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
     .filter((s) => !s.turnCount || s.turnCount <= MAX_TURN_COUNT)
     .slice(0, PREFETCH_LIMIT);
   for (const session of top) {
@@ -44,7 +59,7 @@ function prefetchTopSessions() {
   }
 }
 
-const repoOptions= computed(() => store.repositories as string[]);
+const repoOptions = computed(() => store.repositories as string[]);
 const branchOptions = computed(() => store.branches as string[]);
 const sortOptions = [
   { label: "Newest first", value: "updated" },
@@ -79,19 +94,22 @@ onMounted(async () => {
 const pageRef = ref<HTMLElement | null>(null);
 let driftTimeout: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => store.searchQuery, (val) => {
-  if (val === '67' && pageRef.value) {
-    if (driftTimeout) clearTimeout(driftTimeout);
-    // Force reflow to restart animation if already playing
-    pageRef.value.classList.remove('drift-active');
-    void pageRef.value.offsetWidth;
-    pageRef.value.classList.add('drift-active');
-    driftTimeout = setTimeout(() => {
-      pageRef.value?.classList.remove('drift-active');
-      driftTimeout = null;
-    }, 1800);
-  }
-});
+watch(
+  () => store.searchQuery,
+  (val) => {
+    if (val === "67" && pageRef.value) {
+      if (driftTimeout) clearTimeout(driftTimeout);
+      // Force reflow to restart animation if already playing
+      pageRef.value.classList.remove("drift-active");
+      void pageRef.value.offsetWidth;
+      pageRef.value.classList.add("drift-active");
+      driftTimeout = setTimeout(() => {
+        pageRef.value?.classList.remove("drift-active");
+        driftTimeout = null;
+      }, 1800);
+    }
+  },
+);
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ValidateSessionDirResult } from '@tracepilot/types';
+import type { ValidateSessionDirResult } from "@tracepilot/types";
 
 defineProps<{
   sessionDir: string;
@@ -12,7 +12,7 @@ defineProps<{
 
 const emit = defineEmits<{
   next: [];
-  'update:sessionDir': [value: string];
+  "update:sessionDir": [value: string];
   validate: [];
   browse: [];
   reset: [];

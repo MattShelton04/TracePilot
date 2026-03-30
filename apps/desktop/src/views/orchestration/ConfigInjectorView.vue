@@ -1,68 +1,84 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { useConfigInjectorStore, type ConfigTab } from '@/stores/configInjector';
-import { useToast, useDismissable, truncateText, EmptyState, ErrorAlert, LoadingSpinner, shortenPath, normalizePath } from '@tracepilot/ui';
-import type { AgentDefinition } from '@tracepilot/types';
-import { previewBackupRestore } from '@tracepilot/client';
+import { previewBackupRestore } from "@tracepilot/client";
+import type { AgentDefinition } from "@tracepilot/types";
 import {
-  MODEL_REGISTRY,
-  getModelsByTier,
+  DEFAULT_PREMIUM_MODEL_ID,
   getAllModelIds,
+  getModelsByTier,
   getModelTier,
   getTierLabel,
-  DEFAULT_PREMIUM_MODEL_ID,
-} from '@tracepilot/types';
+  MODEL_REGISTRY,
+} from "@tracepilot/types";
+import {
+  EmptyState,
+  ErrorAlert,
+  LoadingSpinner,
+  normalizePath,
+  shortenPath,
+  truncateText,
+  useDismissable,
+  useToast,
+} from "@tracepilot/ui";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { type ConfigTab, useConfigInjectorStore } from "@/stores/configInjector";
 
 const store = useConfigInjectorStore();
 const toast = useToast();
 
 // ── Dismissible Warning ─────────────────────────────────────────────────────
-const { isDismissed: warningDismissed, dismiss: dismissWarning } = useDismissable('config-injector-warning');
+const { isDismissed: warningDismissed, dismiss: dismissWarning } =
+  useDismissable("config-injector-warning");
 
 // ── Agent Metadata ──────────────────────────────────────────────────────────
 const AGENT_META: Record<string, { emoji: string; colorVar: string; motto: string }> = {
-  explore:             { emoji: '🔍', colorVar: '--accent-emphasis',   motto: 'Fast & thorough explorer' },
-  task:                { emoji: '⚡', colorVar: '--warning-emphasis',  motto: 'Reliable command runner' },
-  'code-review':       { emoji: '📝', colorVar: '--success-emphasis',  motto: 'High signal-to-noise reviewer' },
-  research:            { emoji: '🔬', colorVar: '--done-emphasis',     motto: 'Deep analysis specialist' },
-  'configure-copilot': { emoji: '⚙️', colorVar: '--neutral-emphasis',  motto: 'System configurator' },
+  explore: { emoji: "🔍", colorVar: "--accent-emphasis", motto: "Fast & thorough explorer" },
+  task: { emoji: "⚡", colorVar: "--warning-emphasis", motto: "Reliable command runner" },
+  "code-review": {
+    emoji: "📝",
+    colorVar: "--success-emphasis",
+    motto: "High signal-to-noise reviewer",
+  },
+  research: { emoji: "🔬", colorVar: "--done-emphasis", motto: "Deep analysis specialist" },
+  "configure-copilot": { emoji: "⚙️", colorVar: "--neutral-emphasis", motto: "System configurator" },
 };
 
 function agentMeta(name: string) {
-  return AGENT_META[name] ?? { emoji: '🤖', colorVar: '--neutral-emphasis', motto: '' };
+  return AGENT_META[name] ?? { emoji: "🤖", colorVar: "--neutral-emphasis", motto: "" };
 }
 
 // ── Available Models (derived from shared registry) ─────────────────────────
 const ALL_MODELS = getAllModelIds();
-const PREMIUM_MODELS = getModelsByTier('premium').map(m => m.id);
-const STANDARD_MODELS = getModelsByTier('standard').map(m => m.id);
-const FAST_MODELS = getModelsByTier('fast').map(m => m.id);
+const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
+const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
+const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
 
-function modelTier(model: string): 'premium' | 'standard' | 'fast' {
+function modelTier(model: string): "premium" | "standard" | "fast" {
   return getModelTier(model);
 }
 
 function tierLabel(tier: string): string {
-  return getTierLabel(tier as 'premium' | 'standard' | 'fast');
+  return getTierLabel(tier as "premium" | "standard" | "fast");
 }
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 const tabs: { key: ConfigTab; label: string; emoji: string }[] = [
-  { key: 'agents',   label: 'Agent Models',  emoji: '🤖' },
-  { key: 'global',   label: 'Global Config', emoji: '📋' },
-  { key: 'versions', label: 'Environment',   emoji: '🔧' },
-  { key: 'backups',  label: 'Backups',       emoji: '💾' },
+  { key: "agents", label: "Agent Models", emoji: "🤖" },
+  { key: "global", label: "Global Config", emoji: "📋" },
+  { key: "versions", label: "Environment", emoji: "🔧" },
+  { key: "backups", label: "Backups", emoji: "💾" },
 ];
 
 function tabCount(key: ConfigTab): number | null {
-  if (key === 'agents') return store.agents.length;
-  if (key === 'backups') return store.backups.length;
+  if (key === "agents") return store.agents.length;
+  if (key === "backups") return store.backups.length;
   return null;
 }
 
 // ── Stat Cards (Agents Tab) ─────────────────────────────────────────────────
-const uniqueModelCount = computed(() => new Set(store.agents.map(a => a.model)).size);
-const premiumAgentCount = computed(() => store.agents.filter(a => PREMIUM_MODELS.includes(a.model)).length);
+const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
+const premiumAgentCount = computed(
+  () => store.agents.filter((a) => PREMIUM_MODELS.includes(a.model)).length,
+);
 
 // ── Agent Tools Expand State ────────────────────────────────────────────────
 const TOOLS_COLLAPSE_LIMIT = 5;
@@ -70,7 +86,8 @@ const expandedTools = reactive<Record<string, boolean>>({});
 
 function visibleTools(agent: AgentDefinition): string[] {
   if (!agent.tools?.length) return [];
-  if (expandedTools[agent.filePath] || agent.tools.length <= TOOLS_COLLAPSE_LIMIT) return agent.tools;
+  if (expandedTools[agent.filePath] || agent.tools.length <= TOOLS_COLLAPSE_LIMIT)
+    return agent.tools;
   return agent.tools.slice(0, TOOLS_COLLAPSE_LIMIT);
 }
 
@@ -86,17 +103,23 @@ let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function flashAutoSaved(filePath: string) {
   autoSavedAgent.value = filePath;
   if (autoSaveTimer) clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(() => { autoSavedAgent.value = null; }, 2000);
+  autoSaveTimer = setTimeout(() => {
+    autoSavedAgent.value = null;
+  }, 2000);
 }
 
 // ── Agent Model State ───────────────────────────────────────────────────────
 const agentModels = ref<Record<string, string>>({});
 
-watch(() => store.agents, (agents) => {
-  const map: Record<string, string> = {};
-  for (const a of agents) map[a.filePath] = a.model;
-  agentModels.value = map;
-}, { immediate: true });
+watch(
+  () => store.agents,
+  (agents) => {
+    const map: Record<string, string> = {};
+    for (const a of agents) map[a.filePath] = a.model;
+    agentModels.value = map;
+  },
+  { immediate: true },
+);
 
 async function handleModelChange(agent: AgentDefinition, newModel: string) {
   store.selectAgent(agent);
@@ -130,7 +153,7 @@ const batchUpgrading = ref(false);
 async function upgradeAllToOpus() {
   batchUpgrading.value = true;
   try {
-    const toUpgrade = store.agents.filter(a => a.model !== DEFAULT_PREMIUM_MODEL_ID);
+    const toUpgrade = store.agents.filter((a) => a.model !== DEFAULT_PREMIUM_MODEL_ID);
     for (const agent of toUpgrade) {
       agentModels.value[agent.filePath] = DEFAULT_PREMIUM_MODEL_ID;
       await handleModelChange(agent, DEFAULT_PREMIUM_MODEL_ID);
@@ -150,17 +173,17 @@ async function resetAllDefaults() {
 }
 
 // ── Global Config ───────────────────────────────────────────────────────────
-const editModel = ref('');
-const editReasoningEffort = ref('');
+const editModel = ref("");
+const editReasoningEffort = ref("");
 const editShowReasoning = ref(false);
 const editRenderMarkdown = ref(true);
 const editTrustedFolders = ref<string[]>([]);
-const newFolder = ref('');
+const newFolder = ref("");
 
 function syncGlobalFields() {
   if (store.copilotConfig) {
-    editModel.value = store.copilotConfig.model ?? '';
-    editReasoningEffort.value = store.copilotConfig.reasoningEffort ?? '';
+    editModel.value = store.copilotConfig.model ?? "";
+    editReasoningEffort.value = store.copilotConfig.reasoningEffort ?? "";
     editTrustedFolders.value = [...(store.copilotConfig.trustedFolders ?? [])];
     const raw = store.copilotConfig.raw ?? {};
     editShowReasoning.value = Boolean(raw.showReasoning);
@@ -172,7 +195,7 @@ function addFolder() {
   const folder = newFolder.value.trim();
   if (folder && !editTrustedFolders.value.includes(folder)) {
     editTrustedFolders.value.push(folder);
-    newFolder.value = '';
+    newFolder.value = "";
   }
 }
 
@@ -181,17 +204,29 @@ function removeFolder(index: number) {
 }
 
 const configDiffLines = computed(() => {
-  if (!store.copilotConfig) return { left: [] as { text: string; changed: boolean }[], right: [] as { text: string; changed: boolean }[] };
-  const current = { model: store.copilotConfig.model ?? '', reasoningEffort: store.copilotConfig.reasoningEffort ?? '', trustedFolders: store.copilotConfig.trustedFolders ?? [] };
-  const modified = { model: editModel.value, reasoningEffort: editReasoningEffort.value, trustedFolders: editTrustedFolders.value };
-  const curLines = JSON.stringify(current, null, 2).split('\n');
-  const modLines = JSON.stringify(modified, null, 2).split('\n');
+  if (!store.copilotConfig)
+    return {
+      left: [] as { text: string; changed: boolean }[],
+      right: [] as { text: string; changed: boolean }[],
+    };
+  const current = {
+    model: store.copilotConfig.model ?? "",
+    reasoningEffort: store.copilotConfig.reasoningEffort ?? "",
+    trustedFolders: store.copilotConfig.trustedFolders ?? [],
+  };
+  const modified = {
+    model: editModel.value,
+    reasoningEffort: editReasoningEffort.value,
+    trustedFolders: editTrustedFolders.value,
+  };
+  const curLines = JSON.stringify(current, null, 2).split("\n");
+  const modLines = JSON.stringify(modified, null, 2).split("\n");
   const maxLen = Math.max(curLines.length, modLines.length);
   const left: { text: string; changed: boolean }[] = [];
   const right: { text: string; changed: boolean }[] = [];
   for (let i = 0; i < maxLen; i++) {
-    const cl = curLines[i] ?? '';
-    const ml = modLines[i] ?? '';
+    const cl = curLines[i] ?? "";
+    const ml = modLines[i] ?? "";
     const changed = cl !== ml;
     left.push({ text: cl, changed });
     right.push({ text: ml, changed });
@@ -199,7 +234,7 @@ const configDiffLines = computed(() => {
   return { left, right };
 });
 
-const hasConfigChanges = computed(() => configDiffLines.value.left.some(l => l.changed));
+const hasConfigChanges = computed(() => configDiffLines.value.left.some((l) => l.changed));
 
 function handleSaveGlobalConfig() {
   store.saveGlobalConfig({
@@ -212,8 +247,8 @@ function handleSaveGlobalConfig() {
 }
 
 // ── Versions / Migration ────────────────────────────────────────────────────
-const migrationFrom = ref('');
-const migrationTo = ref('');
+const migrationFrom = ref("");
+const migrationTo = ref("");
 
 async function handleLoadDiffs() {
   if (migrationFrom.value && migrationTo.value) {
@@ -226,19 +261,22 @@ function handleMigrateAgent(fileName: string) {
 }
 
 // ── Backups ─────────────────────────────────────────────────────────────────
-const newBackupPath = ref('');
-const newBackupLabel = ref('');
+const newBackupPath = ref("");
+const newBackupLabel = ref("");
 
 const backupableFiles = computed(() => {
   const files: { label: string; path: string }[] = [];
   // Derive copilot home from active version path (~/.copilot/pkg/universal/<ver>)
   if (store.activeVersion?.path) {
-    const parts = normalizePath(store.activeVersion.path).split('/');
+    const parts = normalizePath(store.activeVersion.path).split("/");
     // Go up 3 levels: <ver> -> universal -> pkg -> .copilot
-    const copilotHome = parts.slice(0, -3).join(parts[0].includes(':') ? '\\' : '/');
+    const copilotHome = parts.slice(0, -3).join(parts[0].includes(":") ? "\\" : "/");
     if (copilotHome) {
-      const sep = store.activeVersion.path.includes('\\') ? '\\' : '/';
-      files.push({ label: '📋 Global Config (config.json)', path: `${copilotHome}${sep}config.json` });
+      const sep = store.activeVersion.path.includes("\\") ? "\\" : "/";
+      files.push({
+        label: "📋 Global Config (config.json)",
+        path: `${copilotHome}${sep}config.json`,
+      });
     }
   }
   for (const agent of store.agents) {
@@ -249,10 +287,10 @@ const backupableFiles = computed(() => {
 
 async function handleCreateBackup() {
   if (newBackupPath.value.trim()) {
-    const label = (newBackupLabel.value.trim() || 'manual').replace(/\s+/g, '-').toLowerCase();
+    const label = (newBackupLabel.value.trim() || "manual").replace(/\s+/g, "-").toLowerCase();
     await store.createBackup(newBackupPath.value.trim(), label);
-    newBackupPath.value = '';
-    newBackupLabel.value = '';
+    newBackupPath.value = "";
+    newBackupLabel.value = "";
   }
 }
 
@@ -266,7 +304,7 @@ async function handleBackupAllAgents() {
   try {
     for (const agent of store.agents) {
       try {
-        const ok = await store.createBackup(agent.filePath, 'batch', true);
+        const ok = await store.createBackup(agent.filePath, "batch", true);
         if (ok) succeeded++;
         else failed++;
       } catch {
@@ -283,25 +321,29 @@ async function handleBackupAllAgents() {
 }
 
 function backupEmoji(path: string): string {
-  if (path.includes('agent') || path.endsWith('.md')) return '🤖';
-  return '📋';
+  if (path.includes("agent") || path.endsWith(".md")) return "🤖";
+  return "📋";
 }
 
-function formatBackupLabel(backup: { label: string; backupPath: string; sourcePath: string }): string {
+function formatBackupLabel(backup: {
+  label: string;
+  backupPath: string;
+  sourcePath: string;
+}): string {
   // Prefer the sidecar label if it's descriptive
-  const label = backup.label || '';
-  const fileName = backup.backupPath.split(/[/\\]/).pop() || 'Unknown';
+  const label = backup.label || "";
+  const fileName = backup.backupPath.split(/[/\\]/).pop() || "Unknown";
 
   // Extract the agent/file stem from the backup filename (before the label/timestamp)
   // Format: {stem}-{label}-{timestamp} or {stem}-{timestamp}
   const stemMatch = fileName.match(/^(.+?)(?:-(?:batch|manual|pre-migrate-\S+))?-\d{8}-/);
-  const stem = stemMatch?.[1] || fileName.replace(/-\d{8}-.*$/, '');
+  const stem = stemMatch?.[1] || fileName.replace(/-\d{8}-.*$/, "");
 
   // Build human-readable name
-  const prefix = stem.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  if (label === 'batch') return `${prefix} (batch)`;
-  if (label === 'manual') return `${prefix} (manual)`;
-  if (label.startsWith('pre-migrate')) return `${prefix} (pre-migrate)`;
+  const prefix = stem.replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (label === "batch") return `${prefix} (batch)`;
+  if (label === "manual") return `${prefix} (manual)`;
+  if (label.startsWith("pre-migrate")) return `${prefix} (pre-migrate)`;
   if (label && label !== fileName) return `${prefix} — ${label}`;
   return prefix;
 }
@@ -320,7 +362,10 @@ async function toggleDeleteBackup(backup: { id: string; backupPath: string }) {
 // ── Backup Diff Preview ─────────────────────────────────────────────────────
 const previewingBackupId = ref<string | null>(null);
 const backupDiffLoading = ref(false);
-const backupDiffData = ref<{ left: { text: string; changed: boolean }[]; right: { text: string; changed: boolean }[] } | null>(null);
+const backupDiffData = ref<{
+  left: { text: string; changed: boolean }[];
+  right: { text: string; changed: boolean }[];
+} | null>(null);
 
 async function toggleBackupPreview(backup: { id: string; backupPath: string; sourcePath: string }) {
   if (previewingBackupId.value === backup.id) {
@@ -333,14 +378,14 @@ async function toggleBackupPreview(backup: { id: string; backupPath: string; sou
   backupDiffData.value = null;
   try {
     const result = await previewBackupRestore(backup.backupPath, backup.sourcePath);
-    const curLines = result.currentContent.split('\n');
-    const bkpLines = result.backupContent.split('\n');
+    const curLines = result.currentContent.split("\n");
+    const bkpLines = result.backupContent.split("\n");
     const maxLen = Math.max(curLines.length, bkpLines.length);
     const left: { text: string; changed: boolean }[] = [];
     const right: { text: string; changed: boolean }[] = [];
     for (let i = 0; i < maxLen; i++) {
-      const cl = curLines[i] ?? '';
-      const bl = bkpLines[i] ?? '';
+      const cl = curLines[i] ?? "";
+      const bl = bkpLines[i] ?? "";
       const changed = cl !== bl;
       left.push({ text: cl, changed });
       right.push({ text: bl, changed });
@@ -355,7 +400,7 @@ async function toggleBackupPreview(backup: { id: string; backupPath: string; sou
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-import { formatBytes, formatDate } from '@tracepilot/ui';
+import { formatBytes, formatDate } from "@tracepilot/ui";
 
 // ── Init ────────────────────────────────────────────────────────────────────
 onMounted(() => {

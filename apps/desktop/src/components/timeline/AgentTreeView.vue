@@ -1,32 +1,32 @@
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from "vue";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { useTimelineToolState } from "@/composables/useTimelineToolState";
-import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
 import {
+  AGENT_COLORS,
+  agentStatusFromToolCall,
   Badge,
+  buildSubagentContentIndex,
   EmptyState,
   ExpandChevron,
+  extractPrompt,
+  formatArgsSummary,
   formatDuration,
   formatLiveDuration,
   formatTime,
-  truncateText,
-  toolIcon,
-  formatArgsSummary,
-  useLiveDuration,
+  getAgentColor,
+  inferAgentTypeFromToolCall,
+  MarkdownContent,
+  STATUS_ICONS,
+  type SubagentContent,
   ToolArgsRenderer,
   ToolResultRenderer,
-  MarkdownContent,
-  inferAgentTypeFromToolCall,
-  AGENT_COLORS,
-  getAgentColor,
-  extractPrompt,
+  toolIcon,
+  truncateText,
+  useLiveDuration,
   useTimelineNavigation,
-  agentStatusFromToolCall,
-  STATUS_ICONS,
-  buildSubagentContentIndex,
-  type SubagentContent,
 } from "@tracepilot/ui";
+import { computed, nextTick, ref, watch } from "vue";
+import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
+import { useTimelineToolState } from "@/composables/useTimelineToolState";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,7 +96,7 @@ const sessionStartTime = computed(() => {
   const firstTurn = store.turns[0];
   if (!firstTurn?.timestamp) return undefined;
   const t = new Date(firstTurn.timestamp).getTime();
-  return isNaN(t) ? undefined : t;
+  return Number.isNaN(t) ? undefined : t;
 });
 
 /** Returns live elapsed ms for in-progress nodes, or the static durationMs for completed ones. */
@@ -123,10 +123,19 @@ const agentTurns = computed<ConversationTurn[]>(() =>
   store.turns.filter((t) => t.toolCalls.some((tc) => tc.isSubagent)),
 );
 
-const { turnIndex: agentTurnIndex, canPrev: canPrevAgent, canNext: canNextAgent, prevTurn: navPrev, nextTurn: navNext, jumpTo: agentJumpTo } = useTimelineNavigation({
+const {
+  turnIndex: agentTurnIndex,
+  canPrev: canPrevAgent,
+  canNext: canNextAgent,
+  prevTurn: navPrev,
+  nextTurn: navNext,
+  jumpTo: agentJumpTo,
+} = useTimelineNavigation({
   turns: agentTurns,
   rootRef,
-  onEscape: () => { selectedNodeId.value = null; },
+  onEscape: () => {
+    selectedNodeId.value = null;
+  },
 });
 
 const currentTurn = computed<ConversationTurn | undefined>(
@@ -147,10 +156,18 @@ watch(agentTurnIndex, () => {
   clearAllState();
 });
 
-function prevAgentTurn() { navPrev(); }
-function nextAgentTurn() { navNext(); }
-function jumpToEarliestAgent() { agentJumpTo(0); }
-function jumpToLatestAgent() { agentJumpTo(agentTurns.value.length - 1); }
+function prevAgentTurn() {
+  navPrev();
+}
+function nextAgentTurn() {
+  navNext();
+}
+function jumpToEarliestAgent() {
+  agentJumpTo(0);
+}
+function jumpToLatestAgent() {
+  agentJumpTo(agentTurns.value.length - 1);
+}
 
 function toggleViewMode() {
   viewMode.value = viewMode.value === "paginated" ? "unified" : "paginated";
@@ -222,9 +239,7 @@ function buildAgentNode(
 ): AgentNode {
   const nodeId = tc.toolCallId ?? `subagent-${fallbackIdx}`;
   const childTools = tc.toolCallId
-    ? allToolCalls.value.filter(
-        (t) => t.parentToolCallId === tc.toolCallId,
-      )
+    ? allToolCalls.value.filter((t) => t.parentToolCallId === tc.toolCallId)
     : [];
   const agentType = inferAgentTypeFromToolCall(tc);
   const content = subagentContentIndex.value.get(nodeId);
@@ -271,7 +286,11 @@ const treeData = computed<TreeData | null>(() => {
 
       let currentParentId: string | undefined = parentId;
       const visited = new Set<string>();
-      while (currentParentId && !nodeMap.has(currentParentId) && !crossTurnParents.has(currentParentId)) {
+      while (
+        currentParentId &&
+        !nodeMap.has(currentParentId) &&
+        !crossTurnParents.has(currentParentId)
+      ) {
         if (visited.has(currentParentId)) break;
         visited.add(currentParentId);
         const parentTc = allSubagentToolCalls.value.get(currentParentId);
@@ -292,18 +311,14 @@ const treeData = computed<TreeData | null>(() => {
       const tc = node.toolCallRef;
       const parentId = tc?.parentToolCallId;
       if (parentId && expandedSubagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-        nodeMap.get(parentId)!.children!.push(node);
+        nodeMap.get(parentId)?.children?.push(node);
       } else {
         rootChildren.push(node);
       }
     }
 
-    const directTools = turn.toolCalls.filter(
-      (tc) => !tc.isSubagent && !tc.parentToolCallId,
-    );
-    const subagentSpawnTools = turn.toolCalls.filter(
-      (tc) => tc.isSubagent && !tc.parentToolCallId,
-    );
+    const directTools = turn.toolCalls.filter((tc) => !tc.isSubagent && !tc.parentToolCallId);
+    const subagentSpawnTools = turn.toolCalls.filter((tc) => tc.isSubagent && !tc.parentToolCallId);
     const mainToolCalls = [...subagentSpawnTools, ...directTools];
     const totalToolCount = mainToolCalls.length;
 
@@ -313,11 +328,11 @@ const treeData = computed<TreeData | null>(() => {
 
     const knownSubagentIds = allSubagentIds.value;
     const mainMessages = turn.assistantMessages
-      .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-      .map(m => m.content);
+      .filter((m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+      .map((m) => m.content);
     const mainReasoning = (turn.reasoningTexts ?? [])
-      .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-      .map(r => r.content);
+      .filter((r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+      .map((r) => r.content);
 
     const root: AgentNode = {
       id: "main",
@@ -339,8 +354,10 @@ const treeData = computed<TreeData | null>(() => {
     const allTurns = store.turns;
     if (allTurns.length === 0) return null;
 
-    const subagentCalls = allTurns.flatMap(t => t.toolCalls.filter(tc => tc.isSubagent));
-    const subagentIdSet = new Set(subagentCalls.map(tc => tc.toolCallId).filter(Boolean) as string[]);
+    const subagentCalls = allTurns.flatMap((t) => t.toolCalls.filter((tc) => tc.isSubagent));
+    const subagentIdSet = new Set(
+      subagentCalls.map((tc) => tc.toolCallId).filter(Boolean) as string[],
+    );
 
     const nodeMap = new Map<string, AgentNode>();
     for (let idx = 0; idx < subagentCalls.length; idx++) {
@@ -354,31 +371,31 @@ const treeData = computed<TreeData | null>(() => {
       const tc = node.toolCallRef;
       const parentId = tc?.parentToolCallId;
       if (parentId && subagentIdSet.has(parentId) && nodeMap.has(parentId)) {
-        nodeMap.get(parentId)!.children!.push(node);
+        nodeMap.get(parentId)?.children?.push(node);
       } else {
         rootChildren.push(node);
       }
     }
 
     // Aggregate Main Agent data across all turns
-    const directTools = allTurns.flatMap(t =>
-      t.toolCalls.filter(tc => !tc.isSubagent && !tc.parentToolCallId)
+    const directTools = allTurns.flatMap((t) =>
+      t.toolCalls.filter((tc) => !tc.isSubagent && !tc.parentToolCallId),
     );
-    const subagentSpawnTools = allTurns.flatMap(t =>
-      t.toolCalls.filter(tc => tc.isSubagent && !tc.parentToolCallId)
+    const subagentSpawnTools = allTurns.flatMap((t) =>
+      t.toolCalls.filter((tc) => tc.isSubagent && !tc.parentToolCallId),
     );
     const mainToolCalls = [...subagentSpawnTools, ...directTools];
 
     const knownSubagentIds = allSubagentIds.value;
-    const mainMessages = allTurns.flatMap(t =>
+    const mainMessages = allTurns.flatMap((t) =>
       t.assistantMessages
-        .filter(m => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
-        .map(m => m.content)
+        .filter((m) => !m.parentToolCallId || !knownSubagentIds.has(m.parentToolCallId))
+        .map((m) => m.content),
     );
-    const mainReasoning = allTurns.flatMap(t =>
+    const mainReasoning = allTurns.flatMap((t) =>
       (t.reasoningTexts ?? [])
-        .filter(r => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
-        .map(r => r.content)
+        .filter((r) => !r.parentToolCallId || !knownSubagentIds.has(r.parentToolCallId))
+        .map((r) => r.content),
     );
 
     const lastTurn = allTurns[allTurns.length - 1];
@@ -388,7 +405,7 @@ const treeData = computed<TreeData | null>(() => {
 
     const totalDuration = allTurns.reduce((acc, t) => acc + (t.durationMs ?? 0), 0);
     // Use the model from the first turn as the primary main agent model
-    const mainModel = allTurns.find(t => t.model)?.model;
+    const mainModel = allTurns.find((t) => t.model)?.model;
 
     const root: AgentNode = {
       id: "main",
@@ -418,8 +435,8 @@ const timedNodes = computed(() => {
   const children = treeData.value.children;
 
   return children
-    .filter((c): c is typeof c & { toolCallRef: { startedAt: string } } =>
-      !!c.toolCallRef?.startedAt
+    .filter(
+      (c): c is typeof c & { toolCallRef: { startedAt: string } } => !!c.toolCallRef?.startedAt,
     )
     .map((c) => ({
       id: c.id,
@@ -431,7 +448,7 @@ const timedNodes = computed(() => {
 
 const { idToLabel: nodeParallelLabel } = useParallelAgentDetection(timedNodes, {
   generateLabels: true,
-  labelPrefix: 'Parallel Group',
+  labelPrefix: "Parallel Group",
 });
 
 // ---------------------------------------------------------------------------
@@ -460,11 +477,20 @@ interface SvgLine {
   childId: string;
 }
 
-const layout = computed<{ nodes: LayoutNode[]; lines: SvgLine[]; width: number; height: number } | null>(() => {
+const layout = computed<{
+  nodes: LayoutNode[];
+  lines: SvgLine[];
+  width: number;
+  height: number;
+} | null>(() => {
   if (!treeData.value) return null;
 
   // Group nodes by depth level (BFS) so nested children appear below parents
-  interface FlatChild { node: AgentNode; parentId: string; depth: number; }
+  interface FlatChild {
+    node: AgentNode;
+    parentId: string;
+    depth: number;
+  }
   const levels: FlatChild[][] = [];
   let queue: FlatChild[] = treeData.value.children.map((n) => ({
     node: n,
@@ -579,7 +605,7 @@ function updateMeasuredLines() {
   let maxBottom = 0;
   for (const ln of layout.value.nodes) {
     const el = nodeRefs.value.get(ln.node.id);
-    const actualHeight = el ? el.offsetHeight : (ln.node.type === "main" ? 120 : 140);
+    const actualHeight = el ? el.offsetHeight : ln.node.type === "main" ? 120 : 140;
     const bottom = ln.y + actualHeight;
     nodeBottoms.set(ln.node.id, bottom);
     if (bottom > maxBottom) maxBottom = bottom;
@@ -620,9 +646,9 @@ function bezierPath(line: SvgLine): string {
 }
 
 function lineClass(line: SvgLine) {
-  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  const node = layout.value?.nodes.find((n) => n.node.id === line.childId)?.node;
   return {
-    'tree-connector--cross-turn': node?.isCrossTurnParent
+    "tree-connector--cross-turn": node?.isCrossTurnParent,
   };
 }
 
@@ -630,7 +656,7 @@ function lineClass(line: SvgLine) {
 function lineColor(line: SvgLine): string {
   if (!treeData.value) return AGENT_COLORS.main;
 
-  const node = layout.value?.nodes.find(n => n.node.id === line.childId)?.node;
+  const node = layout.value?.nodes.find((n) => n.node.id === line.childId)?.node;
   if (node?.isCrossTurnParent) return "var(--text-tertiary)";
 
   // Search treeData for the child node to find its type
@@ -682,22 +708,28 @@ const hasInProgress = computed(() => {
   const { root, children } = treeData.value;
   if (root.status === "in-progress") return true;
   function check(nodes: AgentNode[]): boolean {
-    return nodes.some((n) => n.status === "in-progress" || (n.children?.length && check(n.children)));
+    return nodes.some(
+      (n) => n.status === "in-progress" || (n.children?.length && check(n.children)),
+    );
   }
   return check(children);
 });
 
-watch(hasInProgress, (val) => {
-  hasInProgressRef.value = val;
-}, { immediate: true });
+watch(
+  hasInProgress,
+  (val) => {
+    hasInProgressRef.value = val;
+  },
+  { immediate: true },
+);
 
 // Reset index when turns structurally change (new session loaded),
 // but preserve selection when turns are appended or soft-refreshed.
-let lastTurnKey = store.turns.map(t => t.turnIndex).join(",");
+let lastTurnKey = store.turns.map((t) => t.turnIndex).join(",");
 watch(
   () => store.turns,
   (newTurns) => {
-    const newKey = newTurns.map(t => t.turnIndex).join(",");
+    const newKey = newTurns.map((t) => t.turnIndex).join(",");
     if (newKey !== lastTurnKey) {
       const oldKey = lastTurnKey;
       lastTurnKey = newKey;

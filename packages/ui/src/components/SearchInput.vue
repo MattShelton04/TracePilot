@@ -1,9 +1,9 @@
 <script setup lang="ts">
-const model = defineModel<string>({ default: '' });
+const model = defineModel<string>({ default: "" });
 defineProps<{ placeholder?: string; shortcutHint?: string }>();
 
 function clear() {
-  model.value = '';
+  model.value = "";
 }
 </script>
 <template>

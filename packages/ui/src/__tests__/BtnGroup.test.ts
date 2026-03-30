@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import BtnGroup from "../components/BtnGroup.vue";
 
 const options = [
@@ -36,7 +36,7 @@ describe("BtnGroup", () => {
     });
     await wrapper.findAll("button")[2].trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    expect(wrapper.emitted("update:modelValue")![0]).toEqual(["c"]);
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual(["c"]);
   });
 
   it("sets aria-pressed on active button", () => {

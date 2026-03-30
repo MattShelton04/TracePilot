@@ -113,15 +113,13 @@ fn redact_session(
         }
     }
 
-    if let Some(metrics) = &mut session.shutdown_metrics {
-        if let Some(changes) = &mut metrics.code_changes {
-            if let Some(files) = &mut changes.files_modified {
+    if let Some(metrics) = &mut session.shutdown_metrics
+        && let Some(changes) = &mut metrics.code_changes
+            && let Some(files) = &mut changes.files_modified {
                 for f in files.iter_mut() {
                     redact_string(f, patterns, stats);
                 }
             }
-        }
-    }
 
     if let Some(tables) = &mut session.custom_tables {
         redact_custom_tables(tables, patterns, stats);

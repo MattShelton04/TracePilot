@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   type ChartCoord,
-  type ChartLayout,
   computeBarWidth,
   computeGridLines,
   createChartLayout,
@@ -125,7 +124,11 @@ describe("generateYLabels", () => {
 describe("generateXLabels", () => {
   it("generates labels with stride filtering", () => {
     const data = Array.from({ length: 20 }, (_, i) => ({ date: `2024-01-${i + 1}`, x: i * 10 }));
-    const labels = generateXLabels(data, (d) => d.x, (d) => d.date);
+    const labels = generateXLabels(
+      data,
+      (d) => d.x,
+      (d) => d.date,
+    );
     // stride = ceil(20 / 10) = 2, so 10 labels
     expect(labels).toHaveLength(10);
     expect(labels[0].label).toBe("2024-01-1");
@@ -138,19 +141,34 @@ describe("generateXLabels", () => {
       { date: "Feb", x: 10 },
       { date: "Mar", x: 20 },
     ];
-    const labels = generateXLabels(data, (d) => d.x, (d) => d.date);
+    const labels = generateXLabels(
+      data,
+      (d) => d.x,
+      (d) => d.date,
+    );
     expect(labels).toHaveLength(3);
   });
 
   it("respects custom maxLabels", () => {
     const data = Array.from({ length: 30 }, (_, i) => ({ val: i, pos: i * 5 }));
-    const labels = generateXLabels(data, (d) => d.pos, () => "x", 5);
+    const labels = generateXLabels(
+      data,
+      (d) => d.pos,
+      () => "x",
+      5,
+    );
     // stride = ceil(30/5) = 6, so 5 labels
     expect(labels).toHaveLength(5);
   });
 
   it("returns empty array for empty data", () => {
-    expect(generateXLabels([], () => 0, () => "")).toEqual([]);
+    expect(
+      generateXLabels(
+        [],
+        () => 0,
+        () => "",
+      ),
+    ).toEqual([]);
   });
 });
 

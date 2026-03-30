@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { BtnGroup, EmptyState, LoadingOverlay, formatNumberFull } from '@tracepilot/ui';
-import { useSessionDetailStore } from '@/stores/sessionDetail';
-import NestedSwimlanesView from '@/components/timeline/NestedSwimlanesView.vue';
-import TurnWaterfallView from '@/components/timeline/TurnWaterfallView.vue';
-import AgentTreeView from '@/components/timeline/AgentTreeView.vue';
+import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay } from "@tracepilot/ui";
+import { ref, watch } from "vue";
+import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
+import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
+import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const store = useSessionDetailStore();
 
@@ -18,12 +18,12 @@ watch(
 );
 
 // ── View mode toggle ─────────────────────────────────────────
-const activeView = ref('agent-tree');
+const activeView = ref("agent-tree");
 
 const viewModes = [
-  { value: 'swimlanes', label: 'Swimlanes' },
-  { value: 'waterfall', label: 'Waterfall' },
-  { value: 'agent-tree', label: 'Agent Tree' },
+  { value: "swimlanes", label: "Swimlanes" },
+  { value: "waterfall", label: "Waterfall" },
+  { value: "agent-tree", label: "Agent Tree" },
 ];
 </script>
 

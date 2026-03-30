@@ -20,9 +20,10 @@ use crate::schema::{SchemaVersion, CURRENT_VERSION};
 ///
 /// Returns the migrated JSON that can then be deserialized into `SessionArchive`.
 pub fn migrate_to_current(mut doc: Value, from_version: &SchemaVersion) -> Result<Value> {
-    let mut version = from_version.clone();
+    let mut version = *from_version;
 
     // Same-major migrations (minor version forward)
+    #[allow(clippy::absurd_extreme_comparisons)]
     while version.major == CURRENT_VERSION.major && version.minor < CURRENT_VERSION.minor {
         doc = migrate_minor(&doc, &version)?;
         version.minor += 1;
@@ -38,14 +39,13 @@ pub fn migrate_to_current(mut doc: Value, from_version: &SchemaVersion) -> Resul
     }
 
     // Update the version in the document
-    if let Some(header) = doc.get_mut("header") {
-        if let Some(sv) = header.get_mut("schemaVersion") {
-            *sv = serde_json::to_value(&CURRENT_VERSION)
+    if let Some(header) = doc.get_mut("header")
+        && let Some(sv) = header.get_mut("schemaVersion") {
+            *sv = serde_json::to_value(CURRENT_VERSION)
                 .map_err(|e| ExportError::Validation {
                     message: format!("failed to update schema version: {}", e),
                 })?;
         }
-    }
 
     Ok(doc)
 }
@@ -56,12 +56,12 @@ pub fn needs_migration(version: &SchemaVersion) -> MigrationStatus {
         MigrationStatus::NotNeeded
     } else if CURRENT_VERSION.can_read(version) {
         MigrationStatus::Available {
-            from: version.clone(),
+            from: *version,
             to: CURRENT_VERSION,
         }
     } else {
         MigrationStatus::Unsupported {
-            version: version.clone(),
+            version: *version,
             current: CURRENT_VERSION,
         }
     }
@@ -88,29 +88,17 @@ pub enum MigrationStatus {
 // Each function transforms the document from version N to N+1.
 // Add new migration functions here as the schema evolves.
 
-fn migrate_minor(doc: &Value, version: &SchemaVersion) -> Result<Value> {
-    match (version.major, version.minor) {
-        // Future: (1, 0) => migrate_v1_0_to_v1_1(doc),
-        // Future: (1, 1) => migrate_v1_1_to_v1_2(doc),
-        _ => {
-            // No known migration for this minor version — pass through.
-            // This handles the case where from_version.minor < current.minor
-            // but no structural changes were needed (purely additive).
-            Ok(doc.clone())
-        }
-    }
+fn migrate_minor(doc: &Value, _version: &SchemaVersion) -> Result<Value> {
+    Ok(doc.clone())
 }
 
 fn migrate_major(_doc: &Value, version: &SchemaVersion) -> Result<Value> {
-    match version.major {
-        // Future: 1 => migrate_v1_to_v2(doc),
-        _ => Err(ExportError::UnsupportedVersion {
-            major: version.major,
-            minor: version.minor,
-            min_major: CURRENT_VERSION.major,
-            min_minor: CURRENT_VERSION.minor,
-        }),
-    }
+    Err(ExportError::UnsupportedVersion {
+        major: version.major,
+        minor: version.minor,
+        min_major: CURRENT_VERSION.major,
+        min_minor: CURRENT_VERSION.minor,
+    })
 }
 
 #[cfg(test)]

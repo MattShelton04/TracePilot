@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import type { TurnToolCall } from "@tracepilot/types";
 import {
+  agentStatusFromToolCall,
   formatDuration,
-  inferAgentTypeFromToolCall,
   getAgentColor,
   getAgentIcon,
-  agentStatusFromToolCall,
+  inferAgentTypeFromToolCall,
 } from "@tracepilot/ui";
+import { computed } from "vue";
 
 const props = defineProps<{
   toolCall: TurnToolCall;
@@ -25,20 +25,13 @@ const agentIcon = computed(() => getAgentIcon(agentType.value));
 const status = computed(() => agentStatusFromToolCall(props.toolCall));
 
 const displayName = computed(() => {
-  return (
-    props.toolCall.agentDisplayName || props.toolCall.toolName || "Subagent"
-  );
+  return props.toolCall.agentDisplayName || props.toolCall.toolName || "Subagent";
 });
 
 const description = computed(() => {
   const tc = props.toolCall;
   const args = tc.arguments as Record<string, unknown> | undefined;
-  return (
-    tc.intentionSummary ||
-    (args?.description as string) ||
-    (args?.name as string) ||
-    ""
-  );
+  return tc.intentionSummary || (args?.description as string) || (args?.name as string) || "";
 });
 
 const model = computed(() => {
@@ -46,9 +39,7 @@ const model = computed(() => {
   return (args?.model as string) || props.toolCall.model || "";
 });
 
-const duration = computed(() =>
-  formatDuration(props.toolCall.durationMs ?? 0),
-);
+const duration = computed(() => formatDuration(props.toolCall.durationMs ?? 0));
 
 function handleClick() {
   if (props.toolCall.toolCallId) {

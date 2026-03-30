@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import {
+  Badge,
+  DefList,
+  ErrorAlert,
+  formatDate,
+  formatDuration,
+  formatNumberFull,
+  formatTime,
+  MarkdownContent,
+  SectionPanel,
+  StatCard,
+  truncateText,
+  useSessionTabLoader,
+} from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import {
-  StatCard, Badge, SectionPanel, DefList, ErrorAlert,
-  formatDate, formatDuration, formatNumberFull, formatTime, truncateText, useSessionTabLoader, MarkdownContent,
-} from "@tracepilot/ui";
 import { formatObjectResult } from "@/utils/formatResult";
 
 const store = useSessionDetailStore();
@@ -16,10 +26,10 @@ useSessionTabLoader(
     store.loadPlan();
     store.loadShutdownMetrics();
     store.loadIncidents();
-  }
+  },
 );
 
-const detail= computed(() => store.detail);
+const detail = computed(() => store.detail);
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
 
@@ -53,18 +63,18 @@ function isLongSummary(summary: string): boolean {
   return summary.length > 80;
 }
 
-function incidentSeverityVariant(severity: string): 'danger' | 'warning' | 'neutral' {
-  if (severity === 'error') return 'danger';
-  if (severity === 'warning') return 'warning';
-  return 'neutral';
+function incidentSeverityVariant(severity: string): "danger" | "warning" | "neutral" {
+  if (severity === "error") return "danger";
+  if (severity === "warning") return "warning";
+  return "neutral";
 }
 
 function incidentTypeLabel(eventType: string): string {
   const labels: Record<string, string> = {
-    error: 'Error',
-    warning: 'Warning',
-    compaction: 'Compaction',
-    truncation: 'Truncation',
+    error: "Error",
+    warning: "Warning",
+    compaction: "Compaction",
+    truncation: "Truncation",
   };
   return labels[eventType] ?? eventType;
 }
@@ -92,16 +102,24 @@ function toggleCheckpoint(num: number) {
 const isPlanExpanded = ref(true);
 
 function hasDetail(incident: { detailJson?: unknown }): boolean {
-  return incident.detailJson != null && incident.detailJson !== '';
+  return incident.detailJson != null && incident.detailJson !== "";
 }
 
 function retryLoadSection(section: string) {
   store.loaded.delete(section);
   switch (section) {
-    case 'checkpoints': store.loadCheckpoints(); break;
-    case 'plan': store.loadPlan(); break;
-    case 'metrics': store.loadShutdownMetrics(); break;
-    case 'incidents': store.loadIncidents(); break;
+    case "checkpoints":
+      store.loadCheckpoints();
+      break;
+    case "plan":
+      store.loadPlan();
+      break;
+    case "metrics":
+      store.loadShutdownMetrics();
+      break;
+    case "incidents":
+      store.loadIncidents();
+      break;
   }
 }
 </script>

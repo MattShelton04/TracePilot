@@ -87,14 +87,13 @@ pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
         turn.transformed_user_message = None;
 
         for tc in turn.tool_calls.iter_mut() {
-            if tc.args_summary.is_none() {
-                if let Some(ref args) = tc.arguments {
+            if tc.args_summary.is_none()
+                && let Some(ref args) = tc.arguments {
                     let summary = compute_args_summary(&tc.tool_name, args);
                     if !summary.is_empty() {
                         tc.args_summary = Some(summary);
                     }
                 }
-            }
         }
     }
 }

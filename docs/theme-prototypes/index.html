@@ -702,12 +702,12 @@
       },
     };
 
-    let activeTheme = 'obsidian';
+    let _activeTheme = 'obsidian';
 
     function switchTheme(id) {
       const theme = themes[id];
       if (!theme) return;
-      activeTheme = id;
+      _activeTheme = id;
 
       // Apply CSS vars to preview
       const preview = document.getElementById('preview');
@@ -774,7 +774,7 @@
     const grid = document.getElementById('themeGrid');
     for (const [id, theme] of Object.entries(themes)) {
       const card = document.createElement('div');
-      card.className = 'theme-card' + (id === 'obsidian' ? ' active' : '');
+      card.className = `theme-card${id === 'obsidian' ? ' active' : ''}`;
       card.dataset.themeId = id;
       card.onclick = () => switchTheme(id);
       card.innerHTML = `

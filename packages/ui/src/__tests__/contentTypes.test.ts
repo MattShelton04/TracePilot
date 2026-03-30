@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG, type ContentTypeStyle } from "../utils/contentTypes";
+import {
+  ALL_CONTENT_TYPES,
+  CONTENT_TYPE_CONFIG,
+  type ContentTypeStyle,
+} from "../utils/contentTypes";
 
 describe("CONTENT_TYPE_CONFIG", () => {
   it("has entries for every SearchContentType", () => {

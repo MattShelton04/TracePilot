@@ -4,8 +4,9 @@
  * Shows macOS-style terminal chrome, command with exit status badge,
  * and output with semantic coloring (errors, warnings, success, dim).
  */
-import { computed } from "vue";
+
 import type { TurnToolCall } from "@tracepilot/types";
+import { computed } from "vue";
 import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
@@ -16,20 +17,18 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const command = computed(() =>
-  typeof props.args?.command === "string" ? props.args.command : null
+  typeof props.args?.command === "string" ? props.args.command : null,
 );
 
 const description = computed(() =>
-  typeof props.args?.description === "string" ? props.args.description : null
+  typeof props.args?.description === "string" ? props.args.description : null,
 );
 
-const mode = computed(() =>
-  typeof props.args?.mode === "string" ? props.args.mode : "sync"
-);
+const mode = computed(() => (typeof props.args?.mode === "string" ? props.args.mode : "sync"));
 
 const statusLabel = computed(() => {
   if (props.tc.success === true) return "exit 0";
@@ -62,11 +61,7 @@ const outputLines = computed<OutputLine[]>(() => {
     ) {
       return { text: line, cls: "term-error" };
     }
-    if (
-      lower.includes("warning") ||
-      lower.includes("warn") ||
-      lower.includes("deprecat")
-    ) {
+    if (lower.includes("warning") || lower.includes("warn") || lower.includes("deprecat")) {
       return { text: line, cls: "term-warning" };
     }
     if (

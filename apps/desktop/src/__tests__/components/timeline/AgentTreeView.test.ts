@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { setActivePinia, createPinia } from "pinia";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import AgentTreeView from "../../../components/timeline/AgentTreeView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
@@ -130,9 +130,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Main Agent");
@@ -159,9 +157,7 @@ describe("AgentTreeView", () => {
       durationMs: 4000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })] as any;
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Explore Agent");
@@ -177,9 +173,7 @@ describe("AgentTreeView", () => {
       model: "claude-haiku-4.5",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     // The agent node should show its own model
@@ -194,9 +188,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     // No detail panel initially
@@ -219,9 +211,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -312,9 +302,7 @@ describe("AgentTreeView", () => {
       durationMs: 2000,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })] as any;
 
     const wrapper = mountComponent();
     // No parallel badges should appear for non-overlapping agents
@@ -329,9 +317,7 @@ describe("AgentTreeView", () => {
       toolCallId: "agent-1",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     const prevBtn = wrapper.find('button[aria-label="Previous agent turn"]');
@@ -345,9 +331,7 @@ describe("AgentTreeView", () => {
       toolCallId: "agent-1",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
@@ -388,19 +372,20 @@ describe("AgentTreeView", () => {
       isSubagent: true,
       toolCallId: "agent-prompt",
       agentDisplayName: "Code Review Agent",
-      arguments: { prompt: "Review the auth module for vulnerabilities", agent_type: "code-review" },
+      arguments: {
+        prompt: "Review the auth module for vulnerabilities",
+        agent_type: "code-review",
+      },
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     // Click the subagent node to open detail panel
     const nodes = wrapper.findAll(".agent-node");
-    const childNode = nodes.find(n => n.text().includes("Code Review Agent"));
+    const childNode = nodes.find((n) => n.text().includes("Code Review Agent"));
     expect(childNode).toBeDefined();
-    await childNode!.trigger("click");
+    await childNode?.trigger("click");
     await nextTick();
 
     expect(wrapper.find(".detail-panel").exists()).toBe(true);
@@ -420,16 +405,14 @@ describe("AgentTreeView", () => {
       durationMs: undefined,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("⏳");
     const nodes = wrapper.findAll(".agent-node");
-    const inProgressNode = nodes.find(n => n.text().includes("Running Agent"));
+    const inProgressNode = nodes.find((n) => n.text().includes("Running Agent"));
     expect(inProgressNode).toBeDefined();
-    expect(inProgressNode!.classes()).toContain("agent-node--in-progress");
+    expect(inProgressNode?.classes()).toContain("agent-node--in-progress");
   });
 
   it("main agent tool list includes subagent-spawning tool calls with agent badge", async () => {
@@ -446,15 +429,13 @@ describe("AgentTreeView", () => {
       toolCallId: "tc-view-1",
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] })] as any;
 
     const wrapper = mountComponent();
     // Click main agent node to open detail panel
-    const mainNode = wrapper.findAll(".agent-node").find(n => n.text().includes("Main Agent"));
+    const mainNode = wrapper.findAll(".agent-node").find((n) => n.text().includes("Main Agent"));
     expect(mainNode).toBeDefined();
-    await mainNode!.trigger("click");
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -480,9 +461,7 @@ describe("AgentTreeView", () => {
       durationMs: undefined,
     });
 
-    store.turns = [
-      makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
-    ] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
 
     const wrapper = mountComponent();
     const statusIcons = wrapper.findAll(".agent-node-status--in-progress");
@@ -513,9 +492,9 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     // Select the subagent node (second node after main)
     const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find(n => n.text().includes("Explore Agent"));
+    const subagentNode = nodes.find((n) => n.text().includes("Explore Agent"));
     expect(subagentNode).toBeDefined();
-    await subagentNode!.trigger("click");
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -538,19 +517,15 @@ describe("AgentTreeView", () => {
       makeTurn({
         turnIndex: 0,
         toolCalls: [agentTc],
-        assistantMessages: [
-          { content: "Result", parentToolCallId: "agent-1" },
-        ],
-        reasoningTexts: [
-          { content: "Let me think about this...", parentToolCallId: "agent-1" },
-        ],
+        assistantMessages: [{ content: "Result", parentToolCallId: "agent-1" }],
+        reasoningTexts: [{ content: "Let me think about this...", parentToolCallId: "agent-1" }],
       }),
     ] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find(n => n.text().includes("Thinking Agent"));
-    await subagentNode!.trigger("click");
+    const subagentNode = nodes.find((n) => n.text().includes("Thinking Agent"));
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -591,9 +566,9 @@ describe("AgentTreeView", () => {
     const wrapper = mountComponent();
     // Select main agent node (first node)
     const nodes = wrapper.findAll(".agent-node");
-    const mainNode = nodes.find(n => n.text().includes("Main Agent"));
+    const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
     expect(mainNode).toBeDefined();
-    await mainNode!.trigger("click");
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -625,15 +600,15 @@ describe("AgentTreeView", () => {
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const subagentNode = nodes.find(n => n.text().includes("Silent Agent"));
-    await subagentNode!.trigger("click");
+    const subagentNode = nodes.find((n) => n.text().includes("Silent Agent"));
+    await subagentNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
     expect(detailPanel.exists()).toBe(true);
     // No Output heading since no messages
     const sectionTitles = detailPanel.findAll(".detail-section-title");
-    const outputTitle = sectionTitles.filter(t => t.text() === "Output");
+    const outputTitle = sectionTitles.filter((t) => t.text() === "Output");
     expect(outputTitle.length).toBe(0);
     // No reasoning toggle
     expect(detailPanel.find(".reasoning-toggle").exists()).toBe(false);
@@ -782,8 +757,8 @@ describe("AgentTreeView", () => {
 
     // 1. Check Main Agent's tool list (should only include parentSub)
     const nodes = wrapper.findAll(".agent-node");
-    const mainNode = nodes.find(n => n.text().includes("Main Agent"));
-    await mainNode!.trigger("click");
+    const mainNode = nodes.find((n) => n.text().includes("Main Agent"));
+    await mainNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -794,8 +769,8 @@ describe("AgentTreeView", () => {
     expect(toolItems[0].text()).toContain("Parent Same Turn");
 
     // 2. Check Parent Subagent's tool list (should include childSub)
-    const parentNode = nodes.find(n => n.text().includes("Parent Same Turn"));
-    await parentNode!.trigger("click");
+    const parentNode = nodes.find((n) => n.text().includes("Parent Same Turn"));
+    await parentNode?.trigger("click");
     await nextTick();
 
     const parentTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
@@ -804,8 +779,8 @@ describe("AgentTreeView", () => {
     expect(parentTools[0].text()).toContain("Child Same Turn");
 
     // 3. Check Child Subagent's tool list (should include childTool)
-    const childNode = nodes.find(n => n.text().includes("Child Same Turn"));
-    await childNode!.trigger("click");
+    const childNode = nodes.find((n) => n.text().includes("Child Same Turn"));
+    await childNode?.trigger("click");
     await nextTick();
 
     const childTools = wrapper.find(".detail-panel").findAll(".detail-tool-row");
@@ -842,8 +817,8 @@ describe("AgentTreeView", () => {
     expect(wrapper.text()).not.toContain("Agent B");
 
     // Switch to Unified mode
-    const unifiedBtn = wrapper.findAll(".view-mode-btn").find(b => b.text().includes("Unified"));
-    await unifiedBtn!.trigger("click");
+    const unifiedBtn = wrapper.findAll(".view-mode-btn").find((b) => b.text().includes("Unified"));
+    await unifiedBtn?.trigger("click");
     await nextTick();
 
     // Now shows both agents
@@ -852,7 +827,7 @@ describe("AgentTreeView", () => {
 
     // Turn navigation should be disabled in unified mode
     const navButtons = wrapper.findAll(".turn-nav-btn");
-    navButtons.forEach(btn => {
+    navButtons.forEach((btn) => {
       expect((btn.element as HTMLButtonElement).disabled).toBe(true);
     });
   });
@@ -874,17 +849,15 @@ describe("AgentTreeView", () => {
       makeTurn({
         turnIndex: 0,
         toolCalls: [failedAgent],
-        assistantMessages: [
-          { content: "Starting task...", parentToolCallId: "agent-fail" },
-        ],
+        assistantMessages: [{ content: "Starting task...", parentToolCallId: "agent-fail" }],
       }),
     ] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const failedNode = nodes.find(n => n.text().includes("Failing Agent"));
+    const failedNode = nodes.find((n) => n.text().includes("Failing Agent"));
     expect(failedNode).toBeDefined();
-    await failedNode!.trigger("click");
+    await failedNode?.trigger("click");
     await nextTick();
 
     const detailPanel = wrapper.find(".detail-panel");
@@ -910,16 +883,14 @@ describe("AgentTreeView", () => {
       makeTurn({
         turnIndex: 0,
         toolCalls: [successAgent],
-        assistantMessages: [
-          { content: "Done!", parentToolCallId: "agent-ok" },
-        ],
+        assistantMessages: [{ content: "Done!", parentToolCallId: "agent-ok" }],
       }),
     ] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const okNode = nodes.find(n => n.text().includes("Success Agent"));
-    await okNode!.trigger("click");
+    const okNode = nodes.find((n) => n.text().includes("Success Agent"));
+    await okNode?.trigger("click");
     await nextTick();
 
     expect(wrapper.find(".detail-failure").exists()).toBe(false);
@@ -940,16 +911,14 @@ describe("AgentTreeView", () => {
       makeTurn({
         turnIndex: 0,
         toolCalls: [agentTc],
-        assistantMessages: [
-          { content: longContent, parentToolCallId: "agent-long" },
-        ],
+        assistantMessages: [{ content: longContent, parentToolCallId: "agent-long" }],
       }),
     ] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const verboseNode = nodes.find(n => n.text().includes("Verbose Agent"));
-    await verboseNode!.trigger("click");
+    const verboseNode = nodes.find((n) => n.text().includes("Verbose Agent"));
+    await verboseNode?.trigger("click");
     await nextTick();
 
     // Output should be collapsed by default
@@ -978,16 +947,14 @@ describe("AgentTreeView", () => {
       makeTurn({
         turnIndex: 0,
         toolCalls: [agentTc],
-        assistantMessages: [
-          { content: "Short answer", parentToolCallId: "agent-short" },
-        ],
+        assistantMessages: [{ content: "Short answer", parentToolCallId: "agent-short" }],
       }),
     ] as any;
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
-    const briefNode = nodes.find(n => n.text().includes("Brief Agent"));
-    await briefNode!.trigger("click");
+    const briefNode = nodes.find((n) => n.text().includes("Brief Agent"));
+    await briefNode?.trigger("click");
     await nextTick();
 
     // No toggle for short content

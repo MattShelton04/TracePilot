@@ -1,41 +1,46 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
-import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { usePreferencesStore } from "@/stores/preferences";
-import type { ConversationTurn, TurnToolCall, SessionEventSeverity, AttributedMessage } from "@tracepilot/types";
+import type {
+  AttributedMessage,
+  ConversationTurn,
+  SessionEventSeverity,
+  TurnToolCall,
+} from "@tracepilot/types";
 import {
-  formatDuration,
-  formatTime,
-  formatNumber,
-  truncateText,
-  toolIcon,
   formatArgsSummary,
-  ReasoningBlock,
-  MarkdownContent,
-  ToolCallItem,
-  useConversationSections,
-  useToggleSet,
+  formatDuration,
+  formatNumber,
+  formatTime,
   getAgentColor,
   getAgentIcon,
   inferAgentTypeFromToolCall,
+  MarkdownContent,
+  ReasoningBlock,
+  ToolCallItem,
+  toolIcon,
+  truncateText,
+  useConversationSections,
+  useToggleSet,
 } from "@tracepilot/ui";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
-import SubagentCard from "./SubagentCard.vue";
-import SubagentPanel from "./SubagentPanel.vue";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
 import {
-  segmentToolCalls,
-  getMainReasoning,
-  getMainMessages,
-  MAX_VISIBLE_TOOLS,
   COLLAPSE_THRESHOLD,
   countRegularTools,
   getCollapsedToolNames,
-  type ToolSegment,
+  getMainMessages,
+  getMainReasoning,
+  MAX_VISIBLE_TOOLS,
+  segmentToolCalls,
   type ToolGroupItem,
+  type ToolSegment,
 } from "./chatViewUtils";
+import SubagentCard from "./SubagentCard.vue";
+import SubagentPanel from "./SubagentPanel.vue";
 
 // ─── Store & Route ────────────────────────────────────────────────
 
@@ -61,9 +66,13 @@ const expandedToolDetails = useToggleSet<string>();
 
 // ─── Tool result loader ───────────────────────────────────────────
 
-const { fullResults, loadingResults, failedResults, loadFullResult: handleLoadFullResult, retryFullResult: handleRetryResult } = useToolResultLoader(
-  () => store.sessionId
-);
+const {
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult: handleLoadFullResult,
+  retryFullResult: handleRetryResult,
+} = useToolResultLoader(() => store.sessionId);
 
 // ─── Conversation sections (for tool call index) ─────────────────
 
@@ -85,7 +94,7 @@ function updatePanelTop() {
   const cvRect = cvRoot.getBoundingClientRect();
 
   // Find the sticky action bar (.detail-actions) — it sticks at top of scroll area
-  const actionsEl = document.querySelector('.detail-actions') as HTMLElement | null;
+  const actionsEl = document.querySelector(".detail-actions") as HTMLElement | null;
   const actionsBottom = actionsEl ? actionsEl.getBoundingClientRect().bottom : 0;
 
   // Panel top = whichever is lower: cv-root top or sticky bar bottom
@@ -93,8 +102,8 @@ function updatePanelTop() {
 
   // Compute breakout offsets so .cv-root can extend beyond .page-content-inner
   // when the panel is open, without affecting sibling elements (toolbar, badges, etc.)
-  const pc = cvRoot.closest('.page-content') as HTMLElement | null;
-  const pci = cvRoot.closest('.page-content-inner') as HTMLElement | null;
+  const pc = cvRoot.closest(".page-content") as HTMLElement | null;
+  const pci = cvRoot.closest(".page-content-inner") as HTMLElement | null;
   if (pc && pci) {
     const pcStyle = getComputedStyle(pc);
     const padL = parseFloat(pcStyle.paddingLeft) || 0;
@@ -102,9 +111,9 @@ function updatePanelTop() {
     const pcContentWidth = pc.clientWidth - padL - padR;
     const pciWidth = pci.offsetWidth;
     const sideGap = Math.max(0, (pcContentWidth - pciWidth) / 2);
-    cvRoot.style.setProperty('--breakout-left', `${sideGap}px`);
+    cvRoot.style.setProperty("--breakout-left", `${sideGap}px`);
     // Extend right through page-content padding so content meets the panel edge
-    cvRoot.style.setProperty('--breakout-right', `${sideGap + padR}px`);
+    cvRoot.style.setProperty("--breakout-right", `${sideGap + padR}px`);
   }
 }
 
@@ -112,7 +121,7 @@ onMounted(() => {
   updatePanelTop();
   window.addEventListener("resize", updatePanelTop);
   // Listen to scroll on the page-content container (the page scroller)
-  pageScrollEl = cvRootEl.value?.closest('.page-content') as HTMLElement | null;
+  pageScrollEl = cvRootEl.value?.closest(".page-content") as HTMLElement | null;
   if (pageScrollEl) {
     pageScrollEl.addEventListener("scroll", updatePanelTop, { passive: true });
   }
@@ -242,9 +251,10 @@ function memoryLabel(tc: TurnToolCall): string {
 
 function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
   try {
-    const args = typeof tc.arguments === "string"
-      ? JSON.parse(tc.arguments)
-      : (tc.arguments as Record<string, unknown> | null);
+    const args =
+      typeof tc.arguments === "string"
+        ? JSON.parse(tc.arguments)
+        : (tc.arguments as Record<string, unknown> | null);
     return (args?.agent_id as string) ?? null;
   } catch {
     return null;
@@ -350,9 +360,9 @@ const subagentTurnColors = computed(() => {
  * Returns the subagent's toolCallId, or null if the event is not a child.
  */
 function findOwningSubagent(turnIndex: number, eventIndex: number): string | null {
-  const turn = turns.value.find(t => t.turnIndex === turnIndex);
+  const turn = turns.value.find((t) => t.turnIndex === turnIndex);
   if (!turn) return null;
-  const tc = turn.toolCalls.find(t => t.eventIndex === eventIndex);
+  const tc = turn.toolCalls.find((t) => t.eventIndex === eventIndex);
   if (!tc) return null;
   // If this IS a subagent launch, return its own toolCallId
   if (tc.isSubagent && tc.toolCallId) return tc.toolCallId;
@@ -403,9 +413,9 @@ function revealEvent(turnIndex: number, eventIndex?: number) {
   }
 
   nextTick(() => {
-    el!.scrollIntoView({ behavior: "smooth", block: "center" });
-    el!.classList.add("cv-highlight");
-    setTimeout(() => el!.classList.remove("cv-highlight"), 4000);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.classList.add("cv-highlight");
+    setTimeout(() => el?.classList.remove("cv-highlight"), 4000);
   });
 }
 

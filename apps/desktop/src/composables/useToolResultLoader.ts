@@ -1,8 +1,8 @@
-import { reactive, watch } from "vue";
 import { getToolResult } from "@tracepilot/client";
-import { logError } from "@/utils/logger";
-import { formatObjectResult } from "@/utils/formatResult";
+import { reactive, watch } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
+import { formatObjectResult } from "@/utils/formatResult";
+import { logError } from "@/utils/logger";
 
 /**
  * Composable for lazy-loading full (un-truncated) tool results from the backend.
@@ -19,7 +19,13 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
   const guard = useAsyncGuard();
 
   async function loadFullResult(toolCallId: string) {
-    if (!toolCallId || fullResults.has(toolCallId) || loadingResults.has(toolCallId) || failedResults.has(toolCallId)) return;
+    if (
+      !toolCallId ||
+      fullResults.has(toolCallId) ||
+      loadingResults.has(toolCallId) ||
+      failedResults.has(toolCallId)
+    )
+      return;
     const capturedSessionId = sessionId();
     if (!capturedSessionId) return;
     const token = guard.current();
@@ -63,5 +69,13 @@ export function useToolResultLoader(sessionId: () => string | null | undefined) 
   // Auto-clear when session changes
   watch(sessionId, () => clear());
 
-  return { fullResults, fullResultData, loadingResults, failedResults, loadFullResult, retryFullResult, clear };
+  return {
+    fullResults,
+    fullResultData,
+    loadingResults,
+    failedResults,
+    loadFullResult,
+    retryFullResult,
+    clear,
+  };
 }

@@ -1,6 +1,6 @@
-import { ref } from 'vue';
+import { ref } from "vue";
 
-const appVersion = ref('dev');
+const appVersion = ref("dev");
 let initialized = false;
 
 export async function initAppVersion(): Promise<void> {
@@ -8,9 +8,9 @@ export async function initAppVersion(): Promise<void> {
   initialized = true;
 
   try {
-    const { isTauri } = await import('@tauri-apps/api/core');
+    const { isTauri } = await import("@tauri-apps/api/core");
     if (isTauri()) {
-      const { getVersion } = await import('@tauri-apps/api/app');
+      const { getVersion } = await import("@tauri-apps/api/app");
       appVersion.value = await getVersion();
     }
   } catch {

@@ -53,6 +53,9 @@ pub struct IndexedIncident {
 
 // ── Internal types used by the session writer ─────────────────────────
 
+/// Row shape returned by `needs_reindex` / `needs_search_reindex` staleness queries.
+pub(super) type StalenessRow = (Option<String>, Option<String>, Option<i64>, Option<i64>);
+
 /// Named row for per-model metrics.
 pub(crate) struct ModelMetricsRow {
     pub model: String,

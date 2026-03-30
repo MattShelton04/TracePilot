@@ -1,15 +1,15 @@
-import type { ReleaseManifestEntry } from '@tracepilot/types';
-import { ref } from 'vue';
+import type { ReleaseManifestEntry } from "@tracepilot/types";
+import { ref } from "vue";
 
 const showWhatsNew = ref(false);
-const whatsNewPreviousVersion = ref('');
-const whatsNewCurrentVersion = ref('');
+const whatsNewPreviousVersion = ref("");
+const whatsNewCurrentVersion = ref("");
 const whatsNewEntries = ref<ReleaseManifestEntry[]>([]);
-const whatsNewReleaseUrl = ref('');
+const whatsNewReleaseUrl = ref("");
 
 async function fetchManifest(): Promise<ReleaseManifestEntry[]> {
   try {
-    const resp = await fetch('/release-manifest.json');
+    const resp = await fetch("/release-manifest.json");
     if (!resp.ok) return [];
     const data = await resp.json();
     const versions = data.versions ?? [];
@@ -29,7 +29,7 @@ export async function openWhatsNew(
   whatsNewEntries.value = entries;
   whatsNewPreviousVersion.value = previous;
   whatsNewCurrentVersion.value = current;
-  whatsNewReleaseUrl.value = releaseUrl ?? '';
+  whatsNewReleaseUrl.value = releaseUrl ?? "";
   showWhatsNew.value = true;
 }
 

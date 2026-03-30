@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ActionButton, FormInput, SectionPanel } from '@tracepilot/ui';
-import { ref } from 'vue';
-import { usePreferencesStore } from '@/stores/preferences';
+import { ActionButton, FormInput, SectionPanel } from "@tracepilot/ui";
+import { ref } from "vue";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const preferences = usePreferencesStore();
 
-const newModelName = ref('');
+const newModelName = ref("");
 const newInputPerM = ref(0);
 const newCachedInputPerM = ref(0);
 const newOutputPerM = ref(0);
@@ -20,7 +20,7 @@ function addModelPrice() {
     outputPerM: newOutputPerM.value,
     premiumRequests: newPremiumRequests.value,
   });
-  newModelName.value = '';
+  newModelName.value = "";
   newInputPerM.value = 0;
   newCachedInputPerM.value = 0;
   newOutputPerM.value = 0;

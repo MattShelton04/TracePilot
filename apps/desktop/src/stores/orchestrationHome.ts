@@ -1,26 +1,36 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { SystemDependencies, CopilotVersion, WorktreeInfo, RegisteredRepo } from '@tracepilot/types';
 import {
   checkSystemDeps,
-  listSessions,
   discoverCopilotVersions,
   getActiveCopilotVersion,
-  listWorktrees,
   listRegisteredRepos,
-} from '@tracepilot/client';
-import { toErrorMessage } from '@tracepilot/ui';
-import { logWarn } from '@/utils/logger';
-import { aggregateSettledErrors } from '@/utils/settleErrors';
+  listSessions,
+  listWorktrees,
+} from "@tracepilot/client";
+import type {
+  CopilotVersion,
+  RegisteredRepo,
+  SystemDependencies,
+  WorktreeInfo,
+} from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
+import { logWarn } from "@/utils/logger";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
 
 export interface ActivityEvent {
   id: string;
-  type: 'session_launched' | 'session_error' | 'batch_completed' | 'budget_alert' | 'config_changed';
+  type:
+    | "session_launched"
+    | "session_error"
+    | "batch_completed"
+    | "budget_alert"
+    | "config_changed";
   message: string;
   timestamp: string;
 }
 
-export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => {
+export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => {
   const systemDeps = ref<SystemDependencies | null>(null);
   const totalSessions = ref(0);
   const activeSessions = ref(0);
@@ -41,7 +51,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     return systemDeps.value.gitAvailable && systemDeps.value.copilotAvailable;
   });
 
-  const copilotVersionStr = computed(() => activeVersion.value?.version ?? systemDeps.value?.copilotVersion ?? 'unknown');
+  const copilotVersionStr = computed(
+    () => activeVersion.value?.version ?? systemDeps.value?.copilotVersion ?? "unknown",
+  );
 
   // Show cached data immediately if initialized within the last 5 minutes
   const hasCachedData = computed(() => lastInitialized.value > 0);
@@ -49,7 +61,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
 
   async function initialize() {
     const now = Date.now();
-    const isFresh = lastInitialized.value > 0 && (now - lastInitialized.value) < CACHE_TTL_MS;
+    const isFresh = lastInitialized.value > 0 && now - lastInitialized.value < CACHE_TTL_MS;
 
     if (isFresh) {
       // Data is fresh — refresh silently in the background
@@ -62,7 +74,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
     if (hasCachedData.value) {
       // Stale cache — show it immediately but refresh in background
       refreshing.value = true;
-      doFetch().finally(() => { refreshing.value = false; });
+      doFetch().finally(() => {
+        refreshing.value = false;
+      });
       return;
     }
 
@@ -81,8 +95,8 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
         getActiveCopilotVersion(),
       ]);
 
-      const deps = depsResult.status === 'fulfilled' ? depsResult.value : null;
-      const active = activeResult.status === 'fulfilled' ? activeResult.value : null;
+      const deps = depsResult.status === "fulfilled" ? depsResult.value : null;
+      const active = activeResult.status === "fulfilled" ? activeResult.value : null;
       systemDeps.value = deps;
       activeVersion.value = active;
 
@@ -95,8 +109,8 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
         discoverCopilotVersions(),
       ]);
 
-      const sessions = sessionsResult.status === 'fulfilled' ? sessionsResult.value : [];
-      const versionsData = versionsResult.status === 'fulfilled' ? versionsResult.value : [];
+      const sessions = sessionsResult.status === "fulfilled" ? sessionsResult.value : [];
+      const versionsData = versionsResult.status === "fulfilled" ? versionsResult.value : [];
 
       // Surface background loading errors
       error.value = aggregateSettledErrors([sessionsResult, versionsResult]);
@@ -108,10 +122,10 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       // Generate activity feed from recent sessions
       activityFeed.value = sessions.slice(0, 6).map((s, i) => ({
         id: `feed-${i}`,
-        type: s.isRunning ? 'session_launched' as const : 'batch_completed' as const,
+        type: s.isRunning ? ("session_launched" as const) : ("batch_completed" as const),
         message: s.isRunning
-          ? `Session started in ${s.repository ?? 'unknown'}`
-          : `Session completed in ${s.repository ?? 'unknown'}`,
+          ? `Session started in ${s.repository ?? "unknown"}`
+          : `Session completed in ${s.repository ?? "unknown"}`,
         timestamp: s.updatedAt ?? s.createdAt ?? new Date().toISOString(),
       }));
 
@@ -129,7 +143,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
   function computeWorktreeStats(worktrees: WorktreeInfo[]) {
     return {
       total: worktrees.length,
-      stale: worktrees.filter((w) => w.status === 'stale').length,
+      stale: worktrees.filter((w) => w.status === "stale").length,
       diskUsage: worktrees.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
     };
   }
@@ -143,7 +157,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       totalDiskUsage.value = stats.diskUsage;
     } catch (e) {
       // Non-critical - worktree stats are supplementary UI info
-      logWarn('[orchestrationHome] Failed to load worktree stats', e);
+      logWarn("[orchestrationHome] Failed to load worktree stats", e);
     }
   }
 
@@ -157,11 +171,9 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       let staleWt = 0;
       let totalDisk = 0;
 
-      const results = await Promise.allSettled(
-        repos.map((r) => listWorktrees(r.path)),
-      );
+      const results = await Promise.allSettled(repos.map((r) => listWorktrees(r.path)));
       for (const result of results) {
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           const stats = computeWorktreeStats(result.value);
           totalWt += stats.total;
           staleWt += stats.stale;
@@ -174,7 +186,7 @@ export const useOrchestrationHomeStore = defineStore('orchestrationHome', () => 
       totalDiskUsage.value = totalDisk;
     } catch (e) {
       // Non-critical - worktree stats are supplementary UI info
-      logWarn('[orchestrationHome] Failed to load worktree stats from registry', e);
+      logWarn("[orchestrationHome] Failed to load worktree stats from registry", e);
     }
   }
 

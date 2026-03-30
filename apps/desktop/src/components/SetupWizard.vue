@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import { getConfig, saveConfig, validateSessionDir } from '@tracepilot/client';
-import type { TracePilotConfig, ValidateSessionDirResult } from '@tracepilot/types';
-import { createDefaultConfig } from '@tracepilot/types';
-import { toErrorMessage } from '@tracepilot/ui';
-import { logError } from '@/utils/logger';
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import WizardStepDatabase from '@/components/wizard/WizardStepDatabase.vue';
-import WizardStepFeatures from '@/components/wizard/WizardStepFeatures.vue';
-import WizardStepReady from '@/components/wizard/WizardStepReady.vue';
-import WizardStepSessionDir from '@/components/wizard/WizardStepSessionDir.vue';
-import WizardStepWelcome from '@/components/wizard/WizardStepWelcome.vue';
-import { useAppVersion } from '@/composables/useAppVersion';
-import { browseForDirectory, browseForSavePath } from '@/composables/useBrowseDirectory';
-import { useWizardNavigation } from '@/composables/useWizardNavigation';
+import { getConfig, saveConfig, validateSessionDir } from "@tracepilot/client";
+import type { TracePilotConfig, ValidateSessionDirResult } from "@tracepilot/types";
+import { createDefaultConfig } from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import WizardStepDatabase from "@/components/wizard/WizardStepDatabase.vue";
+import WizardStepFeatures from "@/components/wizard/WizardStepFeatures.vue";
+import WizardStepReady from "@/components/wizard/WizardStepReady.vue";
+import WizardStepSessionDir from "@/components/wizard/WizardStepSessionDir.vue";
+import WizardStepWelcome from "@/components/wizard/WizardStepWelcome.vue";
+import { useAppVersion } from "@/composables/useAppVersion";
+import { browseForDirectory, browseForSavePath } from "@/composables/useBrowseDirectory";
+import { useWizardNavigation } from "@/composables/useWizardNavigation";
+import { logError } from "@/utils/logger";
 
 const { appVersion } = useAppVersion();
 
 const emit = defineEmits<{
-  'setup-complete': [];
-  'setup-saved': [sessionCount: number];
+  "setup-complete": [];
+  "setup-saved": [sessionCount: number];
 }>();
 
 // ── Navigation ─────────────────────────────────────────────────
@@ -35,8 +35,8 @@ const { currentStep, transitionDuration, goTo, next, onKeydown } = useWizardNavi
 // ── Form state ─────────────────────────────────────────────────
 // Fallback defaults for dev mode (outside Tauri). In production the backend
 // returns absolute paths via getConfig() which replace these on mount.
-const FALLBACK_SESSION_DIR = '~/.copilot/session-state';
-const FALLBACK_DB_PATH = '~/.copilot/tracepilot/index.db';
+const FALLBACK_SESSION_DIR = "~/.copilot/session-state";
+const FALLBACK_DB_PATH = "~/.copilot/tracepilot/index.db";
 
 const defaultSessionDir = ref(FALLBACK_SESSION_DIR);
 const defaultDbPath = ref(FALLBACK_DB_PATH);
@@ -47,7 +47,7 @@ const dbPath = ref(FALLBACK_DB_PATH);
 // ── Validation state ───────────────────────────────────────────
 const validating = ref(false);
 const validationResult = ref<ValidateSessionDirResult | null>(null);
-const validationError = ref('');
+const validationError = ref("");
 
 // ── Saving state ───────────────────────────────────────────────
 const saving = ref(false);
@@ -65,7 +65,7 @@ async function validateDir() {
   if (!sessionDir.value.trim()) return;
   validating.value = true;
   validationResult.value = null;
-  validationError.value = '';
+  validationError.value = "";
   try {
     const result = await validateSessionDir(sessionDir.value.trim());
     validationResult.value = result;
@@ -82,7 +82,7 @@ async function validateDir() {
 // ── Browse (Tauri dialog) ──────────────────────────────────────
 async function browseSessionDir() {
   const selected = await browseForDirectory({
-    title: 'Select session-state directory',
+    title: "Select session-state directory",
     defaultPath: sessionDir.value,
   });
   if (selected) {
@@ -93,7 +93,7 @@ async function browseSessionDir() {
 
 async function browseDbPath() {
   const selected = await browseForSavePath({
-    title: 'Choose database location',
+    title: "Choose database location",
     defaultPath: dbPath.value,
   });
   if (selected) dbPath.value = selected;
@@ -108,7 +108,7 @@ async function skipSetup() {
 function resetSessionDir() {
   sessionDir.value = defaultSessionDir.value;
   validationResult.value = null;
-  validationError.value = '';
+  validationError.value = "";
   validateDir();
 }
 
@@ -117,11 +117,11 @@ function resetDbPath() {
 }
 
 // ── Finish setup ───────────────────────────────────────────────
-const setupError = ref('');
+const setupError = ref("");
 
 async function finishSetup() {
   saving.value = true;
-  setupError.value = '';
+  setupError.value = "";
   try {
     const config: TracePilotConfig = createDefaultConfig({
       paths: {
@@ -133,10 +133,10 @@ async function finishSetup() {
       },
     });
     await saveConfig(config);
-    emit('setup-saved', validationResult.value?.sessionCount ?? 0);
+    emit("setup-saved", validationResult.value?.sessionCount ?? 0);
   } catch (e) {
     setupError.value = toErrorMessage(e);
-    logError('[setup] Setup save failed:', e);
+    logError("[setup] Setup save failed:", e);
   } finally {
     saving.value = false;
   }
@@ -144,8 +144,8 @@ async function finishSetup() {
 
 // ── Lifecycle ──────────────────────────────────────────────────
 onMounted(async () => {
-  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.addEventListener('keydown', onKeydown);
+  prefersReducedMotion.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.addEventListener("keydown", onKeydown);
 
   try {
     const config = await getConfig();
@@ -162,7 +162,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown);
+  document.removeEventListener("keydown", onKeydown);
 });
 </script>
 

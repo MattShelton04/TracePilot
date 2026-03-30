@@ -261,6 +261,7 @@ pub async fn reindex_sessions_full(
 /// Search session content with full-text search or browse mode.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%query))]
+#[allow(clippy::too_many_arguments)]
 pub async fn search_content(
     state: tauri::State<'_, SharedConfig>,
     query: String,
@@ -341,6 +342,7 @@ pub async fn search_content(
 
 /// Get facet counts.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_search_facets(
     state: tauri::State<'_, SharedConfig>,
     query: Option<String>,

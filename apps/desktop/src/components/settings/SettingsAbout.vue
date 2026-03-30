@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { getGitInfo } from '@tracepilot/client';
-import type { GitInfo } from '@tracepilot/types';
-import { SectionPanel } from '@tracepilot/ui';
-import { onMounted, ref } from 'vue';
-import LogoIcon from '@/components/icons/LogoIcon.vue';
-import { useAppVersion } from '@/composables/useAppVersion';
-import { openExternal } from '@/utils/openExternal';
+import { getGitInfo } from "@tracepilot/client";
+import type { GitInfo } from "@tracepilot/types";
+import { SectionPanel } from "@tracepilot/ui";
+import { onMounted, ref } from "vue";
+import LogoIcon from "@/components/icons/LogoIcon.vue";
+import { useAppVersion } from "@/composables/useAppVersion";
+import { openExternal } from "@/utils/openExternal";
 
 defineProps<{
   sessionCount: number;

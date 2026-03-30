@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { defineComponent, h } from "vue";
 import { mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, h } from "vue";
 import { useToast } from "../composables/useToast";
 
 function setupToast() {
@@ -183,8 +183,8 @@ describe("useToast", () => {
       expect(t.message).toBe("done");
       expect(t.title).toBe("Saved");
       expect(t.description).toBe("Your file was saved");
-      expect(t.action!.label).toBe("View");
-      t.action!.onClick();
+      expect(t.action?.label).toBe("View");
+      t.action?.onClick();
       expect(onClick).toHaveBeenCalledOnce();
     });
   });

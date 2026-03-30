@@ -132,13 +132,12 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
 
                     // Derive created_at from session.start timestamp when workspace.yaml
                     // didn't provide it (e.g. old Copilot CLI sessions).
-                    if summary.created_at.is_none() {
-                        if let Some(ref ts) = start_data.start_time {
+                    if summary.created_at.is_none()
+                        && let Some(ref ts) = start_data.start_time {
                             summary.created_at = chrono::DateTime::parse_from_rfc3339(ts)
                                 .ok()
                                 .map(|d| d.with_timezone(&chrono::Utc));
                         }
-                    }
                 }
 
                 if retain_events {

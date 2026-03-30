@@ -1,6 +1,6 @@
-import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { nextTick } from 'vue';
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 
 // ── Mock client ───────────────────────────────────────────────
 const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(() => ({
@@ -24,7 +24,7 @@ const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(
     totalCalls: 0,
     successRate: 0,
     avgDurationMs: 0,
-    mostUsedTool: '',
+    mostUsedTool: "",
     tools: [],
     activityHeatmap: [],
   }),
@@ -39,8 +39,8 @@ const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(
   }),
 }));
 
-vi.mock('@tracepilot/client', async () => {
-  const { createClientMock } = await import('../mocks/client');
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
   return createClientMock({
     getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
     getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
@@ -50,36 +50,38 @@ vi.mock('@tracepilot/client', async () => {
 
 // ── Track onMounted callbacks manually ────────────────────────
 let mountCallbacks: (() => void)[] = [];
-vi.mock('vue', async () => {
-  const actual = await vi.importActual<typeof import('vue')>('vue');
+vi.mock("vue", async () => {
+  const actual = await vi.importActual<typeof import("vue")>("vue");
   return {
     ...actual,
-    onMounted: (cb: () => void) => { mountCallbacks.push(cb); },
+    onMounted: (cb: () => void) => {
+      mountCallbacks.push(cb);
+    },
   };
 });
 
+import { useAnalyticsPage } from "../../composables/useAnalyticsPage";
 // ── Import after mocks are in place ───────────────────────────
-import { useAnalyticsStore } from '../../stores/analytics';
-import { useAnalyticsPage } from '../../composables/useAnalyticsPage';
+import { useAnalyticsStore } from "../../stores/analytics";
 
-describe('useAnalyticsPage', () => {
+describe("useAnalyticsPage", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
     mountCallbacks = [];
   });
 
-  it('returns the analytics store instance', () => {
-    const { store } = useAnalyticsPage('fetchAnalytics');
+  it("returns the analytics store instance", () => {
+    const { store } = useAnalyticsPage("fetchAnalytics");
     expect(store).toBe(useAnalyticsStore());
   });
 
-  it('calls fetchAvailableRepos and the named fetch method on mount', async () => {
+  it("calls fetchAvailableRepos and the named fetch method on mount", async () => {
     const store = useAnalyticsStore();
-    const reposSpy = vi.spyOn(store, 'fetchAvailableRepos').mockResolvedValue(undefined);
-    const fetchSpy = vi.spyOn(store, 'fetchAnalytics').mockResolvedValue(undefined);
+    const reposSpy = vi.spyOn(store, "fetchAvailableRepos").mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, "fetchAnalytics").mockResolvedValue(undefined);
 
-    useAnalyticsPage('fetchAnalytics');
+    useAnalyticsPage("fetchAnalytics");
 
     // Simulate mount
     for (const cb of mountCallbacks) await cb();
@@ -89,25 +91,25 @@ describe('useAnalyticsPage', () => {
     expect(fetchSpy).toHaveBeenCalledWith();
   });
 
-  it('calls the named fetch method with force:true when selectedRepo changes', async () => {
+  it("calls the named fetch method with force:true when selectedRepo changes", async () => {
     const store = useAnalyticsStore();
-    const fetchSpy = vi.spyOn(store, 'fetchToolAnalysis').mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, "fetchToolAnalysis").mockResolvedValue(undefined);
 
-    useAnalyticsPage('fetchToolAnalysis');
+    useAnalyticsPage("fetchToolAnalysis");
 
-    store.setRepo('my-repo');
+    store.setRepo("my-repo");
     await nextTick();
 
     expect(fetchSpy).toHaveBeenCalledWith({ force: true });
   });
 
-  it('calls the named fetch method with force:true when dateRange changes', async () => {
+  it("calls the named fetch method with force:true when dateRange changes", async () => {
     const store = useAnalyticsStore();
-    const fetchSpy = vi.spyOn(store, 'fetchCodeImpact').mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(store, "fetchCodeImpact").mockResolvedValue(undefined);
 
-    useAnalyticsPage('fetchCodeImpact');
+    useAnalyticsPage("fetchCodeImpact");
 
-    store.setTimeRange('7d');
+    store.setTimeRange("7d");
     await nextTick();
 
     expect(fetchSpy).toHaveBeenCalledWith({ force: true });

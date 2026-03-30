@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import FilterSelect from "../components/FilterSelect.vue";
 
 describe("FilterSelect", () => {

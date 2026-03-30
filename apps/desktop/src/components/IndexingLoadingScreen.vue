@@ -73,58 +73,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import type { IndexingProgressPayload } from '@tracepilot/types'
-import { reindexSessions } from '@tracepilot/client'
-import { logError, logWarn } from '@/utils/logger'
-import LogoIcon from '@/components/icons/LogoIcon.vue'
-import { useIndexingEvents } from '@/composables/useIndexingEvents'
+import { reindexSessions } from "@tracepilot/client";
+import type { IndexingProgressPayload } from "@tracepilot/types";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import LogoIcon from "@/components/icons/LogoIcon.vue";
+import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import {
-  useOrbitalAnimation,
-  PHASE_LABELS,
   DISCOVERING_MESSAGES,
+  PHASE_LABELS,
   type Phase,
-} from '@/composables/useOrbitalAnimation'
+  useOrbitalAnimation,
+} from "@/composables/useOrbitalAnimation";
+import { logError, logWarn } from "@/utils/logger";
 
 // ── Props & Emits ──────────────────────────────────────────────────────────────
 
 const props = defineProps<{
-  totalSessions: number
-}>()
+  totalSessions: number;
+}>();
 
 const emit = defineEmits<{
-  complete: []
-}>()
+  complete: [];
+}>();
 
 // ── UI state ───────────────────────────────────────────────────────────────────
 
-const phase = ref<Phase>('idle')
-const showLogo = ref(false)
-const dismissed = ref(false)
-const fadingOut = ref(false)
-const completionFlashActive = ref(false)
-const progressPct = ref(0)
-const sessionCounterText = ref('')
-const prefersReducedMotion = ref(false)
-const discoveringMessageIndex = ref(0)
+const phase = ref<Phase>("idle");
+const showLogo = ref(false);
+const dismissed = ref(false);
+const fadingOut = ref(false);
+const completionFlashActive = ref(false);
+const progressPct = ref(0);
+const sessionCounterText = ref("");
+const prefersReducedMotion = ref(false);
+const discoveringMessageIndex = ref(0);
 
 // Timer tracking for cleanup
-const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
-let safetyTimeoutId: ReturnType<typeof setTimeout> | null = null
-const SAFETY_TIMEOUT_MS = 60_000
-let discoveringIntervalId: ReturnType<typeof setInterval> | null = null
+const pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+let safetyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const SAFETY_TIMEOUT_MS = 60_000;
+let discoveringIntervalId: ReturnType<typeof setInterval> | null = null;
 
 // Minimum display time tracking
-let mountTime = 0
-const MIN_DISPLAY_MS = 800
-let sessionsProcessed = 0
-let completionStarted = false
+let mountTime = 0;
+const MIN_DISPLAY_MS = 800;
+let sessionsProcessed = 0;
+let completionStarted = false;
 
 // ── Template refs ──────────────────────────────────────────────────────────────
 
-const orbitalFieldRef = ref<HTMLElement>()
-const svgLayerRef = ref<SVGSVGElement>()
-const ambientContainerRef = ref<HTMLElement>()
+const orbitalFieldRef = ref<HTMLElement>();
+const svgLayerRef = ref<SVGSVGElement>();
+const ambientContainerRef = ref<HTMLElement>();
 
 // ── Composables ────────────────────────────────────────────────────────────────
 
@@ -153,212 +153,209 @@ const {
   ambientContainerRef,
   phase,
   prefersReducedMotion,
-})
+});
 
 const indexingEvents = useIndexingEvents({
   onStarted: onIndexingStarted,
   onProgress: onIndexingProgress,
   onFinished: onIndexingFinished,
-})
+});
 
 // ── Tracked timeout helper ─────────────────────────────────────────────────────
 
 function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
   const id = setTimeout(() => {
-    pendingTimers.delete(id)
-    fn()
-  }, ms)
-  pendingTimers.add(id)
-  return id
+    pendingTimers.delete(id);
+    fn();
+  }, ms);
+  pendingTimers.add(id);
+  return id;
 }
 
 // ── Computed ───────────────────────────────────────────────────────────────────
 
 const phaseLabel = computed(() => {
-  if (phase.value === 'discovering') {
-    return DISCOVERING_MESSAGES[discoveringMessageIndex.value]
+  if (phase.value === "discovering") {
+    return DISCOVERING_MESSAGES[discoveringMessageIndex.value];
   }
-  return PHASE_LABELS[phase.value]
-})
+  return PHASE_LABELS[phase.value];
+});
 
 // ── Seed nodes ─────────────────────────────────────────────────────────────────
 
 /** Seed decorative dot-only nodes across all lanes for immediate visual activity. */
 function seedDecorativeNodes() {
   // Spread across the three orbital lanes (token thresholds: 30k, 100k, ∞)
-  createSeedNode('·', 5_000)
-  createSeedNode('·', 15_000)
-  createSeedNode('·', 25_000)
-  createSeedNode('·', 60_000)
-  createSeedNode('·', 80_000)
-  createSeedNode('·', 120_000)
-  createSeedNode('·', 200_000)
+  createSeedNode("·", 5_000);
+  createSeedNode("·", 15_000);
+  createSeedNode("·", 25_000);
+  createSeedNode("·", 60_000);
+  createSeedNode("·", 80_000);
+  createSeedNode("·", 120_000);
+  createSeedNode("·", 200_000);
 }
 
 // ── Phase transitions ──────────────────────────────────────────────────────────
 
 function setPhase(newPhase: Phase) {
-  phase.value = newPhase
+  phase.value = newPhase;
 
-  if (newPhase === 'discovering') {
-    showLogo.value = true
-    showLaneEllipses()
+  if (newPhase === "discovering") {
+    showLogo.value = true;
+    showLaneEllipses();
     // Start cycling through discovering messages every 2 seconds
-    discoveringMessageIndex.value = 0
-    if (discoveringIntervalId) clearInterval(discoveringIntervalId)
+    discoveringMessageIndex.value = 0;
+    if (discoveringIntervalId) clearInterval(discoveringIntervalId);
     discoveringIntervalId = setInterval(() => {
-      discoveringMessageIndex.value = (discoveringMessageIndex.value + 1) % DISCOVERING_MESSAGES.length
-    }, 2000)
+      discoveringMessageIndex.value =
+        (discoveringMessageIndex.value + 1) % DISCOVERING_MESSAGES.length;
+    }, 2000);
   } else {
     // Stop cycling when leaving discovering phase
     if (discoveringIntervalId) {
-      clearInterval(discoveringIntervalId)
-      discoveringIntervalId = null
+      clearInterval(discoveringIntervalId);
+      discoveringIntervalId = null;
     }
   }
 
-  if (newPhase === 'finalizing') {
-    setGlobalSpeedMult(0.5)
-    setLaneEllipseOpacity('0.2')
+  if (newPhase === "finalizing") {
+    setGlobalSpeedMult(0.5);
+    setLaneEllipseOpacity("0.2");
   }
 }
 
 // ── Completion sequence ────────────────────────────────────────────────────────
 
 async function handleCompletion() {
-  if (completionStarted) return
-  completionStarted = true
+  if (completionStarted) return;
+  completionStarted = true;
 
   // Ensure minimum display time
-  const elapsed = performance.now() - mountTime
+  const elapsed = performance.now() - mountTime;
   if (elapsed < MIN_DISPLAY_MS) {
-    await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed))
+    await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
   }
 
-  if (dismissed.value) return
+  if (dismissed.value) return;
 
-  phase.value = 'complete'
-  completionFlashActive.value = true
+  phase.value = "complete";
+  completionFlashActive.value = true;
 
   // Sequence: decelerate 400ms → hold 350ms → fade 400ms
-  const DECEL_MS = 400
-  const HOLD_MS = 350
-  const FADE_MS = 400
+  const DECEL_MS = 400;
+  const HOLD_MS = 350;
+  const FADE_MS = 400;
 
-  decelerate(DECEL_MS)
+  decelerate(DECEL_MS);
 
   safeTimeout(() => {
     // Hold phase complete — begin fade
-    fadingOut.value = true
+    fadingOut.value = true;
     safeTimeout(() => {
-      dismissed.value = true
-      emit('complete')
-    }, FADE_MS)
-  }, DECEL_MS + HOLD_MS)
+      dismissed.value = true;
+      emit("complete");
+    }, FADE_MS);
+  }, DECEL_MS + HOLD_MS);
 }
 
 // ── Tauri event handlers ───────────────────────────────────────────────────────
 
 function onIndexingStarted() {
-  setPhase('discovering')
+  setPhase("discovering");
 }
 
-let seedsCleared = false
+let seedsCleared = false;
 
 function onIndexingProgress(payload: IndexingProgressPayload) {
-  if (phase.value === 'discovering' || phase.value === 'idle') {
-    setPhase('indexing')
+  if (phase.value === "discovering" || phase.value === "idle") {
+    setPhase("indexing");
   }
 
   // Clear decorative seed nodes on first real progress event
   if (!seedsCleared) {
-    seedsCleared = true
-    clearSeedNodes()
+    seedsCleared = true;
+    clearSeedNodes();
   }
 
   // Update progress
-  const pct = payload.total > 0 ? (payload.current / payload.total) * 100 : 0
-  progressPct.value = pct
-  sessionCounterText.value = `${payload.current} / ${payload.total}`
+  const pct = payload.total > 0 ? (payload.current / payload.total) * 100 : 0;
+  progressPct.value = pct;
+  sessionCounterText.value = `${payload.current} / ${payload.total}`;
 
   // Create orbiting node if this event has session info
   if (payload.sessionRepo) {
-    createNode(
-      payload.sessionRepo,
-      payload.sessionBranch ?? 'main',
-      payload.sessionTokens,
-    )
+    createNode(payload.sessionRepo, payload.sessionBranch ?? "main", payload.sessionTokens);
 
-    sessionsProcessed++
+    sessionsProcessed++;
     if (sessionsProcessed % 10 === 0) {
-      emitPulse()
+      emitPulse();
     }
   }
 
   // Transition to finalizing at >90%
-  if (pct > 90 && phase.value === 'indexing') {
-    setPhase('finalizing')
+  if (pct > 90 && phase.value === "indexing") {
+    setPhase("finalizing");
   }
 }
 
 function onIndexingFinished() {
-  progressPct.value = 100
-  handleCompletion()
+  progressPct.value = 100;
+  handleCompletion();
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  mountTime = performance.now()
+  mountTime = performance.now();
 
-  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  prefersReducedMotion.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Register event listeners BEFORE triggering indexing
-  await indexingEvents.setup()
+  await indexingEvents.setup();
 
-  await nextTick()
+  await nextTick();
 
   // Measure viewport and initialize orbital visuals
-  measureField()
-  createAmbientParticles(35)
-  drawLaneEllipses()
+  measureField();
+  createAmbientParticles(35);
+  drawLaneEllipses();
 
   // Start animation loop
-  startAnimation()
+  startAnimation();
 
   // Show logo + seed decorative nodes immediately for visual activity
-  showLogo.value = true
-  seedDecorativeNodes()
-  showLaneEllipses()
+  showLogo.value = true;
+  seedDecorativeNodes();
+  showLaneEllipses();
 
   // Trigger indexing
   reindexSessions().catch((err) => {
-    logError('[indexing] Indexing failed (non-fatal):', err)
-    handleCompletion()
-  })
+    logError("[indexing] Indexing failed (non-fatal):", err);
+    handleCompletion();
+  });
 
   // Safety timeout
   safetyTimeoutId = safeTimeout(() => {
-    if (phase.value !== 'complete' && !dismissed.value) {
-      logWarn('[indexing] Loading screen safety timeout — proceeding to app')
-      handleCompletion()
+    if (phase.value !== "complete" && !dismissed.value) {
+      logWarn("[indexing] Loading screen safety timeout — proceeding to app");
+      handleCompletion();
     }
-  }, SAFETY_TIMEOUT_MS)
-})
+  }, SAFETY_TIMEOUT_MS);
+});
 
 onUnmounted(() => {
-  stopAnimation()
-  for (const id of pendingTimers) clearTimeout(id)
-  pendingTimers.clear()
+  stopAnimation();
+  for (const id of pendingTimers) clearTimeout(id);
+  pendingTimers.clear();
   if (safetyTimeoutId) {
-    clearTimeout(safetyTimeoutId)
-    safetyTimeoutId = null
+    clearTimeout(safetyTimeoutId);
+    safetyTimeoutId = null;
   }
   if (discoveringIntervalId) {
-    clearInterval(discoveringIntervalId)
-    discoveringIntervalId = null
+    clearInterval(discoveringIntervalId);
+    discoveringIntervalId = null;
   }
-})
+});
 </script>
 
 <style scoped>

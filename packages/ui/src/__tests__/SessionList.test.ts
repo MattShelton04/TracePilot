@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import SessionList from "../components/SessionList.vue";
 import type { SessionListItem } from "@tracepilot/types";
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import SessionList from "../components/SessionList.vue";
 
 function mockSession(overrides: Partial<SessionListItem> = {}): SessionListItem {
   return {
@@ -48,7 +48,7 @@ describe("SessionList", () => {
     });
     await wrapper.find("[role='button']").trigger("click");
     expect(wrapper.emitted("select")).toBeTruthy();
-    expect(wrapper.emitted("select")![0]).toEqual(["click-me"]);
+    expect(wrapper.emitted("select")?.[0]).toEqual(["click-me"]);
   });
 
   it("renders responsive grid layout", () => {

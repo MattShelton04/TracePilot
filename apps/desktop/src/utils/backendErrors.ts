@@ -16,7 +16,7 @@
  * changes that might wrap the sentinel in a longer message.
  */
 export function isAlreadyIndexingError(error: string): boolean {
-  return error === 'ALREADY_INDEXING' || error.toLowerCase().includes('already indexing');
+  return error === "ALREADY_INDEXING" || error.toLowerCase().includes("already indexing");
 }
 
 /**
@@ -28,7 +28,7 @@ export function isAlreadyIndexingError(error: string): boolean {
  * JSON / YAML / session parsing elsewhere in the Rust backend.
  */
 export function isSearchSyntaxError(error: string): boolean {
-  return error.includes('fts5: syntax error') || error.includes('fts5 syntax error');
+  return error.includes("fts5: syntax error") || error.includes("fts5 syntax error");
 }
 
 /**
@@ -41,11 +41,11 @@ export function toFriendlyErrorMessage(error: string | null | undefined): string
   if (!error) return null;
 
   if (isSearchSyntaxError(error)) {
-    return 'Invalid search syntax. Try simpler terms, or use quotes for exact phrases. Operators like AND, OR, NOT must be between search terms.';
+    return "Invalid search syntax. Try simpler terms, or use quotes for exact phrases. Operators like AND, OR, NOT must be between search terms.";
   }
 
   if (isAlreadyIndexingError(error)) {
-    return 'Indexing is already in progress. Please wait for the current index to complete.';
+    return "Indexing is already in progress. Please wait for the current index to complete.";
   }
 
   return error;

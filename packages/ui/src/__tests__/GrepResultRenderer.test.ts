@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import GrepResultRenderer from "../components/renderers/GrepResultRenderer.vue";
 
 describe("GrepResultRenderer", () => {
@@ -51,11 +51,7 @@ describe("GrepResultRenderer", () => {
   });
 
   it("renders count mode with per-file counts and correct totals", () => {
-    const content = [
-      "src/app.ts:15",
-      "src/utils.ts:8",
-      "src/main.ts:3",
-    ].join("\n");
+    const content = ["src/app.ts:15", "src/utils.ts:8", "src/main.ts:3"].join("\n");
 
     const wrapper = mount(GrepResultRenderer, {
       props: {

@@ -3,9 +3,9 @@
  * ViewCodeRenderer — renders view tool results with line numbers and language detection.
  */
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
-import CodeBlock from "./CodeBlock.vue";
 import { detectLanguage } from "../../utils/languageDetection";
+import CodeBlock from "./CodeBlock.vue";
+import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -14,11 +14,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const filePath = computed(() =>
-  typeof props.args?.path === "string" ? props.args.path : undefined
+  typeof props.args?.path === "string" ? props.args.path : undefined,
 );
 
 const viewRange = computed<[number, number] | null>(() => {

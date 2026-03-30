@@ -83,7 +83,7 @@
   .c { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:22px; transition:background 0.25s, border-color 0.25s, transform 0.25s; }
   .c:hover { background:var(--bg-card-h); border-color:rgba(99,102,241,0.25); transform:translateY(-1px); }
   .c h4 { font-size:0.95em; font-weight:700; margin-bottom:6px; }
-  .c p { font-size:0.85em !important; line-height:1.5 !important; }
+  .c p { font-size:0.85em; line-height:1.5; }
   .ci { font-size:1.6em; margin-bottom:10px; display:block; }
 
   /* ── Table ── */
@@ -157,13 +157,13 @@
   .modal-close { position:absolute; top:12px; right:16px; background:none; border:none; color:var(--text-m); font-size:1.4em; cursor:pointer; }
   .modal-close:hover { color:var(--text); }
   .clickable { cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; text-decoration-color:var(--text-m); transition:color 0.2s; background:none; border:none; font:inherit; padding:0; }
-  .clickable:hover, .clickable:focus-visible { color:var(--cyan) !important; text-decoration-color:var(--cyan); outline:1px solid var(--cyan); outline-offset:2px; border-radius:2px; }
+  .clickable:hover, .clickable:focus-visible { color:var(--cyan); text-decoration-color:var(--cyan); outline:1px solid var(--cyan); outline-offset:2px; border-radius:2px; }
 
   /* ── Pain point cards (large) ── */
   .pain-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px; }
   .pain { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:28px; position:relative; overflow:hidden; }
   .pain h4 { font-size:1.05em; font-weight:700; margin-bottom:8px; }
-  .pain p { font-size:0.95em !important; }
+  .pain p { font-size:0.95em; }
   .pain-bg { position:absolute; right:-20px; bottom:-20px; font-size:5em; opacity:0.06; pointer-events:none; }
   .pain::before { content:''; position:absolute; top:0; left:0; width:100%; height:2px; }
   .pain-1::before { background:linear-gradient(90deg,var(--accent),transparent); }
@@ -189,7 +189,7 @@
   .s.back { opacity:0; transform:translateX(40px); }
 
   /* ── Reduced motion — keep slide transitions, disable decorative ── */
-  @media (prefers-reduced-motion:reduce) { .orb,.ld,.model-cycle::after { animation-duration:0.01ms !important; } }
+  @media (prefers-reduced-motion:reduce) { .orb,.ld,.model-cycle::after { animation-duration:0.01ms; } }
   @media (max-width:1200px) { .s { padding:36px 48px; } .s h1 { font-size:2.4em; } .two { grid-template-columns:1fr; } .evt-grid { grid-template-columns:1fr 1fr; } .pain-grid { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -825,7 +825,7 @@ routing with react-router-dom.
   }
 };
 
-function showFile(key) {
+function _showFile(key) {
   const d = FILE_DATA[key];
   if (!d) return;
   document.getElementById('modal-title').textContent = d.title;
@@ -835,7 +835,7 @@ function showFile(key) {
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
 // ── Slide engine ──
-(function() {
+(() => {
   const slides = Array.from(document.querySelectorAll('.s'));
   const prog = document.getElementById('prog');
   const cnt = document.getElementById('cnt');
@@ -857,14 +857,14 @@ function closeModal() { document.getElementById('modal').classList.remove('open'
   }
 
   function updateUI() {
-    prog.style.width = ((cur+1)/slides.length*100)+'%';
-    cnt.textContent = (cur+1)+' / '+slides.length;
+    prog.style.width = `${(cur+1)/slides.length*100}%`;
+    cnt.textContent = `${cur+1} / ${slides.length}`;
     const id = slides[cur].getAttribute('data-id');
-    if (id) history.replaceState(null,'','#'+id);
+    if (id) history.replaceState(null,'',`#${id}`);
   }
 
   // Arrow keys only — block when modal is open
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeModal(); return; }
     if (document.getElementById('modal').classList.contains('open')) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); show(cur+1,'fwd'); }

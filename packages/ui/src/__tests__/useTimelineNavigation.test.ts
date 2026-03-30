@@ -1,13 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-import { defineComponent, ref, computed, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
+import { computed, defineComponent, nextTick, ref } from "vue";
 import { useTimelineNavigation } from "../composables/useTimelineNavigation";
-import type { TimelineNavigationReturn } from "../composables/useTimelineNavigation";
 
-function createWrapper(
-  turnCount: number,
-  options?: { onEscape?: () => void },
-) {
+function createWrapper(turnCount: number, options?: { onEscape?: () => void }) {
   return mount(
     defineComponent({
       setup() {
@@ -115,10 +111,7 @@ describe("useTimelineNavigation", () => {
   describe("keyboard navigation", () => {
     // Use a wrapper without rootRef so the focus-containment guard is skipped,
     // since jsdom does not reliably update document.activeElement on .focus().
-    function createKeyboardWrapper(
-      turnCount: number,
-      options?: { onEscape?: () => void },
-    ) {
+    function createKeyboardWrapper(turnCount: number, options?: { onEscape?: () => void }) {
       return mount(
         defineComponent({
           setup() {
@@ -139,24 +132,20 @@ describe("useTimelineNavigation", () => {
 
     it("ArrowRight calls nextTurn", () => {
       const w = createKeyboardWrapper(5);
-      window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowRight" }),
-      );
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
       expect(w.vm.turnIndex).toBe(1);
     });
 
     it("ArrowLeft calls prevTurn", () => {
       const w = createKeyboardWrapper(5);
       w.vm.jumpTo(3);
-      window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowLeft" }),
-      );
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
       expect(w.vm.turnIndex).toBe(2);
     });
 
     it("Escape calls onEscape callback", () => {
       const onEscape = vi.fn();
-      const w = createKeyboardWrapper(5, { onEscape });
+      const _w = createKeyboardWrapper(5, { onEscape });
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       expect(onEscape).toHaveBeenCalledOnce();
     });

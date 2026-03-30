@@ -1,5 +1,5 @@
-import { ref } from "vue";
 import type { Ref } from "vue";
+import { ref } from "vue";
 
 /**
  * Composable for managing toggle sets (e.g. expanded sections).

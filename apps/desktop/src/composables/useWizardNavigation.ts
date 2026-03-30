@@ -1,4 +1,4 @@
-import { type Ref, computed, nextTick, ref } from 'vue';
+import { computed, nextTick, type Ref, ref } from "vue";
 
 export interface WizardNavigationOptions {
   totalSteps: number;
@@ -23,9 +23,7 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
     options.totalSteps <= 1 ? 1 : currentStep.value / (options.totalSteps - 1),
   );
 
-  const transitionDuration = computed(() =>
-    options.prefersReducedMotion.value ? '0ms' : '400ms',
-  );
+  const transitionDuration = computed(() => (options.prefersReducedMotion.value ? "0ms" : "400ms"));
 
   function goTo(step: number) {
     if (step < 0 || step >= options.totalSteps || transitioning.value) return;
@@ -37,7 +35,7 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
         // Move focus to the new slide's first heading for keyboard accessibility
         nextTick(() => {
           const headings = options.slidesViewport.value?.querySelectorAll(
-            '.slide-content h1, .slide-content h2',
+            ".slide-content h1, .slide-content h2",
           );
           const target = headings?.[step] as HTMLElement | undefined;
           target?.focus({ preventScroll: true });
@@ -62,12 +60,12 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
   /** Keyboard handler — attach to document in the consuming component. */
   function onKeydown(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
       next();
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
       prev();
     }

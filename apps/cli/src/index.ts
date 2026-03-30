@@ -6,21 +6,21 @@
  * Most commands use pure TypeScript to read session files directly.
  */
 
-import { Command } from "commander";
-import { listSessionsCommand } from "./commands/list.js";
-import { showSessionCommand } from "./commands/show.js";
-import { searchCommand } from "./commands/search.js";
-import { resumeCommand } from "./commands/resume.js";
-import { indexCommand } from "./commands/index-cmd.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Command } from "commander";
+import { indexCommand } from "./commands/index-cmd.js";
+import { listSessionsCommand } from "./commands/list.js";
+import { resumeCommand } from "./commands/resume.js";
+import { searchCommand } from "./commands/search.js";
+import { showSessionCommand } from "./commands/show.js";
 import {
-  versionsListCommand,
-  versionsDiffCommand,
   versionsCoverageCommand,
-  versionsReportCommand,
+  versionsDiffCommand,
   versionsExamplesCommand,
+  versionsListCommand,
+  versionsReportCommand,
 } from "./commands/versions.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

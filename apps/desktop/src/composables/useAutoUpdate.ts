@@ -1,22 +1,28 @@
-import { getInstallType } from '@tracepilot/client';
-import { toErrorMessage } from '@tracepilot/ui';
-import { ref } from 'vue';
+import { getInstallType } from "@tracepilot/client";
+import { toErrorMessage } from "@tracepilot/ui";
+import { ref } from "vue";
 
-export type AutoUpdateStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'done' | 'error';
-export type InstallType = 'source' | 'installed' | 'portable' | 'unknown';
+export type AutoUpdateStatus =
+  | "idle"
+  | "checking"
+  | "downloading"
+  | "installing"
+  | "done"
+  | "error";
+export type InstallType = "source" | "installed" | "portable" | "unknown";
 
-const status = ref<AutoUpdateStatus>('idle');
+const status = ref<AutoUpdateStatus>("idle");
 const progress = ref(0);
 const errorMessage = ref<string | null>(null);
-const installType = ref<InstallType>('unknown');
+const installType = ref<InstallType>("unknown");
 
 async function detectInstallType(): Promise<InstallType> {
-  if (installType.value !== 'unknown') return installType.value;
+  if (installType.value !== "unknown") return installType.value;
   try {
     installType.value = (await getInstallType()) as InstallType;
   } catch {
     // Browser mock / non-Tauri environment → treat as source
-    installType.value = 'source';
+    installType.value = "source";
   }
   return installType.value;
 }
@@ -27,53 +33,54 @@ async function detectInstallType(): Promise<InstallType> {
  */
 async function installUpdate(): Promise<void> {
   const type = await detectInstallType();
-  if (type !== 'installed') {
-    errorMessage.value = type === 'source'
-      ? 'Auto-update is not available in dev mode. Use git pull instead.'
-      : 'Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.';
-    status.value = 'error';
+  if (type !== "installed") {
+    errorMessage.value =
+      type === "source"
+        ? "Auto-update is not available in dev mode. Use git pull instead."
+        : "Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.";
+    status.value = "error";
     return;
   }
 
-  status.value = 'checking';
+  status.value = "checking";
   errorMessage.value = null;
   progress.value = 0;
 
   try {
-    const { check } = await import('@tauri-apps/plugin-updater');
+    const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
 
     if (!update) {
-      status.value = 'idle';
+      status.value = "idle";
       return;
     }
 
-    status.value = 'downloading';
+    status.value = "downloading";
     let totalBytes = 0;
     let downloadedBytes = 0;
 
     await update.downloadAndInstall((event) => {
       switch (event.event) {
-        case 'Started':
+        case "Started":
           totalBytes = event.data.contentLength ?? 0;
           break;
-        case 'Progress':
+        case "Progress":
           downloadedBytes += event.data.chunkLength;
           progress.value = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
           break;
-        case 'Finished':
-          status.value = 'installing';
+        case "Finished":
+          status.value = "installing";
           progress.value = 100;
           break;
       }
     });
 
-    status.value = 'done';
-    const { relaunch } = await import('@tauri-apps/plugin-process');
+    status.value = "done";
+    const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
   } catch (e) {
-    errorMessage.value = toErrorMessage(e, 'Auto-update failed');
-    status.value = 'error';
+    errorMessage.value = toErrorMessage(e, "Auto-update failed");
+    status.value = "error";
   }
 }
 

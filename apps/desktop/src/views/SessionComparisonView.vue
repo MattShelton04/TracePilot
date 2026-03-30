@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { getSessionDetail, getSessionTurns, getShutdownMetrics } from '@tracepilot/client';
+import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
 import type {
   ConversationTurn,
   SessionDetail,
   SessionListItem,
   ShutdownMetrics,
-} from '@tracepilot/types';
+} from "@tracepilot/types";
 import {
   Badge,
   EmptyState,
@@ -17,9 +17,8 @@ import {
   SectionPanel,
   SkeletonLoader,
   toErrorMessage,
-} from '@tracepilot/ui';
-import { getChartColors } from '@/utils/designTokens';
-import { computed, onMounted, reactive, ref } from 'vue';
+} from "@tracepilot/ui";
+import { computed, onMounted, reactive, ref } from "vue";
 import {
   copilotCost,
   filesModified,
@@ -34,22 +33,23 @@ import {
   totalTokens,
   totalToolCalls,
   wholesaleCost,
-} from '@/composables/useSessionMetrics';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useSessionsStore } from '@/stores/sessions';
-import { CHART_COLORS } from '@/utils/chartColors';
-import { formatSessionDelta } from '@/utils/deltaFormatting';
+} from "@/composables/useSessionMetrics";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
+import { CHART_COLORS } from "@/utils/chartColors";
+import { formatSessionDelta } from "@/utils/deltaFormatting";
+import { getChartColors } from "@/utils/designTokens";
 
 // ── State ───────────────────────────────────────────────────────────
 
 const sessionsStore = useSessionsStore();
 const prefs = usePreferencesStore();
 
-type NormMode = 'raw' | 'per-turn' | 'per-minute';
-const normMode = ref<NormMode>('raw');
+type NormMode = "raw" | "per-turn" | "per-minute";
+const normMode = ref<NormMode>("raw");
 
-const selectedA = ref('');
-const selectedB = ref('');
+const selectedA = ref("");
+const selectedB = ref("");
 const loading = ref(false);
 const error = ref<string | null>(null);
 const compared = ref(false);
@@ -86,10 +86,10 @@ async function runComparison() {
     const [detailA, metricsA, turnsA, detailB, metricsB, turnsB] = await Promise.all([
       getSessionDetail(selectedA.value),
       getShutdownMetrics(selectedA.value),
-      getSessionTurns(selectedA.value).then(r => r.turns),
+      getSessionTurns(selectedA.value).then((r) => r.turns),
       getSessionDetail(selectedB.value),
       getShutdownMetrics(selectedB.value),
-      getSessionTurns(selectedB.value).then(r => r.turns),
+      getSessionTurns(selectedB.value).then((r) => r.turns),
     ]);
     dataA.detail = detailA;
     dataA.metrics = metricsA;
@@ -127,10 +127,10 @@ const metricsRows = computed<MetricRow[]>(() => {
 
   let divA = 1;
   let divB = 1;
-  if (normMode.value === 'per-turn') {
+  if (normMode.value === "per-turn") {
     divA = Math.max(turnsA, 1);
     divB = Math.max(turnsB, 1);
-  } else if (normMode.value === 'per-minute') {
+  } else if (normMode.value === "per-minute") {
     divA = Math.max(durA / 60000, 0.01);
     divB = Math.max(durB / 60000, 0.01);
   }
@@ -152,9 +152,9 @@ const metricsRows = computed<MetricRow[]>(() => {
   const hsA = healthScore(dataA.turns);
   const hsB = healthScore(dataB.turns);
 
-  const isNorm = normMode.value !== 'raw';
+  const isNorm = normMode.value !== "raw";
   const suffix =
-    normMode.value === 'per-turn' ? ' /turn' : normMode.value === 'per-minute' ? ' /min' : '';
+    normMode.value === "per-turn" ? " /turn" : normMode.value === "per-minute" ? " /min" : "";
 
   function row(
     label: string,
@@ -171,16 +171,16 @@ const metricsRows = computed<MetricRow[]>(() => {
   const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : String(Math.round(v)));
 
   return [
-    row('Duration', durA, durB, (v) => formatDuration(v) || '0s', false),
-    row('Turns', turnsA, turnsB, String, false),
-    row('Total Tokens' + suffix, tokA / divA, tokB / divB, fmtN, false),
-    row('Wholesale Cost' + suffix, wcA / divA, wcB / divB, formatCost, false),
-    row('Copilot Cost' + suffix, ccA / divA, ccB / divB, formatCost, false),
-    row('Tool Calls' + suffix, tcA / divA, tcB / divB, fmtInt, false),
-    row('Success Rate', srA, srB, formatRate, true),
-    row('Files Modified', fmA, fmB, String, false),
-    row('Lines Changed' + suffix, lcA / divA, lcB / divB, fmtInt, false),
-    row('Health Score', hsA, hsB, (v) => Math.round(v * 100).toString(), true),
+    row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
+    row("Turns", turnsA, turnsB, String, false),
+    row(`Total Tokens${suffix}`, tokA / divA, tokB / divB, fmtN, false),
+    row(`Wholesale Cost${suffix}`, wcA / divA, wcB / divB, formatCost, false),
+    row(`Copilot Cost${suffix}`, ccA / divA, ccB / divB, formatCost, false),
+    row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
+    row("Success Rate", srA, srB, formatRate, true),
+    row("Files Modified", fmA, fmB, String, false),
+    row(`Lines Changed${suffix}`, lcA / divA, lcB / divB, fmtInt, false),
+    row("Health Score", hsA, hsB, (v) => Math.round(v * 100).toString(), true),
   ];
 });
 
@@ -204,11 +204,11 @@ const tokenBars = computed<TokenBarRow[]>(() => {
   const crB = totalCacheRead(dataB.metrics);
   const maxAll = Math.max(inA, inB, outA, outB, 1);
   return [
-    { label: 'Input', valueA: inA, valueB: inB, maxVal: maxAll },
+    { label: "Input", valueA: inA, valueB: inB, maxVal: maxAll },
     ...(crA > 0 || crB > 0
       ? [
           {
-            label: '\u00A0\u00A0└ Cached',
+            label: "\u00A0\u00A0└ Cached",
             valueA: crA,
             valueB: crB,
             maxVal: maxAll,
@@ -216,7 +216,7 @@ const tokenBars = computed<TokenBarRow[]>(() => {
           },
         ]
       : []),
-    { label: 'Output', valueA: outA, valueB: outB, maxVal: maxAll },
+    { label: "Output", valueA: outA, valueB: outB, maxVal: maxAll },
   ];
 });
 
@@ -233,18 +233,18 @@ interface DonutSegment {
 // Gradients from primary to lighter shades of indigo/violet
 const chartColors = getChartColors();
 const DONUT_COLORS_A = [
-  chartColors.primary,       // #6366f1 indigo
-  chartColors.primaryLight,  // #818cf8 lighter indigo
-  '#a5b4fc',  // even lighter indigo (keeping for gradient consistency)
-  '#c7d2fe',  // pastel indigo
-  '#e0e7ff',  // very light indigo
+  chartColors.primary, // #6366f1 indigo
+  chartColors.primaryLight, // #818cf8 lighter indigo
+  "#a5b4fc", // even lighter indigo (keeping for gradient consistency)
+  "#c7d2fe", // pastel indigo
+  "#e0e7ff", // very light indigo
 ];
 const DONUT_COLORS_B = [
-  '#7c3aed',              // purple (keeping as distinct from palette A)
-  chartColors.secondary,  // #a78bfa violet
-  '#c4b5fd',              // lighter violet (keeping for gradient)
-  '#ddd6fe',              // pastel violet
-  '#ede9fe',              // very light violet
+  "#7c3aed", // purple (keeping as distinct from palette A)
+  chartColors.secondary, // #a78bfa violet
+  "#c4b5fd", // lighter violet (keeping for gradient)
+  "#ddd6fe", // pastel violet
+  "#ede9fe", // very light violet
 ];
 
 function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSegment[] {
@@ -333,21 +333,21 @@ const timelineB = computed(() => timelineBlocks(dataB.turns));
 // ── Summary card helpers ────────────────────────────────────────────
 
 function sessionLabel(detail: SessionDetail | null): string {
-  return detail?.summary || detail?.id || 'Unknown';
+  return detail?.summary || detail?.id || "Unknown";
 }
 
 function exitBadgeVariant(
   m: ShutdownMetrics | null,
-): 'default' | 'accent' | 'success' | 'warning' | 'danger' | 'done' | 'neutral' {
-  if (!m?.shutdownType) return 'neutral';
+): "default" | "accent" | "success" | "warning" | "danger" | "done" | "neutral" {
+  if (!m?.shutdownType) return "neutral";
   const t = m.shutdownType.toLowerCase();
-  if (t.includes('clean') || t === 'completed' || t === 'normal') return 'success';
-  if (t.includes('forced') || t.includes('error') || t.includes('crash')) return 'danger';
-  return 'warning';
+  if (t.includes("clean") || t === "completed" || t === "normal") return "success";
+  if (t.includes("forced") || t.includes("error") || t.includes("crash")) return "danger";
+  return "warning";
 }
 
 function exitLabel(m: ShutdownMetrics | null): string {
-  if (!m?.shutdownType) return 'Unknown';
+  if (!m?.shutdownType) return "Unknown";
   return m.shutdownType;
 }
 </script>

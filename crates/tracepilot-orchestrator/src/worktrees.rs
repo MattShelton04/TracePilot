@@ -33,17 +33,15 @@ pub fn is_git_repo(path: &Path) -> bool {
 /// Checks `init.defaultBranch` config, then falls back to HEAD of origin, then "main".
 pub fn get_default_branch(repo_path: &Path) -> Result<String> {
     // Try symbolic-ref of origin/HEAD first (most reliable for cloned repos)
-    if let Ok(ref_str) = git(repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD"]) {
-        if let Some(branch) = ref_str.strip_prefix("refs/remotes/origin/") {
+    if let Ok(ref_str) = git(repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD"])
+        && let Some(branch) = ref_str.strip_prefix("refs/remotes/origin/") {
             return Ok(branch.to_string());
         }
-    }
     // Fall back to the branch that HEAD points to in the main worktree
-    if let Ok(head_ref) = git(repo_path, &["symbolic-ref", "--short", "HEAD"]) {
-        if !head_ref.is_empty() {
+    if let Ok(head_ref) = git(repo_path, &["symbolic-ref", "--short", "HEAD"])
+        && !head_ref.is_empty() {
             return Ok(head_ref);
         }
-    }
     // Last resort
     Ok("main".to_string())
 }
@@ -385,6 +383,7 @@ fn parse_porcelain_output(raw: &str, repo_root: &str) -> Result<Vec<WorktreeInfo
     Ok(worktrees)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_worktree_info(
     path: &str,
     branch: &str,

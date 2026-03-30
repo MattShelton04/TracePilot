@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ref, nextTick } from "vue";
-import { useConversationSections } from "../composables/useConversationSections";
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import { describe, expect, it } from "vitest";
+import { nextTick, ref } from "vue";
+import { useConversationSections } from "../composables/useConversationSections";
 
 function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
@@ -61,11 +61,11 @@ describe("useConversationSections", () => {
 
       const mainSection = sections.find((s) => !s.agentId);
       expect(mainSection).toBeDefined();
-      expect(mainSection!.messages).toEqual(["Main message"]);
+      expect(mainSection?.messages).toEqual(["Main message"]);
 
       const subSection = sections.find((s) => s.agentId === "sub-1");
       expect(subSection).toBeDefined();
-      expect(subSection!.messages).toEqual(["Sub message"]);
+      expect(subSection?.messages).toEqual(["Sub message"]);
     });
 
     it("returns empty array for unknown turn index", () => {

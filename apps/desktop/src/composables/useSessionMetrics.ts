@@ -2,7 +2,7 @@
  * Pure computation functions for session metrics.
  * Extracted from SessionComparisonView to enable reuse across views.
  */
-import type { ConversationTurn, SessionDetail, ShutdownMetrics } from '@tracepilot/types';
+import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
 
 export function totalTokens(m: ShutdownMetrics | null): number {
   if (!m?.modelMetrics) return 0;

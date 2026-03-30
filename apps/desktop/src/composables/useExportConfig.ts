@@ -3,9 +3,14 @@
  * format, section toggles, and preset application.
  */
 
-import { ref, computed, watch } from 'vue';
-import type { SectionId, ExportFormat, ContentDetailOptions, RedactionOptions } from '@tracepilot/types';
-import { ALL_SECTION_IDS, SECTION_LABELS } from '@tracepilot/types';
+import type {
+  ContentDetailOptions,
+  ExportFormat,
+  RedactionOptions,
+  SectionId,
+} from "@tracepilot/types";
+import { ALL_SECTION_IDS } from "@tracepilot/types";
+import { computed, ref, watch } from "vue";
 
 // ── Preset Definitions ──────────────────────────────────────────
 
@@ -20,44 +25,45 @@ export interface ExportPreset {
 
 export const EXPORT_PRESETS: readonly ExportPreset[] = [
   {
-    id: 'full',
-    label: 'Full Archive',
-    icon: '📦',
-    description: 'Lossless archive — all data, suitable for re-import.',
-    format: 'json',
+    id: "full",
+    label: "Full Archive",
+    icon: "📦",
+    description: "Lossless archive — all data, suitable for re-import.",
+    format: "json",
     sections: [...ALL_SECTION_IDS],
   },
   {
-    id: 'team',
-    label: 'Team Report',
-    icon: '👥',
-    description: 'Human-readable summary for sharing with teammates.',
-    format: 'markdown',
-    sections: ['conversation', 'todos', 'plan', 'checkpoints', 'metrics', 'health'],
+    id: "team",
+    label: "Team Report",
+    icon: "👥",
+    description: "Human-readable summary for sharing with teammates.",
+    format: "markdown",
+    sections: ["conversation", "todos", "plan", "checkpoints", "metrics", "health"],
   },
   {
-    id: 'summary',
-    label: 'Summary',
-    icon: '📋',
-    description: 'Brief overview — todos, plan, checkpoints, and metrics.',
-    format: 'markdown',
-    sections: ['todos', 'plan', 'checkpoints', 'metrics'],
+    id: "summary",
+    label: "Summary",
+    icon: "📋",
+    description: "Brief overview — todos, plan, checkpoints, and metrics.",
+    format: "markdown",
+    sections: ["todos", "plan", "checkpoints", "metrics"],
   },
   {
-    id: 'analytics',
-    label: 'Analytics',
-    icon: '📊',
-    description: 'Tabular metrics and events for spreadsheet analysis.',
-    format: 'csv',
-    sections: ['metrics', 'events', 'health', 'incidents'],
+    id: "analytics",
+    label: "Analytics",
+    icon: "📊",
+    description: "Tabular metrics and events for spreadsheet analysis.",
+    format: "csv",
+    sections: ["metrics", "events", "health", "incidents"],
   },
   {
-    id: 'agent-context',
-    label: 'Agent Context',
-    icon: '🤖',
-    description: 'Session summary for sharing with another AI — includes conversation, plan, and outcomes.',
-    format: 'markdown',
-    sections: ['conversation', 'todos', 'plan', 'metrics', 'health'],
+    id: "agent-context",
+    label: "Agent Context",
+    icon: "🤖",
+    description:
+      "Session summary for sharing with another AI — includes conversation, plan, and outcomes.",
+    format: "markdown",
+    sections: ["conversation", "todos", "plan", "metrics", "health"],
   },
 ] as const;
 
@@ -69,40 +75,43 @@ export interface SectionGroup {
 }
 
 export const SECTION_GROUPS: readonly SectionGroup[] = [
-  { label: 'Content', sections: ['conversation', 'plan', 'todos', 'checkpoints'] },
-  { label: 'Analytics', sections: ['metrics', 'health', 'incidents'] },
-  { label: 'Technical', sections: ['events', 'rewind_snapshots', 'custom_tables', 'parse_diagnostics'] },
+  { label: "Content", sections: ["conversation", "plan", "todos", "checkpoints"] },
+  { label: "Analytics", sections: ["metrics", "health", "incidents"] },
+  {
+    label: "Technical",
+    sections: ["events", "rewind_snapshots", "custom_tables", "parse_diagnostics"],
+  },
 ] as const;
 
 export const SECTION_ICONS: Record<SectionId, string> = {
-  conversation: '💬',
-  plan: '📋',
-  todos: '✅',
-  checkpoints: '📌',
-  metrics: '📊',
-  health: '💚',
-  incidents: '⚠️',
-  events: '📡',
-  rewind_snapshots: '🔄',
-  custom_tables: '📑',
-  parse_diagnostics: '🔍',
+  conversation: "💬",
+  plan: "📋",
+  todos: "✅",
+  checkpoints: "📌",
+  metrics: "📊",
+  health: "💚",
+  incidents: "⚠️",
+  events: "📡",
+  rewind_snapshots: "🔄",
+  custom_tables: "📑",
+  parse_diagnostics: "🔍",
 };
 
 // ── Format Descriptions ─────────────────────────────────────────
 
 export const FORMAT_DESCRIPTIONS: Record<ExportFormat, string> = {
-  json: 'Full fidelity archive — lossless round-trip import/export.',
-  markdown: 'Human-readable summary — great for sharing in docs or PRs.',
-  csv: 'Tabular data — ideal for spreadsheets and data analysis.',
+  json: "Full fidelity archive — lossless round-trip import/export.",
+  markdown: "Human-readable summary — great for sharing in docs or PRs.",
+  csv: "Tabular data — ideal for spreadsheets and data analysis.",
 };
 
 // ── Composable ──────────────────────────────────────────────────
 
 export function useExportConfig() {
-  const selectedSessionId = ref('');
-  const format = ref<ExportFormat>('json');
+  const selectedSessionId = ref("");
+  const format = ref<ExportFormat>("json");
   const enabledSections = ref(new Set<SectionId>([...ALL_SECTION_IDS]));
-  const activePreset = ref<string | null>('full');
+  const activePreset = ref<string | null>("full");
 
   // Content detail options
   const contentDetail = ref<ContentDetailOptions>({
@@ -122,10 +131,7 @@ export function useExportConfig() {
   const customPresets = ref<ExportPreset[]>([]);
 
   /** All available presets: built-in + custom */
-  const allPresets = computed<ExportPreset[]>(() => [
-    ...EXPORT_PRESETS,
-    ...customPresets.value,
-  ]);
+  const allPresets = computed<ExportPreset[]>(() => [...EXPORT_PRESETS, ...customPresets.value]);
 
   // Track whether preset is being applied to suppress clearing it
   let applyingPreset = false;
@@ -169,7 +175,7 @@ export function useExportConfig() {
       {
         id,
         label: name,
-        icon: '⭐',
+        icon: "⭐",
         description: `Custom preset: ${name}`,
         format: format.value,
         sections: [...enabledSections.value],
@@ -196,9 +202,13 @@ export function useExportConfig() {
   // Clear active preset when format changes manually.
   // flush: 'sync' ensures the watcher runs while applyingPreset is still true,
   // so programmatic format changes from applyPreset() don't clear the preset.
-  watch(format, () => {
-    if (!applyingPreset) activePreset.value = null;
-  }, { flush: 'sync' });
+  watch(
+    format,
+    () => {
+      if (!applyingPreset) activePreset.value = null;
+    },
+    { flush: "sync" },
+  );
 
   const sectionsArray = computed<SectionId[]>(() => [...enabledSections.value]);
 

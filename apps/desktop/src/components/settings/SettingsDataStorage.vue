@@ -7,25 +7,33 @@ import {
   rebuildSearchIndex as rebuildSearchIndexApi,
   reindexSessionsFull as reindexSessionsFullApi,
   saveConfig,
-} from '@tracepilot/client';
-import type { IndexingProgressPayload } from '@tracepilot/types';
-import { ActionButton, FormInput, SectionPanel, formatBytes, toErrorMessage, useToast, useConfirmDialog } from '@tracepilot/ui';
-import { onMounted, ref } from 'vue';
-import { browseForDirectory } from '@/composables/useBrowseDirectory';
-import { useIndexingEvents } from '@/composables/useIndexingEvents';
-import { isAlreadyIndexingError } from '@/utils/backendErrors';
-import { useAnalyticsStore } from '@/stores/analytics';
-import { useSessionsStore } from '@/stores/sessions';
-import { logWarn } from '@/utils/logger';
+} from "@tracepilot/client";
+import type { IndexingProgressPayload } from "@tracepilot/types";
+import {
+  ActionButton,
+  FormInput,
+  formatBytes,
+  SectionPanel,
+  toErrorMessage,
+  useConfirmDialog,
+  useToast,
+} from "@tracepilot/ui";
+import { onMounted, ref } from "vue";
+import { browseForDirectory } from "@/composables/useBrowseDirectory";
+import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useSessionsStore } from "@/stores/sessions";
+import { isAlreadyIndexingError } from "@/utils/backendErrors";
+import { logWarn } from "@/utils/logger";
 
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
 const toast = useToast();
 const { confirm } = useConfirmDialog();
 
-const sessionsDirectory = ref('');
-const databasePath = ref('');
-const databaseSize = ref('—');
+const sessionsDirectory = ref("");
+const databasePath = ref("");
+const databaseSize = ref("—");
 const indexedSessionCount = ref(0);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
@@ -38,9 +46,17 @@ const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
-  onStarted: () => { indexingProgress.value = null; isIndexing.value = true; },
-  onProgress: (p) => { indexingProgress.value = p; },
-  onFinished: () => { indexingProgress.value = null; isIndexing.value = false; },
+  onStarted: () => {
+    indexingProgress.value = null;
+    isIndexing.value = true;
+  },
+  onProgress: (p) => {
+    indexingProgress.value = p;
+  },
+  onFinished: () => {
+    indexingProgress.value = null;
+    isIndexing.value = false;
+  },
 });
 
 // ── Load config data on mount ────────────────────────────────
@@ -52,7 +68,7 @@ onMounted(async () => {
     databasePath.value = config.paths.indexDbPath;
   } catch (e) {
     // Non-critical: defaults are fine
-    logWarn('[SettingsDataStorage] Failed to load config:', e);
+    logWarn("[SettingsDataStorage] Failed to load config:", e);
   }
 
   try {
@@ -60,20 +76,20 @@ onMounted(async () => {
     databaseSize.value = formatBytes(bytes);
   } catch (e) {
     // Non-critical: keep placeholder
-    logWarn('[SettingsDataStorage] Failed to get database size:', e);
+    logWarn("[SettingsDataStorage] Failed to get database size:", e);
   }
 
   try {
     indexedSessionCount.value = await getSessionCountApi();
   } catch (e) {
     // Non-critical: keep 0
-    logWarn('[SettingsDataStorage] Failed to get session count:', e);
+    logWarn("[SettingsDataStorage] Failed to get session count:", e);
   }
 });
 
 async function browseSessionDir() {
   const selected = await browseForDirectory({
-    title: 'Select session-state directory',
+    title: "Select session-state directory",
     defaultPath: sessionsDirectory.value,
   });
   if (selected) {
@@ -89,7 +105,7 @@ async function persistSessionDir() {
     await saveConfig(config);
   } catch (e) {
     // Non-fatal: local UI still updates
-    logWarn('[SettingsDataStorage] Failed to persist session directory:', e);
+    logWarn("[SettingsDataStorage] Failed to persist session directory:", e);
   }
 }
 
@@ -98,13 +114,13 @@ async function clearCache() {
   reindexResult.value = null;
   try {
     const [rebuilt, total] = await reindexSessionsFullApi();
-    reindexResult.value = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? 's' : ''}`;
+    reindexResult.value = `Rebuilt analytics for ${rebuilt} session${rebuilt !== 1 ? "s" : ""}`;
     await sessionsStore.fetchSessions();
     analyticsStore.$reset();
   } catch (e) {
     const msg = toErrorMessage(e);
     if (isAlreadyIndexingError(msg)) {
-      reindexResult.value = 'Indexing already in progress…';
+      reindexResult.value = "Indexing already in progress…";
     } else {
       reindexResult.value = `Error: ${msg}`;
     }
@@ -119,11 +135,11 @@ async function rebuildSearchIndex() {
   try {
     const [indexed, total] = await rebuildSearchIndexApi();
     searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
-    toast.success('Search index rebuilt successfully');
+    toast.success("Search index rebuilt successfully");
   } catch (e) {
     const msg = toErrorMessage(e);
     if (isAlreadyIndexingError(msg)) {
-      searchRebuildResult.value = 'Search indexing already in progress…';
+      searchRebuildResult.value = "Search indexing already in progress…";
     } else {
       searchRebuildResult.value = `Error: ${msg}`;
     }
@@ -134,10 +150,11 @@ async function rebuildSearchIndex() {
 
 async function handleFactoryReset() {
   const { confirmed } = await confirm({
-    title: 'Factory Reset',
-    message: 'This will permanently erase all data and restore default settings. This action cannot be undone.',
-    variant: 'danger',
-    confirmLabel: 'Yes, Reset Everything',
+    title: "Factory Reset",
+    message:
+      "This will permanently erase all data and restore default settings. This action cannot be undone.",
+    variant: "danger",
+    confirmLabel: "Yes, Reset Everything",
   });
   if (!confirmed) return;
 
@@ -145,12 +162,12 @@ async function handleFactoryReset() {
   try {
     await factoryResetApi();
     // Clear all TracePilot localStorage keys
-    localStorage.removeItem('tracepilot-prefs');
-    localStorage.removeItem('tracepilot-theme');
-    localStorage.removeItem('tracepilot-last-session');
-    localStorage.removeItem('tracepilot-last-seen-version');
-    localStorage.removeItem('tracepilot-update-check');
-    localStorage.removeItem('tracepilot-dismissed-update');
+    localStorage.removeItem("tracepilot-prefs");
+    localStorage.removeItem("tracepilot-theme");
+    localStorage.removeItem("tracepilot-last-session");
+    localStorage.removeItem("tracepilot-last-seen-version");
+    localStorage.removeItem("tracepilot-update-check");
+    localStorage.removeItem("tracepilot-dismissed-update");
     window.location.reload();
   } catch (e) {
     resetting.value = false;

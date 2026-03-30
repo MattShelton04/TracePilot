@@ -7,12 +7,7 @@
 
 import type { TurnToolCall } from "@tracepilot/types";
 
-export type AgentType =
-  | "main"
-  | "explore"
-  | "general-purpose"
-  | "code-review"
-  | "task";
+export type AgentType = "main" | "explore" | "general-purpose" | "code-review" | "task";
 
 export const AGENT_COLORS: Record<AgentType, string> = {
   main: "var(--agent-color-main)",
@@ -42,17 +37,11 @@ export const STATUS_ICONS: Record<AgentStatus, string> = {
  * Infer the agent type from a subagent tool call's metadata.
  * Checks display name, tool name, and arguments for type hints.
  */
-export function inferAgentType(
-  displayName?: string,
-  toolName?: string,
-  args?: unknown,
-): AgentType {
+export function inferAgentType(displayName?: string, toolName?: string, args?: unknown): AgentType {
   const name = (displayName ?? toolName ?? "").toLowerCase();
   if (name.includes("explore")) return "explore";
-  if (name.includes("code-review") || name.includes("code review"))
-    return "code-review";
-  if (name.includes("general") || name.includes("general-purpose"))
-    return "general-purpose";
+  if (name.includes("code-review") || name.includes("code review")) return "code-review";
+  if (name.includes("general") || name.includes("general-purpose")) return "general-purpose";
   if (args && typeof args === "object") {
     const a = args as Record<string, unknown>;
     const agentType = String(a.agent_type ?? "").toLowerCase();

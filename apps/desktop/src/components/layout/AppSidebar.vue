@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
-import LogoIcon from '@/components/icons/LogoIcon.vue';
-import { useAppVersion } from '@/composables/useAppVersion';
-import { useUpdateCheck } from '@/composables/useUpdateCheck';
-import { useWhatsNew } from '@/composables/useWhatsNew';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useSessionsStore } from '@/stores/sessions';
+import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
+import LogoIcon from "@/components/icons/LogoIcon.vue";
+import { useAppVersion } from "@/composables/useAppVersion";
+import { useUpdateCheck } from "@/composables/useUpdateCheck";
+import { useWhatsNew } from "@/composables/useWhatsNew";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 
-const DISMISSED_KEY = 'tracepilot-dismissed-update';
+const DISMISSED_KEY = "tracepilot-dismissed-update";
 
 const emit = defineEmits<{
-  'view-update-details': [];
+  "view-update-details": [];
 }>();
 
 const { appVersion } = useAppVersion();
@@ -22,13 +22,13 @@ const route = useRoute();
 const sessionsStore = useSessionsStore();
 const prefsStore = usePreferencesStore();
 
-const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || 'sessions');
+const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || "sessions");
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
 const currentTheme = computed(() => prefsStore.theme);
-const isMac = navigator.platform.toUpperCase().includes('MAC');
+const isMac = navigator.platform.toUpperCase().includes("MAC");
 
 function toggleTheme() {
-  prefsStore.theme = currentTheme.value === 'dark' ? 'light' : 'dark';
+  prefsStore.theme = currentTheme.value === "dark" ? "light" : "dark";
 }
 
 const dismissedVersion = ref(localStorage.getItem(DISMISSED_KEY));
@@ -49,12 +49,16 @@ function dismissUpdate() {
 async function handleWhatsNewPreview() {
   const latestVersion = updateResult.value?.latestVersion;
   if (latestVersion) {
-    await openWhatsNew(appVersion.value, latestVersion, updateResult.value?.releaseUrl ?? undefined);
+    await openWhatsNew(
+      appVersion.value,
+      latestVersion,
+      updateResult.value?.releaseUrl ?? undefined,
+    );
   }
 }
 
 async function handleVersionClick() {
-  await openWhatsNew('0.0.0', appVersion.value);
+  await openWhatsNew("0.0.0", appVersion.value);
 }
 
 interface NavItem {
@@ -66,34 +70,34 @@ interface NavItem {
 }
 
 const primaryNav: NavItem[] = [
-  { id: 'sessions', label: 'Sessions', to: '/', icon: 'sessions' },
-  { id: 'search', label: 'Search', to: '/search', icon: 'search' },
-  { id: 'analytics', label: 'Analytics', to: '/analytics', icon: 'analytics' },
-  { id: 'health', label: 'Health', to: '/health', icon: 'health', featureFlag: 'healthScoring' },
-  { id: 'tools', label: 'Tools', to: '/tools', icon: 'tools' },
-  { id: 'code', label: 'Code', to: '/code', icon: 'code' },
+  { id: "sessions", label: "Sessions", to: "/", icon: "sessions" },
+  { id: "search", label: "Search", to: "/search", icon: "search" },
+  { id: "analytics", label: "Analytics", to: "/analytics", icon: "analytics" },
+  { id: "health", label: "Health", to: "/health", icon: "health", featureFlag: "healthScoring" },
+  { id: "tools", label: "Tools", to: "/tools", icon: "tools" },
+  { id: "code", label: "Code", to: "/code", icon: "code" },
 ];
 
 const advancedNav: NavItem[] = [
-  { id: 'models', label: 'Models', to: '/models', icon: 'models' },
-  { id: 'compare', label: 'Compare', to: '/compare', icon: 'compare' },
-  { id: 'replay', label: 'Replay', to: '/replay', icon: 'replay', featureFlag: 'sessionReplay' },
-  { id: 'export', label: 'Export', to: '/export', icon: 'export', featureFlag: 'exportView' },
+  { id: "models", label: "Models", to: "/models", icon: "models" },
+  { id: "compare", label: "Compare", to: "/compare", icon: "compare" },
+  { id: "replay", label: "Replay", to: "/replay", icon: "replay", featureFlag: "sessionReplay" },
+  { id: "export", label: "Export", to: "/export", icon: "export", featureFlag: "exportView" },
 ];
 
 const visiblePrimaryNav = computed(() =>
-  primaryNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+  primaryNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
 );
 
 const visibleAdvancedNav = computed(() =>
-  advancedNav.filter(item => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+  advancedNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
 );
 
 const orchestrationNav: NavItem[] = [
-  { id: 'orchestration', label: 'Command Centre', to: '/orchestration', icon: 'orchestration' },
-  { id: 'worktrees', label: 'Worktrees', to: '/orchestration/worktrees', icon: 'worktrees' },
-  { id: 'launcher', label: 'Launcher', to: '/orchestration/launcher', icon: 'launcher' },
-  { id: 'config-injector', label: 'Config Injector', to: '/orchestration/config', icon: 'config' },
+  { id: "orchestration", label: "Command Centre", to: "/orchestration", icon: "orchestration" },
+  { id: "worktrees", label: "Worktrees", to: "/orchestration/worktrees", icon: "worktrees" },
+  { id: "launcher", label: "Launcher", to: "/orchestration/launcher", icon: "launcher" },
+  { id: "config-injector", label: "Config Injector", to: "/orchestration/config", icon: "config" },
 ];
 </script>
 

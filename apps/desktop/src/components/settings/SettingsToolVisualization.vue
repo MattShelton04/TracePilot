@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { RichRenderableToolName } from '@tracepilot/types';
-import { ActionButton, FormSwitch, getRegisteredRenderers, SectionPanel } from '@tracepilot/ui';
-import { usePreferencesStore } from '@/stores/preferences';
+import type { RichRenderableToolName } from "@tracepilot/types";
+import { ActionButton, FormSwitch, getRegisteredRenderers, SectionPanel } from "@tracepilot/ui";
+import { usePreferencesStore } from "@/stores/preferences";
 
 const preferences = usePreferencesStore();
 const registeredRenderers = getRegisteredRenderers();

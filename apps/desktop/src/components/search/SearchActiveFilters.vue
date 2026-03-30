@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { SearchContentType } from '@tracepilot/types';
-import type { ContentTypeStyle } from '@tracepilot/ui';
+import type { SearchContentType } from "@tracepilot/types";
+import type { ContentTypeStyle } from "@tracepilot/ui";
 
 defineProps<{
-  activeContentTypeChips: { type: SearchContentType; mode: 'include' | 'exclude' }[];
+  activeContentTypeChips: { type: SearchContentType; mode: "include" | "exclude" }[];
   repository: string | null;
   toolName: string | null;
   sessionId: string | null;
@@ -13,11 +13,11 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'remove-content-type': [type: SearchContentType];
-  'clear-repository': [];
-  'clear-tool-name': [];
-  'clear-session-id': [];
-  'clear-all': [];
+  "remove-content-type": [type: SearchContentType];
+  "clear-repository": [];
+  "clear-tool-name": [];
+  "clear-session-id": [];
+  "clear-all": [];
 }>();
 </script>
 

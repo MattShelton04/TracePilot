@@ -2,13 +2,36 @@
    EVENT BADGES
    ============================ */
 
-.event-badge { font-size: 0.625rem; font-weight: 500; padding: 1px 6px; border-radius: var(--radius-sm); }
-.event-session { background: var(--accent-muted); color: var(--accent-fg); }
-.event-user { background: var(--success-muted); color: var(--success-fg); }
-.event-assistant { background: var(--done-muted); color: var(--done-fg); }
-.event-tool { background: var(--warning-muted); color: var(--warning-fg); }
-.event-context { background: var(--accent-muted); color: var(--accent-fg); }
-.event-subagent { background: var(--done-muted); color: var(--done-fg); }
+.event-badge {
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.event-session {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+}
+.event-user {
+  background: var(--success-muted);
+  color: var(--success-fg);
+}
+.event-assistant {
+  background: var(--done-muted);
+  color: var(--done-fg);
+}
+.event-tool {
+  background: var(--warning-muted);
+  color: var(--warning-fg);
+}
+.event-context {
+  background: var(--accent-muted);
+  color: var(--accent-fg);
+}
+.event-subagent {
+  background: var(--done-muted);
+  color: var(--done-fg);
+}
 
 /* ============================
    PAGINATION
@@ -21,7 +44,10 @@
   gap: 8px;
   padding: 12px 0;
 }
-.pagination-info { font-size: 0.75rem; color: var(--text-tertiary); }
+.pagination-info {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
 
 /* ============================
    TODO LIST
@@ -40,10 +66,26 @@
   flex-shrink: 0;
   margin-top: 1px;
 }
-.todo-body { flex: 1; min-width: 0; }
-.todo-title { font-size: 0.8125rem; font-weight: 500; }
-.todo-desc { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; line-height: 1.5; }
-.todo-deps { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+.todo-body {
+  flex: 1;
+  min-width: 0;
+}
+.todo-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.todo-desc {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.todo-deps {
+  margin-top: 4px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
 
 /* ============================
    EMPTY STATE
@@ -56,9 +98,21 @@
   padding: 40px 24px;
   color: var(--text-placeholder);
 }
-.empty-state-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.3; }
-.empty-state-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 6px; }
-.empty-state-desc { font-size: 0.8125rem; color: var(--text-placeholder); }
+.empty-state-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+.empty-state-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.empty-state-desc {
+  font-size: 0.8125rem;
+  color: var(--text-placeholder);
+}
 
 /* ============================
    TOKEN DISTRIBUTION BAR
@@ -103,15 +157,35 @@
    DIFF PANEL
    ============================ */
 
-.diff-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-default); border-radius: var(--radius-lg); overflow: hidden; }
-.diff-side { background: var(--canvas-subtle); padding: 16px; }
-.diff-header { padding: 8px 16px; font-weight: 600; font-size: 0.75rem; background: var(--canvas-default); border-bottom: 1px solid var(--border-default); }
+.diff-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.diff-side {
+  background: var(--canvas-subtle);
+  padding: 16px;
+}
+.diff-header {
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background: var(--canvas-default);
+  border-bottom: 1px solid var(--border-default);
+}
 
 /* ============================
    SWIMLANE
    ============================ */
 
-.swimlane { display: grid; grid-template-columns: 100px 1fr; gap: 0; }
+.swimlane {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 0;
+}
 .swimlane-label {
   padding: 10px 12px;
   font-size: 0.6875rem;
@@ -161,7 +235,7 @@
   position: relative;
 }
 .health-ring::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
@@ -171,14 +245,28 @@
   mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
 }
 
-
 /* ============================
    DEFINITION LIST
    ============================ */
 
-.def-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 0.8125rem; }
-.def-list dt { color: var(--text-tertiary); font-weight: 500; white-space: nowrap; }
-.def-list dd { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.def-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  font-size: 0.8125rem;
+}
+.def-list dt {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.def-list dd {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 
 /* ============================
    SESSION CARD
@@ -196,7 +284,13 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.session-card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; min-width: 0; }
+.session-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
 .session-card-footer {
   display: flex;
   justify-content: space-between;
@@ -205,14 +299,26 @@
   color: var(--text-placeholder);
   margin-top: auto;
 }
-.session-card-stat { display: flex; align-items: center; gap: 3px; }
+.session-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
 
 /* ============================
    PAGE TITLE
    ============================ */
 
-.page-title { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
-.page-subtitle { font-size: 0.8125rem; color: var(--text-tertiary); margin-top: 2px; }
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.page-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
 
 /* ============================
    TOOLBAR
@@ -293,7 +399,12 @@
   border: 2px solid var(--canvas-default);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
-.timeline-time { font-size: 0.6875rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; min-width: 44px; }
+.timeline-time {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+}
 
 /* ============================
    THEME TOGGLE
@@ -311,9 +422,14 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
 }
-.theme-toggle:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+.theme-toggle:hover {
+  background: var(--neutral-subtle);
+  color: var(--text-primary);
+}
 
 /* ============================
    GRADIENT TEXT EFFECT
@@ -337,7 +453,9 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
-.checkpoint-item:last-child { border-bottom: none; }
+.checkpoint-item:last-child {
+  border-bottom: none;
+}
 .checkpoint-number {
   width: 26px;
   height: 26px;
@@ -351,9 +469,19 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.checkpoint-body { flex: 1; min-width: 0; }
-.checkpoint-title { font-size: 0.8125rem; font-weight: 500; }
-.checkpoint-file { font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 2px; }
+.checkpoint-body {
+  flex: 1;
+  min-width: 0;
+}
+.checkpoint-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.checkpoint-file {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
 
 /* ============================
    SUMMARY PROSE
@@ -370,8 +498,12 @@
    Depends on .stat-card-value from components.css.
    ============================ */
 
-.mini-stat { padding: 10px 14px; }
-.mini-stat .stat-card-value { font-size: 1.125rem; }
+.mini-stat {
+  padding: 10px 14px;
+}
+.mini-stat .stat-card-value {
+  font-size: 1.125rem;
+}
 
 /* ============================
    TIMELINE LINK
@@ -387,5 +519,7 @@
   text-decoration: none;
   transition: color var(--transition-fast);
 }
-.timeline-link:hover { color: var(--accent-emphasis); text-decoration: underline; }
-
+.timeline-link:hover {
+  color: var(--accent-emphasis);
+  text-decoration: underline;
+}

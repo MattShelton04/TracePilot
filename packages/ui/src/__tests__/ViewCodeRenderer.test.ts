@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 import ViewCodeRenderer from "../components/renderers/ViewCodeRenderer.vue";
 
 describe("ViewCodeRenderer", () => {
-  const sampleCode = 'const x = 1;\nconst y = 2;\n';
+  const sampleCode = "const x = 1;\nconst y = 2;\n";
 
   it("renders code with line numbers for a normal file", () => {
     const wrapper = mount(ViewCodeRenderer, {

@@ -1,22 +1,22 @@
-import { describe, it, expect } from 'vitest';
-import { useAsyncGuard } from '../useAsyncGuard';
+import { describe, expect, it } from "vitest";
+import { useAsyncGuard } from "../useAsyncGuard";
 
-describe('useAsyncGuard', () => {
-  describe('basic functionality', () => {
-    it('start() returns a token', () => {
+describe("useAsyncGuard", () => {
+  describe("basic functionality", () => {
+    it("start() returns a token", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
-      expect(typeof token).toBe('number');
+      expect(typeof token).toBe("number");
       expect(token).toBeGreaterThan(0);
     });
 
-    it('isValid() returns true for current token', () => {
+    it("isValid() returns true for current token", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
       expect(guard.isValid(token)).toBe(true);
     });
 
-    it('isValid() returns false for old token after new start()', () => {
+    it("isValid() returns false for old token after new start()", () => {
       const guard = useAsyncGuard();
       const token1 = guard.start();
       const token2 = guard.start();
@@ -25,7 +25,7 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(token2)).toBe(true);
     });
 
-    it('successive tokens have incrementing values', () => {
+    it("successive tokens have incrementing values", () => {
       const guard = useAsyncGuard();
       const token1 = guard.start();
       const token2 = guard.start();
@@ -36,8 +36,8 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('multiple tokens', () => {
-    it('only the last token is valid', () => {
+  describe("multiple tokens", () => {
+    it("only the last token is valid", () => {
       const guard = useAsyncGuard();
       const token1 = guard.start();
       const token2 = guard.start();
@@ -48,7 +48,7 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(token3)).toBe(true);
     });
 
-    it('checking same token multiple times returns consistent result', () => {
+    it("checking same token multiple times returns consistent result", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
 
@@ -58,8 +58,8 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('invalidate()', () => {
-    it('invalidates current token', () => {
+  describe("invalidate()", () => {
+    it("invalidates current token", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
 
@@ -68,7 +68,7 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(token)).toBe(false);
     });
 
-    it('allows new tokens after invalidation', () => {
+    it("allows new tokens after invalidation", () => {
       const guard = useAsyncGuard();
       const oldToken = guard.start();
 
@@ -79,7 +79,7 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(newToken)).toBe(true);
     });
 
-    it('can be called multiple times safely', () => {
+    it("can be called multiple times safely", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
 
@@ -94,13 +94,13 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('current()', () => {
-    it('returns 0 before any start()', () => {
+  describe("current()", () => {
+    it("returns 0 before any start()", () => {
       const guard = useAsyncGuard();
       expect(guard.current()).toBe(0);
     });
 
-    it('returns the same value as the last start()', () => {
+    it("returns the same value as the last start()", () => {
       const guard = useAsyncGuard();
       const t1 = guard.start();
       expect(guard.current()).toBe(t1);
@@ -109,7 +109,7 @@ describe('useAsyncGuard', () => {
       expect(guard.current()).toBe(t2);
     });
 
-    it('does not invalidate existing tokens', () => {
+    it("does not invalidate existing tokens", () => {
       const guard = useAsyncGuard();
       const token = guard.start();
       expect(guard.isValid(token)).toBe(true);
@@ -121,13 +121,13 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(token)).toBe(true);
     });
 
-    it('isValid(current()) returns true', () => {
+    it("isValid(current()) returns true", () => {
       const guard = useAsyncGuard();
       guard.start();
       expect(guard.isValid(guard.current())).toBe(true);
     });
 
-    it('reflects invalidate()', () => {
+    it("reflects invalidate()", () => {
       const guard = useAsyncGuard();
       const t1 = guard.start();
       guard.invalidate();
@@ -135,9 +135,9 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(guard.current())).toBe(true);
     });
 
-    it('supports child-of-parent staleness checking pattern', async () => {
+    it("supports child-of-parent staleness checking pattern", async () => {
       const guard = useAsyncGuard();
-      let state = { value: '' };
+      const state = { value: "" };
 
       // Parent starts a new epoch
       const parentToken = guard.start();
@@ -149,9 +149,9 @@ describe('useAsyncGuard', () => {
       // Simulate child completing successfully
       await Promise.resolve();
       if (guard.isValid(childToken)) {
-        state.value = 'child-result';
+        state.value = "child-result";
       }
-      expect(state.value).toBe('child-result');
+      expect(state.value).toBe("child-result");
 
       // New parent epoch invalidates both parent and child tokens
       guard.start();
@@ -160,10 +160,10 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('race condition simulation', () => {
-    it('prevents late-completing first request from overwriting second', async () => {
+  describe("race condition simulation", () => {
+    it("prevents late-completing first request from overwriting second", async () => {
       const guard = useAsyncGuard();
-      let state = { data: null as string | null };
+      const state = { data: null as string | null };
 
       // Simulate async operations with explicit timing control
       let resolveFirst: (value: string) => void;
@@ -189,32 +189,32 @@ describe('useAsyncGuard', () => {
       });
 
       // Resolve second request FIRST
-      resolveSecond!('second');
+      resolveSecond?.("second");
       await promise2;
-      expect(state.data).toBe('second');
+      expect(state.data).toBe("second");
 
       // Resolve first request LATER (should be ignored)
-      resolveFirst!('first');
+      resolveFirst?.("first");
       await promise1;
-      expect(state.data).toBe('second'); // Should NOT change to 'first'
+      expect(state.data).toBe("second"); // Should NOT change to 'first'
     });
 
-    it('handles three overlapping requests with mixed completion order', async () => {
+    it("handles three overlapping requests with mixed completion order", async () => {
       const guard = useAsyncGuard();
-      let state = { data: null as string | null };
+      const state = { data: null as string | null };
 
       const resolvers: Array<(value: string) => void> = [];
       const requests = Array(3)
         .fill(null)
         .map(
-          (_, i) =>
+          (_, _i) =>
             new Promise<string>((resolve) => {
               resolvers.push(resolve);
             }),
         );
 
       // Start requests in order 1, 2, 3
-      const tokens = requests.map((req, i) => {
+      const _tokens = requests.map((req, _i) => {
         const token = guard.start();
         req.then((data) => {
           if (guard.isValid(token)) state.data = data;
@@ -223,22 +223,22 @@ describe('useAsyncGuard', () => {
       });
 
       // Complete in order: 2, 3, 1
-      resolvers[1]('second'); // Should be ignored (not latest)
+      resolvers[1]("second"); // Should be ignored (not latest)
       await new Promise((r) => setTimeout(r, 10));
       expect(state.data).toBeNull();
 
-      resolvers[2]('third'); // Should succeed (is latest)
+      resolvers[2]("third"); // Should succeed (is latest)
       await new Promise((r) => setTimeout(r, 10));
-      expect(state.data).toBe('third');
+      expect(state.data).toBe("third");
 
-      resolvers[0]('first'); // Should be ignored (old)
+      resolvers[0]("first"); // Should be ignored (old)
       await new Promise((r) => setTimeout(r, 10));
-      expect(state.data).toBe('third'); // Should remain 'third'
+      expect(state.data).toBe("third"); // Should remain 'third'
     });
 
-    it('guards work correctly across microtask boundaries', async () => {
+    it("guards work correctly across microtask boundaries", async () => {
       const guard = useAsyncGuard();
-      let state = { value: 0 };
+      const state = { value: 0 };
 
       const token1 = guard.start();
 
@@ -259,9 +259,9 @@ describe('useAsyncGuard', () => {
       expect(state.value).toBe(2); // Only second update should apply
     });
 
-    it('guards work correctly with setTimeout macrotasks', async () => {
+    it("guards work correctly with setTimeout macrotasks", async () => {
       const guard = useAsyncGuard();
-      let state = { value: 0 };
+      const state = { value: 0 };
 
       const token1 = guard.start();
 
@@ -280,8 +280,8 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('edge cases', () => {
-    it('handles generation counter with many operations', () => {
+  describe("edge cases", () => {
+    it("handles generation counter with many operations", () => {
       const guard = useAsyncGuard();
 
       // Simulate many operations
@@ -293,7 +293,7 @@ describe('useAsyncGuard', () => {
       expect(guard.isValid(token)).toBe(true);
     });
 
-    it('tokens from different guard instances do not interfere', () => {
+    it("tokens from different guard instances do not interfere", () => {
       const guard1 = useAsyncGuard();
       const guard2 = useAsyncGuard();
 
@@ -311,7 +311,7 @@ describe('useAsyncGuard', () => {
       expect(guard2.isValid(token2)).toBe(true);
     });
 
-    it('guard methods never throw exceptions', () => {
+    it("guard methods never throw exceptions", () => {
       const guard = useAsyncGuard();
 
       // These should never throw
@@ -322,7 +322,7 @@ describe('useAsyncGuard', () => {
       expect(() => guard.isValid(token)).not.toThrow();
     });
 
-    it('isValid handles invalid token values gracefully', () => {
+    it("isValid handles invalid token values gracefully", () => {
       const guard = useAsyncGuard();
       guard.start(); // Generation is now 1
 
@@ -333,25 +333,25 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('error handling patterns', () => {
-    it('token check in catch block prevents stale error display', async () => {
+  describe("error handling patterns", () => {
+    it("token check in catch block prevents stale error display", async () => {
       const guard = useAsyncGuard();
-      let errorState = { error: null as string | null };
+      const errorState = { error: null as string | null };
 
       const token1 = guard.start();
-      const promise1 = Promise.reject('error-1').catch((e) => {
+      const promise1 = Promise.reject("error-1").catch((e) => {
         if (guard.isValid(token1)) errorState.error = e;
       });
 
-      const token2 = guard.start();
+      const _token2 = guard.start();
 
       await promise1;
       expect(errorState.error).toBeNull(); // First error should be ignored
     });
 
-    it('token check in finally block prevents stale cleanup', async () => {
+    it("token check in finally block prevents stale cleanup", async () => {
       const guard = useAsyncGuard();
-      let loadingState = { loading: false };
+      const loadingState = { loading: false };
 
       const token1 = guard.start();
       loadingState.loading = true;
@@ -377,8 +377,8 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('performance', () => {
-    it('guard operations complete in reasonable time', () => {
+  describe("performance", () => {
+    it("guard operations complete in reasonable time", () => {
       const guard = useAsyncGuard();
       const iterations = 10000;
 
@@ -394,8 +394,8 @@ describe('useAsyncGuard', () => {
     });
   });
 
-  describe('development debug helper', () => {
-    it('provides debug info in development', () => {
+  describe("development debug helper", () => {
+    it("provides debug info in development", () => {
       const guard = useAsyncGuard();
 
       if (import.meta.env.DEV && guard._debug) {

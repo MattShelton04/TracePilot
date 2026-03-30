@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { nextTick, ref, watch } from "vue";
+import { type ConfirmVariant, useConfirmDialog } from "../composables/useConfirmDialog";
 import ModalDialog from "./ModalDialog.vue";
-import { useConfirmDialog, type ConfirmVariant } from "../composables/useConfirmDialog";
 
 const { options, visible, resolve } = useConfirmDialog();
 

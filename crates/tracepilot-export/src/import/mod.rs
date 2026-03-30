@@ -179,19 +179,18 @@ pub fn preview_import(source: &Path, target_dir: Option<&Path>) -> Result<Import
                 .map(|sec| sec.display_name().to_string())
                 .collect();
             // Only probe filesystem for sessions with safe IDs
-            if let Some(target) = target_dir {
-                if !validator::contains_path_traversal(&s.metadata.id)
+            if let Some(target) = target_dir
+                && !validator::contains_path_traversal(&s.metadata.id)
                     && s.metadata.id.len() <= validator::MAX_ID_LENGTH
                 {
                     summary.already_exists = writer::session_exists(&s.metadata.id, target);
                 }
-            }
             summary
         })
         .collect();
 
     Ok(ImportPreview {
-        schema_version: archive.header.schema_version.clone(),
+        schema_version: archive.header.schema_version,
         migration_status,
         session_count: archive.sessions.len(),
         sessions,
@@ -294,11 +293,10 @@ pub fn import_sessions(
         if session.rewind_snapshots.is_some() {
             warnings.push(format!("Session {}: rewind_snapshots included in archive only (not restored to local session)", id));
         }
-        if let Some(tables) = &session.custom_tables {
-            if !tables.is_empty() {
+        if let Some(tables) = &session.custom_tables
+            && !tables.is_empty() {
                 warnings.push(format!("Session {}: custom_tables included in archive only (not restored to local session)", id));
             }
-        }
         if session.parse_diagnostics.is_some() {
             warnings.push(format!("Session {}: parse_diagnostics included in archive only (not restored to local session)", id));
         }

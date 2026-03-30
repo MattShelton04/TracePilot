@@ -3,7 +3,7 @@
  * (TurnWaterfallView, NestedSwimlanesView, AgentTreeView).
  */
 
-import type { TurnToolCall } from '@tracepilot/types';
+import type { TurnToolCall } from "@tracepilot/types";
 
 /** Items with time spans for overlap detection. */
 export interface TimeSpanItem {

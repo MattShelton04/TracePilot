@@ -63,14 +63,10 @@ export function handleValidationError(message: string): never {
  * }
  * ```
  */
-export async function wrapCommand<T>(
-  fn: () => Promise<T>,
-  context?: string
-): Promise<T> {
+export async function wrapCommand<T>(fn: () => Promise<T>, context?: string): Promise<T> {
   try {
     return await fn();
   } catch (err) {
     handleCommandError(err, context);
   }
 }
-

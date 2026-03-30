@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
-import SessionCard from "./SessionCard.vue";
 import EmptyState from "./EmptyState.vue";
+import SessionCard from "./SessionCard.vue";
 
 defineProps<{
   sessions: SessionListItem[];

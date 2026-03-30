@@ -15,7 +15,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const diffMode = ref<"unified" | "split">("unified");
@@ -26,11 +26,11 @@ const filePath = computed(() => {
 });
 
 const oldStr = computed(() =>
-  typeof props.args?.old_str === "string" ? props.args.old_str : null
+  typeof props.args?.old_str === "string" ? props.args.old_str : null,
 );
 
 const newStr = computed(() =>
-  typeof props.args?.new_str === "string" ? props.args.new_str : null
+  typeof props.args?.new_str === "string" ? props.args.new_str : null,
 );
 
 const isDelete = computed(() => oldStr.value != null && !newStr.value);
@@ -45,8 +45,7 @@ interface DiffSegment {
 const MAX_DIFF_COMPLEXITY = 4_000_000;
 
 function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
-  const tokenize = (text: string): string[] =>
-    text.match(/\S+|\s+/g) ?? [];
+  const tokenize = (text: string): string[] => text.match(/\S+|\s+/g) ?? [];
 
   const oldTokens = tokenize(oldText);
   const newTokens = tokenize(newText);
@@ -72,13 +71,15 @@ function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
   }
 
   const result: DiffSegment[] = [];
-  let i = m, j = n;
+  let i = m,
+    j = n;
   const stack: DiffSegment[] = [];
 
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
       stack.push({ type: "equal", value: oldTokens[i - 1] });
-      i--; j--;
+      i--;
+      j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
       stack.push({ type: "added", value: newTokens[j - 1] });
       j--;
@@ -129,8 +130,12 @@ const diffLines = computed<DiffLine[]>(() => {
 
   if (m * n > 1_000_000) {
     // Too large — just show all old as removed, all new as added
-    oldLines.forEach((l, i) => lines.push({ type: "removed", oldNum: i + 1, content: l }));
-    newLines.forEach((l, i) => lines.push({ type: "added", newNum: i + 1, content: l }));
+    oldLines.forEach((l, i) => {
+      lines.push({ type: "removed", oldNum: i + 1, content: l });
+    });
+    newLines.forEach((l, i) => {
+      lines.push({ type: "added", newNum: i + 1, content: l });
+    });
     return lines;
   }
 
@@ -138,18 +143,21 @@ const diffLines = computed<DiffLine[]>(() => {
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      dp[i][j] = oldLines[i - 1] === newLines[j - 1]
-        ? dp[i - 1][j - 1] + 1
-        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+      dp[i][j] =
+        oldLines[i - 1] === newLines[j - 1]
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1]);
     }
   }
 
   const stack: DiffLine[] = [];
-  let oi = m, ni = n;
+  let oi = m,
+    ni = n;
   while (oi > 0 || ni > 0) {
     if (oi > 0 && ni > 0 && oldLines[oi - 1] === newLines[ni - 1]) {
       stack.push({ type: "context", oldNum: oi, newNum: ni, content: oldLines[oi - 1] });
-      oi--; ni--;
+      oi--;
+      ni--;
     } else if (ni > 0 && (oi === 0 || dp[oi][ni - 1] >= dp[oi - 1][ni])) {
       stack.push({ type: "added", newNum: ni, content: newLines[ni - 1] });
       ni--;
@@ -163,13 +171,13 @@ const diffLines = computed<DiffLine[]>(() => {
   return stack;
 });
 
-const oldLineCount = computed(() => oldStr.value ? splitLines(oldStr.value).length : 0);
-const newLineCount = computed(() => newStr.value ? splitLines(newStr.value).length : 0);
+const oldLineCount = computed(() => (oldStr.value ? splitLines(oldStr.value).length : 0));
+const newLineCount = computed(() => (newStr.value ? splitLines(newStr.value).length : 0));
 
 /** Actual diff stats based on LCS result, not raw line counts. */
-const addedCount = computed(() => diffLines.value.filter(l => l.type === "added").length);
-const removedCount = computed(() => diffLines.value.filter(l => l.type === "removed").length);
-const contextCount = computed(() => diffLines.value.filter(l => l.type === "context").length);
+const addedCount = computed(() => diffLines.value.filter((l) => l.type === "added").length);
+const removedCount = computed(() => diffLines.value.filter((l) => l.type === "removed").length);
+const contextCount = computed(() => diffLines.value.filter((l) => l.type === "context").length);
 
 /** When all old lines appear as context (no removals), the edit only added new content. */
 const isPureAddition = computed(() => removedCount.value === 0 && addedCount.value > 0);

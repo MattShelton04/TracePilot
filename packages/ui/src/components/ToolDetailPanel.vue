@@ -7,12 +7,12 @@
  * extras (badges, child-tool count, full-result state).  Styling is left
  * to the parent component.
  */
-import type { TurnToolCall } from '@tracepilot/types';
-import Badge from './Badge.vue';
-import ToolArgsRenderer from './renderers/ToolArgsRenderer.vue';
-import ToolResultRenderer from './renderers/ToolResultRenderer.vue';
-import { toolIcon, extractPrompt } from '../utils/toolCall';
-import { formatDuration, formatTime } from '../utils/formatters';
+import type { TurnToolCall } from "@tracepilot/types";
+import { formatDuration, formatTime } from "../utils/formatters";
+import { extractPrompt, toolIcon } from "../utils/toolCall";
+import Badge from "./Badge.vue";
+import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
+import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
 
 const props = defineProps<{
   tc: TurnToolCall;
@@ -30,7 +30,7 @@ const props = defineProps<{
 
 defineEmits<{
   close: [];
-  'load-full-result': [toolCallId: string];
+  "load-full-result": [toolCallId: string];
 }>();
 </script>
 

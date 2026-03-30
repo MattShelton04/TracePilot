@@ -1,5 +1,5 @@
-import { ref } from 'vue';
-import { logWarn } from '@/utils/logger';
+import { ref } from "vue";
+import { logWarn } from "@/utils/logger";
 
 export interface RecentSearch {
   query: string;
@@ -15,7 +15,7 @@ export interface UseRecentSearchesOptions {
 }
 
 const DEFAULT_MAX_ITEMS = 10;
-const DEFAULT_STORAGE_KEY = 'tracepilot-recent-searches';
+const DEFAULT_STORAGE_KEY = "tracepilot-recent-searches";
 
 function loadFromStorage(key: string, max: number): RecentSearch[] {
   try {
@@ -24,7 +24,7 @@ function loadFromStorage(key: string, max: number): RecentSearch[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.slice(0, max) : [];
   } catch (e) {
-    logWarn('[useRecentSearches] Failed to load from localStorage:', e);
+    logWarn("[useRecentSearches] Failed to load from localStorage:", e);
     return [];
   }
 }
@@ -34,7 +34,7 @@ function saveToStorage(key: string, searches: RecentSearch[], max: number) {
     localStorage.setItem(key, JSON.stringify(searches.slice(0, max)));
   } catch (e) {
     // localStorage full or unavailable
-    logWarn('[useRecentSearches] Failed to save to localStorage:', e);
+    logWarn("[useRecentSearches] Failed to save to localStorage:", e);
   }
 }
 
@@ -52,7 +52,7 @@ export function useRecentSearches(options: UseRecentSearchesOptions = {}) {
 
   /** Add or promote a search to the top of the recent list. */
   function addRecentSearch(query: string, resultCount: number) {
-    const existing = recentSearches.value.filter(s => s.query !== query);
+    const existing = recentSearches.value.filter((s) => s.query !== query);
     existing.unshift({ query, timestamp: Date.now(), resultCount });
     recentSearches.value = existing.slice(0, maxItems);
     saveToStorage(storageKey, recentSearches.value, maxItems);
@@ -60,7 +60,7 @@ export function useRecentSearches(options: UseRecentSearchesOptions = {}) {
 
   /** Remove a specific search from the recent list. */
   function removeRecentSearch(query: string) {
-    recentSearches.value = recentSearches.value.filter(s => s.query !== query);
+    recentSearches.value = recentSearches.value.filter((s) => s.query !== query);
     saveToStorage(storageKey, recentSearches.value, maxItems);
   }
 

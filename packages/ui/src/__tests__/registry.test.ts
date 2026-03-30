@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  getRendererEntry,
   getRegisteredRenderers,
-  hasResultRenderer,
+  getRendererEntry,
   hasArgsRenderer,
+  hasResultRenderer,
 } from "../components/renderers/registry";
 
 describe("registry", () => {
@@ -11,40 +11,40 @@ describe("registry", () => {
     it("returns entry for registered tool 'edit'", () => {
       const entry = getRendererEntry("edit");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("Edit (Diff View)");
-      expect(entry!.resultComponent).toBeDefined();
-      expect(entry!.argsComponent).toBeDefined();
+      expect(entry?.label).toBe("Edit (Diff View)");
+      expect(entry?.resultComponent).toBeDefined();
+      expect(entry?.argsComponent).toBeDefined();
     });
 
     it("returns entry for 'view'", () => {
       const entry = getRendererEntry("view");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("View (Code Highlight)");
-      expect(entry!.resultComponent).toBeDefined();
+      expect(entry?.label).toBe("View (Code Highlight)");
+      expect(entry?.resultComponent).toBeDefined();
     });
 
     it("returns entry for 'powershell'", () => {
       const entry = getRendererEntry("powershell");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("Shell (Terminal Output)");
+      expect(entry?.label).toBe("Shell (Terminal Output)");
     });
 
     it("returns entry for 'sql'", () => {
       const entry = getRendererEntry("sql");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("SQL (Query + Table)");
+      expect(entry?.label).toBe("SQL (Query + Table)");
     });
 
     it("returns entry for 'grep'", () => {
       const entry = getRendererEntry("grep");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("Grep (Search Results)");
+      expect(entry?.label).toBe("Grep (Search Results)");
     });
 
     it("returns entry for 'glob'", () => {
       const entry = getRendererEntry("glob");
       expect(entry).toBeDefined();
-      expect(entry!.label).toBe("Glob (File Tree)");
+      expect(entry?.label).toBe("Glob (File Tree)");
     });
 
     it("returns undefined for unregistered tool", () => {

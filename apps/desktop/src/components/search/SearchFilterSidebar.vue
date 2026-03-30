@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useSearchStore } from '@/stores/search';
-import { useSessionsStore } from '@/stores/sessions';
-import type { SearchContentType } from '@tracepilot/types';
-import { CONTENT_TYPE_CONFIG, ALL_CONTENT_TYPES } from '@tracepilot/ui';
+import type { SearchContentType } from "@tracepilot/types";
+import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "@tracepilot/ui";
+import { computed } from "vue";
+import { useSearchStore } from "@/stores/search";
+import { useSessionsStore } from "@/stores/sessions";
 
 defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ clearFilters: [] }>();
@@ -19,22 +19,25 @@ const visibleContentTypes = computed(() => {
   if (!stats?.contentTypeCounts) return ALL_CONTENT_TYPES;
   const withData = new Set(stats.contentTypeCounts.filter(([, n]) => n > 0).map(([t]) => t));
   // Always include types that are currently selected as filters
-  return ALL_CONTENT_TYPES.filter(ct =>
-    withData.has(ct) || store.contentTypes.includes(ct) || store.excludeContentTypes.includes(ct)
+  return ALL_CONTENT_TYPES.filter(
+    (ct) =>
+      withData.has(ct) || store.contentTypes.includes(ct) || store.excludeContentTypes.includes(ct),
   );
 });
 
 const availableRepositories = computed(() => {
-  return store.availableRepositories.length > 0 ? store.availableRepositories : sessionsStore.repositories;
+  return store.availableRepositories.length > 0
+    ? store.availableRepositories
+    : sessionsStore.repositories;
 });
 
 // ── Content type tri-state toggle ─────────────────────────────
-type FilterState = 'off' | 'include' | 'exclude';
+type FilterState = "off" | "include" | "exclude";
 
 function getContentTypeState(ct: SearchContentType): FilterState {
-  if (store.contentTypes.includes(ct)) return 'include';
-  if (store.excludeContentTypes.includes(ct)) return 'exclude';
-  return 'off';
+  if (store.contentTypes.includes(ct)) return "include";
+  if (store.excludeContentTypes.includes(ct)) return "exclude";
+  return "off";
 }
 
 function cycleContentType(ct: SearchContentType) {
@@ -44,9 +47,9 @@ function cycleContentType(ct: SearchContentType) {
   const excIdx = store.excludeContentTypes.indexOf(ct);
   if (excIdx >= 0) store.excludeContentTypes.splice(excIdx, 1);
 
-  if (state === 'off') {
+  if (state === "off") {
     store.contentTypes.push(ct);
-  } else if (state === 'include') {
+  } else if (state === "include") {
     store.excludeContentTypes.push(ct);
   }
 }
@@ -68,31 +71,31 @@ function getFacetCount(ct: string): number | null {
 }
 
 // ── Date presets ─────────────────────────────────────────────
-const activeDatePreset = defineModel<string>('activeDatePreset', { default: 'all' });
+const activeDatePreset = defineModel<string>("activeDatePreset", { default: "all" });
 
 function setDatePreset(preset: string) {
   activeDatePreset.value = preset;
   const now = new Date();
   switch (preset) {
-    case 'today': {
+    case "today": {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       store.dateFrom = today.toISOString();
       store.dateTo = null;
       break;
     }
-    case 'week': {
+    case "week": {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       store.dateFrom = weekAgo.toISOString();
       store.dateTo = null;
       break;
     }
-    case 'month': {
+    case "month": {
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       store.dateFrom = monthAgo.toISOString();
       store.dateTo = null;
       break;
     }
-    case '3months': {
+    case "3months": {
       const threeMonths = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
       store.dateFrom = threeMonths.toISOString();
       store.dateTo = null;

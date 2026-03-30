@@ -250,19 +250,16 @@ fn check_for_customizations(version_dir: &Path) -> bool {
         .ok()
         .and_then(|m| m.modified().ok());
 
-    if let Some(extraction_time) = extraction_time {
-        if let Ok(entries) = std::fs::read_dir(&defs_dir) {
+    if let Some(extraction_time) = extraction_time
+        && let Ok(entries) = std::fs::read_dir(&defs_dir) {
             for entry in entries.flatten() {
-                if let Ok(meta) = entry.metadata() {
-                    if let Ok(modified) = meta.modified() {
-                        if modified > extraction_time {
+                if let Ok(meta) = entry.metadata()
+                    && let Ok(modified) = meta.modified()
+                        && modified > extraction_time {
                             return true;
                         }
-                    }
-                }
             }
         }
-    }
 
     false
 }

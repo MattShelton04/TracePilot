@@ -1,6 +1,6 @@
-import { toErrorMessage } from '@tracepilot/ui';
-import { logError } from '@/utils/logger';
-import { ref, readonly, type Ref } from 'vue';
+import { toErrorMessage } from "@tracepilot/ui";
+import { type Ref, readonly, ref } from "vue";
+import { logError } from "@/utils/logger";
 
 /**
  * Options for configuring the cached fetch composable.
@@ -194,7 +194,7 @@ export function useCachedFetch<TData, TParams = void>(
           try {
             onSuccess(result);
           } catch (callbackError) {
-            logError('[useCachedFetch] onSuccess callback error:', callbackError);
+            logError("[useCachedFetch] onSuccess callback error:", callbackError);
           }
         }
 
@@ -215,7 +215,7 @@ export function useCachedFetch<TData, TParams = void>(
           try {
             onError(errorMsg);
           } catch (callbackError) {
-            logError('[useCachedFetch] onError callback error:', callbackError);
+            logError("[useCachedFetch] onError callback error:", callbackError);
           }
         }
 
@@ -235,7 +235,7 @@ export function useCachedFetch<TData, TParams = void>(
             try {
               onFinally();
             } catch (callbackError) {
-              logError('[useCachedFetch] onFinally callback error:', callbackError);
+              logError("[useCachedFetch] onFinally callback error:", callbackError);
             }
           }
         }

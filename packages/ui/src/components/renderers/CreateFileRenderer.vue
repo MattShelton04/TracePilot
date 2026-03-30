@@ -3,8 +3,8 @@
  * CreateFileRenderer — renders the create tool result showing the created file.
  */
 import { computed } from "vue";
-import RendererShell from "./RendererShell.vue";
 import CodeBlock from "./CodeBlock.vue";
+import RendererShell from "./RendererShell.vue";
 
 const props = defineProps<{
   content: string;
@@ -13,11 +13,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'load-full': [];
+  "load-full": [];
 }>();
 
 const filePath = computed(() =>
-  typeof props.args?.path === "string" ? props.args.path : undefined
+  typeof props.args?.path === "string" ? props.args.path : undefined,
 );
 
 /** The actual file content from args, falling back to result content. */
