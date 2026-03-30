@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { getChartColors } from '@/utils/designTokens';
 
 defineProps<{
   active: boolean;
@@ -11,40 +12,43 @@ const emit = defineEmits<{
 
 const animatedCards = ref(new Set<number>());
 
+// Load colors from design tokens
+const chartColors = getChartColors();
+
 const features = [
   {
     emoji: '📋',
-    color: '#818cf8',
+    color: chartColors.primaryLight,  // indigo
     title: 'Session Explorer',
     desc: 'Browse and search all your Copilot coding sessions',
   },
   {
     emoji: '💬',
-    color: '#34d399',
+    color: chartColors.success,  // emerald
     title: 'Conversation Viewer',
     desc: 'Replay full AI conversations turn by turn',
   },
   {
     emoji: '📊',
-    color: '#fbbf24',
+    color: chartColors.warning,  // amber
     title: 'Analytics Dashboard',
     desc: 'Track token usage, costs, and productivity trends',
   },
   {
     emoji: '🔧',
-    color: '#f472b6',
+    color: '#f472b6',  // pink - not in chart colors, keep as-is for now
     title: 'Tool Analysis',
     desc: 'See which tools Copilot uses and how effectively',
   },
   {
     emoji: '📝',
-    color: '#a78bfa',
+    color: chartColors.secondary,  // violet
     title: 'Code Impact',
     desc: 'Measure lines changed, files modified, and net impact',
   },
   {
     emoji: '💰',
-    color: '#fb923c',
+    color: chartColors.orange,  // orange
     title: 'Cost Tracking',
     desc: 'Monitor premium request spending and API cost estimates',
   },

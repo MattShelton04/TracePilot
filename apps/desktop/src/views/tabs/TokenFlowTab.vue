@@ -7,6 +7,7 @@ import {
   formatNumber, formatCost, useSessionTabLoader,
 } from "@tracepilot/ui";
 import type { ConversationTurn, ModelMetricDetail } from "@tracepilot/types";
+import { getChartColors, getSemanticColors } from "@/utils/designTokens";
 
 const store = useSessionDetailStore();
 const prefs = usePreferencesStore();
@@ -105,14 +106,17 @@ const estimatedToolCalls = computed(() => {
   return Math.max(0, remainder);
 });
 
-// ── Color palette ──
+// ── Color palette using design tokens ──
+const chartColors = getChartColors();
+const semanticColors = getSemanticColors();
+
 const COLORS: Record<string, string> = {
-  emerald: "#34d399",
-  amber: "#fbbf24",
-  violet: "#a78bfa",
-  neutral: "#71717a",
-  indigo: "#818cf8",
-  rose: "#fb7185",
+  emerald: chartColors.success,
+  amber: chartColors.warning,
+  violet: chartColors.secondary,
+  neutral: semanticColors.textTertiary,
+  indigo: chartColors.primaryLight,
+  rose: chartColors.danger,
 };
 
 function modelColor(name: string): string {

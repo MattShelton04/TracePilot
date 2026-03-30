@@ -128,6 +128,7 @@
   --agent-color-task: #fbbf24;
 
   /* --- Chart Colors --- */
+  /* NOTE: Fallback values in src/utils/designTokens.ts must match these defaults */
   --chart-success: #34d399;
   --chart-success-light: #6ee7b7;
   --chart-danger: #fb7185;

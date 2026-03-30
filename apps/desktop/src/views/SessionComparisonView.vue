@@ -18,6 +18,7 @@ import {
   SkeletonLoader,
   toErrorMessage,
 } from '@tracepilot/ui';
+import { getChartColors } from '@/utils/designTokens';
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
   copilotCost,
@@ -228,14 +229,23 @@ interface DonutSegment {
   color: string;
 }
 
+// Donut chart color palettes derived from design tokens
+// Gradients from primary to lighter shades of indigo/violet
+const chartColors = getChartColors();
 const DONUT_COLORS_A = [
-  CHART_COLORS.primary,
-  CHART_COLORS.primaryLight,
-  '#a5b4fc',
-  '#c7d2fe',
-  '#e0e7ff',
+  chartColors.primary,       // #6366f1 indigo
+  chartColors.primaryLight,  // #818cf8 lighter indigo
+  '#a5b4fc',  // even lighter indigo (keeping for gradient consistency)
+  '#c7d2fe',  // pastel indigo
+  '#e0e7ff',  // very light indigo
 ];
-const DONUT_COLORS_B = ['#7c3aed', CHART_COLORS.secondary, '#c4b5fd', '#ddd6fe', '#ede9fe'];
+const DONUT_COLORS_B = [
+  '#7c3aed',              // purple (keeping as distinct from palette A)
+  chartColors.secondary,  // #a78bfa violet
+  '#c4b5fd',              // lighter violet (keeping for gradient)
+  '#ddd6fe',              // pastel violet
+  '#ede9fe',              // very light violet
+];
 
 function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSegment[] {
   if (!m?.modelMetrics) return [];

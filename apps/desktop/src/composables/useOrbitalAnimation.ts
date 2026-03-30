@@ -1,4 +1,5 @@
 import { ref, reactive, computed, type Ref } from 'vue'
+import { getSemanticColors, getChartColors } from '@/utils/designTokens'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -47,10 +48,24 @@ export const LANES = [
   { rx: 360, ry: 235, period: 30, tiltDeg: 8, tokenMax: Infinity },
 ] as const
 
-const REPO_PALETTE = [
-  '#818cf8', '#34d399', '#fbbf24', '#f87171',
-  '#a78bfa', '#38bdf8', '#fb923c',
-]
+/**
+ * Repository color palette derived from design tokens.
+ * Uses semantic chart colors to ensure consistency and theme support.
+ */
+function getRepoPalette(): string[] {
+  const colors = getChartColors()
+  return [
+    colors.primaryLight,  // indigo
+    colors.success,       // emerald
+    colors.warning,       // amber
+    colors.danger,        // rose
+    colors.secondary,     // violet
+    colors.info,          // sky blue
+    colors.orange,        // orange
+  ]
+}
+
+const REPO_PALETTE = getRepoPalette()
 
 export const PHASE_LABELS: Record<Phase, string> = {
   idle: 'Preparing…',
@@ -239,7 +254,7 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
       el.setAttribute('cy', String(centerY.value))
       el.setAttribute('rx', String(lane.rx * s))
       el.setAttribute('ry', String(lane.ry * s))
-      el.setAttribute('stroke', '#6366f1')
+      el.setAttribute('stroke', getSemanticColors().accentEmphasis)
       el.setAttribute('stroke-opacity', '0')
       el.setAttribute('stroke-width', '1')
       el.setAttribute('fill', 'none')
@@ -286,7 +301,9 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
 
   // ── Node creation ────────────────────────────────────────────────────────────
 
-  const SEED_COLOR = '#4b5563' // muted gray — distinct from real repo palette
+  // Muted dark gray for decorative seed nodes — intentionally distinct
+  // from the repo color palette and kept outside the token system.
+  const SEED_COLOR = '#4b5563'
 
   /**
    * Create a decorative seed node for visual activity before real data arrives.
