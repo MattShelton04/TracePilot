@@ -150,9 +150,10 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
 
 /// Validate a write-target path whose file may not yet exist.
 ///
-/// Checks that the parent directory exists and is within `dir`. Returns the
-/// canonical parent joined with the original filename so callers can use the
-/// resolved path for the actual write, reducing TOCTOU risk.
+/// Checks that the parent directory exists and is within `dir`. If the target
+/// file already exists (e.g. overwrite or symlink), the full canonical path is
+/// verified to prevent symlink escapes. Returns the resolved path so callers
+/// can use it directly, reducing TOCTOU risk.
 pub(crate) fn validate_write_path_within(
     path: &str,
     dir: &std::path::Path,
@@ -167,18 +168,32 @@ pub(crate) fn validate_write_path_within(
         .ok_or_else(|| BindingsError::Validation("Path has no filename".into()))?;
     let parent = p
         .parent()
-        .filter(|p| !p.as_os_str().is_empty())
+        .filter(|par| !par.as_os_str().is_empty())
         .ok_or_else(|| BindingsError::Validation("Path has no parent directory".into()))?;
-    if !parent.exists() {
+    if !parent.is_dir() {
         return Err(BindingsError::Validation(format!(
             "Parent directory does not exist: {}",
             parent.display()
         )));
     }
-    let canonical_parent = parent.canonicalize()?;
     let canonical_dir = dir.canonicalize().map_err(|e| {
         BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
     })?;
+
+    // If the target already exists (overwrite or symlink), canonicalize the full
+    // path to ensure symlinks don't escape the allowed directory.
+    if p.exists() {
+        let canonical_full = p.canonicalize()?;
+        if !canonical_full.starts_with(&canonical_dir) {
+            return Err(BindingsError::Validation(
+                "Path is outside the allowed directory".into(),
+            ));
+        }
+        return Ok(canonical_full);
+    }
+
+    // File doesn't exist yet — validate parent only.
+    let canonical_parent = parent.canonicalize()?;
     if !canonical_parent.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
@@ -494,5 +509,59 @@ mod tests {
         let result = validate_write_path_within(new_file.to_str().unwrap(), &missing_dir);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Cannot resolve"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_path_within_rejects_symlink_escaping_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("secret.txt");
+        fs::write(&target, b"secret").unwrap();
+        let link = allowed.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = validate_path_within(link.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_write_path_within_rejects_existing_symlink_escaping_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("escape.txt");
+        fs::write(&target, b"data").unwrap();
+        // Create a symlink inside allowed that points outside
+        let link = allowed.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = validate_write_path_within(link.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_parent_is_file() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("not_a_dir");
+        fs::write(&file, b"data").unwrap();
+        // Try to use a file as the parent directory
+        let bad_path = file.join("child.txt");
+
+        let result = validate_write_path_within(bad_path.to_str().unwrap(), dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Parent directory does not exist"));
+    }
+
+    #[test]
+    fn validate_write_path_within_accepts_overwrite_within_dir() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("existing.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let result = validate_write_path_within(file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
     }
 }
