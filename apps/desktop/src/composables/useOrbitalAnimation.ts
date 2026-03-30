@@ -301,11 +301,9 @@ export function useOrbitalAnimation(options: OrbitalAnimationOptions) {
 
   // ── Node creation ────────────────────────────────────────────────────────────
 
-  /**
-   * Muted gray color for decorative seed nodes, distinct from real repo colors.
-   * Uses neutral emphasis from design tokens.
-   */
-  const SEED_COLOR = getSemanticColors().neutralFg
+  // Muted dark gray for decorative seed nodes — intentionally distinct
+  // from the repo color palette and kept outside the token system.
+  const SEED_COLOR = '#4b5563'
 
   /**
    * Create a decorative seed node for visual activity before real data arrives.
