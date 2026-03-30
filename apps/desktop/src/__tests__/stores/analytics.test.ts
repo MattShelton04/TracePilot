@@ -8,11 +8,14 @@ const mockGetAnalytics = vi.fn();
 const mockGetToolAnalysis = vi.fn();
 const mockGetCodeImpact = vi.fn();
 
-vi.mock('@tracepilot/client', () => ({
-  getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
-  getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
-  getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
-}));
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return createClientMock({
+    getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
+    getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
+    getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
+  });
+});
 
 // ── Fixtures ──────────────────────────────────────────────────
 const FIXTURE_ANALYTICS: AnalyticsData = {

@@ -3,45 +3,50 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 
 // ── Mock client ───────────────────────────────────────────────
-const mockGetAnalytics = vi.fn().mockResolvedValue({
-  totalSessions: 0,
-  totalTokens: 0,
-  totalCost: 0,
-  totalPremiumRequests: 0,
-  averageHealthScore: 0,
-  tokenUsageByDay: [],
-  activityPerDay: [],
-  modelDistribution: [],
-  costByDay: [],
-  sessionsWithErrors: 0,
-  totalRateLimits: 0,
-  totalCompactions: 0,
-  totalTruncations: 0,
-  incidentsByDay: [],
-});
-const mockGetToolAnalysis = vi.fn().mockResolvedValue({
-  totalCalls: 0,
-  successRate: 0,
-  avgDurationMs: 0,
-  mostUsedTool: '',
-  tools: [],
-  activityHeatmap: [],
-});
-const mockGetCodeImpact = vi.fn().mockResolvedValue({
-  filesModified: 0,
-  linesAdded: 0,
-  linesRemoved: 0,
-  netChange: 0,
-  fileTypeBreakdown: [],
-  mostModifiedFiles: [],
-  changesByDay: [],
-});
-
-vi.mock('@tracepilot/client', () => ({
-  getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
-  getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
-  getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
+const { mockGetAnalytics, mockGetToolAnalysis, mockGetCodeImpact } = vi.hoisted(() => ({
+  mockGetAnalytics: vi.fn().mockResolvedValue({
+    totalSessions: 0,
+    totalTokens: 0,
+    totalCost: 0,
+    totalPremiumRequests: 0,
+    averageHealthScore: 0,
+    tokenUsageByDay: [],
+    activityPerDay: [],
+    modelDistribution: [],
+    costByDay: [],
+    sessionsWithErrors: 0,
+    totalRateLimits: 0,
+    totalCompactions: 0,
+    totalTruncations: 0,
+    incidentsByDay: [],
+  }),
+  mockGetToolAnalysis: vi.fn().mockResolvedValue({
+    totalCalls: 0,
+    successRate: 0,
+    avgDurationMs: 0,
+    mostUsedTool: '',
+    tools: [],
+    activityHeatmap: [],
+  }),
+  mockGetCodeImpact: vi.fn().mockResolvedValue({
+    filesModified: 0,
+    linesAdded: 0,
+    linesRemoved: 0,
+    netChange: 0,
+    fileTypeBreakdown: [],
+    mostModifiedFiles: [],
+    changesByDay: [],
+  }),
 }));
+
+vi.mock('@tracepilot/client', async () => {
+  const { createClientMock } = await import('../mocks/client');
+  return createClientMock({
+    getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
+    getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
+    getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),
+  });
+});
 
 // ── Track onMounted callbacks manually ────────────────────────
 let mountCallbacks: (() => void)[] = [];

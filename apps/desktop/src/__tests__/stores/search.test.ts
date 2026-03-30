@@ -13,17 +13,20 @@ const mockFtsIntegrityCheck = vi.fn();
 const mockFtsOptimize = vi.fn();
 const mockFtsHealth = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  searchContent: (...args: unknown[]) => mockSearchContent(...args),
-  getSearchFacets: (...args: unknown[]) => mockGetSearchFacets(...args),
-  getSearchStats: (...args: unknown[]) => mockGetSearchStats(...args),
-  getSearchRepositories: (...args: unknown[]) => mockGetSearchRepositories(...args),
-  getSearchToolNames: (...args: unknown[]) => mockGetSearchToolNames(...args),
-  rebuildSearchIndex: (...args: unknown[]) => mockRebuildSearchIndex(...args),
-  ftsIntegrityCheck: (...args: unknown[]) => mockFtsIntegrityCheck(...args),
-  ftsOptimize: (...args: unknown[]) => mockFtsOptimize(...args),
-  ftsHealth: (...args: unknown[]) => mockFtsHealth(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    searchContent: (...args: unknown[]) => mockSearchContent(...args),
+    getSearchFacets: (...args: unknown[]) => mockGetSearchFacets(...args),
+    getSearchStats: (...args: unknown[]) => mockGetSearchStats(...args),
+    getSearchRepositories: (...args: unknown[]) => mockGetSearchRepositories(...args),
+    getSearchToolNames: (...args: unknown[]) => mockGetSearchToolNames(...args),
+    rebuildSearchIndex: (...args: unknown[]) => mockRebuildSearchIndex(...args),
+    ftsIntegrityCheck: (...args: unknown[]) => mockFtsIntegrityCheck(...args),
+    ftsOptimize: (...args: unknown[]) => mockFtsOptimize(...args),
+    ftsHealth: (...args: unknown[]) => mockFtsHealth(...args),
+  });
+});
 
 vi.mock("@/utils/tauriEvents", () => ({
   safeListen: vi.fn().mockResolvedValue(() => {}),

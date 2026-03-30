@@ -11,14 +11,17 @@ const mockGetActiveCopilotVersion = vi.fn();
 const mockListWorktrees = vi.fn();
 const mockListRegisteredRepos = vi.fn();
 
-vi.mock("@tracepilot/client", () => ({
-  checkSystemDeps: (...args: unknown[]) => mockCheckSystemDeps(...args),
-  listSessions: (...args: unknown[]) => mockListSessions(...args),
-  discoverCopilotVersions: (...args: unknown[]) => mockDiscoverCopilotVersions(...args),
-  getActiveCopilotVersion: (...args: unknown[]) => mockGetActiveCopilotVersion(...args),
-  listWorktrees: (...args: unknown[]) => mockListWorktrees(...args),
-  listRegisteredRepos: (...args: unknown[]) => mockListRegisteredRepos(...args),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    checkSystemDeps: (...args: unknown[]) => mockCheckSystemDeps(...args),
+    listSessions: (...args: unknown[]) => mockListSessions(...args),
+    discoverCopilotVersions: (...args: unknown[]) => mockDiscoverCopilotVersions(...args),
+    getActiveCopilotVersion: (...args: unknown[]) => mockGetActiveCopilotVersion(...args),
+    listWorktrees: (...args: unknown[]) => mockListWorktrees(...args),
+    listRegisteredRepos: (...args: unknown[]) => mockListRegisteredRepos(...args),
+  });
+});
 
 // ── Fixtures ───────────────────────────────────────────────────
 const FIXTURE_SYSTEM_DEPS: SystemDependencies = {

@@ -3,9 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { getToolResult } from "@tracepilot/client";
 
-vi.mock("@tracepilot/client", () => ({
-  getToolResult: vi.fn(),
-}));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("../mocks/client");
+  return createClientMock({
+    getToolResult: vi.fn(),
+  });
+});
 
 const mockGetToolResult = vi.mocked(getToolResult);
 
