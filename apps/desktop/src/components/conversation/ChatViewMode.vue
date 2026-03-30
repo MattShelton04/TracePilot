@@ -255,20 +255,28 @@ function parseAgentNameFromReadAgent(tc: TurnToolCall): string | null {
       typeof tc.arguments === "string"
         ? JSON.parse(tc.arguments)
         : (tc.arguments as Record<string, unknown> | null);
-    return (args?.agent_id as string) ?? null;
+    const candidates = [args?.agent_id, args?.agent_name, args?.name];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        return candidate;
+      }
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-/** Reverse map: agent launch name → subagentMap toolCallId */
+/** Reverse map: possible read_agent identifiers → subagentMap toolCallId */
 const agentNameToToolCallId = computed(() => {
   const map = new Map<string, string>();
   for (const [toolCallId, sa] of subagentMap.value) {
     const args = sa.toolCall.arguments as Record<string, unknown> | undefined;
-    const name = (args?.name as string) ?? undefined;
-    if (name) {
-      map.set(name, toolCallId);
+    const identifiers = [args?.name, args?.agent_id, args?.agent_name, sa.toolCall.toolCallId];
+    for (const identifier of identifiers) {
+      if (typeof identifier === "string" && identifier.trim().length > 0) {
+        map.set(identifier, toolCallId);
+      }
     }
   }
   return map;
@@ -533,6 +541,16 @@ defineExpose({ revealEvent });
                           <span class="cv-pill-icon" aria-hidden="true">🧠</span>
                           <span class="cv-pill-label">{{ truncateText(memoryLabel(item.toolCall), 80) }}</span>
                         </div>
+
+                        <!-- Read-agent row -->
+                        <ToolCallItem
+                          v-else-if="item.type === 'read-agent'"
+                          :id="item.toolCall.eventIndex != null ? `event-${item.toolCall.eventIndex}` : undefined"
+                          v-bind="tcProps(turn, item.toolCall)"
+                          @toggle="toggleToolDetail(turn, item.toolCall)"
+                          @load-full-result="handleLoadFullResult"
+                          @retry-full-result="handleRetryResult"
+                        />
 
                         <!-- Ask-user (rich renderer) -->
                         <ToolCallItem

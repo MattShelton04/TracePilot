@@ -79,6 +79,11 @@ describe("useSessionDetailStore", () => {
       expect(store.metricsError).toBeNull();
       expect(store.incidentsError).toBeNull();
     });
+
+    it("starts turnsVersion at 0", () => {
+      const store = useSessionDetailStore();
+      expect(store.turnsVersion).toBe(0);
+    });
   });
 
   describe("loadDetail", () => {
@@ -336,6 +341,126 @@ describe("useSessionDetailStore", () => {
 
       expect(store.todosError).toBeNull();
       expect(store.todos).toEqual(FIXTURE_TODOS);
+    });
+
+    it("updates non-tail turns when refresh returns retrospective subagent completion", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      const initialTurns = {
+        turns: [
+          {
+            turnIndex: 0,
+            userMessage: "hello",
+            assistantMessages: [],
+            toolCalls: [
+              {
+                toolName: "task",
+                toolCallId: "sa-1",
+                isSubagent: true,
+                isComplete: false,
+              },
+            ],
+            isComplete: true,
+          },
+          { turnIndex: 1, userMessage: "next", assistantMessages: [], toolCalls: [], isComplete: true },
+        ],
+        eventsFileSize: 100,
+      };
+      mockGetSessionTurns.mockResolvedValue(initialTurns);
+      await store.loadTurns();
+
+      const beforeVersion = store.turnsVersion;
+      expect(store.turns[0]?.toolCalls[0]?.isComplete).toBe(false);
+
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 120 });
+      mockGetSessionTurns.mockResolvedValue({
+        turns: [
+          {
+            turnIndex: 0,
+            userMessage: "hello",
+            assistantMessages: [],
+            toolCalls: [
+              {
+                toolName: "task",
+                toolCallId: "sa-1",
+                isSubagent: true,
+                isComplete: true,
+                success: true,
+              },
+            ],
+            isComplete: true,
+          },
+          { turnIndex: 1, userMessage: "next", assistantMessages: [], toolCalls: [], isComplete: true },
+        ],
+        eventsFileSize: 120,
+      });
+
+      await store.refreshAll();
+
+      expect(store.turns[0]?.toolCalls[0]?.isComplete).toBe(true);
+      expect(store.turns[0]?.toolCalls[0]?.success).toBe(true);
+      expect(store.turnsVersion).toBeGreaterThan(beforeVersion);
+    });
+
+    it("does not bump turnsVersion when refresh turns payload is unchanged", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+      await store.loadTurns();
+
+      const beforeVersion = store.turnsVersion;
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10 });
+      mockGetSessionTurns.mockResolvedValue({
+        turns: structuredClone(FIXTURE_TURNS.turns),
+        eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10,
+      });
+
+      await store.refreshAll();
+
+      expect(store.turnsVersion).toBe(beforeVersion);
+    });
+
+    it("updates turn when only model changes", async () => {
+      const store = useSessionDetailStore();
+      await store.loadDetail(SESSION_ID);
+
+      mockGetSessionTurns.mockResolvedValue({
+        turns: [
+          {
+            turnIndex: 0,
+            model: "gpt-5.3-codex",
+            userMessage: "hello",
+            assistantMessages: [],
+            toolCalls: [],
+            isComplete: true,
+          },
+        ],
+        eventsFileSize: 200,
+      });
+      await store.loadTurns();
+
+      const beforeVersion = store.turnsVersion;
+      expect(store.turns[0]?.model).toBe("gpt-5.3-codex");
+
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 220 });
+      mockGetSessionTurns.mockResolvedValue({
+        turns: [
+          {
+            turnIndex: 0,
+            model: "claude-sonnet-4.6",
+            userMessage: "hello",
+            assistantMessages: [],
+            toolCalls: [],
+            isComplete: true,
+          },
+        ],
+        eventsFileSize: 220,
+      });
+
+      await store.refreshAll();
+
+      expect(store.turns[0]?.model).toBe("claude-sonnet-4.6");
+      expect(store.turnsVersion).toBeGreaterThan(beforeVersion);
     });
   });
 });

@@ -62,7 +62,7 @@ onMounted(() => {
 const { isLockedToBottom, showScrollToTop, hasOverflow, scrollToBottom, scrollToTop } =
   useAutoScroll({
     containerRef: scrollContainer,
-    watchSource: () => store.turns,
+    watchSource: () => store.turnsVersion,
     viewModeSource: () => activeView.value,
   });
 

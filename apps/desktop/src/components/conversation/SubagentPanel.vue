@@ -4,6 +4,7 @@ import {
   agentStatusFromToolCall,
   formatArgsSummary,
   formatDuration,
+  formatLiveDuration,
   getAgentColor,
   getAgentIcon,
   inferAgentTypeFromToolCall,
@@ -75,6 +76,15 @@ const statusText = computed(() => {
   if (status.value === "completed") return "Completed";
   if (status.value === "failed") return "Failed";
   return "Running";
+});
+
+const headerDuration = computed(() => {
+  const ms = props.subagent?.toolCall.durationMs;
+  if (status.value === "in-progress") {
+    if (!ms) return "";
+    return formatLiveDuration(ms);
+  }
+  return formatDuration(ms ?? 0);
 });
 
 const model = computed(() => {
@@ -252,7 +262,7 @@ function pillIcon(type: "intent" | "memory" | "read_agent"): string {
           <div class="cv-panel-meta">
             <span v-if="model" class="cv-panel-model">{{ model }}</span>
             <span v-if="model" class="sep">·</span>
-            <span>{{ formatDuration(subagent.toolCall.durationMs ?? 0) }}</span>
+            <span v-if="headerDuration">{{ headerDuration }}</span>
             <span class="sep">·</span>
             <span>Turn {{ subagent.turnIndex }}</span>
           </div>

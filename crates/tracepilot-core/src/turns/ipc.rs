@@ -50,6 +50,14 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
                 return d;
             }
         }
+        "read_agent" => {
+            if let Some(id) = get_str("agent_id")
+                .or_else(|| get_str("agent_name"))
+                .or_else(|| get_str("name"))
+            {
+                return id;
+            }
+        }
         "report_intent" => {
             if let Some(i) = get_str("intent") {
                 return i;
