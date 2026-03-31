@@ -212,7 +212,7 @@ pub async fn preview_backup_restore(
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
-        let validated_source = validate_path_within(&source_path, &home)?;
+        let validated_source = validate_write_path_within(&source_path, &home)?;
 
         Ok(
             tracepilot_orchestrator::config_injector::preview_backup_restore(
@@ -231,8 +231,8 @@ pub async fn diff_config_files(
 ) -> CmdResult<tracepilot_orchestrator::ConfigDiff> {
     tokio::task::spawn_blocking(move || {
         let home = copilot_home()?;
-        let validated_old = validate_path_within(&old_path, &home)?;
-        let validated_new = validate_path_within(&new_path, &home)?;
+        let validated_old = validate_write_path_within(&old_path, &home)?;
+        let validated_new = validate_write_path_within(&new_path, &home)?;
         Ok(tracepilot_orchestrator::config_injector::diff_files(
             &validated_old,
             &validated_new,
