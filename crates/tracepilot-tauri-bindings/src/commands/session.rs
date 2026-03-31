@@ -131,6 +131,8 @@ pub async fn get_session_incidents(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<Vec<SessionIncidentItem>> {
+    crate::validators::validate_session_id(&session_id)?;
+
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
@@ -162,6 +164,8 @@ pub async fn get_session_turns(
     cache: tauri::State<'_, TurnCache>,
     session_id: String,
 ) -> CmdResult<TurnsResponse> {
+    crate::validators::validate_session_id(&session_id)?;
+
     let session_state_dir = read_config(&state).session_state_dir();
     let cache = cache.inner().clone();
 
@@ -255,6 +259,9 @@ pub async fn get_session_events(
     limit: Option<u32>,
     event_type: Option<String>,
 ) -> CmdResult<EventsResponse> {
+    // Clamp explicit limit to a safe upper bound; None preserves "return all".
+    let limit = crate::validators::clamp_limit(limit, crate::validators::MAX_EVENTS_PAGE_LIMIT);
+
     with_session_path(&state, session_id, move |path| {
         let events_path = path.join("events.jsonl");
         let all_events = tracepilot_core::parsing::events::parse_typed_events(&events_path)?
@@ -408,9 +415,8 @@ pub async fn resume_session_in_terminal(
     session_id: String,
     cli_command: Option<String>,
 ) -> CmdResult<()> {
-    // Validate UUID format to prevent command injection
-    uuid::Uuid::parse_str(&session_id)
-        .map_err(|_| BindingsError::Validation("Invalid session ID format".into()))?;
+    // Validate UUID format (also prevents command injection via session_id)
+    crate::validators::validate_session_id(&session_id)?;
 
     let cli = cli_command.unwrap_or_else(|| "copilot".to_string());
 

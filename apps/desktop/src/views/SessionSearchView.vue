@@ -241,6 +241,7 @@ onUnmounted(() => {
             class="search-hero-input"
             placeholder="Search across all sessions…"
             aria-label="Search sessions"
+            data-testid="search-input"
           />
           <kbd class="search-hero-kbd">Ctrl+K</kbd>
         </div>

@@ -14,6 +14,7 @@ mod commands;
 pub mod error;
 mod helpers;
 pub mod types;
+mod validators;
 
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};

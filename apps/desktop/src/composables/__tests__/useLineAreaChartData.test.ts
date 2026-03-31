@@ -73,11 +73,12 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      const coords = chartData.value!.coords;
-      expect(coords[0]).toHaveProperty("date", "2025-01-01");
-      expect(coords[0]).toHaveProperty("tokens", 100);
-      expect(coords[0]).toHaveProperty("x");
-      expect(coords[0]).toHaveProperty("y");
+      const coords = chartData.value?.coords;
+      expect(coords).toBeDefined();
+      expect(coords![0]).toHaveProperty("date", "2025-01-01");
+      expect(coords![0]).toHaveProperty("tokens", 100);
+      expect(coords![0]).toHaveProperty("x");
+      expect(coords![0]).toHaveProperty("y");
     });
 
     it("uses custom yFormatter", () => {
@@ -87,8 +88,9 @@ describe("useLineAreaChartData", () => {
         accessor: (p) => p.tokens,
         yFormatter: (v) => `$${v.toFixed(2)}`,
       });
-      const labels = chartData.value!.yLabels;
-      expect(labels[0].value).toMatch(/^\$/);
+      const labels = chartData.value?.yLabels;
+      expect(labels).toBeDefined();
+      expect(labels![0].value).toMatch(/^\$/);
     });
 
     it("uses custom minPoints threshold", () => {

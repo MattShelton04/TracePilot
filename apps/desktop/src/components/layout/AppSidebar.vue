@@ -111,7 +111,7 @@ const visibleConfigNav = computed(() =>
 </script>
 
 <template>
-  <aside class="sidebar" role="navigation" aria-label="Main navigation">
+  <aside class="sidebar" role="navigation" aria-label="Main navigation" data-testid="app-sidebar">
     <!-- Brand -->
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon" aria-hidden="true">
@@ -128,6 +128,7 @@ const visibleConfigNav = computed(() =>
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
+        :data-testid="`nav-${item.id}`"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -162,6 +163,7 @@ const visibleConfigNav = computed(() =>
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
+        :data-testid="`nav-${item.id}`"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -186,6 +188,7 @@ const visibleConfigNav = computed(() =>
         :key="item.id"
         :to="item.to"
         :data-nav-id="item.id"
+        :data-testid="`nav-${item.id}`"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === item.id }"
       >
@@ -229,6 +232,7 @@ const visibleConfigNav = computed(() =>
       <router-link
         to="/settings"
         data-nav-id="settings"
+        data-testid="nav-settings"
         class="sidebar-nav-item"
         :class="{ active: activeSidebarId === 'settings' }"
       >

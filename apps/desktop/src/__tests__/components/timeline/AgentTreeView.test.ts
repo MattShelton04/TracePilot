@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import AgentTreeView from "../../../components/timeline/AgentTreeView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
+import { makeTurn, makeTurnToolCall } from "../../helpers/testBuilders";
 
 // ── Mock @tracepilot/client ─────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -17,35 +18,6 @@ vi.mock("@tracepilot/client", async () => {
     getShutdownMetrics: vi.fn(),
   });
 });
-
-// ── Helpers ─────────────────────────────────────────────────────────
-
-function makeTurnToolCall(overrides: Record<string, unknown> = {}) {
-  return {
-    toolName: "view",
-    success: true,
-    isComplete: true,
-    durationMs: 200,
-    toolCallId: `tc-${Math.random().toString(36).slice(2, 8)}`,
-    startedAt: "2025-01-01T00:00:00.000Z",
-    completedAt: "2025-01-01T00:00:00.200Z",
-    ...overrides,
-  };
-}
-
-function makeTurn(overrides: Record<string, unknown> = {}) {
-  return {
-    turnIndex: 0,
-    userMessage: "Fix the bug",
-    assistantMessages: [{ content: "Done." }],
-    model: "gpt-4.1",
-    toolCalls: [] as ReturnType<typeof makeTurnToolCall>[],
-    durationMs: 5000,
-    isComplete: true,
-    timestamp: "2025-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 function mountComponent() {
   return mount(AgentTreeView, {
@@ -85,7 +57,7 @@ describe("AgentTreeView", () => {
         turnIndex: 0,
         toolCalls: [makeTurnToolCall({ isSubagent: false })],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const empty = wrapper.find(".empty-state-stub");
@@ -114,7 +86,7 @@ describe("AgentTreeView", () => {
           }),
         ],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const navLabel = wrapper.find(".turn-nav-label");
@@ -130,7 +102,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Main Agent");
@@ -157,7 +129,7 @@ describe("AgentTreeView", () => {
       durationMs: 4000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Explore Agent");
@@ -173,7 +145,7 @@ describe("AgentTreeView", () => {
       model: "claude-haiku-4.5",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, model: "gpt-4.1", toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     // The agent node should show its own model
@@ -188,7 +160,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     // No detail panel initially
@@ -211,7 +183,7 @@ describe("AgentTreeView", () => {
       agentDisplayName: "Explore Agent",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -273,7 +245,7 @@ describe("AgentTreeView", () => {
         turnIndex: 0,
         toolCalls: [agent1, agent2, agent3, agent4],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // With 2+ parallel groups, parallel badges should appear
@@ -302,7 +274,7 @@ describe("AgentTreeView", () => {
       durationMs: 2000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agent1, agent2] })];
 
     const wrapper = mountComponent();
     // No parallel badges should appear for non-overlapping agents
@@ -317,7 +289,7 @@ describe("AgentTreeView", () => {
       toolCallId: "agent-1",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     const prevBtn = wrapper.find('button[aria-label="Previous agent turn"]');
@@ -331,7 +303,7 @@ describe("AgentTreeView", () => {
       toolCallId: "agent-1",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     const nextBtn = wrapper.find('button[aria-label="Next agent turn"]');
@@ -359,7 +331,7 @@ describe("AgentTreeView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
       makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // The agent node should show "1 tool" (found cross-turn)
@@ -378,7 +350,7 @@ describe("AgentTreeView", () => {
       },
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     // Click the subagent node to open detail panel
@@ -405,7 +377,7 @@ describe("AgentTreeView", () => {
       durationMs: undefined,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("⏳");
@@ -429,7 +401,7 @@ describe("AgentTreeView", () => {
       toolCallId: "tc-view-1",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc, directTool] })];
 
     const wrapper = mountComponent();
     // Click main agent node to open detail panel
@@ -461,7 +433,7 @@ describe("AgentTreeView", () => {
       durationMs: undefined,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     const statusIcons = wrapper.findAll(".agent-node-status--in-progress");
@@ -487,7 +459,7 @@ describe("AgentTreeView", () => {
           { content: "Subagent found the answer", parentToolCallId: "agent-1" },
         ],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // Select the subagent node (second node after main)
@@ -520,7 +492,7 @@ describe("AgentTreeView", () => {
         assistantMessages: [{ content: "Result", parentToolCallId: "agent-1" }],
         reasoningTexts: [{ content: "Let me think about this...", parentToolCallId: "agent-1" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -561,7 +533,7 @@ describe("AgentTreeView", () => {
           { content: "Sub says hello", parentToolCallId: "agent-1" },
         ],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // Select main agent node (first node)
@@ -596,7 +568,7 @@ describe("AgentTreeView", () => {
         toolCalls: [agentTc],
         assistantMessages: [{ content: "Main only" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -660,7 +632,7 @@ describe("AgentTreeView", () => {
         model: "gpt-5.3-codex",
         toolCalls: [childSub1, childSub2],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // Navigate to the second agent turn (turn 1) which has the child subagents
@@ -709,7 +681,7 @@ describe("AgentTreeView", () => {
         turnIndex: 1,
         toolCalls: [childSub],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // Navigate to second agent turn
@@ -750,7 +722,7 @@ describe("AgentTreeView", () => {
         turnIndex: 0,
         toolCalls: [parentSub, childSub, childTool],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     await nextTick();
@@ -807,7 +779,7 @@ describe("AgentTreeView", () => {
     store.turns = [
       makeTurn({ turnIndex: 1, toolCalls: [subA] }),
       makeTurn({ turnIndex: 2, toolCalls: [subB] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     await nextTick();
@@ -851,7 +823,7 @@ describe("AgentTreeView", () => {
         toolCalls: [failedAgent],
         assistantMessages: [{ content: "Starting task...", parentToolCallId: "agent-fail" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -885,7 +857,7 @@ describe("AgentTreeView", () => {
         toolCalls: [successAgent],
         assistantMessages: [{ content: "Done!", parentToolCallId: "agent-ok" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -913,7 +885,7 @@ describe("AgentTreeView", () => {
         toolCalls: [agentTc],
         assistantMessages: [{ content: longContent, parentToolCallId: "agent-long" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");
@@ -949,7 +921,7 @@ describe("AgentTreeView", () => {
         toolCalls: [agentTc],
         assistantMessages: [{ content: "Short answer", parentToolCallId: "agent-short" }],
       }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     const nodes = wrapper.findAll(".agent-node");

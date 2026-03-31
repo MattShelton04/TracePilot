@@ -5,6 +5,14 @@
 
 import chalk from "chalk";
 
+/** Marker error for expected user-facing failures (no stack printed). */
+export class CliError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CliError";
+  }
+}
+
 /**
  * Format and display an error message, then exit with code 1.
  * Handles different error types: Error objects, strings, and unknown values.
@@ -16,7 +24,9 @@ import chalk from "chalk";
 export function handleCommandError(err: unknown, context?: string): never {
   const label = context ? `${context}:` : "Error:";
 
-  if (err instanceof Error) {
+  if (err instanceof CliError) {
+    console.error(chalk.red(label), err.message);
+  } else if (err instanceof Error) {
     // Print the main message in red, then the full error (with stack) for diagnostics
     console.error(chalk.red(label), err.message);
     if (err.stack) {

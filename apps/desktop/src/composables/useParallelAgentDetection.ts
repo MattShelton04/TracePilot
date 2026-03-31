@@ -140,12 +140,20 @@ export function useParallelAgentDetection<T extends TimeRangedItem>(
         parent.set(id, id);
         return id;
       }
-      const p = parent.get(id)!;
+      const p = parent.get(id);
+      // Union-find: parent must exist after initialization above
+      if (p === undefined) {
+        throw new Error(`Unexpected: parent not found for id ${id}`);
+      }
       if (p !== id) {
         // Path compression: set parent directly to root
         parent.set(id, find(p));
       }
-      return parent.get(id)!;
+      const root = parent.get(id);
+      if (root === undefined) {
+        throw new Error(`Unexpected: root not found for id ${id}`);
+      }
+      return root;
     }
 
     /**

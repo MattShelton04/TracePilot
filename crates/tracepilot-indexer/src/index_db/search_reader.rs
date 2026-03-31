@@ -114,14 +114,7 @@ impl IndexDb {
                   ELSE sc.content END"
         };
 
-        let from_clause = if is_fts {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!(
             "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, \
@@ -155,7 +148,8 @@ impl IndexDb {
                     WHEN 'system_message' THEN rank * 1.0 \
                     WHEN 'tool_call' THEN rank * 0.6 \
                     WHEN 'tool_result' THEN rank * 0.7 \
-                    ELSE rank END"),
+                    ELSE rank END",
+            ),
             _ => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
         }
 
@@ -178,21 +172,11 @@ impl IndexDb {
     }
 
     /// Count matching rows with optional FTS.
-    pub fn query_count(
-        &self,
-        query: Option<&str>,
-        filters: &SearchFilters,
-    ) -> Result<i64> {
+    pub fn query_count(&self, query: Option<&str>, filters: &SearchFilters) -> Result<i64> {
         let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
+        let is_fts = sanitized.is_some();
 
-        let from_clause = if sanitized.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT COUNT(*) {from_clause}");
 
@@ -207,32 +191,51 @@ impl IndexDb {
         append_filters(&mut sql, &mut params, filters);
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-        let count: i64 = self.conn.query_row(&sql, params_from_iter(refs), |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row(&sql, params_from_iter(refs), |row| row.get(0))?;
         Ok(count)
     }
 
     /// Get facet counts with optional FTS.
     /// Each facet dimension excludes its own filter for proper faceted navigation.
-    pub fn facets(
-        &self,
-        query: Option<&str>,
-        filters: &SearchFilters,
-    ) -> Result<SearchFacets> {
+    pub fn facets(&self, query: Option<&str>, filters: &SearchFilters) -> Result<SearchFacets> {
         let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
 
         let by_content_type = {
-            let excl = SearchFilters { content_types: Vec::new(), ..filters.clone() };
+            let excl = SearchFilters {
+                content_types: Vec::new(),
+                ..filters.clone()
+            };
             self.facet_dimension("sc.content_type", None, None, sanitized.as_deref(), &excl)?
         };
 
         let by_repository = {
-            let excl = SearchFilters { repositories: Vec::new(), ..filters.clone() };
-            self.facet_dimension("s.repository", Some("s.repository IS NOT NULL"), Some(20), sanitized.as_deref(), &excl)?
+            let excl = SearchFilters {
+                repositories: Vec::new(),
+                ..filters.clone()
+            };
+            self.facet_dimension(
+                "s.repository",
+                Some("s.repository IS NOT NULL"),
+                Some(20),
+                sanitized.as_deref(),
+                &excl,
+            )?
         };
 
         let by_tool_name = {
-            let excl = SearchFilters { tool_names: Vec::new(), ..filters.clone() };
-            self.facet_dimension("sc.tool_name", Some("sc.tool_name IS NOT NULL"), Some(20), sanitized.as_deref(), &excl)?
+            let excl = SearchFilters {
+                tool_names: Vec::new(),
+                ..filters.clone()
+            };
+            self.facet_dimension(
+                "sc.tool_name",
+                Some("sc.tool_name IS NOT NULL"),
+                Some(20),
+                sanitized.as_deref(),
+                &excl,
+            )?
         };
 
         // Total matches and distinct sessions
@@ -258,14 +261,8 @@ impl IndexDb {
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<Vec<(String, i64)>> {
-        let from_clause = if sanitized_query.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let is_fts = sanitized_query.is_some();
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT {column}, COUNT(*) {from_clause}");
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -290,10 +287,11 @@ impl IndexDb {
 
         let mut stmt = self.conn.prepare(&sql)?;
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-        let results: Vec<(String, i64)> = stmt
-            .query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map(params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
         Ok(results)
     }
 
@@ -303,14 +301,8 @@ impl IndexDb {
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<(i64, i64)> {
-        let from_clause = if sanitized_query.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let is_fts = sanitized_query.is_some();
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT COUNT(*), COUNT(DISTINCT sc.session_id) {from_clause}");
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -325,7 +317,9 @@ impl IndexDb {
         append_filters(&mut sql, &mut params, filters);
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
-        Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| Ok((row.get(0)?, row.get(1)?)))?)
+        Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?)
     }
 
     /// Get statistics about the search index.
@@ -352,10 +346,11 @@ impl IndexDb {
         let mut stmt = self.conn.prepare(
             "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC",
         )?;
-        let content_type_counts: Vec<(String, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut content_type_counts = Vec::new();
+        for row in rows {
+            content_type_counts.push(row?);
+        }
 
         Ok(SearchStats {
             total_rows,
@@ -370,11 +365,12 @@ impl IndexDb {
         let mut stmt = self.conn.prepare(
             "SELECT DISTINCT repository FROM sessions WHERE repository IS NOT NULL AND repository != '' ORDER BY repository",
         )?;
-        let repos: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(repos)
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        let mut repositories = Vec::new();
+        for row in rows {
+            repositories.push(row?);
+        }
+        Ok(repositories)
     }
 
     /// Get distinct tool names from search content.
@@ -382,10 +378,11 @@ impl IndexDb {
         let mut stmt = self.conn.prepare(
             "SELECT DISTINCT tool_name FROM search_content WHERE tool_name IS NOT NULL ORDER BY tool_name",
         )?;
-        let names: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        let mut names = Vec::new();
+        for row in rows {
+            names.push(row?);
+        }
         Ok(names)
     }
 
@@ -394,10 +391,11 @@ impl IndexDb {
         let mut stmt = self.conn.prepare(
             "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC",
         )?;
-        let results: Vec<(String, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
         Ok(results)
     }
 
@@ -409,10 +407,11 @@ impl IndexDb {
              WHERE s.repository IS NOT NULL \
              GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT 20",
         )?;
-        let results: Vec<(String, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
         Ok(results)
     }
 
@@ -423,10 +422,11 @@ impl IndexDb {
              WHERE tool_name IS NOT NULL \
              GROUP BY tool_name ORDER BY COUNT(*) DESC LIMIT 20",
         )?;
-        let results: Vec<(String, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
         Ok(results)
     }
 
@@ -446,9 +446,10 @@ impl IndexDb {
 
     /// Run FTS5 integrity check.
     pub fn fts_integrity_check(&self) -> Result<String> {
-        match self.conn.execute_batch(
-            "INSERT INTO search_fts(search_fts) VALUES('integrity-check')"
-        ) {
+        match self
+            .conn
+            .execute_batch("INSERT INTO search_fts(search_fts) VALUES('integrity-check')")
+        {
             Ok(()) => Ok("ok".to_string()),
             Err(e) => Ok(format!("Integrity check failed: {}", e)),
         }
@@ -456,31 +457,47 @@ impl IndexDb {
 
     /// Get detailed FTS health information.
     pub fn fts_health(&self) -> Result<FtsHealthInfo> {
-        let total_content_rows: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM search_content", [], |r| r.get(0)
-        ).unwrap_or(0);
-        let fts_index_rows: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM search_fts", [], |r| r.get(0)
-        ).unwrap_or(0);
-        let indexed_sessions: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL", [], |r| r.get(0)
-        ).unwrap_or(0);
-        let total_sessions: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM sessions", [], |r| r.get(0)
-        ).unwrap_or(0);
+        let total_content_rows: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM search_content", [], |r| r.get(0))
+            .unwrap_or(0);
+        let fts_index_rows: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM search_fts", [], |r| r.get(0))
+            .unwrap_or(0);
+        let indexed_sessions: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM sessions WHERE search_indexed_at IS NOT NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        let total_sessions: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+            .unwrap_or(0);
         let pending_sessions = total_sessions - indexed_sessions;
         let in_sync = total_content_rows == fts_index_rows && pending_sessions == 0;
         let content_types: Vec<(String, i64)> = {
             let mut stmt = self.conn.prepare(
                 "SELECT content_type, COUNT(*) FROM search_content GROUP BY content_type ORDER BY COUNT(*) DESC"
             )?;
-            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-                .filter_map(|r| r.ok())
-                .collect()
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            let mut content_types = Vec::new();
+            for row in rows {
+                content_types.push(row?);
+            }
+            content_types
         };
-        let db_size: i64 = self.conn.query_row(
-            "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |r| r.get(0)
-        ).unwrap_or(0);
+        let db_size: i64 = self
+            .conn
+            .query_row(
+                "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         Ok(FtsHealthInfo {
             total_content_rows,
             fts_index_rows,
@@ -494,7 +511,11 @@ impl IndexDb {
     }
 
     /// Get surrounding context for a search result (adjacent rows in the same session).
-    pub fn get_result_context(&self, result_id: i64, radius: usize) -> Result<(Vec<ContextSnippet>, Vec<ContextSnippet>)> {
+    pub fn get_result_context(
+        &self,
+        result_id: i64,
+        radius: usize,
+    ) -> Result<(Vec<ContextSnippet>, Vec<ContextSnippet>)> {
         let radius = radius.min(10); // clamp to prevent excessive queries
 
         // Get the session_id and event_index for this result
@@ -511,48 +532,61 @@ impl IndexDb {
             "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
              FROM search_content
              WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL
-             ORDER BY event_index DESC LIMIT ?3"
+             ORDER BY event_index DESC LIMIT ?3",
         )?;
-        let before: Vec<ContextSnippet> = before_stmt.query_map(
+        let before = before_stmt.query_map(
             params_from_iter([
                 Box::new(session_id.clone()) as Box<dyn ToSql>,
                 Box::new(event_idx),
                 Box::new(radius as i64),
             ]),
-            |row| Ok(ContextSnippet {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                turn_number: row.get(2)?,
-                event_index: row.get(3)?,
-                tool_name: row.get(4)?,
-                preview: row.get(5)?,
-            }),
-        )?.filter_map(|r| r.ok()).collect::<Vec<_>>().into_iter().rev().collect();
+            |row| {
+                Ok(ContextSnippet {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    turn_number: row.get(2)?,
+                    event_index: row.get(3)?,
+                    tool_name: row.get(4)?,
+                    preview: row.get(5)?,
+                })
+            },
+        )?;
+        let mut before_results: Vec<ContextSnippet> = Vec::new();
+        for row in before {
+            before_results.push(row?);
+        }
+        before_results.reverse();
 
         // Get rows after
         let mut after_stmt = self.conn.prepare(
             "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300)
              FROM search_content
              WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL
-             ORDER BY event_index ASC LIMIT ?3"
+             ORDER BY event_index ASC LIMIT ?3",
         )?;
-        let after: Vec<ContextSnippet> = after_stmt.query_map(
+        let after = after_stmt.query_map(
             params_from_iter([
                 Box::new(session_id) as Box<dyn ToSql>,
                 Box::new(event_idx),
                 Box::new(radius as i64),
             ]),
-            |row| Ok(ContextSnippet {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                turn_number: row.get(2)?,
-                event_index: row.get(3)?,
-                tool_name: row.get(4)?,
-                preview: row.get(5)?,
-            }),
-        )?.filter_map(|r| r.ok()).collect();
+            |row| {
+                Ok(ContextSnippet {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    turn_number: row.get(2)?,
+                    event_index: row.get(3)?,
+                    tool_name: row.get(4)?,
+                    preview: row.get(5)?,
+                })
+            },
+        )?;
+        let mut after_results = Vec::new();
+        for row in after {
+            after_results.push(row?);
+        }
 
-        Ok((before, after))
+        Ok((before_results, after_results))
     }
 
     /// Alias for clear_search_content — clears all and resets indexing state.
@@ -563,14 +597,47 @@ impl IndexDb {
 
 // ── Shared helpers ──────────────────────────────────────────────
 
+/// Build the FROM clause for search queries.
+/// When `is_fts` is true, joins through search_fts for full-text matching.
+/// When false, queries search_content directly for browse-mode filtering.
+#[inline]
+fn build_from_clause(is_fts: bool) -> &'static str {
+    if is_fts {
+        "FROM search_fts \
+         JOIN search_content sc ON sc.id = search_fts.rowid \
+         JOIN sessions s ON s.id = sc.session_id"
+    } else {
+        "FROM search_content sc \
+         JOIN sessions s ON s.id = sc.session_id"
+    }
+}
+
 /// Append all filter WHERE clauses and their param values using anonymous `?` placeholders.
 fn append_filters(sql: &mut String, params: &mut Vec<Box<dyn ToSql>>, filters: &SearchFilters) {
-    use super::helpers::{build_in_filter, build_not_in_filter, build_eq_filter, build_timestamp_range_filter};
+    use super::helpers::{
+        build_eq_filter, build_in_filter, build_not_in_filter, build_timestamp_range_filter,
+    };
 
-    sql.push_str(&build_in_filter("sc.content_type", &filters.content_types, params));
-    sql.push_str(&build_not_in_filter("sc.content_type", &filters.exclude_content_types, params));
-    sql.push_str(&build_in_filter("s.repository", &filters.repositories, params));
-    sql.push_str(&build_in_filter("sc.tool_name", &filters.tool_names, params));
+    sql.push_str(&build_in_filter(
+        "sc.content_type",
+        &filters.content_types,
+        params,
+    ));
+    sql.push_str(&build_not_in_filter(
+        "sc.content_type",
+        &filters.exclude_content_types,
+        params,
+    ));
+    sql.push_str(&build_in_filter(
+        "s.repository",
+        &filters.repositories,
+        params,
+    ));
+    sql.push_str(&build_in_filter(
+        "sc.tool_name",
+        &filters.tool_names,
+        params,
+    ));
 
     if let Some(ref sid) = filters.session_id {
         sql.push_str(&build_eq_filter("sc.session_id", sid.clone(), params));
@@ -935,10 +1002,7 @@ mod tests {
     fn test_snippet_sanitization() {
         let raw = "hello \x01MARK_OPEN\x01world\x01MARK_CLOSE\x01 <script>";
         let result = sanitize_snippet(raw);
-        assert_eq!(
-            result,
-            "hello <mark>world</mark> &lt;script&gt;"
-        );
+        assert_eq!(result, "hello <mark>world</mark> &lt;script&gt;");
     }
 
     #[test]
@@ -956,5 +1020,51 @@ mod tests {
     fn test_snippet_multiple_marks() {
         let raw = "\x01MARK_OPEN\x01a\x01MARK_CLOSE\x01 b \x01MARK_OPEN\x01c\x01MARK_CLOSE\x01";
         assert_eq!(sanitize_snippet(raw), "<mark>a</mark> b <mark>c</mark>");
+    }
+
+    /// Build an IndexDb backed by an in-memory SQLite connection using the provided schema/data.
+    fn build_db_with_fixture(sql: &str) -> IndexDb {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(sql).unwrap();
+        IndexDb { conn }
+    }
+
+    #[test]
+    fn search_stats_propagates_row_errors_in_content_type_counts() {
+        let db = build_db_with_fixture(
+            "CREATE TABLE search_content (id INTEGER PRIMARY KEY, content_type TEXT);
+             CREATE TABLE sessions (id INTEGER PRIMARY KEY, repository TEXT, search_indexed_at TEXT);
+             INSERT INTO sessions(id, repository) VALUES (1, 'repo');
+             INSERT INTO search_content(id, content_type) VALUES (1, NULL);",
+        );
+
+        let result = db.search_stats();
+        assert!(
+            result.is_err(),
+            "row-level errors should surface instead of being dropped silently"
+        );
+    }
+
+    #[test]
+    fn facets_propagate_row_errors_from_dimension_queries() {
+        let db = build_db_with_fixture(
+            "CREATE TABLE sessions (id TEXT PRIMARY KEY, repository TEXT);
+             CREATE TABLE search_content (
+                 id INTEGER PRIMARY KEY,
+                 session_id TEXT,
+                 content_type TEXT,
+                 tool_name TEXT,
+                 timestamp_unix INTEGER,
+                 event_index INTEGER
+             );
+             INSERT INTO sessions (id, repository) VALUES ('s1', 'repo');
+             INSERT INTO search_content (id, session_id, content_type) VALUES (1, 's1', NULL);",
+        );
+
+        let result = db.facets(None, &SearchFilters::default());
+        assert!(
+            result.is_err(),
+            "facet queries should propagate row mapping errors"
+        );
     }
 }

@@ -49,6 +49,14 @@ export function clearIpcPerfLog(): void {
   ipcPerfLog.length = 0;
 }
 
+// Expose on window for automation / skill access (mirrors __TRACEPILOT_PERF__)
+if (typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__TRACEPILOT_IPC_PERF__ = {
+    getIpcPerfLog,
+    clearIpcPerfLog,
+  };
+}
+
 /**
  * Call a Tauri plugin command.  Use this only when inside Tauri;
  * guard with `isTauri()` first.

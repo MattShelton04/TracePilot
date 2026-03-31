@@ -11,9 +11,10 @@ pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 /// Resolve a session directory path and run a blocking closure with it.
 ///
 /// Encapsulates the standard pattern used by most single-session commands:
-/// 1. Read `session_state_dir` from shared config
-/// 2. Spawn a blocking task to resolve the session path on disk
-/// 3. Execute command-specific logic with the resolved `PathBuf`
+/// 1. Validate that `session_id` is a well-formed UUID
+/// 2. Read `session_state_dir` from shared config
+/// 3. Spawn a blocking task to resolve the session path on disk
+/// 4. Execute command-specific logic with the resolved `PathBuf`
 ///
 /// This eliminates repeated boilerplate across session, export, and state
 /// commands.  For the analytics equivalent, see
@@ -27,6 +28,8 @@ where
     T: Send + 'static,
     F: FnOnce(PathBuf) -> Result<T, BindingsError> + Send + 'static,
 {
+    crate::validators::validate_session_id(&session_id)?;
+
     let session_state_dir = read_config(state).session_state_dir();
 
     tokio::task::spawn_blocking(move || {
@@ -121,7 +124,14 @@ pub(crate) fn copilot_home() -> CmdResult<std::path::PathBuf> {
     Ok(tracepilot_orchestrator::launcher::copilot_home()?)
 }
 
-pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResult<()> {
+/// Validate that an existing path resides within `dir`.
+///
+/// Returns the canonicalized path on success so callers can use the resolved
+/// path for subsequent operations, reducing TOCTOU risk.
+pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResult<PathBuf> {
+    if path.is_empty() {
+        return Err(BindingsError::Validation("Path must not be empty".into()));
+    }
     let p = std::path::Path::new(path);
     if !p.exists() {
         return Err(BindingsError::Validation(format!(
@@ -130,13 +140,69 @@ pub(crate) fn validate_path_within(path: &str, dir: &std::path::Path) -> CmdResu
         )));
     }
     let canonical = p.canonicalize()?;
-    let canonical_dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    let canonical_dir = dir.canonicalize().map_err(|e| {
+        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
+    })?;
     if !canonical.starts_with(&canonical_dir) {
         return Err(BindingsError::Validation(
             "Path is outside the allowed directory".into(),
         ));
     }
-    Ok(())
+    Ok(canonical)
+}
+
+/// Validate a write-target path whose file may not yet exist.
+///
+/// Checks that the parent directory exists and is within `dir`. If the target
+/// file already exists (e.g. overwrite or symlink), the full canonical path is
+/// verified to prevent symlink escapes. Returns the resolved path so callers
+/// can use it directly, reducing TOCTOU risk.
+pub(crate) fn validate_write_path_within(
+    path: &str,
+    dir: &std::path::Path,
+) -> CmdResult<PathBuf> {
+    if path.is_empty() {
+        return Err(BindingsError::Validation("Path must not be empty".into()));
+    }
+    let p = std::path::Path::new(path);
+    let file_name = p
+        .file_name()
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| BindingsError::Validation("Path has no filename".into()))?;
+    let parent = p
+        .parent()
+        .filter(|par| !par.as_os_str().is_empty())
+        .ok_or_else(|| BindingsError::Validation("Path has no parent directory".into()))?;
+    if !parent.is_dir() {
+        return Err(BindingsError::Validation(format!(
+            "Parent directory does not exist: {}",
+            parent.display()
+        )));
+    }
+    let canonical_dir = dir.canonicalize().map_err(|e| {
+        BindingsError::Validation(format!("Cannot resolve allowed directory: {e}"))
+    })?;
+
+    // If the target already exists (overwrite or symlink), canonicalize the full
+    // path to ensure symlinks don't escape the allowed directory.
+    if p.exists() {
+        let canonical_full = p.canonicalize()?;
+        if !canonical_full.starts_with(&canonical_dir) {
+            return Err(BindingsError::Validation(
+                "Path is outside the allowed directory".into(),
+            ));
+        }
+        return Ok(canonical_full);
+    }
+
+    // File doesn't exist yet — validate parent only.
+    let canonical_parent = parent.canonicalize()?;
+    if !canonical_parent.starts_with(&canonical_dir) {
+        return Err(BindingsError::Validation(
+            "Path is outside the allowed directory".into(),
+        ));
+    }
+    Ok(canonical_parent.join(file_name))
 }
 
 /// Delete the index database and its WAL/SHM sidecar files, surfacing I/O errors.
@@ -219,7 +285,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn with_session_path_propagates_missing_session_error() {
+    async fn with_session_path_rejects_invalid_session_id() {
         let dir = tempfile::tempdir().unwrap();
         let state = make_shared_config(dir.path().to_str().unwrap());
 
@@ -228,10 +294,29 @@ mod tests {
         })
         .await;
 
+        assert!(result.is_err(), "invalid UUID should produce an error");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Invalid session ID format"),
+            "error should be a validation error: {err_msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn with_session_path_propagates_missing_session_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = make_shared_config(dir.path().to_str().unwrap());
+
+        // Valid UUID that doesn't exist on disk
+        let result = with_session_path(&state, "00000000-0000-0000-0000-000000000000".into(), |_path| {
+            Ok("should not reach here".to_string())
+        })
+        .await;
+
         assert!(result.is_err(), "missing session should produce an error");
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("nonexistent-session-id"),
+            err_msg.contains("00000000-0000-0000-0000-000000000000"),
             "error should reference the session id: {err_msg}"
         );
     }
@@ -276,5 +361,229 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert_eq!(err_msg, "deliberate test error");
+    }
+
+    // ── validate_path_within tests ──────────────────────────────────────
+
+    #[test]
+    fn validate_path_within_accepts_file_inside_dir() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("test.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let result = validate_path_within(file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
+        // Returned path should be canonical and end with the filename.
+        let canonical = result.unwrap();
+        assert!(canonical.ends_with("test.txt"));
+    }
+
+    #[test]
+    fn validate_path_within_accepts_file_in_subdirectory() {
+        let dir = tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        let file = sub.join("nested.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let result = validate_path_within(file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_path_within_rejects_empty_path() {
+        let dir = tempdir().unwrap();
+        let result = validate_path_within("", dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must not be empty"));
+    }
+
+    #[test]
+    fn validate_path_within_rejects_nonexistent_path() {
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("nope.txt");
+
+        let result = validate_path_within(missing.to_str().unwrap(), dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn validate_path_within_rejects_path_outside_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let file = outside.path().join("escape.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let result = validate_path_within(file.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[test]
+    fn validate_path_within_rejects_traversal_via_dotdot() {
+        let dir = tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        // File is actually in the parent (dir), referred to via sub/../file.txt
+        let file = dir.path().join("file.txt");
+        fs::write(&file, b"data").unwrap();
+        let traversal = sub.join("..").join("file.txt");
+
+        // validate_path_within should canonicalize and see the file is NOT inside sub
+        let result = validate_path_within(traversal.to_str().unwrap(), &sub);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_path_within_errors_when_allowed_dir_missing() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("test.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let missing_dir = dir.path().join("does_not_exist");
+        let result = validate_path_within(file.to_str().unwrap(), &missing_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Cannot resolve"));
+    }
+
+    // ── validate_write_path_within tests ────────────────────────────────
+
+    #[test]
+    fn validate_write_path_within_accepts_new_file_in_dir() {
+        let dir = tempdir().unwrap();
+        let new_file = dir.path().join("new.txt");
+        // File does NOT exist yet — only the parent directory matters.
+
+        let result = validate_write_path_within(new_file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert!(resolved.ends_with("new.txt"));
+    }
+
+    #[test]
+    fn validate_write_path_within_accepts_new_file_in_subdirectory() {
+        let dir = tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        let new_file = sub.join("new.txt");
+
+        let result = validate_write_path_within(new_file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_empty_path() {
+        let dir = tempdir().unwrap();
+        let result = validate_write_path_within("", dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must not be empty"));
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_path_outside_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let new_file = outside.path().join("escape.txt");
+
+        let result = validate_write_path_within(new_file.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_missing_parent() {
+        let dir = tempdir().unwrap();
+        let deep = dir.path().join("no_such_dir").join("file.txt");
+
+        let result = validate_write_path_within(deep.to_str().unwrap(), dir.path());
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_string().contains("Parent directory does not exist"),
+        );
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_bare_filename() {
+        let dir = tempdir().unwrap();
+        let result = validate_write_path_within("just_a_name.txt", dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_traversal_via_dotdot() {
+        let dir = tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        // Try to escape sub via ../new.txt — parent would resolve to dir, outside sub
+        let traversal = sub.join("..").join("new.txt");
+
+        let result = validate_write_path_within(traversal.to_str().unwrap(), &sub);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_write_path_within_errors_when_allowed_dir_missing() {
+        let dir = tempdir().unwrap();
+        let new_file = dir.path().join("test.txt");
+
+        let missing_dir = dir.path().join("does_not_exist");
+        let result = validate_write_path_within(new_file.to_str().unwrap(), &missing_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Cannot resolve"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_path_within_rejects_symlink_escaping_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("secret.txt");
+        fs::write(&target, b"secret").unwrap();
+        let link = allowed.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = validate_path_within(link.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_write_path_within_rejects_existing_symlink_escaping_dir() {
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("escape.txt");
+        fs::write(&target, b"data").unwrap();
+        // Create a symlink inside allowed that points outside
+        let link = allowed.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = validate_write_path_within(link.to_str().unwrap(), allowed.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("outside"));
+    }
+
+    #[test]
+    fn validate_write_path_within_rejects_parent_is_file() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("not_a_dir");
+        fs::write(&file, b"data").unwrap();
+        // Try to use a file as the parent directory
+        let bad_path = file.join("child.txt");
+
+        let result = validate_write_path_within(bad_path.to_str().unwrap(), dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Parent directory does not exist"));
+    }
+
+    #[test]
+    fn validate_write_path_within_accepts_overwrite_within_dir() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("existing.txt");
+        fs::write(&file, b"data").unwrap();
+
+        let result = validate_write_path_within(file.to_str().unwrap(), dir.path());
+        assert!(result.is_ok());
     }
 }

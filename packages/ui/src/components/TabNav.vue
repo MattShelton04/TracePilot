@@ -58,7 +58,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
 }
 </script>
 <template>
-  <nav class="tab-nav" role="tablist" aria-label="Session tabs">
+  <nav class="tab-nav" role="tablist" aria-label="Session tabs" data-testid="session-tabs">
     <button
       v-for="(tab, index) in tabs"
       :key="tab.name"
@@ -67,6 +67,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       :aria-selected="activeTab === tab.routeName"
       :aria-current="activeTab === tab.routeName ? 'page' : undefined"
       :tabindex="index === focusedIndex ? 0 : -1"
+      :data-testid="`session-tab-${tab.routeName}`"
       class="tab-nav-item"
       :class="{ active: activeTab === tab.routeName }"
       @click="navigate(tab.routeName)"

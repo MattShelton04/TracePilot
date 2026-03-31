@@ -363,7 +363,13 @@ describe("useSessionDetailStore", () => {
             ],
             isComplete: true,
           },
-          { turnIndex: 1, userMessage: "next", assistantMessages: [], toolCalls: [], isComplete: true },
+          {
+            turnIndex: 1,
+            userMessage: "next",
+            assistantMessages: [],
+            toolCalls: [],
+            isComplete: true,
+          },
         ],
         eventsFileSize: 100,
       };
@@ -391,7 +397,13 @@ describe("useSessionDetailStore", () => {
             ],
             isComplete: true,
           },
-          { turnIndex: 1, userMessage: "next", assistantMessages: [], toolCalls: [], isComplete: true },
+          {
+            turnIndex: 1,
+            userMessage: "next",
+            assistantMessages: [],
+            toolCalls: [],
+            isComplete: true,
+          },
         ],
         eventsFileSize: 120,
       });
@@ -409,7 +421,9 @@ describe("useSessionDetailStore", () => {
       await store.loadTurns();
 
       const beforeVersion = store.turnsVersion;
-      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10 });
+      mockCheckSessionFreshness.mockResolvedValue({
+        eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10,
+      });
       mockGetSessionTurns.mockResolvedValue({
         turns: structuredClone(FIXTURE_TURNS.turns),
         eventsFileSize: FIXTURE_TURNS.eventsFileSize + 10,

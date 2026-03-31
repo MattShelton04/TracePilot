@@ -238,7 +238,7 @@ const rows = computed<WaterfallRow[]>(() => {
 
     // Append children if subagent
     if (tc.toolCallId && childrenMap.has(tc.toolCallId)) {
-      const children = childrenMap.get(tc.toolCallId)!;
+      const children = childrenMap.get(tc.toolCallId) ?? [];
       for (const child of children) {
         const pos = position(child);
         result.push({

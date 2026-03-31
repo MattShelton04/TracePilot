@@ -18,8 +18,8 @@ import type {
   SessionIncident,
   SessionPlan,
   ShutdownMetrics,
-  TurnToolCall,
   TodosResponse,
+  TurnToolCall,
 } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
@@ -68,8 +68,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     let hash = 2166136261;
     for (let i = 0; i < value.length; i++) {
       hash ^= value.charCodeAt(i);
-      hash +=
-        (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
     }
     return hash >>> 0;
   }
@@ -313,7 +312,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   // fetch → assign result → clear error (on success).
   // Unlike buildSectionLoader, this clears errorRef on *success* (not before
   // the fetch), preserving the previous error during the refresh attempt.
-  function buildRefreshPromise<T>(
+  async function buildRefreshPromise<T>(
     cfg: {
       key: string;
       errorRef: Ref<string | null>;
@@ -324,19 +323,17 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     id: string,
     token: AsyncGuardToken,
   ): Promise<void> {
-    return cfg
-      .fetchFn(id)
-      .then((result) => {
-        if (!sessionGuard.isValid(token)) return;
-        cfg.onResult(result);
-        cfg.errorRef.value = null;
-      })
-      .catch((e) => {
-        if (!sessionGuard.isValid(token)) return;
-        cfg.errorRef.value = toErrorMessage(e);
-        const logFn = cfg.logLevel === "warn" ? logWarn : logError;
-        logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
-      });
+    try {
+      const result = await cfg.fetchFn(id);
+      if (!sessionGuard.isValid(token)) return;
+      cfg.onResult(result);
+      cfg.errorRef.value = null;
+    } catch (e) {
+      if (!sessionGuard.isValid(token)) return;
+      cfg.errorRef.value = toErrorMessage(e);
+      const logFn = cfg.logLevel === "warn" ? logWarn : logError;
+      logFn(`[sessionDetail] Failed to refresh ${cfg.key}:`, e);
+    }
   }
 
   // ── Section registry ────────────────────────────────────────────────
@@ -496,41 +493,44 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       todos.value = null;
 
       // Background refresh: silently update stale data
-      getSessionDetail(id)
-        .then((result) => {
+      void (async () => {
+        try {
+          const result = await getSessionDetail(id);
           if (!sessionGuard.isValid(token)) return;
           detail.value = result;
-        })
-        .catch((e) => {
+        } catch (e) {
           if (!sessionGuard.isValid(token)) return;
           // Background refresh failed - non-critical
           logWarn("[sessionDetail] Background refresh of session detail failed", { id, error: e });
-        });
-      checkSessionFreshness(id)
-        .then(async (freshness) => {
+        }
+      })();
+      void (async () => {
+        try {
+          const freshness = await checkSessionFreshness(id);
           if (!sessionGuard.isValid(token)) return;
           if (freshness.eventsFileSize === lastEventsFileSize) return;
           const result = await getSessionTurns(id);
           if (!sessionGuard.isValid(token)) return;
           mergeTurns(result.turns);
           lastEventsFileSize = result.eventsFileSize;
-        })
-        .catch((e) => {
+        } catch (e) {
           if (!sessionGuard.isValid(token)) return;
           // Background freshness check failed - non-critical
           logWarn("[sessionDetail] Background freshness check failed", { id, error: e });
-        });
+        }
+      })();
       if (loaded.value.has("plan")) {
-        getSessionPlan(id)
-          .then((result) => {
+        void (async () => {
+          try {
+            const result = await getSessionPlan(id);
             if (!sessionGuard.isValid(token)) return;
             plan.value = result;
-          })
-          .catch((e) => {
+          } catch (e) {
             if (!sessionGuard.isValid(token)) return;
             // Background plan refresh failed - non-critical
             logWarn("[sessionDetail] Background refresh of plan failed", { id, error: e });
-          });
+          }
+        })();
       }
       return;
     }
@@ -609,15 +609,16 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     // stays as a one-off instead of going through buildRefreshPromise.
     if (sections.has("detail")) {
       promises.push(
-        getSessionDetail(id)
-          .then((result) => {
+        (async () => {
+          try {
+            const result = await getSessionDetail(id);
             if (!sessionGuard.isValid(token)) return;
             detail.value = result;
-          })
-          .catch((e) => {
+          } catch (e) {
             if (!sessionGuard.isValid(token)) return;
             logError("[sessionDetail] Failed to refresh detail:", e);
-          }),
+          }
+        })(),
       );
     }
 
@@ -625,25 +626,27 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     if (sections.has("turns")) {
       promises.push(
         (async () => {
-          // Freshness check: skip full turn fetch if events.jsonl hasn't changed
           try {
-            const freshness = await checkSessionFreshness(id);
-            if (!sessionGuard.isValid(token)) return;
-            if (freshness.eventsFileSize === lastEventsFileSize) return;
-          } catch {
-            // Freshness check failed — fall through to full fetch
-          }
+            // Freshness check: skip full turn fetch if events.jsonl hasn't changed
+            try {
+              const freshness = await checkSessionFreshness(id);
+              if (!sessionGuard.isValid(token)) return;
+              if (freshness.eventsFileSize === lastEventsFileSize) return;
+            } catch {
+              // Freshness check failed — fall through to full fetch
+            }
 
-          const result = await getSessionTurns(id);
-          if (!sessionGuard.isValid(token)) return;
-          mergeTurns(result.turns);
-          turnsError.value = null;
-          lastEventsFileSize = result.eventsFileSize;
-        })().catch((e) => {
-          if (!sessionGuard.isValid(token)) return;
-          turnsError.value = toErrorMessage(e);
-          logError("[sessionDetail] Failed to refresh turns:", e);
-        }),
+            const result = await getSessionTurns(id);
+            if (!sessionGuard.isValid(token)) return;
+            mergeTurns(result.turns);
+            turnsError.value = null;
+            lastEventsFileSize = result.eventsFileSize;
+          } catch (e) {
+            if (!sessionGuard.isValid(token)) return;
+            turnsError.value = toErrorMessage(e);
+            logError("[sessionDetail] Failed to refresh turns:", e);
+          }
+        })(),
       );
     }
 

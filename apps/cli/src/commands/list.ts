@@ -6,7 +6,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
-import { fileExists, getSessionStateDir, parseWorkspace, UUID_REGEX } from "./utils.js";
+import { fileExists, parseWorkspace, requireSessionStateDir, UUID_REGEX } from "./utils.js";
 
 interface SessionInfo {
   id: string;
@@ -20,7 +20,7 @@ interface SessionInfo {
 }
 
 async function discoverSessions(): Promise<SessionInfo[]> {
-  const baseDir = getSessionStateDir();
+  const baseDir = await requireSessionStateDir();
   const entries = await readdir(baseDir, { withFileTypes: true });
   const sessions: SessionInfo[] = [];
 
