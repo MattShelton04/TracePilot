@@ -91,8 +91,8 @@ export function createDefaultConfig(
       healthScoring: false,
       sessionReplay: false,
       renderMarkdown: true,
-      mcpServers: true,
-      skills: true,
+      mcpServers: false,
+      skills: false,
       ...overrides?.features,
     },
     logging: {
