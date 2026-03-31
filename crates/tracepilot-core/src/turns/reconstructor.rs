@@ -571,7 +571,9 @@ impl TurnReconstructor {
             turn.session_events.append(&mut self.pending_session_events);
             self.current_turn = Some(turn);
         }
-        self.current_turn.as_mut().unwrap()
+        self.current_turn
+            .as_mut()
+            .expect("BUG: current_turn is None after ensure logic set it to Some")
     }
 
     fn finalize_current_turn(&mut self, is_complete: bool, end_timestamp: Option<DateTime<Utc>>) {

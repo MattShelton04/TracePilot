@@ -474,7 +474,7 @@ pub fn extract_combined_shutdown_data(events: &[TypedEvent]) -> Option<(Shutdown
     let count = shutdowns.len() as u32;
 
     Some((
-        combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps),
+        combine_shutdown_data(&shutdowns, session_start_ts, &resume_timestamps)?,
         count,
     ))
 }
@@ -488,9 +488,9 @@ fn combine_shutdown_data(
     shutdowns: &[(&ShutdownData, Option<DateTime<Utc>>)],
     session_start_ts: Option<DateTime<Utc>>,
     resume_timestamps: &[DateTime<Utc>],
-) -> ShutdownData {
-    let first = shutdowns.first().unwrap().0;
-    let last = shutdowns.last().unwrap().0;
+) -> Option<ShutdownData> {
+    let (first, _) = shutdowns.first()?;
+    let (last, _) = shutdowns.last()?;
 
     let mut segments: Vec<SessionSegment> = Vec::new();
 
@@ -522,7 +522,11 @@ fn combine_shutdown_data(
             let mut last_resume: Option<&DateTime<Utc>> = None;
             while let Some(&&rt) = resume_iter.peek().as_ref() {
                 if ts.is_none_or(|shutdown_ts| *rt <= shutdown_ts) {
-                    last_resume = Some(resume_iter.next().unwrap());
+                    last_resume = Some(
+                        resume_iter
+                            .next()
+                            .expect("BUG: peek() confirmed element exists"),
+                    );
                 } else {
                     break;
                 }
@@ -557,7 +561,7 @@ fn combine_shutdown_data(
         });
     }
 
-    ShutdownData {
+    Some(ShutdownData {
         shutdown_type: last.shutdown_type.clone(),
         current_model: last.current_model.clone(),
         session_start_time: first.session_start_time,
@@ -570,7 +574,7 @@ fn combine_shutdown_data(
             shutdowns.iter().map(|(s, _)| s.model_metrics.as_ref()),
         )),
         session_segments: Some(segments),
-    }
+    })
 }
 
 /// Sum Option<f64> values: None + Some(5) = Some(5), None + None = None.
@@ -957,5 +961,28 @@ mod tests {
         assert_eq!(o_usg.output_tokens, Some(1000));
         assert_eq!(o_usg.cache_read_tokens, Some(1500));
         assert_eq!(o_usg.cache_write_tokens, Some(200));
+    }
+
+    #[test]
+    fn test_extract_combined_shutdown_no_shutdown_events() {
+        // Events with no shutdown — should return None.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        let jsonl = r#"{"type":"session.start","data":{"sessionId":"abc","version":"1.0","producer":"copilot-cli","context":{"cwd":"/test","branch":"main"}},"id":"evt-1","timestamp":"2026-03-10T07:00:00.000Z","parentId":null}"#;
+        std::fs::write(&path, format!("{jsonl}\n")).unwrap();
+        let events = parse_typed_events(&path).unwrap().events;
+        assert!(
+            extract_combined_shutdown_data(&events).is_none(),
+            "Expected None when no shutdown events present"
+        );
+    }
+
+    #[test]
+    fn test_extract_combined_shutdown_empty_events() {
+        // Empty event slice — should return None.
+        assert!(
+            extract_combined_shutdown_data(&[]).is_none(),
+            "Expected None for empty event slice"
+        );
     }
 }

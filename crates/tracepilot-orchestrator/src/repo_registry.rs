@@ -126,18 +126,12 @@ pub fn add_repo(path: &str, source: RepoSource) -> Result<RegisteredRepo> {
     let _guard = REGISTRY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut registry = read_registry()?;
 
-    // Check for duplicates
-    if registry
+    // Check for duplicates — single traversal to find and update
+    if let Some(repo) = registry
         .repos
-        .iter()
-        .any(|r| normalize_path(&r.path) == normalized)
+        .iter_mut()
+        .find(|r| normalize_path(&r.path) == normalized)
     {
-        // Already registered — update last_used_at and return
-        let repo = registry
-            .repos
-            .iter_mut()
-            .find(|r| normalize_path(&r.path) == normalized)
-            .unwrap();
         repo.last_used_at = Some(chrono::Utc::now().to_rfc3339());
         let result = repo.clone();
         write_registry(&registry)?;
