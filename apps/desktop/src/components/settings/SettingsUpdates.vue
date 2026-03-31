@@ -127,6 +127,6 @@ function handleOpenRelease() {
 
 .update-check-error {
   font-size: 13px;
-  color: var(--color-danger-fg, #ef4444);
+  color: var(--danger-fg);
 }
 </style>

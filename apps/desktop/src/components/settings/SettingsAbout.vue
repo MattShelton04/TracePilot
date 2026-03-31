@@ -94,7 +94,7 @@ onMounted(async () => {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #6366f1, #818cf8);
+  background: linear-gradient(135deg, var(--accent-emphasis), var(--accent-fg));
   display: flex;
   align-items: center;
   justify-content: center;

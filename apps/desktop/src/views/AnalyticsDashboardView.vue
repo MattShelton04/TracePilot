@@ -543,7 +543,7 @@ const {
                     :y="bar.compRect.y"
                     :width="incidentChart.barW"
                     :height="bar.compRect.h"
-                    fill="var(--chart-secondary, #a78bfa)"
+                    fill="var(--chart-secondary)"
                     rx="1"
                     class="chart-bar"
                     :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"

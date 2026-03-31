@@ -224,7 +224,7 @@ const breadcrumbs = computed(() => {
 .app-orb-1 {
   width: 600px;
   height: 600px;
-  background: #6366f1;
+  background: var(--accent-emphasis);
   top: -200px;
   right: -150px;
 }

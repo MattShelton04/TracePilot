@@ -809,10 +809,10 @@ watch(filteredTodos, () => {
 }
 .filter-chip:hover { opacity: 0.75; }
 .filter-chip.active { opacity: 1; }
-.filter-chip.active.done { background: rgba(52, 211, 153, 0.1); border-color: #34d399; color: #34d399; }
-.filter-chip.active.in_progress { background: rgba(99, 102, 241, 0.1); border-color: #818cf8; color: #818cf8; }
-.filter-chip.active.pending { background: rgba(161, 161, 170, 0.08); border-color: var(--border-default); color: #a1a1aa; }
-.filter-chip.active.blocked { background: rgba(251, 113, 133, 0.08); border-color: #fb7185; color: #fb7185; }
+.filter-chip.active.done { background: var(--success-subtle); border-color: var(--success-fg); color: var(--success-fg); }
+.filter-chip.active.in_progress { background: var(--accent-subtle); border-color: var(--accent-fg); color: var(--accent-fg); }
+.filter-chip.active.pending { background: var(--neutral-subtle); border-color: var(--border-default); color: var(--neutral-fg); }
+.filter-chip.active.blocked { background: var(--danger-subtle); border-color: var(--danger-fg); color: var(--danger-fg); }
 
 .filter-icon { font-size: 0.75rem; }
 .filter-count {
@@ -869,10 +869,10 @@ watch(filteredTodos, () => {
 /* Cycle warning */
 .cycle-warning {
   padding: 10px 16px;
-  background: rgba(251, 113, 133, 0.08);
-  border: 1px solid #fb7185;
+  background: var(--danger-subtle);
+  border: 1px solid var(--danger-fg);
   border-radius: var(--radius-lg);
-  color: #fb7185;
+  color: var(--danger-fg);
   font-size: 0.8125rem;
   font-weight: 500;
 }
@@ -956,10 +956,10 @@ watch(filteredTodos, () => {
   stroke-width: 1.5;
   transition: filter 0.2s ease, stroke-width 0.2s ease;
 }
-.node-rect.done { fill: rgba(52, 211, 153, 0.12); stroke: #34d399; }
-.node-rect.in_progress { fill: rgba(99, 102, 241, 0.12); stroke: #818cf8; }
-.node-rect.pending { fill: rgba(161, 161, 170, 0.08); stroke: rgba(255, 255, 255, 0.15); }
-.node-rect.blocked { fill: rgba(251, 113, 133, 0.08); stroke: #fb7185; }
+.node-rect.done { fill: var(--success-subtle); stroke: var(--success-fg); }
+.node-rect.in_progress { fill: var(--accent-subtle); stroke: var(--accent-fg); }
+.node-rect.pending { fill: var(--neutral-subtle); stroke: var(--border-emphasis); }
+.node-rect.blocked { fill: var(--danger-subtle); stroke: var(--danger-fg); }
 
 .node-title { font-size: 11px; font-weight: 600; fill: var(--text-primary); }
 .node-desc { font-size: 9.5px; fill: var(--text-tertiary); }
@@ -1004,10 +1004,10 @@ watch(filteredTodos, () => {
   border-radius: 4px;
   border: 1.5px solid;
 }
-.legend-swatch.done { background: rgba(52, 211, 153, 0.15); border-color: #34d399; }
-.legend-swatch.in_progress { background: rgba(99, 102, 241, 0.15); border-color: #818cf8; }
-.legend-swatch.pending { background: rgba(161, 161, 170, 0.08); border-color: var(--border-default); }
-.legend-swatch.blocked { background: rgba(251, 113, 133, 0.08); border-color: #fb7185; border-style: dashed; }
+.legend-swatch.done { background: var(--success-subtle); border-color: var(--success-fg); }
+.legend-swatch.in_progress { background: var(--accent-subtle); border-color: var(--accent-fg); }
+.legend-swatch.pending { background: var(--neutral-subtle); border-color: var(--border-default); }
+.legend-swatch.blocked { background: var(--danger-subtle); border-color: var(--danger-fg); border-style: dashed; }
 
 /* Detail panel */
 .detail-panel {
@@ -1041,10 +1041,10 @@ watch(filteredTodos, () => {
   font-weight: 500;
   text-transform: capitalize;
 }
-.detail-badge.done { background: rgba(52, 211, 153, 0.15); color: #34d399; }
-.detail-badge.in_progress { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
-.detail-badge.pending { background: rgba(161, 161, 170, 0.1); color: #a1a1aa; }
-.detail-badge.blocked { background: rgba(251, 113, 133, 0.1); color: #fb7185; }
+.detail-badge.done { background: var(--success-subtle); color: var(--success-fg); }
+.detail-badge.in_progress { background: var(--accent-subtle); color: var(--accent-fg); }
+.detail-badge.pending { background: var(--neutral-subtle); color: var(--neutral-fg); }
+.detail-badge.blocked { background: var(--danger-subtle); color: var(--danger-fg); }
 
 .detail-panel-body {
   padding: 16px;
