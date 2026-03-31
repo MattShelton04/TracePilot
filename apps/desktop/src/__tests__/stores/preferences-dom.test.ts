@@ -90,7 +90,7 @@ describe("usePreferencesStore DOM side effects", () => {
 
     const mockConfig = createDefaultConfig();
     vi.mocked(client.getConfig).mockResolvedValue(mockConfig);
-    vi.mocked(client.saveConfig).mockResolvedValue(undefined as any);
+    vi.mocked(client.saveConfig).mockResolvedValue(undefined);
     // checkConfigExists is spread from the actual client which falls through
     // to mock mode — mock it here to return true so hydrate() loads the config.
     const checkConfigSpy = vi.spyOn(client, "checkConfigExists").mockResolvedValue(true);
