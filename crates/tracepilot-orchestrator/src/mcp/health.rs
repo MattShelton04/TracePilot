@@ -42,6 +42,11 @@ pub async fn check_all_servers(
     let mut join_set: tokio::task::JoinSet<(String, McpHealthResultCached)> =
         tokio::task::JoinSet::new();
 
+    // Track names of spawned tasks so we can insert a fallback result if a
+    // task panics (extremely unlikely — check_single_server handles all errors
+    // internally — but guarantees results.len() == servers.len()).
+    let mut spawned_names: Vec<String> = Vec::new();
+
     for (name, config) in servers {
         if !config.enabled {
             results.insert(
@@ -61,11 +66,12 @@ pub async fn check_all_servers(
             continue;
         }
 
-        let name_clone = name.clone();
-        let config_clone = config.clone();
+        let name = name.clone();
+        let config = config.clone();
+        spawned_names.push(name.clone());
         join_set.spawn(async move {
-            let cached = check_single_server(&name_clone, &config_clone).await;
-            (name_clone, cached)
+            let cached = check_single_server(&name, &config).await;
+            (name, cached)
         });
     }
 
@@ -75,11 +81,22 @@ pub async fn check_all_servers(
                 results.insert(name, cached);
             }
             Err(e) => {
-                // A task panic is not expected (check_single_server handles all
-                // errors internally), but handle it defensively.
+                // Should not happen — check_single_server handles all errors
+                // without panicking. Logged defensively; the missing entry is
+                // filled in by the fallback loop below.
                 tracing::warn!("An MCP health check task panicked unexpectedly: {e}");
             }
         }
+    }
+
+    // Insert Unreachable fallback for any server whose task panicked and did
+    // not produce a result entry. The `Instant::now()` latency is approximate
+    // (measured after all tasks finish, not at panic time) — acceptable since
+    // task panics should never occur in practice.
+    for name in spawned_names {
+        results.entry(name).or_insert_with_key(|n| {
+            make_error_result(n, Instant::now(), "health-check task panicked unexpectedly")
+        });
     }
 
     results
@@ -633,9 +650,10 @@ mod tests {
     }
 
     #[test]
-    fn all_servers_appear_in_results_for_mixed_map() {
-        // Verifies that every server (disabled or otherwise) produces a result
-        // entry regardless of execution order.
+    fn mixed_map_all_servers_appear_in_results() {
+        // Verifies that every server (disabled or enabled-but-unreachable) produces
+        // a result entry, exercising both the synchronous disabled path and the
+        // JoinSet path in the same call.
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -643,23 +661,30 @@ mod tests {
 
         rt.block_on(async {
             let mut servers = HashMap::new();
-            servers.insert("alpha".to_string(), make_server(false));
-            servers.insert("beta".to_string(), make_server(false));
-            servers.insert("gamma".to_string(), make_server(false));
+            // Disabled servers — handled synchronously, never spawned.
+            servers.insert("disabled-1".to_string(), make_server(false));
+            servers.insert("disabled-2".to_string(), make_server(false));
+            // Enabled but unreachable — handled via JoinSet.
+            let mut enabled_cfg = make_server(true);
+            enabled_cfg.command = None;
+            enabled_cfg.url = Some("http://127.0.0.1:1/mcp-unreachable".into());
+            enabled_cfg.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
+            servers.insert("enabled-unreachable".to_string(), enabled_cfg);
 
             let results = check_all_servers(&servers).await;
-            assert_eq!(results.len(), 3);
-            for name in &["alpha", "beta", "gamma"] {
-                assert!(
-                    results.contains_key(*name),
-                    "missing result for server '{name}'"
-                );
-                assert_eq!(
-                    results[*name].result.status,
-                    McpHealthStatus::Disabled,
-                    "expected Disabled for server '{name}'"
-                );
-            }
+            assert_eq!(results.len(), 3, "all 3 servers must produce a result");
+            assert_eq!(
+                results["disabled-1"].result.status,
+                McpHealthStatus::Disabled
+            );
+            assert_eq!(
+                results["disabled-2"].result.status,
+                McpHealthStatus::Disabled
+            );
+            assert_eq!(
+                results["enabled-unreachable"].result.status,
+                McpHealthStatus::Unreachable
+            );
         });
     }
 
