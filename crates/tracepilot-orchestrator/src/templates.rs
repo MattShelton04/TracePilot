@@ -40,25 +40,50 @@ fn dismissed_defaults_path() -> Result<PathBuf> {
 }
 
 /// Read the set of dismissed default template IDs.
-fn read_dismissed_defaults() -> Result<Vec<String>> {
-    let path = dismissed_defaults_path()?;
+///
+/// Returns an empty list if the file doesn't exist, cannot be read, or contains invalid JSON.
+/// All errors are logged with context.
+fn read_dismissed_defaults() -> Vec<String> {
+    let path = match dismissed_defaults_path() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "Failed to get dismissed defaults path"
+            );
+            return Vec::new();
+        }
+    };
+
     if !path.exists() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
-    let content = std::fs::read_to_string(&path)?;
-    let ids: Vec<String> = match serde_json::from_str(&content) {
+
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(
+                path = %path.display(),
+                error = %e,
+                "Failed to read dismissed defaults file, returning empty list"
+            );
+            return Vec::new();
+        }
+    };
+
+    match serde_json::from_str(&content) {
         Ok(ids) => ids,
         Err(e) => {
             tracing::warn!(
                 path = %path.display(),
                 error = %e,
                 "Failed to parse dismissed defaults JSON, returning empty list. \
-                 File may be corrupted or have an incompatible schema."
+                 File may be corrupted or have an incompatible schema. \
+                 The file will be overwritten on the next dismiss operation."
             );
             Vec::new()
         }
-    };
-    Ok(ids)
+    }
 }
 
 /// Write the set of dismissed default template IDs.
@@ -77,7 +102,7 @@ pub fn dismiss_default_template(id: &str) -> Result<()> {
             "Not a default template: {id}"
         )));
     }
-    let mut dismissed = read_dismissed_defaults()?;
+    let mut dismissed = read_dismissed_defaults();
     if !dismissed.contains(&id.to_string()) {
         dismissed.push(id.to_string());
         write_dismissed_defaults(&dismissed)?;
@@ -87,7 +112,7 @@ pub fn dismiss_default_template(id: &str) -> Result<()> {
 
 /// Restore a previously dismissed default template.
 pub fn restore_default_template(id: &str) -> Result<()> {
-    let mut dismissed = read_dismissed_defaults()?;
+    let mut dismissed = read_dismissed_defaults();
     dismissed.retain(|d| d != id);
     write_dismissed_defaults(&dismissed)?;
     Ok(())
@@ -104,7 +129,7 @@ pub fn restore_all_default_templates() -> Result<()> {
 
 /// Check whether any default templates have been dismissed.
 pub fn has_dismissed_defaults() -> Result<bool> {
-    let dismissed = read_dismissed_defaults()?;
+    let dismissed = read_dismissed_defaults();
     Ok(!dismissed.is_empty())
 }
 
@@ -310,16 +335,7 @@ pub fn default_templates() -> Vec<SessionTemplate> {
 
 /// Return all templates (non-dismissed defaults + user-saved).
 pub fn all_templates() -> Result<Vec<SessionTemplate>> {
-    let dismissed = match read_dismissed_defaults() {
-        Ok(ids) => ids,
-        Err(e) => {
-            tracing::warn!(
-                error = %e,
-                "Failed to read dismissed defaults, treating all defaults as visible"
-            );
-            Vec::new()
-        }
-    };
+    let dismissed = read_dismissed_defaults();
     let mut templates: Vec<SessionTemplate> = default_templates()
         .into_iter()
         .filter(|t| !dismissed.contains(&t.id))
@@ -673,6 +689,28 @@ mod tests {
             // Should log warning and return all templates
             let all = all_templates().unwrap();
             assert_eq!(all.len(), 2);
+        });
+    }
+
+    #[test]
+    fn test_dismissed_defaults_wrong_json_type() {
+        with_temp_home(|| {
+            let path = dismissed_defaults_path().unwrap();
+
+            // Test object instead of array
+            std::fs::write(&path, b"{\"key\": \"value\"}").unwrap();
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is an object");
+
+            // Test string instead of array
+            std::fs::write(&path, b"\"just a string\"").unwrap();
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is a string");
+
+            // Test number instead of array
+            std::fs::write(&path, b"42").unwrap();
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2, "Should return all templates when dismissed_defaults is a number");
         });
     }
 }
