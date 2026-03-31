@@ -99,6 +99,15 @@ const orchestrationNav: NavItem[] = [
   { id: "launcher", label: "Launcher", to: "/orchestration/launcher", icon: "launcher" },
   { id: "config-injector", label: "Config Injector", to: "/orchestration/config", icon: "config" },
 ];
+
+const configurationNav: NavItem[] = [
+  { id: "mcp", label: "MCP Servers", to: "/mcp", icon: "mcp", featureFlag: "mcpServers" },
+  { id: "skills", label: "Skills", to: "/skills", icon: "skills", featureFlag: "skills" },
+];
+
+const visibleConfigNav = computed(() =>
+  configurationNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+);
 </script>
 
 <template>
@@ -192,6 +201,28 @@ const orchestrationNav: NavItem[] = [
         </span>
         <span>{{ item.label }}</span>
       </router-link>
+
+      <!-- Configuration section -->
+      <template v-if="visibleConfigNav.length > 0">
+        <div class="sidebar-section-title">Configuration</div>
+
+        <router-link
+          v-for="item in visibleConfigNav"
+          :key="item.id"
+          :to="item.to"
+          :data-nav-id="item.id"
+          class="sidebar-nav-item"
+          :class="{ active: activeSidebarId === item.id }"
+        >
+          <span class="nav-icon">
+            <!-- mcp -->
+            <svg v-if="item.icon === 'mcp'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/><circle cx="4.5" cy="4.5" r="0.75" fill="currentColor" stroke="none"/><circle cx="4.5" cy="11.5" r="0.75" fill="currentColor" stroke="none"/><path d="M11 4.5h1M11 11.5h1"/></svg>
+            <!-- skills -->
+            <svg v-else-if="item.icon === 'skills'" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/></svg>
+          </span>
+          <span>{{ item.label }}</span>
+        </router-link>
+      </template>
 
       <!-- Settings (inside nav, separated visually) -->
       <div class="sidebar-settings-separator"></div>

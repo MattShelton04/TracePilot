@@ -6,6 +6,16 @@ const preferences = usePreferencesStore();
 
 const flags = [
   {
+    key: "mcpServers",
+    label: "MCP Servers",
+    description: "Manage Model Context Protocol servers — add, configure, and monitor MCP integrations.",
+  },
+  {
+    key: "skills",
+    label: "Skills",
+    description: "Create and manage reusable skill definitions for Copilot CLI sessions.",
+  },
+  {
     key: "healthScoring",
     label: "Health Scoring",
     description: "Enable the Health view with session quality scoring and diagnostics.",
