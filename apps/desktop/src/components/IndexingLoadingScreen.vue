@@ -363,7 +363,7 @@ onUnmounted(() => {
 .indexing-loading-screen {
   position: fixed;
   inset: 0;
-  background: #0d1117;
+  background: var(--canvas-inset);
   z-index: 9999;
   transition: opacity 0.4s ease;
 }
@@ -380,7 +380,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 3px;
-  background: #21262d;
+  background: var(--canvas-subtle);
   z-index: 10000;
   opacity: 0;
   transition: opacity 0.4s ease;
@@ -478,7 +478,7 @@ onUnmounted(() => {
 
 .logo-hub .phase-text {
   font-size: calc(0.75rem * var(--ui-scale, 1));
-  color: #7d8590;
+  color: var(--text-tertiary);
   letter-spacing: 0.04em;
   text-align: center;
 }
@@ -525,8 +525,8 @@ onUnmounted(() => {
   left: 50%;
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
   border-left: 3px solid var(--node-color, var(--accent-fg));
   border-radius: 8px;
   padding: calc(5px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
@@ -553,7 +553,7 @@ onUnmounted(() => {
   gap: 5px;
   font-size: calc(11px * var(--ui-scale, 1));
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -569,7 +569,7 @@ onUnmounted(() => {
 .orbit-node .mini-card .mc-branch {
   font-size: calc(10px * var(--ui-scale, 1));
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  color: #7d8590;
+  color: var(--text-tertiary);
   margin-top: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
