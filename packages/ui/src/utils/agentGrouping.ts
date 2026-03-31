@@ -190,7 +190,8 @@ export function groupTurnByAgent(
     });
 
   for (const subTc of activeSubagents) {
-    const id = subTc.toolCallId ?? `fallback-${Math.random()}`;
+    const id = subTc.toolCallId;
+    if (!id) continue;
     sections.push({
       agentId: id,
       agentDisplayName: subTc.agentDisplayName ?? subTc.toolName ?? "Subagent",
