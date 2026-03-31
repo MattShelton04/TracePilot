@@ -34,7 +34,7 @@
     "pnpm": ">=9"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7",
+    "@biomejs/biome": "^2.4.10",
     "@fontsource-variable/inter": "^5.2.8",
     "playwright-core": "^1.58.2",
     "rimraf": "^6.1.3",
