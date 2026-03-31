@@ -5824,6 +5824,7 @@ name = "tracepilot-orchestrator"
 version = "0.6.0"
 dependencies = [
  "chrono",
+ "reqwest 0.12.28",
  "semver",
  "serde",
  "serde_json",
@@ -5831,6 +5832,7 @@ dependencies = [
  "similar",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "tracepilot-core",
  "tracing",
  "uuid",

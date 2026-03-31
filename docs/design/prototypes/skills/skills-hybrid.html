@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Skills Manager (Hybrid)</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================
+       TracePilot Skills Manager — Hybrid Multi-View Prototype
+       All views in one SPA with JS view switching.
+       Uses design-system-c.css tokens exclusively.
+       ========================================================== */
+    body { background: var(--canvas-default); }
+
+    .view-container { display: none; }
+    .view-container.active { display: flex; }
+    #view-editor.active { display: flex; flex-direction: column; height: 100vh; }
+    #view-import.active { display: block; }
+    #view-notes.active { display: flex; }
+
+    /* =============================================
+       VIEW 1: SKILLS MANAGER
+       ============================================= */
+    .page-title-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 4px;
+    }
+    .page-title-row h1 {
+      font-size: 1.375rem; font-weight: 700; letter-spacing: -0.025em;
+      color: var(--text-primary); display: flex; align-items: center; gap: 10px;
+    }
+    .page-title-row h1 .title-icon {
+      width: 30px; height: 30px; border-radius: var(--radius-md);
+      background: var(--accent-muted); border: 1px solid var(--border-accent);
+      display: flex; align-items: center; justify-content: center; color: var(--accent-fg);
+    }
+    .page-title-row h1 .title-icon svg { width: 16px; height: 16px; }
+    .title-actions { display: flex; align-items: center; gap: 8px; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: var(--gradient-accent); color: white; border: none;
+      border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 600;
+      cursor: pointer; box-shadow: 0 1px 6px rgba(99,102,241,0.35);
+      transition: all var(--transition-fast); letter-spacing: -0.01em; font-family: inherit;
+    }
+    .btn-primary:hover { box-shadow: 0 3px 14px rgba(99,102,241,0.45); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary svg { width: 14px; height: 14px; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: var(--canvas-default); color: var(--text-secondary);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      font-size: 0.8125rem; font-weight: 500; cursor: pointer;
+      transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-secondary:hover { color: var(--text-primary); border-color: var(--border-accent); background: var(--accent-subtle); }
+    .btn-secondary svg { width: 14px; height: 14px; }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: transparent; color: var(--text-tertiary); border: 1px solid transparent;
+      border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 500;
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-ghost:hover { color: var(--text-secondary); background: var(--neutral-subtle); border-color: var(--border-default); }
+    .btn-ghost svg { width: 14px; height: 14px; }
+
+    .stats-strip { display: flex; align-items: center; gap: 6px; padding: 10px 0 2px; flex-wrap: wrap; }
+    .stat-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.75rem; font-weight: 500; color: var(--text-secondary);
+    }
+    .stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .stat-dot.installed { background: var(--accent-fg); }
+    .stat-dot.global { background: var(--done-fg); }
+    .stat-dot.project { background: var(--success-fg); }
+    .stat-dot.active-dot { background: var(--success-fg); }
+    .stat-sep { color: var(--text-placeholder); font-size: 0.625rem; user-select: none; }
+
+    .token-info {
+      display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin-top: 8px;
+      background: var(--accent-subtle); border: 1px solid rgba(99,102,241,0.12);
+      border-radius: var(--radius-md); font-size: 0.75rem; color: var(--text-secondary);
+    }
+    .token-info svg { width: 14px; height: 14px; color: var(--accent-fg); flex-shrink: 0; opacity: 0.7; }
+    .token-info code {
+      font-family: "JetBrains Mono", monospace; font-size: 0.6875rem;
+      color: var(--accent-fg); background: var(--accent-muted); padding: 1px 5px; border-radius: 3px;
+    }
+
+    .scope-segmented {
+      display: inline-flex; gap: 0; border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); overflow: hidden; margin: 16px 0 20px;
+    }
+    .scope-seg-btn {
+      padding: 6px 16px; font-size: 0.8125rem; font-weight: 500; color: var(--text-tertiary);
+      background: var(--canvas-default); border: none; border-right: 1px solid var(--border-default);
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .scope-seg-btn:last-child { border-right: none; }
+    .scope-seg-btn:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+    .scope-seg-btn.active { color: var(--accent-fg); background: var(--accent-muted); font-weight: 600; }
+
+    .section-heading {
+      font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-heading::after { content: ''; flex: 1; height: 1px; background: var(--border-default); }
+
+    /* Skill Card Grid */
+    .skill-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px; margin-bottom: 36px;
+    }
+    .skill-card {
+      background: var(--canvas-subtle); background-image: var(--gradient-card);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      padding: 16px; transition: all var(--transition-normal);
+      position: relative; overflow: hidden;
+    }
+    .skill-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--gradient-accent); opacity: 0; transition: opacity var(--transition-normal);
+    }
+    .skill-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: var(--shadow-md), 0 0 0 1px var(--border-glow);
+      transform: translateY(-2px);
+    }
+    .skill-card:hover::before { opacity: 1; }
+    .skill-card.disabled { opacity: 0.55; }
+    .skill-card.disabled:hover { transform: none; box-shadow: none; border-color: var(--border-default); }
+    .skill-card.disabled::before { display: none; }
+
+    .skill-card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .skill-icon {
+      width: 38px; height: 38px; border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      border: 1px solid var(--border-default); background: var(--canvas-default);
+      transition: all var(--transition-normal); font-size: 17px;
+    }
+    .skill-card:hover .skill-icon { border-color: var(--border-accent); box-shadow: 0 0 12px rgba(99,102,241,0.08); }
+    .skill-info { flex: 1; min-width: 0; }
+    .skill-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+    .skill-name {
+      font-size: 0.875rem; font-weight: 600; color: var(--text-primary);
+      letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: color var(--transition-fast);
+    }
+    .skill-card:hover .skill-name { color: var(--accent-fg); }
+    .skill-desc {
+      font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    .skill-badges { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+    .badge-xs {
+      display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
+      border-radius: var(--radius-sm); font-size: 0.625rem; font-weight: 500;
+    }
+    .badge-scope-global { background: var(--done-muted); color: var(--done-fg); }
+    .badge-scope-project { background: var(--success-muted); color: var(--success-fg); }
+    .badge-tools { background: var(--warning-muted); color: var(--warning-fg); }
+    .badge-files { background: var(--canvas-default); border: 1px solid var(--border-default); color: var(--text-tertiary); }
+    .badge-tokens {
+      background: var(--canvas-default); border: 1px solid var(--border-default);
+      color: var(--text-placeholder); font-family: "JetBrains Mono", monospace; font-size: 0.5625rem;
+    }
+
+    .skill-card-actions {
+      display: flex; align-items: center; gap: 4px;
+      border-top: 1px solid var(--border-subtle); padding-top: 10px;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative; display: inline-flex; align-items: center; gap: 6px;
+      cursor: pointer; font-size: 0.6875rem; font-weight: 500;
+      color: var(--text-tertiary); user-select: none;
+    }
+    .toggle-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      width: 34px; height: 18px; border-radius: var(--radius-full);
+      background: var(--neutral-muted); border: 1px solid var(--border-default);
+      position: relative; transition: all var(--transition-normal); flex-shrink: 0;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--text-tertiary); transition: all var(--transition-normal);
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: var(--accent-muted); border-color: var(--accent-emphasis);
+    }
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translateX(16px); background: var(--accent-fg);
+      box-shadow: 0 0 6px rgba(129,140,248,0.5);
+    }
+    .toggle-switch .toggle-label { transition: color var(--transition-fast); }
+    .toggle-switch input:checked ~ .toggle-label { color: var(--accent-fg); }
+
+    .card-hover-actions {
+      display: flex; align-items: center; gap: 2px; margin-left: auto;
+      opacity: 0; transform: translateX(6px); transition: all var(--transition-normal);
+    }
+    .skill-card:hover .card-hover-actions { opacity: 1; transform: translateX(0); }
+    .action-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      color: var(--text-tertiary); background: none; border: 1px solid transparent;
+      cursor: pointer; transition: all var(--transition-fast);
+    }
+    .action-btn:hover { background: var(--neutral-subtle); color: var(--text-primary); border-color: var(--border-default); }
+    .action-btn svg { width: 13px; height: 13px; }
+    .action-btn.danger:hover { color: var(--danger-fg); background: var(--danger-subtle); border-color: rgba(251,113,133,0.15); }
+
+    /* Community Packs */
+    .community-packs { margin-top: 8px; }
+    .packs-scroll {
+      display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px;
+      scroll-snap-type: x mandatory; scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+    .packs-scroll::-webkit-scrollbar { height: 5px; }
+    .packs-scroll::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+    .pack-card {
+      flex: 0 0 280px; scroll-snap-align: start;
+      background: var(--canvas-subtle); background-image: var(--gradient-card);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+      padding: 18px; transition: all var(--transition-normal);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .pack-card:hover { border-color: var(--border-accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .pack-card-top { display: flex; align-items: center; gap: 10px; }
+    .pack-icon {
+      width: 36px; height: 36px; border-radius: var(--radius-md);
+      background: var(--canvas-default); border: 1px solid var(--border-default);
+      display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+    }
+    .pack-title-block { flex: 1; min-width: 0; }
+    .pack-name {
+      font-size: 0.8125rem; font-weight: 600; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pack-card:hover .pack-name { color: var(--accent-fg); }
+    .pack-count { font-size: 0.625rem; color: var(--text-placeholder); font-weight: 500; margin-top: 1px; }
+    .pack-desc { font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.5; flex: 1; }
+    .pack-footer { display: flex; align-items: center; justify-content: space-between; }
+    .pack-skills-preview { display: flex; gap: 4px; }
+    .pack-skill-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent-muted); border: 1px solid var(--border-accent);
+    }
+    .btn-install-pack {
+      padding: 5px 12px; font-size: 0.6875rem; font-weight: 600;
+      color: var(--accent-fg); background: var(--accent-muted);
+      border: 1px solid var(--border-accent); border-radius: var(--radius-sm);
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-install-pack:hover { background: var(--accent-emphasis); color: white; box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
+
+    /* Stagger Animations */
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .skill-card, .pack-card { animation: card-in 0.35s ease backwards; }
+    .skill-card:nth-child(1) { animation-delay: 0.04s; }
+    .skill-card:nth-child(2) { animation-delay: 0.08s; }
+    .skill-card:nth-child(3) { animation-delay: 0.12s; }
+    .skill-card:nth-child(4) { animation-delay: 0.16s; }
+    .pack-card:nth-child(1) { animation-delay: 0.24s; }
+    .pack-card:nth-child(2) { animation-delay: 0.28s; }
+    .pack-card:nth-child(3) { animation-delay: 0.32s; }
+
+    /* =============================================
+       VIEW 2: SKILL EDITOR
+       ============================================= */
+    .editor-shell { display: flex; flex-direction: column; height: 100vh; background: var(--canvas-default); color: var(--text-primary); overflow: hidden; }
+
+    .editor-topbar {
+      display: flex; align-items: center; gap: 12px; padding: 0 20px;
+      height: 52px; min-height: 52px; border-bottom: 1px solid var(--border-default);
+      background: var(--canvas-subtle); background-image: var(--gradient-surface); flex-shrink: 0; z-index: 10;
+    }
+    .topbar-back {
+      display: inline-flex; align-items: center; gap: 6px; color: var(--text-tertiary);
+      font-size: 0.8125rem; font-weight: 500; text-decoration: none;
+      padding: 5px 10px 5px 6px; border-radius: var(--radius-sm);
+      transition: all var(--transition-fast); cursor: pointer; border: none; background: none; font-family: inherit;
+    }
+    .topbar-back:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+    .topbar-back svg { width: 16px; height: 16px; }
+    .topbar-divider { width: 1px; height: 24px; background: var(--border-default); flex-shrink: 0; }
+    .topbar-skill-name {
+      font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em;
+      color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+    }
+    .topbar-skill-name .skill-icon-sm {
+      width: 24px; height: 24px; border-radius: var(--radius-sm);
+      background: var(--success-muted); display: flex; align-items: center;
+      justify-content: center; color: var(--success-fg); font-size: 12px; flex-shrink: 0;
+    }
+    .topbar-meta { display: flex; align-items: center; gap: 8px; margin-left: 4px; }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .status-modified {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.6875rem; font-weight: 500; color: var(--warning-fg);
+    }
+    .status-modified::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--warning-fg); animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .editor-body {
+      display: grid; grid-template-columns: 1fr 1fr;
+      flex: 1; overflow: hidden; min-height: 0; position: relative;
+    }
+    .panel { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    .panel-left { border-right: 1px solid var(--border-default); }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; height: 40px; min-height: 40px;
+      border-bottom: 1px solid var(--border-default); background: var(--canvas-subtle); flex-shrink: 0;
+    }
+    .panel-header-title {
+      font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-tertiary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .panel-header-title svg { width: 13px; height: 13px; opacity: 0.6; }
+    .panel-scroll {
+      flex: 1; overflow-y: auto; scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+    .panel-scroll::-webkit-scrollbar { width: 5px; }
+    .panel-scroll::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: var(--radius-full); }
+
+    .resize-handle {
+      position: absolute; top: 0; bottom: 0; width: 5px;
+      cursor: col-resize; z-index: 5; transition: background var(--transition-fast);
+    }
+    .resize-handle:hover, .resize-handle.active { background: var(--accent-emphasis); }
+
+    /* Frontmatter Card */
+    .frontmatter-section { padding: 20px; border-bottom: 1px solid var(--border-default); }
+    .frontmatter-card {
+      background: var(--canvas-raised); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); overflow: hidden; position: relative;
+    }
+    .frontmatter-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-emphasis), transparent); opacity: 0.5;
+    }
+    .frontmatter-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .frontmatter-label {
+      font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-tertiary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .yaml-tag {
+      font-family: "JetBrains Mono", monospace; font-size: 0.625rem;
+      color: var(--accent-fg); background: var(--accent-subtle);
+      padding: 1px 6px; border-radius: var(--radius-sm); font-weight: 500;
+    }
+    .frontmatter-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.01em; }
+    .field-input {
+      width: 100%; padding: 8px 12px; background: var(--canvas-default);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      color: var(--text-primary); font-size: 0.8125rem;
+      font-family: "JetBrains Mono", monospace; outline: none; transition: all var(--transition-fast);
+    }
+    .field-input:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .field-textarea {
+      width: 100%; padding: 8px 12px; background: var(--canvas-default);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      color: var(--text-primary); font-size: 0.8125rem; font-family: inherit;
+      outline: none; resize: vertical; min-height: 60px; line-height: 1.55;
+      transition: all var(--transition-fast);
+    }
+    .field-textarea:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .field-footer { display: flex; align-items: center; justify-content: space-between; }
+    .char-count {
+      font-size: 0.625rem; font-family: "JetBrains Mono", monospace;
+      color: var(--text-placeholder); font-variant-numeric: tabular-nums;
+    }
+    .char-count.near-limit { color: var(--warning-fg); }
+    .char-count.at-limit { color: var(--danger-fg); }
+
+    .field-input.warning-bg {
+      background: var(--warning-subtle); border-color: rgba(251,191,36,0.25);
+    }
+    .field-hint {
+      font-size: 0.625rem; color: var(--text-placeholder); margin-top: 2px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .field-hint.warning { color: var(--warning-fg); }
+    .field-hint svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+    .scope-group {
+      display: flex; gap: 0; border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); overflow: hidden;
+    }
+    .scope-option {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 7px 14px; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary);
+      background: var(--canvas-default); border: none; border-right: 1px solid var(--border-default);
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .scope-option:last-child { border-right: none; }
+    .scope-option:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+    .scope-option.active { color: var(--accent-fg); background: var(--accent-muted); font-weight: 600; }
+    .scope-option svg { width: 14px; height: 14px; }
+
+    /* Markdown Toolbar */
+    .md-toolbar {
+      display: flex; align-items: center; gap: 2px; padding: 6px 20px;
+      border-bottom: 1px solid var(--border-default); background: var(--canvas-subtle); flex-shrink: 0;
+    }
+    .md-toolbar-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 28px; border-radius: var(--radius-sm);
+      border: none; background: none; color: var(--text-tertiary);
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .md-toolbar-btn:hover { background: var(--neutral-subtle); color: var(--text-primary); }
+    .md-toolbar-btn svg { width: 15px; height: 15px; }
+    .md-toolbar-sep { width: 1px; height: 18px; background: var(--border-default); margin: 0 4px; }
+
+    .md-editor-wrap { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .line-numbers {
+      width: 44px; min-width: 44px; padding: 16px 0;
+      background: var(--canvas-inset); border-right: 1px solid var(--border-subtle);
+      text-align: right; user-select: none; overflow: hidden; flex-shrink: 0;
+    }
+    .line-numbers .ln {
+      display: block; padding: 0 10px 0 0;
+      font-family: "JetBrains Mono", monospace; font-size: 0.6875rem;
+      line-height: 1.714; color: var(--text-placeholder); height: 24px;
+    }
+    .line-numbers .ln.active { color: var(--text-secondary); }
+    .md-textarea {
+      flex: 1; padding: 16px 20px; background: var(--canvas-default);
+      border: none; color: var(--text-primary);
+      font-family: "JetBrains Mono", monospace; font-size: 0.8125rem;
+      line-height: 1.714; outline: none; resize: none; tab-size: 2;
+      overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-default) transparent;
+    }
+    .md-textarea::-webkit-scrollbar { width: 5px; }
+    .md-textarea::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: var(--radius-full); }
+    .instructions-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+    /* Preview Panel */
+    .preview-content { padding: 24px; }
+    .preview-frontmatter {
+      background: var(--canvas-raised); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); padding: 20px; margin-bottom: 28px;
+      position: relative; overflow: hidden;
+    }
+    .preview-frontmatter::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: var(--gradient-accent);
+    }
+    .preview-skill-name {
+      font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;
+      color: var(--text-primary); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .preview-skill-name .name-icon {
+      width: 32px; height: 32px; border-radius: var(--radius-md);
+      background: var(--gradient-accent); display: flex; align-items: center;
+      justify-content: center; color: white; font-size: 15px;
+      box-shadow: 0 2px 10px rgba(99,102,241,0.3);
+    }
+    .preview-skill-desc { font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary); margin-left: 42px; }
+    .preview-skill-meta { display: flex; align-items: center; gap: 8px; margin-top: 12px; margin-left: 42px; }
+
+    .preview-markdown { line-height: 1.7; }
+    .preview-markdown h1 {
+      font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em;
+      color: var(--text-primary); margin: 0 0 16px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .preview-markdown h2 {
+      font-size: 1rem; font-weight: 600; letter-spacing: -0.01em;
+      color: var(--accent-fg); margin: 24px 0 10px;
+    }
+    .preview-markdown ul, .preview-markdown ol { padding-left: 20px; margin: 8px 0; }
+    .preview-markdown li { font-size: 0.875rem; line-height: 1.8; color: var(--text-secondary); }
+    .preview-markdown li::marker { color: var(--text-placeholder); }
+    .preview-markdown code {
+      font-family: "JetBrains Mono", monospace; font-size: 0.75rem;
+      background: var(--neutral-subtle); padding: 1px 5px; border-radius: 3px; color: var(--accent-fg);
+    }
+    .preview-markdown pre {
+      background: var(--canvas-inset); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 14px 16px; margin: 10px 0;
+      font-family: "JetBrains Mono", monospace; font-size: 0.75rem;
+      line-height: 1.6; color: var(--text-secondary); overflow-x: auto;
+    }
+    .preview-markdown pre code { background: none; padding: 0; }
+
+    /* Assets Section */
+    .assets-section { border-top: 1px solid var(--border-default); padding: 20px 24px; }
+    .assets-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .assets-title {
+      font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-tertiary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .assets-title .count {
+      background: var(--neutral-muted); color: var(--text-secondary);
+      padding: 0 6px; border-radius: var(--radius-full);
+      font-size: 0.625rem; font-variant-numeric: tabular-nums;
+    }
+    .asset-file {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: var(--radius-md); background: var(--canvas-raised);
+      border: 1px solid var(--border-subtle); margin-bottom: 6px;
+      transition: all var(--transition-fast); cursor: default;
+    }
+    .asset-file:hover { border-color: var(--border-default); background: var(--canvas-overlay); }
+    .asset-icon {
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0;
+    }
+    .asset-icon.md { background: var(--accent-muted); color: var(--accent-fg); }
+    .asset-icon.ref { background: var(--done-muted); color: var(--done-fg); }
+    .asset-name {
+      flex: 1; font-size: 0.75rem; font-weight: 500; color: var(--text-primary);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .asset-size { font-size: 0.6875rem; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+    .asset-folder {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0 2px 12px;
+      font-size: 0.6875rem; color: var(--text-tertiary); font-weight: 500;
+    }
+    .asset-folder svg { width: 13px; height: 13px; opacity: 0.5; }
+    .drop-zone-sm {
+      border: 1.5px dashed var(--border-default); border-radius: var(--radius-md);
+      padding: 16px; text-align: center; color: var(--text-placeholder);
+      font-size: 0.75rem; margin-top: 8px; transition: all var(--transition-fast); cursor: pointer;
+    }
+    .drop-zone-sm:hover { border-color: var(--accent-emphasis); color: var(--accent-fg); background: var(--accent-subtle); }
+
+    .editor-info-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 20px; border-top: 1px solid var(--border-default);
+      background: var(--canvas-subtle); flex-shrink: 0;
+      font-size: 0.625rem; color: var(--text-placeholder);
+    }
+    .editor-info-bar .info-group { display: flex; align-items: center; gap: 14px; }
+    .info-item { display: flex; align-items: center; gap: 4px; }
+    .info-item svg { width: 11px; height: 11px; opacity: 0.5; }
+
+    /* =============================================
+       VIEW 3: IMPORT WIZARD
+       ============================================= */
+    .import-wizard { max-width: 860px; margin: 0 auto; padding: 40px 28px 64px; }
+    .wizard-header { margin-bottom: 32px; position: relative; }
+    .wizard-header::after {
+      content: ''; position: absolute; bottom: -16px; left: 0; right: 0;
+      height: 1px; background: linear-gradient(90deg, var(--accent-emphasis), transparent 70%); opacity: 0.4;
+    }
+    .wizard-breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 14px;
+    }
+    .wizard-breadcrumb a { color: var(--text-tertiary); text-decoration: none; transition: color var(--transition-fast); cursor: pointer; }
+    .wizard-breadcrumb a:hover { color: var(--text-primary); }
+    .wizard-breadcrumb .sep { opacity: 0.4; }
+    .wizard-breadcrumb .current { color: var(--text-secondary); font-weight: 500; }
+    .wizard-title-row { display: flex; align-items: center; gap: 14px; }
+    .wizard-icon {
+      width: 42px; height: 42px; border-radius: var(--radius-md);
+      background: var(--accent-muted); border: 1px solid rgba(99,102,241,0.2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      box-shadow: 0 0 24px rgba(99,102,241,0.08);
+    }
+    .wizard-icon svg { width: 22px; height: 22px; color: var(--accent-fg); }
+    .wizard-title { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; color: var(--text-primary); }
+    .wizard-subtitle { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px; }
+
+    .source-tabs {
+      display: flex; gap: 0; border-bottom: 1px solid var(--border-default);
+      margin-bottom: 0; margin-top: 32px;
+    }
+    .source-tab {
+      display: flex; align-items: center; gap: 7px; padding: 10px 18px;
+      font-size: 0.8125rem; font-weight: 500; color: var(--text-tertiary);
+      cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+    .source-tab:hover { color: var(--text-primary); }
+    .source-tab.active { color: var(--text-primary); border-bottom-color: var(--accent-emphasis); }
+    .source-tab svg { width: 15px; height: 15px; opacity: 0.5; }
+    .source-tab.active svg { opacity: 0.9; color: var(--accent-fg); }
+
+    .tab-panel { display: none; padding-top: 24px; animation: panelFadeIn 0.2s ease; }
+    .tab-panel.active { display: block; }
+    @keyframes panelFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-row { display: flex; gap: 8px; align-items: stretch; }
+    .input-field { flex: 1; position: relative; }
+    .input-field label {
+      display: block; font-size: 0.6875rem; font-weight: 600;
+      color: var(--text-tertiary); text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .input-field input[type="text"],
+    .input-field input[type="url"] {
+      width: 100%; padding: 9px 12px; background: var(--canvas-inset);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      color: var(--text-primary); font-size: 0.8125rem;
+      font-family: "JetBrains Mono", monospace; outline: none; transition: all var(--transition-fast);
+    }
+    .input-field input:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .input-field input::placeholder { color: var(--text-placeholder); font-family: "Inter", sans-serif; }
+    .input-hint { font-size: 0.6875rem; color: var(--text-placeholder); margin-top: 4px; }
+
+    .btn-scan {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
+      border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 600;
+      border: 1px solid var(--border-default); background: var(--canvas-subtle);
+      color: var(--text-primary); cursor: pointer; transition: all var(--transition-fast);
+      white-space: nowrap; align-self: flex-end; font-family: inherit;
+    }
+    .btn-scan:hover { background: var(--neutral-subtle); border-color: var(--accent-emphasis); }
+    .btn-scan svg { width: 14px; height: 14px; }
+
+    .results-panel {
+      margin-top: 20px; background: var(--canvas-subtle); background-image: var(--gradient-card);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-bottom: 1px solid var(--border-default);
+    }
+    .results-header-left { display: flex; align-items: center; gap: 8px; }
+    .results-header-label {
+      font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .results-count { font-size: 0.6875rem; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+    .results-toggle-all {
+      font-size: 0.6875rem; color: var(--accent-fg); cursor: pointer;
+      background: none; border: none; font-weight: 500; font-family: inherit;
+    }
+
+    .import-skill-row {
+      display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle); transition: background var(--transition-fast); cursor: pointer;
+    }
+    .import-skill-row:last-child { border-bottom: none; }
+    .import-skill-row:hover { background: var(--neutral-subtle); }
+    .import-skill-row.selected { background: var(--accent-subtle); }
+    .skill-checkbox {
+      margin-top: 2px; flex-shrink: 0; width: 16px; height: 16px;
+      appearance: none; -webkit-appearance: none;
+      border: 1.5px solid var(--border-default); border-radius: 4px;
+      background: var(--canvas-inset); cursor: pointer; position: relative; transition: all var(--transition-fast);
+    }
+    .skill-checkbox:checked { background: var(--accent-emphasis); border-color: var(--accent-emphasis); }
+    .skill-checkbox:checked::after {
+      content: ''; position: absolute; top: 2px; left: 5px;
+      width: 4px; height: 7px; border: solid #fff; border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    .import-skill-info { flex: 1; min-width: 0; }
+    .import-skill-name {
+      font-size: 0.8125rem; font-weight: 600; color: var(--text-primary);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .import-skill-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 4px; }
+    .import-skill-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .import-skill-meta-item {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.6875rem; color: var(--text-placeholder);
+    }
+    .import-skill-meta-item svg { width: 12px; height: 12px; opacity: 0.5; }
+    .import-skill-meta-item code {
+      font-family: "JetBrains Mono", monospace; font-size: 0.625rem;
+      color: var(--text-tertiary); background: var(--neutral-subtle);
+      padding: 1px 5px; border-radius: 3px;
+    }
+
+    .import-options { margin-top: 20px; display: flex; gap: 16px; flex-wrap: wrap; }
+    .option-group { flex: 1; min-width: 200px; }
+    .option-group label {
+      display: block; font-size: 0.6875rem; font-weight: 600;
+      color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .option-group select {
+      width: 100%; padding: 8px 28px 8px 10px; background: var(--canvas-inset);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      color: var(--text-primary); font-size: 0.8125rem; outline: none; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2371717a'%3E%3Cpath d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      transition: all var(--transition-fast);
+    }
+    .option-group select:focus { border-color: var(--accent-emphasis); box-shadow: var(--shadow-glow-accent); }
+    .option-group select option { background: var(--canvas-overlay); }
+
+    .actions-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-default);
+    }
+    .actions-bar-left { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-placeholder); }
+    .actions-bar-right { display: flex; align-items: center; gap: 10px; }
+
+    .btn-import-primary {
+      display: inline-flex; align-items: center; gap: 7px; padding: 10px 22px;
+      border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 600;
+      border: none; background: var(--gradient-accent); color: #fff;
+      cursor: pointer; box-shadow: 0 1px 6px rgba(99,102,241,0.3);
+      transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-import-primary:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.35); transform: translateY(-1px); }
+    .btn-import-primary:active { transform: translateY(0); }
+    .btn-import-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-import-primary .count {
+      background: rgba(255,255,255,0.2); padding: 1px 7px;
+      border-radius: var(--radius-full); font-size: 0.6875rem;
+    }
+
+    /* Auth Section */
+    .auth-section {
+      margin-bottom: 24px; padding: 16px; background: var(--canvas-subtle);
+      border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+    }
+    .auth-status {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+      font-size: 0.8125rem; font-weight: 500;
+    }
+    .auth-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success-fg); }
+    .auth-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .auth-card {
+      padding: 14px; border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); background: var(--canvas-default);
+      cursor: pointer; transition: all var(--transition-fast);
+    }
+    .auth-card:hover { border-color: var(--border-accent); }
+    .auth-card.active { border-color: var(--accent-emphasis); background: var(--accent-subtle); }
+    .auth-card-title {
+      font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;
+    }
+    .auth-card-desc { font-size: 0.6875rem; color: var(--text-tertiary); }
+    .auth-card-badge {
+      display: inline-block; font-size: 0.5625rem; font-weight: 600;
+      padding: 1px 6px; border-radius: var(--radius-full); margin-left: 6px;
+    }
+    .auth-card-badge.rec { background: var(--success-muted); color: var(--success-fg); }
+
+    /* Drop Zone */
+    .drop-zone {
+      margin-top: 4px; border: 2px dashed var(--border-default);
+      border-radius: var(--radius-lg); padding: 48px 24px; text-align: center;
+      transition: all var(--transition-normal); cursor: pointer;
+      background: var(--canvas-subtle);
+    }
+    .drop-zone:hover { border-color: var(--accent-emphasis); background: var(--accent-subtle); }
+    .drop-zone-icon {
+      width: 48px; height: 48px; margin: 0 auto 14px;
+      border-radius: var(--radius-lg); background: var(--accent-muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .drop-zone-icon svg { width: 24px; height: 24px; color: var(--accent-fg); }
+    .drop-zone-label { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .drop-zone-hint { font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 12px; }
+    .drop-zone-formats { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+    .drop-zone-format {
+      font-size: 0.625rem; font-weight: 500; padding: 2px 8px;
+      border-radius: var(--radius-full); background: var(--neutral-subtle);
+      color: var(--text-tertiary); border: 1px solid var(--border-subtle);
+    }
+
+    /* =============================================
+       VIEW 4: IMPLEMENTATION NOTES
+       ============================================= */
+    .notes-content { max-width: 820px; }
+    .notes-content h2 {
+      font-size: 1rem; font-weight: 600; letter-spacing: -0.01em;
+      color: var(--accent-fg); margin: 28px 0 12px;
+    }
+    .notes-content h2:first-child { margin-top: 0; }
+    .notes-content h3 {
+      font-size: 0.875rem; font-weight: 600; color: var(--text-primary); margin: 20px 0 8px;
+    }
+    .notes-content p {
+      font-size: 0.8125rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 10px;
+    }
+    .notes-content pre {
+      background: var(--canvas-inset); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); padding: 16px; margin: 12px 0;
+      font-family: "JetBrains Mono", monospace; font-size: 0.75rem;
+      line-height: 1.65; color: var(--text-secondary); overflow-x: auto;
+    }
+    .notes-content code {
+      font-family: "JetBrains Mono", monospace; font-size: 0.75rem;
+      background: var(--neutral-subtle); padding: 1px 5px; border-radius: 3px;
+      color: var(--accent-fg);
+    }
+    .notes-content pre code { background: none; padding: 0; color: inherit; }
+    .notes-content ul { padding-left: 20px; margin: 8px 0 16px; }
+    .notes-content li { font-size: 0.8125rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 4px; }
+    .notes-content .yaml-key { color: var(--accent-fg); }
+    .notes-content .yaml-val { color: var(--success-fg); }
+    .notes-content .rust-kw { color: var(--done-fg); }
+    .notes-content .rust-type { color: var(--accent-fg); }
+    .notes-content .rust-str { color: var(--success-fg); }
+
+    /* Toast */
+    .success-toast {
+      position: fixed; top: 20px; right: 20px;
+      display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+      background: var(--canvas-overlay); border: 1px solid rgba(52,211,153,0.25);
+      border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+      z-index: var(--z-tooltip); opacity: 0;
+      transform: translateY(-10px) translateX(10px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;
+    }
+    .success-toast.visible { opacity: 1; transform: translateY(0) translateX(0); pointer-events: auto; }
+
+    /* Badge in design system */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+      border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 500;
+      line-height: 1.5; white-space: nowrap;
+    }
+    .badge-accent { background: var(--accent-muted); color: var(--accent-fg); }
+    .badge-success { background: var(--success-muted); color: var(--success-fg); }
+    .badge-warning { background: var(--warning-muted); color: var(--warning-fg); }
+    .badge-neutral { background: var(--neutral-muted); color: var(--neutral-fg); }
+    .badge-done { background: var(--done-muted); color: var(--done-fg); }
+
+    .kbd {
+      display: inline-flex; align-items: center; padding: 1px 5px;
+      border: 1px solid var(--border-default); border-radius: 4px;
+      font-size: 0.5625rem; font-family: inherit; color: var(--text-placeholder);
+      background: var(--canvas-default); line-height: 1.4;
+    }
+
+    .loading-spinner {
+      width: 28px; height: 28px;
+      border: 2.5px solid var(--border-default); border-top-color: var(--accent-emphasis);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes editor-fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: editor-fade-in 0.4s ease both; }
+    .animate-in:nth-child(1) { animation-delay: 0.05s; }
+    .animate-in:nth-child(2) { animation-delay: 0.1s; }
+
+    @media (max-width: 900px) {
+      .skill-grid { grid-template-columns: 1fr; }
+      .editor-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Success Toast -->
+<div class="success-toast" id="successToast">
+  <div style="width:24px;height:24px;border-radius:var(--radius-full);background:var(--success-muted);color:var(--success-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div>
+    <div style="font-size:0.8125rem;font-weight:500;color:var(--text-primary);" id="toastText">Success</div>
+    <div style="font-size:0.6875rem;color:var(--text-tertiary);" id="toastSub"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW 1: SKILLS MANAGER
+     ═══════════════════════════════════════════════════════ -->
+<div id="view-manager" class="view-container active app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">⚡</div>
+      <span class="sidebar-brand-text">TracePilot</span>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-section-title">Main</span>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1.5 3.5h13v9h-13v-9z"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1.5 3.5h13v9h-13v-9z"/></svg>
+        Sessions
+      </a>
+      <a href="#" class="sidebar-nav-item active" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.823.8a.75.75 0 01.354 0l6 1.5a.75.75 0 01.573.728v5.947a4.75 4.75 0 01-2.3 4.074l-4.25 2.55a.75.75 0 01-.774 0l-4.25-2.55A4.75 4.75 0 01.876 9V3.028A.75.75 0 011.45 2.3l6-1.5z"/></svg>
+        Skills
+        <span class="sidebar-nav-badge">4</span>
+      </a>
+      <span class="sidebar-section-title">Config</span>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8z"/></svg>
+        MCP Servers
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5 5.5A.5.5 0 015.5 5h5a.5.5 0 010 1h-5A.5.5 0 015 5.5zM5 8a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5A.5.5 0 015 8zm0 2.5a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5z"/><path d="M2 2a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V2z"/></svg>
+        Profiles
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.902 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/></svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="sidebar-version">v0.4.2-alpha</span>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header-bar">
+      <nav class="breadcrumb">
+        <a href="#">Settings</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Skills</span>
+      </nav>
+    </div>
+
+    <div class="page-content">
+      <div class="page-content-inner">
+
+        <!-- Title Row -->
+        <div class="page-title-row">
+          <h1>
+            <span class="title-icon">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.823.8a.75.75 0 01.354 0l6 1.5a.75.75 0 01.573.728v5.947a4.75 4.75 0 01-2.3 4.074l-4.25 2.55a.75.75 0 01-.774 0l-4.25-2.55A4.75 4.75 0 01.876 9V3.028A.75.75 0 011.45 2.3l6-1.5zM8 2.32L2.376 3.725V9c0 1.338.67 2.588 1.785 3.326L8 14.893l3.84-2.567A3.25 3.25 0 0013.624 9V3.725L8 2.32z"/></svg>
+            </span>
+            Skills
+          </h1>
+          <div class="title-actions">
+            <button class="btn-ghost" onclick="switchView('import')">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4 6l4-4 4 4"/><path d="M2 12v2h12v-2"/></svg>
+              Import
+            </button>
+            <button class="btn-primary">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+              New Skill
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-strip">
+          <span class="stat-chip"><span class="stat-dot installed"></span>4 Installed</span>
+          <span class="stat-sep">&middot;</span>
+          <span class="stat-chip"><span class="stat-dot global"></span>2 Global</span>
+          <span class="stat-sep">&middot;</span>
+          <span class="stat-chip"><span class="stat-dot project"></span>2 Project</span>
+          <span class="stat-sep">&middot;</span>
+          <span class="stat-chip"><span class="stat-dot active-dot"></span>3 Active</span>
+        </div>
+
+        <!-- Token Info -->
+        <div class="token-info">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" transform="scale(0.65) translate(1,1)"/></svg>
+          <span>~<code>1,200</code> tokens from 4 skills (body + frontmatter) &mdash; skills consume context window</span>
+        </div>
+
+        <!-- Scope Segmented Control -->
+        <div class="scope-segmented">
+          <button class="scope-seg-btn active" onclick="filterScope('all', this)">All</button>
+          <button class="scope-seg-btn" onclick="filterScope('global', this)">Global</button>
+          <button class="scope-seg-btn" onclick="filterScope('project', this)">Project</button>
+        </div>
+
+        <!-- Skills Grid -->
+        <div class="section-heading">Installed Skills</div>
+        <div class="skill-grid" id="skillGrid">
+
+          <!-- Card 1: frontend-design -->
+          <div class="skill-card" data-scope="global" data-skill="frontend-design">
+            <div class="skill-card-top">
+              <div class="skill-icon" style="color:var(--done-fg);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 5.5h13"/><circle cx="3.5" cy="4" r="0.5" fill="currentColor" stroke="none"/><circle cx="5.5" cy="4" r="0.5" fill="currentColor" stroke="none"/><rect x="3.5" y="7.5" width="4" height="4" rx="0.5"/><path d="M10 7.5h2.5M10 9.5h2.5M10 11.5h1.5"/></svg>
+              </div>
+              <div class="skill-info">
+                <div class="skill-name-row"><span class="skill-name">frontend-design</span></div>
+                <div class="skill-desc">Create distinctive, production-grade frontend interfaces with high design quality</div>
+              </div>
+            </div>
+            <div class="skill-badges">
+              <span class="badge-xs badge-scope-global">Global</span>
+              <span class="badge-xs badge-files">1 file</span>
+              <span class="badge-xs badge-tokens">~320 tok</span>
+            </div>
+            <div class="skill-card-actions">
+              <label class="toggle-switch">
+                <input type="checkbox" checked>
+                <span class="toggle-track"></span>
+                <span class="toggle-label">Enabled</span>
+              </label>
+              <div class="card-hover-actions">
+                <button class="action-btn" title="Edit skill" onclick="openEditor('frontend-design')">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z"/><path d="M10 4l2 2"/></svg>
+                </button>
+                <button class="action-btn danger" title="Remove skill">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: playwright-cli -->
+          <div class="skill-card" data-scope="global" data-skill="playwright-cli">
+            <div class="skill-card-top">
+              <div class="skill-icon" style="color:var(--success-fg);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
+              </div>
+              <div class="skill-info">
+                <div class="skill-name-row"><span class="skill-name">playwright-cli</span></div>
+                <div class="skill-desc">Automates browser interactions for web testing, form filling, screenshots, and data extraction</div>
+              </div>
+            </div>
+            <div class="skill-badges">
+              <span class="badge-xs badge-scope-global">Global</span>
+              <span class="badge-xs badge-tools" title="allowed-tools: Bash(playwright-cli:*)">&#9889; allowed-tools</span>
+              <span class="badge-xs badge-files">8 files</span>
+              <span class="badge-xs badge-tokens">~540 tok</span>
+            </div>
+            <div class="skill-card-actions">
+              <label class="toggle-switch">
+                <input type="checkbox" checked>
+                <span class="toggle-track"></span>
+                <span class="toggle-label">Enabled</span>
+              </label>
+              <div class="card-hover-actions">
+                <button class="action-btn" title="Edit skill" onclick="openEditor('playwright-cli')">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z"/><path d="M10 4l2 2"/></svg>
+                </button>
+                <button class="action-btn danger" title="Remove skill">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: api-docs -->
+          <div class="skill-card" data-scope="project" data-skill="api-docs">
+            <div class="skill-card-top">
+              <div class="skill-icon" style="color:var(--accent-fg);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h4.5c1.1 0 1.5.9 1.5 1.5v11M14 2H9.5C8.4 2 8 2.9 8 3.5"/><path d="M2 2v11h4.5c.83 0 1.5.67 1.5 1.5M14 2v11H9.5c-.83 0-1.5.67-1.5 1.5"/></svg>
+              </div>
+              <div class="skill-info">
+                <div class="skill-name-row"><span class="skill-name">api-docs</span></div>
+                <div class="skill-desc">Generate comprehensive API documentation with examples, type definitions, and scripts/</div>
+              </div>
+            </div>
+            <div class="skill-badges">
+              <span class="badge-xs badge-scope-project">Project</span>
+              <span class="badge-xs badge-files">3 files</span>
+              <span class="badge-xs badge-tokens">~180 tok</span>
+            </div>
+            <div class="skill-card-actions">
+              <label class="toggle-switch">
+                <input type="checkbox" checked>
+                <span class="toggle-track"></span>
+                <span class="toggle-label">Enabled</span>
+              </label>
+              <div class="card-hover-actions">
+                <button class="action-btn" title="Edit skill" onclick="openEditor('api-docs')">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z"/><path d="M10 4l2 2"/></svg>
+                </button>
+                <button class="action-btn danger" title="Remove skill">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: code-review (disabled) -->
+          <div class="skill-card disabled" data-scope="project" data-skill="code-review">
+            <div class="skill-card-top">
+              <div class="skill-icon" style="color:var(--warning-fg);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7l2 2 3.5-4"/><circle cx="8" cy="8" r="6.5"/></svg>
+              </div>
+              <div class="skill-info">
+                <div class="skill-name-row"><span class="skill-name">code-review</span></div>
+                <div class="skill-desc">Review PRs for quality, security issues and best practice adherence</div>
+              </div>
+            </div>
+            <div class="skill-badges">
+              <span class="badge-xs badge-scope-project">Project</span>
+              <span class="badge-xs badge-files">1 file</span>
+              <span class="badge-xs badge-tokens">~160 tok</span>
+            </div>
+            <div class="skill-card-actions">
+              <label class="toggle-switch">
+                <input type="checkbox">
+                <span class="toggle-track"></span>
+                <span class="toggle-label">Disabled</span>
+              </label>
+              <div class="card-hover-actions">
+                <button class="action-btn" title="Edit skill" onclick="openEditor('code-review')">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z"/><path d="M10 4l2 2"/></svg>
+                </button>
+                <button class="action-btn danger" title="Remove skill">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /skill-grid -->
+
+        <!-- Community Packs -->
+        <div class="community-packs">
+          <div class="section-heading">Community Packs</div>
+          <div class="packs-scroll">
+            <div class="pack-card">
+              <div class="pack-card-top">
+                <div class="pack-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-fg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7l2 2 3.5-4"/><rect x="1.5" y="1.5" width="13" height="13" rx="2"/></svg>
+                </div>
+                <div class="pack-title-block">
+                  <div class="pack-name">Code Review Pack</div>
+                  <div class="pack-count">4 skills included</div>
+                </div>
+              </div>
+              <div class="pack-desc">Comprehensive review toolkit &mdash; style checks, security scanning, performance analysis.</div>
+              <div class="pack-footer">
+                <div class="pack-skills-preview"><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span></div>
+                <button class="btn-install-pack">Install Pack</button>
+              </div>
+            </div>
+            <div class="pack-card">
+              <div class="pack-card-top">
+                <div class="pack-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--success-fg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
+                </div>
+                <div class="pack-title-block">
+                  <div class="pack-name">DevOps Essentials</div>
+                  <div class="pack-count">3 skills included</div>
+                </div>
+              </div>
+              <div class="pack-desc">CI/CD pipelines, infrastructure-as-code, and deployment automation helpers.</div>
+              <div class="pack-footer">
+                <div class="pack-skills-preview"><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span></div>
+                <button class="btn-install-pack">Install Pack</button>
+              </div>
+            </div>
+            <div class="pack-card">
+              <div class="pack-card-top">
+                <div class="pack-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--done-fg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h4.5c1.1 0 1.5.9 1.5 1.5v11M14 2H9.5C8.4 2 8 2.9 8 3.5"/><path d="M2 2v11h4.5c.83 0 1.5.67 1.5 1.5M14 2v11H9.5c-.83 0-1.5.67-1.5 1.5"/></svg>
+                </div>
+                <div class="pack-title-block">
+                  <div class="pack-name">Documentation Suite</div>
+                  <div class="pack-count">2 skills included</div>
+                </div>
+              </div>
+              <div class="pack-desc">Auto-generate README files, API reference docs, and inline documentation.</div>
+              <div class="pack-footer">
+                <div class="pack-skills-preview"><span class="pack-skill-dot"></span><span class="pack-skill-dot"></span></div>
+                <button class="btn-install-pack">Install Pack</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div><!-- /view-manager -->
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW 2: SKILL EDITOR (playwright-cli)
+     ═══════════════════════════════════════════════════════ -->
+<div id="view-editor" class="view-container editor-shell">
+
+  <!-- Top Bar -->
+  <header class="editor-topbar">
+    <button class="topbar-back" onclick="switchView('manager')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12L6 8l4-4"/></svg>
+      Back to Skills
+    </button>
+    <div class="topbar-divider"></div>
+    <div class="topbar-skill-name">
+      <span class="skill-icon-sm">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
+      </span>
+      playwright-cli
+    </div>
+    <div class="topbar-meta">
+      <span class="badge badge-accent">Global</span>
+      <span class="badge badge-warning">&#9889; allowed-tools</span>
+      <span class="status-modified">Modified</span>
+    </div>
+    <div class="topbar-actions">
+      <span style="font-size:0.6875rem;color:var(--text-placeholder);margin-right:4px;">
+        <span class="kbd">Ctrl</span>+<span class="kbd">S</span>
+      </span>
+      <button class="btn-ghost" style="color:var(--text-secondary);">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l12 12M14 2L2 14"/></svg>
+        Discard
+      </button>
+      <button class="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V5.5L12 2z"/><path d="M10 2v4H6"/><path d="M6 10h4"/></svg>
+        Save
+      </button>
+    </div>
+  </header>
+
+  <!-- Split Panels -->
+  <div class="editor-body" id="editorBody">
+
+    <!-- LEFT: Editor Panel -->
+    <div class="panel panel-left">
+      <div class="panel-header">
+        <span class="panel-header-title">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
+          Editor
+        </span>
+        <span style="font-size:0.625rem;color:var(--text-placeholder);font-family:'JetBrains Mono',monospace;">SKILL.md</span>
+      </div>
+
+      <div class="panel-scroll">
+        <!-- Frontmatter -->
+        <div class="frontmatter-section animate-in">
+          <div class="frontmatter-card">
+            <div class="frontmatter-header">
+              <span class="frontmatter-label">
+                Frontmatter
+                <span class="yaml-tag">YAML</span>
+              </span>
+            </div>
+            <div class="frontmatter-body">
+              <div class="field-group">
+                <label class="field-label">Name</label>
+                <input type="text" class="field-input" value="playwright-cli" spellcheck="false">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Description</label>
+                <textarea class="field-textarea" rows="3" id="descTextarea">Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites or test web applications.</textarea>
+                <div class="field-footer">
+                  <span></span>
+                  <span class="char-count" id="charCount">127 / 1024</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Scope</label>
+                <div class="scope-group">
+                  <button class="scope-option active" onclick="selectScope(this)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/></svg>
+                    Global
+                  </button>
+                  <button class="scope-option" onclick="selectScope(this)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3z"/></svg>
+                    Project
+                  </button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Allowed Tools</label>
+                <input type="text" class="field-input warning-bg" value="Bash(playwright-cli:*)" spellcheck="false">
+                <div class="field-hint warning">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l6.5 12H1.5L8 1.5zM8 5v4M8 10.5v1"/></svg>
+                  Security: grants shell access scoped to playwright-cli commands
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label">License</label>
+                <input type="text" class="field-input" value="MIT" spellcheck="false" style="font-family:inherit;">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Compatibility</label>
+                <input type="text" class="field-input" value="copilot-cli >= 0.4.0" spellcheck="false" style="font-family:inherit;">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Markdown Editor -->
+        <div class="instructions-section animate-in">
+          <div style="padding:0 20px 6px;display:flex;align-items:center;justify-content:space-between;">
+            <span class="field-label" style="text-transform:uppercase;letter-spacing:0.05em;font-size:0.6875rem;color:var(--text-tertiary);">Instructions</span>
+            <span style="font-size:0.625rem;color:var(--text-placeholder);">Markdown supported</span>
+          </div>
+          <div class="md-toolbar">
+            <button class="md-toolbar-btn" title="Bold"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2h5a3 3 0 011.5 5.6A3.5 3.5 0 019.5 14H4V2zm2 5h3a1 1 0 100-2H6v2zm0 2v3h3.5a1.5 1.5 0 000-3H6z"/></svg></button>
+            <button class="md-toolbar-btn" title="Italic"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 2h6v2h-2.2l-2.6 8H9v2H3v-2h2.2l2.6-8H6V2z"/></svg></button>
+            <div class="md-toolbar-sep"></div>
+            <button class="md-toolbar-btn" title="H1" style="font-size:0.75rem;font-weight:700;">H1</button>
+            <button class="md-toolbar-btn" title="H2" style="font-size:0.6875rem;font-weight:600;">H2</button>
+            <div class="md-toolbar-sep"></div>
+            <button class="md-toolbar-btn" title="Bullet List"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4a1 1 0 100-2 1 1 0 000 2zm0 5a1 1 0 100-2 1 1 0 000 2zm0 5a1 1 0 100-2 1 1 0 000 2zm3-11h10v1H5V3zm0 5h10v1H5V8zm0 5h10v1H5v-1z"/></svg></button>
+            <button class="md-toolbar-btn" title="Numbered List"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h1v3H2V5H1V4h1V3zm0 6h2v1H2v1h2v1H1v-4h1zm5-5h8v1H7V4zm0 4h8v1H7V8zm0 4h8v1H7v-1z"/></svg></button>
+            <div class="md-toolbar-sep"></div>
+            <button class="md-toolbar-btn" title="Code"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1 8l4 4M11 4l4 4-4 4"/></svg></button>
+            <button class="md-toolbar-btn" title="Link"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5a3 3 0 004 .5l2-2a3 3 0 00-4.24-4.24l-1.14 1.14"/><path d="M9.5 6.5a3 3 0 00-4-.5l-2 2a3 3 0 004.24 4.24l1.14-1.14"/></svg></button>
+            <button class="md-toolbar-btn" title="Image"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><circle cx="5" cy="6" r="1.5"/><path d="M14.5 10.5L11 7l-6 6"/></svg></button>
+            <div style="flex:1"></div>
+            <span style="font-size:0.5625rem;color:var(--text-placeholder);font-family:'JetBrains Mono',monospace;" id="editorCursorPos">Ln 1, Col 1</span>
+          </div>
+
+          <div class="md-editor-wrap">
+            <div class="line-numbers" id="lineNumbers"></div>
+            <textarea class="md-textarea" id="mdEditor" spellcheck="false"># Playwright CLI Skill
+
+## Overview
+This skill automates browser interactions for web testing, form filling, screenshots, and data extraction using the Playwright framework via the CLI.
+
+## Capabilities
+- Navigate to URLs and interact with web pages
+- Fill forms and submit data automatically
+- Take screenshots of full pages or specific elements
+- Extract structured data from web pages
+- Test web applications end-to-end
+- Handle authentication flows and cookies
+
+## Usage Guidelines
+1. **Always verify URLs** before navigating - confirm with the user
+2. **Use headless mode** by default for efficiency
+3. **Take screenshots** as evidence of completed actions
+4. **Handle errors gracefully** - retry on transient failures
+5. **Respect rate limits** and add delays between requests
+
+## Security Notes
+- This skill has `allowed-tools: Bash(playwright-cli:*)` access
+- Only execute playwright-cli commands, never arbitrary shell
+- Do not store or transmit credentials found on pages
+- Always sanitize user-provided selectors
+
+## Example Workflows
+
+### Screenshot a webpage
+```bash
+playwright-cli screenshot https://example.com --output page.png
+```
+
+### Fill and submit a form
+```bash
+playwright-cli navigate https://app.example.com/login
+playwright-cli fill "#email" "user@example.com"
+playwright-cli fill "#password" "***"
+playwright-cli click "button[type=submit]"
+```
+
+### Extract page data
+```bash
+playwright-cli evaluate "document.title"
+playwright-cli query-all ".product-card" --extract "name,price"
+```
+
+## Limitations
+- Cannot bypass CAPTCHAs or bot detection
+- JavaScript-heavy SPAs may need explicit waits
+- File downloads require explicit handling</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resize Handle -->
+    <div class="resize-handle" id="resizeHandle"></div>
+
+    <!-- RIGHT: Preview Panel -->
+    <div class="panel panel-right">
+      <div class="panel-header">
+        <span class="panel-header-title">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+          Preview
+        </span>
+      </div>
+
+      <div class="panel-scroll" id="previewScroll">
+        <!-- Preview Frontmatter -->
+        <div class="preview-content animate-in">
+          <div class="preview-frontmatter">
+            <div class="preview-skill-name">
+              <span class="name-icon" style="background:linear-gradient(135deg, #059669, #34d399);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
+              </span>
+              playwright-cli
+            </div>
+            <div class="preview-skill-desc">
+              Automates browser interactions for web testing, form filling, screenshots, and data extraction.
+            </div>
+            <div class="preview-skill-meta">
+              <span class="badge badge-accent">Global</span>
+              <span class="badge badge-warning">&#9889; allowed-tools</span>
+              <span class="badge badge-neutral">v1.0</span>
+            </div>
+          </div>
+
+          <!-- Rendered Markdown -->
+          <div class="preview-markdown">
+            <h1>Playwright CLI Skill</h1>
+            <h2>Overview</h2>
+            <p style="font-size:0.875rem;color:var(--text-secondary);line-height:1.7;">This skill automates browser interactions for web testing, form filling, screenshots, and data extraction using the Playwright framework via the CLI.</p>
+            <h2>Capabilities</h2>
+            <ul>
+              <li>Navigate to URLs and interact with web pages</li>
+              <li>Fill forms and submit data automatically</li>
+              <li>Take screenshots of full pages or specific elements</li>
+              <li>Extract structured data from web pages</li>
+              <li>Test web applications end-to-end</li>
+              <li>Handle authentication flows and cookies</li>
+            </ul>
+            <h2>Usage Guidelines</h2>
+            <ol>
+              <li><strong>Always verify URLs</strong> before navigating</li>
+              <li><strong>Use headless mode</strong> by default for efficiency</li>
+              <li><strong>Take screenshots</strong> as evidence of completed actions</li>
+              <li><strong>Handle errors gracefully</strong> &mdash; retry on transient failures</li>
+              <li><strong>Respect rate limits</strong> and add delays between requests</li>
+            </ol>
+            <h2>Security Notes</h2>
+            <ul>
+              <li>This skill has <code>allowed-tools: Bash(playwright-cli:*)</code> access</li>
+              <li>Only execute playwright-cli commands, never arbitrary shell</li>
+              <li>Do not store or transmit credentials found on pages</li>
+            </ul>
+            <h2>Example Workflows</h2>
+            <pre><code>playwright-cli screenshot https://example.com --output page.png</code></pre>
+          </div>
+        </div>
+
+        <!-- Assets Section -->
+        <div class="assets-section animate-in">
+          <div class="assets-header">
+            <span class="assets-title">Assets <span class="count">8</span></span>
+            <button class="btn-ghost" style="padding:4px 10px;font-size:0.6875rem;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+              Add File
+            </button>
+          </div>
+          <div class="asset-file">
+            <span class="asset-icon md"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">SKILL.md</span>
+            <span class="asset-size">2.4 KB</span>
+          </div>
+          <div class="asset-folder">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h4l1.5 1.5H14v7.5H2V4z"/></svg>
+            references/
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">navigation.md</span>
+            <span class="asset-size">1.8 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">forms.md</span>
+            <span class="asset-size">2.1 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">screenshots.md</span>
+            <span class="asset-size">1.2 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">selectors.md</span>
+            <span class="asset-size">0.9 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">authentication.md</span>
+            <span class="asset-size">1.5 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">data-extraction.md</span>
+            <span class="asset-size">1.6 KB</span>
+          </div>
+          <div class="asset-file" style="margin-left:16px;">
+            <span class="asset-icon ref"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v4h4"/></svg></span>
+            <span class="asset-name">error-handling.md</span>
+            <span class="asset-size">1.1 KB</span>
+          </div>
+          <div class="drop-zone-sm">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block;margin:0 auto 4px;width:20px;height:20px;">
+              <path d="M8 2v8M5 7l3 3 3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/>
+            </svg>
+            Drop files here or <span style="color:var(--accent-fg);cursor:pointer;">browse</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Status Bar -->
+  <div class="editor-info-bar">
+    <div class="info-group">
+      <span class="info-item">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/></svg>
+        ~/.copilot/skills/playwright-cli/SKILL.md
+      </span>
+      <span class="info-item">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>
+        Last saved 3 min ago
+      </span>
+    </div>
+    <div class="info-group">
+      <span class="info-item">UTF-8</span>
+      <span class="info-item" id="editorLineCount">44 lines</span>
+      <span class="info-item">2,416 bytes</span>
+    </div>
+  </div>
+</div><!-- /view-editor -->
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW 3: IMPORT WIZARD
+     ═══════════════════════════════════════════════════════ -->
+<div id="view-import" class="view-container">
+  <div class="import-wizard">
+
+    <!-- Header -->
+    <div class="wizard-header">
+      <div class="wizard-breadcrumb">
+        <a onclick="switchView('manager')">Settings</a>
+        <span class="sep">&#8250;</span>
+        <a onclick="switchView('manager')">Skills</a>
+        <span class="sep">&#8250;</span>
+        <span class="current">Import</span>
+      </div>
+      <div class="wizard-title-row">
+        <div class="wizard-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div>
+          <div class="wizard-title">Import Skills</div>
+          <div class="wizard-subtitle">Bring skills from local repos, GitHub, or files into your library</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source Tabs -->
+    <div class="source-tabs" id="importTabs">
+      <button class="source-tab active" data-target="import-local">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Local Repository
+      </button>
+      <button class="source-tab" data-target="import-github">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        GitHub
+      </button>
+      <button class="source-tab" data-target="import-file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        File Upload
+      </button>
+    </div>
+
+    <!-- LOCAL TAB -->
+    <div class="tab-panel active" id="import-local">
+      <div class="input-row">
+        <div class="input-field">
+          <label>Repository Path</label>
+          <input type="text" value="C:\git\my-project" placeholder="C:\path\to\repository">
+        </div>
+        <button class="btn-scan" style="margin-top:22px;" onclick="showToast('Scan complete','Found 3 skills in .github/skills/')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Scan
+        </button>
+      </div>
+      <div class="input-hint" style="margin-top:8px;">Scans <code style="font-family:'JetBrains Mono',monospace;font-size:0.6875rem;color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;">.github/skills/</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.6875rem;color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;">.copilot/skills/</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.6875rem;color:var(--accent-fg);background:var(--accent-subtle);padding:1px 5px;border-radius:3px;">.claude/skills/</code></div>
+
+      <!-- Results -->
+      <div class="results-panel" style="margin-top:20px;">
+        <div class="results-header">
+          <div class="results-header-left">
+            <span class="results-header-label">Found Skills</span>
+            <span class="results-count">2 of 3 selected</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="results-toggle-all">Select All</button>
+          </div>
+        </div>
+        <div class="import-skill-row selected" onclick="this.classList.toggle('selected');this.querySelector('input').checked=!this.querySelector('input').checked;">
+          <input type="checkbox" class="skill-checkbox" checked>
+          <div class="import-skill-info">
+            <div class="skill-name-row"><span class="import-skill-name">frontend-design</span><span class="badge badge-accent" style="font-size:0.5625rem;">SKILL.md</span></div>
+            <div class="import-skill-desc">Create distinctive frontend interfaces</div>
+            <div class="import-skill-meta">
+              <span class="import-skill-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><code>.github/skills/frontend-design/</code></span>
+              <span class="import-skill-meta-item">1 file</span>
+            </div>
+          </div>
+        </div>
+        <div class="import-skill-row selected" onclick="this.classList.toggle('selected');this.querySelector('input').checked=!this.querySelector('input').checked;">
+          <input type="checkbox" class="skill-checkbox" checked>
+          <div class="import-skill-info">
+            <div class="skill-name-row"><span class="import-skill-name">playwright-cli</span><span class="badge badge-accent" style="font-size:0.5625rem;">SKILL.md</span></div>
+            <div class="import-skill-desc">Browser automation for testing</div>
+            <div class="import-skill-meta">
+              <span class="import-skill-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><code>.copilot/skills/playwright-cli/</code></span>
+              <span class="import-skill-meta-item">8 files</span>
+            </div>
+          </div>
+        </div>
+        <div class="import-skill-row" onclick="this.classList.toggle('selected');this.querySelector('input').checked=!this.querySelector('input').checked;">
+          <input type="checkbox" class="skill-checkbox">
+          <div class="import-skill-info">
+            <div class="skill-name-row"><span class="import-skill-name">code-review</span><span class="badge badge-accent" style="font-size:0.5625rem;">SKILL.md</span></div>
+            <div class="import-skill-desc">PR review for quality and security</div>
+            <div class="import-skill-meta">
+              <span class="import-skill-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><code>.github/skills/code-review/</code></span>
+              <span class="import-skill-meta-item">1 file</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Footer -->
+      <div class="actions-bar">
+        <div class="import-options" style="margin-top:0;flex:1;">
+          <div class="option-group">
+            <label>Target Scope</label>
+            <select><option selected>Global (~/.copilot/skills/)</option><option>Project (.github/skills/)</option></select>
+          </div>
+        </div>
+        <div class="actions-bar-right">
+          <button class="btn-import-primary" onclick="showToast('2 skills imported','2 skills copied to ~/.copilot/skills/')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Import <span class="count">2</span> Skills
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GITHUB TAB -->
+    <div class="tab-panel" id="import-github">
+      <!-- Auth Section -->
+      <div class="auth-section">
+        <div class="auth-status">
+          <span class="auth-dot"></span>
+          <span style="color:var(--success-fg);font-weight:500;">Authenticated</span>
+          <span style="color:var(--text-tertiary);">as</span>
+          <code style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-primary);">MattShelton04</code>
+        </div>
+        <div class="auth-methods">
+          <div class="auth-card active">
+            <div class="auth-card-title">gh CLI <span class="auth-card-badge rec">Recommended</span></div>
+            <div class="auth-card-desc">Uses existing gh authentication. Fast, secure.</div>
+          </div>
+          <div class="auth-card">
+            <div class="auth-card-title">Personal Access Token</div>
+            <div class="auth-card-desc">Fallback for environments without gh CLI.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div class="input-field">
+          <label>Repository URL</label>
+          <input type="url" value="https://github.com/MattShelton04/copilot-skills" placeholder="https://github.com/owner/repo">
+        </div>
+        <button class="btn-scan" style="margin-top:22px;" onclick="showToast('Fetched','Found 2 skills in repository')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Fetch
+        </button>
+      </div>
+
+      <!-- Found Skills -->
+      <div class="results-panel" style="margin-top:20px;">
+        <div class="results-header">
+          <div class="results-header-left">
+            <span class="results-header-label">Found Skills</span>
+            <span class="results-count">2 skills</span>
+          </div>
+        </div>
+        <div class="import-skill-row selected" onclick="this.classList.toggle('selected');this.querySelector('input').checked=!this.querySelector('input').checked;">
+          <input type="checkbox" class="skill-checkbox" checked>
+          <div class="import-skill-info">
+            <div class="skill-name-row"><span class="import-skill-name">api-docs</span></div>
+            <div class="import-skill-desc">Generate API documentation with examples</div>
+            <div class="import-skill-meta"><span class="import-skill-meta-item">3 files</span></div>
+          </div>
+        </div>
+        <div class="import-skill-row selected" onclick="this.classList.toggle('selected');this.querySelector('input').checked=!this.querySelector('input').checked;">
+          <input type="checkbox" class="skill-checkbox" checked>
+          <div class="import-skill-info">
+            <div class="skill-name-row"><span class="import-skill-name">security-audit</span></div>
+            <div class="import-skill-desc">Audit code for vulnerabilities</div>
+            <div class="import-skill-meta"><span class="import-skill-meta-item">2 files</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions-bar">
+        <div class="import-options" style="margin-top:0;flex:1;">
+          <div class="option-group">
+            <label>Target Scope</label>
+            <select><option selected>Global (~/.copilot/skills/)</option><option>Project (.github/skills/)</option></select>
+          </div>
+        </div>
+        <div class="actions-bar-right">
+          <button class="btn-import-primary" onclick="showToast('Imported from GitHub','2 skills cloned to ~/.copilot/skills/')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Import <span class="count">2</span> Skills
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILE TAB -->
+    <div class="tab-panel" id="import-file">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-label">Drop SKILL.md or skill folder here</div>
+        <div class="drop-zone-hint">Or drag a .zip archive containing a skill directory</div>
+        <div class="drop-zone-formats">
+          <span class="drop-zone-format">SKILL.md</span>
+          <span class="drop-zone-format">.zip archive</span>
+          <span class="drop-zone-format">directory</span>
+        </div>
+      </div>
+      <div class="actions-bar">
+        <div class="actions-bar-left">
+          <span>No files added yet</span>
+        </div>
+        <div class="actions-bar-right">
+          <button class="btn-import-primary" disabled>Import Skill</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /view-import -->
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW 4: IMPLEMENTATION NOTES
+     ═══════════════════════════════════════════════════════ -->
+<div id="view-notes" class="view-container app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><div class="sidebar-brand-icon">&#9889;</div><span class="sidebar-brand-text">TracePilot</span></div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-section-title">Main</span>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13z"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="sidebar-nav-item active" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.823.8a.75.75 0 01.354 0l6 1.5a.75.75 0 01.573.728v5.947a4.75 4.75 0 01-2.3 4.074l-4.25 2.55a.75.75 0 01-.774 0l-4.25-2.55A4.75 4.75 0 01.876 9V3.028A.75.75 0 011.45 2.3l6-1.5z"/></svg>
+        Skills
+        <span class="sidebar-nav-badge">4</span>
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492z"/></svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-footer"><span class="sidebar-version">v0.4.2-alpha</span></div>
+  </aside>
+  <main class="main-content">
+    <div class="page-header-bar">
+      <nav class="breadcrumb">
+        <a href="#" onclick="switchView('manager');return false;">Skills</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Implementation Notes</span>
+      </nav>
+    </div>
+    <div class="page-content">
+      <div class="page-content-inner notes-content">
+
+        <h2>Skill Directory Structure</h2>
+        <pre>~/.copilot/skills/           # Global skills
+  playwright-cli/
+    SKILL.md                 # Main skill file (frontmatter + instructions)
+    references/              # Optional asset directory
+      navigation.md
+      forms.md
+      ...
+
+.github/skills/              # Project-scoped skills
+  code-review/
+    SKILL.md
+  api-docs/
+    SKILL.md
+    scripts/
+      generate.sh</pre>
+
+        <h2>SKILL.md Format</h2>
+        <p>Each skill is a single markdown file with YAML frontmatter:</p>
+        <pre><span class="yaml-key">---</span>
+<span class="yaml-key">name:</span> <span class="yaml-val">playwright-cli</span>
+<span class="yaml-key">description:</span> <span class="yaml-val">"Automates browser interactions for testing"</span>
+<span class="yaml-key">allowed-tools:</span> <span class="yaml-val">Bash(playwright-cli:*)</span>
+<span class="yaml-key">scope:</span> <span class="yaml-val">global</span>
+<span class="yaml-key">license:</span> <span class="yaml-val">MIT</span>
+<span class="yaml-key">compatibility:</span> <span class="yaml-val">"copilot-cli >= 0.4.0"</span>
+<span class="yaml-key">---</span>
+
+# Skill instructions in markdown...
+Body content becomes the system prompt context.</pre>
+
+        <h3>Frontmatter Fields</h3>
+        <ul>
+          <li><code>name</code> &mdash; Unique identifier (kebab-case)</li>
+          <li><code>description</code> &mdash; Human-readable summary (max 1024 chars)</li>
+          <li><code>allowed-tools</code> &mdash; Tool access grants (security-sensitive)</li>
+          <li><code>scope</code> &mdash; <code>global</code> or <code>project</code></li>
+          <li><code>license</code> &mdash; SPDX license identifier</li>
+          <li><code>compatibility</code> &mdash; Version constraint</li>
+        </ul>
+
+        <h2>Rust Types</h2>
+        <pre><span class="rust-kw">pub struct</span> <span class="rust-type">Skill</span> {
+    <span class="rust-kw">pub</span> name: <span class="rust-type">String</span>,
+    <span class="rust-kw">pub</span> description: <span class="rust-type">String</span>,
+    <span class="rust-kw">pub</span> scope: <span class="rust-type">SkillScope</span>,
+    <span class="rust-kw">pub</span> allowed_tools: <span class="rust-type">Option</span>&lt;<span class="rust-type">Vec</span>&lt;<span class="rust-type">String</span>&gt;&gt;,
+    <span class="rust-kw">pub</span> enabled: <span class="rust-type">bool</span>,
+    <span class="rust-kw">pub</span> body: <span class="rust-type">String</span>,
+    <span class="rust-kw">pub</span> assets: <span class="rust-type">Vec</span>&lt;<span class="rust-type">SkillAsset</span>&gt;,
+    <span class="rust-kw">pub</span> token_estimate: <span class="rust-type">usize</span>,
+}
+
+<span class="rust-kw">pub enum</span> <span class="rust-type">SkillScope</span> {
+    Global,  <span style="color:var(--text-placeholder);">// ~/.copilot/skills/</span>
+    Project, <span style="color:var(--text-placeholder);">// .github/skills/</span>
+}</pre>
+
+        <h2>IPC Commands</h2>
+        <pre><span class="rust-kw">enum</span> <span class="rust-type">SkillCommand</span> {
+    ListSkills,
+    GetSkill { name: <span class="rust-type">String</span> },
+    EnableSkill { name: <span class="rust-type">String</span> },
+    DisableSkill { name: <span class="rust-type">String</span> },
+    ImportSkill { source: <span class="rust-type">ImportSource</span>, scope: <span class="rust-type">SkillScope</span> },
+    DeleteSkill { name: <span class="rust-type">String</span> },
+    SaveSkill { name: <span class="rust-type">String</span>, content: <span class="rust-type">String</span> },
+}</pre>
+
+        <h2>GitHub Private Repo Import</h2>
+        <p>Two authentication methods for importing from private repositories:</p>
+        <h3>1. gh CLI (Recommended)</h3>
+        <p>Uses <code>gh auth status</code> to check authentication, then <code>gh api</code> to fetch repo contents. Preferred because it inherits existing terminal auth.</p>
+
+        <h3>2. Personal Access Token</h3>
+        <p>Fallback: user provides a PAT with <code>repo</code> scope. Stored encrypted in OS keychain via <code>keyring</code> crate.</p>
+
+        <h2>Enable/Disable Strategy</h2>
+        <p>Skills are disabled by renaming <code>SKILL.md</code> to <code>SKILL.md.disabled</code>. This is simple, reversible, and works with git:</p>
+        <pre><span style="color:var(--text-placeholder);"># Disable</span>
+mv ~/.copilot/skills/code-review/SKILL.md \
+   ~/.copilot/skills/code-review/SKILL.md.disabled
+
+<span style="color:var(--text-placeholder);"># Enable</span>
+mv ~/.copilot/skills/code-review/SKILL.md.disabled \
+   ~/.copilot/skills/code-review/SKILL.md</pre>
+
+        <h2>Token Estimation</h2>
+        <p>Approximation: <code>~4 characters per token</code>. The full SKILL.md content (frontmatter + body) is included in the context window. Token budget tracking helps users understand the cost of having many skills active.</p>
+
+      </div>
+    </div>
+  </main>
+</div><!-- /view-notes -->
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════ -->
+<script>
+  // ============================
+  // View Switching
+  // ============================
+  function switchView(viewName) {
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById('view-' + viewName);
+    if (target) {
+      target.classList.add('active');
+      // Re-initialize line numbers when switching to editor
+      if (viewName === 'editor') {
+        updateLineNumbers();
+      }
+    }
+  }
+
+  function openEditor(skillName) {
+    switchView('editor');
+  }
+
+  // ============================
+  // Scope Segmented Filter
+  // ============================
+  function filterScope(scope, btn) {
+    btn.parentElement.querySelectorAll('.scope-seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#skillGrid .skill-card').forEach(card => {
+      const cardScope = card.dataset.scope;
+      if (scope === 'all' || cardScope === scope) {
+        card.style.display = '';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  // ============================
+  // Toggle Switches
+  // ============================
+  document.querySelectorAll('.toggle-switch input').forEach(input => {
+    input.addEventListener('change', function() {
+      const label = this.closest('.toggle-switch').querySelector('.toggle-label');
+      const card = this.closest('.skill-card');
+      if (label) {
+        label.textContent = this.checked ? 'Enabled' : 'Disabled';
+      }
+      if (card) {
+        card.classList.toggle('disabled', !this.checked);
+      }
+    });
+  });
+
+  // ============================
+  // Editor: Scope Selector
+  // ============================
+  function selectScope(el) {
+    el.parentElement.querySelectorAll('.scope-option').forEach(btn => btn.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ============================
+  // Editor: Character Count
+  // ============================
+  const descTA = document.getElementById('descTextarea');
+  const charSpan = document.getElementById('charCount');
+  function updateCharCount() {
+    if (!descTA || !charSpan) return;
+    const len = descTA.value.length;
+    charSpan.textContent = len + ' / 1024';
+    charSpan.classList.toggle('near-limit', len > 900 && len <= 1024);
+    charSpan.classList.toggle('at-limit', len > 1024);
+  }
+  if (descTA) descTA.addEventListener('input', updateCharCount);
+
+  // ============================
+  // Editor: Line Numbers
+  // ============================
+  const mdEditor = document.getElementById('mdEditor');
+  const lineNums = document.getElementById('lineNumbers');
+
+  function updateLineNumbers() {
+    if (!mdEditor || !lineNums) return;
+    const lines = mdEditor.value.split('\n').length;
+    let html = '';
+    for (let i = 1; i <= Math.max(lines, 24); i++) {
+      html += '<span class="ln' + (i === 1 ? ' active' : '') + '">' + i + '</span>';
+    }
+    lineNums.innerHTML = html;
+  }
+
+  if (mdEditor) {
+    mdEditor.addEventListener('input', updateLineNumbers);
+    mdEditor.addEventListener('scroll', function() {
+      if (lineNums) lineNums.scrollTop = mdEditor.scrollTop;
+    });
+    // Initial line numbers
+    updateLineNumbers();
+  }
+
+  // ============================
+  // Editor: Resize Handle
+  // ============================
+  const resizeHandle = document.getElementById('resizeHandle');
+  const editorBody = document.getElementById('editorBody');
+
+  if (resizeHandle && editorBody) {
+    let isResizing = false;
+
+    // Position the handle at the border between panels
+    function positionHandle() {
+      const leftPanel = editorBody.querySelector('.panel-left');
+      if (leftPanel) {
+        const rect = leftPanel.getBoundingClientRect();
+        const parentRect = editorBody.getBoundingClientRect();
+        resizeHandle.style.left = (rect.right - parentRect.left - 2) + 'px';
+      }
+    }
+
+    resizeHandle.addEventListener('mousedown', function(e) {
+      isResizing = true;
+      resizeHandle.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isResizing) return;
+      const rect = editorBody.getBoundingClientRect();
+      const offset = e.clientX - rect.left;
+      const totalWidth = rect.width;
+      const pct = Math.max(20, Math.min(80, (offset / totalWidth) * 100));
+      editorBody.style.gridTemplateColumns = pct + '% 1fr';
+      positionHandle();
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (isResizing) {
+        isResizing = false;
+        resizeHandle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+
+    // Set initial position after a small delay
+    setTimeout(positionHandle, 100);
+    window.addEventListener('resize', positionHandle);
+  }
+
+  // ============================
+  // Import: Tab Switching
+  // ============================
+  document.querySelectorAll('#importTabs .source-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('#importTabs .source-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      const wizard = this.closest('.import-wizard');
+      wizard.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById(this.dataset.target);
+      if (target) target.classList.add('active');
+    });
+  });
+
+  // ============================
+  // Drop Zone
+  // ============================
+  const dropZone = document.getElementById('dropZone');
+  if (dropZone) {
+    ['dragenter', 'dragover'].forEach(evt => {
+      dropZone.addEventListener(evt, function(e) { e.preventDefault(); this.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, function(e) { e.preventDefault(); this.classList.remove('drag-over'); });
+    });
+  }
+
+  // ============================
+  // Toast
+  // ============================
+  function showToast(text, sub) {
+    const toast = document.getElementById('successToast');
+    if (!toast) return;
+    document.getElementById('toastText').textContent = text;
+    document.getElementById('toastSub').textContent = sub || '';
+    toast.classList.add('visible');
+    setTimeout(function() { toast.classList.remove('visible'); }, 3500);
+  }
+
+  // ============================
+  // Auth Card Selection
+  // ============================
+  document.querySelectorAll('.auth-card').forEach(card => {
+    card.addEventListener('click', function() {
+      this.closest('.auth-methods').querySelectorAll('.auth-card').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // ============================
+  // View Navigation Tabs (bottom nav)
+  // ============================
+  // Add keyboard shortcut: 1-4 for views
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    switch(e.key) {
+      case '1': switchView('manager'); break;
+      case '2': switchView('editor'); break;
+      case '3': switchView('import'); break;
+      case '4': switchView('notes'); break;
+    }
+  });
+</script>
+
+<!-- View Navigation Bar -->
+<div style="position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 16px;background:var(--canvas-subtle);border-top:1px solid var(--border-default);z-index:100;">
+  <span style="font-size:0.625rem;color:var(--text-placeholder);margin-right:8px;">Views:</span>
+  <button onclick="switchView('manager')" style="padding:4px 12px;font-size:0.6875rem;font-weight:500;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--accent-muted);color:var(--accent-fg);cursor:pointer;font-family:inherit;" class="view-nav-btn" data-view="manager">
+    <span style="opacity:0.5;margin-right:2px;">1</span> Manager
+  </button>
+  <button onclick="switchView('editor')" style="padding:4px 12px;font-size:0.6875rem;font-weight:500;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--canvas-default);color:var(--text-secondary);cursor:pointer;font-family:inherit;" class="view-nav-btn" data-view="editor">
+    <span style="opacity:0.5;margin-right:2px;">2</span> Editor
+  </button>
+  <button onclick="switchView('import')" style="padding:4px 12px;font-size:0.6875rem;font-weight:500;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--canvas-default);color:var(--text-secondary);cursor:pointer;font-family:inherit;" class="view-nav-btn" data-view="import">
+    <span style="opacity:0.5;margin-right:2px;">3</span> Import
+  </button>
+  <button onclick="switchView('notes')" style="padding:4px 12px;font-size:0.6875rem;font-weight:500;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--canvas-default);color:var(--text-secondary);cursor:pointer;font-family:inherit;" class="view-nav-btn" data-view="notes">
+    <span style="opacity:0.5;margin-right:2px;">4</span> Notes
+  </button>
+</div>
+
+<script>
+  // Highlight active view nav button
+  const origSwitchView = switchView;
+  switchView = function(viewName) {
+    origSwitchView(viewName);
+    document.querySelectorAll('.view-nav-btn').forEach(btn => {
+      const isActive = btn.dataset.view === viewName;
+      btn.style.background = isActive ? 'var(--accent-muted)' : 'var(--canvas-default)';
+      btn.style.color = isActive ? 'var(--accent-fg)' : 'var(--text-secondary)';
+    });
+  };
+</script>
+
+</body>
+</html>

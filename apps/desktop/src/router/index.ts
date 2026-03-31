@@ -217,6 +217,48 @@ const routes: RouteRecordRaw[] = [
       sidebarId: "config-injector",
     },
   },
+  // === MCP Server Management ===
+  {
+    path: "/mcp",
+    name: "mcp-manager",
+    component: () => import("@/views/mcp/McpManagerView.vue"),
+    meta: {
+      title: "MCP Servers",
+      sidebarId: "mcp",
+      featureFlag: "mcpServers",
+    },
+  },
+  {
+    path: "/mcp/:name",
+    name: "mcp-server-detail",
+    component: () => import("@/views/mcp/McpServerDetailView.vue"),
+    meta: {
+      title: "MCP Server Detail",
+      sidebarId: "mcp",
+      featureFlag: "mcpServers",
+    },
+  },
+  // === Skills routes ===
+  {
+    path: "/skills",
+    name: "skills-manager",
+    component: () => import("@/views/skills/SkillsManagerView.vue"),
+    meta: {
+      title: "Skills",
+      sidebarId: "skills",
+      featureFlag: "skills",
+    },
+  },
+  {
+    path: "/skills/:name",
+    name: "skill-editor",
+    component: () => import("@/views/skills/SkillEditorView.vue"),
+    meta: {
+      title: "Skill Editor",
+      sidebarId: "skills",
+      featureFlag: "skills",
+    },
+  },
   // 404 catch-all — must be last
   {
     path: "/:pathMatch(.*)*",

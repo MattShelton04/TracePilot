@@ -5,10 +5,15 @@
 
 pub mod config_injector;
 pub mod error;
+pub mod github;
+pub mod json_io;
 pub mod launcher;
+pub mod mcp;
 pub mod process;
 pub mod repo_registry;
+pub mod skills;
 pub mod templates;
+pub mod tokens;
 pub mod types;
 pub mod version_manager;
 pub mod worktrees;

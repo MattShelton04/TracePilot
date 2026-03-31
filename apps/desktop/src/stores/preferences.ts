@@ -83,6 +83,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     healthScoring: false,
     sessionReplay: false,
     renderMarkdown: true,
+    mcpServers: false,
+    skills: false,
   });
   const logLevel = ref("info");
 
@@ -213,6 +215,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       healthScoring: config.features.healthScoring,
       sessionReplay: config.features.sessionReplay,
       renderMarkdown: config.features.renderMarkdown ?? true,
+      mcpServers: config.features.mcpServers ?? false,
+      skills: config.features.skills ?? false,
     };
     logLevel.value = config.logging?.level ?? "info";
   }

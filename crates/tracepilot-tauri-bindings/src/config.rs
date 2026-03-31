@@ -170,6 +170,10 @@ pub struct FeaturesConfig {
     pub session_replay: bool,
     #[serde(default = "default_true")]
     pub render_markdown: bool,
+    #[serde(default = "default_true")]
+    pub mcp_servers: bool,
+    #[serde(default = "default_true")]
+    pub skills: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -179,6 +183,8 @@ impl Default for FeaturesConfig {
             health_scoring: false,
             session_replay: false,
             render_markdown: true,
+            mcp_servers: true,
+            skills: true,
         }
     }
 }
