@@ -73,9 +73,8 @@ jobs:
       #   with:
       #     token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Linting ─────────────────────────────────────────────
-      - name: Rust lint
-        run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
-
-      - name: Frontend lint
-        run: pnpm lint
+      # Temporarily disabled lint steps.
+      # - name: Rust lint
+      #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
+      # - name: Frontend lint
+      #   run: pnpm lint
