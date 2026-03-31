@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import TurnWaterfallView from "../../../components/timeline/TurnWaterfallView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
+import { makeTurn, makeTurnToolCall } from "../../helpers/testBuilders";
 
 // ── Mock @tracepilot/client ─────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -19,33 +20,6 @@ vi.mock("@tracepilot/client", async () => {
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-function makeTurnToolCall(overrides: Record<string, unknown> = {}) {
-  return {
-    toolName: "view",
-    success: true,
-    isComplete: true,
-    durationMs: 200,
-    toolCallId: `tc-${Math.random().toString(36).slice(2, 8)}`,
-    startedAt: "2025-01-01T00:00:00.000Z",
-    completedAt: "2025-01-01T00:00:00.200Z",
-    ...overrides,
-  };
-}
-
-function makeTurn(overrides: Record<string, unknown> = {}) {
-  return {
-    turnIndex: 0,
-    userMessage: "Fix the bug",
-    assistantMessages: [{ content: "Done." }],
-    model: "gpt-4.1",
-    toolCalls: [makeTurnToolCall()],
-    durationMs: 5000,
-    isComplete: true,
-    timestamp: "2025-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 function mountComponent() {
   return mount(TurnWaterfallView, {
@@ -88,7 +62,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("shows turn navigation (prev/next buttons)", () => {
-    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })];
 
     const wrapper = mountComponent();
     const navBtns = wrapper.findAll(".nav-btn");
@@ -98,7 +72,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("prev button disabled on first turn", () => {
-    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 }), makeTurn({ turnIndex: 1 })];
 
     const wrapper = mountComponent();
     const prevBtn = wrapper.find('button[aria-label="Previous turn"]');
@@ -106,7 +80,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("next button disabled on last turn", () => {
-    store.turns = [makeTurn({ turnIndex: 0 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 })];
 
     const wrapper = mountComponent();
     const nextBtn = wrapper.find('button[aria-label="Next turn"]');
@@ -117,7 +91,7 @@ describe("TurnWaterfallView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, userMessage: "First message" }),
       makeTurn({ turnIndex: 1, userMessage: "Second message" }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Turn 1 of 2");
@@ -145,7 +119,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc1, tc2] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc1, tc2] })];
 
     const wrapper = mountComponent();
     const rows = wrapper.findAll(".wf-row");
@@ -164,7 +138,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 2000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [subagentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [subagentTc] })];
 
     const wrapper = mountComponent();
     expect(wrapper.text()).toContain("Explore Agent");
@@ -189,7 +163,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [parentTc, childTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [parentTc, childTc] })];
 
     const wrapper = mountComponent();
     const childRows = wrapper.findAll(".wf-row.child");
@@ -210,7 +184,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })];
 
     const wrapper = mountComponent();
     // No detail panel initially
@@ -234,7 +208,7 @@ describe("TurnWaterfallView", () => {
       durationMs: 1000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [tc] })];
 
     const wrapper = mountComponent();
     const rows = wrapper.findAll(".wf-row:not(.message-row)");
@@ -251,7 +225,7 @@ describe("TurnWaterfallView", () => {
   });
 
   it("terminology legend toggles on click", async () => {
-    store.turns = [makeTurn({ turnIndex: 0 })] as any;
+    store.turns = [makeTurn({ turnIndex: 0 })];
 
     const wrapper = mountComponent();
     const toggle = wrapper.find(".terminology-toggle");
@@ -294,7 +268,7 @@ describe("TurnWaterfallView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
       makeTurn({ turnIndex: 1, toolCalls: [childTool] }),
-    ] as any;
+    ];
 
     const wrapper = mountComponent();
     // The waterfall should show the child tool nested under the subagent
@@ -313,7 +287,7 @@ describe("TurnWaterfallView", () => {
       completedAt: "2025-01-01T00:00:30.000Z",
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
 
     const wrapper = mountComponent();
     // Click the waterfall row to pin detail

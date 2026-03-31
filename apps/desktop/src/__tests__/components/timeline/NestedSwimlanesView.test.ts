@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import NestedSwimlanesView from "../../../components/timeline/NestedSwimlanesView.vue";
 import { useSessionDetailStore } from "../../../stores/sessionDetail";
+import { makeTurn, makeTurnToolCall } from "../../helpers/testBuilders";
 
 // ── Mock @tracepilot/client (store imports it) ──────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -19,33 +20,6 @@ vi.mock("@tracepilot/client", async () => {
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-function makeTurnToolCall(overrides: Record<string, unknown> = {}) {
-  return {
-    toolName: "view",
-    success: true,
-    isComplete: true,
-    durationMs: 100,
-    toolCallId: `tc-${Math.random().toString(36).slice(2, 8)}`,
-    startedAt: "2025-01-01T00:00:00.000Z",
-    completedAt: "2025-01-01T00:00:00.100Z",
-    ...overrides,
-  };
-}
-
-function makeTurn(overrides: Record<string, unknown> = {}) {
-  return {
-    turnIndex: 0,
-    userMessage: "Fix the bug",
-    assistantMessages: [{ content: "I'll fix the bug." }],
-    model: "gpt-4.1",
-    toolCalls: [makeTurnToolCall()],
-    durationMs: 5000,
-    isComplete: true,
-    timestamp: "2025-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 function mountComponent() {
   return mount(NestedSwimlanesView, {
@@ -104,7 +78,7 @@ describe("NestedSwimlanesView", () => {
       makeTurn({ turnIndex: 0, userMessage: "First question" }),
       makeTurn({ turnIndex: 1, userMessage: null }),
       makeTurn({ turnIndex: 2, userMessage: "Second question" }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -120,7 +94,7 @@ describe("NestedSwimlanesView", () => {
         durationMs: 3000,
         toolCalls: [makeTurnToolCall(), makeTurnToolCall()],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -133,7 +107,7 @@ describe("NestedSwimlanesView", () => {
   });
 
   it("clicking phase header toggles collapse", async () => {
-    store.turns = [makeTurn({ turnIndex: 0, userMessage: "Phase one" })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, userMessage: "Phase one" })];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -170,7 +144,7 @@ describe("NestedSwimlanesView", () => {
         userMessage: "Search for X",
         toolCalls: [subagentTc, childTc],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -198,7 +172,7 @@ describe("NestedSwimlanesView", () => {
         userMessage: "Do something",
         toolCalls: [subagentTc, directTc],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -211,7 +185,7 @@ describe("NestedSwimlanesView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, userMessage: null }),
       makeTurn({ turnIndex: 1, userMessage: "Hello" }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -235,7 +209,7 @@ describe("NestedSwimlanesView", () => {
         userMessage: "Explore code",
         toolCalls: [subagentTc, makeTurnToolCall()],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -264,7 +238,7 @@ describe("NestedSwimlanesView", () => {
         userMessage: "Run two agents",
         toolCalls: [agent1, agent2],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -293,7 +267,7 @@ describe("NestedSwimlanesView", () => {
         userMessage: "Run two agents sequentially",
         toolCalls: [agent1, agent2],
       }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -319,7 +293,7 @@ describe("NestedSwimlanesView", () => {
     store.turns = [
       makeTurn({ turnIndex: 0, toolCalls: [agentTc] }),
       makeTurn({ turnIndex: 1, userMessage: "Second message", toolCalls: [childTool] }),
-    ] as any;
+    ];
     store.loading = false;
 
     const wrapper = mountComponent();
@@ -346,7 +320,7 @@ describe("NestedSwimlanesView", () => {
       durationMs: 30000,
     });
 
-    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })] as any;
+    store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
     store.loading = false;
 
     const wrapper = mountComponent();

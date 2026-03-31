@@ -35,7 +35,10 @@ const turnOwnershipCheck = (turn: ConversationTurn, tool: TurnToolCall): boolean
   // identity/ID check below, since they are rendered as lanes in their own turn.
   if (tool.parentToolCallId && !tool.isSubagent) {
     const turnSubagentIds = new Set(
-      turn.toolCalls.filter((tc) => tc.isSubagent && tc.toolCallId).map((tc) => tc.toolCallId!),
+      turn.toolCalls
+        .filter((tc) => tc.isSubagent && tc.toolCallId)
+        .map((tc) => tc.toolCallId)
+        .filter((id): id is string => id !== undefined),
     );
     return turnSubagentIds.has(tool.parentToolCallId);
   }
