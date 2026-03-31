@@ -239,7 +239,7 @@ watch(isSessionActive, (active) => {
 
         <TabNav :tabs="tabs" />
 
-        <div class="detail-tab-content">
+        <div class="detail-tab-content" data-testid="session-detail-content">
           <router-view :key="`${sessionId}-${String(route.name)}`" />
         </div>
       </template>

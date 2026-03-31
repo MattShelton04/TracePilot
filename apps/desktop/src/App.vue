@@ -57,6 +57,9 @@ onMounted(async () => {
 
       phase.value = "app";
       sessionsStore.fetchSessions();
+      // Signal that the app is fully initialized for automation (CDP / Playwright).
+      // Placed here (not main.ts) so it fires only after config + setup checks pass.
+      (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
       // Wait for preferences to load from config.toml before using config-backed values
       await prefsStore.whenReady;
       // Post-load hooks: version change detection + update check
@@ -70,6 +73,7 @@ onMounted(async () => {
   } catch {
     phase.value = "app";
     sessionsStore.fetchSessions();
+    (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
   }
 });
 
