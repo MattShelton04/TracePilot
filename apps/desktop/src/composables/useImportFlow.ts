@@ -6,7 +6,7 @@
 
 import { importSessions, previewImport } from "@tracepilot/client";
 import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@tracepilot/types";
-import { type ComputedRef, computed, type Ref, ref } from "vue";
+import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref } from "vue";
 import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────
@@ -88,6 +88,14 @@ export function useImportFlow(): ImportFlowState {
   );
 
   // ── Helpers ──
+
+  /** Stop the simulated progress timer, if running. */
+  function clearProgressTimer(): void {
+    if (activeProgressTimer) {
+      clearInterval(activeProgressTimer);
+      activeProgressTimer = null;
+    }
+  }
 
   /** Extract file name from a path (cross-platform). */
   function extractFileName(path: string): string {
@@ -185,8 +193,7 @@ export function useImportFlow(): ImportFlowState {
         sessionFilter: selectedSessions.value,
       });
 
-      if (activeProgressTimer) clearInterval(activeProgressTimer);
-      activeProgressTimer = null;
+      clearProgressTimer();
       importProgress.value = 100;
       importedCount.value = result.importedCount;
       skippedCount.value = result.skippedCount;
@@ -197,8 +204,7 @@ export function useImportFlow(): ImportFlowState {
         `[useImportFlow] Import complete: ${result.importedCount} imported, ${result.skippedCount} skipped`,
       );
     } catch (e) {
-      if (activeProgressTimer) clearInterval(activeProgressTimer);
-      activeProgressTimer = null;
+      clearProgressTimer();
       const msg = e instanceof Error ? e.message : String(e);
       error.value = msg;
       importProgress.value = 0;
@@ -208,8 +214,7 @@ export function useImportFlow(): ImportFlowState {
   }
 
   function reset(): void {
-    if (activeProgressTimer) clearInterval(activeProgressTimer);
-    activeProgressTimer = null;
+    clearProgressTimer();
     validateRequestId++;
     step.value = "select";
     filePath.value = "";
@@ -232,6 +237,13 @@ export function useImportFlow(): ImportFlowState {
       selectedSessions.value = selectedSessions.value.filter((id) => id !== sessionId);
     }
   }
+
+  // ── Lifecycle cleanup ──
+  // Prevent timer leaks when the consuming component unmounts mid-import.
+  onBeforeUnmount(() => {
+    clearProgressTimer();
+    validateRequestId++; // invalidate any in-flight validation
+  });
 
   return {
     step,

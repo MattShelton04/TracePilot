@@ -10,6 +10,7 @@ vi.mock("@tracepilot/client", async () => {
   return {
     ...(actual as any),
     getConfig: vi.fn(),
+    saveConfig: vi.fn(),
   };
 });
 
@@ -82,5 +83,42 @@ describe("usePreferencesStore DOM side effects", () => {
     store.contentMaxWidth = 0;
     await nextTick();
     expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("none");
+  });
+
+  it("triggers auto-save when sessionStateDir changes", async () => {
+    vi.useFakeTimers();
+
+    const mockConfig = createDefaultConfig();
+    vi.mocked(client.getConfig).mockResolvedValue(mockConfig);
+    vi.mocked(client.saveConfig).mockResolvedValue(undefined as any);
+    // checkConfigExists is spread from the actual client which falls through
+    // to mock mode — mock it here to return true so hydrate() loads the config.
+    const checkConfigSpy = vi.spyOn(client, "checkConfigExists").mockResolvedValue(true);
+
+    const store = usePreferencesStore();
+    await store.whenReady;
+
+    // Clear any initial save calls from hydration
+    vi.mocked(client.saveConfig).mockClear();
+    vi.mocked(client.getConfig).mockResolvedValue(createDefaultConfig());
+
+    // Change sessionStateDir — should trigger the watcher → scheduleSave
+    store.sessionStateDir = "/new/session/dir";
+    await nextTick();
+
+    // Advance past the 300ms debounce
+    vi.advanceTimersByTime(350);
+
+    // Wait for the async save to complete
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    // saveConfig should have been called with the updated sessionStateDir
+    expect(client.saveConfig).toHaveBeenCalled();
+    const savedConfig = vi.mocked(client.saveConfig).mock.calls[0][0];
+    expect(savedConfig.paths.sessionStateDir).toBe("/new/session/dir");
+
+    checkConfigSpy.mockRestore();
+    vi.useRealTimers();
   });
 });

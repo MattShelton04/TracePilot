@@ -45,4 +45,4 @@ desktop.ini
 .playwright-cli/
 
 # Agent planning artifacts
-.agent/
+.agent/node_modules/

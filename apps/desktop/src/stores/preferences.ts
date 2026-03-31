@@ -358,6 +358,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   watch(
     [
       theme,
+      sessionStateDir,
       costPerPremiumRequest,
       modelWholesalePrices,
       hideEmptySessions,

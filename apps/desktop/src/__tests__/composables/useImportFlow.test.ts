@@ -535,4 +535,108 @@ describe("useImportFlow", () => {
       vi.unstubAllGlobals();
     });
   });
+
+  // ── Lifecycle cleanup ─────────────────────────────────────
+
+  describe("lifecycle cleanup", () => {
+    it("clears the progress timer when the component unmounts mid-import", async () => {
+      // Use real timers for mount/unmount — fake timers conflict with @vue/test-utils
+      vi.useRealTimers();
+      const { mount, flushPromises } = await import("@vue/test-utils");
+      const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+
+      let flowRef!: ReturnType<typeof useImportFlow>;
+
+      const Wrapper = {
+        setup() {
+          flowRef = useImportFlow();
+          return {};
+        },
+        template: "<div />",
+      };
+
+      const wrapper = mount(Wrapper);
+
+      // Manually set up state for import (avoid async flows)
+      flowRef.step.value = "review";
+      flowRef.filePath.value = "/file.json";
+      flowRef.selectedSessions.value = ["sess-1"];
+
+      // Start import with a pending promise to keep the timer running
+      let resolveImport!: (v: ImportResult) => void;
+      mockImportSessions.mockReturnValue(
+        new Promise<ImportResult>((resolve) => {
+          resolveImport = resolve;
+        }),
+      );
+
+      const importPromise = flowRef.executeImport();
+      await flushPromises();
+
+      // Timer should be active
+      expect(flowRef.step.value).toBe("importing");
+
+      // Wait a tick for the interval to fire at least once
+      await new Promise((r) => setTimeout(r, 350));
+      expect(flowRef.importProgress.value).toBeGreaterThan(0);
+
+      // Unmount while import is in progress
+      clearIntervalSpy.mockClear();
+      wrapper.unmount();
+
+      // clearInterval should have been called by onBeforeUnmount
+      expect(clearIntervalSpy).toHaveBeenCalled();
+
+      // Clean up
+      resolveImport(makeImportResult());
+      await importPromise;
+      clearIntervalSpy.mockRestore();
+      vi.useFakeTimers(); // Restore for afterEach
+    });
+
+    it("invalidates in-flight validation when the component unmounts", async () => {
+      // Use real timers for mount/unmount
+      vi.useRealTimers();
+      const { mount, flushPromises } = await import("@vue/test-utils");
+
+      let flowRef!: ReturnType<typeof useImportFlow>;
+
+      const Wrapper = {
+        setup() {
+          flowRef = useImportFlow();
+          return {};
+        },
+        template: "<div />",
+      };
+
+      const wrapper = mount(Wrapper);
+
+      // Start a validation that will resolve after unmount
+      let resolveValidation!: (v: ImportPreviewResult) => void;
+      mockPreviewImport.mockReturnValue(
+        new Promise<ImportPreviewResult>((resolve) => {
+          resolveValidation = resolve;
+        }),
+      );
+
+      flowRef.filePath.value = "/file.json";
+      const validatePromise = flowRef.validateFile();
+      await flushPromises();
+
+      expect(flowRef.step.value).toBe("validating");
+
+      // Unmount before validation completes — increments validateRequestId
+      wrapper.unmount();
+
+      // Resolve the validation — result should be discarded (stale request)
+      resolveValidation(makePreviewResult());
+      await validatePromise;
+      await flushPromises();
+
+      // The stale result should NOT be applied — preview stays null
+      expect(flowRef.preview.value).toBeNull();
+      expect(flowRef.step.value).toBe("validating");
+      vi.useFakeTimers(); // Restore for afterEach
+    });
+  });
 });
