@@ -6,6 +6,14 @@ use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{GitHubSkillPreview, LocalSkillPreview, RepoSkillsResult, SkillImportResult};
 use std::path::Path;
 
+/// Well-known skill directory locations to search in priority order.
+const WELL_KNOWN_SKILL_PATHS: &[&str] = &[
+    ".",                // Root SKILL.md
+    ".github/skills",  // GitHub convention
+    ".copilot/skills",  // Copilot convention
+    ".claude/skills",   // Claude convention
+];
+
 /// Import a skill from a local directory.
 ///
 /// Copies the entire directory contents to the global skills folder.
@@ -62,25 +70,31 @@ pub fn import_from_file(file_path: &Path, dest_parent: &Path) -> Result<SkillImp
 
 /// Resolves the skill directory path within a GitHub repository.
 ///
-/// Searches for SKILL.md in well-known locations in priority order:
+/// Searches for SKILL.md using a two-phase strategy:
+///
+/// **Phase 1: Tree Listing** (if `gh_list_tree` succeeds)
 /// 1. Root SKILL.md (if present)
-/// 2. SKILL.md in well-known directories (.github/skills/, .copilot/skills/, .claude/skills/)
+/// 2. SKILL.md in well-known directories (`.github/skills/`, `.copilot/skills/`, `.claude/skills/`)
 /// 3. Any SKILL.md found (as fallback)
 ///
-/// Returns the discovered base path (e.g., ".", ".github/skills/my-skill").
+/// **Phase 2: Direct Probes** (if tree listing fails or finds nothing)
+/// - Individually checks each well-known path via `gh_get_file`
+/// - Handles cases where tree API is slow, rate-limited, or repo is small
+///
+/// # Parameters
+/// - `owner`, `repo`: Repository coordinates
+/// - `ref_`: Git reference (branch, tag, or SHA)
+///
+/// # Returns
+/// The discovered base path (e.g., `"."`, `".github/skills/my-skill"`).
+///
+/// # Errors
+/// Returns `SkillsError::Import` if no SKILL.md is found after exhausting all search strategies.
 fn resolve_skill_path_in_repo(
     owner: &str,
     repo: &str,
     ref_: &str,
 ) -> Result<String, SkillsError> {
-    // Well-known skill locations to probe
-    let well_known_paths = [
-        ".",                // Root SKILL.md
-        ".github/skills",  // GitHub convention
-        ".copilot/skills",  // Copilot convention
-        ".claude/skills",   // Claude convention
-    ];
-
     // Try to list the repo tree to find SKILL.md files
     if let Ok(entries) = crate::github::gh_list_tree(owner, repo, ref_) {
         let skill_dirs: Vec<String> = entries
@@ -102,7 +116,7 @@ fn resolve_skill_path_in_repo(
         }
 
         // Try well-known prefixes first
-        for prefix in &well_known_paths[1..] {
+        for prefix in &WELL_KNOWN_SKILL_PATHS[1..] {
             for dir in &skill_dirs {
                 if dir.starts_with(prefix) {
                     return Ok(dir.clone());
@@ -116,8 +130,8 @@ fn resolve_skill_path_in_repo(
         }
     }
 
-    // Fallback: try each well-known path directly (returns first success)
-    for path in &well_known_paths {
+    // Fallback: try each well-known path directly via file probes
+    for path in WELL_KNOWN_SKILL_PATHS {
         // Test if path exists by attempting to fetch SKILL.md
         let skill_md_path = if *path == "." {
             "SKILL.md".to_string()
@@ -131,7 +145,7 @@ fn resolve_skill_path_in_repo(
     }
 
     Err(SkillsError::Import(format!(
-        "No SKILL.md found in {owner}/{repo}. Tried root and common skill directories (.github/skills/, .copilot/skills/, .claude/skills/)"
+        "No SKILL.md found in {owner}/{repo}. Searched root, well-known directories (.github/skills/, .copilot/skills/, .claude/skills/), and attempted direct file probes."
     )))
 }
 
