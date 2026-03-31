@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { formatTokens } from "@tracepilot/types";
 import yaml from "js-yaml";
+import { CliError } from "../utils/errorHandler.js";
 
 // Re-export for convenience
 export { formatTokens };
@@ -20,17 +21,52 @@ export function getSessionStateDir(): string {
   return join(homedir(), ".copilot", "session-state");
 }
 
+/** Ensure the Copilot session directory exists and is readable. */
+export async function requireSessionStateDir(): Promise<string> {
+  const dir = getSessionStateDir();
+  try {
+    const stats = await stat(dir);
+    if (!stats.isDirectory()) {
+      throw new CliError(
+        `Expected Copilot session directory at ${dir}, but found a file instead.`,
+      );
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") {
+      throw new CliError(
+        `No Copilot session data found at ${dir}. Start a Copilot CLI session (e.g., "gh copilot chat") to create it.`,
+      );
+    }
+    if (err instanceof CliError) throw err;
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(`Unable to read Copilot session directory at ${dir}: ${reason}`);
+  }
+  return dir;
+}
+
 /**
  * Resolve a partial session ID to a full UUID.
  * Throws if zero or multiple matches.
  */
 export async function findSession(partialId: string): Promise<string> {
-  const baseDir = getSessionStateDir();
-  const entries = await readdir(baseDir);
-  const matches = entries.filter((e) => e.startsWith(partialId));
-  if (matches.length === 0) throw new Error(`No session matching "${partialId}"`);
+  const baseDir = await requireSessionStateDir();
+  const entries = await readdir(baseDir, { withFileTypes: true });
+  const sessionIds = entries
+    .filter((e) => e.isDirectory() && UUID_REGEX.test(e.name))
+    .map((e) => e.name);
+
+  if (sessionIds.length === 0) {
+    throw new CliError(
+      `No Copilot sessions found in ${baseDir}. Start a Copilot CLI session to create one.`,
+    );
+  }
+
+  const matches = sessionIds.filter((e) => e.startsWith(partialId));
+  if (matches.length === 0)
+    throw new CliError(`No session matching "${partialId}" in ${baseDir}`);
   if (matches.length > 1)
-    throw new Error(
+    throw new CliError(
       `Ambiguous ID "${partialId}" — matches: ${matches.slice(0, 5).join(", ")}${matches.length > 5 ? ` (+${matches.length - 5} more)` : ""}`,
     );
   return matches[0];

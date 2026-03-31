@@ -10,8 +10,8 @@ import chalk from "chalk";
 import { handleValidationError, wrapCommand } from "../utils/errorHandler.js";
 import {
   fileExists,
-  getSessionStateDir,
   parseWorkspace,
+  requireSessionStateDir,
   streamEvents,
   UUID_REGEX,
 } from "./utils.js";
@@ -26,7 +26,7 @@ interface SearchHit {
 }
 
 async function searchSessions(query: string): Promise<SearchHit[]> {
-  const baseDir = getSessionStateDir();
+  const baseDir = await requireSessionStateDir();
   const entries = await readdir(baseDir, { withFileTypes: true });
   const hits: SearchHit[] = [];
   const q = query.toLowerCase();
