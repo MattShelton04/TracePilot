@@ -114,14 +114,7 @@ impl IndexDb {
                   ELSE sc.content END"
         };
 
-        let from_clause = if is_fts {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!(
             "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, \
@@ -184,15 +177,9 @@ impl IndexDb {
         filters: &SearchFilters,
     ) -> Result<i64> {
         let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
+        let is_fts = sanitized.is_some();
 
-        let from_clause = if sanitized.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT COUNT(*) {from_clause}");
 
@@ -258,14 +245,8 @@ impl IndexDb {
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<Vec<(String, i64)>> {
-        let from_clause = if sanitized_query.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let is_fts = sanitized_query.is_some();
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT {column}, COUNT(*) {from_clause}");
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -303,14 +284,8 @@ impl IndexDb {
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<(i64, i64)> {
-        let from_clause = if sanitized_query.is_some() {
-            "FROM search_fts \
-             JOIN search_content sc ON sc.id = search_fts.rowid \
-             JOIN sessions s ON s.id = sc.session_id"
-        } else {
-            "FROM search_content sc \
-             JOIN sessions s ON s.id = sc.session_id"
-        };
+        let is_fts = sanitized_query.is_some();
+        let from_clause = build_from_clause(is_fts);
 
         let mut sql = format!("SELECT COUNT(*), COUNT(DISTINCT sc.session_id) {from_clause}");
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -562,6 +537,21 @@ impl IndexDb {
 }
 
 // ── Shared helpers ──────────────────────────────────────────────
+
+/// Build the FROM clause for search queries.
+/// When `is_fts` is true, joins through search_fts for full-text matching.
+/// When false, queries search_content directly for browse-mode filtering.
+#[inline]
+fn build_from_clause(is_fts: bool) -> &'static str {
+    if is_fts {
+        "FROM search_fts \
+         JOIN search_content sc ON sc.id = search_fts.rowid \
+         JOIN sessions s ON s.id = sc.session_id"
+    } else {
+        "FROM search_content sc \
+         JOIN sessions s ON s.id = sc.session_id"
+    }
+}
 
 /// Append all filter WHERE clauses and their param values using anonymous `?` placeholders.
 fn append_filters(sql: &mut String, params: &mut Vec<Box<dyn ToSql>>, filters: &SearchFilters) {
