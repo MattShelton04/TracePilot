@@ -168,11 +168,14 @@ pub fn gh_get_files_batch(
 
     let mut all_results = HashMap::new();
 
+    // Sanitise all interpolated values to prevent GraphQL injection.
+    let safe_owner = owner.replace('"', "");
+    let safe_repo = repo.replace('"', "");
+
     // Process in batches of 25 to stay within GraphQL response size limits.
     for chunk in paths.chunks(25) {
         let mut fields = Vec::new();
         for (i, path) in chunk.iter().enumerate() {
-            // Sanitise to avoid GraphQL injection via double-quotes in ref/path.
             let safe_ref = git_ref.replace('"', "");
             let safe_path = path.replace('"', "");
             fields.push(format!(
@@ -181,7 +184,7 @@ pub fn gh_get_files_batch(
         }
 
         let query = format!(
-            "query {{ repository(owner: \"{owner}\", name: \"{repo}\") {{ {} }} }}",
+            "query {{ repository(owner: \"{safe_owner}\", name: \"{safe_repo}\") {{ {} }} }}",
             fields.join(" ")
         );
 

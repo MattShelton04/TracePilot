@@ -546,7 +546,7 @@ describe("useSkillsStore", () => {
       const result = await store.importLocal("/source/dir");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockSkillsImportLocal).toHaveBeenCalledWith("/source/dir");
+      expect(mockSkillsImportLocal).toHaveBeenCalledWith("/source/dir", undefined, undefined);
       expect(mockSkillsListAll).toHaveBeenCalled();
     });
 
@@ -571,7 +571,7 @@ describe("useSkillsStore", () => {
       const result = await store.importFile("/path/to/file.md");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockSkillsImportFile).toHaveBeenCalledWith("/path/to/file.md");
+      expect(mockSkillsImportFile).toHaveBeenCalledWith("/path/to/file.md", undefined, undefined);
       expect(mockSkillsListAll).toHaveBeenCalled();
     });
 
@@ -596,7 +596,7 @@ describe("useSkillsStore", () => {
       const result = await store.importGitHub("owner", "repo", "skills/review", "main");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockSkillsImportGitHub).toHaveBeenCalledWith("owner", "repo", "skills/review", "main");
+      expect(mockSkillsImportGitHub).toHaveBeenCalledWith("owner", "repo", "skills/review", "main", undefined, undefined);
       expect(mockSkillsListAll).toHaveBeenCalled();
     });
 

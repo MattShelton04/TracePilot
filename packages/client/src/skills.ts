@@ -124,14 +124,26 @@ export async function skillsReadAsset(
 
 export async function skillsImportLocal(
   sourceDir: string,
+  scope?: string,
+  repoRoot?: string,
 ): Promise<SkillImportResult> {
-  return invoke<SkillImportResult>("skills_import_local", { sourceDir });
+  return invoke<SkillImportResult>("skills_import_local", {
+    sourceDir,
+    scope: scope ?? null,
+    repoRoot: repoRoot ?? null,
+  });
 }
 
 export async function skillsImportFile(
   filePath: string,
+  scope?: string,
+  repoRoot?: string,
 ): Promise<SkillImportResult> {
-  return invoke<SkillImportResult>("skills_import_file", { filePath });
+  return invoke<SkillImportResult>("skills_import_file", {
+    filePath,
+    scope: scope ?? null,
+    repoRoot: repoRoot ?? null,
+  });
 }
 
 export async function skillsImportGitHub(
@@ -139,12 +151,16 @@ export async function skillsImportGitHub(
   repo: string,
   skillPath?: string,
   gitRef?: string,
+  scope?: string,
+  repoRoot?: string,
 ): Promise<SkillImportResult> {
   return invoke<SkillImportResult>("skills_import_github", {
     owner,
     repo,
     skillPath: skillPath ?? null,
     gitRef: gitRef ?? null,
+    scope: scope ?? null,
+    repoRoot: repoRoot ?? null,
   });
 }
 
@@ -175,12 +191,16 @@ export async function skillsImportGitHubSkill(
   repo: string,
   skillPath: string,
   gitRef?: string,
+  scope?: string,
+  repoRoot?: string,
 ): Promise<SkillImportResult> {
   return invoke<SkillImportResult>("skills_import_github_skill", {
     owner,
     repo,
     skillPath,
     gitRef: gitRef ?? null,
+    scope: scope ?? null,
+    repoRoot: repoRoot ?? null,
   });
 }
 

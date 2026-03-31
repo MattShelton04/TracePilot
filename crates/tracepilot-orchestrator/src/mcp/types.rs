@@ -75,12 +75,18 @@ pub struct McpServerConfig {
     pub tags: Vec<String>,
 
     /// Whether this server is enabled (participating in sessions).
-    #[serde(default = "default_true")]
+    /// TracePilot-only field — only written when `false` to avoid polluting
+    /// the shared Copilot CLI mcp-config.json with unknown fields.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub enabled: bool,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn is_true(v: &bool) -> bool {
+    *v
 }
 
 impl McpServerConfig {

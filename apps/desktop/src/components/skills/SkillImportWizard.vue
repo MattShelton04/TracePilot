@@ -224,7 +224,7 @@ async function doImport() {
           let imported = 0;
           const warnings: string[] = [];
           for (const path of localSelected.value) {
-            const r = await store.importLocal(path);
+            const r = await store.importLocal(path, targetScope.value);
             if (r) {
               imported++;
               warnings.push(...r.warnings);
@@ -239,11 +239,11 @@ async function doImport() {
             };
           }
         } else {
-          result = await store.importLocal(localDir.value.trim());
+          result = await store.importLocal(localDir.value.trim(), targetScope.value);
         }
         break;
       case "file":
-        result = await store.importFile(filePath.value.trim());
+        result = await store.importFile(filePath.value.trim(), targetScope.value);
         break;
       case "github": {
         if (ghPreviews.value.length > 0 && ghSelected.value.size > 0) {
@@ -256,6 +256,7 @@ async function doImport() {
               ghRepo.value.trim(),
               path,
               ghRef.value || undefined,
+              targetScope.value,
             );
             if (r) {
               imported++;
@@ -276,6 +277,9 @@ async function doImport() {
           result = await store.importGitHub(
             ghOwner.value.trim(),
             ghRepo.value.trim(),
+            undefined,
+            undefined,
+            targetScope.value,
           );
         }
         break;

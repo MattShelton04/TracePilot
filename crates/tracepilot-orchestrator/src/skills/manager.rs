@@ -7,6 +7,45 @@ use crate::skills::types::{Skill, SkillFrontmatter, SkillScope};
 use crate::skills::writer::write_skill_md;
 use std::path::{Path, PathBuf};
 
+/// Validate that a skill_dir path is contained within a known skills root
+/// (global `~/.copilot/skills/` or repo `.copilot/skills/`).
+///
+/// This prevents IPC callers from passing arbitrary paths that could lead to
+/// reads/writes/deletes of unrelated directories.
+pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
+    let canonical = skill_dir.canonicalize().unwrap_or_else(|_| skill_dir.to_path_buf());
+
+    // Check global skills root
+    if let Ok(global) = global_skills_dir() {
+        if let Ok(global_canon) = global.canonicalize() {
+            if canonical.starts_with(&global_canon) {
+                return Ok(());
+            }
+        }
+        // Also check non-canonical in case dir doesn't exist yet
+        if canonical.starts_with(&global) {
+            return Ok(());
+        }
+    }
+
+    // Check if it's under a repo .copilot/skills/ directory
+    // Walk up to find a .copilot/skills pattern
+    for ancestor in canonical.ancestors() {
+        if ancestor.ends_with("skills") {
+            if let Some(parent) = ancestor.parent() {
+                if parent.ends_with(".copilot") || parent.ends_with(".github") {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    Err(SkillsError::PathTraversal(format!(
+        "Path '{}' is not within a known skills directory",
+        skill_dir.display()
+    )))
+}
+
 /// Create a new skill in the global skills directory.
 pub fn create_skill(
     name: &str,
@@ -116,16 +155,21 @@ pub fn rename_skill(skill_dir: &Path, new_name: &str) -> Result<PathBuf, SkillsE
         return Err(SkillsError::DuplicateSkill(new_name.to_string()));
     }
 
-    // Now safe to rename — move directory first, then update content
+    // Prepare updated content BEFORE any filesystem mutation
     let content = std::fs::read_to_string(&skill_path)?;
     let (mut fm, body) = parse_skill_md(&content)?;
     fm.name = new_name.to_string();
-
-    std::fs::rename(skill_dir, &new_dir)?;
-
     let new_content = write_skill_md(&fm, &body);
-    let new_skill_path = new_dir.join("SKILL.md");
-    std::fs::write(&new_skill_path, new_content)?;
+
+    // Write updated SKILL.md to the OLD directory first (safe — can retry)
+    std::fs::write(&skill_path, &new_content)?;
+
+    // Now rename the directory — if this fails, the old dir still has valid content
+    if let Err(e) = std::fs::rename(skill_dir, &new_dir) {
+        // Rollback: restore original SKILL.md content
+        let _ = std::fs::write(&skill_path, &content);
+        return Err(e.into());
+    }
 
     Ok(new_dir)
 }

@@ -267,10 +267,10 @@ export const useSkillsStore = defineStore("skills", () => {
 
   // ─── Import Actions ───────────────────────────────────────────────
 
-  async function importLocal(sourceDir: string): Promise<SkillImportResult | null> {
+  async function importLocal(sourceDir: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
     error.value = null;
     try {
-      const result = await skillsImportLocal(sourceDir);
+      const result = await skillsImportLocal(sourceDir, scope, repoRoot);
       await loadSkills();
       return result;
     } catch (e) {
@@ -279,10 +279,10 @@ export const useSkillsStore = defineStore("skills", () => {
     }
   }
 
-  async function importFile(path: string): Promise<SkillImportResult | null> {
+  async function importFile(path: string, scope?: string, repoRoot?: string): Promise<SkillImportResult | null> {
     error.value = null;
     try {
-      const result = await skillsImportFile(path);
+      const result = await skillsImportFile(path, scope, repoRoot);
       await loadSkills();
       return result;
     } catch (e) {
@@ -296,10 +296,12 @@ export const useSkillsStore = defineStore("skills", () => {
     repo: string,
     skillPath?: string,
     gitRef?: string,
+    scope?: string,
+    repoRoot?: string,
   ): Promise<SkillImportResult | null> {
     error.value = null;
     try {
-      const result = await skillsImportGitHub(owner, repo, skillPath, gitRef);
+      const result = await skillsImportGitHub(owner, repo, skillPath, gitRef, scope, repoRoot);
       await loadSkills();
       return result;
     } catch (e) {
@@ -327,10 +329,12 @@ export const useSkillsStore = defineStore("skills", () => {
     repo: string,
     skillPath: string,
     gitRef?: string,
+    scope?: string,
+    repoRoot?: string,
   ): Promise<SkillImportResult | null> {
     error.value = null;
     try {
-      const result = await skillsImportGitHubSkill(owner, repo, skillPath, gitRef);
+      const result = await skillsImportGitHubSkill(owner, repo, skillPath, gitRef, scope, repoRoot);
       await loadSkills();
       return result;
     } catch (e) {

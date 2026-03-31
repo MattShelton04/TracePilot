@@ -8,6 +8,11 @@ fn sk<T>(r: Result<T, tracepilot_orchestrator::skills::SkillsError>) -> Result<T
     r.map_err(OrchestratorError::from)
 }
 
+/// Validate that a skill_dir is within a known skills root before any operation.
+fn check_skill_dir(skill_dir: &str) -> Result<(), tracepilot_orchestrator::skills::SkillsError> {
+    tracepilot_orchestrator::skills::manager::validate_skill_dir(std::path::Path::new(skill_dir))
+}
+
 // -- Discovery --
 
 #[tauri::command]
@@ -26,8 +31,11 @@ pub async fn skills_list_all(
 pub async fn skills_get_skill(
     skill_dir: String,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::Skill> {
+    let dir = skill_dir.clone();
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::get_skill(std::path::Path::new(&skill_dir)))
+        sk(check_skill_dir(&dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::get_skill(std::path::Path::new(&dir))
+        }))
     })
     .await??)
 }
@@ -54,11 +62,13 @@ pub async fn skills_update(
     body: String,
 ) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::update_skill(
-            std::path::Path::new(&skill_dir),
-            &frontmatter,
-            &body,
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::update_skill(
+                std::path::Path::new(&skill_dir),
+                &frontmatter,
+                &body,
+            )
+        }))
     })
     .await??)
 }
@@ -69,10 +79,12 @@ pub async fn skills_update_raw(
     raw_content: String,
 ) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::update_skill_raw(
-            std::path::Path::new(&skill_dir),
-            &raw_content,
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::update_skill_raw(
+                std::path::Path::new(&skill_dir),
+                &raw_content,
+            )
+        }))
     })
     .await??)
 }
@@ -80,7 +92,9 @@ pub async fn skills_update_raw(
 #[tauri::command]
 pub async fn skills_delete(skill_dir: String) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::delete_skill(std::path::Path::new(&skill_dir)))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::delete_skill(std::path::Path::new(&skill_dir))
+        }))
     })
     .await??)
 }
@@ -91,11 +105,13 @@ pub async fn skills_rename(
     new_name: String,
 ) -> CmdResult<String> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::rename_skill(
-            std::path::Path::new(&skill_dir),
-            &new_name,
-        )
-        .map(|p| p.to_string_lossy().to_string()))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::rename_skill(
+                std::path::Path::new(&skill_dir),
+                &new_name,
+            )
+            .map(|p| p.to_string_lossy().to_string())
+        }))
     })
     .await??)
 }
@@ -106,11 +122,13 @@ pub async fn skills_duplicate(
     new_name: String,
 ) -> CmdResult<String> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::manager::duplicate_skill(
-            std::path::Path::new(&skill_dir),
-            &new_name,
-        )
-        .map(|p| p.to_string_lossy().to_string()))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::manager::duplicate_skill(
+                std::path::Path::new(&skill_dir),
+                &new_name,
+            )
+            .map(|p| p.to_string_lossy().to_string())
+        }))
     })
     .await??)
 }
@@ -122,7 +140,9 @@ pub async fn skills_list_assets(
     skill_dir: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::SkillAsset>> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::assets::list_assets(std::path::Path::new(&skill_dir)))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::assets::list_assets(std::path::Path::new(&skill_dir))
+        }))
     })
     .await??)
 }
@@ -134,11 +154,13 @@ pub async fn skills_add_asset(
     content: Vec<u8>,
 ) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::assets::add_asset(
-            std::path::Path::new(&skill_dir),
-            &asset_name,
-            &content,
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::assets::add_asset(
+                std::path::Path::new(&skill_dir),
+                &asset_name,
+                &content,
+            )
+        }))
     })
     .await??)
 }
@@ -150,11 +172,13 @@ pub async fn skills_copy_asset_from(
     source_path: String,
 ) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::assets::copy_asset_from(
-            std::path::Path::new(&skill_dir),
-            &asset_name,
-            std::path::Path::new(&source_path),
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::assets::copy_asset_from(
+                std::path::Path::new(&skill_dir),
+                &asset_name,
+                std::path::Path::new(&source_path),
+            )
+        }))
     })
     .await??)
 }
@@ -165,10 +189,12 @@ pub async fn skills_remove_asset(
     asset_name: String,
 ) -> CmdResult<()> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::assets::remove_asset(
-            std::path::Path::new(&skill_dir),
-            &asset_name,
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::assets::remove_asset(
+                std::path::Path::new(&skill_dir),
+                &asset_name,
+            )
+        }))
     })
     .await??)
 }
@@ -179,22 +205,40 @@ pub async fn skills_read_asset(
     asset_name: String,
 ) -> CmdResult<String> {
     Ok(tokio::task::spawn_blocking(move || {
-        sk(tracepilot_orchestrator::skills::assets::read_asset(
-            std::path::Path::new(&skill_dir),
-            &asset_name,
-        ))
+        sk(check_skill_dir(&skill_dir).and_then(|_| {
+            tracepilot_orchestrator::skills::assets::read_asset(
+                std::path::Path::new(&skill_dir),
+                &asset_name,
+            )
+        }))
     })
     .await??)
 }
 
 // -- Import --
 
+/// Resolve the target skills directory based on scope.
+fn resolve_skills_dest(scope: &str, repo_root: Option<&str>) -> Result<std::path::PathBuf, crate::error::BindingsError> {
+    match scope {
+        "project" => {
+            if let Some(root) = repo_root {
+                Ok(tracepilot_orchestrator::skills::discovery::repo_skills_dir(std::path::Path::new(root)))
+            } else {
+                Err(crate::error::BindingsError::Validation("No repository root provided for project scope".into()))
+            }
+        }
+        _ => Ok(tracepilot_orchestrator::skills::discovery::global_skills_dir()?),
+    }
+}
+
 #[tauri::command]
 pub async fn skills_import_local(
     source_dir: String,
+    scope: Option<String>,
+    repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
-    let dest = tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::skills::discovery::global_skills_dir()
+    let dest = tokio::task::spawn_blocking(move || {
+        resolve_skills_dest(scope.as_deref().unwrap_or("global"), repo_root.as_deref())
     })
     .await??;
 
@@ -210,9 +254,11 @@ pub async fn skills_import_local(
 #[tauri::command]
 pub async fn skills_import_file(
     file_path: String,
+    scope: Option<String>,
+    repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
-    let dest = tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::skills::discovery::global_skills_dir()
+    let dest = tokio::task::spawn_blocking(move || {
+        resolve_skills_dest(scope.as_deref().unwrap_or("global"), repo_root.as_deref())
     })
     .await??;
 
@@ -231,9 +277,11 @@ pub async fn skills_import_github(
     repo: String,
     skill_path: Option<String>,
     git_ref: Option<String>,
+    scope: Option<String>,
+    repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
-    let dest = tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::skills::discovery::global_skills_dir()
+    let dest = tokio::task::spawn_blocking(move || {
+        resolve_skills_dest(scope.as_deref().unwrap_or("global"), repo_root.as_deref())
     })
     .await??;
 
@@ -300,9 +348,11 @@ pub async fn skills_import_github_skill(
     repo: String,
     skill_path: String,
     git_ref: Option<String>,
+    scope: Option<String>,
+    repo_root: Option<String>,
 ) -> CmdResult<tracepilot_orchestrator::skills::types::SkillImportResult> {
-    let dest = tokio::task::spawn_blocking(|| {
-        tracepilot_orchestrator::skills::discovery::global_skills_dir()
+    let dest = tokio::task::spawn_blocking(move || {
+        resolve_skills_dest(scope.as_deref().unwrap_or("global"), repo_root.as_deref())
     })
     .await??;
 

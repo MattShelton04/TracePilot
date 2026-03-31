@@ -587,6 +587,8 @@ describe("useMcpStore", () => {
   describe("importFromFile", () => {
     it("returns import result on success", async () => {
       mockMcpImportFromFile.mockResolvedValue(FIXTURE_IMPORT_RESULT);
+      mockMcpAddServer.mockResolvedValue(undefined);
+      mockMcpListServers.mockResolvedValue([]);
       const store = useMcpStore();
 
       const result = await store.importFromFile("/path/to/mcp.json");

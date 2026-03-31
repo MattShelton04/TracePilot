@@ -252,6 +252,11 @@ export const useMcpStore = defineStore("mcp", () => {
     error.value = null;
     try {
       const result = await mcpImportFromFile(path);
+      // Persist each imported server into the config
+      for (const [name, config] of Object.entries(result.servers)) {
+        await mcpAddServer(name, config);
+      }
+      await loadServers();
       return result;
     } catch (e) {
       error.value = toErrorMessage(e);

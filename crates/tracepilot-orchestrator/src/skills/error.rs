@@ -22,6 +22,8 @@ pub enum SkillsError {
     GitHub(String),
     /// YAML serialization error.
     Yaml(String),
+    /// Path traversal / containment violation.
+    PathTraversal(String),
 }
 
 impl fmt::Display for SkillsError {
@@ -40,6 +42,7 @@ impl fmt::Display for SkillsError {
             SkillsError::Asset(msg) => write!(f, "Skills asset error: {msg}"),
             SkillsError::GitHub(msg) => write!(f, "Skills GitHub error: {msg}"),
             SkillsError::Yaml(msg) => write!(f, "Skills YAML error: {msg}"),
+            SkillsError::PathTraversal(msg) => write!(f, "Path not allowed: {msg}"),
         }
     }
 }

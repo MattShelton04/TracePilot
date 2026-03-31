@@ -187,14 +187,17 @@ async function handleSave() {
   try {
     const nameChanged = trimmedName !== serverName.value;
     if (nameChanged) {
-      const removeOk = await store.removeServer(serverName.value);
-      if (!removeOk) {
-        toastError(store.error ?? "Failed to remove old server entry");
-        return;
-      }
+      // Add new entry first, then remove old — prevents data loss if add fails
       const addOk = await store.addServer(trimmedName, editConfig.value);
       if (!addOk) {
         toastError(store.error ?? "Failed to add renamed server");
+        return;
+      }
+      const removeOk = await store.removeServer(serverName.value);
+      if (!removeOk) {
+        // Rollback: remove the new entry we just added
+        await store.removeServer(trimmedName);
+        toastError(store.error ?? "Failed to remove old server entry");
         return;
       }
     } else {
