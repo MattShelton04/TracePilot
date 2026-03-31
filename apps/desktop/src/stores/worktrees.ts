@@ -26,6 +26,10 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
+import { aggregateSettledErrors } from "@/utils/settleErrors";
+
+/** Max concurrent disk-usage IPC calls during hydration. */
+const HYDRATION_CONCURRENCY = 4;
 
 export const useWorktreesStore = defineStore("worktrees", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -75,23 +79,28 @@ export const useWorktreesStore = defineStore("worktrees", () => {
 
   // ─── Disk Usage Hydration ─────────────────────────────────────────
   // Shared helper — hydrates diskUsageBytes for each worktree in `items`.
-  // When `guardToken` is provided, results are discarded if the token has
-  // become stale (prevents out-of-order async overwrites).
+  // Processes items in batches of HYDRATION_CONCURRENCY to limit concurrent
+  // IPC calls. When `guardToken` is provided, results are discarded if the
+  // token has become stale (prevents out-of-order async overwrites).
 
-  function hydrateDiskUsageBatch(items: WorktreeInfo[], guardToken?: number) {
-    for (const wt of items) {
-      void (async () => {
-        try {
-          const bytes = await getWorktreeDiskUsage(wt.path);
-          if (guardToken != null && !loadGuard.isValid(guardToken)) return;
-          const idx = worktrees.value.findIndex((w) => w.path === wt.path);
-          if (idx >= 0) {
-            worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
+  async function hydrateDiskUsageBatch(items: WorktreeInfo[], guardToken?: number): Promise<void> {
+    for (let i = 0; i < items.length; i += HYDRATION_CONCURRENCY) {
+      if (guardToken != null && !loadGuard.isValid(guardToken)) return;
+      const batch = items.slice(i, i + HYDRATION_CONCURRENCY);
+      await Promise.allSettled(
+        batch.map(async (wt) => {
+          try {
+            const bytes = await getWorktreeDiskUsage(wt.path);
+            if (guardToken != null && !loadGuard.isValid(guardToken)) return;
+            const idx = worktrees.value.findIndex((w) => w.path === wt.path);
+            if (idx >= 0) {
+              worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
+            }
+          } catch (e) {
+            logWarn("[worktrees] Failed to hydrate disk usage", { path: wt.path, error: e });
           }
-        } catch (e) {
-          logWarn("[worktrees] Failed to hydrate disk usage", { path: wt.path, error: e });
-        }
-      })();
+        }),
+      );
     }
   }
 
@@ -106,7 +115,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
       const result = await listWorktrees(repoPath);
       if (!loadGuard.isValid(token)) return; // stale response — discard
       worktrees.value = result;
-      hydrateDiskUsageBatch([...result], token);
+      void hydrateDiskUsageBatch([...result], token);
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
@@ -120,20 +129,37 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     loading.value = true;
     error.value = null;
     try {
+      // Snapshot repos and fire all requests in parallel for faster loading.
+      // This matches the Promise.allSettled pattern used by orchestrationHome,
+      // configInjector, and launcher stores.
+      const repos = [...registeredRepos.value];
+      const results = await Promise.allSettled(
+        repos.map((repo) => listWorktrees(repo.path)),
+      );
+      if (!loadGuard.isValid(token)) return;
+
       const allWorktrees: WorktreeInfo[] = [];
-      for (const repo of registeredRepos.value) {
-        if (!loadGuard.isValid(token)) return; // stale — abort
-        try {
-          const repoWorktrees = await listWorktrees(repo.path);
-          allWorktrees.push(...repoWorktrees);
-        } catch (e) {
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === "fulfilled") {
+          allWorktrees.push(...result.value);
+        } else {
           // Skip repos that fail (e.g., deleted from disk)
-          logWarn("[worktrees] Failed to load worktrees for repo", { repo: repo.path, error: e });
+          logWarn("[worktrees] Failed to load worktrees for repo", {
+            repo: repos[i].path,
+            error: result.reason,
+          });
         }
       }
-      if (!loadGuard.isValid(token)) return;
+
+      // Only surface a user-visible error when every repo failed — partial
+      // failures are already warn-logged above and don't block the UI.
+      if (allWorktrees.length === 0 && repos.length > 0) {
+        error.value = aggregateSettledErrors(results);
+      }
+
       worktrees.value = allWorktrees;
-      hydrateDiskUsageBatch([...allWorktrees], token);
+      void hydrateDiskUsageBatch([...allWorktrees], token);
     } catch (e) {
       if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
@@ -259,7 +285,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
   function hydrateDiskUsage(worktreePath: string) {
     const wt = worktrees.value.find((w) => w.path === worktreePath);
     if (wt) {
-      hydrateDiskUsageBatch([wt]);
+      void hydrateDiskUsageBatch([wt]);
     }
   }
 

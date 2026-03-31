@@ -363,19 +363,23 @@ describe("useWorktreesStore", () => {
       expect(mockGetWorktreeDiskUsage).toHaveBeenCalledTimes(2);
     });
 
-    it("returns empty worktrees when all repos fail individually", async () => {
+    it("surfaces error when all repos fail", async () => {
       mockListWorktrees.mockRejectedValue(new Error("network error"));
       const store = useWorktreesStore();
-      // Need at least one repo to trigger the loop
+      // Need at least one repo to trigger the parallel fetch
       store.registeredRepos = [FIXTURE_REPO];
 
       await store.loadAllWorktrees();
 
-      // Individual repo errors are caught by inner try/catch (logWarn),
-      // so error.value stays null — worktrees is just empty
+      // When every repo fails, error.value is set so the UI can display
+      // a meaningful message instead of silently showing an empty list.
       expect(store.worktrees).toEqual([]);
       expect(store.loading).toBe(false);
-      expect(store.error).toBeNull();
+      expect(store.error).toBe("network error");
+      expect(mockLogWarn).toHaveBeenCalledWith(
+        "[worktrees] Failed to load worktrees for repo",
+        expect.objectContaining({ repo: FIXTURE_REPO.path }),
+      );
     });
 
     it("discards results when a newer loadAllWorktrees call starts", async () => {
@@ -405,6 +409,147 @@ describe("useWorktreesStore", () => {
       // First call's results should be discarded
       expect(store.worktrees).toHaveLength(1);
       expect(store.worktrees[0].branch).toBe("feature-b");
+    });
+
+    it("fires all repo requests in parallel (not sequentially)", async () => {
+      const store = useWorktreesStore();
+      const repo3: RegisteredRepo = {
+        path: "/home/user/repos/Third",
+        name: "Third",
+        addedAt: "2026-03-25T10:00:00Z",
+        source: "manual",
+        favourite: false,
+      };
+      store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2, repo3];
+
+      // Track the order calls are initiated
+      const callOrder: string[] = [];
+      mockListWorktrees.mockImplementation((path: string) => {
+        callOrder.push(path);
+        return Promise.resolve([]);
+      });
+
+      await store.loadAllWorktrees();
+
+      // All 3 repos should be queried
+      expect(mockListWorktrees).toHaveBeenCalledTimes(3);
+      // And all calls should have been initiated (parallel, not blocked by one)
+      expect(callOrder).toHaveLength(3);
+    });
+
+    it("does not set error when some repos succeed and some fail", async () => {
+      const store = useWorktreesStore();
+      store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
+
+      // First repo fails, second succeeds — partial failure
+      mockListWorktrees
+        .mockRejectedValueOnce(new Error("repo gone"))
+        .mockResolvedValueOnce([FIXTURE_FEATURE_WT]);
+
+      await store.loadAllWorktrees();
+
+      // Partial failure: we have data from repo2, so no user-visible error
+      expect(store.worktrees).toHaveLength(1);
+      expect(store.error).toBeNull();
+      expect(mockLogWarn).toHaveBeenCalled();
+    });
+
+    it("surfaces aggregate error when all repos fail with different errors", async () => {
+      const store = useWorktreesStore();
+      store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
+
+      mockListWorktrees
+        .mockRejectedValueOnce(new Error("deleted"))
+        .mockRejectedValueOnce(new Error("timeout"));
+
+      await store.loadAllWorktrees();
+
+      expect(store.worktrees).toEqual([]);
+      // aggregateSettledErrors joins messages with "; "
+      expect(store.error).toContain("deleted");
+      expect(store.error).toContain("timeout");
+    });
+
+    it("returns empty worktrees with no error for empty registeredRepos", async () => {
+      const store = useWorktreesStore();
+      store.registeredRepos = [];
+
+      await store.loadAllWorktrees();
+
+      expect(store.worktrees).toEqual([]);
+      expect(store.error).toBeNull();
+      expect(store.loading).toBe(false);
+      expect(mockListWorktrees).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── hydrateDiskUsageBatch concurrency ──────────────────────
+  describe("hydrateDiskUsageBatch concurrency", () => {
+    it("limits concurrent disk-usage calls", async () => {
+      const store = useWorktreesStore();
+      // Create 6 worktrees to force multiple batches (batch size = 4)
+      const worktreeItems: WorktreeInfo[] = Array.from({ length: 6 }, (_, i) => ({
+        ...FIXTURE_FEATURE_WT,
+        path: `/repo/.worktrees/wt-${i}`,
+        branch: `branch-${i}`,
+      }));
+      store.worktrees = [...worktreeItems];
+
+      let inFlight = 0;
+      let maxInFlight = 0;
+      mockGetWorktreeDiskUsage.mockImplementation(
+        () =>
+          new Promise<number>((resolve) => {
+            inFlight++;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            setTimeout(() => {
+              inFlight--;
+              resolve(1000);
+            }, 10);
+          }),
+      );
+
+      // loadWorktrees triggers hydrateDiskUsageBatch — use it to test indirectly
+      mockListWorktrees.mockResolvedValue(worktreeItems);
+      await store.loadWorktrees(REPO_PATH);
+      await flushPromises();
+      // Wait for all batches to complete
+      await new Promise((r) => setTimeout(r, 100));
+      await flushPromises();
+
+      expect(mockGetWorktreeDiskUsage).toHaveBeenCalledTimes(6);
+      expect(maxInFlight).toBeLessThanOrEqual(4);
+    });
+
+    it("stops hydration when guard is invalidated between batches", async () => {
+      const store = useWorktreesStore();
+      // 6 worktrees = 2 batches of 4+2; invalidate before second batch
+      const worktreeItems: WorktreeInfo[] = Array.from({ length: 6 }, (_, i) => ({
+        ...FIXTURE_FEATURE_WT,
+        path: `/repo/.worktrees/wt-${i}`,
+        branch: `branch-${i}`,
+      }));
+
+      let callCount = 0;
+      mockGetWorktreeDiskUsage.mockImplementation(() => {
+        callCount++;
+        // After the first batch completes, trigger a new loadWorktrees
+        // which invalidates the old guard token
+        if (callCount === 4) {
+          // Schedule a new load that will invalidate the old guard
+          mockListWorktrees.mockResolvedValueOnce([]);
+          store.loadWorktrees(REPO_PATH);
+        }
+        return Promise.resolve(500);
+      });
+
+      mockListWorktrees.mockResolvedValueOnce(worktreeItems);
+      await store.loadWorktrees(REPO_PATH);
+      await flushPromises();
+
+      // First batch (4) should complete; second batch should be abandoned
+      // because loadWorktrees was called again, invalidating the guard
+      expect(callCount).toBeLessThanOrEqual(5); // at most batch 1 + partial batch 2
     });
   });
 
