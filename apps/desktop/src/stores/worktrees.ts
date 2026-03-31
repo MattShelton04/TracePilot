@@ -154,7 +154,8 @@ export const useWorktreesStore = defineStore("worktrees", () => {
 
       // Only surface a user-visible error when every repo failed — partial
       // failures are already warn-logged above and don't block the UI.
-      if (allWorktrees.length === 0 && repos.length > 0) {
+      // Note: a repo that succeeds with [] worktrees is not a failure.
+      if (repos.length > 0 && results.every((r) => r.status === "rejected")) {
         error.value = aggregateSettledErrors(results);
       }
 

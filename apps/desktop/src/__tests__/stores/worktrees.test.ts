@@ -422,19 +422,22 @@ describe("useWorktreesStore", () => {
       };
       store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2, repo3];
 
-      // Track the order calls are initiated
-      const callOrder: string[] = [];
-      mockListWorktrees.mockImplementation((path: string) => {
-        callOrder.push(path);
-        return Promise.resolve([]);
+      // Use deferred promises so we can verify all calls started before any resolve
+      const deferreds: Array<{ resolve: (v: WorktreeInfo[]) => void }> = [];
+      mockListWorktrees.mockImplementation(() => {
+        return new Promise<WorktreeInfo[]>((resolve) => {
+          deferreds.push({ resolve });
+        });
       });
 
-      await store.loadAllWorktrees();
+      const p = store.loadAllWorktrees();
+      await flushPromises(); // let Promise.allSettled dispatch all calls
 
-      // All 3 repos should be queried
-      expect(mockListWorktrees).toHaveBeenCalledTimes(3);
-      // And all calls should have been initiated (parallel, not blocked by one)
-      expect(callOrder).toHaveLength(3);
+      // All 3 repos should have started before any resolved (proves parallelism)
+      expect(deferreds).toHaveLength(3);
+
+      deferreds.forEach((d) => d.resolve([]));
+      await p;
     });
 
     it("does not set error when some repos succeed and some fail", async () => {
@@ -450,6 +453,24 @@ describe("useWorktreesStore", () => {
 
       // Partial failure: we have data from repo2, so no user-visible error
       expect(store.worktrees).toHaveLength(1);
+      expect(store.error).toBeNull();
+      expect(mockLogWarn).toHaveBeenCalled();
+    });
+
+    it("does not set error when a repo succeeds with empty worktrees and another fails", async () => {
+      const store = useWorktreesStore();
+      store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
+
+      // First repo succeeds with 0 worktrees, second repo fails
+      mockListWorktrees
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error("deleted"));
+
+      await store.loadAllWorktrees();
+
+      // One repo succeeded (even though it returned []), so this is not
+      // "all repos failed" — no user-visible error
+      expect(store.worktrees).toEqual([]);
       expect(store.error).toBeNull();
       expect(mockLogWarn).toHaveBeenCalled();
     });
@@ -497,24 +518,40 @@ describe("useWorktreesStore", () => {
 
       let inFlight = 0;
       let maxInFlight = 0;
+      const deferreds: Array<{ resolve: (v: number) => void }> = [];
       mockGetWorktreeDiskUsage.mockImplementation(
         () =>
           new Promise<number>((resolve) => {
             inFlight++;
             maxInFlight = Math.max(maxInFlight, inFlight);
-            setTimeout(() => {
-              inFlight--;
-              resolve(1000);
-            }, 10);
+            deferreds.push({
+              resolve: (v: number) => {
+                inFlight--;
+                resolve(v);
+              },
+            });
           }),
       );
 
-      // loadWorktrees triggers hydrateDiskUsageBatch — use it to test indirectly
       mockListWorktrees.mockResolvedValue(worktreeItems);
-      await store.loadWorktrees(REPO_PATH);
+      const p = store.loadWorktrees(REPO_PATH);
       await flushPromises();
-      // Wait for all batches to complete
-      await new Promise((r) => setTimeout(r, 100));
+
+      // First batch of 4 should be in-flight
+      expect(deferreds).toHaveLength(4);
+      expect(maxInFlight).toBe(4);
+
+      // Resolve first batch
+      deferreds.forEach((d) => d.resolve(1000));
+      await flushPromises();
+
+      // Second batch of 2 should now be in-flight
+      expect(deferreds).toHaveLength(6);
+      expect(maxInFlight).toBe(4); // never exceeded 4
+
+      // Resolve second batch
+      deferreds.slice(4).forEach((d) => d.resolve(2000));
+      await p;
       await flushPromises();
 
       expect(mockGetWorktreeDiskUsage).toHaveBeenCalledTimes(6);
@@ -549,7 +586,7 @@ describe("useWorktreesStore", () => {
 
       // First batch (4) should complete; second batch should be abandoned
       // because loadWorktrees was called again, invalidating the guard
-      expect(callCount).toBeLessThanOrEqual(5); // at most batch 1 + partial batch 2
+      expect(callCount).toBeLessThanOrEqual(4);
     });
   });
 
