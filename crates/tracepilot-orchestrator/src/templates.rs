@@ -46,7 +46,18 @@ fn read_dismissed_defaults() -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
     let content = std::fs::read_to_string(&path)?;
-    let ids: Vec<String> = serde_json::from_str(&content).unwrap_or_default();
+    let ids: Vec<String> = match serde_json::from_str(&content) {
+        Ok(ids) => ids,
+        Err(e) => {
+            tracing::warn!(
+                path = %path.display(),
+                error = %e,
+                "Failed to parse dismissed defaults JSON, returning empty list. \
+                 File may be corrupted or have an incompatible schema."
+            );
+            Vec::new()
+        }
+    };
     Ok(ids)
 }
 
@@ -299,7 +310,16 @@ pub fn default_templates() -> Vec<SessionTemplate> {
 
 /// Return all templates (non-dismissed defaults + user-saved).
 pub fn all_templates() -> Result<Vec<SessionTemplate>> {
-    let dismissed = read_dismissed_defaults().unwrap_or_default();
+    let dismissed = match read_dismissed_defaults() {
+        Ok(ids) => ids,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "Failed to read dismissed defaults, treating all defaults as visible"
+            );
+            Vec::new()
+        }
+    };
     let mut templates: Vec<SessionTemplate> = default_templates()
         .into_iter()
         .filter(|t| !dismissed.contains(&t.id))
@@ -613,6 +633,46 @@ mod tests {
         with_temp_home(|| {
             let result = increment_usage("nonexistent-template");
             assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_corrupted_dismissed_defaults_returns_all_templates() {
+        with_temp_home(|| {
+            // Write corrupted JSON to dismissed_defaults.json
+            let path = dismissed_defaults_path().unwrap();
+            std::fs::write(&path, b"{invalid json}").unwrap();
+
+            // Should log warning and return all default templates (empty dismissed list)
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2, "Should return all default templates when dismissed_defaults.json is corrupted");
+            assert!(all.iter().any(|t| t.id == "default-multi-agent-review"));
+            assert!(all.iter().any(|t| t.id == "default-write-tests"));
+        });
+    }
+
+    #[test]
+    fn test_corrupted_dismissed_defaults_has_dismissed_returns_false() {
+        with_temp_home(|| {
+            // Write corrupted JSON
+            let path = dismissed_defaults_path().unwrap();
+            std::fs::write(&path, b"not valid json").unwrap();
+
+            // Should return false (treats as no dismissed templates)
+            assert!(!has_dismissed_defaults().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_empty_dismissed_defaults_file() {
+        with_temp_home(|| {
+            // Write empty string (not valid JSON array)
+            let path = dismissed_defaults_path().unwrap();
+            std::fs::write(&path, b"").unwrap();
+
+            // Should log warning and return all templates
+            let all = all_templates().unwrap();
+            assert_eq!(all.len(), 2);
         });
     }
 }
