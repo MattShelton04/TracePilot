@@ -5,8 +5,9 @@ use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, Worktree
 use std::path::{Path, PathBuf};
 
 /// Run a git command in the given directory, returning stdout on success.
+/// Uses a 30-second timeout to prevent hanging on network operations or slow repositories.
 fn git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    let output = crate::process::run_hidden("git", args, Some(repo_path))?;
+    let output = crate::process::run_hidden("git", args, Some(repo_path), Some(30))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -24,7 +25,7 @@ pub fn get_repo_root(path: &Path) -> Result<String> {
 /// Check if a path is a valid git repository.
 pub fn is_git_repo(path: &Path) -> bool {
     path.is_dir()
-        && crate::process::run_hidden("git", &["rev-parse", "--git-dir"], Some(path))
+        && crate::process::run_hidden("git", &["rev-parse", "--git-dir"], Some(path), Some(5))
             .map(|o| o.status.success())
             .unwrap_or(false)
 }
@@ -305,8 +306,8 @@ pub fn validate_branch_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(OrchestratorError::Worktree("Branch name cannot be empty".into()));
     }
-    // Use git check-ref-format to validate
-    let output = crate::process::run_hidden("git", &["check-ref-format", "--branch", name], None)?;
+    // Use git check-ref-format to validate (5s timeout for local check)
+    let output = crate::process::run_hidden("git", &["check-ref-format", "--branch", name], None, Some(5))?;
     if output.status.success() {
         Ok(())
     } else {
