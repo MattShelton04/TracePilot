@@ -276,6 +276,8 @@ pub async fn search_content(
     offset: Option<usize>,
     sort_by: Option<String>,
 ) -> CmdResult<SearchResultsResponse> {
+    crate::validators::validate_optional_session_id(&session_id)?;
+
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let query_for_closure = query.clone();
@@ -354,6 +356,8 @@ pub async fn get_search_facets(
     date_from_unix: Option<i64>,
     date_to_unix: Option<i64>,
 ) -> CmdResult<SearchFacetsResponse> {
+    crate::validators::validate_optional_session_id(&session_id)?;
+
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
