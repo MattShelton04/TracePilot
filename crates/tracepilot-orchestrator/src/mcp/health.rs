@@ -15,6 +15,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 use std::time::Instant;
 
+/// HTTP header name for MCP session IDs.
+const MCP_SESSION_ID_HEADER: &str = "mcp-session-id";
+
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
@@ -23,16 +26,20 @@ fn kill_and_reap(child: &mut Child) {
 
 /// Inject an MCP session ID into HTTP headers if present.
 ///
-/// If the session ID is provided and can be converted to a valid header value,
-/// it is inserted into the header map with the key "mcp-session-id".
+/// Per the MCP protocol specification, the server may return an `mcp-session-id`
+/// header in the initialize response that must be included in subsequent requests
+/// to maintain session continuity.
+///
+/// If the session ID is `None` or contains invalid HTTP header characters,
+/// this function does nothing (no error is returned).
 fn inject_session_id_header(
     headers: &mut reqwest::header::HeaderMap,
-    session_id: &Option<String>,
+    session_id: Option<&str>,
 ) {
     if let Some(sid) = session_id
         && let Ok(val) = reqwest::header::HeaderValue::from_str(sid)
     {
-        headers.insert("mcp-session-id", val);
+        headers.insert(MCP_SESSION_ID_HEADER, val);
     }
 }
 
@@ -241,7 +248,7 @@ async fn check_http_server(
     // Extract Mcp-Session-Id if present (required for session continuity).
     let session_id = init_resp
         .headers()
-        .get("mcp-session-id")
+        .get(MCP_SESSION_ID_HEADER)
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
@@ -255,7 +262,7 @@ async fn check_http_server(
     });
 
     let mut notif_headers = base_headers.clone();
-    inject_session_id_header(&mut notif_headers, &session_id);
+    inject_session_id_header(&mut notif_headers, session_id.as_deref());
     let _ = client
         .post(&url)
         .headers(notif_headers)
@@ -272,7 +279,7 @@ async fn check_http_server(
     });
 
     let mut tools_headers = base_headers;
-    inject_session_id_header(&mut tools_headers, &session_id);
+    inject_session_id_header(&mut tools_headers, session_id.as_deref());
 
     let tools = match client
         .post(&url)
@@ -613,13 +620,13 @@ mod tests {
     #[test]
     fn inject_session_id_header_adds_header_when_present() {
         let mut headers = reqwest::header::HeaderMap::new();
-        let session_id = Some("test-session-123".to_string());
+        let session_id = "test-session-123";
 
-        inject_session_id_header(&mut headers, &session_id);
+        inject_session_id_header(&mut headers, Some(session_id));
 
-        assert!(headers.contains_key("mcp-session-id"));
+        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
         assert_eq!(
-            headers.get("mcp-session-id").unwrap().to_str().unwrap(),
+            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
             "test-session-123"
         );
     }
@@ -627,23 +634,37 @@ mod tests {
     #[test]
     fn inject_session_id_header_does_nothing_when_none() {
         let mut headers = reqwest::header::HeaderMap::new();
-        let session_id = None;
 
-        inject_session_id_header(&mut headers, &session_id);
+        inject_session_id_header(&mut headers, None);
 
-        assert!(!headers.contains_key("mcp-session-id"));
+        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
     }
 
     #[test]
     fn inject_session_id_header_handles_invalid_header_value() {
         let mut headers = reqwest::header::HeaderMap::new();
         // Invalid header value (contains non-ASCII control characters)
-        let session_id = Some("test\u{0000}session".to_string());
+        let session_id = "test\u{0000}session";
 
-        inject_session_id_header(&mut headers, &session_id);
+        inject_session_id_header(&mut headers, Some(session_id));
 
         // Should not panic, and header should not be added
-        assert!(!headers.contains_key("mcp-session-id"));
+        assert!(!headers.contains_key(MCP_SESSION_ID_HEADER));
+    }
+
+    #[test]
+    fn inject_session_id_header_handles_empty_string() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        let session_id = "";
+
+        inject_session_id_header(&mut headers, Some(session_id));
+
+        // Empty string is a valid HTTP header value, so it gets inserted
+        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
+        assert_eq!(
+            headers.get(MCP_SESSION_ID_HEADER).unwrap().to_str().unwrap(),
+            ""
+        );
     }
 
     #[test]
@@ -653,13 +674,13 @@ mod tests {
             reqwest::header::CONTENT_TYPE,
             "application/json".parse().unwrap(),
         );
-        let session_id = Some("session-456".to_string());
+        let session_id = "session-456";
 
-        inject_session_id_header(&mut headers, &session_id);
+        inject_session_id_header(&mut headers, Some(session_id));
 
         // Both headers should be present
         assert!(headers.contains_key(reqwest::header::CONTENT_TYPE));
-        assert!(headers.contains_key("mcp-session-id"));
+        assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
         assert_eq!(headers.len(), 2);
     }
 }
