@@ -237,7 +237,7 @@ pub(crate) fn import_from_github_path(
     let (final_dir, (files_copied, warnings)) =
         atomic_dir_install(dest_parent, &fm.name, |staging| {
             std::fs::write(staging.join("SKILL.md"), &content)?;
-            let mut files_copied = 1usize;
+            let mut files_copied = 1;
             let mut warnings = Vec::new();
 
             // Fetch all additional files in the skill directory recursively so
@@ -269,7 +269,12 @@ pub(crate) fn import_from_github_path(
                             &repo_path[prefix.len()..]
                         };
                         // Guard against path traversal from crafted tree entries.
-                        if relative.contains("..") || Path::new(relative).is_absolute() {
+                        // Use component analysis to correctly detect ParentDir
+                        // segments without false positives on names like "..foo".
+                        let has_traversal = Path::new(relative).components().any(|c| {
+                            matches!(c, std::path::Component::ParentDir)
+                        });
+                        if has_traversal || Path::new(relative).is_absolute() {
                             warnings.push(format!(
                                 "Skipped '{}': unsafe path component",
                                 relative
