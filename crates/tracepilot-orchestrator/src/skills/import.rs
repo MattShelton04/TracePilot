@@ -60,27 +60,19 @@ pub fn import_from_file(file_path: &Path, dest_parent: &Path) -> Result<SkillImp
     })
 }
 
-/// Import a skill from a GitHub repository.
+/// Resolves the skill directory path within a GitHub repository.
 ///
-/// Uses `gh` CLI to fetch SKILL.md and any assets from the repo.
-/// When no explicit skill_path is given, searches well-known locations.
-pub fn import_from_github(
+/// Searches for SKILL.md in well-known locations in priority order:
+/// 1. Root SKILL.md (if present)
+/// 2. SKILL.md in well-known directories (.github/skills/, .copilot/skills/, .claude/skills/)
+/// 3. Any SKILL.md found (as fallback)
+///
+/// Returns the discovered base path (e.g., ".", ".github/skills/my-skill").
+fn resolve_skill_path_in_repo(
     owner: &str,
     repo: &str,
-    skill_path: Option<&str>,
-    git_ref: Option<&str>,
-    dest_parent: &Path,
-) -> Result<SkillImportResult, SkillsError> {
-    crate::github::gh_check_auth()
-        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
-
-    let ref_ = git_ref.unwrap_or("HEAD");
-
-    // If explicit path given, use it directly
-    if let Some(base_path) = skill_path {
-        return import_from_github_path(owner, repo, base_path, ref_, dest_parent);
-    }
-
+    ref_: &str,
+) -> Result<String, SkillsError> {
     // Well-known skill locations to probe
     let well_known_paths = [
         ".",                // Root SKILL.md
@@ -106,35 +98,65 @@ pub fn import_from_github(
             .any(|e| e.entry_type == "blob" && e.path == "SKILL.md");
 
         if has_root {
-            return import_from_github_path(owner, repo, ".", ref_, dest_parent);
+            return Ok(".".to_string());
         }
 
         // Try well-known prefixes first
         for prefix in &well_known_paths[1..] {
             for dir in &skill_dirs {
                 if dir.starts_with(prefix) {
-                    return import_from_github_path(owner, repo, dir, ref_, dest_parent);
+                    return Ok(dir.clone());
                 }
             }
         }
 
         // Try any SKILL.md found
         if let Some(first_dir) = skill_dirs.first() {
-            return import_from_github_path(owner, repo, first_dir, ref_, dest_parent);
+            return Ok(first_dir.clone());
         }
     }
 
-    // Fallback: try each well-known path directly
+    // Fallback: try each well-known path directly (returns first success)
     for path in &well_known_paths {
-        match import_from_github_path(owner, repo, path, ref_, dest_parent) {
-            Ok(result) => return Ok(result),
-            Err(_) => continue,
+        // Test if path exists by attempting to fetch SKILL.md
+        let skill_md_path = if *path == "." {
+            "SKILL.md".to_string()
+        } else {
+            format!("{}/SKILL.md", path.trim_end_matches('/'))
+        };
+
+        if crate::github::gh_get_file(owner, repo, &skill_md_path, ref_).is_ok() {
+            return Ok(path.to_string());
         }
     }
 
     Err(SkillsError::Import(format!(
         "No SKILL.md found in {owner}/{repo}. Tried root and common skill directories (.github/skills/, .copilot/skills/, .claude/skills/)"
     )))
+}
+
+/// Import a skill from a GitHub repository.
+///
+/// Uses `gh` CLI to fetch SKILL.md and any assets from the repo.
+/// When no explicit skill_path is given, searches well-known locations.
+pub fn import_from_github(
+    owner: &str,
+    repo: &str,
+    skill_path: Option<&str>,
+    git_ref: Option<&str>,
+    dest_parent: &Path,
+) -> Result<SkillImportResult, SkillsError> {
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
+
+    let ref_ = git_ref.unwrap_or("HEAD");
+
+    let base_path = match skill_path {
+        Some(path) => path.to_string(),
+        None => resolve_skill_path_in_repo(owner, repo, ref_)?,
+    };
+
+    import_from_github_path(owner, repo, &base_path, ref_, dest_parent)
 }
 
 /// Import a skill from a specific path within a GitHub repository.
@@ -273,61 +295,12 @@ pub fn preview_github_import(
 ) -> Result<(String, String, Vec<String>), SkillsError> {
     let ref_ = git_ref.unwrap_or("HEAD");
 
-    // If explicit path given, use it directly
-    if let Some(base_path) = skill_path {
-        return preview_github_import_path(owner, repo, base_path, ref_);
-    }
+    let base_path = match skill_path {
+        Some(path) => path.to_string(),
+        None => resolve_skill_path_in_repo(owner, repo, ref_)?,
+    };
 
-    let well_known_paths = [
-        ".",
-        ".github/skills",
-        ".copilot/skills",
-        ".claude/skills",
-    ];
-
-    // Try to list the repo tree to find SKILL.md files
-    if let Ok(entries) = crate::github::gh_list_tree(owner, repo, ref_) {
-        let skill_dirs: Vec<String> = entries
-            .iter()
-            .filter(|e| e.entry_type == "blob" && e.path.ends_with("/SKILL.md"))
-            .map(|e| {
-                let p = e.path.trim_end_matches("/SKILL.md");
-                p.to_string()
-            })
-            .collect();
-
-        let has_root = entries
-            .iter()
-            .any(|e| e.entry_type == "blob" && e.path == "SKILL.md");
-
-        if has_root {
-            return preview_github_import_path(owner, repo, ".", ref_);
-        }
-
-        for prefix in &well_known_paths[1..] {
-            for dir in &skill_dirs {
-                if dir.starts_with(prefix) {
-                    return preview_github_import_path(owner, repo, dir, ref_);
-                }
-            }
-        }
-
-        if let Some(first_dir) = skill_dirs.first() {
-            return preview_github_import_path(owner, repo, first_dir, ref_);
-        }
-    }
-
-    // Fallback: try each well-known path directly
-    for path in &well_known_paths {
-        match preview_github_import_path(owner, repo, path, ref_) {
-            Ok(result) => return Ok(result),
-            Err(_) => continue,
-        }
-    }
-
-    Err(SkillsError::Import(format!(
-        "No SKILL.md found in {owner}/{repo}. Tried root and common skill directories (.github/skills/, .copilot/skills/, .claude/skills/)"
-    )))
+    preview_github_import_path(owner, repo, &base_path, ref_)
 }
 
 /// Preview a GitHub skill import from a specific path.
