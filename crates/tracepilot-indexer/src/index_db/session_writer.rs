@@ -190,6 +190,18 @@ impl IndexDb {
                 ],
             )?;
 
+            // ──────────────────────────────────────────────────────────────
+            // INSERT child rows using prepared statement batching
+            // ──────────────────────────────────────────────────────────────
+            // Pattern: Prepare SQL once, execute N times (2-10x faster than
+            // individual execute() calls). Empty arrays are skipped to avoid
+            // unnecessary prepare() overhead.
+            //
+            // For 300-700+ child rows per session across 6 tables:
+            //   Before: 300-700 prepare() + execute() calls
+            //   After:  6 prepare() calls + 300-700 execute() calls
+            // ──────────────────────────────────────────────────────────────
+
             // INSERT child rows: model metrics (batch)
             if !analytics.model_rows.is_empty() {
                 let mut stmt = self.conn.prepare(
