@@ -23,40 +23,26 @@ pub const MAX_ID_LENGTH: usize = 256;
 
 /// Validate an entire archive for import safety.
 ///
-/// Returns `Ok(())` if all checks pass, or the first error found.
+/// Returns `Ok(())` if all checks pass, or the first blocking error found.
+/// Delegates to [`collect_issues`] to ensure both the fast-fail import path
+/// and the collect-all preview path apply identical validation rules.
 pub fn validate_archive(archive: &SessionArchive) -> Result<()> {
-    // Archive-level checks
-    if archive.sessions.is_empty() {
-        return Err(validation_err("archive contains no sessions"));
+    let issues = collect_issues(archive);
+    match issues.iter().find(|i| i.is_error()) {
+        Some(issue) => Err(validation_err(&issue.message)),
+        None => Ok(()),
     }
-    if archive.sessions.len() > MAX_SESSIONS {
-        return Err(validation_err(&format!(
-            "too many sessions: {} (max {})",
-            archive.sessions.len(),
-            MAX_SESSIONS
-        )));
-    }
-
-    // Per-session checks
-    let mut seen_ids = HashSet::new();
-    for (i, session) in archive.sessions.iter().enumerate() {
-        validate_session(session)
-            .map_err(|e| validation_err(&format!("session {}: {}", i, e)))?;
-        if !seen_ids.insert(&session.metadata.id) {
-            return Err(validation_err(&format!(
-                "duplicate session ID: {:?}",
-                session.metadata.id
-            )));
-        }
-    }
-
-    Ok(())
 }
 
 /// Collect all validation issues without short-circuiting.
 ///
 /// Returns a list of human-readable warning/error messages. Useful for
 /// preview mode where the user wants to see everything before deciding.
+///
+/// This is the single source of truth for archive validation.
+/// [`validate_archive`] delegates to this function, so both the fast-fail
+/// import path and the collect-all preview path run identical checks.
+#[must_use]
 pub fn collect_issues(archive: &SessionArchive) -> Vec<ValidationIssue> {
     let mut issues = Vec::new();
 
@@ -79,7 +65,7 @@ pub fn collect_issues(archive: &SessionArchive) -> Vec<ValidationIssue> {
                 session.metadata.id
             )));
         }
-        collect_session_issues(session, i, &mut issues);
+        check_session(session, i, &mut issues);
     }
 
     issues
@@ -87,85 +73,32 @@ pub fn collect_issues(archive: &SessionArchive) -> Vec<ValidationIssue> {
 
 // ── Per-session validation ─────────────────────────────────────────────────
 
-fn validate_session(session: &PortableSession) -> Result<()> {
-    let id = &session.metadata.id;
-
-    // Required: session ID
-    if id.is_empty() {
-        return Err(validation_err("session ID is empty"));
-    }
-    if id.len() > MAX_ID_LENGTH {
-        return Err(validation_err(&format!(
-            "session ID too long: {} chars (max {})",
-            id.len(),
-            MAX_ID_LENGTH
-        )));
-    }
-
-    // Security: path traversal in ID
-    if contains_path_traversal(id) {
-        return Err(validation_err(&format!(
-            "session ID contains path traversal: {:?}",
-            id
-        )));
-    }
-
-    // Security: check checkpoint filenames and content sizes
-    if let Some(checkpoints) = &session.checkpoints {
-        for cp in checkpoints {
-            validate_filename(&cp.filename)?;
-            if let Some(content) = &cp.content
-                && content.len() > MAX_SECTION_SIZE {
-                    return Err(validation_err(&format!(
-                        "checkpoint '{}' content too large: {} bytes (max {})",
-                        cp.filename,
-                        content.len(),
-                        MAX_SECTION_SIZE
-                    )));
-                }
-        }
-    }
-
-    // Size limits on text sections
-    if let Some(plan) = &session.plan
-        && plan.len() > MAX_SECTION_SIZE {
-            return Err(validation_err(&format!(
-                "plan too large: {} bytes (max {})",
-                plan.len(),
-                MAX_SECTION_SIZE
-            )));
-        }
-
-    if let Some(events) = &session.events
-        && events.len() > MAX_EVENTS {
-            return Err(validation_err(&format!(
-                "too many events: {} (max {})",
-                events.len(),
-                MAX_EVENTS
-            )));
-        }
-
-    Ok(())
-}
-
-fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Vec<ValidationIssue>) {
+/// Run all session-level validation checks, collecting issues into `issues`.
+///
+/// This is the single source of truth for per-session validation. Both the
+/// fast-fail import path (`validate_archive`) and the collect-all preview
+/// path (`collect_issues`) delegate here, ensuring the two can never diverge.
+fn check_session(session: &PortableSession, idx: usize, issues: &mut Vec<ValidationIssue>) {
     let prefix = format!("Session {}", idx);
     let id = &session.metadata.id;
+
+    // ── Session ID checks ──────────────────────────────────────────
 
     if id.is_empty() {
         issues.push(ValidationIssue::error(&format!("{}: ID is empty", prefix)));
     }
     if id.len() > MAX_ID_LENGTH {
         issues.push(ValidationIssue::error(&format!(
-            "{}: ID too long ({} chars)",
+            "{}: ID too long ({} chars, max {})",
             prefix,
-            id.len()
+            id.len(),
+            MAX_ID_LENGTH
         )));
     }
     if contains_path_traversal(id) {
         issues.push(ValidationIssue::error(&format!(
-            "{}: ID contains path traversal",
-            prefix
+            "{}: ID contains path traversal: {:?}",
+            prefix, id
         )));
     }
 
@@ -176,6 +109,8 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
             prefix, id
         )));
     }
+
+    // ── Checkpoint checks ──────────────────────────────────────────
 
     if let Some(checkpoints) = &session.checkpoints {
         let mut seen_filenames = HashSet::new();
@@ -202,7 +137,26 @@ fn collect_session_issues(session: &PortableSession, idx: usize, issues: &mut Ve
         }
     }
 
-    // Warnings (non-blocking)
+    // ── Size limit checks ──────────────────────────────────────────
+
+    if let Some(plan) = &session.plan
+        && plan.len() > MAX_SECTION_SIZE {
+            issues.push(ValidationIssue::error(&format!(
+                "{}: plan too large: {} bytes (max {})",
+                prefix, plan.len(), MAX_SECTION_SIZE
+            )));
+        }
+
+    if let Some(events) = &session.events
+        && events.len() > MAX_EVENTS {
+            issues.push(ValidationIssue::error(&format!(
+                "{}: too many events: {} (max {})",
+                prefix, events.len(), MAX_EVENTS
+            )));
+        }
+
+    // ── Warnings (non-blocking) ────────────────────────────────────
+
     if session.conversation.is_none() && session.events.is_none() {
         issues.push(ValidationIssue::warning(&format!(
             "{}: no conversation or events data",
@@ -245,11 +199,6 @@ fn looks_like_uuid(s: &str) -> bool {
         8 | 13 | 18 | 23 => b == b'-',
         _ => b.is_ascii_hexdigit(),
     })
-}
-
-/// Validate a filename is safe for filesystem use.
-fn validate_filename(name: &str) -> Result<()> {
-    validate_filename_with_prefix(name, "")
 }
 
 /// Validate a filename with a prefix for error messages.
@@ -449,7 +398,7 @@ mod tests {
         archive.sessions.push(s2);
 
         let err = validate_archive(&archive).unwrap_err();
-        assert!(err.to_string().contains("duplicate session ID"));
+        assert!(err.to_string().contains("Duplicate session ID"));
     }
 
     #[test]
@@ -588,5 +537,119 @@ mod tests {
         let archive = test_archive(session);
         let issues = collect_issues(&archive);
         assert!(issues.iter().any(|i| i.is_error() && i.message.contains("dangerous characters")));
+    }
+
+    // ── Tests for previously-missing checks (fixed by unification) ──
+
+    #[test]
+    fn validate_archive_rejects_duplicate_checkpoint_filenames() {
+        // Previously only collect_issues checked this — validate_archive did not.
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![
+            CheckpointExport {
+                number: 1,
+                title: "first".to_string(),
+                filename: "001-first.md".to_string(),
+                content: None,
+            },
+            CheckpointExport {
+                number: 2,
+                title: "dup".to_string(),
+                filename: "001-first.md".to_string(),
+                content: None,
+            },
+        ]);
+        let archive = test_archive(session);
+        let err = validate_archive(&archive).unwrap_err();
+        assert!(err.to_string().contains("duplicate checkpoint filename"));
+    }
+
+    #[test]
+    fn collect_issues_reports_plan_too_large() {
+        // Previously only validate_session checked plan size — collect_issues did not.
+        let mut session = minimal_session();
+        session.plan = Some("x".repeat(MAX_SECTION_SIZE + 1));
+        let archive = test_archive(session);
+
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("plan too large")));
+    }
+
+    #[test]
+    fn collect_issues_reports_too_many_events() {
+        // Previously only validate_session checked event count — collect_issues did not.
+        use crate::document::RawEvent;
+
+        let event = RawEvent {
+            event_type: "test".to_string(),
+            data: serde_json::Value::Null,
+            id: None,
+            timestamp: None,
+            parent_id: None,
+        };
+        let mut session = minimal_session();
+        session.events = Some(vec![event; MAX_EVENTS + 1]);
+        let archive = test_archive(session);
+        let issues = collect_issues(&archive);
+        assert!(issues.iter().any(|i| i.is_error() && i.message.contains("too many events")));
+    }
+
+    #[test]
+    fn preview_and_import_agree_on_plan_too_large() {
+        // Regression guard: both paths must reject an oversized plan.
+        let mut session = minimal_session();
+        session.plan = Some("x".repeat(MAX_SECTION_SIZE + 1));
+        let archive = test_archive(session);
+
+        let issues = collect_issues(&archive);
+        let validate_result = validate_archive(&archive);
+
+        assert!(issues.iter().any(|i| i.is_error()));
+        assert!(validate_result.is_err());
+    }
+
+    #[test]
+    fn preview_and_import_agree_on_duplicate_checkpoint_filenames() {
+        // Regression guard: both paths must reject duplicate checkpoint filenames.
+        let mut session = minimal_session();
+        session.checkpoints = Some(vec![
+            CheckpointExport {
+                number: 1,
+                title: "first".to_string(),
+                filename: "dup.md".to_string(),
+                content: None,
+            },
+            CheckpointExport {
+                number: 2,
+                title: "second".to_string(),
+                filename: "dup.md".to_string(),
+                content: None,
+            },
+        ]);
+        let archive = test_archive(session);
+
+        let issues = collect_issues(&archive);
+        let validate_result = validate_archive(&archive);
+
+        assert!(issues.iter().any(|i| i.is_error()));
+        assert!(validate_result.is_err());
+    }
+
+    #[test]
+    fn warnings_do_not_block_import() {
+        // Warnings (non-UUID ID, missing conversation/events) must not cause
+        // validate_archive to fail — only errors should block.
+        let mut session = minimal_session();
+        session.metadata.id = "not-a-uuid".to_string();
+        session.conversation = None;
+        session.events = None;
+        let archive = test_archive(session);
+
+        let issues = collect_issues(&archive);
+        // Should have warnings but no errors
+        assert!(issues.iter().any(|i| i.severity == IssueSeverity::Warning));
+        assert!(!issues.iter().any(|i| i.is_error()));
+        // Import should succeed
+        assert!(validate_archive(&archive).is_ok());
     }
 }
