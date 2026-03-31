@@ -73,8 +73,10 @@ jobs:
       #   with:
       #     token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Temporarily disabled lint steps.
+      # ── Linting ─────────────────────────────────────────────
+      # Rust linting remains disabled pending system dependency resolution
       # - name: Rust lint
       #   run: cargo clippy --workspace --exclude tracepilot-desktop -- -D warnings
-      # - name: Frontend lint
-      #   run: pnpm lint
+
+      - name: Frontend lint
+        run: pnpm lint

@@ -569,8 +569,8 @@ export async function exportLogs(destination: string): Promise<string> {
   return invoke<string>("export_logs", { destination });
 }
 
+export * from "./mcp.js";
 // Re-export orchestration module
 export * from "./orchestration.js";
-export * from "./mcp.js";
 export * from "./skills.js";
 export type { SessionHealth };

@@ -35,12 +35,7 @@ export interface McpTool {
 }
 
 /** Health status of an MCP server. */
-export type McpHealthStatus =
-  | "healthy"
-  | "degraded"
-  | "unreachable"
-  | "unknown"
-  | "disabled";
+export type McpHealthStatus = "healthy" | "degraded" | "unreachable" | "unknown" | "disabled";
 
 /** Health check result for a single server. */
 export interface McpHealthResult {

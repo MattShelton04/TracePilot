@@ -103,7 +103,9 @@ function parseContent(content: string) {
   // Supports LF, CRLF, and CR line endings. Handles YAML multiline scalars (>, |).
   const trimmed = content.replace(/^\uFEFF/, "").trimStart();
   // Match opening --- then newline, lazy body, then newline + closing ---, optional newline, rest
-  const fmMatch = trimmed.match(/^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---(?:\r\n|\r|\n)?([\s\S]*)$/);
+  const fmMatch = trimmed.match(
+    /^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---(?:\r\n|\r|\n)?([\s\S]*)$/,
+  );
   if (fmMatch) {
     const fmBlock = fmMatch[1];
     previewBody.value = fmMatch[2];
@@ -149,7 +151,10 @@ function parseContent(content: string) {
         // Continuation of a multiline block scalar
         multilineValue += (multilineValue ? " " : "") + line.trim();
       } else if (line.match(/^\s+-\s+/) && inGlobs) {
-        const glob = line.replace(/^\s+-\s+/, "").trim().replace(/^["']([\s\S]*?)["']$/, "$1");
+        const glob = line
+          .replace(/^\s+-\s+/, "")
+          .trim()
+          .replace(/^["']([\s\S]*?)["']$/, "$1");
         if (!fm.resource_globs) fm.resource_globs = [];
         fm.resource_globs.push(glob);
       } else {
@@ -296,7 +301,7 @@ async function handleViewAsset(asset: SkillAsset) {
 
 /** Open a relative path referenced in the markdown preview as an asset popup. */
 async function handlePreviewLinkClick(href: string) {
-  // Normalize: strip leading ./ 
+  // Normalize: strip leading ./
   const normalized = href.replace(/^\.\//, "");
 
   // Find matching asset in the loaded assets list
@@ -364,13 +369,27 @@ function insertMarkdown(prefix: string, suffix = "") {
   });
 }
 
-function insertBold() { insertMarkdown("**", "**"); }
-function insertItalic() { insertMarkdown("*", "*"); }
-function insertH1() { insertMarkdown("\n# "); }
-function insertH2() { insertMarkdown("\n## "); }
-function insertBulletList() { insertMarkdown("\n- "); }
-function insertCode() { insertMarkdown("`", "`"); }
-function insertLink() { insertMarkdown("[", "](url)"); }
+function insertBold() {
+  insertMarkdown("**", "**");
+}
+function insertItalic() {
+  insertMarkdown("*", "*");
+}
+function insertH1() {
+  insertMarkdown("\n# ");
+}
+function insertH2() {
+  insertMarkdown("\n## ");
+}
+function insertBulletList() {
+  insertMarkdown("\n- ");
+}
+function insertCode() {
+  insertMarkdown("`", "`");
+}
+function insertLink() {
+  insertMarkdown("[", "](url)");
+}
 
 // ─── Utilities ────────────────────────────────────────────
 function formatSize(bytes: number): string {

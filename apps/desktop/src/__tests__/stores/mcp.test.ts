@@ -618,7 +618,12 @@ describe("useMcpStore", () => {
       const result = await store.importFromGitHub("owner", "repo", "path/mcp.json", "main");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockMcpImportFromGitHub).toHaveBeenCalledWith("owner", "repo", "path/mcp.json", "main");
+      expect(mockMcpImportFromGitHub).toHaveBeenCalledWith(
+        "owner",
+        "repo",
+        "path/mcp.json",
+        "main",
+      );
       expect(store.error).toBeNull();
     });
 

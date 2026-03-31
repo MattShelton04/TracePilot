@@ -66,7 +66,9 @@ const lastCheckedDisplay = computed(() => {
   }
 });
 
-const transportLabel = computed(() => server.value?.config.type ?? server.value?.config.transport ?? "stdio");
+const transportLabel = computed(
+  () => server.value?.config.type ?? server.value?.config.transport ?? "stdio",
+);
 
 const iconLetter = computed(() => server.value?.name.charAt(0).toUpperCase() ?? "?");
 
@@ -90,9 +92,7 @@ const filteredTools = computed(() => {
   if (!toolSearch.value) return tools;
   const q = toolSearch.value.toLowerCase();
   return tools.filter(
-    (t) =>
-      t.name.toLowerCase().includes(q) ||
-      (t.description ?? "").toLowerCase().includes(q),
+    (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
   );
 });
 

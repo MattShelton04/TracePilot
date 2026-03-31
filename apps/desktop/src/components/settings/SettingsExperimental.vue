@@ -8,7 +8,8 @@ const flags = [
   {
     key: "mcpServers",
     label: "MCP Servers",
-    description: "Manage Model Context Protocol servers — add, configure, and monitor MCP integrations.",
+    description:
+      "Manage Model Context Protocol servers — add, configure, and monitor MCP integrations.",
   },
   {
     key: "skills",

@@ -9,8 +9,8 @@ export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as DataTable } from "./components/DataTable.vue";
 export { default as DefList } from "./components/DefList.vue";
 export { default as EmptyState } from "./components/EmptyState.vue";
-export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export type { EnvVar } from "./components/EnvVarTable.vue";
+export { default as EnvVarTable } from "./components/EnvVarTable.vue";
 export { default as ErrorAlert } from "./components/ErrorAlert.vue";
 export { default as ErrorState } from "./components/ErrorState.vue";
 export { default as ExpandChevron } from "./components/ExpandChevron.vue";
@@ -30,10 +30,10 @@ export { default as ReasoningBlock } from "./components/ReasoningBlock.vue";
 export * from "./components/renderers";
 export { default as SearchableSelect } from "./components/SearchableSelect.vue";
 export { default as SearchInput } from "./components/SearchInput.vue";
-export { default as SegmentedControl } from "./components/SegmentedControl.vue";
-export type { SegmentOption } from "./components/SegmentedControl.vue";
 // Base components
 export { default as SectionPanel } from "./components/SectionPanel.vue";
+export type { SegmentOption } from "./components/SegmentedControl.vue";
+export { default as SegmentedControl } from "./components/SegmentedControl.vue";
 // Original components
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
