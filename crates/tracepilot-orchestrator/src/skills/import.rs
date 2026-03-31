@@ -1,5 +1,6 @@
 //! Skill import operations — from local paths, GitHub repos, and files.
 
+use crate::github::TreeEntry;
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{GitHubSkillPreview, LocalSkillPreview, RepoSkillsResult, SkillImportResult};
@@ -70,6 +71,9 @@ pub fn import_from_github(
     git_ref: Option<&str>,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
+
     let ref_ = git_ref.unwrap_or("HEAD");
 
     // If explicit path given, use it directly
@@ -141,6 +145,9 @@ pub(crate) fn import_from_github_path(
     ref_: &str,
     dest_parent: &Path,
 ) -> Result<SkillImportResult, SkillsError> {
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
+
     let skill_md_path = if base_path == "." {
         "SKILL.md".to_string()
     } else {
@@ -163,35 +170,43 @@ pub(crate) fn import_from_github_path(
     let mut files_copied = 1;
     let mut warnings = Vec::new();
 
-    // Try to fetch additional files in the skill directory
+    // Fetch all additional files in the skill directory recursively so references/,
+    // scripts/, templates/, etc. are preserved during import.
     match crate::github::gh_list_tree(owner, repo, ref_) {
         Ok(entries) => {
-            let prefix = if base_path == "." {
-                String::new()
-            } else {
-                format!("{}/", base_path.trim_end_matches('/'))
-            };
+            let prefix = skill_path_prefix(base_path);
+            let asset_paths: Vec<String> = collect_skill_blob_paths(&entries, base_path)
+                .into_iter()
+                .filter(|path| path != &skill_md_path)
+                .collect();
+            let path_refs: Vec<&str> = asset_paths.iter().map(String::as_str).collect();
+            let contents = crate::github::gh_get_files_batch_with_binary(owner, repo, &path_refs, ref_)
+                .map_err(|e| SkillsError::GitHub(format!("Failed to fetch skill files: {e}")))?;
 
-            for entry in &entries {
-                if entry.entry_type != "blob" {
-                    continue;
-                }
-                if !entry.path.starts_with(&prefix) {
-                    continue;
-                }
-                let relative = &entry.path[prefix.len()..];
-                if relative == "SKILL.md" || relative.contains('/') {
-                    continue; // Already fetched or in subdirectory
-                }
-
-                match crate::github::gh_get_file(owner, repo, &entry.path, ref_) {
-                    Ok(file_content) => {
-                        std::fs::write(dest_dir.join(relative), file_content)?;
+            for repo_path in asset_paths {
+                let relative = if prefix.is_empty() {
+                    repo_path.as_str()
+                } else {
+                    &repo_path[prefix.len()..]
+                };
+                match contents.get(&repo_path).and_then(|file| {
+                    file.bytes
+                        .as_ref()
+                        .cloned()
+                        .or_else(|| file.text.as_ref().map(|text| text.as_bytes().to_vec()))
+                }) {
+                    Some(file_content) => {
+                        let dest_path = dest_dir.join(relative);
+                        if let Some(parent) = dest_path.parent() {
+                            std::fs::create_dir_all(parent)?;
+                        }
+                        std::fs::write(dest_path, file_content)?;
                         files_copied += 1;
                     }
-                    Err(e) => {
-                        warnings.push(format!("Failed to fetch {}: {e}", relative));
-                    }
+                    None => warnings.push(format!(
+                        "Failed to fetch {}: file was inaccessible or empty",
+                        relative
+                    )),
                 }
             }
         }
@@ -226,6 +241,26 @@ fn copy_dir_contents(src: &Path, dst: &Path) -> Result<usize, SkillsError> {
     }
 
     Ok(count)
+}
+
+fn skill_path_prefix(base_path: &str) -> String {
+    if base_path == "." {
+        String::new()
+    } else {
+        format!("{}/", base_path.trim_end_matches('/'))
+    }
+}
+
+fn collect_skill_blob_paths(entries: &[TreeEntry], base_path: &str) -> Vec<String> {
+    let prefix = skill_path_prefix(base_path);
+    let mut paths: Vec<String> = entries
+        .iter()
+        .filter(|entry| entry.entry_type == "blob")
+        .filter(|entry| prefix.is_empty() || entry.path.starts_with(&prefix))
+        .map(|entry| entry.path.clone())
+        .collect();
+    paths.sort();
+    paths
 }
 
 /// Preview a GitHub skill import without actually importing.
@@ -313,20 +348,21 @@ fn preview_github_import_path(
 
     let (fm, _) = parse_skill_md(&content)?;
 
+    crate::github::gh_check_auth()
+        .map_err(|e| SkillsError::GitHub(e.to_string()))?;
+
     // List files that would be imported
     let mut files = vec!["SKILL.md".to_string()];
     if let Ok(entries) = crate::github::gh_list_tree(owner, repo, ref_) {
-        let prefix = if base_path == "." {
-            String::new()
-        } else {
-            format!("{}/", base_path.trim_end_matches('/'))
-        };
-        for entry in &entries {
-            if entry.entry_type == "blob" && entry.path.starts_with(&prefix) {
-                let relative = &entry.path[prefix.len()..];
-                if relative != "SKILL.md" && !relative.contains('/') {
-                    files.push(relative.to_string());
-                }
+        let prefix = skill_path_prefix(base_path);
+        for repo_path in collect_skill_blob_paths(&entries, base_path) {
+            if repo_path == skill_md_path {
+                continue;
+            }
+            if prefix.is_empty() {
+                files.push(repo_path);
+            } else {
+                files.push(repo_path[prefix.len()..].to_string());
             }
         }
     }
@@ -392,23 +428,7 @@ pub fn discover_github_skills(
         if let Some(content) = contents.get(*skill_md_path) {
             match parse_skill_md(content) {
                 Ok((fm, _)) => {
-                    let prefix = if skill_dir == "." {
-                        String::new()
-                    } else {
-                        format!("{}/", skill_dir)
-                    };
-                    let file_count = entries
-                        .iter()
-                        .filter(|e| {
-                            e.entry_type == "blob"
-                                && if prefix.is_empty() {
-                                    !e.path.contains('/')
-                                } else {
-                                    e.path.starts_with(&prefix)
-                                        && !e.path[prefix.len()..].contains('/')
-                                }
-                        })
-                        .count();
+                    let file_count = collect_skill_blob_paths(&entries, &skill_dir).len();
 
                     previews.push(GitHubSkillPreview {
                         path: skill_dir,
@@ -508,9 +528,7 @@ fn skill_preview_from_dir(skill_dir: &Path) -> Result<LocalSkillPreview, SkillsE
     let content = std::fs::read_to_string(&skill_md)?;
     let (fm, _) = parse_skill_md(&content)?;
 
-    let file_count = std::fs::read_dir(skill_dir)
-        .map(|rd| rd.flatten().filter(|e| e.path().is_file()).count())
-        .unwrap_or(1);
+    let file_count = count_files_recursive(skill_dir);
 
     Ok(LocalSkillPreview {
         path: skill_dir.to_string_lossy().to_string(),
@@ -518,6 +536,24 @@ fn skill_preview_from_dir(skill_dir: &Path) -> Result<LocalSkillPreview, SkillsE
         description: fm.description,
         file_count,
     })
+}
+
+/// Recursively count all files (including SKILL.md) in a directory tree.
+fn count_files_recursive(dir: &Path) -> usize {
+    let mut count = 0;
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return 0,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            count += count_files_recursive(&path);
+        } else {
+            count += 1;
+        }
+    }
+    count
 }
 
 /// Scans multiple repository paths for skills and returns results grouped by repo.
@@ -625,6 +661,73 @@ mod tests {
     }
 
     #[test]
+    fn collect_skill_blob_paths_includes_nested_files() {
+        let entries = vec![
+            TreeEntry {
+                path: ".github/skills/playwright/SKILL.md".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+            TreeEntry {
+                path: ".github/skills/playwright/references/guide.md".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+            TreeEntry {
+                path: ".github/skills/playwright/scripts/setup.sh".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+            TreeEntry {
+                path: ".github/skills/other/SKILL.md".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+        ];
+
+        let paths = collect_skill_blob_paths(&entries, ".github/skills/playwright");
+        assert_eq!(
+            paths,
+            vec![
+                ".github/skills/playwright/SKILL.md".to_string(),
+                ".github/skills/playwright/references/guide.md".to_string(),
+                ".github/skills/playwright/scripts/setup.sh".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn collect_skill_blob_paths_for_root_skill_includes_nested_files() {
+        let entries = vec![
+            TreeEntry {
+                path: "SKILL.md".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+            TreeEntry {
+                path: "references/guide.md".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+            TreeEntry {
+                path: "scripts/setup.sh".into(),
+                entry_type: "blob".into(),
+                size: Some(10),
+            },
+        ];
+
+        let paths = collect_skill_blob_paths(&entries, ".");
+        assert_eq!(
+            paths,
+            vec![
+                "SKILL.md".to_string(),
+                "references/guide.md".to_string(),
+                "scripts/setup.sh".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn discover_repo_skills_finds_skills_in_repos() {
         let repo1 = TempDir::new().unwrap();
         let repo2 = TempDir::new().unwrap();
@@ -673,5 +776,44 @@ mod tests {
         ];
         let results = discover_repo_skills(&repos);
         assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn skill_preview_counts_nested_files_recursively() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join(".github").join("skills").join("my-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: my-skill\ndescription: Nested test\n---\n\nBody.\n",
+        )
+        .unwrap();
+        std::fs::write(skill_dir.join("helper.py"), "# helper").unwrap();
+
+        // Nested directory with files
+        let refs_dir = skill_dir.join("references");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("guide.md"), "# guide").unwrap();
+        std::fs::write(refs_dir.join("patterns.md"), "# patterns").unwrap();
+
+        let deep_dir = refs_dir.join("examples");
+        std::fs::create_dir_all(&deep_dir).unwrap();
+        std::fs::write(deep_dir.join("ex1.py"), "# ex1").unwrap();
+
+        let preview = skill_preview_from_dir(&skill_dir).unwrap();
+        assert_eq!(preview.name, "my-skill");
+        // Should count: SKILL.md + helper.py + guide.md + patterns.md + ex1.py = 5
+        assert_eq!(preview.file_count, 5);
+    }
+
+    #[test]
+    fn count_files_recursive_counts_all_files() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "a").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub").join("b.txt"), "b").unwrap();
+        std::fs::write(dir.path().join("sub").join("c.txt"), "c").unwrap();
+
+        assert_eq!(count_files_recursive(dir.path()), 3);
     }
 }

@@ -28,6 +28,9 @@ const importing = ref(false);
 const importError = ref<string | null>(null);
 const importResult = ref<SkillImportResult | null>(null);
 const showResult = ref(false);
+const importStatusMessage = ref("");
+const importCurrent = ref(0);
+const importTotal = ref(0);
 
 // Local import fields
 const localDir = ref("");
@@ -214,17 +217,26 @@ async function doImport() {
   importing.value = true;
   importError.value = null;
   importResult.value = null;
+  importStatusMessage.value = "";
+  importCurrent.value = 0;
+  importTotal.value = 0;
 
   try {
     let result: SkillImportResult | null = null;
     switch (activeTab.value) {
       case "local":
         if (localPreviews.value.length > 0 && localSelected.value.size > 0) {
-          // Import each selected local skill by its path
+          const paths = [...localSelected.value];
+          importTotal.value = paths.length;
           let imported = 0;
           const warnings: string[] = [];
-          for (const path of localSelected.value) {
-            const r = await store.importLocal(path, targetScope.value);
+          for (let i = 0; i < paths.length; i++) {
+            importCurrent.value = i + 1;
+            const preview = localPreviews.value.find((p) => p.path === paths[i]);
+            importStatusMessage.value = preview
+              ? `Importing "${preview.name}" (${i + 1} of ${paths.length})…`
+              : `Importing skill ${i + 1} of ${paths.length}…`;
+            const r = await store.importLocal(paths[i], targetScope.value);
             if (r) {
               imported++;
               warnings.push(...r.warnings);
@@ -239,22 +251,34 @@ async function doImport() {
             };
           }
         } else {
+          importTotal.value = 1;
+          importCurrent.value = 1;
+          importStatusMessage.value = "Importing skill…";
           result = await store.importLocal(localDir.value.trim(), targetScope.value);
         }
         break;
       case "file":
+        importTotal.value = 1;
+        importCurrent.value = 1;
+        importStatusMessage.value = "Importing file…";
         result = await store.importFile(filePath.value.trim(), targetScope.value);
         break;
       case "github": {
         if (ghPreviews.value.length > 0 && ghSelected.value.size > 0) {
-          // Import selected skills from preview list
+          const paths = [...ghSelected.value];
+          importTotal.value = paths.length;
           let imported = 0;
           const warnings: string[] = [];
-          for (const path of ghSelected.value) {
+          for (let i = 0; i < paths.length; i++) {
+            importCurrent.value = i + 1;
+            const preview = ghPreviews.value.find((p) => p.path === paths[i]);
+            importStatusMessage.value = preview
+              ? `Fetching "${preview.name}" from GitHub (${i + 1} of ${paths.length})…`
+              : `Importing skill ${i + 1} of ${paths.length}…`;
             const r = await store.importGitHubSkill(
               ghOwner.value.trim(),
               ghRepo.value.trim(),
-              path,
+              paths[i],
               ghRef.value || undefined,
               targetScope.value,
             );
@@ -272,13 +296,15 @@ async function doImport() {
             };
           }
         } else {
-          // Fallback: direct import (no preview step)
+          importTotal.value = 1;
+          importCurrent.value = 1;
           parseGhUrl();
+          importStatusMessage.value = "Fetching skill from GitHub…";
           result = await store.importGitHub(
             ghOwner.value.trim(),
             ghRepo.value.trim(),
-            undefined,
-            undefined,
+            ghPath.value.trim() || undefined,
+            ghRef.value.trim() || undefined,
             targetScope.value,
           );
         }
@@ -296,6 +322,9 @@ async function doImport() {
     importError.value = String(e);
   } finally {
     importing.value = false;
+    importStatusMessage.value = "";
+    importCurrent.value = 0;
+    importTotal.value = 0;
   }
 }
 
@@ -593,6 +622,23 @@ function finish() {
 
         <!-- Error -->
         <div v-if="importError" class="wizard__error">{{ importError }}</div>
+
+        <!-- Import progress -->
+        <div v-if="importing" class="import-progress">
+          <div class="import-progress__status">
+            <span class="gh-scan-spinner" aria-hidden="true"></span>
+            <span class="import-progress__message">{{ importStatusMessage }}</span>
+          </div>
+          <div v-if="importTotal > 1" class="import-progress__bar-wrapper">
+            <div class="import-progress__bar">
+              <div
+                class="import-progress__bar-fill"
+                :style="{ width: `${Math.round((importCurrent / importTotal) * 100)}%` }"
+              />
+            </div>
+            <span class="import-progress__count">{{ importCurrent }} / {{ importTotal }}</span>
+          </div>
+        </div>
 
         <!-- Footer: scope + import button -->
         <div class="wizard__footer">
@@ -1250,5 +1296,54 @@ function finish() {
   border: 1px solid var(--border-default);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* ── Import Progress ─────────────────────────────────────── */
+.import-progress {
+  padding: 12px 24px;
+  animation: panelFadeIn 0.2s ease;
+}
+
+.import-progress__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.import-progress__message {
+  font-weight: 500;
+}
+
+.import-progress__bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.import-progress__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--canvas-inset, var(--canvas-subtle));
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+}
+
+.import-progress__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-emphasis);
+  transition: width 0.3s ease;
+}
+
+.import-progress__count {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  white-space: nowrap;
 }
 </style>

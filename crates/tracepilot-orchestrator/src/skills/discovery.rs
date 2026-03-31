@@ -143,20 +143,31 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
     })
 }
 
-/// Count non-SKILL.md files in a directory.
+/// Recursively count non-SKILL.md, non-hidden files in a directory.
 fn count_assets(dir: &Path) -> usize {
-    std::fs::read_dir(dir)
-        .map(|entries| {
-            entries
-                .flatten()
-                .filter(|e| {
-                    let name = e.file_name();
-                    let name_str = name.to_string_lossy();
-                    name_str != "SKILL.md" && !name_str.starts_with('.')
-                })
-                .count()
-        })
-        .unwrap_or(0)
+    count_assets_recursive(dir)
+}
+
+fn count_assets_recursive(dir: &Path) -> usize {
+    let mut count = 0;
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return 0,
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.') {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            count += count_assets_recursive(&path);
+        } else if name_str != "SKILL.md" {
+            count += 1;
+        }
+    }
+    count
 }
 
 #[cfg(test)]
@@ -242,6 +253,47 @@ mod tests {
         std::fs::write(dir.path().join("visible"), "").unwrap();
         // SKILL.md not counted
         std::fs::write(dir.path().join("SKILL.md"), "").unwrap();
+
+        assert_eq!(count_assets(dir.path()), 1);
+    }
+
+    #[test]
+    fn count_assets_counts_nested_files_recursively() {
+        let dir = TempDir::new().unwrap();
+        let skill_dir = dir.path().join("nested-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "---\nname: x\ndescription: y\n---\n").unwrap();
+        std::fs::write(skill_dir.join("top-level.py"), "# top").unwrap();
+
+        // Create nested directories with files
+        let refs_dir = skill_dir.join("references");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("guide.md"), "# guide").unwrap();
+        std::fs::write(refs_dir.join("api.md"), "# api").unwrap();
+
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+        std::fs::write(scripts_dir.join("setup.sh"), "#!/bin/bash").unwrap();
+
+        // Deeply nested
+        let deep_dir = refs_dir.join("examples");
+        std::fs::create_dir_all(&deep_dir).unwrap();
+        std::fs::write(deep_dir.join("example1.py"), "# ex1").unwrap();
+        std::fs::write(deep_dir.join("example2.py"), "# ex2").unwrap();
+
+        // Should count: top-level.py, guide.md, api.md, setup.sh, example1.py, example2.py = 6
+        // Should NOT count: SKILL.md, directories
+        assert_eq!(count_assets(&skill_dir), 6);
+    }
+
+    #[test]
+    fn count_assets_skips_hidden_dirs() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("visible.txt"), "").unwrap();
+
+        let hidden_dir = dir.path().join(".hidden-dir");
+        std::fs::create_dir_all(&hidden_dir).unwrap();
+        std::fs::write(hidden_dir.join("secret.txt"), "").unwrap();
 
         assert_eq!(count_assets(dir.path()), 1);
     }
