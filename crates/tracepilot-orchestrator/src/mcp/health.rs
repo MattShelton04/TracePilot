@@ -29,14 +29,18 @@ pub struct McpHealthResultCached {
     pub tools: Vec<McpTool>,
 }
 
-/// Run health checks for all enabled servers.
+/// Run health checks for all enabled servers concurrently.
 ///
 /// Returns results keyed by server name. Disabled servers get a
-/// `Disabled` status without attempting connection.
+/// `Disabled` status without attempting connection. Enabled servers
+/// are checked in parallel — total latency is bounded by the slowest
+/// single check rather than the sum of all check latencies.
 pub async fn check_all_servers(
     servers: &HashMap<String, McpServerConfig>,
 ) -> HashMap<String, McpHealthResultCached> {
     let mut results = HashMap::new();
+    let mut join_set: tokio::task::JoinSet<(String, McpHealthResultCached)> =
+        tokio::task::JoinSet::new();
 
     for (name, config) in servers {
         if !config.enabled {
@@ -57,8 +61,25 @@ pub async fn check_all_servers(
             continue;
         }
 
-        let cached = check_single_server(name, config).await;
-        results.insert(name.clone(), cached);
+        let name_clone = name.clone();
+        let config_clone = config.clone();
+        join_set.spawn(async move {
+            let cached = check_single_server(&name_clone, &config_clone).await;
+            (name_clone, cached)
+        });
+    }
+
+    while let Some(outcome) = join_set.join_next().await {
+        match outcome {
+            Ok((name, cached)) => {
+                results.insert(name, cached);
+            }
+            Err(e) => {
+                // A task panic is not expected (check_single_server handles all
+                // errors internally), but handle it defensively.
+                tracing::warn!("An MCP health check task panicked unexpectedly: {e}");
+            }
+        }
     }
 
     results
@@ -565,6 +586,21 @@ fn make_error_result(name: &str, start: Instant, error: &str) -> McpHealthResult
 mod tests {
     use super::*;
 
+    fn make_server(enabled: bool) -> McpServerConfig {
+        McpServerConfig {
+            command: Some("echo".into()),
+            args: vec![],
+            env: HashMap::new(),
+            url: None,
+            transport: None,
+            headers: HashMap::new(),
+            tools: vec![],
+            description: None,
+            tags: vec![],
+            enabled,
+        }
+    }
+
     #[test]
     fn disabled_server_returns_disabled_status() {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -574,25 +610,92 @@ mod tests {
 
         rt.block_on(async {
             let mut servers = HashMap::new();
-            servers.insert(
-                "disabled".to_string(),
-                McpServerConfig {
-                    command: Some("echo".into()),
-                    args: vec![],
-                    env: HashMap::new(),
-                    url: None,
-                    transport: None,
-                    headers: HashMap::new(),
-                    tools: vec![],
-                    description: None,
-                    tags: vec![],
-                    enabled: false,
-                },
-            );
+            servers.insert("disabled".to_string(), make_server(false));
 
             let results = check_all_servers(&servers).await;
             let result = results.get("disabled").unwrap();
             assert_eq!(result.result.status, McpHealthStatus::Disabled);
+        });
+    }
+
+    #[test]
+    fn empty_server_map_returns_empty_results() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let servers: HashMap<String, McpServerConfig> = HashMap::new();
+            let results = check_all_servers(&servers).await;
+            assert!(results.is_empty());
+        });
+    }
+
+    #[test]
+    fn all_servers_appear_in_results_for_mixed_map() {
+        // Verifies that every server (disabled or otherwise) produces a result
+        // entry regardless of execution order.
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let mut servers = HashMap::new();
+            servers.insert("alpha".to_string(), make_server(false));
+            servers.insert("beta".to_string(), make_server(false));
+            servers.insert("gamma".to_string(), make_server(false));
+
+            let results = check_all_servers(&servers).await;
+            assert_eq!(results.len(), 3);
+            for name in &["alpha", "beta", "gamma"] {
+                assert!(
+                    results.contains_key(*name),
+                    "missing result for server '{name}'"
+                );
+                assert_eq!(
+                    results[*name].result.status,
+                    McpHealthStatus::Disabled,
+                    "expected Disabled for server '{name}'"
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn concurrent_unreachable_servers_all_produce_results() {
+        // Verifies that multiple enabled-but-unreachable servers are all
+        // checked and each produces an Unreachable result. Uses a multi-thread
+        // runtime so checks run truly in parallel.
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let mut servers = HashMap::new();
+            // These HTTP servers don't exist — each will fail quickly with a
+            // connection error rather than waiting for the full 15s timeout.
+            for i in 1..=3 {
+                let mut cfg = make_server(true);
+                cfg.command = None;
+                cfg.url = Some(format!("http://127.0.0.1:1/mcp-nonexistent-{i}"));
+                cfg.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
+                servers.insert(format!("server-{i}"), cfg);
+            }
+
+            let results = check_all_servers(&servers).await;
+            assert_eq!(results.len(), 3, "all 3 servers must produce results");
+            for i in 1..=3 {
+                let name = format!("server-{i}");
+                let r = results.get(&name).expect("missing result");
+                assert_eq!(
+                    r.result.status,
+                    McpHealthStatus::Unreachable,
+                    "server {name} should be Unreachable"
+                );
+            }
         });
     }
 
