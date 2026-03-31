@@ -101,6 +101,88 @@ pub fn run_hidden_stdout(program: &str, args: &[&str], cwd: Option<&Path>) -> Re
     }
 }
 
+/// Run a hidden command with a wall-clock timeout, returning trimmed stdout.
+///
+/// If the process does not complete within `timeout_secs` seconds it is killed
+/// and an error is returned. This prevents commands like `gh api` from blocking
+/// indefinitely on large repositories or slow network connections.
+pub fn run_hidden_stdout_timeout(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout_secs: u64,
+) -> Result<String> {
+    use std::io::Read;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    let mut cmd = Command::new(program);
+    cmd.args(args);
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    cmd.stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))?;
+
+    // Take the pipe handles before wrapping the child so the thread owns them.
+    let mut stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let mut stderr_pipe = child.stderr.take().expect("stderr was piped");
+
+    // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
+    let child_shared = Arc::new(Mutex::new(child));
+    let child_for_thread = Arc::clone(&child_shared);
+
+    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<
+        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
+        OrchestratorError,
+    >>();
+
+    std::thread::spawn(move || {
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        let _ = stdout_pipe.read_to_end(&mut stdout_buf);
+        let _ = stderr_pipe.read_to_end(&mut stderr_buf);
+        let result = child_for_thread
+            .lock()
+            .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
+            .and_then(|mut c| {
+                c.wait()
+                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
+            })
+            .map(|status| (stdout_buf, stderr_buf, status));
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
+        Ok(Ok((stdout, stderr, status))) => {
+            if status.success() {
+                Ok(String::from_utf8_lossy(&stdout).trim().to_string())
+            } else {
+                let stderr_str = String::from_utf8_lossy(&stderr).trim().to_string();
+                Err(OrchestratorError::Launch(format!(
+                    "{program} failed (exit {}): {stderr_str}",
+                    status.code().unwrap_or(-1)
+                )))
+            }
+        }
+        Ok(Err(e)) => Err(e),
+        Err(_) => {
+            let _ = child_shared.lock().map(|mut c| c.kill());
+            Err(OrchestratorError::Launch(format!(
+                "GitHub API call timed out after {timeout_secs}s. \
+                 Check your internet connection and try again."
+            )))
+        }
+    }
+}
+
 // ─── Detached terminal spawning (user-facing) ───────────────────────
 
 /// Spawn a process in a new visible terminal window, detached from the

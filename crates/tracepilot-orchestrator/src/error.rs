@@ -24,6 +24,10 @@ pub enum OrchestratorError {
     Worktree(String),
     #[error("Registry error: {0}")]
     Registry(String),
+    #[error(transparent)]
+    Mcp(#[from] crate::mcp::McpError),
+    #[error(transparent)]
+    Skills(#[from] crate::skills::SkillsError),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
