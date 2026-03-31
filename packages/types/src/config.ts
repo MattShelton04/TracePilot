@@ -54,6 +54,8 @@ export interface TracePilotConfig {
     healthScoring: boolean;
     sessionReplay: boolean;
     renderMarkdown: boolean;
+    mcpServers: boolean;
+    skills: boolean;
   };
   logging: {
     level: string;

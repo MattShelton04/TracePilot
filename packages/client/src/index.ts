@@ -571,4 +571,6 @@ export async function exportLogs(destination: string): Promise<string> {
 
 // Re-export orchestration module
 export * from "./orchestration.js";
+export * from "./mcp.js";
+export * from "./skills.js";
 export type { SessionHealth };
