@@ -80,17 +80,18 @@ export const useWorktreesStore = defineStore("worktrees", () => {
 
   function hydrateDiskUsageBatch(items: WorktreeInfo[], guardToken?: number) {
     for (const wt of items) {
-      getWorktreeDiskUsage(wt.path)
-        .then((bytes) => {
+      void (async () => {
+        try {
+          const bytes = await getWorktreeDiskUsage(wt.path);
           if (guardToken != null && !loadGuard.isValid(guardToken)) return;
           const idx = worktrees.value.findIndex((w) => w.path === wt.path);
           if (idx >= 0) {
             worktrees.value[idx] = { ...worktrees.value[idx], diskUsageBytes: bytes };
           }
-        })
-        .catch((e) => {
+        } catch (e) {
           logWarn("[worktrees] Failed to hydrate disk usage", { path: wt.path, error: e });
-        });
+        }
+      })();
     }
   }
 
