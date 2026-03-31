@@ -1,14 +1,95 @@
 //! Skill import operations — from local paths, GitHub repos, and files.
+//!
+//! All import functions use [`atomic_dir_install`] to stage files in a temporary
+//! directory before atomically renaming to the final destination. This prevents
+//! partial/corrupted skill directories when file operations fail mid-import.
 
 use crate::github::TreeEntry;
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
 use crate::skills::types::{GitHubSkillPreview, LocalSkillPreview, RepoSkillsResult, SkillImportResult};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+// ── Atomic directory install ────────────────────────────────────────────────
+
+/// Stage skill files in a temporary directory, then atomically move to the
+/// final destination. On failure the staging directory is removed and no
+/// partial state is left on disk.
+///
+/// The closure receives the staging directory path and returns an arbitrary
+/// value `T` on success (e.g. file count, warnings) which is forwarded to
+/// the caller alongside the final installed path.
+///
+/// # Platform notes
+///
+/// `std::fs::rename` is atomic for directories on the same filesystem
+/// (POSIX `rename(2)`). The staging directory is always created as a sibling
+/// of the final destination, guaranteeing same-filesystem operation. On
+/// Windows, `MoveFileExW` is used — it is not strictly atomic but is safe
+/// for a just-created staging directory that no other process references.
+fn atomic_dir_install<T, F>(
+    dest_parent: &Path,
+    skill_name: &str,
+    populate: F,
+) -> Result<(PathBuf, T), SkillsError>
+where
+    F: FnOnce(&Path) -> Result<T, SkillsError>,
+{
+    let final_dir = dest_parent.join(skill_name);
+    if final_dir.exists() {
+        return Err(SkillsError::DuplicateSkill(skill_name.to_string()));
+    }
+
+    // Build a unique staging name: PID + millisecond timestamp avoids
+    // collisions across concurrent imports and process restarts.
+    let staging_name = format!(
+        ".tmp-import-{}-{}-{}",
+        skill_name,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+    let staging_dir = dest_parent.join(&staging_name);
+
+    // Remove any stale staging dir left by a previous crash.
+    if staging_dir.exists() {
+        let _ = std::fs::remove_dir_all(&staging_dir);
+    }
+    std::fs::create_dir_all(&staging_dir)?;
+
+    match populate(&staging_dir) {
+        Ok(value) => {
+            std::fs::rename(&staging_dir, &final_dir).map_err(|e| {
+                // Best-effort cleanup of the staging directory.
+                let _ = std::fs::remove_dir_all(&staging_dir);
+                // If the final directory appeared between our exists() check
+                // and the rename (TOCTOU race), report as duplicate.
+                if final_dir.exists() {
+                    SkillsError::DuplicateSkill(skill_name.to_string())
+                } else {
+                    SkillsError::Io(format!(
+                        "Failed to finalize import of '{}': {e}",
+                        skill_name
+                    ))
+                }
+            })?;
+            Ok((final_dir, value))
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&staging_dir);
+            Err(e)
+        }
+    }
+}
+
+// ── Public import functions ─────────────────────────────────────────────────
 
 /// Import a skill from a local directory.
 ///
 /// Copies the entire directory contents to the global skills folder.
+/// Uses atomic staging to prevent partial state on failure.
 pub fn import_from_local(source_dir: &Path, dest_parent: &Path) -> Result<SkillImportResult, SkillsError> {
     let skill_md = source_dir.join("SKILL.md");
     if !skill_md.exists() {
@@ -22,16 +103,13 @@ pub fn import_from_local(source_dir: &Path, dest_parent: &Path) -> Result<SkillI
     let content = std::fs::read_to_string(&skill_md)?;
     let (fm, _) = parse_skill_md(&content)?;
 
-    let dest_dir = dest_parent.join(&fm.name);
-    if dest_dir.exists() {
-        return Err(SkillsError::DuplicateSkill(fm.name.clone()));
-    }
-
-    let files_copied = copy_dir_contents(source_dir, &dest_dir)?;
+    let (final_dir, files_copied) = atomic_dir_install(dest_parent, &fm.name, |staging| {
+        copy_dir_contents(source_dir, staging)
+    })?;
 
     Ok(SkillImportResult {
         skill_name: fm.name,
-        destination: dest_dir.to_string_lossy().to_string(),
+        destination: final_dir.to_string_lossy().to_string(),
         warnings: vec![],
         files_copied,
     })
@@ -40,21 +118,19 @@ pub fn import_from_local(source_dir: &Path, dest_parent: &Path) -> Result<SkillI
 /// Import a skill from a SKILL.md file (single file import).
 ///
 /// Creates a new skill directory with just the SKILL.md file.
+/// Uses atomic staging to prevent partial state on failure.
 pub fn import_from_file(file_path: &Path, dest_parent: &Path) -> Result<SkillImportResult, SkillsError> {
     let content = std::fs::read_to_string(file_path)?;
     let (fm, _) = parse_skill_md(&content)?;
 
-    let dest_dir = dest_parent.join(&fm.name);
-    if dest_dir.exists() {
-        return Err(SkillsError::DuplicateSkill(fm.name.clone()));
-    }
-
-    std::fs::create_dir_all(&dest_dir)?;
-    std::fs::write(dest_dir.join("SKILL.md"), &content)?;
+    let (final_dir, _) = atomic_dir_install(dest_parent, &fm.name, |staging| {
+        std::fs::write(staging.join("SKILL.md"), &content)?;
+        Ok(())
+    })?;
 
     Ok(SkillImportResult {
         skill_name: fm.name,
-        destination: dest_dir.to_string_lossy().to_string(),
+        destination: final_dir.to_string_lossy().to_string(),
         warnings: vec![],
         files_copied: 1,
     })
@@ -138,6 +214,7 @@ pub fn import_from_github(
 }
 
 /// Import a skill from a specific path within a GitHub repository.
+/// Uses atomic staging to prevent partial state on failure.
 pub(crate) fn import_from_github_path(
     owner: &str,
     repo: &str,
@@ -160,64 +237,75 @@ pub(crate) fn import_from_github_path(
 
     let (fm, _) = parse_skill_md(&content)?;
 
-    let dest_dir = dest_parent.join(&fm.name);
-    if dest_dir.exists() {
-        return Err(SkillsError::DuplicateSkill(fm.name.clone()));
-    }
-    std::fs::create_dir_all(&dest_dir)?;
-    std::fs::write(dest_dir.join("SKILL.md"), &content)?;
+    let (final_dir, (files_copied, warnings)) =
+        atomic_dir_install(dest_parent, &fm.name, |staging| {
+            std::fs::write(staging.join("SKILL.md"), &content)?;
+            let mut files_copied = 1usize;
+            let mut warnings = Vec::new();
 
-    let mut files_copied = 1;
-    let mut warnings = Vec::new();
+            // Fetch all additional files in the skill directory recursively so
+            // references/, scripts/, templates/, etc. are preserved during import.
+            match crate::github::gh_list_tree(owner, repo, ref_) {
+                Ok(entries) => {
+                    let prefix = skill_path_prefix(base_path);
+                    let asset_paths: Vec<String> =
+                        collect_skill_blob_paths(&entries, base_path)
+                            .into_iter()
+                            .filter(|path| path != &skill_md_path)
+                            .collect();
+                    let path_refs: Vec<&str> =
+                        asset_paths.iter().map(String::as_str).collect();
+                    let contents =
+                        crate::github::gh_get_files_batch_with_binary(
+                            owner, repo, &path_refs, ref_,
+                        )
+                        .map_err(|e| {
+                            SkillsError::GitHub(format!(
+                                "Failed to fetch skill files: {e}"
+                            ))
+                        })?;
 
-    // Fetch all additional files in the skill directory recursively so references/,
-    // scripts/, templates/, etc. are preserved during import.
-    match crate::github::gh_list_tree(owner, repo, ref_) {
-        Ok(entries) => {
-            let prefix = skill_path_prefix(base_path);
-            let asset_paths: Vec<String> = collect_skill_blob_paths(&entries, base_path)
-                .into_iter()
-                .filter(|path| path != &skill_md_path)
-                .collect();
-            let path_refs: Vec<&str> = asset_paths.iter().map(String::as_str).collect();
-            let contents = crate::github::gh_get_files_batch_with_binary(owner, repo, &path_refs, ref_)
-                .map_err(|e| SkillsError::GitHub(format!("Failed to fetch skill files: {e}")))?;
-
-            for repo_path in asset_paths {
-                let relative = if prefix.is_empty() {
-                    repo_path.as_str()
-                } else {
-                    &repo_path[prefix.len()..]
-                };
-                match contents.get(&repo_path).and_then(|file| {
-                    file.bytes
-                        .as_ref()
-                        .cloned()
-                        .or_else(|| file.text.as_ref().map(|text| text.as_bytes().to_vec()))
-                }) {
-                    Some(file_content) => {
-                        let dest_path = dest_dir.join(relative);
-                        if let Some(parent) = dest_path.parent() {
-                            std::fs::create_dir_all(parent)?;
+                    for repo_path in asset_paths {
+                        let relative = if prefix.is_empty() {
+                            repo_path.as_str()
+                        } else {
+                            &repo_path[prefix.len()..]
+                        };
+                        match contents.get(&repo_path).and_then(|file| {
+                            file.bytes.as_ref().cloned().or_else(|| {
+                                file.text
+                                    .as_ref()
+                                    .map(|text| text.as_bytes().to_vec())
+                            })
+                        }) {
+                            Some(file_content) => {
+                                let dest_path = staging.join(relative);
+                                if let Some(parent) = dest_path.parent() {
+                                    std::fs::create_dir_all(parent)?;
+                                }
+                                std::fs::write(dest_path, file_content)?;
+                                files_copied += 1;
+                            }
+                            None => warnings.push(format!(
+                                "Failed to fetch {}: file was inaccessible or empty",
+                                relative
+                            )),
                         }
-                        std::fs::write(dest_path, file_content)?;
-                        files_copied += 1;
                     }
-                    None => warnings.push(format!(
-                        "Failed to fetch {}: file was inaccessible or empty",
-                        relative
-                    )),
+                }
+                Err(e) => {
+                    warnings.push(format!(
+                        "Could not list repo tree: {e}. Only SKILL.md was imported."
+                    ));
                 }
             }
-        }
-        Err(e) => {
-            warnings.push(format!("Could not list repo tree: {e}. Only SKILL.md was imported."));
-        }
-    }
+
+            Ok((files_copied, warnings))
+        })?;
 
     Ok(SkillImportResult {
         skill_name: fm.name,
-        destination: dest_dir.to_string_lossy().to_string(),
+        destination: final_dir.to_string_lossy().to_string(),
         warnings,
         files_copied,
     })
@@ -815,5 +903,122 @@ mod tests {
         std::fs::write(dir.path().join("sub").join("c.txt"), "c").unwrap();
 
         assert_eq!(count_files_recursive(dir.path()), 3);
+    }
+
+    // ── Atomic import tests ─────────────────────────────────────────────
+
+    #[test]
+    fn atomic_dir_install_succeeds_and_leaves_no_staging() {
+        let dest = TempDir::new().unwrap();
+
+        let (final_dir, value) = atomic_dir_install(dest.path(), "my-skill", |staging| {
+            std::fs::write(staging.join("SKILL.md"), "test")?;
+            Ok(42usize)
+        })
+        .unwrap();
+
+        assert_eq!(value, 42);
+        assert!(final_dir.join("SKILL.md").exists());
+        // No leftover .tmp-import-* directories
+        for entry in std::fs::read_dir(dest.path()).unwrap() {
+            let name = entry.unwrap().file_name();
+            assert!(
+                !name.to_string_lossy().starts_with(".tmp-import-"),
+                "staging dir should be removed after success"
+            );
+        }
+    }
+
+    #[test]
+    fn atomic_dir_install_cleans_up_on_closure_failure() {
+        let dest = TempDir::new().unwrap();
+
+        let result = atomic_dir_install(dest.path(), "broken-skill", |staging| {
+            // Write a partial file then fail
+            std::fs::write(staging.join("SKILL.md"), "partial")?;
+            Err::<(), _>(SkillsError::Import("simulated failure".to_string()))
+        });
+
+        assert!(result.is_err());
+        // Final destination should NOT exist
+        assert!(!dest.path().join("broken-skill").exists());
+        // No staging directory should remain
+        for entry in std::fs::read_dir(dest.path()).unwrap() {
+            let name = entry.unwrap().file_name();
+            assert!(
+                !name.to_string_lossy().starts_with(".tmp-import-"),
+                "staging dir should be cleaned up on failure"
+            );
+        }
+    }
+
+    #[test]
+    fn atomic_dir_install_returns_duplicate_when_dest_exists() {
+        let dest = TempDir::new().unwrap();
+        std::fs::create_dir_all(dest.path().join("existing-skill")).unwrap();
+
+        let result = atomic_dir_install(dest.path(), "existing-skill", |_staging| Ok(()));
+
+        match result {
+            Err(SkillsError::DuplicateSkill(name)) => assert_eq!(name, "existing-skill"),
+            other => panic!("Expected DuplicateSkill, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn import_from_local_no_partial_state_on_unreadable_source() {
+        let src = TempDir::new().unwrap();
+        let dst = TempDir::new().unwrap();
+
+        write_test_skill(src.path());
+        // Create a subdirectory that will fail to copy due to permissions
+        let bad_dir = src.path().join("sub");
+        std::fs::create_dir(&bad_dir).unwrap();
+        std::fs::write(bad_dir.join("file.txt"), "data").unwrap();
+
+        // Make the subdirectory unreadable (Unix only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&bad_dir, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+            let result = import_from_local(src.path(), dst.path());
+            assert!(result.is_err(), "Should fail when source is unreadable");
+
+            // The destination directory should NOT exist (no partial state)
+            assert!(
+                !dst.path().join("test-import").exists(),
+                "No partial state should remain after failed import"
+            );
+
+            // No staging directories should remain
+            for entry in std::fs::read_dir(dst.path()).unwrap() {
+                let name = entry.unwrap().file_name();
+                assert!(
+                    !name.to_string_lossy().starts_with(".tmp-import-"),
+                    "staging dir should be cleaned up on failure"
+                );
+            }
+
+            // Restore permissions for cleanup
+            std::fs::set_permissions(&bad_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+
+    #[test]
+    fn import_from_file_no_partial_state_on_failure() {
+        let src = TempDir::new().unwrap();
+        let dst = TempDir::new().unwrap();
+
+        // Write a file with invalid frontmatter
+        let file_path = src.path().join("bad.md");
+        std::fs::write(&file_path, "not valid yaml frontmatter at all").unwrap();
+
+        let result = import_from_file(&file_path, dst.path());
+        assert!(result.is_err());
+
+        // No directories should be created at all (frontmatter parse fails before staging)
+        let entries: Vec<_> = std::fs::read_dir(dst.path()).unwrap().collect();
+        assert!(entries.is_empty(), "No files should remain after failed import");
     }
 }
