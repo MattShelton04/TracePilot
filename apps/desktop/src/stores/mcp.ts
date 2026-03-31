@@ -47,9 +47,7 @@ export const useMcpStore = defineStore("mcp", () => {
     [...serverList.value].sort((a, b) => a.name.localeCompare(b.name)),
   );
 
-  const enabledServers = computed<McpServerDetail[]>(() =>
-    serverList.value.filter((s) => s.config.enabled),
-  );
+  const enabledServers = computed<McpServerDetail[]>(() => serverList.value);
 
   const filteredServers = computed<McpServerDetail[]>(() => {
     let list = sortedServers.value;
@@ -74,13 +72,12 @@ export const useMcpStore = defineStore("mcp", () => {
 
   const summary = computed<McpSummary>(() => {
     const all = serverList.value;
-    const enabled = all.filter((s) => s.config.enabled);
     const healthy = all.filter((s) => s.health?.status === "healthy");
     const totalTools = all.reduce((sum, s) => sum + s.tools.length, 0);
     const totalTokens = all.reduce((sum, s) => sum + s.totalTokens, 0);
     return {
       totalServers: all.length,
-      enabledServers: enabled.length,
+      enabledServers: all.length,
       healthyServers: healthy.length,
       totalTools,
       totalTokens,

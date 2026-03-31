@@ -29,15 +29,11 @@ const searchInput = computed({
 /* Stats */
 const statsInstalled = computed(() => store.summary.totalServers);
 const statsActive = computed(() => store.summary.healthyServers);
-const statsPaused = computed(
-  () => store.serverList.filter((s) => !s.config.enabled).length,
-);
 const statsError = computed(
   () =>
     store.serverList.filter(
       (s) =>
-        s.config.enabled &&
-        (s.health?.status === "unreachable" || s.health?.status === "degraded"),
+        s.health?.status === "unreachable" || s.health?.status === "degraded",
     ).length,
 );
 
@@ -129,8 +125,6 @@ async function handleImport() {
       <span class="stat-chip"><span class="stat-dot installed" />{{ statsInstalled }} Installed</span>
       <span class="stat-sep">·</span>
       <span class="stat-chip"><span class="stat-dot active" />{{ statsActive }} Active</span>
-      <span class="stat-sep">·</span>
-      <span class="stat-chip"><span class="stat-dot paused" />{{ statsPaused }} Paused</span>
       <span class="stat-sep">·</span>
       <span class="stat-chip"><span class="stat-dot error" />{{ statsError }} Error</span>
     </div>

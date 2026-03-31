@@ -26,13 +26,9 @@ const editConfig = ref<McpServerConfig>({} as McpServerConfig);
 
 const server = computed(() => store.getServerDetail(serverName.value));
 
-const healthStatus = computed(() => {
-  if (!server.value?.config.enabled) return "disabled" as const;
-  return server.value?.health?.status ?? ("unknown" as const);
-});
+const healthStatus = computed(() => server.value?.health?.status ?? ("unknown" as const));
 
 const statusText = computed(() => {
-  if (!server.value?.config.enabled) return "Paused";
   const s = server.value?.health?.status;
   if (s === "healthy") return "Connected";
   if (s === "unreachable") return "Error";
@@ -41,7 +37,6 @@ const statusText = computed(() => {
 });
 
 const statusColor = computed(() => {
-  if (!server.value?.config.enabled) return "warning";
   const s = server.value?.health?.status;
   if (s === "healthy") return "success";
   if (s === "unreachable" || s === "degraded") return "danger";
@@ -49,7 +44,6 @@ const statusColor = computed(() => {
 });
 
 const statusDotClass = computed(() => {
-  if (!server.value?.config.enabled) return "dot-paused";
   const s = server.value?.health?.status;
   if (s === "healthy") return "dot-connected";
   if (s === "unreachable" || s === "degraded") return "dot-error";

@@ -19,20 +19,15 @@ const iconLetter = computed(() => props.server.name.charAt(0).toUpperCase());
 
 const transportLabel = computed(() => props.server.config.type ?? props.server.config.transport ?? "stdio");
 
-const healthStatus = computed(() => {
-  if (!props.server.config.enabled) return "disabled" as const;
-  return props.server.health?.status ?? ("unknown" as const);
-});
+const healthStatus = computed(() => props.server.health?.status ?? ("unknown" as const));
 
 const cardStatusClass = computed(() => {
-  if (!props.server.config.enabled) return "status-paused";
   const s = props.server.health?.status;
   if (s === "unreachable" || s === "degraded") return "status-error";
   return "status-active";
 });
 
 const statusText = computed(() => {
-  if (!props.server.config.enabled) return "Paused";
   const s = props.server.health?.status;
   if (s === "healthy") return "Active";
   if (s === "unreachable") return "Error";
@@ -41,7 +36,6 @@ const statusText = computed(() => {
 });
 
 const statusDotClass = computed(() => {
-  if (!props.server.config.enabled) return "dot-paused";
   const s = props.server.health?.status;
   if (s === "unreachable" || s === "degraded") return "dot-error";
   return "dot-active";
@@ -60,19 +54,17 @@ const description = computed(() => {
   return props.server.config.description ?? "";
 });
 
-const toggleLabel = computed(() => {
-  if (!props.server.config.enabled) return "Paused";
-  const s = props.server.health?.status;
-  if (s === "unreachable" || s === "degraded") return "Retry";
-  return "Active";
-});
+/**
+ * MCP enable/disable is temporarily locked. Copilot CLI treats all configured
+ * servers as enabled; exposing a toggle here would be misleading.
+ */
+const mcpToggleDisabledTooltip =
+  "TracePilot cannot currently enable/disable MCP servers. " +
+  "All configured servers are active by default in Copilot CLI.";
 
-const toggleClass = computed(() => {
-  if (!props.server.config.enabled) return "toggle-paused";
-  const s = props.server.health?.status;
-  if (s === "unreachable" || s === "degraded") return "";
-  return "toggle-active";
-});
+const toggleLabel = computed(() => "Enabled");
+
+const toggleClass = computed(() => "toggle-active toggle-disabled");
 
 function navigateToDetail() {
   router.push({ name: "mcp-server-detail", params: { name: props.server.name } });
@@ -134,11 +126,11 @@ function handleConfigure(event: Event) {
       <button
         class="action-btn"
         :class="toggleClass"
-        :title="server.config.enabled ? 'Click to pause' : 'Click to resume'"
+        :title="mcpToggleDisabledTooltip"
+        disabled
         @click="handleToggle"
       >
-        <svg v-if="server.config.enabled" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
-        <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="5"/><rect x="6" y="5.5" width="1.5" height="5" rx="0.5" fill="currentColor"/><rect x="8.5" y="5.5" width="1.5" height="5" rx="0.5" fill="currentColor"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
         {{ toggleLabel }}
       </button>
       <span class="action-spacer" />
@@ -407,6 +399,17 @@ function handleConfigure(event: Event) {
   background: var(--warning-subtle);
   color: var(--warning-fg);
   border-color: rgba(251, 191, 36, 0.2);
+}
+
+.action-btn.toggle-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: auto; /* allow tooltip on hover */
+}
+
+.action-btn.toggle-disabled:hover {
+  background: none;
+  border-color: transparent;
 }
 
 .action-btn.danger:hover {

@@ -735,7 +735,7 @@ describe("useMcpStore", () => {
 
       const s = store.summary;
       expect(s.totalServers).toBe(2);
-      expect(s.enabledServers).toBe(1); // only "filesystem" is enabled
+      expect(s.enabledServers).toBe(2); // all configured servers are treated as enabled in the UI
       expect(s.healthyServers).toBe(1); // only "filesystem" has healthy status
       expect(s.totalTools).toBe(2); // filesystem has 2 tools, github has 0
       expect(s.totalTokens).toBe(350); // 150 + 200
@@ -797,12 +797,13 @@ describe("useMcpStore", () => {
 
   // ── enabledServers (computed) ──────────────────────────────
   describe("enabledServers", () => {
-    it("returns only servers with enabled config", () => {
+    it("returns all configured servers for the current UI model", () => {
       const store = useMcpStore();
       seedStore(store);
 
-      expect(store.enabledServers).toHaveLength(1);
+      expect(store.enabledServers).toHaveLength(2);
       expect(store.enabledServers[0].name).toBe("filesystem");
+      expect(store.enabledServers[1].name).toBe("github");
     });
   });
 

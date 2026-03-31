@@ -50,6 +50,12 @@ struct GhContentResponse {
     content: String,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct GitHubFileContent {
+    pub text: Option<String>,
+    pub bytes: Option<Vec<u8>>,
+}
+
 /// Check if the `gh` CLI is installed and authenticated.
 ///
 /// Uses `gh auth status` and parses the output. Returns `authenticated: false`
@@ -110,6 +116,13 @@ pub fn gh_check_auth() -> Result<()> {
 /// Uses the GitHub Contents API via `gh api` with a 15-second timeout.
 /// The content is returned base64-encoded by the API and decoded here.
 pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<String> {
+    let bytes = gh_get_file_bytes(owner, repo, path, ref_)?;
+    String::from_utf8(bytes)
+        .map_err(|e| OrchestratorError::Launch(format!("File content is not valid UTF-8: {e}")))
+}
+
+/// Fetch the contents of a single file from a GitHub repository as raw bytes.
+pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<Vec<u8>> {
     let api_path = format!("/repos/{owner}/{repo}/contents/{path}?ref={ref_}");
     let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
 
@@ -119,12 +132,9 @@ pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<St
 
     // GitHub returns base64-encoded content (with newlines)
     let cleaned = response.content.replace('\n', "");
-    let bytes = base64_decode(&cleaned).map_err(|e| {
+    base64_decode(&cleaned).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to decode base64 content: {e}"))
-    })?;
-
-    String::from_utf8(bytes)
-        .map_err(|e| OrchestratorError::Launch(format!("File content is not valid UTF-8: {e}")))
+    })
 }
 
 /// List the file tree of a GitHub repository at a given ref.
@@ -215,6 +225,52 @@ pub fn gh_get_files_batch(
     Ok(all_results)
 }
 
+/// Fetch multiple files from a GitHub repo, preserving both text and binary content.
+///
+/// Text files are fetched in GraphQL batches for performance. Any paths not returned by
+/// GraphQL are then fetched individually via the Contents API so binary assets like fonts
+/// and images still import correctly.
+pub fn gh_get_files_batch_with_binary(
+    owner: &str,
+    repo: &str,
+    paths: &[&str],
+    git_ref: &str,
+) -> Result<HashMap<String, GitHubFileContent>> {
+    if paths.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let text_results = gh_get_files_batch(owner, repo, paths, git_ref)?;
+    let mut results: HashMap<String, GitHubFileContent> = text_results
+        .into_iter()
+        .map(|(path, text)| {
+            (
+                path,
+                GitHubFileContent {
+                    text: Some(text),
+                    bytes: None,
+                },
+            )
+        })
+        .collect();
+
+    for path in paths {
+        if results.contains_key(*path) {
+            continue;
+        }
+        let bytes = gh_get_file_bytes(owner, repo, path, git_ref)?;
+        results.insert(
+            (*path).to_string(),
+            GitHubFileContent {
+                text: String::from_utf8(bytes.clone()).ok(),
+                bytes: Some(bytes),
+            },
+        );
+    }
+
+    Ok(results)
+}
+
 /// Minimal base64 decoder (avoids adding a crate dependency).
 fn base64_decode(input: &str) -> std::result::Result<Vec<u8>, String> {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -283,5 +339,12 @@ mod tests {
         let info = gh_auth_status();
         // Don't assert specific values — just verify it doesn't crash
         assert!(info.is_ok());
+    }
+
+    #[test]
+    fn github_file_content_defaults_empty() {
+        let content = GitHubFileContent::default();
+        assert!(content.text.is_none());
+        assert!(content.bytes.is_none());
     }
 }

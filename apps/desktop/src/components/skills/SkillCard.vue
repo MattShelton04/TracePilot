@@ -13,6 +13,8 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const disableTooltip =
+  "TracePilot cannot currently disable Copilot skills. Remove the skill directory or use session-level disabledSkills elsewhere.";
 
 function navigateToEditor() {
   router.push({
@@ -81,10 +83,12 @@ function formatTokens(n: number): string {
         <input
           type="checkbox"
           :checked="skill.enabled"
+          :disabled="true"
+          :title="disableTooltip"
           @change="onToggle($event)"
         />
         <span class="toggle-track" />
-        <span class="toggle-label">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
+        <span class="toggle-label" :title="disableTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
       </label>
 
       <div class="card-hover-actions">
@@ -277,7 +281,7 @@ function formatTokens(n: number): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
+  cursor: not-allowed;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
@@ -331,6 +335,14 @@ function formatTokens(n: number): string {
 
 .toggle-switch input:checked ~ .toggle-label {
   color: var(--accent-fg);
+}
+
+.toggle-switch input:disabled + .toggle-track {
+  opacity: 0.72;
+}
+
+.toggle-switch input:disabled ~ .toggle-label {
+  opacity: 0.9;
 }
 
 /* Hover action buttons */

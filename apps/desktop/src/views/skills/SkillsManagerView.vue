@@ -55,10 +55,6 @@ function handleImported(_result: SkillImportResult) {
   showImportWizard.value = false;
 }
 
-function handleToggleEnabled(_dir: string, _enabled: boolean) {
-  // TODO: Wire up enable/disable when backend supports it
-}
-
 function handleDeleteSkill(dir: string) {
   store.deleteSkill(dir);
 }
@@ -177,7 +173,6 @@ function handleDeleteSkill(dir: string) {
           v-for="skill in store.filteredSkills"
           :key="skill.directory"
           :skill="skill"
-          @toggle-enabled="handleToggleEnabled"
           @delete="handleDeleteSkill"
         />
       </div>
