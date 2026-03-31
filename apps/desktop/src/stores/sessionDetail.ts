@@ -627,25 +627,27 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     if (sections.has("turns")) {
       promises.push(
         (async () => {
-          // Freshness check: skip full turn fetch if events.jsonl hasn't changed
           try {
-            const freshness = await checkSessionFreshness(id);
-            if (!sessionGuard.isValid(token)) return;
-            if (freshness.eventsFileSize === lastEventsFileSize) return;
-          } catch {
-            // Freshness check failed — fall through to full fetch
-          }
+            // Freshness check: skip full turn fetch if events.jsonl hasn't changed
+            try {
+              const freshness = await checkSessionFreshness(id);
+              if (!sessionGuard.isValid(token)) return;
+              if (freshness.eventsFileSize === lastEventsFileSize) return;
+            } catch {
+              // Freshness check failed — fall through to full fetch
+            }
 
-          const result = await getSessionTurns(id);
-          if (!sessionGuard.isValid(token)) return;
-          mergeTurns(result.turns);
-          turnsError.value = null;
-          lastEventsFileSize = result.eventsFileSize;
-        })().catch((e) => {
-          if (!sessionGuard.isValid(token)) return;
-          turnsError.value = toErrorMessage(e);
-          logError("[sessionDetail] Failed to refresh turns:", e);
-        }),
+            const result = await getSessionTurns(id);
+            if (!sessionGuard.isValid(token)) return;
+            mergeTurns(result.turns);
+            turnsError.value = null;
+            lastEventsFileSize = result.eventsFileSize;
+          } catch (e) {
+            if (!sessionGuard.isValid(token)) return;
+            turnsError.value = toErrorMessage(e);
+            logError("[sessionDetail] Failed to refresh turns:", e);
+          }
+        })(),
       );
     }
 
