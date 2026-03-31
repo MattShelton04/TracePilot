@@ -45,4 +45,5 @@ desktop.ini
 .playwright-cli/
 
 # Agent planning artifacts
-.agent/node_modules/
+.agent/
+package-lock.json
