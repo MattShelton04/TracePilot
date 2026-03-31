@@ -13,8 +13,10 @@ use std::path::{Path, PathBuf};
 // ── Atomic directory install ────────────────────────────────────────────────
 
 /// Stage skill files in a temporary directory, then atomically move to the
-/// final destination. On failure the staging directory is removed and no
-/// partial state is left on disk.
+/// final destination. On failure the staging directory is removed so no
+/// partial state is left on disk (best-effort cleanup — a process crash
+/// between `create_dir` and the cleanup path may leave a `.tmp-import-*`
+/// directory that is harmless and can be removed manually).
 ///
 /// The closure receives the staging directory path and returns an arbitrary
 /// value `T` on success (e.g. file count, warnings) which is forwarded to
@@ -40,24 +42,19 @@ where
         return Err(SkillsError::DuplicateSkill(skill_name.to_string()));
     }
 
-    // Build a unique staging name: PID + millisecond timestamp avoids
-    // collisions across concurrent imports and process restarts.
-    let staging_name = format!(
-        ".tmp-import-{}-{}-{}",
-        skill_name,
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis()
-    );
+    // Build a unique staging name using a UUID to prevent collisions
+    // across concurrent imports within the same process.
+    let staging_name = format!(".tmp-import-{}", uuid::Uuid::new_v4());
     let staging_dir = dest_parent.join(&staging_name);
 
-    // Remove any stale staging dir left by a previous crash.
-    if staging_dir.exists() {
-        let _ = std::fs::remove_dir_all(&staging_dir);
-    }
-    std::fs::create_dir_all(&staging_dir)?;
+    // Use create_dir (not create_dir_all) so a collision is detected as
+    // an error rather than silently sharing a directory.
+    std::fs::create_dir(&staging_dir).map_err(|e| {
+        SkillsError::Io(format!(
+            "Failed to create staging directory for '{}': {e}",
+            skill_name
+        ))
+    })?;
 
     match populate(&staging_dir) {
         Ok(value) => {
@@ -271,6 +268,14 @@ pub(crate) fn import_from_github_path(
                         } else {
                             &repo_path[prefix.len()..]
                         };
+                        // Guard against path traversal from crafted tree entries.
+                        if relative.contains("..") || Path::new(relative).is_absolute() {
+                            warnings.push(format!(
+                                "Skipped '{}': unsafe path component",
+                                relative
+                            ));
+                            continue;
+                        }
                         match contents.get(&repo_path).and_then(|file| {
                             file.bytes.as_ref().cloned().or_else(|| {
                                 file.text
