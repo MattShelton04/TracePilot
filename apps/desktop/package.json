@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/desktop",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "TracePilot desktop application — Tauri + Vue",
   "author": "Matt Shelton (@MattShelton04)",

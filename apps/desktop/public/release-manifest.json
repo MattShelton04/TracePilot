@@ -1,6 +1,23 @@
 {
   "versions": [
     {
+      "version": "0.6.1",
+      "date": "2026-03-31",
+      "notes": {
+        "added": [
+          "Skills Manager: create, edit, and import Copilot CLI skills from the desktop — load from disk or any GitHub repository including private repos via gh CLI. Enable in Settings → Features",
+          "MCP Server Manager: add, configure, and health-check MCP servers with Copilot CLI-compatible config and a built-in tool browser. Enable in Settings → Features"
+        ],
+        "changed": [],
+        "fixed": [
+          "Session overview and chat now auto-refresh when background subagents complete",
+          "Search results were silently dropped on internal query errors — now surface correctly",
+          "CLI showed a stack trace when session state was absent; replaced with a clear error message"
+        ]
+      },
+      "requiresReindex": false
+    },
+    {
       "version": "0.6.0",
       "date": "2026-03-29",
       "notes": {

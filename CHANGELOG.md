@@ -7,6 +7,20 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-03-31
+
+### Added
+- **Skills Manager** — create, edit, and manage Copilot CLI skills from the desktop; import from a local path, file, or any GitHub repository (including private repos via the `gh` CLI); IDE-style editor with live Markdown preview, YAML frontmatter editing, and an integrated asset browser. Enable in **Settings → Features**
+- **MCP Server Manager** — add, configure, and health-check MCP servers with full Copilot CLI config compatibility; import server definitions from file or GitHub; browse available tools with expandable input schemas. Enable in **Settings → Features**
+- TracePilot App Automation skill — built-in Copilot CLI `SKILL.md` for automating the desktop app via WebView2 CDP, with launch, connect, and smoke-test e2e scripts
+
+### Fixed
+- Session overview and chat now auto-refresh when background subagents complete; `read_agent` calls are visible inline and in-progress durations no longer show 0 ms
+- Search facet and stats queries silently discarded results on SQLite row errors; errors now propagate correctly
+- CLI showed a raw stack trace when `~/.copilot/session-state` was absent; replaced with a clean, actionable error message
+- Chat scrollbar visibility; light-mode chart hover styling
+- 9 missing CSS design token variables that caused silent visual regressions across multiple views
+
 ## [0.6.0] - 2026-03-29
 
 ### Added

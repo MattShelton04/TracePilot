@@ -5735,7 +5735,7 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracepilot-bench"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "criterion",
@@ -5748,7 +5748,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-core"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "dhat",
@@ -5766,7 +5766,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-desktop"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "console-subscriber",
  "log",
@@ -5787,7 +5787,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-export"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5806,7 +5806,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-indexer"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "rayon",
@@ -5821,7 +5821,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-orchestrator"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "reqwest 0.12.28",
@@ -5841,7 +5841,7 @@ dependencies = [
 
 [[package]]
 name = "tracepilot-tauri-bindings"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "chrono",
