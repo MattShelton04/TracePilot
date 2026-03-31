@@ -117,9 +117,9 @@ watch(
     <div class="page-content-inner">
 
       <!-- Toolbar -->
-      <div class="enhanced-toolbar">
+      <div class="enhanced-toolbar" data-testid="session-toolbar">
         <div class="toolbar-search">
-          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" />
+          <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
@@ -183,11 +183,12 @@ watch(
       </div>
 
       <!-- Session cards grid -->
-      <div v-else-if="store.filteredSessions.length > 0" class="grid-cards">
+      <div v-else-if="store.filteredSessions.length > 0" class="grid-cards" data-testid="session-grid">
         <router-link
           v-for="session in store.filteredSessions"
           :key="session.id"
           :to="{ name: 'session-overview', params: { id: session.id } }"
+          data-testid="session-card"
           class="card card-interactive session-card-new"
           :class="{ 'card--active': session.isRunning }"
           style="text-decoration: none; color: inherit;"

@@ -232,12 +232,13 @@ onUnmounted(() => {
               </svg>
               <span>Quick Actions</span>
             </div>
-            <div class="actions-grid">
+            <div class="actions-grid" data-testid="orchestration-actions">
               <div
                 v-for="action in quickActions"
                 :key="action.title"
                 class="action-card"
                 :class="{ disabled: action.disabled }"
+                :data-testid="`action-${action.title.toLowerCase().replace(/\s+/g, '-')}`"
                 tabindex="0"
                 role="button"
                 @click="navigateAction(action)"

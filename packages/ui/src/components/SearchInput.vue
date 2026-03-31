@@ -2,12 +2,14 @@
 const model = defineModel<string>({ default: "" });
 defineProps<{ placeholder?: string; shortcutHint?: string }>();
 
+defineOptions({ inheritAttrs: false });
+
 function clear() {
   model.value = "";
 }
 </script>
 <template>
-  <div class="search-container">
+  <div class="search-container" v-bind="$attrs">
     <svg class="search-icon" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
@@ -17,6 +19,7 @@ function clear() {
       class="search-input"
       :placeholder="placeholder || 'Search...'"
       :aria-label="placeholder || 'Search'"
+      data-testid="search-input-field"
     />
     <span v-if="shortcutHint && !model" class="search-shortcut">{{ shortcutHint }}</span>
     <button

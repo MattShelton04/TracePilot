@@ -1,0 +1,5 @@
+# Runtime artifacts (not committed)
+screenshots/
+.tracepilot-cdp.pid
+.tracepilot-cdp.*.pid
+.tracepilot-cdp.port
