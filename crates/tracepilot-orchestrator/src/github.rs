@@ -61,7 +61,7 @@ pub struct GitHubFileContent {
 /// Uses `gh auth status` and parses the output. Returns `authenticated: false`
 /// rather than an error when `gh` is installed but not logged in.
 pub fn gh_auth_status() -> Result<GhAuthInfo> {
-    match run_hidden("gh", &["auth", "status", "--hostname", "github.com"], None, Some(10)) {
+    match run_hidden("gh", &["auth", "status", "--hostname", "github.com"], None, Some(15)) {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();

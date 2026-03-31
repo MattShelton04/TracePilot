@@ -90,7 +90,12 @@ fn run_with_timeout(
         }),
         Ok(Err(e)) => Err(e),
         Err(_) => {
-            let _ = child_shared.lock().map(|mut c| c.kill());
+            // Timeout occurred - attempt to kill the process
+            if let Ok(mut child) = child_shared.lock() {
+                if let Err(e) = child.kill() {
+                    tracing::warn!("Failed to kill timed-out process: {}", e);
+                }
+            }
             let cmd_display = if args.is_empty() {
                 program.to_string()
             } else {
@@ -716,6 +721,54 @@ mod tests {
         // Fast command should work with timeout
         let version = run_hidden_stdout("git", &["--version"], None, Some(5)).unwrap();
         assert!(version.contains("git version"));
+    }
+
+    #[test]
+    fn test_timeout_with_command_failure() {
+        // Command that fails quickly (before timeout) - using run_hidden_stdout which checks status
+        let result = run_hidden_stdout("git", &["not-a-valid-subcommand"], None, Some(10));
+        assert!(result.is_err());
+
+        // Should NOT be a timeout error
+        let err_msg = result.unwrap_err().to_string();
+        assert!(!err_msg.contains("timed out"), "Should not report timeout for quick failure");
+        assert!(err_msg.contains("failed"), "Should report command failure");
+    }
+
+    #[test]
+    fn test_timeout_with_spawn_failure() {
+        // Command that doesn't exist should fail during spawn, not timeout
+        let result = run_hidden("command_that_does_not_exist_xyz123", &[], None, Some(5));
+        assert!(result.is_err());
+
+        let err_msg = result.unwrap_err().to_string();
+        // Should be spawn error, not timeout
+        assert!(err_msg.contains("Failed to spawn"));
+        assert!(!err_msg.contains("timed out"));
+    }
+
+    #[test]
+    fn test_very_short_timeout() {
+        // 1 second timeout should be enough for git --version
+        let result = run_hidden("git", &["--version"], None, Some(1));
+        assert!(result.is_ok(), "Fast command should complete within 1s timeout");
+    }
+
+    #[test]
+    fn test_timeout_error_message_format() {
+        #[cfg(not(windows))]
+        let result = run_hidden("sleep", &["5"], None, Some(1));
+
+        #[cfg(windows)]
+        let result = run_hidden_shell("Start-Sleep -Seconds 5", None, Some(1));
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+
+        // Verify error message contains key information
+        assert!(err_msg.contains("timed out"), "Error should mention timeout");
+        assert!(err_msg.contains("1s"), "Error should mention timeout duration");
+        assert!(err_msg.contains("Check system resources"), "Error should be actionable");
     }
 
     #[cfg(windows)]
