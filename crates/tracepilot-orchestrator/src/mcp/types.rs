@@ -123,6 +123,16 @@ pub struct McpTool {
     pub estimated_tokens: u32,
 }
 
+impl McpTool {
+    /// Estimate the token cost of this tool's definition.
+    ///
+    /// Uses the tool name and description (empty string if `None`) to calculate
+    /// an approximate token count via the shared `estimate_tool_tokens` function.
+    pub fn estimate_tokens(&self) -> u32 {
+        crate::tokens::estimate_tool_tokens(&self.name, self.description.as_deref().unwrap_or(""))
+    }
+}
+
 /// Health check result for a single MCP server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -303,5 +313,68 @@ mod tests {
         assert!(!json.contains(r#""streamable-http""#), "Should NOT serialize as 'streamable-http': {json}");
         assert!(json.contains(r#""headers""#));
         assert!(json.contains(r#""tools""#));
+    }
+
+    #[test]
+    fn mcp_tool_estimate_tokens_with_description() {
+        let tool = McpTool {
+            name: "file_search".to_string(),
+            description: Some("Search for files in the workspace".to_string()),
+            input_schema: None,
+            estimated_tokens: 0,
+        };
+        let tokens = tool.estimate_tokens();
+        // Should be non-zero for a tool with name and description
+        assert!(tokens > 0);
+        // Verify it matches direct call to estimate_tool_tokens
+        let expected = crate::tokens::estimate_tool_tokens(
+            "file_search",
+            "Search for files in the workspace",
+        );
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn mcp_tool_estimate_tokens_with_none_description() {
+        let tool = McpTool {
+            name: "get_user".to_string(),
+            description: None,
+            input_schema: None,
+            estimated_tokens: 0,
+        };
+        let tokens = tool.estimate_tokens();
+        // Should still work with None description (treats as empty string)
+        assert!(tokens > 0);
+        // Verify it matches direct call with empty string
+        let expected = crate::tokens::estimate_tool_tokens("get_user", "");
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn mcp_tool_estimate_tokens_with_empty_description() {
+        let tool = McpTool {
+            name: "ping".to_string(),
+            description: Some("".to_string()),
+            input_schema: None,
+            estimated_tokens: 0,
+        };
+        let tokens = tool.estimate_tokens();
+        // Empty description should be treated same as None
+        let expected = crate::tokens::estimate_tool_tokens("ping", "");
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn mcp_tool_estimate_tokens_consistency() {
+        // Verify that calling estimate_tokens() multiple times returns the same value
+        let tool = McpTool {
+            name: "complex_operation".to_string(),
+            description: Some("This is a longer description with multiple words".to_string()),
+            input_schema: None,
+            estimated_tokens: 0,
+        };
+        let tokens1 = tool.estimate_tokens();
+        let tokens2 = tool.estimate_tokens();
+        assert_eq!(tokens1, tokens2, "Token estimation should be consistent");
     }
 }

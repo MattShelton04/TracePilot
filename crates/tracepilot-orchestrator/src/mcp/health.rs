@@ -7,7 +7,6 @@
 
 use crate::mcp::error::McpError;
 use crate::mcp::types::{McpHealthResult, McpHealthStatus, McpServerConfig, McpTool, McpTransport};
-use crate::tokens::estimate_tool_tokens;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -358,14 +357,15 @@ fn extract_tools_from_json(resp: &serde_json::Value) -> Vec<McpTool> {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
             let input_schema = tool_val.get("inputSchema").cloned();
-            let estimated_tokens =
-                estimate_tool_tokens(&name, description.as_deref().unwrap_or(""));
-            McpTool {
+
+            let mut tool = McpTool {
                 name,
                 description,
                 input_schema,
-                estimated_tokens,
-            }
+                estimated_tokens: 0,
+            };
+            tool.estimated_tokens = tool.estimate_tokens();
+            tool
         })
         .collect()
 }
@@ -520,16 +520,15 @@ fn spawn_and_initialize(
                                         .and_then(|v| v.as_str())
                                         .map(|s| s.to_string());
                                     let input_schema = tool_val.get("inputSchema").cloned();
-                                    let estimated_tokens = estimate_tool_tokens(
-                                        &name,
-                                        description.as_deref().unwrap_or(""),
-                                    );
-                                    tools.push(McpTool {
+
+                                    let mut tool = McpTool {
                                         name,
                                         description,
                                         input_schema,
-                                        estimated_tokens,
-                                    });
+                                        estimated_tokens: 0,
+                                    };
+                                    tool.estimated_tokens = tool.estimate_tokens();
+                                    tools.push(tool);
                                 }
                             }
                         }
