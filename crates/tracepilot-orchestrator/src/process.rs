@@ -7,8 +7,11 @@
 
 use crate::error::{OrchestratorError, Result};
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Child, Command, Output};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -36,41 +39,54 @@ const LINUX_TERMINALS: &[&str] = &[
 /// Internal helper: run a command with a timeout.
 ///
 /// This is extracted to avoid code duplication between run_hidden and run_hidden_shell.
+fn spawn_captured_child(mut cmd: Command, program: &str) -> Result<Child> {
+    cmd.stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    cmd.spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))
+}
+
+fn read_pipe_to_end<R>(mut reader: R, label: &'static str) -> mpsc::Receiver<Result<Vec<u8>>>
+where
+    R: Read + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let result = reader
+            .read_to_end(&mut buf)
+            .map(|_| buf)
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to read {label}: {e}")));
+        let _ = tx.send(result);
+    });
+    rx
+}
+
 fn run_with_timeout(
-    mut cmd: Command,
+    cmd: Command,
     program: &str,
     args: &[&str],
     timeout_secs: u64,
 ) -> Result<Output> {
-    use std::io::Read;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    cmd.stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))?;
+    let mut child = spawn_captured_child(cmd, program)?;
 
     // Take the pipe handles before wrapping the child so the thread owns them.
-    let mut stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let mut stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
+    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
     // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
     let child_shared = Arc::new(Mutex::new(child));
     let child_for_thread = Arc::clone(&child_shared);
 
-    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<
+    let (tx, rx) = mpsc::channel::<std::result::Result<
         (Vec<u8>, Vec<u8>, std::process::ExitStatus),
         OrchestratorError,
     >>();
 
     std::thread::spawn(move || {
-        let mut stdout_buf = Vec::new();
-        let mut stderr_buf = Vec::new();
-        let _ = stdout_pipe.read_to_end(&mut stdout_buf);
-        let _ = stderr_pipe.read_to_end(&mut stderr_buf);
         let result = child_for_thread
             .lock()
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
@@ -78,7 +94,15 @@ fn run_with_timeout(
                 c.wait()
                     .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
             })
-            .map(|status| (stdout_buf, stderr_buf, status));
+            .and_then(|status| {
+                let stdout = stdout_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
+                let stderr = stderr_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                Ok((stdout, stderr, status))
+            });
         let _ = tx.send(result);
     });
 
@@ -224,43 +248,33 @@ pub fn run_hidden_stdout_timeout(
     cwd: Option<&Path>,
     timeout_secs: u64,
 ) -> Result<String> {
-    use std::io::Read;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
     let mut cmd = Command::new(program);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    cmd.stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
 
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))?;
+    let mut child = spawn_captured_child(cmd, program)?;
 
     // Take the pipe handles before wrapping the child so the thread owns them.
-    let mut stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let mut stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
+    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
     // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
     let child_shared = Arc::new(Mutex::new(child));
     let child_for_thread = Arc::clone(&child_shared);
 
-    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<
+    let (tx, rx) = mpsc::channel::<std::result::Result<
         (Vec<u8>, Vec<u8>, std::process::ExitStatus),
         OrchestratorError,
     >>();
 
     std::thread::spawn(move || {
-        let mut stdout_buf = Vec::new();
-        let mut stderr_buf = Vec::new();
-        let _ = stdout_pipe.read_to_end(&mut stdout_buf);
-        let _ = stderr_pipe.read_to_end(&mut stderr_buf);
         let result = child_for_thread
             .lock()
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
@@ -268,7 +282,15 @@ pub fn run_hidden_stdout_timeout(
                 c.wait()
                     .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
             })
-            .map(|status| (stdout_buf, stderr_buf, status));
+            .and_then(|status| {
+                let stdout = stdout_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
+                let stderr = stderr_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                Ok((stdout, stderr, status))
+            });
         let _ = tx.send(result);
     });
 

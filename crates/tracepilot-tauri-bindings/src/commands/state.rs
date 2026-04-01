@@ -128,7 +128,7 @@ pub async fn check_for_updates() -> CmdResult<UpdateCheckResult> {
 #[tauri::command]
 pub async fn get_git_info() -> GitInfo {
     let run = |args: &[&str]| -> Option<String> {
-        tracepilot_orchestrator::process::run_hidden("git", args, None)
+        tracepilot_orchestrator::process::run_hidden("git", args, None, None)
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
