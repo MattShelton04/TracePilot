@@ -627,22 +627,8 @@ impl<W: std::io::Write> std::io::Write for Base64Encoder<W> {
 /// Validate that an environment variable name contains only safe characters.
 /// Prevents shell injection via env var names in constructed commands.
 pub(crate) fn validate_env_var_name(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(OrchestratorError::Launch(
-            "Environment variable name cannot be empty".into(),
-        ));
-    }
-    // Must start with letter or underscore, then alphanumeric/underscore
-    let valid = name
-        .bytes()
-        .enumerate()
-        .all(|(i, b)| b == b'_' || b.is_ascii_alphabetic() || (i > 0 && b.is_ascii_digit()));
-    if !valid {
-        return Err(OrchestratorError::Launch(format!(
-            "Invalid environment variable name: {name}"
-        )));
-    }
-    Ok(())
+    crate::validation::validate_identifier(name, crate::validation::ENV_VAR_RULES, "Environment variable name")
+        .map_err(OrchestratorError::Launch)
 }
 
 // ─── Shell quoting ──────────────────────────────────────────────────

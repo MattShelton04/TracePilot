@@ -63,21 +63,32 @@ fn collect_assets(
 
 /// Validate an asset name against path traversal and absolute paths.
 fn validate_asset_name(asset_name: &str) -> Result<(), SkillsError> {
+    // Check empty
     if asset_name.is_empty() {
         return Err(SkillsError::Asset("Asset name cannot be empty".into()));
     }
+
+    // Special case: SKILL.md cannot be operated on via asset API
     if asset_name == "SKILL.md" {
         return Err(SkillsError::Asset(
             "Cannot operate on SKILL.md via asset API".into(),
         ));
     }
-    if asset_name.contains("..")
-        || asset_name.starts_with('/')
-        || asset_name.starts_with('\\')
-        || Path::new(asset_name).is_absolute()
-    {
-        return Err(SkillsError::Asset("Invalid asset name".into()));
+
+    // Path traversal check
+    if asset_name.contains("..") {
+        return Err(SkillsError::Asset("Asset name cannot contain '..' (path traversal)".into()));
     }
+
+    // Absolute path checks
+    if asset_name.starts_with('/') || asset_name.starts_with('\\') {
+        return Err(SkillsError::Asset("Asset name cannot start with path separator".into()));
+    }
+
+    if Path::new(asset_name).is_absolute() {
+        return Err(SkillsError::Asset("Asset name cannot be an absolute path".into()));
+    }
+
     Ok(())
 }
 
