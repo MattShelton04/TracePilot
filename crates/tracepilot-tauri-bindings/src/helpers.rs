@@ -8,6 +8,76 @@ use tauri::Emitter;
 
 pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 
+/// Execute a blocking closure, propagating both join and inner errors.
+///
+/// This helper eliminates the repetitive `Ok(tokio::task::spawn_blocking(move || { ... }).await??)`
+/// pattern used throughout command modules. It handles:
+/// - Spawning the closure on a blocking thread pool
+/// - Awaiting the `JoinHandle`
+/// - Unpacking both the join error (first `?`) and inner `Result` error (second `?`)
+///
+/// # Example
+///
+/// ```ignore
+/// // Before:
+/// Ok(tokio::task::spawn_blocking(move || {
+///     some_blocking_operation(param)
+/// }).await??)
+///
+/// // After:
+/// spawn_blocking(move || {
+///     some_blocking_operation(param)
+/// }).await
+/// ```
+pub(crate) async fn spawn_blocking<T, F>(f: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, BindingsError> + Send + 'static,
+{
+    Ok(tokio::task::spawn_blocking(f).await??)
+}
+
+/// Execute a blocking closure that returns an `OrchestratorError`.
+///
+/// Identical to [`spawn_blocking`] but specialized for closures that return
+/// `Result<T, OrchestratorError>`. This is the most common pattern in command
+/// modules that delegate to the orchestrator crate.
+///
+/// # Example
+///
+/// ```ignore
+/// spawn_blocking_orchestrator(move || {
+///     tracepilot_orchestrator::skills::manager::create_skill(&name, &desc, &body)
+/// }).await
+/// ```
+pub(crate) async fn spawn_blocking_orchestrator<T, F>(f: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, tracepilot_orchestrator::OrchestratorError> + Send + 'static,
+{
+    Ok(tokio::task::spawn_blocking(f).await??)
+}
+
+/// Execute a blocking closure that cannot fail (returns a plain value).
+///
+/// Use this for operations that don't return a `Result`, such as reading
+/// configuration from a `RwLock` or performing infallible computations.
+///
+/// # Example
+///
+/// ```ignore
+/// spawn_blocking_infallible(move || {
+///     config.read().unwrap().clone()
+/// }).await
+/// ```
+pub(crate) async fn spawn_blocking_infallible<T, F>(f: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    Ok(tokio::task::spawn_blocking(f).await?)
+}
+
 /// Resolve a session directory path and run a blocking closure with it.
 ///
 /// Encapsulates the standard pattern used by most single-session commands:
@@ -585,5 +655,59 @@ mod tests {
 
         let result = validate_write_path_within(file.to_str().unwrap(), dir.path());
         assert!(result.is_ok());
+    }
+
+    // ── spawn_blocking helper tests ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn spawn_blocking_propagates_inner_success() {
+        let result = spawn_blocking(|| Ok::<_, BindingsError>(42)).await;
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn spawn_blocking_propagates_inner_error() {
+        let result = spawn_blocking(|| {
+            Err::<i32, _>(BindingsError::Validation("test error".into()))
+        })
+        .await;
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert_eq!(err_msg, "test error");
+    }
+
+    #[tokio::test]
+    async fn spawn_blocking_orchestrator_propagates_success() {
+        let result = spawn_blocking_orchestrator(|| {
+            Ok::<_, tracepilot_orchestrator::OrchestratorError>("success".to_string())
+        })
+        .await;
+
+        assert_eq!(result.unwrap(), "success");
+    }
+
+    #[tokio::test]
+    async fn spawn_blocking_orchestrator_propagates_error() {
+        let result = spawn_blocking_orchestrator(|| {
+            Err::<String, _>(tracepilot_orchestrator::OrchestratorError::Io(
+                std::io::Error::new(std::io::ErrorKind::NotFound, "test orchestrator error"),
+            ))
+        })
+        .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn spawn_blocking_infallible_returns_value() {
+        let result = spawn_blocking_infallible(|| 123).await;
+        assert_eq!(result.unwrap(), 123);
+    }
+
+    #[tokio::test]
+    async fn spawn_blocking_infallible_works_with_complex_types() {
+        let result = spawn_blocking_infallible(|| vec!["a", "b", "c"]).await;
+        assert_eq!(result.unwrap(), vec!["a", "b", "c"]);
     }
 }
