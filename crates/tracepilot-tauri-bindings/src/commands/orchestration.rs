@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::read_config;
+use crate::helpers::{read_config, spawn_blocking};
 
 #[tauri::command]
 pub async fn check_system_deps(
@@ -13,7 +13,7 @@ pub async fn check_system_deps(
     spawn_blocking(move || {
         tracepilot_orchestrator::launcher::check_dependencies(Some(&cli_cmd))
     })
-    .await?)
+    .await
 }
 
 // -- Worktree commands --
@@ -25,7 +25,7 @@ pub async fn list_worktrees(
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::list_worktrees(std::path::Path::new(&repo_path))
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -35,7 +35,7 @@ pub async fn create_worktree(
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::create_worktree(&request)
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -51,7 +51,7 @@ pub async fn remove_worktree(
             force,
         )
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -61,7 +61,7 @@ pub async fn prune_worktrees(
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::prune_worktrees(std::path::Path::new(&repo_path))
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -69,7 +69,7 @@ pub async fn list_branches(repo_path: String) -> CmdResult<Vec<String>> {
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::list_branches(std::path::Path::new(&repo_path))
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -77,7 +77,7 @@ pub async fn get_worktree_disk_usage(path: String) -> CmdResult<u64> {
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::disk_usage_bytes(std::path::Path::new(&path))
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -85,7 +85,7 @@ pub async fn is_git_repo(path: String) -> CmdResult<bool> {
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::is_git_repo(std::path::Path::new(&path))
     })
-    .await?)
+    .await
 }
 
 #[tauri::command]
@@ -101,7 +101,7 @@ pub async fn lock_worktree(
             reason.as_deref(),
         )
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -115,7 +115,7 @@ pub async fn unlock_worktree(
             std::path::Path::new(&worktree_path),
         )
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -127,7 +127,7 @@ pub async fn get_worktree_details(
             std::path::Path::new(&worktree_path),
         )
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -135,7 +135,7 @@ pub async fn get_default_branch(repo_path: String) -> CmdResult<String> {
     spawn_blocking(move || {
         tracepilot_orchestrator::worktrees::get_default_branch(std::path::Path::new(&repo_path))
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -149,7 +149,7 @@ pub async fn fetch_remote(
             branch.as_deref(),
         )
     })
-    .await??)
+    .await
 }
 
 // -- Repository Registry commands --
@@ -159,7 +159,7 @@ pub async fn list_registered_repos() -> CmdResult<Vec<tracepilot_orchestrator::R
     spawn_blocking(
         tracepilot_orchestrator::repo_registry::list_registered_repos,
     )
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -172,7 +172,7 @@ pub async fn add_registered_repo(
             tracepilot_orchestrator::RepoSource::Manual,
         )
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -180,7 +180,7 @@ pub async fn remove_registered_repo(path: String) -> CmdResult<()> {
     spawn_blocking(move || {
         tracepilot_orchestrator::repo_registry::remove_repo(&path)
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -188,7 +188,7 @@ pub async fn toggle_repo_favourite(path: String) -> CmdResult<bool> {
     spawn_blocking(move || {
         tracepilot_orchestrator::repo_registry::toggle_repo_favourite(&path)
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -205,12 +205,12 @@ pub async fn discover_repos_from_sessions(
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         Ok(db.distinct_session_cwds()?)
     })
-    .await??;
+    .await?;
 
     spawn_blocking(move || {
         tracepilot_orchestrator::repo_registry::discover_repos_from_sessions(&cwds)
     })
-    .await??)
+    .await
 }
 
 // -- Launcher commands --
@@ -222,7 +222,7 @@ pub async fn launch_session(
     spawn_blocking(move || {
         tracepilot_orchestrator::launcher::launch_session(&config)
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -235,7 +235,7 @@ pub async fn open_in_explorer(path: String) -> CmdResult<()> {
     spawn_blocking(move || {
         tracepilot_orchestrator::launcher::open_in_explorer(&path)
     })
-    .await??)
+    .await
 }
 
 #[tauri::command]
@@ -243,5 +243,5 @@ pub async fn open_in_terminal(path: String) -> CmdResult<()> {
     spawn_blocking(move || {
         tracepilot_orchestrator::launcher::open_in_terminal(&path)
     })
-    .await??)
+    .await
 }

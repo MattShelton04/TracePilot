@@ -22,7 +22,7 @@ pub async fn save_config(
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cfg = config.clone();
-    spawn_blocking(move || cfg.save()).await??;
+    spawn_blocking(move || cfg.save()).await?;
 
     let mut guard = state
         .write()
@@ -88,7 +88,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
         }
         Ok::<(), BindingsError>(())
     })
-    .await??;
+    .await?;
 
     let mut guard = state
         .write()
