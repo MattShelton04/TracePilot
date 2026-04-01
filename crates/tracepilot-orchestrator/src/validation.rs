@@ -113,11 +113,10 @@ pub fn validate_identifier(
     }
 
     // Validate all characters
-    let valid = value.bytes().enumerate().all(|(i, b)| {
+    let valid = value.bytes().all(|b| {
         b.is_ascii_alphanumeric()
             || (b == b'_' && rules.allow_underscore)
             || (b == b'-' && rules.allow_hyphen)
-            || (i == 0 && rules.require_alpha_start && b == b'_') // underscore OK at start if alpha_start required
     });
 
     if !valid {
@@ -345,6 +344,58 @@ mod tests {
         // Invalid skill names
         assert!(validate_identifier("../other", SKILL_NAME_RULES, "Skill").is_err());
         assert!(validate_identifier("my/skill", SKILL_NAME_RULES, "Skill").is_err());
+    }
+
+    #[test]
+    fn test_hyphen_at_start_without_alpha_requirement() {
+        // With require_alpha_start=false, hyphen can be at start
+        let result = validate_identifier("-template", TEMPLATE_ID_RULES, "Template ID");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_numbers_at_various_positions() {
+        // Numbers in middle
+        assert!(validate_identifier("test123", ENV_VAR_RULES, "Env").is_ok());
+        assert!(validate_identifier("test123", TEMPLATE_ID_RULES, "Template").is_ok());
+
+        // Numbers at end
+        assert!(validate_identifier("myvar9", ENV_VAR_RULES, "Env").is_ok());
+    }
+
+    #[test]
+    fn test_mixed_case() {
+        assert!(validate_identifier("MyMixedCase_ID", ENV_VAR_RULES, "Env").is_ok());
+        assert!(validate_identifier("CamelCaseID", TEMPLATE_ID_RULES, "Template").is_ok());
+    }
+
+    #[test]
+    fn test_single_dot_rejected() {
+        // Single dot should be rejected (contains special char)
+        let result = validate_identifier(".", SKILL_NAME_RULES, "Skill");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid characters"));
+    }
+
+    #[test]
+    fn test_multiple_dots_rejected() {
+        // Multiple dots should be rejected
+        let result = validate_identifier("....", SKILL_NAME_RULES, "Skill");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_only_hyphens() {
+        // String with only hyphens is valid for rules that allow hyphens
+        let result = validate_identifier("---", TEMPLATE_ID_RULES, "Template");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_only_underscores() {
+        // String with only underscores is valid for rules that allow underscores
+        let result = validate_identifier("___", SKILL_NAME_RULES, "Skill");
+        assert!(result.is_ok());
     }
 
     // ─── Context Messages ──────────────────────────────────────────────
