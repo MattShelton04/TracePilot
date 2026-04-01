@@ -3,7 +3,7 @@
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
-    load_summary_list_item, read_config, with_session_path,
+    load_summary_list_item, read_config, spawn_blocking, with_session_path,
     MAX_CHECKPOINT_CONTENT_BYTES,
 };
 use crate::types::{
@@ -24,7 +24,7 @@ pub async fn list_sessions(
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         // Fast path: query the index DB (single SQLite read, no per-session I/O)
         if index_path.exists() {
             let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
@@ -111,7 +111,7 @@ pub async fn list_sessions(
 
         Ok(items)
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -136,7 +136,7 @@ pub async fn get_session_incidents(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         let incidents = db
             .get_session_incidents(&session_id)?;
@@ -154,7 +154,7 @@ pub async fn get_session_incidents(
             })
             .collect())
     })
-    .await?
+    .await
 }
 
 #[tauri::command]
@@ -169,7 +169,7 @@ pub async fn get_session_turns(
     let session_state_dir = read_config(&state).session_state_dir();
     let cache = cache.inner().clone();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let path = tracepilot_core::session::discovery::resolve_session_path_in(
             &session_id,
             &session_state_dir,
@@ -232,7 +232,7 @@ pub async fn get_session_turns(
             events_file_size: file_size,
         })
     })
-    .await?
+    .await
 }
 
 /// Lightweight freshness probe— returns just the events.jsonl file size.
@@ -429,7 +429,7 @@ pub async fn resume_session_in_terminal(
     // Resolve the session's original working directory from workspace.yaml
     let session_state_dir = read_config(&state).session_state_dir();
     let sid = session_id.clone();
-    let session_cwd = tokio::task::spawn_blocking(move || {
+    let session_cwd = spawn_blocking(move || {
         let session_path = tracepilot_core::session::discovery::resolve_session_path_in(
             &sid,
             &session_state_dir,
@@ -440,7 +440,7 @@ pub async fn resume_session_in_terminal(
             metadata.cwd.map(std::path::PathBuf::from),
         )
     })
-    .await??;
+    .await;
 
     // Find a valid directory for the terminal: session CWD > its closest ancestor > home
     let effective_cwd = session_cwd
