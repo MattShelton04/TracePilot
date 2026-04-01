@@ -52,14 +52,23 @@ pub struct McpHealthResultCached {
     pub tools: Vec<McpTool>,
 }
 
-/// Run health checks for all enabled servers.
+/// Run health checks for all enabled servers concurrently.
 ///
 /// Returns results keyed by server name. Disabled servers get a
-/// `Disabled` status without attempting connection.
+/// `Disabled` status without attempting connection. Enabled servers
+/// are checked in parallel — total latency is bounded by the slowest
+/// single check rather than the sum of all check latencies.
 pub async fn check_all_servers(
     servers: &HashMap<String, McpServerConfig>,
 ) -> HashMap<String, McpHealthResultCached> {
     let mut results = HashMap::new();
+    let mut join_set: tokio::task::JoinSet<(String, McpHealthResultCached)> =
+        tokio::task::JoinSet::new();
+
+    // Track names of spawned tasks so we can insert a fallback result if a
+    // task panics (extremely unlikely — check_single_server handles all errors
+    // internally — but guarantees results.len() == servers.len()).
+    let mut spawned_names: Vec<String> = Vec::new();
 
     for (name, config) in servers {
         if !config.enabled {
@@ -80,8 +89,39 @@ pub async fn check_all_servers(
             continue;
         }
 
-        let cached = check_single_server(name, config).await;
-        results.insert(name.clone(), cached);
+        let name = name.clone();
+        let config = config.clone();
+        spawned_names.push(name.clone());
+        join_set.spawn(async move {
+            let cached = check_single_server(&name, &config).await;
+            (name, cached)
+        });
+    }
+
+    while let Some(outcome) = join_set.join_next().await {
+        match outcome {
+            Ok((name, cached)) => {
+                results.insert(name, cached);
+            }
+            Err(e) => {
+                // Should not happen — check_single_server handles all errors
+                // without panicking. Logged defensively; the missing entry is
+                // filled in by the fallback loop below.
+                tracing::warn!("An MCP health check task panicked unexpectedly: {e}");
+            }
+        }
+    }
+
+    // Insert Unreachable fallback for any server whose task panicked and did
+    // not produce a result entry. The `Instant::now()` latency is approximate
+    // (measured after all tasks finish, not at panic time) — acceptable since
+    // task panics should never occur in practice.
+    if results.len() < servers.len() {
+        for name in spawned_names {
+            results.entry(name).or_insert_with_key(|n| {
+                make_error_result(n, Instant::now(), "health-check task panicked unexpectedly")
+            });
+        }
     }
 
     results
@@ -580,6 +620,21 @@ fn make_error_result(name: &str, start: Instant, error: &str) -> McpHealthResult
 mod tests {
     use super::*;
 
+    fn make_server(enabled: bool) -> McpServerConfig {
+        McpServerConfig {
+            command: Some("echo".into()),
+            args: vec![],
+            env: HashMap::new(),
+            url: None,
+            transport: None,
+            headers: HashMap::new(),
+            tools: vec![],
+            description: None,
+            tags: vec![],
+            enabled,
+        }
+    }
+
     #[test]
     fn disabled_server_returns_disabled_status() {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -589,25 +644,100 @@ mod tests {
 
         rt.block_on(async {
             let mut servers = HashMap::new();
-            servers.insert(
-                "disabled".to_string(),
-                McpServerConfig {
-                    command: Some("echo".into()),
-                    args: vec![],
-                    env: HashMap::new(),
-                    url: None,
-                    transport: None,
-                    headers: HashMap::new(),
-                    tools: vec![],
-                    description: None,
-                    tags: vec![],
-                    enabled: false,
-                },
-            );
+            servers.insert("disabled".to_string(), make_server(false));
 
             let results = check_all_servers(&servers).await;
             let result = results.get("disabled").unwrap();
             assert_eq!(result.result.status, McpHealthStatus::Disabled);
+        });
+    }
+
+    #[test]
+    fn empty_server_map_returns_empty_results() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let servers: HashMap<String, McpServerConfig> = HashMap::new();
+            let results = check_all_servers(&servers).await;
+            assert!(results.is_empty());
+        });
+    }
+
+    #[test]
+    fn mixed_map_all_servers_appear_in_results() {
+        // Verifies that every server (disabled or enabled-but-unreachable) produces
+        // a result entry, exercising both the synchronous disabled path and the
+        // JoinSet path in the same call.
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let mut servers = HashMap::new();
+            // Disabled servers — handled synchronously, never spawned.
+            servers.insert("disabled-1".to_string(), make_server(false));
+            servers.insert("disabled-2".to_string(), make_server(false));
+            // Enabled but unreachable — handled via JoinSet.
+            let mut enabled_cfg = make_server(true);
+            enabled_cfg.command = None;
+            enabled_cfg.url = Some("http://127.0.0.1:1/mcp-unreachable".into());
+            enabled_cfg.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
+            servers.insert("enabled-unreachable".to_string(), enabled_cfg);
+
+            let results = check_all_servers(&servers).await;
+            assert_eq!(results.len(), 3, "all 3 servers must produce a result");
+            assert_eq!(
+                results["disabled-1"].result.status,
+                McpHealthStatus::Disabled
+            );
+            assert_eq!(
+                results["disabled-2"].result.status,
+                McpHealthStatus::Disabled
+            );
+            assert_eq!(
+                results["enabled-unreachable"].result.status,
+                McpHealthStatus::Unreachable
+            );
+        });
+    }
+
+    #[test]
+    fn concurrent_unreachable_servers_all_produce_results() {
+        // Verifies that multiple enabled-but-unreachable servers are all
+        // checked and each produces an Unreachable result. Uses a multi-thread
+        // runtime so checks run truly in parallel.
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            let mut servers = HashMap::new();
+            // These HTTP servers don't exist — each will fail quickly with a
+            // connection error rather than waiting for the full 15s timeout.
+            for i in 1..=3 {
+                let mut cfg = make_server(true);
+                cfg.command = None;
+                cfg.url = Some(format!("http://127.0.0.1:1/mcp-nonexistent-{i}"));
+                cfg.transport = Some(crate::mcp::types::McpTransport::StreamableHttp);
+                servers.insert(format!("server-{i}"), cfg);
+            }
+
+            let results = check_all_servers(&servers).await;
+            assert_eq!(results.len(), 3, "all 3 servers must produce results");
+            for i in 1..=3 {
+                let name = format!("server-{i}");
+                let r = results.get(&name).expect("missing result");
+                assert_eq!(
+                    r.result.status,
+                    McpHealthStatus::Unreachable,
+                    "server {name} should be Unreachable"
+                );
+            }
         });
     }
 
