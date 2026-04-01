@@ -1,6 +1,7 @@
 //! Logging Tauri commands (2 commands).
 
 use crate::error::{BindingsError, CmdResult};
+use crate::helpers::spawn_blocking;
 use tauri::Manager;
 
 #[tauri::command]
@@ -16,7 +17,7 @@ pub async fn export_logs(
 ) -> CmdResult<String> {
     let log_dir = app.path().app_log_dir()?;
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         use std::io::Read;
 
         let dest = std::path::PathBuf::from(&destination);
@@ -117,5 +118,5 @@ pub async fn export_logs(
         };
         Ok(msg)
     })
-    .await?
+    .await
 }
