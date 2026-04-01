@@ -477,4 +477,184 @@ describe("useSessionDetailStore", () => {
       expect(store.turnsVersion).toBeGreaterThan(beforeVersion);
     });
   });
+
+  // ── Cache-hit background refresh ──────────────────────────────
+  // When a session is restored from the frontend cache, the store
+  // delegates background refresh to refreshAll() rather than
+  // using ad-hoc inline IIFEs.
+  describe("cache-hit background refresh", () => {
+    /** Helper: fully load a session so all sections are in the cache. */
+    async function fullyLoadSession(store: ReturnType<typeof useSessionDetailStore>, id: string) {
+      await store.loadDetail(id);
+      await store.loadTurns();
+      await store.loadCheckpoints();
+      await store.loadPlan();
+      await store.loadShutdownMetrics();
+      await store.loadIncidents();
+    }
+
+    it("triggers background refresh for all cached sections on cache hit", async () => {
+      const store = useSessionDetailStore();
+      await fullyLoadSession(store, SESSION_ID);
+
+      // Load a different session — SESSION_ID is now cached
+      const OTHER_ID = "other-456";
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: OTHER_ID });
+      await store.loadDetail(OTHER_ID);
+
+      // Clear mocks so we can assert only cache-hit refresh calls
+      vi.clearAllMocks();
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
+      mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+      mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+      mockCheckSessionFreshness.mockResolvedValue({
+        eventsFileSize: FIXTURE_TURNS.eventsFileSize + 1,
+      });
+
+      // Load the original session — cache hit
+      await store.loadDetail(SESSION_ID);
+      // Allow background refreshAll() to settle
+      await vi.dynamicImportSettled?.() ?? new Promise((r) => setTimeout(r, 50));
+
+      // All previously loaded sections should have been refreshed
+      expect(mockGetSessionDetail).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockCheckSessionFreshness).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockGetSessionCheckpoints).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockGetSessionPlan).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockGetShutdownMetrics).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockGetSessionIncidents).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    it("does not background-refresh events or todos on cache hit", async () => {
+      const store = useSessionDetailStore();
+      await fullyLoadSession(store, SESSION_ID);
+      await store.loadTodos();
+      await store.loadEvents();
+
+      // Switch away then back to trigger cache hit
+      const OTHER_ID = "other-456";
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: OTHER_ID });
+      await store.loadDetail(OTHER_ID);
+
+      vi.clearAllMocks();
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
+      mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+      mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+
+      await store.loadDetail(SESSION_ID);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Events and todos should NOT be refreshed in background
+      expect(mockGetSessionEvents).not.toHaveBeenCalled();
+      expect(mockGetSessionTodos).not.toHaveBeenCalled();
+    });
+
+    it("sets section error refs when background refresh fails on cache hit", async () => {
+      const store = useSessionDetailStore();
+      await fullyLoadSession(store, SESSION_ID);
+
+      // Switch to another session to cache SESSION_ID
+      const OTHER_ID = "other-456";
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: OTHER_ID });
+      await store.loadDetail(OTHER_ID);
+
+      // Set up failures for the background refresh
+      vi.clearAllMocks();
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockGetSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      mockGetSessionPlan.mockRejectedValue(new Error("Plan refresh failed"));
+      mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
+      mockGetShutdownMetrics.mockRejectedValue(new Error("Metrics refresh failed"));
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+
+      // Load cached session — triggers background refresh
+      await store.loadDetail(SESSION_ID);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Error refs should be set for failed sections
+      expect(store.planError).toBe("Plan refresh failed");
+      expect(store.metricsError).toBe("Metrics refresh failed");
+      // Successful sections should have null error refs
+      expect(store.checkpointsError).toBeNull();
+      expect(store.incidentsError).toBeNull();
+    });
+
+    it("discards stale background refresh when user switches session during refresh", async () => {
+      const store = useSessionDetailStore();
+      await fullyLoadSession(store, SESSION_ID);
+
+      // Switch away to cache SESSION_ID
+      const OTHER_ID = "other-456";
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: OTHER_ID });
+      await store.loadDetail(OTHER_ID);
+
+      // Set up slow detail response for SESSION_ID
+      const STALE_DETAIL = { ...FIXTURE_DETAIL, repository: "stale-repo" };
+      let resolveStaleDetail: (v: unknown) => void;
+      const staleDetailPromise = new Promise((r) => {
+        resolveStaleDetail = r;
+      });
+      mockGetSessionDetail.mockReturnValueOnce(staleDetailPromise);
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
+      mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+      mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+
+      // Start loading cached SESSION_ID (background refresh starts)
+      void store.loadDetail(SESSION_ID);
+      await new Promise((r) => setTimeout(r, 10));
+
+      // User immediately switches to a THIRD session
+      const THIRD_ID = "third-789";
+      const THIRD_DETAIL = { ...FIXTURE_DETAIL, id: THIRD_ID, repository: "third-repo" };
+      mockGetSessionDetail.mockResolvedValue(THIRD_DETAIL);
+      await store.loadDetail(THIRD_ID);
+
+      // Now the stale SESSION_ID detail response arrives
+      resolveStaleDetail!(STALE_DETAIL);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // The stale response should have been discarded — detail should be THIRD session
+      expect(store.detail).toEqual(THIRD_DETAIL);
+      expect(store.sessionId).toBe(THIRD_ID);
+    });
+
+    it("restores cached data instantly without loading spinner", async () => {
+      const store = useSessionDetailStore();
+      await fullyLoadSession(store, SESSION_ID);
+
+      // Switch away
+      const OTHER_ID = "other-456";
+      mockGetSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: OTHER_ID });
+      await store.loadDetail(OTHER_ID);
+
+      // Load cached session — should be instant
+      mockGetSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      mockCheckSessionFreshness.mockResolvedValue({ eventsFileSize: 0 });
+      mockGetSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
+      mockGetSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+      mockGetShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
+      mockGetSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
+
+      await store.loadDetail(SESSION_ID);
+
+      // loading should be false (no spinner)
+      expect(store.loading).toBe(false);
+      // Cached data should be present immediately
+      expect(store.detail).toBeTruthy();
+      expect(store.checkpoints).toEqual(FIXTURE_CHECKPOINTS);
+      expect(store.plan).toEqual(FIXTURE_PLAN);
+      expect(store.shutdownMetrics).toEqual(FIXTURE_METRICS);
+      expect(store.incidents).toEqual(FIXTURE_INCIDENTS);
+    });
+  });
 });
