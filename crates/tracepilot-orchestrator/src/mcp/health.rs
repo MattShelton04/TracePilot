@@ -9,6 +9,7 @@ use crate::mcp::error::McpError;
 use crate::mcp::types::{McpHealthResult, McpHealthStatus, McpServerConfig, McpTool, McpTransport};
 use crate::tokens::estimate_tool_tokens;
 use chrono::Utc;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -16,7 +17,7 @@ use std::process::Child;
 use std::time::Instant;
 
 /// HTTP header name for MCP session IDs.
-const MCP_SESSION_ID_HEADER: &str = "mcp-session-id";
+const MCP_SESSION_ID_HEADER: HeaderName = HeaderName::from_static("mcp-session-id");
 
 /// Kill a child process and reap it to prevent zombie accumulation.
 fn kill_and_reap(child: &mut Child) {
@@ -33,13 +34,13 @@ fn kill_and_reap(child: &mut Child) {
 /// If the session ID is `None` or contains invalid HTTP header characters,
 /// this function does nothing (no error is returned).
 fn inject_session_id_header(
-    headers: &mut reqwest::header::HeaderMap,
+    headers: &mut HeaderMap,
     session_id: Option<&str>,
 ) {
     if let Some(sid) = session_id
-        && let Ok(val) = reqwest::header::HeaderValue::from_str(sid)
+        && let Ok(val) = HeaderValue::from_str(sid)
     {
-        headers.insert(MCP_SESSION_ID_HEADER, val);
+        headers.insert(MCP_SESSION_ID_HEADER.clone(), val);
     }
 }
 
