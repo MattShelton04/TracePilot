@@ -42,6 +42,27 @@ impl From<std::io::Error> for McpError {
     }
 }
 
+impl From<crate::error::OrchestratorError> for McpError {
+    fn from(e: crate::error::OrchestratorError) -> Self {
+        match e {
+            // Map IO errors to Config variant (MCP config file I/O)
+            crate::error::OrchestratorError::Io(io_err) => McpError::Config(io_err.to_string()),
+            // Map JSON errors to Json variant
+            crate::error::OrchestratorError::Json(json_err) => McpError::Json(json_err.to_string()),
+            // Map Config errors to Config variant (preserve meaning)
+            crate::error::OrchestratorError::Config(msg) => McpError::Config(msg),
+            // Map Launch errors to Import variant (external command failures)
+            crate::error::OrchestratorError::Launch(msg) => McpError::Import(msg),
+            // Map NotFound to Import (resource not found during import)
+            crate::error::OrchestratorError::NotFound(msg) => McpError::Import(msg),
+            // Pass through MCP errors unchanged
+            crate::error::OrchestratorError::Mcp(mcp_err) => mcp_err,
+            // Map all other variants to Config as a catch-all
+            other => McpError::Config(other.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +130,64 @@ mod tests {
         let mcp_err: McpError = io_err.into();
         assert!(matches!(mcp_err, McpError::Config(_)));
         assert!(mcp_err.to_string().contains("file missing"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let orch_err = crate::error::OrchestratorError::Io(io_err);
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(mcp_err.to_string().contains("access denied"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_json() {
+        let json_err: serde_json::Error =
+            serde_json::from_str::<String>("invalid").unwrap_err();
+        let orch_err = crate::error::OrchestratorError::Json(json_err);
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Json(_)));
+    }
+
+    #[test]
+    fn from_orchestrator_error_config() {
+        let orch_err = crate::error::OrchestratorError::Config("bad config".into());
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(mcp_err.to_string().contains("bad config"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_launch() {
+        let orch_err = crate::error::OrchestratorError::Launch("command failed".into());
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Import(_)));
+        assert!(mcp_err.to_string().contains("command failed"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_not_found() {
+        let orch_err = crate::error::OrchestratorError::NotFound("resource missing".into());
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Import(_)));
+        assert!(mcp_err.to_string().contains("resource missing"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_mcp_passthrough() {
+        let original_mcp = McpError::DuplicateServer("test-server".into());
+        let orch_err = crate::error::OrchestratorError::Mcp(original_mcp);
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::DuplicateServer(_)));
+        assert!(mcp_err.to_string().contains("test-server"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_other_variants() {
+        let orch_err = crate::error::OrchestratorError::Git("git command failed".into());
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(mcp_err.to_string().contains("git command failed"));
     }
 }

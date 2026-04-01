@@ -53,9 +53,9 @@ where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
     let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
+    let mut config = load_config()?;
     let result = f(&mut config)?;
-    save_config_unlocked(&config).map_err(|e| McpError::Config(e.to_string()))?;
+    save_config_unlocked(&config)?;
     Ok(result)
 }
 
@@ -69,7 +69,7 @@ pub fn list_servers() -> crate::error::Result<Vec<(String, McpServerConfig)>> {
 
 /// Get a single server by name.
 pub fn get_server(name: &str) -> Result<McpServerConfig, McpError> {
-    let config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
+    let config = load_config()?;
     config
         .mcp_servers
         .get(name)
@@ -133,7 +133,7 @@ pub fn get_summary(
     let mut total_tools = 0;
     let mut total_tokens: u32 = 0;
 
-    for (name, _server) in &config.mcp_servers {
+    for name in config.mcp_servers.keys() {
         if let Some(cached) = health_results.get(name) {
             if cached.result.status == super::types::McpHealthStatus::Healthy {
                 healthy_servers += 1;
@@ -145,7 +145,7 @@ pub fn get_summary(
     }
 
     // Estimate tokens from cached tool data (only for servers still in config)
-    for (name, _server) in &config.mcp_servers {
+    for name in config.mcp_servers.keys() {
         if let Some(cached) = health_results.get(name) {
             for tool in &cached.tools {
                 total_tokens += tool.estimate_tokens();
