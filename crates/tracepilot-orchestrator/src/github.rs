@@ -132,7 +132,7 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
 
 /// List the file tree of a GitHub repository at a given ref.
 ///
-/// Uses the Git Trees API with `recursive=1` and a 15-second timeout.
+/// Uses the Git Trees API with `recursive=1` and a 30-second timeout.
 pub fn gh_list_tree(owner: &str, repo: &str, ref_: &str) -> Result<Vec<TreeEntry>> {
     let api_path = format!("/repos/{owner}/{repo}/git/trees/{ref_}?recursive=1");
     let json = run_hidden_stdout("gh", &["api", &api_path], None, Some(GH_TIMEOUT_SECS))?;
