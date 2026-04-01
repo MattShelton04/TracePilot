@@ -225,7 +225,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not deduplicate requests for different parameters", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -255,7 +255,7 @@ describe("useCachedFetch", () => {
 
   describe("generation-based stale request prevention", () => {
     it("prevents stale writes when newer request completes first", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -280,7 +280,7 @@ describe("useCachedFetch", () => {
     });
 
     it("prevents stale error writes", async () => {
-      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {
@@ -308,7 +308,7 @@ describe("useCachedFetch", () => {
     });
 
     it("prevents stale loading state updates", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { loading, fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -364,7 +364,7 @@ describe("useCachedFetch", () => {
     });
 
     it("increments generation to prevent stale writes after reset", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { data, fetch, reset } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
@@ -508,7 +508,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onSuccess for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onSuccess = vi.fn();
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onSuccess });
@@ -531,7 +531,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onError for stale requests", async () => {
-      const resolvers: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+      const resolvers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
       const fetcher = vi.fn(
         () =>
           new Promise((resolve, reject) => {
@@ -558,7 +558,7 @@ describe("useCachedFetch", () => {
     });
 
     it("does not call onFinally for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const onFinally = vi.fn();
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher, onFinally });
@@ -826,7 +826,7 @@ describe("useCachedFetch", () => {
     });
 
     it("returns undefined for stale requests", async () => {
-      const resolvers: Array<(value: any) => void> = [];
+      const resolvers: Array<(value: unknown) => void> = [];
       const fetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)));
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 

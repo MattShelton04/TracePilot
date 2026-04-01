@@ -301,7 +301,9 @@ describe("buildSubagentContentIndex", () => {
     ];
     const index = buildSubagentContentIndex(turns);
     expect(index.size).toBe(1);
-    const content = index.get("sub-1")!;
+    const content = index.get("sub-1");
+    expect(content).toBeDefined();
+    if (!content) throw new Error("Expected sub-1 content");
     expect(content.messages).toEqual(["sub output"]);
     expect(content.reasoning).toEqual(["sub thinking"]);
   });
@@ -320,7 +322,9 @@ describe("buildSubagentContentIndex", () => {
       }),
     ];
     const index = buildSubagentContentIndex(turns);
-    const content = index.get("sub-1")!;
+    const content = index.get("sub-1");
+    expect(content).toBeDefined();
+    if (!content) throw new Error("Expected sub-1 content");
     expect(content.messages).toEqual(["early output", "late output"]);
     expect(content.reasoning).toEqual(["late reasoning"]);
   });

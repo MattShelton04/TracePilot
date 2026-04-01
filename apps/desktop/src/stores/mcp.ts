@@ -3,7 +3,6 @@ import {
   mcpCheckHealth,
   mcpCheckServerHealth,
   mcpComputeDiff,
-  mcpGetServer,
   mcpImportFromFile,
   mcpImportFromGitHub,
   mcpListServers,
@@ -13,19 +12,16 @@ import {
 } from "@tracepilot/client";
 import type {
   McpConfigDiff,
-  McpHealthResult,
   McpHealthResultCached,
   McpImportResult,
   McpServerConfig,
   McpServerDetail,
   McpSummary,
-  McpTool,
 } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useAsyncGuard } from "@/composables/useAsyncGuard";
-import { logWarn } from "@/utils/logger";
 
 export const useMcpStore = defineStore("mcp", () => {
   // ─── State ────────────────────────────────────────────────────────
@@ -62,9 +58,7 @@ export const useMcpStore = defineStore("mcp", () => {
     }
 
     if (filterTags.value.length > 0) {
-      list = list.filter((s) =>
-        filterTags.value.some((tag) => s.config.tags?.includes(tag)),
-      );
+      list = list.filter((s) => filterTags.value.some((tag) => s.config.tags?.includes(tag)));
     }
 
     return list;

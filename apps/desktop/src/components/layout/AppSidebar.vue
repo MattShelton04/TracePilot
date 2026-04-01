@@ -106,7 +106,9 @@ const configurationNav: NavItem[] = [
 ];
 
 const visibleConfigNav = computed(() =>
-  configurationNav.filter((item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag)),
+  configurationNav.filter(
+    (item) => !item.featureFlag || prefsStore.isFeatureEnabled(item.featureFlag),
+  ),
 );
 </script>
 

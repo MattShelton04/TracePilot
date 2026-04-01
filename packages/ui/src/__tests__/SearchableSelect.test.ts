@@ -1,10 +1,10 @@
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
-import { nextTick } from "vue";
+import { type ComponentPublicInstance, nextTick } from "vue";
 import SearchableSelect from "../components/SearchableSelect.vue";
 
 describe("SearchableSelect", () => {
-  let wrapper: VueWrapper<any>;
+  let wrapper: VueWrapper<ComponentPublicInstance>;
 
   const options = ["main", "develop", "feature-x"];
 
@@ -56,7 +56,9 @@ describe("SearchableSelect", () => {
     await nextTick();
 
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeDefined();
+    if (!emitted) throw new Error("Expected update:modelValue emission");
     expect(emitted[0]).toEqual(["custom-branch"]);
   });
 
@@ -70,7 +72,9 @@ describe("SearchableSelect", () => {
     await nextTick();
 
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeDefined();
+    if (!emitted) throw new Error("Expected update:modelValue emission");
     expect(emitted[0]).toEqual([""]);
   });
 

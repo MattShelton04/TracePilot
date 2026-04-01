@@ -86,15 +86,17 @@ describe("useParallelAgentDetection", () => {
     expect(groups.value).toHaveLength(2);
 
     // Check first group
-    const group1 = groups.value.find((g) => g.label === "Parallel Group A")!;
+    const group1 = groups.value.find((g) => g.label === "Parallel Group A");
     expect(group1).toBeDefined();
+    if (!group1) throw new Error("Parallel Group A not found");
     expect(group1.ids).toHaveLength(2);
     expect(group1.ids).toContain("a1");
     expect(group1.ids).toContain("a2");
 
     // Check second group
-    const group2 = groups.value.find((g) => g.label === "Parallel Group B")!;
+    const group2 = groups.value.find((g) => g.label === "Parallel Group B");
     expect(group2).toBeDefined();
+    if (!group2) throw new Error("Parallel Group B not found");
     expect(group2.ids).toHaveLength(2);
     expect(group2.ids).toContain("a3");
     expect(group2.ids).toContain("a4");

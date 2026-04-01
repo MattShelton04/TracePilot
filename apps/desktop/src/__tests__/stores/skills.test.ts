@@ -112,7 +112,11 @@ const FIXTURE_IMPORT_RESULT: SkillImportResult = {
   filesCopied: 3,
 };
 
-const ALL_SUMMARIES: SkillSummary[] = [FIXTURE_SUMMARY, FIXTURE_SUMMARY_REPO, FIXTURE_SUMMARY_DISABLED];
+const ALL_SUMMARIES: SkillSummary[] = [
+  FIXTURE_SUMMARY,
+  FIXTURE_SUMMARY_REPO,
+  FIXTURE_SUMMARY_DISABLED,
+];
 
 // ── Helpers ────────────────────────────────────────────────────
 function allMocks() {
@@ -596,7 +600,14 @@ describe("useSkillsStore", () => {
       const result = await store.importGitHub("owner", "repo", "skills/review", "main");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockSkillsImportGitHub).toHaveBeenCalledWith("owner", "repo", "skills/review", "main", undefined, undefined);
+      expect(mockSkillsImportGitHub).toHaveBeenCalledWith(
+        "owner",
+        "repo",
+        "skills/review",
+        "main",
+        undefined,
+        undefined,
+      );
       expect(mockSkillsListAll).toHaveBeenCalled();
     });
 
@@ -752,7 +763,12 @@ describe("useSkillsStore", () => {
           repoPath: "/repos/project-a",
           repoName: "project-a",
           skills: [
-            { path: "/repos/project-a/.github/skills/test", name: "test", description: "Test skill", fileCount: 2 },
+            {
+              path: "/repos/project-a/.github/skills/test",
+              name: "test",
+              description: "Test skill",
+              fileCount: 2,
+            },
           ],
         },
         {

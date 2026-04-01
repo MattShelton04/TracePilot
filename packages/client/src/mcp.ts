@@ -18,9 +18,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 // -- Server CRUD --
 
-export async function mcpListServers(): Promise<
-  [string, McpServerConfig][]
-> {
+export async function mcpListServers(): Promise<[string, McpServerConfig][]> {
   return invoke<[string, McpServerConfig][]>("mcp_list_servers");
 }
 
@@ -28,23 +26,15 @@ export async function mcpGetServer(name: string): Promise<McpServerConfig> {
   return invoke<McpServerConfig>("mcp_get_server", { name });
 }
 
-export async function mcpAddServer(
-  name: string,
-  config: McpServerConfig,
-): Promise<void> {
+export async function mcpAddServer(name: string, config: McpServerConfig): Promise<void> {
   return invoke<void>("mcp_add_server", { name, config });
 }
 
-export async function mcpUpdateServer(
-  name: string,
-  config: McpServerConfig,
-): Promise<void> {
+export async function mcpUpdateServer(name: string, config: McpServerConfig): Promise<void> {
   return invoke<void>("mcp_update_server", { name, config });
 }
 
-export async function mcpRemoveServer(
-  name: string,
-): Promise<McpServerConfig> {
+export async function mcpRemoveServer(name: string): Promise<McpServerConfig> {
   return invoke<McpServerConfig>("mcp_remove_server", { name });
 }
 
@@ -54,23 +44,17 @@ export async function mcpToggleServer(name: string): Promise<boolean> {
 
 // -- Health checks --
 
-export async function mcpCheckHealth(): Promise<
-  Record<string, McpHealthResultCached>
-> {
+export async function mcpCheckHealth(): Promise<Record<string, McpHealthResultCached>> {
   return invoke<Record<string, McpHealthResultCached>>("mcp_check_health");
 }
 
-export async function mcpCheckServerHealth(
-  name: string,
-): Promise<McpHealthResultCached> {
+export async function mcpCheckServerHealth(name: string): Promise<McpHealthResultCached> {
   return invoke<McpHealthResultCached>("mcp_check_server_health", { name });
 }
 
 // -- Import --
 
-export async function mcpImportFromFile(
-  path: string,
-): Promise<McpImportResult> {
+export async function mcpImportFromFile(path: string): Promise<McpImportResult> {
   return invoke<McpImportResult>("mcp_import_from_file", { path });
 }
 

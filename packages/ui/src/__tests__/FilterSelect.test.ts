@@ -40,7 +40,9 @@ describe("FilterSelect", () => {
     });
     await wrapper.find("select").setValue("vscode");
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeDefined();
+    if (!emitted) throw new Error("Expected update:modelValue emission");
     expect(emitted[emitted.length - 1]).toEqual(["vscode"]);
   });
 
@@ -50,7 +52,9 @@ describe("FilterSelect", () => {
     });
     await wrapper.find("select").setValue("");
     expect(wrapper.emitted("update:modelValue")).toBeTruthy();
-    const emitted = wrapper.emitted("update:modelValue")!;
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeDefined();
+    if (!emitted) throw new Error("Expected update:modelValue emission");
     expect(emitted[emitted.length - 1]).toEqual([null]);
   });
 });

@@ -15,6 +15,7 @@ export type { ConversationSectionsReturn } from "./useConversationSections";
 export { useConversationSections } from "./useConversationSections";
 export { useDismissable } from "./useDismissable";
 export { useLiveDuration } from "./useLiveDuration";
+export { useResizeHandle } from "./useResizeHandle";
 export { useSessionTabLoader } from "./useSessionTabLoader";
 export type {
   TimelineNavigationOptions,
@@ -24,4 +25,3 @@ export { useTimelineNavigation } from "./useTimelineNavigation";
 export type { Toast, ToastOptions } from "./useToast";
 export { useToast } from "./useToast";
 export { useToggleSet } from "./useToggleSet";
-export { useResizeHandle } from "./useResizeHandle";

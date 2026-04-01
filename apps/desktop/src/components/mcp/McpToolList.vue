@@ -12,9 +12,7 @@ const filteredTools = computed(() => {
   if (!search.value) return props.tools;
   const q = search.value.toLowerCase();
   return props.tools.filter(
-    (t) =>
-      t.name.toLowerCase().includes(q) ||
-      (t.description ?? "").toLowerCase().includes(q),
+    (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
   );
 });
 </script>

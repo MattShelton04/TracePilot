@@ -133,9 +133,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
       // This matches the Promise.allSettled pattern used by orchestrationHome,
       // configInjector, and launcher stores.
       const repos = [...registeredRepos.value];
-      const results = await Promise.allSettled(
-        repos.map((repo) => listWorktrees(repo.path)),
-      );
+      const results = await Promise.allSettled(repos.map((repo) => listWorktrees(repo.path)));
       if (!loadGuard.isValid(token)) return;
 
       const allWorktrees: WorktreeInfo[] = [];

@@ -100,7 +100,8 @@ describe("useExportConfig", () => {
       applyPreset("team");
 
       expect(format.value).toBe("markdown");
-      const teamPreset = EXPORT_PRESETS.find((p) => p.id === "team")!;
+      const teamPreset = EXPORT_PRESETS.find((p) => p.id === "team");
+      if (!teamPreset) throw new Error("Team preset missing in EXPORT_PRESETS");
       expect([...enabledSections.value]).toEqual(expect.arrayContaining(teamPreset.sections));
       expect(enabledSections.value.size).toBe(teamPreset.sections.length);
       expect(activePreset.value).toBe("team");
@@ -112,7 +113,8 @@ describe("useExportConfig", () => {
       applyPreset("analytics");
 
       expect(format.value).toBe("csv");
-      const preset = EXPORT_PRESETS.find((p) => p.id === "analytics")!;
+      const preset = EXPORT_PRESETS.find((p) => p.id === "analytics");
+      if (!preset) throw new Error("Analytics preset missing in EXPORT_PRESETS");
       expect(enabledSections.value.size).toBe(preset.sections.length);
       expect(activePreset.value).toBe("analytics");
     });

@@ -303,8 +303,8 @@ describe("toErrorMessage", () => {
   });
 
   it("handles nested Error objects (extracts outer message only)", () => {
-    const outerError = new Error("Outer error");
-    (outerError as any).cause = new Error("Inner error");
+    const outerError: Error & { cause?: Error } = new Error("Outer error");
+    outerError.cause = new Error("Inner error");
     expect(toErrorMessage(outerError)).toBe("Outer error");
   });
 

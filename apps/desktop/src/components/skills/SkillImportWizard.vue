@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { GitHubSkillPreview, LocalSkillPreview, SkillImportResult } from "@tracepilot/types";
-import { ref, computed, onMounted } from "vue";
-import { useSkillsStore } from "@/stores/skills";
-import { browseForFile, browseForDirectory } from "@/composables/useBrowseDirectory";
-import { useWorktreesStore } from "@/stores/worktrees";
+import { computed, onMounted, ref } from "vue";
+import { browseForDirectory, browseForFile } from "@/composables/useBrowseDirectory";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSkillsStore } from "@/stores/skills";
+import { useWorktreesStore } from "@/stores/worktrees";
 
 const emit = defineEmits<{
   close: [];
@@ -50,7 +50,7 @@ const ghRef = ref("");
 const ghPreviews = ref<GitHubSkillPreview[]>([]);
 const ghSelected = ref<Set<string>>(new Set());
 const ghScanning = ref(false);
-const ghScanMessage = ref('');
+const ghScanMessage = ref("");
 let _scanController: { cancelled: boolean } | null = null;
 
 // Target scope
@@ -67,7 +67,10 @@ const canImport = computed(() => {
     case "github":
       // When previews are showing, need at least one selected
       if (ghPreviews.value.length > 0) return ghSelected.value.size > 0;
-      return ghRepoUrl.value.trim().length > 0 || (ghOwner.value.trim().length > 0 && ghRepo.value.trim().length > 0);
+      return (
+        ghRepoUrl.value.trim().length > 0 ||
+        (ghOwner.value.trim().length > 0 && ghRepo.value.trim().length > 0)
+      );
   }
 });
 
@@ -75,7 +78,9 @@ function parseGhUrl() {
   const url = ghRepoUrl.value.trim();
 
   // Full GitHub URL: https://github.com/owner/repo/tree/ref/path/to/skills
-  const fullMatch = url.match(/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?(?:\/?$)/);
+  const fullMatch = url.match(
+    /github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?(?:\/?$)/,
+  );
   if (fullMatch) {
     ghOwner.value = fullMatch[1];
     ghRepo.value = fullMatch[2];
@@ -145,14 +150,14 @@ async function scanGitHub() {
   }
 
   ghScanning.value = true;
-  ghScanMessage.value = 'Connecting to GitHub…';
+  ghScanMessage.value = "Connecting to GitHub…";
 
   const controller = { cancelled: false };
   _scanController = controller;
 
   // Progress message advances after a couple of seconds.
   const msgTimer = setTimeout(() => {
-    if (!controller.cancelled) ghScanMessage.value = 'Scanning repository tree…';
+    if (!controller.cancelled) ghScanMessage.value = "Scanning repository tree…";
   }, 2000);
 
   try {
@@ -168,8 +173,7 @@ async function scanGitHub() {
     ghPreviews.value = previews;
     if (previews.length === 0) {
       importError.value =
-        store.error ??
-        "No skills found in this repository. Make sure it contains SKILL.md files.";
+        store.error ?? "No skills found in this repository. Make sure it contains SKILL.md files.";
     } else {
       // Select all by default
       ghSelected.value = new Set(previews.map((p) => p.path));
@@ -181,7 +185,7 @@ async function scanGitHub() {
   } finally {
     clearTimeout(msgTimer);
     ghScanning.value = false;
-    ghScanMessage.value = '';
+    ghScanMessage.value = "";
     _scanController = null;
   }
 }
@@ -192,7 +196,7 @@ function cancelScan() {
     _scanController = null;
   }
   ghScanning.value = false;
-  ghScanMessage.value = '';
+  ghScanMessage.value = "";
 }
 
 function toggleGhSkill(path: string) {

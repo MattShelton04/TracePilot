@@ -436,7 +436,9 @@ describe("useWorktreesStore", () => {
       // All 3 repos should have started before any resolved (proves parallelism)
       expect(deferreds).toHaveLength(3);
 
-      deferreds.forEach((d) => d.resolve([]));
+      deferreds.forEach((d) => {
+        d.resolve([]);
+      });
       await p;
     });
 
@@ -462,9 +464,7 @@ describe("useWorktreesStore", () => {
       store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
 
       // First repo succeeds with 0 worktrees, second repo fails
-      mockListWorktrees
-        .mockResolvedValueOnce([])
-        .mockRejectedValueOnce(new Error("deleted"));
+      mockListWorktrees.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("deleted"));
 
       await store.loadAllWorktrees();
 
@@ -542,7 +542,9 @@ describe("useWorktreesStore", () => {
       expect(maxInFlight).toBe(4);
 
       // Resolve first batch
-      deferreds.forEach((d) => d.resolve(1000));
+      deferreds.forEach((d) => {
+        d.resolve(1000);
+      });
       await flushPromises();
 
       // Second batch of 2 should now be in-flight
@@ -550,7 +552,9 @@ describe("useWorktreesStore", () => {
       expect(maxInFlight).toBe(4); // never exceeded 4
 
       // Resolve second batch
-      deferreds.slice(4).forEach((d) => d.resolve(2000));
+      deferreds.slice(4).forEach((d) => {
+        d.resolve(2000);
+      });
       await p;
       await flushPromises();
 

@@ -75,10 +75,11 @@ describe("useLineAreaChartData", () => {
       });
       const coords = chartData.value?.coords;
       expect(coords).toBeDefined();
-      expect(coords![0]).toHaveProperty("date", "2025-01-01");
-      expect(coords![0]).toHaveProperty("tokens", 100);
-      expect(coords![0]).toHaveProperty("x");
-      expect(coords![0]).toHaveProperty("y");
+      if (!coords) throw new Error("Expected chart coordinates");
+      expect(coords[0]).toHaveProperty("date", "2025-01-01");
+      expect(coords[0]).toHaveProperty("tokens", 100);
+      expect(coords[0]).toHaveProperty("x");
+      expect(coords[0]).toHaveProperty("y");
     });
 
     it("uses custom yFormatter", () => {
@@ -90,7 +91,8 @@ describe("useLineAreaChartData", () => {
       });
       const labels = chartData.value?.yLabels;
       expect(labels).toBeDefined();
-      expect(labels![0].value).toMatch(/^\$/);
+      if (!labels) throw new Error("Expected y labels");
+      expect(labels[0].value).toMatch(/^\$/);
     });
 
     it("uses custom minPoints threshold", () => {
@@ -171,8 +173,11 @@ describe("useLineAreaChartData", () => {
         layout,
         accessor: (p) => p.tokens,
       });
-      expect(gridLines.value).toHaveLength(chartData.value!.yLabels.length);
-      expect(gridLines.value).toEqual(chartData.value!.yLabels.map((l) => l.y));
+      const yLabels = chartData.value?.yLabels;
+      expect(yLabels).toBeDefined();
+      if (!yLabels) throw new Error("Expected y labels");
+      expect(gridLines.value).toHaveLength(yLabels.length);
+      expect(gridLines.value).toEqual(yLabels.map((l) => l.y));
     });
   });
 });

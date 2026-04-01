@@ -123,7 +123,37 @@ const loadTurns = vi.fn();
 const loadTodos = vi.fn();
 const loadShutdownMetrics = vi.fn();
 
-let store: any;
+type SessionDetailStoreMock = {
+  sessionId: string | null;
+  detail: { id: string; repository: string; branch: string } | null;
+  turns: Array<unknown>;
+  shutdownMetrics: unknown;
+  error: string | null;
+  turnsError: string | null;
+  loaded: Set<string>;
+  loadDetail: typeof loadDetail;
+  loadTurns: typeof loadTurns;
+  loadTodos: typeof loadTodos;
+  loadShutdownMetrics: typeof loadShutdownMetrics;
+  loadEvents: ReturnType<typeof vi.fn>;
+  loadCheckpoints: ReturnType<typeof vi.fn>;
+  loadPlan: ReturnType<typeof vi.fn>;
+  loadIncidents: ReturnType<typeof vi.fn>;
+  loading: boolean;
+  events: unknown;
+  todos: unknown;
+  checkpoints: Array<unknown>;
+  plan: unknown;
+  incidents: Array<unknown>;
+  metricsError: string | null;
+  todosError: string | null;
+  eventsError: string | null;
+  checkpointsError: string | null;
+  planError: string | null;
+  incidentsError: string | null;
+};
+
+let store: SessionDetailStoreMock;
 
 vi.mock("@/stores/sessionDetail", () => ({
   useSessionDetailStore: () => store,
@@ -140,7 +170,7 @@ describe("SessionReplayView", () => {
     loadTodos.mockResolvedValue(undefined);
     loadShutdownMetrics.mockResolvedValue(undefined);
 
-    store = reactive({
+    store = reactive<SessionDetailStoreMock>({
       sessionId: null,
       detail: { id: "session-1", repository: "acme/repo", branch: "main" },
       turns: [] as Array<unknown>,

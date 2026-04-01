@@ -17,7 +17,9 @@ const router = useRouter();
 
 const iconLetter = computed(() => props.server.name.charAt(0).toUpperCase());
 
-const transportLabel = computed(() => props.server.config.type ?? props.server.config.transport ?? "stdio");
+const transportLabel = computed(
+  () => props.server.config.type ?? props.server.config.transport ?? "stdio",
+);
 
 const healthStatus = computed(() => props.server.health?.status ?? ("unknown" as const));
 

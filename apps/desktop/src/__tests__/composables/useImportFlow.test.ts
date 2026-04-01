@@ -87,7 +87,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  mountedWrappers.splice(0).forEach((wrapper) => wrapper.unmount());
+  mountedWrappers.splice(0).forEach((wrapper) => {
+    wrapper.unmount();
+  });
   vi.useRealTimers();
   vi.restoreAllMocks();
 });

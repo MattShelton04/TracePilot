@@ -6,9 +6,9 @@ import { nextTick } from "vue";
 import { BASE_FONT_SIZE_PX, usePreferencesStore } from "../../stores/preferences";
 
 vi.mock("@tracepilot/client", async () => {
-  const actual = await vi.importActual("@tracepilot/client");
+  const actual = await vi.importActual<typeof import("@tracepilot/client")>("@tracepilot/client");
   return {
-    ...(actual as any),
+    ...actual,
     getConfig: vi.fn(),
     saveConfig: vi.fn(),
   };
