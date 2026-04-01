@@ -47,6 +47,13 @@ where
     let staging_name = format!(".tmp-import-{}", uuid::Uuid::new_v4());
     let staging_dir = dest_parent.join(&staging_name);
 
+    std::fs::create_dir_all(dest_parent).map_err(|e| {
+        SkillsError::Io(format!(
+            "Failed to create destination parent for '{}': {e}",
+            skill_name
+        ))
+    })?;
+
     // Use create_dir (not create_dir_all) so a collision is detected as
     // an error rather than silently sharing a directory.
     std::fs::create_dir(&staging_dir).map_err(|e| {
@@ -704,6 +711,21 @@ mod tests {
         assert_eq!(result.files_copied, 2);
         assert!(dst.path().join("test-import").join("SKILL.md").exists());
         assert!(dst.path().join("test-import").join("helper.py").exists());
+    }
+
+    #[test]
+    fn import_from_local_creates_missing_destination_parent() {
+        let src = TempDir::new().unwrap();
+        let root = TempDir::new().unwrap();
+        let dest_parent = root.path().join("nested").join("skills");
+
+        write_test_skill(src.path());
+        std::fs::write(src.path().join("helper.py"), "# helper").unwrap();
+
+        let result = import_from_local(src.path(), &dest_parent).unwrap();
+        assert_eq!(result.skill_name, "test-import");
+        assert!(dest_parent.join("test-import").join("SKILL.md").exists());
+        assert!(dest_parent.join("test-import").join("helper.py").exists());
     }
 
     #[test]
