@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{open_index_db, read_config, with_session_path};
+use crate::helpers::{open_index_db, read_config, spawn_blocking, with_session_path};
 use crate::types::{GitInfo, UpdateCheckResult};
 use std::ffi::OsStr;
 use std::path::Path;
@@ -11,10 +11,10 @@ use std::path::Path;
 pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64> {
     let index_path = read_config(&state).index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         Ok(std::fs::metadata(&index_path).map(|m| m.len()).unwrap_or(0))
     })
-    .await?
+    .await
 }
 
 /// Check if a session is currently running by looking for `inuse.*.lock` files.
@@ -35,14 +35,14 @@ pub async fn get_session_count(state: tauri::State<'_, SharedConfig>) -> CmdResu
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         if let Some(db) = open_index_db(&index_path)
             && let Ok(count) = db.session_count() {
                 return Ok(count);
             }
         Ok(tracepilot_core::session::discovery::discover_sessions(&session_state_dir)?.len())
     })
-    .await?
+    .await
 }
 
 /// Returns the installation type: "source", "installed", or "portable".
