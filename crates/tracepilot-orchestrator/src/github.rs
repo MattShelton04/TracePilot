@@ -6,7 +6,7 @@
 //! requiring TracePilot to manage OAuth tokens directly.
 
 use crate::error::{OrchestratorError, Result};
-use crate::process::{run_hidden, run_hidden_stdout_timeout};
+use crate::process::{run_hidden, run_hidden_stdout};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -117,7 +117,7 @@ pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<St
 /// Fetch the contents of a single file from a GitHub repository as raw bytes.
 pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<Vec<u8>> {
     let api_path = format!("/repos/{owner}/{repo}/contents/{path}?ref={ref_}");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = run_hidden_stdout("gh", &["api", &api_path], None, Some(GH_TIMEOUT_SECS))?;
 
     let response: GhContentResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub API response: {e}"))
@@ -135,7 +135,7 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
 /// Uses the Git Trees API with `recursive=1` and a 15-second timeout.
 pub fn gh_list_tree(owner: &str, repo: &str, ref_: &str) -> Result<Vec<TreeEntry>> {
     let api_path = format!("/repos/{owner}/{repo}/git/trees/{ref_}?recursive=1");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = run_hidden_stdout("gh", &["api", &api_path], None, Some(GH_TIMEOUT_SECS))?;
 
     let response: GhTreeResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub tree response: {e}"))
@@ -191,11 +191,11 @@ pub fn gh_get_files_batch(
             fields.join(" ")
         );
 
-        let output = run_hidden_stdout_timeout(
+        let output = run_hidden_stdout(
             "gh",
             &["api", "graphql", "-f", &format!("query={query}")],
             None,
-            GH_TIMEOUT_SECS,
+            Some(GH_TIMEOUT_SECS),
         )?;
 
         let json: serde_json::Value = serde_json::from_str(&output)
