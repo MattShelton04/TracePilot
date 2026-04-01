@@ -1,4 +1,5 @@
 import type { ImportPreviewResult, ImportResult } from "@tracepilot/types";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ──────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ import { useImportFlow } from "../../composables/useImportFlow";
 
 const mockPreviewImport = previewImport as ReturnType<typeof vi.fn>;
 const mockImportSessions = importSessions as ReturnType<typeof vi.fn>;
+const mountedWrappers: VueWrapper[] = [];
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -61,6 +63,22 @@ function makeImportResult(overrides: Partial<ImportResult> = {}): ImportResult {
   } as ImportResult;
 }
 
+function mountImportFlow() {
+  let flowRef!: ReturnType<typeof useImportFlow>;
+
+  const Wrapper = {
+    setup() {
+      flowRef = useImportFlow();
+      return {};
+    },
+    template: "<div />",
+  };
+
+  const wrapper = mount(Wrapper);
+  mountedWrappers.push(wrapper);
+  return flowRef;
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
@@ -69,6 +87,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  mountedWrappers.splice(0).forEach((wrapper) => wrapper.unmount());
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -78,34 +97,34 @@ describe("useImportFlow", () => {
 
   describe("initial state", () => {
     it("starts at the select step", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.step.value).toBe("select");
     });
 
     it("has empty file path and name", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.filePath.value).toBe("");
       expect(flow.fileName.value).toBe("");
     });
 
     it("has no preview or error", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.preview.value).toBeNull();
       expect(flow.error.value).toBeNull();
     });
 
     it("defaults conflict strategy to skip", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.conflictStrategy.value).toBe("skip");
     });
 
     it("has empty session selection", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.selectedSessions.value).toEqual([]);
     });
 
     it("has zero progress and counts", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.importProgress.value).toBe(0);
       expect(flow.importedCount.value).toBe(0);
       expect(flow.skippedCount.value).toBe(0);
@@ -117,7 +136,7 @@ describe("useImportFlow", () => {
 
   describe("hasErrors", () => {
     it("returns false when preview is null", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.hasErrors.value).toBe(false);
     });
 
@@ -128,7 +147,7 @@ describe("useImportFlow", () => {
         }),
       );
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/some/file.json";
       await flow.validateFile();
 
@@ -142,7 +161,7 @@ describe("useImportFlow", () => {
         }),
       );
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/some/file.json";
       await flow.validateFile();
 
@@ -152,14 +171,14 @@ describe("useImportFlow", () => {
 
   describe("canImport", () => {
     it("returns false at initial state", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       expect(flow.canImport.value).toBe(false);
     });
 
     it("returns true when step is review, no errors, and sessions selected", async () => {
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -172,7 +191,7 @@ describe("useImportFlow", () => {
     it("returns false when step is review but no sessions selected", async () => {
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
       flow.selectedSessions.value = [];
@@ -187,7 +206,7 @@ describe("useImportFlow", () => {
         }),
       );
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -199,20 +218,20 @@ describe("useImportFlow", () => {
 
   describe("toggleSession", () => {
     it("adds a session to the selection", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.toggleSession("sess-1");
       expect(flow.selectedSessions.value).toContain("sess-1");
     });
 
     it("removes a session that is already selected", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.toggleSession("sess-1");
       flow.toggleSession("sess-1");
       expect(flow.selectedSessions.value).not.toContain("sess-1");
     });
 
     it("add and remove cycle returns to original state", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       const before = [...flow.selectedSessions.value];
       flow.toggleSession("sess-1");
       flow.toggleSession("sess-1");
@@ -220,7 +239,7 @@ describe("useImportFlow", () => {
     });
 
     it("handles multiple sessions independently", () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.toggleSession("sess-1");
       flow.toggleSession("sess-2");
       expect(flow.selectedSessions.value).toEqual(["sess-1", "sess-2"]);
@@ -236,7 +255,7 @@ describe("useImportFlow", () => {
     it("restores all state to initial values", async () => {
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -267,7 +286,7 @@ describe("useImportFlow", () => {
         }),
       );
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       const validatePromise = flow.validateFile();
 
@@ -288,7 +307,7 @@ describe("useImportFlow", () => {
 
   describe("validateFile", () => {
     it("early-returns without changing state when filePath is empty", async () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       await flow.validateFile();
 
       expect(flow.step.value).toBe("select");
@@ -299,7 +318,7 @@ describe("useImportFlow", () => {
       const previewResult = makePreviewResult();
       mockPreviewImport.mockResolvedValue(previewResult);
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/test/export.tpx.json";
       await flow.validateFile();
 
@@ -311,7 +330,7 @@ describe("useImportFlow", () => {
     it("auto-selects all sessions from the preview", async () => {
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -321,7 +340,7 @@ describe("useImportFlow", () => {
     it("returns to select step on validation error", async () => {
       mockPreviewImport.mockRejectedValue(new Error("Invalid format"));
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -333,7 +352,7 @@ describe("useImportFlow", () => {
     it("handles non-Error rejection", async () => {
       mockPreviewImport.mockRejectedValue("raw string error");
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
 
@@ -356,7 +375,7 @@ describe("useImportFlow", () => {
           }),
         );
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/first.json";
       const first = flow.validateFile();
 
@@ -393,14 +412,14 @@ describe("useImportFlow", () => {
   describe("executeImport", () => {
     async function setupForImport() {
       mockPreviewImport.mockResolvedValue(makePreviewResult());
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
       await flow.validateFile();
       return flow;
     }
 
     it("is a no-op when canImport is false", async () => {
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       // canImport is false (step is 'select')
       await flow.executeImport();
 
@@ -501,7 +520,7 @@ describe("useImportFlow", () => {
       vi.stubGlobal("prompt", mockPrompt);
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       await flow.browseFile();
 
       expect(mockPrompt).toHaveBeenCalled();
@@ -514,7 +533,7 @@ describe("useImportFlow", () => {
     it("does nothing when prompt is cancelled", async () => {
       vi.stubGlobal("prompt", vi.fn().mockReturnValue(null));
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       await flow.browseFile();
 
       expect(flow.filePath.value).toBe("");
@@ -527,7 +546,7 @@ describe("useImportFlow", () => {
       vi.stubGlobal("prompt", vi.fn().mockReturnValue("  /path/file.json  "));
       mockPreviewImport.mockResolvedValue(makePreviewResult());
 
-      const flow = useImportFlow();
+      const flow = mountImportFlow();
       await flow.browseFile();
 
       expect(flow.filePath.value).toBe("/path/file.json");
