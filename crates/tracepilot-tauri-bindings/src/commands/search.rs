@@ -2,7 +2,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{
+use crate::helpers::{spawn_blocking, spawn_blocking_infallible, spawn_blocking_orchestrator, 
     emit_indexing_progress, load_summary_list_item, read_config, remove_index_db_files,
 };
 use crate::types::{
@@ -23,7 +23,7 @@ pub async fn search_sessions(
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         if !index_path.exists() {
             return Ok(Vec::new());
         }
@@ -81,7 +81,7 @@ pub async fn reindex_sessions(
 
     let _ = app.emit("indexing-started", ());
 
-    let result = tokio::task::spawn_blocking(move || {
+    let result = spawn_blocking(move || {
         let _permit = permit;
         let start = std::time::Instant::now();
         let app_fallback = app_handle.clone();
@@ -121,7 +121,7 @@ pub async fn reindex_sessions(
             let session_state_dir2 = cfg2.session_state_dir();
             let index_path2 = cfg2.index_db_path();
             let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
+            spawn_blocking(move || {
                 let _permit = search_permit;
                 let start = std::time::Instant::now();
                 let _ = app2.emit("search-indexing-started", ());
@@ -186,7 +186,7 @@ pub async fn reindex_sessions_full(
 
     let _ = app.emit("indexing-started", ());
 
-    let result = tokio::task::spawn_blocking(move || {
+    let result = spawn_blocking(move || {
         let _permit = permit;
 
         remove_index_db_files(&index_path)?;
@@ -213,7 +213,7 @@ pub async fn reindex_sessions_full(
             let session_state_dir2 = cfg2.session_state_dir();
             let index_path2 = cfg2.index_db_path();
             let app2 = app.clone();
-            tokio::task::spawn_blocking(move || {
+            spawn_blocking(move || {
                 let _permit = search_permit;
                 let start = std::time::Instant::now();
                 let _ = app2.emit("search-indexing-started", ());
@@ -282,7 +282,7 @@ pub async fn search_content(
     let index_path = cfg.index_db_path();
     let query_for_closure = query.clone();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let start = std::time::Instant::now();
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
@@ -361,7 +361,7 @@ pub async fn get_search_facets(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
@@ -397,7 +397,7 @@ pub async fn get_search_stats(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let stats = db.search_stats()?;
@@ -420,7 +420,7 @@ pub async fn get_search_repositories(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         Ok(db.search_repositories()?)
     })
@@ -435,7 +435,7 @@ pub async fn get_search_tool_names(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         Ok(db.search_tool_names()?)
     })
@@ -465,7 +465,7 @@ pub async fn rebuild_search_index(
 
     let _ = app.emit("search-indexing-started", ());
 
-    let result = tokio::task::spawn_blocking(move || {
+    let result = spawn_blocking(move || {
         let _permit = permit;
         tracepilot_indexer::rebuild_search_content(
             &session_state_dir,
@@ -497,7 +497,7 @@ pub async fn rebuild_search_index(
 #[tauri::command]
 pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
         Ok(db.fts_integrity_check()?)
     })
@@ -508,7 +508,7 @@ pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdRe
 #[tauri::command]
 pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
         Ok(db.fts_optimize()?)
     })
@@ -521,7 +521,7 @@ pub async fn fts_health(
     state: tauri::State<'_, SharedConfig>,
 ) -> CmdResult<tracepilot_indexer::index_db::search_reader::FtsHealthInfo> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
         Ok(db.fts_health()?)
     })
@@ -539,7 +539,7 @@ pub async fn get_result_context(
     Vec<tracepilot_indexer::index_db::ContextSnippet>,
 )> {
     let cfg = read_config(&state);
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
         Ok(db.get_result_context(result_id, radius.unwrap_or(2))?)
     })

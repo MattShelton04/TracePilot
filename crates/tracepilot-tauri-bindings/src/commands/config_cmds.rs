@@ -2,12 +2,12 @@
 
 use crate::config::{self, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{copilot_home, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
+use crate::helpers::{spawn_blocking, spawn_blocking_infallible, spawn_blocking_orchestrator, copilot_home, read_config, remove_index_db_files, validate_path_within, validate_write_path_within};
 use crate::types::ValidateSessionDirResult;
 
 #[tauri::command]
 pub async fn check_config_exists() -> CmdResult<bool> {
-    tokio::task::spawn_blocking(|| Ok(config::config_file_path().is_some_and(|p| p.exists())))
+    spawn_blocking(|| Ok(config::config_file_path().is_some_and(|p| p.exists())))
         .await?
 }
 
@@ -22,7 +22,7 @@ pub async fn save_config(
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cfg = config.clone();
-    tokio::task::spawn_blocking(move || cfg.save()).await??;
+    spawn_blocking(move || cfg.save()).await??;
 
     let mut guard = state
         .write()
@@ -33,7 +33,7 @@ pub async fn save_config(
 
 #[tauri::command]
 pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirResult> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let dir = std::path::PathBuf::from(&path);
         if !dir.exists() {
             return Ok(ValidateSessionDirResult {
@@ -71,7 +71,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
     let index_path = cfg.index_db_path();
     let config_path = config::config_file_path();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         // Best-effort: log failures but don't abort the reset.
         if let Err(e) = remove_index_db_files(&index_path) {
             tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
@@ -101,7 +101,7 @@ pub async fn factory_reset(state: tauri::State<'_, SharedConfig>) -> CmdResult<(
 pub async fn get_agent_definitions(
     version: Option<String>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::AgentDefinition>> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         let version_dir = if let Some(v) = version {
             home.join("pkg").join("universal").join(v)
@@ -116,7 +116,7 @@ pub async fn get_agent_definitions(
 
 #[tauri::command]
 pub async fn save_agent_definition(file_path: String, yaml_content: String) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         let validated = validate_write_path_within(&file_path, &home)?;
         Ok(
@@ -131,7 +131,7 @@ pub async fn save_agent_definition(file_path: String, yaml_content: String) -> C
 
 #[tauri::command]
 pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotConfig> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::config_injector::read_copilot_config(&home)?)
     })
@@ -140,7 +140,7 @@ pub async fn get_copilot_config() -> CmdResult<tracepilot_orchestrator::CopilotC
 
 #[tauri::command]
 pub async fn save_copilot_config(config: serde_json::Value) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::config_injector::write_copilot_config(&home, &config)?)
     })
@@ -152,7 +152,7 @@ pub async fn create_config_backup(
     file_path: String,
     label: String,
 ) -> CmdResult<tracepilot_orchestrator::BackupEntry> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         let validated = validate_path_within(&file_path, &home)?;
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
@@ -167,7 +167,7 @@ pub async fn create_config_backup(
 
 #[tauri::command]
 pub async fn list_config_backups() -> CmdResult<Vec<tracepilot_orchestrator::BackupEntry>> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         Ok(tracepilot_orchestrator::config_injector::list_backups(
             &backup_dir,
@@ -178,7 +178,7 @@ pub async fn list_config_backups() -> CmdResult<Vec<tracepilot_orchestrator::Bac
 
 #[tauri::command]
 pub async fn restore_config_backup(backup_path: String, restore_to: String) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
@@ -193,7 +193,7 @@ pub async fn restore_config_backup(backup_path: String, restore_to: String) -> C
 
 #[tauri::command]
 pub async fn delete_config_backup(backup_path: String) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated = validate_path_within(&backup_path, &backup_dir)?;
         Ok(tracepilot_orchestrator::config_injector::delete_backup(
@@ -208,7 +208,7 @@ pub async fn preview_backup_restore(
     backup_path: String,
     source_path: String,
 ) -> CmdResult<tracepilot_orchestrator::BackupDiffPreview> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let backup_dir = tracepilot_orchestrator::config_injector::backup_dir()?;
         let validated_backup = validate_path_within(&backup_path, &backup_dir)?;
         let home = copilot_home()?;
@@ -229,7 +229,7 @@ pub async fn diff_config_files(
     old_path: String,
     new_path: String,
 ) -> CmdResult<tracepilot_orchestrator::ConfigDiff> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         let validated_old = validate_write_path_within(&old_path, &home)?;
         let validated_new = validate_write_path_within(&new_path, &home)?;
@@ -244,7 +244,7 @@ pub async fn diff_config_files(
 #[tauri::command]
 pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrator::CopilotVersion>>
 {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::version_manager::discover_versions(
             &home,
@@ -255,7 +255,7 @@ pub async fn discover_copilot_versions() -> CmdResult<Vec<tracepilot_orchestrato
 
 #[tauri::command]
 pub async fn get_active_copilot_version() -> CmdResult<tracepilot_orchestrator::CopilotVersion> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::version_manager::active_version(
             &home,
@@ -269,7 +269,7 @@ pub async fn get_migration_diffs(
     from_version: String,
     to_version: String,
 ) -> CmdResult<Vec<tracepilot_orchestrator::MigrationDiff>> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::version_manager::migration_diffs(
             &home,
@@ -286,7 +286,7 @@ pub async fn migrate_agent_definition(
     from_version: String,
     to_version: String,
 ) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let home = copilot_home()?;
         Ok(tracepilot_orchestrator::version_manager::migrate_agent(
             &home,
@@ -300,14 +300,14 @@ pub async fn migrate_agent_definition(
 
 #[tauri::command]
 pub async fn list_session_templates() -> CmdResult<Vec<tracepilot_orchestrator::SessionTemplate>> {
-    tokio::task::spawn_blocking(|| Ok(tracepilot_orchestrator::templates::all_templates()?)).await?
+    spawn_blocking(|| Ok(tracepilot_orchestrator::templates::all_templates()?)).await?
 }
 
 #[tauri::command]
 pub async fn save_session_template(
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         Ok(tracepilot_orchestrator::templates::save_template(
             &template,
         )?)
@@ -317,7 +317,7 @@ pub async fn save_session_template(
 
 #[tauri::command]
 pub async fn delete_session_template(id: String) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         Ok(tracepilot_orchestrator::templates::delete_template(&id)?)
     })
     .await?
@@ -325,7 +325,7 @@ pub async fn delete_session_template(id: String) -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn restore_default_templates() -> CmdResult<()> {
-    tokio::task::spawn_blocking(|| {
+    spawn_blocking(|| {
         Ok(tracepilot_orchestrator::templates::restore_all_default_templates()?)
     })
     .await?
@@ -333,7 +333,7 @@ pub async fn restore_default_templates() -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn increment_template_usage(id: String) -> CmdResult<()> {
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         Ok(tracepilot_orchestrator::templates::increment_usage(&id)?)
     })
     .await?
