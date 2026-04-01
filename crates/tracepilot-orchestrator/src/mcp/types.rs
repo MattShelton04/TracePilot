@@ -124,6 +124,22 @@ pub struct McpTool {
 }
 
 impl McpTool {
+    /// Construct a tool and cache its estimated token count.
+    pub fn new(
+        name: String,
+        description: Option<String>,
+        input_schema: Option<serde_json::Value>,
+    ) -> Self {
+        let estimated_tokens =
+            crate::tokens::estimate_tool_tokens(&name, description.as_deref().unwrap_or(""));
+        Self {
+            name,
+            description,
+            input_schema,
+            estimated_tokens,
+        }
+    }
+
     /// Estimate the token cost of this tool's definition.
     ///
     /// Uses the tool name and description (empty string if `None`) to calculate

@@ -358,14 +358,7 @@ fn extract_tools_from_json(resp: &serde_json::Value) -> Vec<McpTool> {
                 .map(|s| s.to_string());
             let input_schema = tool_val.get("inputSchema").cloned();
 
-            let mut tool = McpTool {
-                name,
-                description,
-                input_schema,
-                estimated_tokens: 0,
-            };
-            tool.estimated_tokens = tool.estimate_tokens();
-            tool
+            McpTool::new(name, description, input_schema)
         })
         .collect()
 }
@@ -521,14 +514,7 @@ fn spawn_and_initialize(
                                         .map(|s| s.to_string());
                                     let input_schema = tool_val.get("inputSchema").cloned();
 
-                                    let mut tool = McpTool {
-                                        name,
-                                        description,
-                                        input_schema,
-                                        estimated_tokens: 0,
-                                    };
-                                    tool.estimated_tokens = tool.estimate_tokens();
-                                    tools.push(tool);
+                                    tools.push(McpTool::new(name, description, input_schema));
                                 }
                             }
                         }
