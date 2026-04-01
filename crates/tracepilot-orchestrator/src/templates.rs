@@ -128,9 +128,9 @@ pub fn restore_all_default_templates() -> Result<()> {
 }
 
 /// Check whether any default templates have been dismissed.
-pub fn has_dismissed_defaults() -> Result<bool> {
+pub fn has_dismissed_defaults() -> bool {
     let dismissed = read_dismissed_defaults();
-    Ok(!dismissed.is_empty())
+    !dismissed.is_empty()
 }
 
 /// List all saved templates.
@@ -550,23 +550,23 @@ mod tests {
             dismiss_default_template("default-multi-agent-review").unwrap();
             dismiss_default_template("default-write-tests").unwrap();
             assert_eq!(all_templates().unwrap().len(), 0);
-            assert!(has_dismissed_defaults().unwrap());
+            assert!(has_dismissed_defaults());
 
             // Restore all at once
             restore_all_default_templates().unwrap();
             assert_eq!(all_templates().unwrap().len(), 2);
-            assert!(!has_dismissed_defaults().unwrap());
+            assert!(!has_dismissed_defaults());
         });
     }
 
     #[test]
     fn test_has_dismissed_defaults() {
         with_temp_home(|| {
-            assert!(!has_dismissed_defaults().unwrap());
+            assert!(!has_dismissed_defaults());
             dismiss_default_template("default-write-tests").unwrap();
-            assert!(has_dismissed_defaults().unwrap());
+            assert!(has_dismissed_defaults());
             restore_default_template("default-write-tests").unwrap();
-            assert!(!has_dismissed_defaults().unwrap());
+            assert!(!has_dismissed_defaults());
         });
     }
 
@@ -675,7 +675,7 @@ mod tests {
             std::fs::write(&path, b"not valid json").unwrap();
 
             // Should return false (treats as no dismissed templates)
-            assert!(!has_dismissed_defaults().unwrap());
+            assert!(!has_dismissed_defaults());
         });
     }
 
