@@ -9,6 +9,90 @@ use super::SearchContentRow;
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
 use tracepilot_core::utils::truncate_utf8;
 
+/// Builder for SearchContentRow that captures common fields and reduces boilerplate.
+///
+/// The builder pattern eliminates repetitive struct construction across 25+ call sites,
+/// making the code more maintainable and reducing the risk of errors when adding new fields.
+struct SearchContentRowBuilder<'a> {
+    session_id: &'a str,
+    turn_number: Option<i64>,
+    event_index: i64,
+    timestamp_unix: Option<i64>,
+}
+
+impl<'a> SearchContentRowBuilder<'a> {
+    /// Create a new builder with common fields that are the same for all rows in a turn.
+    #[inline]
+    fn new(
+        session_id: &'a str,
+        turn_number: Option<i64>,
+        event_index: i64,
+        timestamp_unix: Option<i64>,
+    ) -> Self {
+        Self {
+            session_id,
+            turn_number,
+            event_index,
+            timestamp_unix,
+        }
+    }
+
+    /// Build a row with content only (no tool name, no metadata).
+    #[inline]
+    fn with_content(self, content_type: &'static str, content: String) -> SearchContentRow {
+        SearchContentRow {
+            session_id: self.session_id.to_string(),
+            content_type,
+            turn_number: self.turn_number,
+            event_index: self.event_index,
+            timestamp_unix: self.timestamp_unix,
+            tool_name: None,
+            content,
+            metadata_json: None,
+        }
+    }
+
+    /// Build a row with tool name and content (no metadata).
+    #[inline]
+    fn with_tool_content(
+        self,
+        content_type: &'static str,
+        tool_name: Option<String>,
+        content: String,
+    ) -> SearchContentRow {
+        SearchContentRow {
+            session_id: self.session_id.to_string(),
+            content_type,
+            turn_number: self.turn_number,
+            event_index: self.event_index,
+            timestamp_unix: self.timestamp_unix,
+            tool_name,
+            content,
+            metadata_json: None,
+        }
+    }
+
+    /// Build a row with content and optional metadata (no tool name).
+    #[inline]
+    fn with_metadata(
+        self,
+        content_type: &'static str,
+        content: String,
+        metadata_json: Option<String>,
+    ) -> SearchContentRow {
+        SearchContentRow {
+            session_id: self.session_id.to_string(),
+            content_type,
+            turn_number: self.turn_number,
+            event_index: self.event_index,
+            timestamp_unix: self.timestamp_unix,
+            tool_name: None,
+            content,
+            metadata_json,
+        }
+    }
+}
+
 /// Maximum bytes for individual content fields.
 const MAX_TOOL_CALL_BYTES: usize = 2_000;
 const MAX_TOOL_RESULT_BYTES: usize = 800;
@@ -104,16 +188,9 @@ pub fn extract_search_content(
                 flush_pending(&mut pending_session_rows, &mut rows, current_turn);
                 if let Some(ref content) = d.content
                     && !content.is_empty() {
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "user_message",
-                            turn_number: Some(current_turn),
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: content.clone(),
-                            metadata_json: None,
-                        });
+                        let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                            .with_content("user_message", content.clone());
+                        rows.push(row);
                     }
             }
 
@@ -124,31 +201,17 @@ pub fn extract_search_content(
                 if let Some(ref content) = d.content
                     && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "assistant_message",
-                            turn_number: Some(current_turn),
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                            .with_content("assistant_message", truncated.to_string());
+                        rows.push(row);
                     }
                 // Also index reasoning text if present
                 if let Some(ref reasoning) = d.reasoning_text
                     && !reasoning.is_empty() {
                         let truncated = truncate_utf8(reasoning, MAX_REASONING_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "reasoning",
-                            turn_number: Some(current_turn),
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                            .with_content("reasoning", truncated.to_string());
+                        rows.push(row);
                     }
             }
 
@@ -159,16 +222,9 @@ pub fn extract_search_content(
                 if let Some(ref content) = d.content
                     && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_REASONING_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "reasoning",
-                            turn_number: Some(current_turn),
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                            .with_content("reasoning", truncated.to_string());
+                        rows.push(row);
                     }
             }
 
@@ -197,16 +253,9 @@ pub fn extract_search_content(
                     let args_text = flatten_json_value(args);
                     if !args_text.is_empty() {
                         let truncated = truncate_utf8(&args_text, MAX_TOOL_CALL_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "tool_call",
-                            turn_number: Some(current_turn),
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: Some(name),
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                            .with_tool_content("tool_call", Some(name), truncated.to_string());
+                        rows.push(row);
                     }
                 }
             }
@@ -234,16 +283,10 @@ pub fn extract_search_content(
                     let error_text = flatten_json_value(error);
                     if !error_text.is_empty() {
                         let truncated = truncate_utf8(&error_text, MAX_TOOL_ERROR_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "tool_error",
-                            turn_number: if completion_turn >= 0 { Some(completion_turn) } else { None },
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: tool_name.clone(),
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let turn = if completion_turn >= 0 { Some(completion_turn) } else { None };
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_tool_content("tool_error", tool_name.clone(), truncated.to_string());
+                        rows.push(row);
                     }
                     continue;
                 }
@@ -258,16 +301,10 @@ pub fn extract_search_content(
                     let content = extract_tool_result(&name_lower, result);
                     if !content.is_empty() {
                         let truncated = truncate_utf8(&content, MAX_TOOL_RESULT_BYTES);
-                        rows.push(SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "tool_result",
-                            turn_number: if completion_turn >= 0 { Some(completion_turn) } else { None },
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: tool_name.clone(),
-                            content: truncated.to_string(),
-                            metadata_json: None,
-                        });
+                        let turn = if completion_turn >= 0 { Some(completion_turn) } else { None };
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_tool_content("tool_result", tool_name.clone(), truncated.to_string());
+                        rows.push(row);
                     }
                 }
             }
@@ -283,16 +320,9 @@ pub fn extract_search_content(
                 let content = parts.join(": ");
                 if !content.is_empty() {
                     let truncated = truncate_utf8(&content, MAX_ERROR_BYTES);
-                    let row = SearchContentRow {
-                        session_id: session_id.to_string(),
-                        content_type: "error",
-                        turn_number: if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None },
-                        event_index: idx,
-                        timestamp_unix: ts_unix,
-                        tool_name: None,
-                        content: truncated.to_string(),
-                        metadata_json: None,
-                    };
+                    let turn = if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None };
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("error", truncated.to_string());
                     if turn_is_open {
                         rows.push(row);
                     } else {
@@ -305,18 +335,12 @@ pub fn extract_search_content(
                 if let Some(ref summary) = d.summary_content
                     && !summary.is_empty() {
                         let truncated = truncate_utf8(summary, MAX_COMPACTION_BYTES);
-                        let row = SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "compaction_summary",
-                            turn_number: if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None },
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: truncated.to_string(),
-                            metadata_json: d
-                                .checkpoint_number
-                                .map(|n| serde_json::json!({"checkpoint": n}).to_string()),
-                        };
+                        let turn = if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None };
+                        let metadata = d
+                            .checkpoint_number
+                            .map(|n| serde_json::json!({"checkpoint": n}).to_string());
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_metadata("compaction_summary", truncated.to_string(), metadata);
                         if turn_is_open {
                             rows.push(row);
                         } else {
@@ -329,18 +353,12 @@ pub fn extract_search_content(
                 if let Some(ref content) = d.content
                     && !content.is_empty() {
                         let truncated = truncate_utf8(content, MAX_SYSTEM_MESSAGE_BYTES);
-                        let row = SearchContentRow {
-                            session_id: session_id.to_string(),
-                            content_type: "system_message",
-                            turn_number: if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None },
-                            event_index: idx,
-                            timestamp_unix: ts_unix,
-                            tool_name: None,
-                            content: truncated.to_string(),
-                            metadata_json: d.role.as_ref().map(|r| {
-                                serde_json::json!({"role": r}).to_string()
-                            }),
-                        };
+                        let turn = if turn_is_open && current_turn >= 0 { Some(current_turn) } else { None };
+                        let metadata = d.role.as_ref().map(|r| {
+                            serde_json::json!({"role": r}).to_string()
+                        });
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_metadata("system_message", truncated.to_string(), metadata);
                         if turn_is_open {
                             rows.push(row);
                         } else {
@@ -362,16 +380,9 @@ pub fn extract_search_content(
                 }
                 let content = parts.join(" — ");
                 if !content.is_empty() {
-                    rows.push(SearchContentRow {
-                        session_id: session_id.to_string(),
-                        content_type: "subagent",
-                        turn_number: Some(current_turn),
-                        event_index: idx,
-                        timestamp_unix: ts_unix,
-                        tool_name: None,
-                        content,
-                        metadata_json: None,
-                    });
+                    let row = SearchContentRowBuilder::new(session_id, Some(current_turn), idx, ts_unix)
+                        .with_content("subagent", content);
+                    rows.push(row);
                 }
             }
 
