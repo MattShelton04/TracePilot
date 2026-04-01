@@ -358,13 +358,14 @@ pub fn available_models() -> Vec<ModelInfo> {
 
 fn check_tool(name: &str, args: &[&str]) -> (bool, Option<String>) {
     // Try raw first, fallback to shell on Windows to catch aliases/functions/batch files
-    let output = match crate::process::run_hidden(name, args, None) {
+    // Use 5s timeout for version checks (should be instant)
+    let output = match crate::process::run_hidden(name, args, None, Some(5)) {
         Ok(out) if out.status.success() => Some(out),
         _ => {
             #[cfg(windows)]
             {
                 let full_cmd = if args.is_empty() { name.to_string() } else { format!("{} {}", name, args.join(" ")) };
-                crate::process::run_hidden_shell(&full_cmd, None).ok()
+                crate::process::run_hidden_shell(&full_cmd, None, Some(5)).ok()
             }
             #[cfg(not(windows))]
             None

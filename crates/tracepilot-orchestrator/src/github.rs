@@ -61,28 +61,21 @@ pub struct GitHubFileContent {
 /// Uses `gh auth status` and parses the output. Returns `authenticated: false`
 /// rather than an error when `gh` is installed but not logged in.
 pub fn gh_auth_status() -> Result<GhAuthInfo> {
-    match run_hidden("gh", &["auth", "status", "--hostname", "github.com"], None) {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            let combined = format!("{stdout}{stderr}");
-            // Parse username from output like "✓ Logged in to github.com account username"
-            let username = combined
-                .lines()
-                .find(|line| line.contains("Logged in") || line.contains("account"))
-                .and_then(|line| line.split_whitespace().last())
-                .map(|s| s.to_string());
+    let output = run_hidden("gh", &["auth", "status", "--hostname", "github.com"], None, Some(15))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = format!("{stdout}{stderr}");
+    // Parse username from output like "✓ Logged in to github.com account username"
+    let username = combined
+        .lines()
+        .find(|line| line.contains("Logged in") || line.contains("account"))
+        .and_then(|line| line.split_whitespace().last())
+        .map(|s| s.to_string());
 
-            Ok(GhAuthInfo {
-                authenticated: output.status.success(),
-                username,
-            })
-        }
-        Err(_) => Ok(GhAuthInfo {
-            authenticated: false,
-            username: None,
-        }),
-    }
+    Ok(GhAuthInfo {
+        authenticated: output.status.success(),
+        username,
+    })
 }
 
 /// Verify that `gh` is installed and the user is authenticated.
@@ -90,7 +83,7 @@ pub fn gh_auth_status() -> Result<GhAuthInfo> {
 /// Returns a clear, actionable error message rather than hanging or returning
 /// an opaque failure. Call this before any API operations.
 pub fn gh_check_auth() -> Result<()> {
-    let version_check = run_hidden("gh", &["--version"], None);
+    let version_check = run_hidden("gh", &["--version"], None, Some(5));
     let is_installed = version_check.map(|o| o.status.success()).unwrap_or(false);
     if !is_installed {
         return Err(OrchestratorError::Launch(

@@ -7,8 +7,11 @@
 
 use crate::error::{OrchestratorError, Result};
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Child, Command, Output};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -31,6 +34,105 @@ const LINUX_TERMINALS: &[&str] = &[
     "xterm",
 ];
 
+// ─── Internal helpers ───────────────────────────────────────────────
+
+/// Internal helper: run a command with a timeout.
+///
+/// This is extracted to avoid code duplication between run_hidden and run_hidden_shell.
+fn spawn_captured_child(mut cmd: Command, program: &str) -> Result<Child> {
+    cmd.stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    cmd.spawn()
+        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))
+}
+
+fn read_pipe_to_end<R>(mut reader: R, label: &'static str) -> mpsc::Receiver<Result<Vec<u8>>>
+where
+    R: Read + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let result = reader
+            .read_to_end(&mut buf)
+            .map(|_| buf)
+            .map_err(|e| OrchestratorError::Launch(format!("Failed to read {label}: {e}")));
+        let _ = tx.send(result);
+    });
+    rx
+}
+
+fn run_with_timeout(
+    cmd: Command,
+    program: &str,
+    args: &[&str],
+    timeout_secs: u64,
+) -> Result<Output> {
+    let mut child = spawn_captured_child(cmd, program)?;
+
+    // Take the pipe handles before wrapping the child so the thread owns them.
+    let stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
+    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
+
+    // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
+    let child_shared = Arc::new(Mutex::new(child));
+    let child_for_thread = Arc::clone(&child_shared);
+
+    let (tx, rx) = mpsc::channel::<std::result::Result<
+        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
+        OrchestratorError,
+    >>();
+
+    std::thread::spawn(move || {
+        let result = child_for_thread
+            .lock()
+            .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
+            .and_then(|mut c| {
+                c.wait()
+                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
+            })
+            .and_then(|status| {
+                let stdout = stdout_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
+                let stderr = stderr_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                Ok((stdout, stderr, status))
+            });
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
+        Ok(Ok((stdout, stderr, status))) => Ok(Output {
+            status,
+            stdout,
+            stderr,
+        }),
+        Ok(Err(e)) => Err(e),
+        Err(_) => {
+            // Timeout occurred - attempt to kill the process
+            if let Ok(mut child) = child_shared.lock() {
+                if let Err(e) = child.kill() {
+                    tracing::warn!("Failed to kill timed-out process: {}", e);
+                }
+            }
+            let cmd_display = if args.is_empty() {
+                program.to_string()
+            } else {
+                format!("{} {}", program, args.join(" "))
+            };
+            Err(OrchestratorError::Launch(format!(
+                "Command timed out after {timeout_secs}s: {cmd_display}. \
+                 Check system resources and try again."
+            )))
+        }
+    }
+}
+
 // ─── Hidden execution (internal commands) ───────────────────────────
 
 /// Run a command invisibly, capturing stdout and stderr.
@@ -41,7 +143,15 @@ const LINUX_TERMINALS: &[&str] = &[
 ///
 /// Pass `cwd: Some(&path)` to set the working directory, or `None` to
 /// inherit the parent's CWD.
-pub fn run_hidden(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<Output> {
+///
+/// If `timeout_secs` is `Some`, the process will be killed if it doesn't
+/// complete within that duration.
+pub fn run_hidden(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout_secs: Option<u64>,
+) -> Result<Output> {
     let mut cmd = Command::new(program);
     cmd.args(args);
     if let Some(dir) = cwd {
@@ -51,14 +161,24 @@ pub fn run_hidden(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<Ou
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    cmd.output().map_err(Into::into)
+    match timeout_secs {
+        Some(timeout) => run_with_timeout(cmd, program, args, timeout),
+        None => cmd.output().map_err(Into::into),
+    }
 }
 
 /// Run a command string through a shell invisibly, capturing stdout and stderr.
 ///
 /// On Windows, uses `powershell -Command` to ensure aliases and batch files are found.
 /// On Unix, uses `sh -c`.
-pub fn run_hidden_shell(full_command: &str, cwd: Option<&Path>) -> Result<Output> {
+///
+/// If `timeout_secs` is `Some`, the process will be killed if it doesn't
+/// complete within that duration.
+pub fn run_hidden_shell(
+    full_command: &str,
+    cwd: Option<&Path>,
+    timeout_secs: Option<u64>,
+) -> Result<Output> {
     #[cfg(windows)]
     {
         let mut cmd = Command::new("powershell");
@@ -67,7 +187,11 @@ pub fn run_hidden_shell(full_command: &str, cwd: Option<&Path>) -> Result<Output
             cmd.current_dir(dir);
         }
         cmd.creation_flags(CREATE_NO_WINDOW);
-        cmd.output().map_err(Into::into)
+
+        match timeout_secs {
+            Some(timeout) => run_with_timeout(cmd, "powershell", &["-Command", full_command], timeout),
+            None => cmd.output().map_err(Into::into),
+        }
     }
 
     #[cfg(not(windows))]
@@ -77,7 +201,11 @@ pub fn run_hidden_shell(full_command: &str, cwd: Option<&Path>) -> Result<Output
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
-        cmd.output().map_err(Into::into)
+
+        match timeout_secs {
+            Some(timeout) => run_with_timeout(cmd, "sh", &["-c", full_command], timeout),
+            None => cmd.output().map_err(Into::into),
+        }
     }
 }
 
@@ -85,8 +213,16 @@ pub fn run_hidden_shell(full_command: &str, cwd: Option<&Path>) -> Result<Output
 ///
 /// Returns `OrchestratorError::Launch` if the command exits with non-zero status,
 /// including stderr in the error message.
-pub fn run_hidden_stdout(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<String> {
-    let output = run_hidden(program, args, cwd)?;
+///
+/// If `timeout_secs` is `Some`, the process will be killed if it doesn't
+/// complete within that duration.
+pub fn run_hidden_stdout(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout_secs: Option<u64>,
+) -> Result<String> {
+    let output = run_hidden(program, args, cwd, timeout_secs)?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -112,43 +248,33 @@ pub fn run_hidden_stdout_timeout(
     cwd: Option<&Path>,
     timeout_secs: u64,
 ) -> Result<String> {
-    use std::io::Read;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
     let mut cmd = Command::new(program);
     cmd.args(args);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    cmd.stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
 
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| OrchestratorError::Launch(format!("Failed to spawn {program}: {e}")))?;
+    let mut child = spawn_captured_child(cmd, program)?;
 
     // Take the pipe handles before wrapping the child so the thread owns them.
-    let mut stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let mut stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
+    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
     // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
     let child_shared = Arc::new(Mutex::new(child));
     let child_for_thread = Arc::clone(&child_shared);
 
-    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<
+    let (tx, rx) = mpsc::channel::<std::result::Result<
         (Vec<u8>, Vec<u8>, std::process::ExitStatus),
         OrchestratorError,
     >>();
 
     std::thread::spawn(move || {
-        let mut stdout_buf = Vec::new();
-        let mut stderr_buf = Vec::new();
-        let _ = stdout_pipe.read_to_end(&mut stdout_buf);
-        let _ = stderr_pipe.read_to_end(&mut stderr_buf);
         let result = child_for_thread
             .lock()
             .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
@@ -156,7 +282,15 @@ pub fn run_hidden_stdout_timeout(
                 c.wait()
                     .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
             })
-            .map(|status| (stdout_buf, stderr_buf, status));
+            .and_then(|status| {
+                let stdout = stdout_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
+                let stderr = stderr_rx
+                    .recv()
+                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
+                Ok((stdout, stderr, status))
+            });
         let _ = tx.send(result);
     });
 
@@ -550,7 +684,7 @@ mod tests {
     #[test]
     fn test_run_hidden_captures_stdout() {
         // git --version should always succeed on dev machines
-        let output = run_hidden("git", &["--version"], None).unwrap();
+        let output = run_hidden("git", &["--version"], None, None).unwrap();
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("git version"));
@@ -560,27 +694,103 @@ mod tests {
     fn test_run_hidden_with_cwd() {
         // Run in a specific directory
         let temp = std::env::temp_dir();
-        let output = run_hidden("git", &["--version"], Some(&temp)).unwrap();
+        let output = run_hidden("git", &["--version"], Some(&temp), None).unwrap();
         assert!(output.status.success());
     }
 
     #[test]
     fn test_run_hidden_nonexistent_command() {
-        let result = run_hidden("this_command_does_not_exist_xyz", &[], None);
+        let result = run_hidden("this_command_does_not_exist_xyz", &[], None, None);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_run_hidden_stdout_success() {
-        let version = run_hidden_stdout("git", &["--version"], None).unwrap();
+        let version = run_hidden_stdout("git", &["--version"], None, None).unwrap();
         assert!(version.contains("git version"));
     }
 
     #[test]
     fn test_run_hidden_stdout_failure() {
         // git with an invalid subcommand should return non-zero
-        let result = run_hidden_stdout("git", &["this-is-not-a-valid-subcommand"], None);
+        let result = run_hidden_stdout("git", &["this-is-not-a-valid-subcommand"], None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_run_hidden_with_timeout_success() {
+        // Fast command should complete within timeout
+        let output = run_hidden("git", &["--version"], None, Some(5)).unwrap();
+        assert!(output.status.success());
+    }
+
+    #[test]
+    fn test_run_hidden_timeout_triggers() {
+        // Use a command that will definitely timeout (sleep for 10s with 1s timeout)
+        #[cfg(not(windows))]
+        let result = run_hidden("sleep", &["10"], None, Some(1));
+
+        #[cfg(windows)]
+        let result = run_hidden_shell("Start-Sleep -Seconds 10", None, Some(1));
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("timed out") || err_msg.contains("Command timed out"));
+    }
+
+    #[test]
+    fn test_run_hidden_stdout_with_timeout() {
+        // Fast command should work with timeout
+        let version = run_hidden_stdout("git", &["--version"], None, Some(5)).unwrap();
+        assert!(version.contains("git version"));
+    }
+
+    #[test]
+    fn test_timeout_with_command_failure() {
+        // Command that fails quickly (before timeout) - using run_hidden_stdout which checks status
+        let result = run_hidden_stdout("git", &["not-a-valid-subcommand"], None, Some(10));
+        assert!(result.is_err());
+
+        // Should NOT be a timeout error
+        let err_msg = result.unwrap_err().to_string();
+        assert!(!err_msg.contains("timed out"), "Should not report timeout for quick failure");
+        assert!(err_msg.contains("failed"), "Should report command failure");
+    }
+
+    #[test]
+    fn test_timeout_with_spawn_failure() {
+        // Command that doesn't exist should fail during spawn, not timeout
+        let result = run_hidden("command_that_does_not_exist_xyz123", &[], None, Some(5));
+        assert!(result.is_err());
+
+        let err_msg = result.unwrap_err().to_string();
+        // Should be spawn error, not timeout
+        assert!(err_msg.contains("Failed to spawn"));
+        assert!(!err_msg.contains("timed out"));
+    }
+
+    #[test]
+    fn test_very_short_timeout() {
+        // 1 second timeout should be enough for git --version
+        let result = run_hidden("git", &["--version"], None, Some(1));
+        assert!(result.is_ok(), "Fast command should complete within 1s timeout");
+    }
+
+    #[test]
+    fn test_timeout_error_message_format() {
+        #[cfg(not(windows))]
+        let result = run_hidden("sleep", &["5"], None, Some(1));
+
+        #[cfg(windows)]
+        let result = run_hidden_shell("Start-Sleep -Seconds 5", None, Some(1));
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+
+        // Verify error message contains key information
+        assert!(err_msg.contains("timed out"), "Error should mention timeout");
+        assert!(err_msg.contains("1s"), "Error should mention timeout duration");
+        assert!(err_msg.contains("Check system resources"), "Error should be actionable");
     }
 
     #[cfg(windows)]
