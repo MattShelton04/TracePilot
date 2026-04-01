@@ -18,7 +18,7 @@ tracepilot-core = { path = "../tracepilot-core" }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 
-similar = "2"
+similar = "3"
 walkdir = "2"
 
 [dev-dependencies]
