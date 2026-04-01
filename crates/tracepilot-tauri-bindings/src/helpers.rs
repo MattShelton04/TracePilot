@@ -16,6 +16,27 @@ pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 /// - Awaiting the `JoinHandle`
 /// - Unpacking both the join error (first `?`) and inner `Result` error (second `?`)
 ///
+/// # Type Parameters
+///
+/// - `T: Send + 'static` - The return type must be thread-safe and have no borrowed data
+/// - `F: FnOnce() -> Result<T, BindingsError> + Send + 'static` - The closure must be `move`
+///   (due to `'static` bound) and return a `Result`
+///
+/// # Panics
+///
+/// If the closure panics, the panic is propagated as a `JoinError` and converted to
+/// `BindingsError`. The panic payload and backtrace are included in the error message.
+///
+/// # Cancellation
+///
+/// If the returned future is dropped before completion, the blocking task continues
+/// to run to completion but its result is discarded.
+///
+/// # Warning
+///
+/// Do NOT call `block_on` or create nested runtimes inside the closure, as this will
+/// deadlock the blocking thread pool. Only use for synchronous blocking operations.
+///
 /// # Example
 ///
 /// ```ignore
@@ -29,6 +50,7 @@ pub(crate) const MAX_CHECKPOINT_CONTENT_BYTES: usize = 50 * 1024;
 ///     some_blocking_operation(param)
 /// }).await
 /// ```
+#[must_use = "futures do nothing unless polled"]
 pub(crate) async fn spawn_blocking<T, F>(f: F) -> CmdResult<T>
 where
     T: Send + 'static,
@@ -43,6 +65,26 @@ where
 /// `Result<T, OrchestratorError>`. This is the most common pattern in command
 /// modules that delegate to the orchestrator crate.
 ///
+/// # Type Parameters
+///
+/// - `T: Send + 'static` - The return type must be thread-safe and have no borrowed data
+/// - `F: FnOnce() -> Result<T, OrchestratorError> + Send + 'static` - The closure must be
+///   `move` (due to `'static` bound) and return a `Result` with `OrchestratorError`
+///
+/// # Panics
+///
+/// If the closure panics, the panic is propagated as a `JoinError` and converted to
+/// `BindingsError`. The panic payload and backtrace are included in the error message.
+///
+/// # Cancellation
+///
+/// If the returned future is dropped before completion, the blocking task continues
+/// to run to completion but its result is discarded.
+///
+/// # Warning
+///
+/// Do NOT call `block_on` or create nested runtimes inside the closure.
+///
 /// # Example
 ///
 /// ```ignore
@@ -50,6 +92,7 @@ where
 ///     tracepilot_orchestrator::skills::manager::create_skill(&name, &desc, &body)
 /// }).await
 /// ```
+#[must_use = "futures do nothing unless polled"]
 pub(crate) async fn spawn_blocking_orchestrator<T, F>(f: F) -> CmdResult<T>
 where
     T: Send + 'static,
@@ -63,6 +106,26 @@ where
 /// Use this for operations that don't return a `Result`, such as reading
 /// configuration from a `RwLock` or performing infallible computations.
 ///
+/// # Type Parameters
+///
+/// - `T: Send + 'static` - The return type must be thread-safe and have no borrowed data
+/// - `F: FnOnce() -> T + Send + 'static` - The closure must be `move` (due to `'static` bound)
+///   and return a plain value (not a `Result`)
+///
+/// # Panics
+///
+/// If the closure panics, the panic is propagated as a `JoinError` and converted to
+/// `BindingsError`. The panic payload and backtrace are included in the error message.
+///
+/// # Cancellation
+///
+/// If the returned future is dropped before completion, the blocking task continues
+/// to run to completion but its result is discarded.
+///
+/// # Warning
+///
+/// Do NOT call `block_on` or create nested runtimes inside the closure.
+///
 /// # Example
 ///
 /// ```ignore
@@ -70,6 +133,7 @@ where
 ///     config.read().unwrap().clone()
 /// }).await
 /// ```
+#[must_use = "futures do nothing unless polled"]
 pub(crate) async fn spawn_blocking_infallible<T, F>(f: F) -> CmdResult<T>
 where
     T: Send + 'static,
