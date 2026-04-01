@@ -9,9 +9,28 @@ use crate::error::{OrchestratorError, Result};
 use crate::process::{run_hidden, run_hidden_stdout_timeout};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Timeout in seconds for individual `gh api` network calls.
 const GH_TIMEOUT_SECS: u64 = 30;
+
+/// Run a `gh` command with timeout and GitHub-specific error messages.
+///
+/// Wraps timeout errors with network-specific guidance while preserving
+/// command details for debugging.
+fn gh_run_with_timeout(args: &[&str], cwd: Option<&Path>) -> Result<String> {
+    run_hidden_stdout_timeout("gh", args, cwd, GH_TIMEOUT_SECS).map_err(|e| {
+        let err_msg = e.to_string();
+        if err_msg.contains("Command timed out") {
+            OrchestratorError::Launch(format!(
+                "GitHub API call timed out after {GH_TIMEOUT_SECS}s. \
+                 Check your internet connection and try again."
+            ))
+        } else {
+            e
+        }
+    })
+}
 
 /// Information about the current `gh` CLI authentication state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,7 +136,7 @@ pub fn gh_get_file(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<St
 /// Fetch the contents of a single file from a GitHub repository as raw bytes.
 pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Result<Vec<u8>> {
     let api_path = format!("/repos/{owner}/{repo}/contents/{path}?ref={ref_}");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = gh_run_with_timeout(&["api", &api_path], None)?;
 
     let response: GhContentResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub API response: {e}"))
@@ -132,10 +151,10 @@ pub fn gh_get_file_bytes(owner: &str, repo: &str, path: &str, ref_: &str) -> Res
 
 /// List the file tree of a GitHub repository at a given ref.
 ///
-/// Uses the Git Trees API with `recursive=1` and a 15-second timeout.
+/// Uses the Git Trees API with `recursive=1` and a 30-second timeout.
 pub fn gh_list_tree(owner: &str, repo: &str, ref_: &str) -> Result<Vec<TreeEntry>> {
     let api_path = format!("/repos/{owner}/{repo}/git/trees/{ref_}?recursive=1");
-    let json = run_hidden_stdout_timeout("gh", &["api", &api_path], None, GH_TIMEOUT_SECS)?;
+    let json = gh_run_with_timeout(&["api", &api_path], None)?;
 
     let response: GhTreeResponse = serde_json::from_str(&json).map_err(|e| {
         OrchestratorError::Launch(format!("Failed to parse GitHub tree response: {e}"))
@@ -191,11 +210,9 @@ pub fn gh_get_files_batch(
             fields.join(" ")
         );
 
-        let output = run_hidden_stdout_timeout(
-            "gh",
+        let output = gh_run_with_timeout(
             &["api", "graphql", "-f", &format!("query={query}")],
             None,
-            GH_TIMEOUT_SECS,
         )?;
 
         let json: serde_json::Value = serde_json::from_str(&output)

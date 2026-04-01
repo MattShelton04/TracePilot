@@ -240,8 +240,10 @@ pub fn run_hidden_stdout(
 /// Run a hidden command with a wall-clock timeout, returning trimmed stdout.
 ///
 /// If the process does not complete within `timeout_secs` seconds it is killed
-/// and an error is returned. This prevents commands like `gh api` from blocking
-/// indefinitely on large repositories or slow network connections.
+/// and an error is returned. This is a general-purpose timeout wrapper.
+///
+/// For GitHub-specific operations with contextual error messages, consider using
+/// the wrapper function in the `github` module instead.
 pub fn run_hidden_stdout_timeout(
     program: &str,
     args: &[&str],
@@ -258,30 +260,16 @@ pub fn run_hidden_stdout_timeout(
     cmd.creation_flags(CREATE_NO_WINDOW);
 
     // Use the shared timeout implementation
-    match run_with_timeout(cmd, program, args, timeout_secs) {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-            } else {
-                let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                Err(OrchestratorError::Launch(format!(
-                    "{program} failed (exit {}): {stderr_str}",
-                    output.status.code().unwrap_or(-1)
-                )))
-            }
-        }
-        Err(e) => {
-            // Wrap timeout errors with GitHub-specific message
-            let err_msg = e.to_string();
-            if err_msg.contains("timed out") {
-                Err(OrchestratorError::Launch(format!(
-                    "GitHub API call timed out after {timeout_secs}s. \
-                     Check your internet connection and try again."
-                )))
-            } else {
-                Err(e)
-            }
-        }
+    let output = run_with_timeout(cmd, program, args, timeout_secs)?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(OrchestratorError::Launch(format!(
+            "{program} failed (exit {}): {stderr_str}",
+            output.status.code().unwrap_or(-1)
+        )))
     }
 }
 
@@ -844,5 +832,54 @@ mod tests {
         assert!(validate_env_var_name("1BAD").is_err());
         assert!(validate_env_var_name("HAS SPACE").is_err());
         assert!(validate_env_var_name("A=B").is_err());
+    }
+
+    #[test]
+    fn test_run_hidden_stdout_timeout_success() {
+        // Test that successful execution returns trimmed stdout
+        let result = run_hidden_stdout_timeout("git", &["--version"], None, 5);
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        // Should be trimmed (no leading/trailing whitespace)
+        assert_eq!(output, output.trim());
+        assert!(output.contains("git version"));
+    }
+
+    #[test]
+    fn test_run_hidden_stdout_timeout_command_failure() {
+        // Test that command failures (exit code != 0) return errors
+        let result = run_hidden_stdout_timeout("git", &["invalid-subcommand"], None, 5);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        // Should report git failed, not a timeout
+        assert!(err_msg.contains("git failed"));
+        assert!(!err_msg.contains("timed out"));
+    }
+
+    #[test]
+    fn test_run_hidden_stdout_timeout_spawn_error() {
+        // Test that spawn failures return appropriate errors
+        let result = run_hidden_stdout_timeout("nonexistent_command_xyz", &[], None, 5);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        // Should be spawn error, not timeout
+        assert!(err_msg.contains("Failed to spawn"));
+        assert!(!err_msg.contains("timed out"));
+    }
+
+    #[test]
+    fn test_run_hidden_stdout_timeout_actual_timeout() {
+        // Test that actual timeouts produce timeout errors
+        #[cfg(not(windows))]
+        let result = run_hidden_stdout_timeout("sleep", &["10"], None, 1);
+
+        #[cfg(windows)]
+        let result = run_hidden_shell("Start-Sleep -Seconds 10", None, Some(1))
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        // Should mention timeout
+        assert!(err_msg.contains("timed out") || err_msg.contains("Command timed out"));
     }
 }
