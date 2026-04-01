@@ -190,73 +190,105 @@ impl IndexDb {
                 ],
             )?;
 
-            // INSERT child rows: model metrics
-            for row in &analytics.model_rows {
-                self.conn.execute(
+            // ──────────────────────────────────────────────────────────────
+            // INSERT child rows using prepared statement batching
+            // ──────────────────────────────────────────────────────────────
+            // Pattern: Prepare SQL once, execute N times (2-10x faster than
+            // individual execute() calls). Empty arrays are skipped to avoid
+            // unnecessary prepare() overhead.
+            //
+            // For 300-700+ child rows per session across 6 tables:
+            //   Before: 300-700 prepare() + execute() calls
+            //   After:  6 prepare() calls + 300-700 execute() calls
+            // ──────────────────────────────────────────────────────────────
+
+            // INSERT child rows: model metrics (batch)
+            if !analytics.model_rows.is_empty() {
+                let mut stmt = self.conn.prepare(
                     "INSERT INTO session_model_metrics
                         (session_id, model_name, input_tokens, output_tokens,
                          cache_read_tokens, cache_write_tokens, cost, request_count)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![
-                        session_id,
-                        row.model,
+                )?;
+                for row in &analytics.model_rows {
+                    stmt.execute(params![
+                        &session_id,
+                        &row.model,
                         row.input_tokens,
                         row.output_tokens,
                         row.cache_read_tokens,
                         row.cache_write_tokens,
                         row.cost,
                         row.premium_requests
-                    ],
-                )?;
+                    ])?;
+                }
             }
 
-            // INSERT child rows: tool calls
-            for row in &analytics.tool_call_rows {
-                self.conn.execute(
+            // INSERT child rows: tool calls (batch)
+            if !analytics.tool_call_rows.is_empty() {
+                let mut stmt = self.conn.prepare(
                     "INSERT INTO session_tool_calls
                         (session_id, tool_name, call_count, success_count, failure_count, total_duration_ms, calls_with_duration)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![
-                        session_id,
-                        row.name,
+                )?;
+                for row in &analytics.tool_call_rows {
+                    stmt.execute(params![
+                        &session_id,
+                        &row.name,
                         row.calls,
                         row.success,
                         row.failure,
                         row.duration_ms,
                         row.calls_with_duration
-                    ],
-                )?;
+                    ])?;
+                }
             }
 
-            // INSERT child rows: modified files
-            for row in &analytics.modified_file_rows {
-                self.conn.execute(
+            // INSERT child rows: modified files (batch)
+            if !analytics.modified_file_rows.is_empty() {
+                let mut stmt = self.conn.prepare(
                     "INSERT OR IGNORE INTO session_modified_files (session_id, file_path, extension)
                      VALUES (?1, ?2, ?3)",
-                    params![session_id, row.file_path, row.extension],
                 )?;
+                for row in &analytics.modified_file_rows {
+                    stmt.execute(params![&session_id, &row.file_path, &row.extension])?;
+                }
             }
 
-            // INSERT child rows: activity heatmap
-            for row in &analytics.activity_rows {
-                self.conn.execute(
+            // INSERT child rows: activity heatmap (batch)
+            if !analytics.activity_rows.is_empty() {
+                let mut stmt = self.conn.prepare(
                     "INSERT INTO session_activity (session_id, day_of_week, hour, tool_call_count)
                      VALUES (?1, ?2, ?3, ?4)",
-                    params![session_id, row.day_of_week, row.hour, row.tool_call_count],
                 )?;
+                for row in &analytics.activity_rows {
+                    stmt.execute(params![&session_id, row.day_of_week, row.hour, row.tool_call_count])?;
+                }
             }
 
-            // INSERT child rows: session segments
-            for row in &analytics.session_segment_rows {
-                self.conn.execute(
+            // INSERT child rows: session segments (batch)
+            if !analytics.session_segment_rows.is_empty() {
+                let mut stmt = self.conn.prepare(
                     "INSERT INTO session_segments (session_id, start_timestamp, end_timestamp, total_tokens, total_requests, total_premium_requests, total_api_duration_ms, current_model, model_metrics_json)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                    params![session_id, row.start_timestamp, row.end_timestamp, row.tokens, row.total_requests, row.premium_requests, row.api_duration_ms, row.current_model, row.model_metrics_json],
                 )?;
+                for row in &analytics.session_segment_rows {
+                    stmt.execute(params![
+                        &session_id,
+                        &row.start_timestamp,
+                        &row.end_timestamp,
+                        row.tokens,
+                        row.total_requests,
+                        row.premium_requests,
+                        row.api_duration_ms,
+                        &row.current_model,
+                        &row.model_metrics_json
+                    ])?;
+                }
             }
 
-            // INSERT child rows: incidents
-            {
+            // INSERT child rows: incidents (batch)
+            if !analytics.incidents.is_empty() {
                 let mut stmt = self.conn.prepare(
                     "INSERT INTO session_incidents
                         (session_id, event_type, source_event_type, timestamp, severity, summary, detail_json)
@@ -264,13 +296,13 @@ impl IndexDb {
                 )?;
                 for inc in &analytics.incidents {
                     stmt.execute(params![
-                        session_id,
-                        inc.event_type,
-                        inc.source_event_type,
-                        inc.timestamp,
-                        inc.severity,
-                        inc.summary,
-                        inc.detail_json
+                        &session_id,
+                        &inc.event_type,
+                        &inc.source_event_type,
+                        &inc.timestamp,
+                        &inc.severity,
+                        &inc.summary,
+                        &inc.detail_json
                     ])?;
                 }
             }

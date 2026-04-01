@@ -275,8 +275,29 @@ fn build_todos(
         return None;
     }
 
-    let items = read_todos(&db_path).ok().unwrap_or_default();
-    let deps = read_todo_deps(&db_path).ok().unwrap_or_default();
+    let items = match read_todos(&db_path) {
+        Ok(todos) => todos,
+        Err(e) => {
+            tracing::warn!(
+                path = %db_path.display(),
+                error = %e,
+                "Failed to read todos from session database, returning empty list"
+            );
+            Vec::new()
+        }
+    };
+
+    let deps = match read_todo_deps(&db_path) {
+        Ok(deps) => deps,
+        Err(e) => {
+            tracing::warn!(
+                path = %db_path.display(),
+                error = %e,
+                "Failed to read todo dependencies from session database, returning empty list"
+            );
+            Vec::new()
+        }
+    };
 
     let export = TodoExport {
         items: items
@@ -507,7 +528,18 @@ fn build_custom_tables(
         return None;
     }
 
-    let table_names = list_tables(&db_path).ok()?;
+    let table_names = match list_tables(&db_path) {
+        Ok(names) => names,
+        Err(e) => {
+            tracing::warn!(
+                path = %db_path.display(),
+                error = %e,
+                "Failed to list tables in session database, skipping custom tables"
+            );
+            return None;
+        }
+    };
+
     // Exclude standard tables — only export custom ones
     let standard = ["todos", "todo_deps"];
     let custom_names: Vec<_> = table_names
@@ -521,12 +553,22 @@ fn build_custom_tables(
 
     let mut tables = Vec::new();
     for name in custom_names {
-        if let Ok(info) = read_custom_table(&db_path, &name) {
-            tables.push(CustomTableExport {
-                name: info.name,
-                columns: info.columns,
-                rows: info.rows,
-            });
+        match read_custom_table(&db_path, &name) {
+            Ok(info) => {
+                tables.push(CustomTableExport {
+                    name: info.name,
+                    columns: info.columns,
+                    rows: info.rows,
+                });
+            }
+            Err(e) => {
+                tracing::warn!(
+                    path = %db_path.display(),
+                    table = %name,
+                    error = %e,
+                    "Failed to read custom table, skipping"
+                );
+            }
         }
     }
 

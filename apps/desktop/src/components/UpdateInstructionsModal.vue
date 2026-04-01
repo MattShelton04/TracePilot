@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ProgressBar } from "@tracepilot/ui";
 import { computed, onMounted } from "vue";
 import { useAutoUpdate } from "@/composables/useAutoUpdate";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
@@ -64,9 +65,7 @@ function handleOpenRelease() {
                 Download and install the update in the background. The app will restart when ready.
               </p>
               <div v-if="isUpdating" class="auto-update-progress">
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: progress + '%' }" />
-                </div>
+                <ProgressBar :percent="progress" aria-label="Update download progress" />
                 <span class="progress-text">{{ statusText }}</span>
               </div>
               <div v-else-if="status === 'error'" class="auto-update-error">
@@ -341,20 +340,6 @@ function handleOpenRelease() {
 
 .auto-update-progress {
   margin-top: 12px;
-}
-
-.progress-bar {
-  height: 6px;
-  background: var(--color-canvas-subtle, rgba(255, 255, 255, 0.06));
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-emphasis);
-  border-radius: 3px;
-  transition: width 0.3s ease;
 }
 
 .progress-text {
