@@ -158,7 +158,7 @@ const speeds = [0.5, 1, 2, 4];
 .scrub-fill {
   height: 100%;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent-emphasis) 0%, var(--accent-fg) 60%, #a78bfa 100%);
+  background: linear-gradient(90deg, var(--accent-emphasis) 0%, var(--accent-fg) 60%, var(--done-fg) 100%);
   position: relative;
   transition: width 200ms ease;
 }

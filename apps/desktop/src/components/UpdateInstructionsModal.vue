@@ -313,7 +313,7 @@ function handleOpenRelease() {
 .modal-btn {
   padding: 8px 20px;
   border-radius: 8px;
-  background: var(--color-accent-emphasis, #6366f1);
+  background: var(--accent-emphasis);
   color: #fff;
   border: none;
   font-size: 13px;
@@ -355,6 +355,6 @@ function handleOpenRelease() {
   background: var(--color-danger-subtle, rgba(239, 68, 68, 0.1));
   border-radius: 6px;
   font-size: 12px;
-  color: var(--color-danger-fg, #ef4444);
+  color: var(--danger-fg);
 }
 </style>

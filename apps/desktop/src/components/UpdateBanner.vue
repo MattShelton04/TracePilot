@@ -71,13 +71,13 @@ function dismiss() {
 }
 
 .update-banner-text strong {
-  color: var(--color-accent-fg, #818cf8);
+  color: var(--accent-fg);
 }
 
 .update-banner-btn {
   padding: 4px 12px;
   border-radius: 6px;
-  background: var(--color-accent-emphasis, #6366f1);
+  background: var(--accent-emphasis);
   color: #fff;
   border: none;
   font-size: 12px;

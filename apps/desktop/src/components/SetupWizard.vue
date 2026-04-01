@@ -281,7 +281,7 @@ onUnmounted(() => {
 .orb-1 {
   width: 500px;
   height: 500px;
-  background: #6366f1;
+  background: var(--accent-emphasis);
   top: -150px;
   right: -100px;
 }
@@ -289,7 +289,7 @@ onUnmounted(() => {
 .orb-2 {
   width: 400px;
   height: 400px;
-  background: #8b5cf6;
+  background: var(--done-emphasis);
   bottom: -120px;
   left: -80px;
 }
@@ -359,7 +359,7 @@ onUnmounted(() => {
   width: 80px;
   height: 80px;
   border-radius: 20px;
-  background: var(--gradient-accent, linear-gradient(135deg, #6366f1, #8b5cf6));
+  background: var(--gradient-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -394,7 +394,7 @@ onUnmounted(() => {
   padding: 3px 12px;
   border-radius: 9999px;
   background: var(--accent-subtle, rgba(99, 102, 241, 0.10));
-  color: var(--accent-fg, #818cf8);
+  color: var(--accent-fg);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -523,7 +523,7 @@ onUnmounted(() => {
 }
 
 :deep(.path-input:focus) {
-  border-color: var(--accent-emphasis, #6366f1);
+  border-color: var(--accent-emphasis);
   box-shadow: 0 0 0 2px var(--accent-subtle, rgba(99, 102, 241, 0.10));
 }
 
@@ -557,7 +557,7 @@ onUnmounted(() => {
 }
 
 :deep(.btn-reset-path:hover) {
-  color: var(--warning-fg, #fbbf24);
+  color: var(--warning-fg);
   border-color: rgba(251, 191, 36, 0.4);
   background: rgba(251, 191, 36, 0.06);
 }
@@ -577,16 +577,16 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-:deep(.validation-msg.success) { color: var(--success-fg, #34d399); }
-:deep(.validation-msg.warning) { color: var(--warning-fg, #fbbf24); }
-:deep(.validation-msg.error) { color: var(--danger-fg, #fb7185); }
-:deep(.validation-msg.validating) { color: var(--text-tertiary, #71717a); }
+:deep(.validation-msg.success) { color: var(--success-fg); }
+:deep(.validation-msg.warning) { color: var(--warning-fg); }
+:deep(.validation-msg.error) { color: var(--danger-fg); }
+:deep(.validation-msg.validating) { color: var(--text-tertiary); }
 
 :deep(.spinner) {
   width: 14px;
   height: 14px;
   border: 2px solid var(--border-default, rgba(255,255,255,0.10));
-  border-top-color: var(--accent-fg, #818cf8);
+  border-top-color: var(--accent-fg);
   border-radius: 50%;
   animation: spin 600ms linear infinite;
 }
@@ -620,12 +620,12 @@ onUnmounted(() => {
 }
 
 :deep(.checkmark-circle) {
-  stroke: var(--success-fg, #34d399);
+  stroke: var(--success-fg);
   opacity: 0.2;
 }
 
 :deep(.checkmark-path) {
-  stroke: var(--success-fg, #34d399);
+  stroke: var(--success-fg);
   stroke-dasharray: 48;
   stroke-dashoffset: 48;
 }
@@ -698,7 +698,7 @@ onUnmounted(() => {
 }
 
 :deep(.setup-error) {
-  color: var(--danger, #ef4444);
+  color: var(--danger-fg);
   font-size: 0.85rem;
   font-weight: 500;
   margin: 0.5rem 0;
@@ -707,7 +707,7 @@ onUnmounted(() => {
 /* ── Buttons (shared across steps) ────────────────────────── */
 :deep(.btn-accent) {
   padding: 10px 28px;
-  background: var(--accent-emphasis, #6366f1);
+  background: var(--accent-emphasis);
   color: white;
   border: none;
   border-radius: var(--radius-md, 8px);
@@ -759,7 +759,7 @@ onUnmounted(() => {
 }
 
 .dot.active {
-  background: var(--accent-emphasis, #6366f1);
+  background: var(--accent-emphasis);
   transform: scale(1.3);
 }
 

@@ -363,7 +363,7 @@ onUnmounted(() => {
 .indexing-loading-screen {
   position: fixed;
   inset: 0;
-  background: #0d1117;
+  background: var(--canvas-inset);
   z-index: 9999;
   transition: opacity 0.4s ease;
 }
@@ -380,7 +380,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 3px;
-  background: #21262d;
+  background: var(--canvas-subtle);
   z-index: 10000;
   opacity: 0;
   transition: opacity 0.4s ease;
@@ -392,7 +392,7 @@ onUnmounted(() => {
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1, #818cf8);
+  background: linear-gradient(90deg, var(--accent-emphasis), var(--accent-fg));
   border-radius: 0 2px 2px 0;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
@@ -437,7 +437,7 @@ onUnmounted(() => {
   gap: 8px;
   opacity: 0;
   transition: opacity 0.6s ease;
-  color: #818cf8;
+  color: var(--accent-fg);
 }
 
 .logo-hub.visible {
@@ -478,7 +478,7 @@ onUnmounted(() => {
 
 .logo-hub .phase-text {
   font-size: calc(0.75rem * var(--ui-scale, 1));
-  color: #7d8590;
+  color: var(--text-tertiary);
   letter-spacing: 0.04em;
   text-align: center;
 }
@@ -486,7 +486,7 @@ onUnmounted(() => {
 .logo-hub .session-counter {
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
   font-size: calc(0.75rem * var(--ui-scale, 1));
-  color: #818cf8;
+  color: var(--accent-fg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -502,7 +502,7 @@ onUnmounted(() => {
   width: calc(8px * var(--ui-scale, 1));
   height: calc(8px * var(--ui-scale, 1));
   border-radius: 50%;
-  background: var(--node-color, #818cf8);
+  background: var(--node-color, var(--accent-fg));
   box-shadow: 0 0 10px 3px var(--node-glow, rgba(129, 140, 248, 0.4));
   transform: scale(0);
   opacity: 0;
@@ -525,9 +525,9 @@ onUnmounted(() => {
   left: 50%;
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-left: 3px solid var(--node-color, #818cf8);
+  background: var(--canvas-overlay);
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--node-color, var(--accent-fg));
   border-radius: 8px;
   padding: calc(5px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   white-space: nowrap;
@@ -553,7 +553,7 @@ onUnmounted(() => {
   gap: 5px;
   font-size: calc(11px * var(--ui-scale, 1));
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -562,14 +562,14 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--node-color, #818cf8);
+  background: var(--node-color, var(--accent-fg));
   flex-shrink: 0;
 }
 
 .orbit-node .mini-card .mc-branch {
   font-size: calc(10px * var(--ui-scale, 1));
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  color: #7d8590;
+  color: var(--text-tertiary);
   margin-top: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -586,7 +586,7 @@ onUnmounted(() => {
   width: 500px;
   height: 500px;
   border-radius: 50%;
-  border: 1px solid #818cf8;
+  border: 1px solid var(--accent-fg);
   pointer-events: none;
   z-index: 2;
   opacity: 0;
@@ -606,7 +606,7 @@ onUnmounted(() => {
 .completion-flash {
   position: fixed;
   inset: 0;
-  background: #818cf8;
+  background: var(--accent-fg);
   opacity: 0;
   pointer-events: none;
   z-index: 45;
@@ -626,7 +626,7 @@ onUnmounted(() => {
 .ambient-particles :deep(.ambient-particle) {
   position: absolute;
   border-radius: 50%;
-  background: #818cf8;
+  background: var(--accent-fg);
   opacity: 0;
   pointer-events: none;
   animation: particleDrift linear infinite;

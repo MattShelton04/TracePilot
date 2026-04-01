@@ -1233,7 +1233,7 @@ onUnmounted(() => {
   margin: 0 0 12px 0;
   padding: 12px 16px;
   background: var(--bg-secondary, #1c1c1e);
-  border: 1px solid var(--accent-fg, #58a6ff);
+  border: 1px solid var(--accent-fg);
   border-radius: 8px;
   animation: fadeSlideIn 0.3s ease both;
 }
@@ -1248,7 +1248,7 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--accent-fg, #58a6ff);
+  color: var(--accent-fg);
 }
 
 .indexing-banner-text {
@@ -1268,7 +1268,7 @@ onUnmounted(() => {
 
 .indexing-banner-bar {
   height: 100%;
-  background: var(--accent-fg, #58a6ff);
+  background: var(--accent-fg);
   border-radius: 2px;
   transition: width 0.3s ease-out;
 }
@@ -1524,9 +1524,9 @@ onUnmounted(() => {
 }
 
 .filter-chip-exclude {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid #ef4444;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-fg);
 }
 
 .filter-chip-neutral {

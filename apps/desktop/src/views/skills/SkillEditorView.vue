@@ -1263,7 +1263,7 @@ function syncScroll() {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #059669, #34d399);
+  background: linear-gradient(135deg, var(--success-emphasis), var(--success-fg));
   display: flex;
   align-items: center;
   justify-content: center;

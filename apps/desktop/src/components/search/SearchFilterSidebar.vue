@@ -382,8 +382,8 @@ function setDatePreset(preset: string) {
   border-color: var(--accent-emphasis);
 }
 .tri-state-box.tri-exclude {
-  background: #ef4444;
-  border-color: #ef4444;
+  background: var(--danger-fg);
+  border-color: var(--danger-fg);
 }
 .filter-label-excluded {
   text-decoration: line-through;

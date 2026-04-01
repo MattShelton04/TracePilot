@@ -574,16 +574,16 @@ function retryLoadTurns() {
   border-left: 3px solid transparent;
 }
 .session-event-error {
-  background: color-mix(in srgb, var(--danger-fg, #f87171) 8%, transparent);
-  border-left-color: var(--danger-fg, #f87171);
+  background: color-mix(in srgb, var(--danger-fg) 8%, transparent);
+  border-left-color: var(--danger-fg);
 }
 .session-event-warning {
-  background: color-mix(in srgb, var(--warning-fg, #fbbf24) 8%, transparent);
-  border-left-color: var(--warning-fg, #fbbf24);
+  background: color-mix(in srgb, var(--warning-fg) 8%, transparent);
+  border-left-color: var(--warning-fg);
 }
 .session-event-info {
-  background: color-mix(in srgb, var(--accent-fg, #60a5fa) 6%, transparent);
-  border-left-color: var(--accent-fg, #60a5fa);
+  background: color-mix(in srgb, var(--accent-fg) 6%, transparent);
+  border-left-color: var(--accent-fg);
 }
 .session-event-summary {
   flex: 1;
