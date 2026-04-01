@@ -57,8 +57,29 @@ impl From<crate::error::OrchestratorError> for McpError {
             crate::error::OrchestratorError::NotFound(msg) => McpError::Import(msg),
             // Pass through MCP errors unchanged
             crate::error::OrchestratorError::Mcp(mcp_err) => mcp_err,
-            // Map all other variants to Config as a catch-all
-            other => McpError::Config(other.to_string()),
+            // Unexpected variants - these should not occur in MCP context
+            // Map to Config with descriptive prefix to aid debugging
+            crate::error::OrchestratorError::Git(msg) => {
+                McpError::Config(format!("Unexpected git error in MCP context: {msg}"))
+            }
+            crate::error::OrchestratorError::Yaml(err) => {
+                McpError::Config(format!("Unexpected YAML error in MCP context: {err}"))
+            }
+            crate::error::OrchestratorError::Version(msg) => {
+                McpError::Config(format!("Unexpected version error in MCP context: {msg}"))
+            }
+            crate::error::OrchestratorError::Template(msg) => {
+                McpError::Config(format!("Unexpected template error in MCP context: {msg}"))
+            }
+            crate::error::OrchestratorError::Worktree(msg) => {
+                McpError::Config(format!("Unexpected worktree error in MCP context: {msg}"))
+            }
+            crate::error::OrchestratorError::Registry(msg) => {
+                McpError::Config(format!("Unexpected registry error in MCP context: {msg}"))
+            }
+            crate::error::OrchestratorError::Skills(err) => {
+                McpError::Config(format!("Unexpected skills error in MCP context: {err}"))
+            }
         }
     }
 }
@@ -184,10 +205,32 @@ mod tests {
     }
 
     #[test]
-    fn from_orchestrator_error_other_variants() {
+    fn from_orchestrator_error_unexpected_variants() {
+        // Git error should be mapped with "Unexpected" prefix
         let orch_err = crate::error::OrchestratorError::Git("git command failed".into());
         let mcp_err: McpError = orch_err.into();
         assert!(matches!(mcp_err, McpError::Config(_)));
-        assert!(mcp_err.to_string().contains("git command failed"));
+        let msg = mcp_err.to_string();
+        assert!(msg.contains("Unexpected git error in MCP context"));
+        assert!(msg.contains("git command failed"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_yaml_variant() {
+        let yaml_err: serde_yml::Error = serde_yml::from_str::<String>("invalid: [").unwrap_err();
+        let orch_err = crate::error::OrchestratorError::Yaml(yaml_err);
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(mcp_err.to_string().contains("Unexpected YAML error in MCP context"));
+    }
+
+    #[test]
+    fn from_orchestrator_error_skills_variant() {
+        use crate::skills::SkillsError;
+        let skills_err = SkillsError::NotFound("test-skill".into());
+        let orch_err = crate::error::OrchestratorError::Skills(skills_err);
+        let mcp_err: McpError = orch_err.into();
+        assert!(matches!(mcp_err, McpError::Config(_)));
+        assert!(mcp_err.to_string().contains("Unexpected skills error in MCP context"));
     }
 }
