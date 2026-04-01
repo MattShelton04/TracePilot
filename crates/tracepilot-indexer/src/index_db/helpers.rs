@@ -391,8 +391,7 @@ mod tests {
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
         // Ensure anonymous placeholders are used (not indexed ?1, ?2, …)
-        assert!(!clause.contains("?1"));
-        assert!(!clause.contains("?2"));
+        assert_no_indexed_params(&clause);
         assert_eq!(values.len(), 2);
         assert_eq!(values[0], "2026-01-01");
         assert_eq!(values[1], "2026-01-31");
@@ -403,7 +402,7 @@ mod tests {
         let (clause, values) = build_date_repo_filter(None, None, Some("myrepo"), false);
         assert!(clause.contains("s.repository = ?"));
         // Ensure anonymous placeholder is used (not indexed ?1)
-        assert!(!clause.contains("?1"));
+        assert_no_indexed_params(&clause);
         assert_eq!(values.len(), 1);
         assert_eq!(values[0], "myrepo");
     }
@@ -421,10 +420,19 @@ mod tests {
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
         assert!(clause.contains("s.repository = ?"));
         // Ensure anonymous placeholders are used throughout
-        assert!(!clause.contains("?1"));
-        assert!(!clause.contains("?2"));
-        assert!(!clause.contains("?3"));
+        assert_no_indexed_params(&clause);
         assert_eq!(values.len(), 3);
+    }
+
+    /// Helper: check that a WHERE clause contains no indexed placeholders (`?N`).
+    /// This is stricter than checking `?1`/`?2`/`?3` individually because it
+    /// catches any `?` immediately followed by an ASCII digit (e.g. `?10`).
+    fn assert_no_indexed_params(clause: &str) {
+        let has_indexed = clause
+            .as_bytes()
+            .windows(2)
+            .any(|w| w[0] == b'?' && w[1].is_ascii_digit());
+        assert!(!has_indexed, "unexpected indexed placeholder in clause: {clause}");
     }
 
     /// Verify that the number of `?` placeholders in the generated clause
@@ -455,11 +463,8 @@ mod tests {
                 values.len(), expected_params,
                 "bind value count mismatch for from={from:?} to={to:?} repo={repo:?} hide_empty={hide_empty}"
             );
-            // No indexed params in any combination
-            assert!(
-                !clause.contains("?1") && !clause.contains("?2") && !clause.contains("?3"),
-                "unexpected indexed placeholder in clause: {clause}"
-            );
+            // No indexed params (`?N`) in any combination
+            assert_no_indexed_params(&clause);
         }
     }
 
@@ -467,6 +472,10 @@ mod tests {
     /// must bind correctly when executed against a real (in-memory) SQLite
     /// connection.  This catches any param-order or placeholder-style regressions
     /// that pure string assertions cannot detect.
+    ///
+    /// Rows with NULL dates always pass the date filter (via the `OR NULL` guard)
+    /// so that sessions whose timestamps were never recorded are still visible
+    /// in the analytics dashboard.  This is intentional design behaviour.
     #[test]
     fn test_build_date_repo_filter_executes_correctly() {
         use rusqlite::Connection;
@@ -479,14 +488,22 @@ mod tests {
                 repository   TEXT,
                 turn_count   INTEGER
             );
+            -- s1: Jan 2026, repo-a, has turns
             INSERT INTO sessions VALUES ('s1', '2026-01-05', '2026-01-05', 'repo-a', 3);
+            -- s2: Feb 2026, repo-b (different month + repo)
             INSERT INTO sessions VALUES ('s2', '2026-02-05', '2026-02-05', 'repo-b', 0);
+            -- s3: Jan 2026, repo-a, has turns
             INSERT INTO sessions VALUES ('s3', '2026-01-15', '2026-01-15', 'repo-a', 2);
+            -- s4: Dec 2025, repo-a (out of range)
             INSERT INTO sessions VALUES ('s4', '2025-12-01', '2025-12-01', 'repo-a', 1);
-            INSERT INTO sessions VALUES ('s5', NULL, NULL, 'repo-a', 5);",
+            -- s5: NULL dates, repo-a — always matches date filter (OR NULL guard)
+            INSERT INTO sessions VALUES ('s5', NULL, NULL, 'repo-a', 5);
+            -- s6: Jan 2026, repo-a, zero turns (tests hide_empty)
+            INSERT INTO sessions VALUES ('s6', '2026-01-20', '2026-01-20', 'repo-a', 0);",
         ).expect("setup");
 
-        // Filter: January 2026, repo-a, include empty sessions
+        // Test 1: January 2026, repo-a, include empty sessions.
+        // Expected: s1, s3, s5 (NULL-dates OR guard), s6 (zero turns) = 4
         let (clause, bind_values) = build_date_repo_filter(
             Some("2026-01-01"),
             Some("2026-01-31"),
@@ -497,11 +514,11 @@ mod tests {
         let refs = to_refs(&bind_values);
         let count: i64 = conn
             .query_row(&sql, params_from_iter(refs.iter().copied()), |r| r.get(0))
-            .expect("query");
-        // s1 (Jan 5, repo-a) and s3 (Jan 15, repo-a) match; s5 (NULL dates) also matches per the OR clause
-        assert_eq!(count, 3, "expected s1, s3, s5 to match");
+            .expect("query1");
+        assert_eq!(count, 4, "expected s1, s3, s5, s6 (include empty)");
 
-        // Filter: January 2026, repo-a, hide empty sessions (turn_count > 0)
+        // Test 2: January 2026, repo-a, hide empty sessions (turn_count > 0).
+        // Expected: s1, s3, s5 = 3 (s6 excluded because turn_count = 0)
         let (clause2, bind_values2) = build_date_repo_filter(
             Some("2026-01-01"),
             Some("2026-01-31"),
@@ -513,10 +530,10 @@ mod tests {
         let count2: i64 = conn
             .query_row(&sql2, params_from_iter(refs2.iter().copied()), |r| r.get(0))
             .expect("query2");
-        // Same rows minus empty ones; all of s1, s3, s5 have turn_count > 0
-        assert_eq!(count2, 3, "expected s1, s3, s5 to match with hide_empty");
+        assert_eq!(count2, 3, "expected s1, s3, s5 (hide_empty excludes s6)");
 
-        // Filter: repo-b only (no date range)
+        // Test 3: repo-b only, no date range.
+        // Expected: s2 = 1
         let (clause3, bind_values3) = build_date_repo_filter(None, None, Some("repo-b"), false);
         let sql3 = format!("SELECT COUNT(*) FROM sessions s{}", clause3);
         let refs3 = to_refs(&bind_values3);
@@ -524,6 +541,15 @@ mod tests {
             .query_row(&sql3, params_from_iter(refs3.iter().copied()), |r| r.get(0))
             .expect("query3");
         assert_eq!(count3, 1, "expected only s2 for repo-b");
+
+        // Test 4: no filters at all — all sessions returned.
+        let (clause4, bind_values4) = build_date_repo_filter(None, None, None, false);
+        let sql4 = format!("SELECT COUNT(*) FROM sessions s{}", clause4);
+        let refs4 = to_refs(&bind_values4);
+        let count4: i64 = conn
+            .query_row(&sql4, params_from_iter(refs4.iter().copied()), |r| r.get(0))
+            .expect("query4");
+        assert_eq!(count4, 6, "expected all 6 sessions with no filter");
     }
 
     #[test]
