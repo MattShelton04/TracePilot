@@ -7,7 +7,6 @@ use crate::json_io::{atomic_json_read, atomic_json_write};
 use crate::launcher::copilot_home;
 use crate::mcp::error::McpError;
 use crate::mcp::types::{McpServerConfig, McpServerDetail, McpSummary};
-use crate::tokens::estimate_tool_tokens;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -149,10 +148,7 @@ pub fn get_summary(
     for (name, _server) in &config.mcp_servers {
         if let Some(cached) = health_results.get(name) {
             for tool in &cached.tools {
-                total_tokens += estimate_tool_tokens(
-                    &tool.name,
-                    tool.description.as_deref().unwrap_or(""),
-                );
+                total_tokens += tool.estimate_tokens();
             }
         }
     }
@@ -178,10 +174,7 @@ pub fn get_server_detail(
         .map(|c| c.tools.clone())
         .unwrap_or_default();
 
-    let total_tokens: u32 = tools
-        .iter()
-        .map(|t| estimate_tool_tokens(&t.name, t.description.as_deref().unwrap_or("")))
-        .sum();
+    let total_tokens: u32 = tools.iter().map(|t| t.estimate_tokens()).sum();
 
     Ok(McpServerDetail {
         name: name.to_string(),
