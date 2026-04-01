@@ -2,6 +2,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod tracing_init;
+
 fn main() {
     // When built with --features tokio-console, use console-subscriber for
     // async task debugging via `tokio-console`. This REPLACES the normal
@@ -59,7 +61,8 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tracepilot_tauri_bindings::init())
-        .setup(|_app| {
+        .setup(move |app| {
+            tracing_init::init_tracing(app, log_level);
             log::info!("TracePilot v{} starting", env!("CARGO_PKG_VERSION"));
             Ok(())
         })

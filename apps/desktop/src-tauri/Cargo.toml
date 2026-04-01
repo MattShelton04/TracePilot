@@ -24,6 +24,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 log = "0.4"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
 console-subscriber = { version = "0.4", optional = true }
 
 [features]
