@@ -580,5 +580,5 @@ export const MOCK_EXPORT_RESULT: ExportResult = {
   sessionsExported: 1,
   filePath: "/tmp/tracepilot-export.json",
   fileSizeBytes: 12345,
-  exportedAt: new Date().toISOString(),
+  exportedAt: NOW,
 };
