@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_path};
+use crate::helpers::spawn_blocking;
 use crate::types::{
     ExportPreviewResult, ExportSessionsResult, ImportIssue, ImportPreviewResult,
     ImportSessionPreview, ImportSessionsResult, SessionSectionsInfo,
@@ -46,7 +47,7 @@ pub async fn export_sessions(
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let options = ExportOptions {
             format: export_format,
             sections: section_set,
@@ -238,7 +239,7 @@ pub async fn preview_import(
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let path = PathBuf::from(&file_path);
 
         let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
@@ -306,7 +307,7 @@ pub async fn import_sessions(
         _ => tracepilot_export::import::ConflictStrategy::Skip,
     };
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let path = PathBuf::from(&file_path);
 
         let options = tracepilot_export::import::ImportOptions {

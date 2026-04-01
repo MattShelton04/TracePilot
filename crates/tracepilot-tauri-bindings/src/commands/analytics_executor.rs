@@ -9,6 +9,7 @@
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{open_index_db, read_config};
+use crate::helpers::spawn_blocking;
 use std::path::PathBuf;
 use tracepilot_indexer::index_db::IndexDb;
 
@@ -128,7 +129,7 @@ where
 {
     let query_name = query_name.to_string();
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         // Phase 1: Try SQL fast path
         if let Some(db) = open_index_db(&ctx.index_path) {
             match sql_fn(&db, &params) {
