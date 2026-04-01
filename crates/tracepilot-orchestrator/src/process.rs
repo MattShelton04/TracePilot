@@ -257,62 +257,30 @@ pub fn run_hidden_stdout_timeout(
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = spawn_captured_child(cmd, program)?;
-
-    // Take the pipe handles before wrapping the child so the thread owns them.
-    let stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let stderr_pipe = child.stderr.take().expect("stderr was piped");
-    let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
-    let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
-
-    // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
-    let child_shared = Arc::new(Mutex::new(child));
-    let child_for_thread = Arc::clone(&child_shared);
-
-    let (tx, rx) = mpsc::channel::<std::result::Result<
-        (Vec<u8>, Vec<u8>, std::process::ExitStatus),
-        OrchestratorError,
-    >>();
-
-    std::thread::spawn(move || {
-        let result = child_for_thread
-            .lock()
-            .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
-            .and_then(|mut c| {
-                c.wait()
-                    .map_err(|e| OrchestratorError::Launch(format!("wait failed: {e}")))
-            })
-            .and_then(|status| {
-                let stdout = stdout_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stdout reader thread disconnected".into()))??;
-                let stderr = stderr_rx
-                    .recv()
-                    .map_err(|_| OrchestratorError::Launch("stderr reader thread disconnected".into()))??;
-                Ok((stdout, stderr, status))
-            });
-        let _ = tx.send(result);
-    });
-
-    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
-        Ok(Ok((stdout, stderr, status))) => {
-            if status.success() {
-                Ok(String::from_utf8_lossy(&stdout).trim().to_string())
+    // Use the shared timeout implementation
+    match run_with_timeout(cmd, program, args, timeout_secs) {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
             } else {
-                let stderr_str = String::from_utf8_lossy(&stderr).trim().to_string();
+                let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
                 Err(OrchestratorError::Launch(format!(
                     "{program} failed (exit {}): {stderr_str}",
-                    status.code().unwrap_or(-1)
+                    output.status.code().unwrap_or(-1)
                 )))
             }
         }
-        Ok(Err(e)) => Err(e),
-        Err(_) => {
-            let _ = child_shared.lock().map(|mut c| c.kill());
-            Err(OrchestratorError::Launch(format!(
-                "GitHub API call timed out after {timeout_secs}s. \
-                 Check your internet connection and try again."
-            )))
+        Err(e) => {
+            // Wrap timeout errors with GitHub-specific message
+            let err_msg = e.to_string();
+            if err_msg.contains("timed out") {
+                Err(OrchestratorError::Launch(format!(
+                    "GitHub API call timed out after {timeout_secs}s. \
+                     Check your internet connection and try again."
+                )))
+            } else {
+                Err(e)
+            }
         }
     }
 }
