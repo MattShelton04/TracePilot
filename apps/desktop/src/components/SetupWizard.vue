@@ -580,7 +580,7 @@ onUnmounted(() => {
 :deep(.validation-msg.success) { color: var(--success-fg); }
 :deep(.validation-msg.warning) { color: var(--warning-fg); }
 :deep(.validation-msg.error) { color: var(--danger-fg); }
-:deep(.validation-msg.validating) { color: var(--text-tertiary, #71717a); }
+:deep(.validation-msg.validating) { color: var(--text-tertiary); }
 
 :deep(.spinner) {
   width: 14px;
