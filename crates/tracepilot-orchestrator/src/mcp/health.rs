@@ -93,10 +93,12 @@ pub async fn check_all_servers(
     // not produce a result entry. The `Instant::now()` latency is approximate
     // (measured after all tasks finish, not at panic time) — acceptable since
     // task panics should never occur in practice.
-    for name in spawned_names {
-        results.entry(name).or_insert_with_key(|n| {
-            make_error_result(n, Instant::now(), "health-check task panicked unexpectedly")
-        });
+    if results.len() < servers.len() {
+        for name in spawned_names {
+            results.entry(name).or_insert_with_key(|n| {
+                make_error_result(n, Instant::now(), "health-check task panicked unexpectedly")
+            });
+        }
     }
 
     results
