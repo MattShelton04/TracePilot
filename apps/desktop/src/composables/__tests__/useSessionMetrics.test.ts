@@ -13,6 +13,11 @@ describe("useSessionMetrics", () => {
       expect(totalTokens(m)).toBe(0);
     });
 
+    it("should return 0 when m.modelMetrics is null", () => {
+      const m = { modelMetrics: null } as unknown as ShutdownMetrics;
+      expect(totalTokens(m)).toBe(0);
+    });
+
     it("should return 0 when m.modelMetrics is empty", () => {
       const m = { modelMetrics: {} } as ShutdownMetrics;
       expect(totalTokens(m)).toBe(0);
