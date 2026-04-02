@@ -5,8 +5,8 @@ use rusqlite::{params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use super::types::*;
 use super::IndexDb;
+use super::types::*;
 
 impl IndexDb {
     /// List indexed sessions with optional filters.
@@ -29,10 +29,18 @@ impl IndexDb {
         }
 
         if let Some(repo) = filter_repo {
-            sql.push_str(&build_eq_filter("repository", repo.to_string(), &mut query_params));
+            sql.push_str(&build_eq_filter(
+                "repository",
+                repo.to_string(),
+                &mut query_params,
+            ));
         }
         if let Some(branch) = filter_branch {
-            sql.push_str(&build_eq_filter("branch", branch.to_string(), &mut query_params));
+            sql.push_str(&build_eq_filter(
+                "branch",
+                branch.to_string(),
+                &mut query_params,
+            ));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");
@@ -122,9 +130,9 @@ impl IndexDb {
 
     /// Get distinct CWD paths from all indexed sessions (for repo discovery).
     pub fn distinct_session_cwds(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut cwds = Vec::new();
         for row in rows {

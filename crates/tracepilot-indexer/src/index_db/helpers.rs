@@ -1,7 +1,7 @@
 //! SQL query helpers and statistical functions for the index database.
 
 use crate::Result;
-use rusqlite::{params_from_iter, types::ToSql, Connection};
+use rusqlite::{Connection, params_from_iter, types::ToSql};
 
 use tracepilot_core::analytics::types::*;
 
@@ -157,7 +157,15 @@ pub(super) fn query_model_distribution(
     for row in rows {
         let (model, tokens, input_t, output_t, cache_read, cost, request_count) = row?;
         grand_total += tokens;
-        entries.push((model, tokens, input_t, output_t, cache_read, cost, request_count));
+        entries.push((
+            model,
+            tokens,
+            input_t,
+            output_t,
+            cache_read,
+            cost,
+            request_count,
+        ));
     }
     Ok(entries
         .into_iter()
@@ -337,7 +345,11 @@ mod tests {
     #[test]
     fn test_build_in_filter_multiple_values() {
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &vec!["a".to_string(), "b".to_string(), "c".to_string()], &mut params);
+        let sql = build_in_filter(
+            "col",
+            &vec!["a".to_string(), "b".to_string(), "c".to_string()],
+            &mut params,
+        );
         assert_eq!(sql, " AND col IN (?, ?, ?)");
         assert_eq!(params.len(), 3);
     }
@@ -353,7 +365,8 @@ mod tests {
     #[test]
     fn test_build_timestamp_range_filter_both() {
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), Some(2000), &mut params);
+        let sql =
+            build_timestamp_range_filter("timestamp_unix", Some(1000), Some(2000), &mut params);
         assert_eq!(sql, " AND timestamp_unix >= ? AND timestamp_unix <= ?");
         assert_eq!(params.len(), 2);
     }
@@ -399,12 +412,8 @@ mod tests {
 
     #[test]
     fn test_build_date_repo_filter_with_dates() {
-        let (clause, values) = build_date_repo_filter(
-            Some("2026-01-01"),
-            Some("2026-01-31"),
-            None,
-            false
-        );
+        let (clause, values) =
+            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), None, false);
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
         // Ensure anonymous placeholders are used (not indexed ?1, ?2, …)
@@ -426,12 +435,8 @@ mod tests {
 
     #[test]
     fn test_build_date_repo_filter_all_filters() {
-        let (clause, values) = build_date_repo_filter(
-            Some("2026-01-01"),
-            Some("2026-01-31"),
-            Some("myrepo"),
-            true
-        );
+        let (clause, values) =
+            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), true);
         assert!(clause.contains("s.turn_count"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) >= ?"));
         assert!(clause.contains("date(COALESCE(s.updated_at, s.created_at)) <= ?"));
@@ -449,7 +454,10 @@ mod tests {
             .as_bytes()
             .windows(2)
             .any(|w| w[0] == b'?' && w[1].is_ascii_digit());
-        assert!(!has_indexed, "unexpected indexed placeholder in clause: {clause}");
+        assert!(
+            !has_indexed,
+            "unexpected indexed placeholder in clause: {clause}"
+        );
     }
 
     /// Verify that the number of `?` placeholders in the generated clause
@@ -466,8 +474,20 @@ mod tests {
             (Some("2026-01-01"), Some("2026-01-31"), None, false, 2),
             (Some("2026-01-01"), None, Some("myrepo"), false, 2),
             (None, Some("2026-01-31"), Some("myrepo"), false, 2),
-            (Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), false, 3),
-            (Some("2026-01-01"), Some("2026-01-31"), Some("myrepo"), true, 3),
+            (
+                Some("2026-01-01"),
+                Some("2026-01-31"),
+                Some("myrepo"),
+                false,
+                3,
+            ),
+            (
+                Some("2026-01-01"),
+                Some("2026-01-31"),
+                Some("myrepo"),
+                true,
+                3,
+            ),
         ];
         for (from, to, repo, hide_empty, expected_params) in cases {
             let (clause, values) = build_date_repo_filter(from, to, repo, hide_empty);
@@ -477,7 +497,8 @@ mod tests {
                 "placeholder count mismatch for from={from:?} to={to:?} repo={repo:?} hide_empty={hide_empty}"
             );
             assert_eq!(
-                values.len(), expected_params,
+                values.len(),
+                expected_params,
                 "bind value count mismatch for from={from:?} to={to:?} repo={repo:?} hide_empty={hide_empty}"
             );
             // No indexed params (`?N`) in any combination
@@ -517,7 +538,8 @@ mod tests {
             INSERT INTO sessions VALUES ('s5', NULL, NULL, 'repo-a', 5);
             -- s6: Jan 2026, repo-a, zero turns (tests hide_empty)
             INSERT INTO sessions VALUES ('s6', '2026-01-20', '2026-01-20', 'repo-a', 0);",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         // Test 1: January 2026, repo-a, include empty sessions.
         // Expected: s1, s3, s5 (NULL-dates OR guard), s6 (zero turns) = 4
@@ -536,12 +558,8 @@ mod tests {
 
         // Test 2: January 2026, repo-a, hide empty sessions (turn_count > 0).
         // Expected: s1, s3, s5 = 3 (s6 excluded because turn_count = 0)
-        let (clause2, bind_values2) = build_date_repo_filter(
-            Some("2026-01-01"),
-            Some("2026-01-31"),
-            Some("repo-a"),
-            true,
-        );
+        let (clause2, bind_values2) =
+            build_date_repo_filter(Some("2026-01-01"), Some("2026-01-31"), Some("repo-a"), true);
         let sql2 = format!("SELECT COUNT(*) FROM sessions s{}", clause2);
         let refs2 = to_refs(&bind_values2);
         let count2: i64 = conn
@@ -588,7 +606,11 @@ mod tests {
     #[test]
     fn test_build_not_in_filter_multiple_values() {
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &vec!["tool_call".to_string(), "tool_error".to_string()], &mut params);
+        let sql = build_not_in_filter(
+            "col",
+            &vec!["tool_call".to_string(), "tool_error".to_string()],
+            &mut params,
+        );
         assert_eq!(sql, " AND col NOT IN (?, ?)");
         assert_eq!(params.len(), 2);
     }
@@ -598,16 +620,14 @@ mod tests {
     fn test_execute_query_map_empty_results() {
         use rusqlite::Connection;
         let conn = Connection::open_in_memory().expect("in-memory db");
-        conn.execute_batch(
-            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);",
-        ).expect("setup");
+        conn.execute_batch("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);")
+            .expect("setup");
 
-        let result: Vec<i64> = execute_query_map(
-            &conn,
-            "SELECT id FROM test WHERE id > ?",
-            [100],
-            |row| row.get(0),
-        ).expect("query");
+        let result: Vec<i64> =
+            execute_query_map(&conn, "SELECT id FROM test WHERE id > ?", [100], |row| {
+                row.get(0)
+            })
+            .expect("query");
 
         assert_eq!(result.len(), 0);
     }
@@ -620,14 +640,14 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);
              INSERT INTO test VALUES (1, 'hello');",
-        ).expect("setup");
+        )
+        .expect("setup");
 
-        let result: Vec<String> = execute_query_map(
-            &conn,
-            "SELECT value FROM test WHERE id = ?",
-            [1],
-            |row| row.get(0),
-        ).expect("query");
+        let result: Vec<String> =
+            execute_query_map(&conn, "SELECT value FROM test WHERE id = ?", [1], |row| {
+                row.get(0)
+            })
+            .expect("query");
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0], "hello");
@@ -641,14 +661,16 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER);
              INSERT INTO test VALUES (1, 100), (2, 200), (3, 300);",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         let result: Vec<i64> = execute_query_map(
             &conn,
             "SELECT value FROM test ORDER BY id",
             std::iter::empty::<&dyn ToSql>(),
             |row| row.get(0),
-        ).expect("query");
+        )
+        .expect("query");
 
         assert_eq!(result, vec![100, 200, 300]);
     }
@@ -661,7 +683,8 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (id INTEGER, name TEXT, score REAL);
              INSERT INTO test VALUES (1, 'Alice', 95.5), (2, 'Bob', 87.3);",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         #[derive(Debug, PartialEq)]
         struct Record {
@@ -681,11 +704,26 @@ mod tests {
                     score: row.get(2)?,
                 })
             },
-        ).expect("query");
+        )
+        .expect("query");
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0], Record { id: 1, name: "Alice".to_string(), score: 95.5 });
-        assert_eq!(result[1], Record { id: 2, name: "Bob".to_string(), score: 87.3 });
+        assert_eq!(
+            result[0],
+            Record {
+                id: 1,
+                name: "Alice".to_string(),
+                score: 95.5
+            }
+        );
+        assert_eq!(
+            result[1],
+            Record {
+                id: 2,
+                name: "Bob".to_string(),
+                score: 87.3
+            }
+        );
     }
 
     /// Test the generic `execute_query_map` helper with type conversion.
@@ -696,7 +734,8 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (value INTEGER);
              INSERT INTO test VALUES (42), (100), (255);",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         // Map i64 from DB to u64 in Rust
         let result: Vec<u64> = execute_query_map(
@@ -704,7 +743,8 @@ mod tests {
             "SELECT value FROM test ORDER BY value",
             std::iter::empty::<&dyn ToSql>(),
             |row| Ok(row.get::<_, i64>(0)? as u64),
-        ).expect("query");
+        )
+        .expect("query");
 
         assert_eq!(result, vec![42u64, 100u64, 255u64]);
     }
@@ -717,7 +757,8 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (date TEXT, count INTEGER);
              INSERT INTO test VALUES ('2026-01-01', 10), ('2026-01-02', 20), ('2026-01-03', 30);",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         let date_filter = "2026-01-02".to_string();
         let refs: Vec<&dyn ToSql> = vec![&date_filter];
@@ -727,7 +768,8 @@ mod tests {
             "SELECT count FROM test WHERE date >= ?",
             refs.iter().copied(),
             |row| row.get(0),
-        ).expect("query");
+        )
+        .expect("query");
 
         assert_eq!(result, vec![20, 30]);
     }
@@ -758,7 +800,8 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE test (value TEXT);
              INSERT INTO test VALUES ('not_a_number');",
-        ).expect("setup");
+        )
+        .expect("setup");
 
         // Try to get a TEXT column as an i64 - should fail
         let result: Result<Vec<i64>> = execute_query_map(
