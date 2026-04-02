@@ -498,6 +498,16 @@ describe("useImportFlow", () => {
       expect(flow.error.value).toBe("Serialized import error");
     });
 
+    it("falls back for nullish import errors", async () => {
+      const flow = await setupForImport();
+      mockImportSessions.mockRejectedValue(null);
+
+      await flow.executeImport();
+
+      expect(flow.step.value).toBe("review");
+      expect(flow.error.value).toBe("Unknown error");
+    });
+
     it("passes conflict strategy and selected sessions to backend", async () => {
       const flow = await setupForImport();
       flow.conflictStrategy.value = "replace";
@@ -679,7 +689,7 @@ describe("useImportFlow", () => {
 
       expect(flowRef.step.value).toBe("validating");
 
-      // Unmount before validation completes — increments validateRequestId
+      // Unmount before validation completes so the guard invalidates the request
       wrapper.unmount();
 
       // Resolve the validation — result should be discarded (stale request)

@@ -70,10 +70,12 @@ function createRefs() {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  delete (globalThis as Record<string, unknown>).__unmountCallback;
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  delete (globalThis as Record<string, unknown>).__unmountCallback;
 });
 
 describe("useExportPreview", () => {
