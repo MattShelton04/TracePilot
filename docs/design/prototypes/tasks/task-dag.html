@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TracePilot — Task DAG Visualization</title>
+  <link rel="stylesheet" href="../shared/design-system-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================
+       TracePilot Task DAG Visualization
+       SVG-based dependency graph with animated edges,
+       node selection, zoom/pan, minimap, and timeline view.
+       Uses design-system-c.css tokens exclusively.
+       ========================================================== */
+    body { background: var(--canvas-default); overflow: hidden; }
+
+    /* ── View Switching ── */
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ── Page Header ── */
+    .dag-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 24px; border-bottom: 1px solid var(--border-default);
+      min-height: 50px; flex-shrink: 0; gap: 12px;
+      background: var(--canvas-subtle); background-image: var(--gradient-surface);
+    }
+    .dag-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .dag-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .job-title {
+      font-size: 0.9375rem; font-weight: 700; color: var(--text-primary);
+      letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .job-title .job-icon {
+      width: 26px; height: 26px; border-radius: var(--radius-md);
+      background: var(--accent-muted); border: 1px solid var(--border-accent);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent-fg); font-size: 13px; flex-shrink: 0;
+    }
+    .job-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.6875rem; color: var(--text-tertiary);
+    }
+    .job-meta-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--text-placeholder);
+    }
+
+    /* ── View Toggle (Segmented Control) ── */
+    .view-segmented {
+      display: inline-flex; gap: 0; border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); overflow: hidden;
+    }
+    .view-seg-btn {
+      padding: 5px 14px; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-tertiary); background: var(--canvas-default);
+      border: none; border-right: 1px solid var(--border-default);
+      cursor: pointer; transition: all var(--transition-fast);
+      font-family: inherit; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .view-seg-btn:last-child { border-right: none; }
+    .view-seg-btn:hover { color: var(--text-primary); background: var(--neutral-subtle); }
+    .view-seg-btn.active {
+      color: var(--accent-fg); background: var(--accent-muted); font-weight: 600;
+    }
+    .view-seg-btn svg { width: 13px; height: 13px; }
+
+    /* ── Toolbar ── */
+    .dag-toolbar {
+      display: flex; align-items: center; gap: 6px; padding: 8px 24px;
+      border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+      background: var(--canvas-default);
+    }
+    .toolbar-group {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .toolbar-sep {
+      width: 1px; height: 20px; background: var(--border-default);
+      margin: 0 6px;
+    }
+    .toolbar-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 5px 10px; background: transparent; color: var(--text-tertiary);
+      border: 1px solid transparent; border-radius: var(--radius-sm);
+      font-size: 0.6875rem; font-weight: 500; cursor: pointer;
+      transition: all var(--transition-fast); font-family: inherit;
+      white-space: nowrap;
+    }
+    .toolbar-btn:hover {
+      color: var(--text-primary); background: var(--neutral-subtle);
+      border-color: var(--border-default);
+    }
+    .toolbar-btn.active {
+      color: var(--accent-fg); background: var(--accent-subtle);
+      border-color: var(--border-accent);
+    }
+    .toolbar-btn svg { width: 13px; height: 13px; }
+    .toolbar-btn.icon-only { padding: 5px 7px; }
+
+    .toolbar-label {
+      font-size: 0.625rem; font-weight: 600; color: var(--text-placeholder);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px;
+    }
+
+    .zoom-display {
+      font-family: "JetBrains Mono", monospace; font-size: 0.625rem;
+      color: var(--text-placeholder); min-width: 36px; text-align: center;
+      padding: 3px 6px; background: var(--canvas-subtle);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+    }
+
+    /* ── Graph Canvas Area ── */
+    .graph-area {
+      flex: 1; position: relative; overflow: hidden;
+      background: var(--canvas-inset);
+      cursor: grab;
+    }
+    .graph-area.panning { cursor: grabbing; }
+
+    .graph-area::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+      background-size: 24px 24px;
+      z-index: 0;
+    }
+
+    #dagSvg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%; z-index: 1;
+    }
+
+    /* ── SVG Nodes ── */
+    .dag-node { cursor: pointer; }
+    .dag-node .node-body {
+      fill: var(--canvas-subtle); stroke: var(--border-default); stroke-width: 1;
+      rx: 8; ry: 8; transition: all 0.15s ease;
+    }
+    .dag-node:hover .node-body {
+      stroke: var(--border-accent); stroke-width: 1.5;
+      filter: drop-shadow(0 0 12px rgba(99,102,241,0.15));
+    }
+    .dag-node.selected .node-body {
+      stroke: var(--accent-fg); stroke-width: 2;
+      filter: drop-shadow(0 0 20px rgba(99,102,241,0.25));
+    }
+
+    .node-status-bar { rx: 8; ry: 8; }
+    .node-title { fill: var(--text-primary); font-size: 11px; font-weight: 600; font-family: "Inter", sans-serif; }
+    .node-subtitle { fill: var(--text-tertiary); font-size: 9px; font-weight: 500; font-family: "Inter", sans-serif; }
+    .node-duration { fill: var(--text-secondary); font-size: 9px; font-weight: 500; font-family: "JetBrains Mono", monospace; }
+    .node-model { fill: var(--text-placeholder); font-size: 8px; font-weight: 500; font-family: "JetBrains Mono", monospace; }
+    .node-badge { rx: 4; ry: 4; }
+    .node-badge-text { font-size: 8px; font-weight: 600; font-family: "Inter", sans-serif; }
+
+    .node-status-icon { font-size: 12px; }
+
+    /* ── SVG Edges ── */
+    .dag-edge { fill: none; stroke-width: 1.5; }
+    .dag-edge.done { stroke: var(--success-fg); opacity: 0.6; }
+    .dag-edge.running { stroke: var(--accent-fg); opacity: 0.7; stroke-dasharray: 6 4; }
+    .dag-edge.pending { stroke: var(--text-placeholder); opacity: 0.3; stroke-dasharray: 3 5; }
+    .dag-edge.failed { stroke: var(--danger-fg); opacity: 0.5; stroke-dasharray: 4 3; }
+
+    @keyframes dash-flow {
+      to { stroke-dashoffset: -20; }
+    }
+    .dag-edge.running { animation: dash-flow 1s linear infinite; }
+
+    /* ── Flow Particles ── */
+    .flow-particle {
+      r: 3; opacity: 0;
+    }
+    .flow-particle.active {
+      opacity: 1;
+    }
+    @keyframes particle-pulse {
+      0%, 100% { r: 2.5; opacity: 0.6; }
+      50% { r: 3.5; opacity: 1; }
+    }
+    .flow-particle.active { animation: particle-pulse 1.2s ease-in-out infinite; }
+
+    /* ── Edge Arrowheads ── */
+    .arrow-done { fill: var(--success-fg); opacity: 0.6; }
+    .arrow-running { fill: var(--accent-fg); opacity: 0.7; }
+    .arrow-pending { fill: var(--text-placeholder); opacity: 0.3; }
+    .arrow-failed { fill: var(--danger-fg); opacity: 0.5; }
+
+    /* ── Minimap ── */
+    .minimap {
+      position: absolute; bottom: 16px; right: 16px; z-index: 10;
+      width: 200px; height: 130px;
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      transition: opacity var(--transition-normal);
+    }
+    .minimap:hover { border-color: var(--border-accent); }
+    .minimap-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 8px; font-size: 0.5625rem; font-weight: 600;
+      color: var(--text-placeholder); text-transform: uppercase;
+      letter-spacing: 0.06em; border-bottom: 1px solid var(--border-subtle);
+      background: var(--canvas-subtle);
+    }
+    .minimap-close {
+      background: none; border: none; color: var(--text-placeholder);
+      cursor: pointer; font-size: 10px; padding: 2px;
+      line-height: 1; display: flex;
+    }
+    .minimap-close:hover { color: var(--text-primary); }
+    #minimapSvg { width: 100%; height: calc(100% - 22px); }
+    .minimap-viewport {
+      fill: rgba(99,102,241,0.08); stroke: var(--accent-fg);
+      stroke-width: 1.5; rx: 2; ry: 2; cursor: pointer;
+    }
+
+    /* ── Legend ── */
+    .dag-legend {
+      position: absolute; bottom: 16px; left: 16px; z-index: 10;
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); padding: 10px 14px;
+      box-shadow: var(--shadow-lg);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .legend-title {
+      font-size: 0.5625rem; font-weight: 600; color: var(--text-placeholder);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;
+    }
+    .legend-section {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.6875rem; color: var(--text-tertiary);
+    }
+    .legend-swatch {
+      width: 20px; height: 3px; border-radius: 2px; flex-shrink: 0;
+    }
+    .legend-swatch.done { background: var(--success-fg); opacity: 0.6; }
+    .legend-swatch.running {
+      background: var(--accent-fg); opacity: 0.7;
+      background-image: repeating-linear-gradient(
+        90deg, var(--accent-fg) 0, var(--accent-fg) 4px, transparent 4px, transparent 8px
+      );
+    }
+    .legend-swatch.pending {
+      background: var(--text-placeholder); opacity: 0.3;
+      background-image: repeating-linear-gradient(
+        90deg, var(--text-placeholder) 0, var(--text-placeholder) 2px, transparent 2px, transparent 5px
+      );
+    }
+    .legend-swatch.failed { background: var(--danger-fg); opacity: 0.5; }
+    .legend-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .legend-dot.done { background: var(--success-fg); }
+    .legend-dot.running { background: var(--accent-fg); }
+    .legend-dot.pending { background: var(--warning-fg); }
+    .legend-dot.failed { background: var(--danger-fg); }
+
+    /* ── Detail Panel ── */
+    .detail-overlay {
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: 380px; z-index: 20;
+      background: var(--canvas-overlay);
+      border-left: 1px solid var(--border-default);
+      box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-overlay.open { transform: translateX(0); }
+
+    .detail-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0; background: var(--canvas-subtle);
+    }
+    .detail-header-title {
+      font-size: 0.8125rem; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .detail-close {
+      background: none; border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm); color: var(--text-tertiary);
+      cursor: pointer; padding: 4px 8px; font-size: 0.6875rem;
+      transition: all var(--transition-fast); font-family: inherit;
+    }
+    .detail-close:hover { color: var(--text-primary); border-color: var(--border-accent); background: var(--accent-subtle); }
+
+    .detail-body {
+      flex: 1; overflow-y: auto; padding: 18px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+
+    .detail-section-label {
+      font-size: 0.5625rem; font-weight: 600; color: var(--text-placeholder);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
+    }
+
+    .detail-status-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .detail-status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: var(--radius-full);
+      font-size: 0.6875rem; font-weight: 600;
+    }
+    .detail-status-badge.done { background: var(--success-muted); color: var(--success-fg); }
+    .detail-status-badge.running { background: var(--accent-muted); color: var(--accent-fg); }
+    .detail-status-badge.pending { background: var(--warning-muted); color: var(--warning-fg); }
+    .detail-status-badge.failed { background: var(--danger-muted); color: var(--danger-fg); }
+
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .detail-kv {
+      background: var(--canvas-subtle); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 10px 12px;
+    }
+    .detail-kv-label {
+      font-size: 0.5625rem; font-weight: 600; color: var(--text-placeholder);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;
+    }
+    .detail-kv-value {
+      font-size: 0.8125rem; font-weight: 600; color: var(--text-primary);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .detail-dep-list {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .detail-dep-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; background: var(--canvas-subtle);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+      font-size: 0.75rem; color: var(--text-secondary); cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .detail-dep-item:hover {
+      border-color: var(--border-accent); color: var(--text-primary);
+      background: var(--accent-subtle);
+    }
+    .detail-dep-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .detail-dep-arrow {
+      font-size: 0.625rem; color: var(--text-placeholder); margin-left: auto;
+    }
+
+    .detail-actions {
+      display: flex; gap: 8px; padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .detail-actions .btn-primary {
+      flex: 1; justify-content: center; padding: 8px 14px;
+      font-size: 0.75rem;
+    }
+    .detail-actions .btn-secondary {
+      flex: 1; justify-content: center; padding: 8px 14px;
+      font-size: 0.75rem;
+    }
+    .detail-actions .btn-danger-outline {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 14px; background: transparent;
+      color: var(--danger-fg); border: 1px solid var(--danger-muted);
+      border-radius: var(--radius-md); font-size: 0.75rem; font-weight: 500;
+      cursor: pointer; transition: all var(--transition-fast); font-family: inherit;
+    }
+    .detail-actions .btn-danger-outline:hover {
+      background: var(--danger-subtle); border-color: var(--danger-fg);
+    }
+
+    /* ── Timeline View ── */
+    .timeline-area {
+      flex: 1; overflow: auto; background: var(--canvas-inset); position: relative;
+    }
+    .timeline-container {
+      min-width: 900px; padding: 20px 24px;
+    }
+    .timeline-ruler {
+      display: flex; align-items: flex-end; gap: 0;
+      padding: 0 0 8px 180px; border-bottom: 1px solid var(--border-default);
+      margin-bottom: 4px; position: sticky; top: 0; z-index: 5;
+      background: var(--canvas-inset);
+    }
+    .timeline-tick {
+      font-size: 0.5625rem; font-weight: 500; color: var(--text-placeholder);
+      font-family: "JetBrains Mono", monospace; width: 80px; text-align: left;
+      border-left: 1px solid var(--border-subtle); padding-left: 6px; height: 20px;
+      display: flex; align-items: flex-end;
+    }
+    .timeline-row {
+      display: flex; align-items: center; height: 38px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .timeline-row:hover { background: rgba(255,255,255,0.015); }
+    .timeline-row-label {
+      width: 180px; flex-shrink: 0; padding: 0 12px;
+      font-size: 0.6875rem; font-weight: 500; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .timeline-row-label .tl-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .timeline-bar-track {
+      flex: 1; position: relative; height: 100%;
+    }
+    .timeline-bar {
+      position: absolute; height: 20px; top: 9px;
+      border-radius: 4px; min-width: 6px;
+      transition: all var(--transition-fast);
+    }
+    .timeline-bar.done { background: var(--success-muted); border: 1px solid rgba(52,211,153,0.3); }
+    .timeline-bar.running {
+      background: var(--accent-muted); border: 1px solid rgba(99,102,241,0.3);
+      background-image: repeating-linear-gradient(
+        -45deg, transparent, transparent 4px,
+        rgba(99,102,241,0.08) 4px, rgba(99,102,241,0.08) 8px
+      );
+      animation: stripe-move 1.5s linear infinite;
+    }
+    .timeline-bar.pending { background: var(--neutral-subtle); border: 1px dashed var(--border-default); }
+    .timeline-bar.failed { background: var(--danger-subtle); border: 1px solid rgba(251,113,133,0.3); }
+    @keyframes stripe-move { to { background-position: 16px 0; } }
+
+    .timeline-bar-label {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 0.5625rem; font-weight: 600; white-space: nowrap;
+      pointer-events: none;
+    }
+    .timeline-bar.done .timeline-bar-label { color: var(--success-fg); }
+    .timeline-bar.running .timeline-bar-label { color: var(--accent-fg); }
+    .timeline-bar.pending .timeline-bar-label { color: var(--text-placeholder); }
+    .timeline-bar.failed .timeline-bar-label { color: var(--danger-fg); }
+
+    .timeline-connector {
+      position: absolute; pointer-events: none; z-index: 2;
+    }
+
+    .critical-path-bar {
+      box-shadow: 0 0 0 2px rgba(251,191,36,0.4), 0 0 12px rgba(251,191,36,0.15);
+    }
+
+    /* ── Table View ── */
+    .table-area {
+      flex: 1; overflow: auto; padding: 20px 24px;
+      background: var(--canvas-inset);
+    }
+    .dag-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+    .dag-table thead { position: sticky; top: 0; z-index: 5; }
+    .dag-table th {
+      text-align: left; padding: 8px 12px;
+      font-size: 0.625rem; font-weight: 600; color: var(--text-placeholder);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      background: var(--canvas-subtle); border-bottom: 1px solid var(--border-default);
+    }
+    .dag-table td {
+      padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary); vertical-align: middle;
+    }
+    .dag-table tbody tr { transition: background var(--transition-fast); cursor: pointer; }
+    .dag-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    .table-status {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 8px; border-radius: var(--radius-full);
+      font-size: 0.6875rem; font-weight: 500;
+    }
+    .table-status.done { background: var(--success-muted); color: var(--success-fg); }
+    .table-status.running { background: var(--accent-muted); color: var(--accent-fg); }
+    .table-status.pending { background: var(--warning-muted); color: var(--warning-fg); }
+    .table-status.failed { background: var(--danger-muted); color: var(--danger-fg); }
+
+    .table-id {
+      font-family: "JetBrains Mono", monospace; font-size: 0.6875rem;
+      color: var(--text-placeholder);
+    }
+    .table-deps {
+      display: flex; flex-wrap: wrap; gap: 4px;
+    }
+    .table-dep-chip {
+      font-family: "JetBrains Mono", monospace; font-size: 0.5625rem;
+      padding: 1px 6px; background: var(--canvas-subtle);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+      color: var(--text-placeholder);
+    }
+
+    /* ── Zoom Controls (floating) ── */
+    .zoom-controls {
+      position: absolute; top: 16px; right: 16px; z-index: 10;
+      display: flex; flex-direction: column; gap: 2px;
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg); overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+    .zoom-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; background: transparent;
+      border: none; color: var(--text-secondary); cursor: pointer;
+      transition: all var(--transition-fast); font-size: 14px;
+      font-family: "JetBrains Mono", monospace; font-weight: 600;
+    }
+    .zoom-btn:hover { background: var(--accent-subtle); color: var(--accent-fg); }
+    .zoom-btn + .zoom-btn { border-top: 1px solid var(--border-subtle); }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      display: flex; align-items: center; gap: 12px; padding: 8px 24px;
+      border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+      background: var(--canvas-default);
+    }
+    .stat-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.6875rem; font-weight: 500; color: var(--text-tertiary);
+    }
+    .stat-pill-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+    }
+    .stat-pill-count {
+      font-family: "JetBrains Mono", monospace; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Progress Spinner (in node) ── */
+    @keyframes spin-ring {
+      to { transform: rotate(360deg); }
+    }
+    .spinner-ring {
+      animation: spin-ring 1.2s linear infinite;
+      transform-origin: center;
+    }
+
+    /* ── Pulse on running node ── */
+    @keyframes node-pulse {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 0.12; }
+    }
+    .node-pulse-ring {
+      animation: node-pulse 2s ease-in-out infinite;
+    }
+
+    /* ── Keyboard hint ── */
+    .kbd-hint {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; align-items: center; gap: 12px;
+      background: var(--canvas-overlay); border: 1px solid var(--border-default);
+      border-radius: var(--radius-full); padding: 5px 16px;
+      box-shadow: var(--shadow-md); font-size: 0.625rem; color: var(--text-placeholder);
+    }
+    .kbd-hint kbd {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 1px 5px; background: var(--canvas-subtle);
+      border: 1px solid var(--border-default); border-radius: 3px;
+      font-family: "JetBrains Mono", monospace; font-size: 0.5625rem;
+      color: var(--text-tertiary); min-width: 18px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .sidebar { display: none !important; }
+      .detail-overlay { width: 100%; }
+      .minimap { display: none; }
+      .dag-legend { display: none; }
+      .kbd-hint { display: none; }
+    }
+    @media (max-width: 600px) {
+      .dag-header { padding: 8px 14px; }
+      .dag-toolbar { padding: 6px 14px; flex-wrap: wrap; }
+      .stats-bar { padding: 6px 14px; flex-wrap: wrap; }
+    }
+
+    /* ── Scrollbar styling ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--neutral-muted); border-radius: var(--radius-full);
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--neutral-emphasis); }
+
+    /* ── Layer column headers (SVG overlay) ── */
+    .layer-label {
+      font-size: 9px; font-weight: 600; fill: var(--text-placeholder);
+      font-family: "JetBrains Mono", monospace;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .layer-line { stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 4 6; }
+
+    /* ── btn-primary for detail panel ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: var(--gradient-accent); color: white; border: none;
+      border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 600;
+      cursor: pointer; box-shadow: 0 1px 6px rgba(99,102,241,0.35);
+      transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-primary:hover { box-shadow: 0 3px 14px rgba(99,102,241,0.45); transform: translateY(-1px); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: var(--canvas-default); color: var(--text-secondary);
+      border: 1px solid var(--border-default); border-radius: var(--radius-md);
+      font-size: 0.8125rem; font-weight: 500; cursor: pointer;
+      transition: all var(--transition-fast); font-family: inherit;
+    }
+    .btn-secondary:hover { color: var(--text-primary); border-color: var(--border-accent); background: var(--accent-subtle); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ════════════════════════════════════════════════════════════
+       SIDEBAR
+       ════════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">⚡</div>
+      <span class="sidebar-brand-text">TracePilot</span>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-section-title">Main</span>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 2A1.5 1.5 0 000 3.5v9A1.5 1.5 0 001.5 14h13a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0014.5 2h-13zM1 3.5a.5.5 0 01.5-.5h13a.5.5 0 01.5.5v9a.5.5 0 01-.5.5h-13a.5.5 0 01-.5-.5v-9z"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9zM3.5 3a.5.5 0 00-.5.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-9a.5.5 0 00-.5-.5h-9z"/></svg>
+        Sessions
+      </a>
+      <a href="#" class="sidebar-nav-item active" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M3.75 0a.75.75 0 01.75.75V2h7V.75a.75.75 0 011.5 0V2h1.25A1.75 1.75 0 0116 3.75v.5H0v-.5A1.75 1.75 0 011.75 2H3V.75A.75.75 0 013.75 0zM0 5.5h16v8.75A1.75 1.75 0 0114.25 16H1.75A1.75 1.75 0 010 14.25V5.5z"/></svg>
+        Tasks
+        <span class="sidebar-nav-badge">12</span>
+      </a>
+      <span class="sidebar-section-title">Configure</span>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.823.8a.75.75 0 01.354 0l6 1.5a.75.75 0 01.573.728v5.947a4.75 4.75 0 01-2.3 4.074l-4.25 2.55a.75.75 0 01-.774 0l-4.25-2.55A4.75 4.75 0 01.876 9V3.028A.75.75 0 011.45 2.3l6-1.5z"/></svg>
+        Skills
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8z"/></svg>
+        MCP Servers
+      </a>
+      <a href="#" class="sidebar-nav-item" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.902 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/></svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="sidebar-version">v0.4.2-alpha</span>
+    </div>
+  </aside>
+
+  <!-- ════════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ════════════════════════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- Breadcrumb Header -->
+    <div class="page-header-bar">
+      <nav class="breadcrumb">
+        <a href="#">Tasks</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="#">Jobs</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="#">Comprehensive Analysis</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">DAG View</span>
+      </nav>
+    </div>
+
+    <!-- DAG Header -->
+    <div class="dag-header">
+      <div class="dag-header-left">
+        <div class="job-title">
+          <span class="job-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 0A1.75 1.75 0 000 1.75v12.5C0 15.216.784 16 1.75 16h12.5A1.75 1.75 0 0016 14.25V1.75A1.75 1.75 0 0014.25 0H1.75zM1.5 1.75a.25.25 0 01.25-.25h12.5a.25.25 0 01.25.25v12.5a.25.25 0 01-.25.25H1.75a.25.25 0 01-.25-.25V1.75zM3 3.75A.75.75 0 013.75 3h8.5a.75.75 0 010 1.5h-8.5A.75.75 0 013 3.75zm0 3A.75.75 0 013.75 6h8.5a.75.75 0 010 1.5h-8.5A.75.75 0 013 6.75zM3.75 9a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5z"/></svg>
+          </span>
+          Comprehensive Session Analysis
+        </div>
+        <div class="job-meta">
+          <span class="job-meta-dot" style="background: var(--accent-fg)"></span>
+          <span>12 tasks</span>
+          <span style="color: var(--text-placeholder)">·</span>
+          <span>4 layers</span>
+          <span style="color: var(--text-placeholder)">·</span>
+          <span>Started 3m ago</span>
+        </div>
+      </div>
+      <div class="dag-header-right">
+        <div class="view-segmented">
+          <button class="view-seg-btn active" data-view="graph" onclick="switchView('graph')">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75A.75.75 0 01.75 1h4.5a.75.75 0 010 1.5H.75A.75.75 0 010 1.75zM0 8a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H.75A.75.75 0 010 8zm.75 5.5a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5H.75z"/></svg>
+            Graph
+          </button>
+          <button class="view-seg-btn" data-view="timeline" onclick="switchView('timeline')">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/><path d="M4 5.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm0 3a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5zm0 3a.5.5 0 01.5-.5h2a.5.5 0 010 1h-2a.5.5 0 01-.5-.5z"/></svg>
+            Timeline
+          </button>
+          <button class="view-seg-btn" data-view="table" onclick="switchView('table')">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0114.25 16H1.75A1.75 1.75 0 010 14.25V1.75zM1.5 6.5v7.75c0 .138.112.25.25.25H5.5V6.5h-4zm5.5 0v8H9V6.5H7zm3.5 8h3.75a.25.25 0 00.25-.25V6.5h-4v8zM14.5 5V1.75a.25.25 0 00-.25-.25H1.75a.25.25 0 00-.25.25V5h13z"/></svg>
+            Table
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-pill">
+        <span class="stat-pill-dot" style="background: var(--success-fg)"></span>
+        <span class="stat-pill-count">5</span> Done
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-dot" style="background: var(--accent-fg)"></span>
+        <span class="stat-pill-count">1</span> Running
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-dot" style="background: var(--warning-fg)"></span>
+        <span class="stat-pill-count">5</span> Pending
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-dot" style="background: var(--danger-fg)"></span>
+        <span class="stat-pill-count">1</span> Failed
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.625rem; color: var(--text-placeholder); font-family: 'JetBrains Mono', monospace;">ETA ~2m 30s</span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="dag-toolbar" id="graphToolbar">
+      <span class="toolbar-label">Filter</span>
+      <div class="toolbar-group">
+        <button class="toolbar-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="toolbar-btn" data-filter="running" onclick="setFilter('running')">Running</button>
+        <button class="toolbar-btn" data-filter="failed" onclick="setFilter('failed')">Failed</button>
+        <button class="toolbar-btn" data-filter="pending" onclick="setFilter('pending')">Pending</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn" id="critPathBtn" onclick="toggleCriticalPath()">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 01-7.86 0H.75a.75.75 0 010-1.5h3.32a4.002 4.002 0 017.86 0h3.32a.75.75 0 010 1.5h-3.32zM8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>
+        Critical Path
+      </button>
+      <button class="toolbar-btn" onclick="autoLayout()">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 3.75a.25.25 0 01.25-.25h8.5a.25.25 0 01.25.25v8.5a.25.25 0 01-.25.25h-8.5a.25.25 0 01-.25-.25v-8.5zM3.75 2A1.75 1.75 0 002 3.75v8.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0014 12.25v-8.5A1.75 1.75 0 0012.25 2h-8.5z"/></svg>
+        Auto-layout
+      </button>
+      <div class="toolbar-sep"></div>
+      <span class="toolbar-label">Zoom</span>
+      <div class="toolbar-group">
+        <button class="toolbar-btn icon-only" onclick="zoomIn()">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z"/></svg>
+        </button>
+        <span class="zoom-display" id="zoomLevel">100%</span>
+        <button class="toolbar-btn icon-only" onclick="zoomOut()">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 7.25a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H2.75A.75.75 0 012 7.25z"/></svg>
+        </button>
+        <button class="toolbar-btn icon-only" onclick="zoomFit()" title="Fit to screen">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.75 2A1.75 1.75 0 002 3.75v1.5a.75.75 0 001.5 0v-1.5a.25.25 0 01.25-.25h1.5a.75.75 0 000-1.5h-1.5zm6.5 0a.75.75 0 000 1.5h1.5a.25.25 0 01.25.25v1.5a.75.75 0 001.5 0v-1.5A1.75 1.75 0 0012.25 2h-2zm-7.75 8.75a.75.75 0 00-1.5 0v1.5c0 .966.784 1.75 1.75 1.75h1.5a.75.75 0 000-1.5h-1.5a.25.25 0 01-.25-.25v-1.5zm12 0a.75.75 0 00-1.5 0v1.5a.25.25 0 01-.25.25h-1.5a.75.75 0 000 1.5h1.5A1.75 1.75 0 0014.5 12.25v-1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         VIEW: GRAPH
+         ═══════════════════════════════════════ -->
+    <div class="view-panel active" id="view-graph">
+      <div class="graph-area" id="graphArea">
+        <svg id="dagSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Arrow markers -->
+            <marker id="arrow-done" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" class="arrow-done"/>
+            </marker>
+            <marker id="arrow-running" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" class="arrow-running"/>
+            </marker>
+            <marker id="arrow-pending" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" class="arrow-pending"/>
+            </marker>
+            <marker id="arrow-failed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" class="arrow-failed"/>
+            </marker>
+            <!-- Glow filters -->
+            <filter id="glow-success" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feFlood flood-color="#34d399" flood-opacity="0.3"/>
+              <feComposite in2="blur" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glow-accent" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feFlood flood-color="#818cf8" flood-opacity="0.35"/>
+              <feComposite in2="blur" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glow-danger" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feFlood flood-color="#fb7185" flood-opacity="0.3"/>
+              <feComposite in2="blur" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g id="dagRoot">
+            <!-- Edges and nodes rendered by JS -->
+          </g>
+        </svg>
+
+        <!-- Floating Zoom Controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>
+          <button class="zoom-btn" onclick="zoomOut()" title="Zoom out">−</button>
+          <button class="zoom-btn" onclick="zoomFit()" title="Fit">⊡</button>
+        </div>
+
+        <!-- Minimap -->
+        <div class="minimap" id="minimap">
+          <div class="minimap-header">
+            <span>Minimap</span>
+            <button class="minimap-close" onclick="toggleMinimap()" title="Close">✕</button>
+          </div>
+          <svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg">
+            <g id="minimapContent"></g>
+            <rect class="minimap-viewport" id="minimapViewport" x="0" y="0" width="50" height="30"/>
+          </svg>
+        </div>
+
+        <!-- Legend -->
+        <div class="dag-legend">
+          <span class="legend-title">Legend</span>
+          <div class="legend-section">
+            <div class="legend-item"><span class="legend-dot done"></span> Done</div>
+            <div class="legend-item"><span class="legend-dot running"></span> Running</div>
+            <div class="legend-item"><span class="legend-dot pending"></span> Pending</div>
+            <div class="legend-item"><span class="legend-dot failed"></span> Failed</div>
+          </div>
+          <div class="legend-section" style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border-subtle);">
+            <div class="legend-item"><span class="legend-swatch done"></span> Completed dep</div>
+            <div class="legend-item"><span class="legend-swatch running"></span> In-progress</div>
+            <div class="legend-item"><span class="legend-swatch pending"></span> Pending</div>
+            <div class="legend-item"><span class="legend-swatch failed"></span> Failed dep</div>
+          </div>
+        </div>
+
+        <!-- Keyboard Hint -->
+        <div class="kbd-hint">
+          <span><kbd>Scroll</kbd> Zoom</span>
+          <span><kbd>Drag</kbd> Pan</span>
+          <span><kbd>Click</kbd> Select</span>
+          <span><kbd>Esc</kbd> Deselect</span>
+        </div>
+
+        <!-- Detail Panel -->
+        <div class="detail-overlay" id="detailPanel">
+          <div class="detail-header">
+            <span class="detail-header-title" id="detailTitle">Task Details</span>
+            <button class="detail-close" onclick="closeDetail()"><kbd>Esc</kbd> Close</button>
+          </div>
+          <div class="detail-body" id="detailBody">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         VIEW: TIMELINE
+         ═══════════════════════════════════════ -->
+    <div class="view-panel" id="view-timeline">
+      <div class="timeline-area" id="timelineArea">
+        <div class="timeline-container" id="timelineContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         VIEW: TABLE
+         ═══════════════════════════════════════ -->
+    <div class="view-panel" id="view-table">
+      <div class="table-area">
+        <table class="dag-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Task ID</th>
+              <th>Title</th>
+              <th>Type</th>
+              <th>Duration</th>
+              <th>Model</th>
+              <th>Dependencies</th>
+              <th>Layer</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// TracePilot Task DAG Visualization — Core Engine
+// ══════════════════════════════════════════════════════════════════
+
+// ── Task Data Model ──
+const TASKS = [
+  // Layer 1 — Exports
+  { id: 'task-export-001', title: 'Export Session abc-123', type: 'export', status: 'done', duration: '0:32', durationSec: 32, model: 'gpt-4o-mini', layer: 0, deps: [], startSec: 0 },
+  { id: 'task-export-002', title: 'Export Session def-456', type: 'export', status: 'done', duration: '0:28', durationSec: 28, model: 'gpt-4o-mini', layer: 0, deps: [], startSec: 0 },
+  { id: 'task-export-003', title: 'Export Session ghi-789', type: 'export', status: 'done', duration: '0:45', durationSec: 45, model: 'gpt-4o-mini', layer: 0, deps: [], startSec: 0 },
+  // Layer 2 — Summaries, Review, Health
+  { id: 'task-summary-001', title: 'Summarise abc-123', type: 'summary', status: 'done', duration: '1:12', durationSec: 72, model: 'claude-3.5-sonnet', layer: 1, deps: ['task-export-001'], startSec: 32 },
+  { id: 'task-summary-002', title: 'Summarise def-456', type: 'summary', status: 'running', duration: '0:40…', durationSec: 40, model: 'claude-3.5-sonnet', layer: 1, deps: ['task-export-002'], startSec: 28 },
+  { id: 'task-summary-003', title: 'Summarise ghi-789', type: 'summary', status: 'pending', duration: '—', durationSec: 0, model: 'claude-3.5-sonnet', layer: 1, deps: ['task-export-003'], startSec: 45 },
+  { id: 'task-review-001', title: 'Review abc-123', type: 'review', status: 'done', duration: '2:10', durationSec: 130, model: 'gpt-4o', layer: 1, deps: ['task-export-001'], startSec: 32 },
+  { id: 'task-health-001', title: 'Health Audit abc-123', type: 'health', status: 'failed', duration: '—', durationSec: 15, model: 'gpt-4o', layer: 1, deps: ['task-export-001'], startSec: 32 },
+  // Layer 3 — Digest, Compare
+  { id: 'task-digest-001', title: 'Weekly Digest', type: 'digest', status: 'pending', duration: '—', durationSec: 0, model: 'claude-3.5-sonnet', layer: 2, deps: ['task-summary-001', 'task-summary-002', 'task-summary-003'], startSec: 0 },
+  { id: 'task-compare-001', title: 'Compare abc vs def', type: 'compare', status: 'pending', duration: '—', durationSec: 0, model: 'gpt-4o', layer: 2, deps: ['task-summary-001', 'task-summary-002'], startSec: 0 },
+  // Layer 4 — Report
+  { id: 'task-report-001', title: 'Executive Report', type: 'report', status: 'pending', duration: '—', durationSec: 0, model: 'claude-3.5-sonnet', layer: 3, deps: ['task-digest-001', 'task-review-001'], startSec: 0 },
+];
+
+const TASK_MAP = {};
+TASKS.forEach(t => TASK_MAP[t.id] = t);
+
+const STATUS_COLORS = {
+  done: { bg: 'rgba(52,211,153,0.12)', fg: '#34d399', icon: '✓', label: 'Done' },
+  running: { bg: 'rgba(99,102,241,0.12)', fg: '#818cf8', icon: '●', label: 'Running' },
+  pending: { bg: 'rgba(251,191,36,0.08)', fg: '#fbbf24', icon: '○', label: 'Pending' },
+  failed: { bg: 'rgba(251,113,133,0.12)', fg: '#fb7185', icon: '✕', label: 'Failed' },
+};
+
+const TYPE_LABELS = {
+  export: { label: 'Export', color: '#818cf8' },
+  summary: { label: 'Summary', color: '#34d399' },
+  review: { label: 'Review', color: '#a78bfa' },
+  health: { label: 'Health', color: '#fb7185' },
+  digest: { label: 'Digest', color: '#fbbf24' },
+  compare: { label: 'Compare', color: '#38bdf8' },
+  report: { label: 'Report', color: '#f472b6' },
+};
+
+// ── Layout Constants ──
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 72;
+const LAYER_GAP = 260;
+const NODE_GAP = 20;
+const PADDING_X = 80;
+const PADDING_Y = 60;
+
+// ── State ──
+let currentView = 'graph';
+let currentFilter = 'all';
+let criticalPathEnabled = false;
+let selectedTaskId = null;
+let zoom = 1;
+let panX = 0, panY = 0;
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let panStartPanX = 0, panStartPanY = 0;
+let minimapVisible = true;
+let nodePositions = {};
+let animFrameId = null;
+
+// ══════════════════════════════════════════════════════════════════
+// GRAPH RENDERING
+// ══════════════════════════════════════════════════════════════════
+
+function computeLayout() {
+  const layers = [[], [], [], []];
+  TASKS.forEach(t => layers[t.layer].push(t));
+
+  nodePositions = {};
+  layers.forEach((layer, li) => {
+    const totalHeight = layer.length * NODE_HEIGHT + (layer.length - 1) * NODE_GAP;
+    const startY = PADDING_Y + (Math.max(...layers.map(l => l.length)) * (NODE_HEIGHT + NODE_GAP) - totalHeight) / 2;
+    layer.forEach((task, ti) => {
+      nodePositions[task.id] = {
+        x: PADDING_X + li * LAYER_GAP,
+        y: startY + ti * (NODE_HEIGHT + NODE_GAP),
+      };
+    });
+  });
+}
+
+function getEdgeStatus(fromTask, toTask) {
+  if (fromTask.status === 'failed') return 'failed';
+  if (fromTask.status === 'done' && toTask.status === 'done') return 'done';
+  if (fromTask.status === 'done' && toTask.status === 'running') return 'running';
+  return 'pending';
+}
+
+function renderEdges(rootG) {
+  const edgesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  edgesG.setAttribute('id', 'edgesGroup');
+
+  TASKS.forEach(task => {
+    task.deps.forEach(depId => {
+      const dep = TASK_MAP[depId];
+      if (!dep) return;
+      const from = nodePositions[depId];
+      const to = nodePositions[task.id];
+      const edgeStatus = getEdgeStatus(dep, task);
+
+      const x1 = from.x + NODE_WIDTH;
+      const y1 = from.y + NODE_HEIGHT / 2;
+      const x2 = to.x;
+      const y2 = to.y + NODE_HEIGHT / 2;
+
+      const midX = x1 + (x2 - x1) * 0.5;
+      const d = `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', `dag-edge ${edgeStatus}`);
+      path.setAttribute('marker-end', `url(#arrow-${edgeStatus})`);
+      path.dataset.from = depId;
+      path.dataset.to = task.id;
+      edgesG.appendChild(path);
+
+      // Flow particle for running edges
+      if (edgeStatus === 'running') {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('class', 'flow-particle active');
+        circle.setAttribute('fill', '#818cf8');
+        circle.setAttribute('r', '3');
+
+        const animMotion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+        animMotion.setAttribute('dur', '2s');
+        animMotion.setAttribute('repeatCount', 'indefinite');
+        animMotion.setAttribute('path', d);
+        circle.appendChild(animMotion);
+        edgesG.appendChild(circle);
+
+        // Second particle offset
+        const circle2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle2.setAttribute('class', 'flow-particle active');
+        circle2.setAttribute('fill', '#818cf8');
+        circle2.setAttribute('r', '2.5');
+        circle2.style.opacity = '0.5';
+        const animMotion2 = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+        animMotion2.setAttribute('dur', '2s');
+        animMotion2.setAttribute('repeatCount', 'indefinite');
+        animMotion2.setAttribute('begin', '1s');
+        animMotion2.setAttribute('path', d);
+        circle2.appendChild(animMotion2);
+        edgesG.appendChild(circle2);
+      }
+    });
+  });
+
+  return edgesG;
+}
+
+function renderNodes(rootG) {
+  const nodesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  nodesG.setAttribute('id', 'nodesGroup');
+
+  TASKS.forEach(task => {
+    const pos = nodePositions[task.id];
+    const sc = STATUS_COLORS[task.status];
+    const tl = TYPE_LABELS[task.type];
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', `dag-node${selectedTaskId === task.id ? ' selected' : ''}`);
+    g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+    g.dataset.taskId = task.id;
+    g.addEventListener('click', (e) => { e.stopPropagation(); selectTask(task.id); });
+
+    // Node body
+    const body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    body.setAttribute('class', 'node-body');
+    body.setAttribute('width', NODE_WIDTH);
+    body.setAttribute('height', NODE_HEIGHT);
+    body.setAttribute('fill', '#111113');
+    body.setAttribute('rx', '8');
+    g.appendChild(body);
+
+    // Status accent bar (top)
+    const accent = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    accent.setAttribute('class', 'node-status-bar');
+    accent.setAttribute('x', '0');
+    accent.setAttribute('y', '0');
+    accent.setAttribute('width', NODE_WIDTH);
+    accent.setAttribute('height', '3');
+    accent.setAttribute('fill', sc.fg);
+    accent.setAttribute('rx', '8');
+    g.appendChild(accent);
+    // Cover bottom rounding of accent
+    const accentCover = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    accentCover.setAttribute('x', '0');
+    accentCover.setAttribute('y', '2');
+    accentCover.setAttribute('width', NODE_WIDTH);
+    accentCover.setAttribute('height', '2');
+    accentCover.setAttribute('fill', sc.fg);
+    g.appendChild(accentCover);
+
+    // Running pulse ring
+    if (task.status === 'running') {
+      const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pulse.setAttribute('class', 'node-pulse-ring');
+      pulse.setAttribute('x', '-3');
+      pulse.setAttribute('y', '-3');
+      pulse.setAttribute('width', NODE_WIDTH + 6);
+      pulse.setAttribute('height', NODE_HEIGHT + 6);
+      pulse.setAttribute('rx', '11');
+      pulse.setAttribute('fill', 'none');
+      pulse.setAttribute('stroke', sc.fg);
+      pulse.setAttribute('stroke-width', '1.5');
+      g.insertBefore(pulse, body);
+    }
+
+    // Status icon
+    const statusIcon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    statusIcon.setAttribute('class', 'node-status-icon');
+    statusIcon.setAttribute('x', '12');
+    statusIcon.setAttribute('y', '26');
+    statusIcon.setAttribute('fill', sc.fg);
+    statusIcon.setAttribute('font-size', '13');
+    statusIcon.textContent = sc.icon;
+    g.appendChild(statusIcon);
+
+    // Running spinner
+    if (task.status === 'running') {
+      const spinG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      spinG.setAttribute('transform', `translate(15, 19)`);
+      spinG.setAttribute('class', 'spinner-ring');
+      const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      arc.setAttribute('d', 'M6 0 A6 6 0 0 1 6 12');
+      arc.setAttribute('fill', 'none');
+      arc.setAttribute('stroke', sc.fg);
+      arc.setAttribute('stroke-width', '1.5');
+      arc.setAttribute('stroke-linecap', 'round');
+      spinG.appendChild(arc);
+      g.appendChild(spinG);
+    }
+
+    // Title
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    title.setAttribute('class', 'node-title');
+    title.setAttribute('x', '30');
+    title.setAttribute('y', '26');
+    const titleStr = task.title.length > 20 ? task.title.slice(0, 19) + '…' : task.title;
+    title.textContent = titleStr;
+    g.appendChild(title);
+
+    // Type badge
+    const badgeW = tl.label.length * 5.5 + 12;
+    const badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    badge.setAttribute('class', 'node-badge');
+    badge.setAttribute('x', '30');
+    badge.setAttribute('y', '33');
+    badge.setAttribute('width', badgeW);
+    badge.setAttribute('height', '14');
+    badge.setAttribute('fill', tl.color);
+    badge.setAttribute('opacity', '0.15');
+    g.appendChild(badge);
+
+    const badgeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    badgeText.setAttribute('class', 'node-badge-text');
+    badgeText.setAttribute('x', '36');
+    badgeText.setAttribute('y', '43');
+    badgeText.setAttribute('fill', tl.color);
+    badgeText.textContent = tl.label;
+    g.appendChild(badgeText);
+
+    // Duration
+    const dur = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    dur.setAttribute('class', 'node-duration');
+    dur.setAttribute('x', NODE_WIDTH - 12);
+    dur.setAttribute('y', '26');
+    dur.setAttribute('text-anchor', 'end');
+    dur.textContent = task.duration;
+    g.appendChild(dur);
+
+    // Model
+    const model = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    model.setAttribute('class', 'node-model');
+    model.setAttribute('x', NODE_WIDTH - 12);
+    model.setAttribute('y', '43');
+    model.setAttribute('text-anchor', 'end');
+    model.textContent = task.model;
+    g.appendChild(model);
+
+    // Progress bar for running tasks
+    if (task.status === 'running') {
+      const progBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      progBg.setAttribute('x', '12');
+      progBg.setAttribute('y', '56');
+      progBg.setAttribute('width', NODE_WIDTH - 24);
+      progBg.setAttribute('height', '3');
+      progBg.setAttribute('rx', '1.5');
+      progBg.setAttribute('fill', 'rgba(255,255,255,0.06)');
+      g.appendChild(progBg);
+
+      const progFill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      progFill.setAttribute('x', '12');
+      progFill.setAttribute('y', '56');
+      progFill.setAttribute('width', (NODE_WIDTH - 24) * 0.65);
+      progFill.setAttribute('height', '3');
+      progFill.setAttribute('rx', '1.5');
+      progFill.setAttribute('fill', sc.fg);
+      g.appendChild(progFill);
+    }
+
+    // ID sublabel
+    const idLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    idLabel.setAttribute('class', 'node-model');
+    idLabel.setAttribute('x', '12');
+    idLabel.setAttribute('y', NODE_HEIGHT - 8);
+    idLabel.textContent = task.id.replace('task-', '');
+    g.appendChild(idLabel);
+
+    nodesG.appendChild(g);
+  });
+
+  return nodesG;
+}
+
+function renderLayerLabels(rootG) {
+  const labelsG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  labelsG.setAttribute('id', 'layerLabels');
+  const layerNames = ['Layer 1 · Exports', 'Layer 2 · Processing', 'Layer 3 · Aggregation', 'Layer 4 · Reporting'];
+
+  layerNames.forEach((name, i) => {
+    const x = PADDING_X + i * LAYER_GAP + NODE_WIDTH / 2;
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('class', 'layer-label');
+    label.setAttribute('x', x);
+    label.setAttribute('y', PADDING_Y - 20);
+    label.setAttribute('text-anchor', 'middle');
+    label.textContent = name;
+    labelsG.appendChild(label);
+
+    // Vertical guide line
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('class', 'layer-line');
+    line.setAttribute('x1', x);
+    line.setAttribute('y1', PADDING_Y - 8);
+    line.setAttribute('x2', x);
+    line.setAttribute('y2', PADDING_Y + 500);
+    labelsG.appendChild(line);
+  });
+
+  return labelsG;
+}
+
+function renderGraph() {
+  computeLayout();
+  const rootG = document.getElementById('dagRoot');
+  rootG.innerHTML = '';
+
+  rootG.appendChild(renderLayerLabels(rootG));
+  rootG.appendChild(renderEdges(rootG));
+  rootG.appendChild(renderNodes(rootG));
+
+  applyFilter();
+  updateTransform();
+  renderMinimap();
+}
+
+// ── Transform / Zoom / Pan ──
+function updateTransform() {
+  const rootG = document.getElementById('dagRoot');
+  rootG.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
+  document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
+  updateMinimapViewport();
+}
+
+function zoomIn() {
+  zoom = Math.min(zoom + 0.15, 3);
+  updateTransform();
+}
+
+function zoomOut() {
+  zoom = Math.max(zoom - 0.15, 0.2);
+  updateTransform();
+}
+
+function zoomFit() {
+  const area = document.getElementById('graphArea');
+  const areaW = area.clientWidth;
+  const areaH = area.clientHeight;
+
+  const layers = [[], [], [], []];
+  TASKS.forEach(t => layers[t.layer].push(t));
+  const maxNodesInLayer = Math.max(...layers.map(l => l.length));
+
+  const graphW = 4 * LAYER_GAP + PADDING_X * 2;
+  const graphH = maxNodesInLayer * (NODE_HEIGHT + NODE_GAP) + PADDING_Y * 2;
+
+  const scaleX = areaW / graphW;
+  const scaleY = areaH / graphH;
+  zoom = Math.min(scaleX, scaleY, 1) * 0.9;
+
+  panX = (areaW - graphW * zoom) / 2;
+  panY = (areaH - graphH * zoom) / 2;
+
+  updateTransform();
+}
+
+function autoLayout() {
+  zoom = 1; panX = 0; panY = 0;
+  renderGraph();
+  setTimeout(zoomFit, 50);
+}
+
+// ── Pan Handlers ──
+function initPan() {
+  const area = document.getElementById('graphArea');
+
+  area.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.dag-node') || e.target.closest('.zoom-controls') ||
+        e.target.closest('.minimap') || e.target.closest('.dag-legend') ||
+        e.target.closest('.detail-overlay') || e.target.closest('.kbd-hint')) return;
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panStartPanX = panX;
+    panStartPanY = panY;
+    area.classList.add('panning');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = panStartPanX + (e.clientX - panStartX);
+    panY = panStartPanY + (e.clientY - panStartY);
+    updateTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isPanning = false;
+    area.classList.remove('panning');
+  });
+
+  area.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    const newZoom = Math.max(0.2, Math.min(3, zoom + delta));
+
+    const rect = area.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+    panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+    zoom = newZoom;
+
+    updateTransform();
+  }, { passive: false });
+
+  // Click on graph background to deselect
+  area.addEventListener('click', (e) => {
+    if (!e.target.closest('.dag-node') && !e.target.closest('.detail-overlay') &&
+        !e.target.closest('.zoom-controls') && !e.target.closest('.minimap') &&
+        !e.target.closest('.dag-legend') && !e.target.closest('.kbd-hint')) {
+      deselectAll();
+    }
+  });
+}
+
+// ── Selection ──
+function selectTask(taskId) {
+  selectedTaskId = taskId;
+  // Update node classes
+  document.querySelectorAll('.dag-node').forEach(n => {
+    n.classList.toggle('selected', n.dataset.taskId === taskId);
+  });
+  openDetail(taskId);
+}
+
+function deselectAll() {
+  selectedTaskId = null;
+  document.querySelectorAll('.dag-node').forEach(n => n.classList.remove('selected'));
+  closeDetail();
+}
+
+// ── Detail Panel ──
+function openDetail(taskId) {
+  const task = TASK_MAP[taskId];
+  if (!task) return;
+
+  const sc = STATUS_COLORS[task.status];
+  const tl = TYPE_LABELS[task.type];
+
+  const inDeps = task.deps.map(id => TASK_MAP[id]).filter(Boolean);
+  const outDeps = TASKS.filter(t => t.deps.includes(taskId));
+
+  let html = '';
+
+  // Status
+  html += `<div>
+    <div class="detail-section-label">Status</div>
+    <div class="detail-status-row">
+      <span class="detail-status-badge ${task.status}">
+        <span>${sc.icon}</span> ${sc.label}
+      </span>
+      <span style="font-size: 0.6875rem; color: var(--text-tertiary)">Layer ${task.layer + 1}</span>
+    </div>
+  </div>`;
+
+  // Info grid
+  html += `<div>
+    <div class="detail-section-label">Details</div>
+    <div class="detail-grid">
+      <div class="detail-kv">
+        <div class="detail-kv-label">Task ID</div>
+        <div class="detail-kv-value" style="font-size: 0.6875rem">${task.id}</div>
+      </div>
+      <div class="detail-kv">
+        <div class="detail-kv-label">Type</div>
+        <div class="detail-kv-value" style="color: ${tl.color}; font-size: 0.75rem">${tl.label}</div>
+      </div>
+      <div class="detail-kv">
+        <div class="detail-kv-label">Duration</div>
+        <div class="detail-kv-value">${task.duration}</div>
+      </div>
+      <div class="detail-kv">
+        <div class="detail-kv-label">Model</div>
+        <div class="detail-kv-value" style="font-size: 0.625rem">${task.model}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Incoming deps
+  if (inDeps.length > 0) {
+    html += `<div>
+      <div class="detail-section-label">Depends On (${inDeps.length})</div>
+      <div class="detail-dep-list">`;
+    inDeps.forEach(dep => {
+      const dsc = STATUS_COLORS[dep.status];
+      html += `<div class="detail-dep-item" onclick="selectTask('${dep.id}')">
+        <span class="detail-dep-dot" style="background: ${dsc.fg}"></span>
+        <span>${dep.title}</span>
+        <span class="detail-dep-arrow">→</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Outgoing deps
+  if (outDeps.length > 0) {
+    html += `<div>
+      <div class="detail-section-label">Required By (${outDeps.length})</div>
+      <div class="detail-dep-list">`;
+    outDeps.forEach(dep => {
+      const dsc = STATUS_COLORS[dep.status];
+      html += `<div class="detail-dep-item" onclick="selectTask('${dep.id}')">
+        <span class="detail-dep-dot" style="background: ${dsc.fg}"></span>
+        <span>${dep.title}</span>
+        <span class="detail-dep-arrow">→</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Actions
+  const canRetry = task.status === 'failed';
+  const canCancel = task.status === 'running' || task.status === 'pending';
+  const canViewResult = task.status === 'done';
+
+  html += `<div class="detail-actions">`;
+  if (canViewResult) {
+    html += `<button class="btn-primary" style="font-size: 0.75rem">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1.679 7.932c.412-.621 1.242-1.75 2.366-2.717C5.175 4.242 6.527 3.5 8 3.5c1.473 0 2.825.742 3.955 1.715 1.124.967 1.954 2.096 2.366 2.717a.119.119 0 010 .136c-.412.621-1.242 1.75-2.366 2.717C10.825 11.758 9.473 12.5 8 12.5c-1.473 0-2.825-.742-3.955-1.715C2.921 9.818 2.091 8.69 1.679 8.068a.119.119 0 010-.136zM8 2c-1.981 0-3.67.992-4.933 2.078C1.797 5.169.88 6.423.43 7.1a1.619 1.619 0 000 1.798c.45.678 1.367 1.932 2.637 3.024C4.329 13.008 6.019 14 8 14c1.981 0 3.67-.992 4.933-2.078 1.27-1.091 2.187-2.345 2.637-3.023a1.619 1.619 0 000-1.798c-.45-.678-1.367-1.932-2.637-3.023C11.671 2.992 9.981 2 8 2zm0 8a2 2 0 100-4 2 2 0 000 4z"/></svg>
+      View Result
+    </button>`;
+  }
+  if (canRetry) {
+    html += `<button class="btn-primary" style="font-size: 0.75rem; background: linear-gradient(135deg, #e11d48, #fb7185);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.005a.75.75 0 01.834.656 5.5 5.5 0 009.592 2.97l-1.204-1.204a.25.25 0 01.177-.427h3.646a.25.25 0 01.25.25v3.646a.25.25 0 01-.427.177l-1.38-1.38A7.001 7.001 0 011.05 8.84a.75.75 0 01.656-.834zM8 2.5a5.487 5.487 0 00-4.131 1.869l1.204 1.204A.25.25 0 014.896 6H1.25A.25.25 0 011 5.75V2.104a.25.25 0 01.427-.177l1.38 1.38A7.001 7.001 0 0114.95 7.16a.75.75 0 11-1.49.178A5.5 5.5 0 008 2.5z"/></svg>
+      Retry
+    </button>`;
+  }
+  if (canCancel) {
+    html += `<button class="btn-danger-outline">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>
+      Cancel
+    </button>`;
+  }
+  if (!canViewResult && !canRetry && !canCancel) {
+    html += `<span style="font-size: 0.6875rem; color: var(--text-placeholder);">No actions available</span>`;
+  }
+  html += `</div>`;
+
+  document.getElementById('detailTitle').textContent = task.title;
+  document.getElementById('detailBody').innerHTML = html;
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+}
+
+// ── Filtering ──
+function setFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.dag-toolbar .toolbar-btn[data-filter]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  document.querySelectorAll('.dag-node').forEach(node => {
+    const task = TASK_MAP[node.dataset.taskId];
+    if (!task) return;
+    const visible = currentFilter === 'all' || task.status === currentFilter;
+    node.style.opacity = visible ? '1' : '0.15';
+    node.style.pointerEvents = visible ? 'auto' : 'none';
+  });
+}
+
+// ── Critical Path ──
+function toggleCriticalPath() {
+  criticalPathEnabled = !criticalPathEnabled;
+  document.getElementById('critPathBtn').classList.toggle('active', criticalPathEnabled);
+
+  // Critical path: longest path through the DAG
+  const criticalIds = new Set([
+    'task-export-001', 'task-summary-001', 'task-digest-001', 'task-report-001',
+    'task-review-001'
+  ]);
+
+  document.querySelectorAll('.dag-node').forEach(node => {
+    if (criticalPathEnabled) {
+      node.style.opacity = criticalIds.has(node.dataset.taskId) ? '1' : '0.2';
+    } else {
+      applyFilter();
+    }
+  });
+
+  document.querySelectorAll('.dag-edge').forEach(edge => {
+    const from = edge.dataset.from;
+    const to = edge.dataset.to;
+    if (criticalPathEnabled) {
+      const onPath = criticalIds.has(from) && criticalIds.has(to);
+      edge.style.opacity = onPath ? '1' : '0.08';
+      if (onPath) {
+        edge.setAttribute('stroke-width', '2.5');
+      } else {
+        edge.setAttribute('stroke-width', '1.5');
+      }
+    } else {
+      edge.style.opacity = '';
+      edge.setAttribute('stroke-width', '1.5');
+    }
+  });
+}
+
+// ── Minimap ──
+function toggleMinimap() {
+  minimapVisible = !minimapVisible;
+  document.getElementById('minimap').style.display = minimapVisible ? '' : 'none';
+}
+
+function renderMinimap() {
+  const mmContent = document.getElementById('minimapContent');
+  mmContent.innerHTML = '';
+
+  const scale = 0.12;
+  TASKS.forEach(task => {
+    const pos = nodePositions[task.id];
+    const sc = STATUS_COLORS[task.status];
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', pos.x * scale + 5);
+    rect.setAttribute('y', pos.y * scale + 5);
+    rect.setAttribute('width', NODE_WIDTH * scale);
+    rect.setAttribute('height', NODE_HEIGHT * scale);
+    rect.setAttribute('rx', '2');
+    rect.setAttribute('fill', sc.fg);
+    rect.setAttribute('opacity', '0.5');
+    mmContent.appendChild(rect);
+  });
+
+  // Edges
+  TASKS.forEach(task => {
+    task.deps.forEach(depId => {
+      const from = nodePositions[depId];
+      const to = nodePositions[task.id];
+      if (!from || !to) return;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', (from.x + NODE_WIDTH) * scale + 5);
+      line.setAttribute('y1', (from.y + NODE_HEIGHT / 2) * scale + 5);
+      line.setAttribute('x2', to.x * scale + 5);
+      line.setAttribute('y2', (to.y + NODE_HEIGHT / 2) * scale + 5);
+      line.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+      line.setAttribute('stroke-width', '0.5');
+      mmContent.appendChild(line);
+    });
+  });
+
+  updateMinimapViewport();
+}
+
+function updateMinimapViewport() {
+  const area = document.getElementById('graphArea');
+  if (!area) return;
+  const vp = document.getElementById('minimapViewport');
+  const scale = 0.12;
+
+  const vx = (-panX / zoom) * scale + 5;
+  const vy = (-panY / zoom) * scale + 5;
+  const vw = (area.clientWidth / zoom) * scale;
+  const vh = (area.clientHeight / zoom) * scale;
+
+  vp.setAttribute('x', Math.max(0, vx));
+  vp.setAttribute('y', Math.max(0, vy));
+  vp.setAttribute('width', Math.min(200, vw));
+  vp.setAttribute('height', Math.min(108, vh));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TIMELINE VIEW
+// ══════════════════════════════════════════════════════════════════
+
+function renderTimeline() {
+  const container = document.getElementById('timelineContainer');
+
+  // Compute timeline scale: total time ~200s, map to pixels
+  const maxTime = 250;
+  const pxPerSec = 3.2;
+  const trackWidth = maxTime * pxPerSec;
+
+  let html = '';
+
+  // Ruler
+  html += '<div class="timeline-ruler">';
+  for (let s = 0; s <= maxTime; s += 30) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    html += `<div class="timeline-tick" style="width: ${30 * pxPerSec}px">${m}:${String(sec).padStart(2, '0')}</div>`;
+  }
+  html += '</div>';
+
+  // Critical path IDs for highlighting
+  const critIds = new Set(['task-export-001', 'task-summary-001', 'task-digest-001', 'task-report-001', 'task-review-001']);
+
+  // Rows
+  const sortedTasks = [...TASKS].sort((a, b) => a.layer - b.layer || a.startSec - b.startSec);
+  sortedTasks.forEach(task => {
+    const sc = STATUS_COLORS[task.status];
+    const startPx = task.startSec * pxPerSec;
+    const durPx = Math.max(task.durationSec * pxPerSec, 12);
+    const isCrit = criticalPathEnabled && critIds.has(task.id);
+
+    html += `<div class="timeline-row" onclick="selectTask('${task.id}')">
+      <div class="timeline-row-label">
+        <span class="tl-dot" style="background: ${sc.fg}"></span>
+        ${task.title.length > 22 ? task.title.slice(0, 21) + '…' : task.title}
+      </div>
+      <div class="timeline-bar-track" style="width: ${trackWidth}px">
+        <div class="timeline-bar ${task.status}${isCrit ? ' critical-path-bar' : ''}"
+             style="left: ${startPx}px; width: ${task.status === 'pending' ? 40 : durPx}px; ${task.status === 'pending' ? 'opacity: 0.4;' : ''}">
+          <span class="timeline-bar-label">${task.duration}</span>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TABLE VIEW
+// ══════════════════════════════════════════════════════════════════
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  let html = '';
+
+  const sortedTasks = [...TASKS].sort((a, b) => a.layer - b.layer);
+  sortedTasks.forEach(task => {
+    const sc = STATUS_COLORS[task.status];
+    const tl = TYPE_LABELS[task.type];
+
+    html += `<tr onclick="selectTask('${task.id}')">
+      <td><span class="table-status ${task.status}">${sc.icon} ${sc.label}</span></td>
+      <td><span class="table-id">${task.id}</span></td>
+      <td style="color: var(--text-primary); font-weight: 500">${task.title}</td>
+      <td><span style="color: ${tl.color}; font-size: 0.75rem; font-weight: 500">${tl.label}</span></td>
+      <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem">${task.duration}</span></td>
+      <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.6875rem; color: var(--text-placeholder)">${task.model}</span></td>
+      <td><div class="table-deps">${task.deps.map(d => `<span class="table-dep-chip">${d.replace('task-', '')}</span>`).join('') || '<span style="color: var(--text-placeholder); font-size: 0.6875rem">—</span>'}</div></td>
+      <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-tertiary)">${task.layer + 1}</span></td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// VIEW SWITCHING
+// ══════════════════════════════════════════════════════════════════
+
+function switchView(view) {
+  currentView = view;
+
+  // Update segmented buttons
+  document.querySelectorAll('.view-seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+
+  // Show/hide panels
+  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`view-${view}`).classList.add('active');
+
+  // Show/hide graph-specific toolbar
+  const toolbar = document.getElementById('graphToolbar');
+  toolbar.style.display = (view === 'graph') ? '' : 'none';
+
+  // Render view-specific content
+  if (view === 'timeline') renderTimeline();
+  if (view === 'table') renderTable();
+  if (view === 'graph') {
+    renderGraph();
+    setTimeout(zoomFit, 100);
+  }
+
+  // Close detail if switching away from graph
+  if (view !== 'graph') closeDetail();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    deselectAll();
+  }
+  if (e.key === '1') switchView('graph');
+  if (e.key === '2') switchView('timeline');
+  if (e.key === '3') switchView('table');
+  if (e.key === '+' || e.key === '=') zoomIn();
+  if (e.key === '-') zoomOut();
+  if (e.key === '0') zoomFit();
+  if (e.key === 'c' || e.key === 'C') toggleCriticalPath();
+});
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderGraph();
+  initPan();
+  setTimeout(zoomFit, 150);
+
+  // Responsive re-fit on resize
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (currentView === 'graph') zoomFit();
+    }, 200);
+  });
+});
+</script>
+</body>
+</html>
