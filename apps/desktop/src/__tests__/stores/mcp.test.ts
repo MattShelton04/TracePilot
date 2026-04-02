@@ -11,6 +11,7 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMcpStore } from "../../stores/mcp";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockMcpListServers = vi.fn();
@@ -257,12 +258,9 @@ describe("useMcpStore", () => {
     });
 
     it("discards stale response when newer load is in progress", async () => {
-      let resolveFirst!: (v: [string, McpServerConfig][]) => void;
-      const firstPromise = new Promise<[string, McpServerConfig][]>((resolve) => {
-        resolveFirst = resolve;
-      });
+      const firstDeferred = createDeferred<[string, McpServerConfig][]>();
       mockMcpListServers
-        .mockReturnValueOnce(firstPromise)
+        .mockReturnValueOnce(firstDeferred.promise)
         .mockResolvedValueOnce([["github", FIXTURE_CONFIG_B]]);
 
       const store = useMcpStore();
@@ -277,7 +275,7 @@ describe("useMcpStore", () => {
       expect(store.servers.has("github")).toBe(true);
 
       // Now resolve first call — should be discarded
-      resolveFirst([["filesystem", FIXTURE_CONFIG]]);
+      firstDeferred.resolve([["filesystem", FIXTURE_CONFIG]]);
       await call1;
       await flushPromises();
       // Servers should still be from call2 (stale result discarded)
@@ -618,7 +616,12 @@ describe("useMcpStore", () => {
       const result = await store.importFromGitHub("owner", "repo", "path/mcp.json", "main");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockMcpImportFromGitHub).toHaveBeenCalledWith("owner", "repo", "path/mcp.json", "main");
+      expect(mockMcpImportFromGitHub).toHaveBeenCalledWith(
+        "owner",
+        "repo",
+        "path/mcp.json",
+        "main",
+      );
       expect(store.error).toBeNull();
     });
 

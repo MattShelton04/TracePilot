@@ -8,6 +8,7 @@ import type {
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useConfigInjectorStore } from "@/stores/configInjector";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockGetAgentDefinitions = vi.fn();
@@ -348,11 +349,8 @@ describe("useConfigInjectorStore", () => {
     });
 
     it("sets saving=true during operation", async () => {
-      let resolveSave!: () => void;
-      const savePromise = new Promise<void>((resolve) => {
-        resolveSave = resolve;
-      });
-      mockSaveAgentDefinition.mockReturnValue(savePromise);
+      const saveDeferred = createDeferred<void>();
+      mockSaveAgentDefinition.mockReturnValue(saveDeferred.promise);
       mockGetAgentDefinitions.mockResolvedValue(FIXTURE_AGENTS);
 
       const store = useConfigInjectorStore();
@@ -361,7 +359,7 @@ describe("useConfigInjectorStore", () => {
       const saveTask = store.saveAgent();
       expect(store.saving).toBe(true);
 
-      resolveSave?.();
+      saveDeferred.resolve();
       await saveTask;
       expect(store.saving).toBe(false);
     });
@@ -410,18 +408,15 @@ describe("useConfigInjectorStore", () => {
     });
 
     it("sets saving=true during operation", async () => {
-      let resolveSave!: () => void;
-      const savePromise = new Promise<void>((resolve) => {
-        resolveSave = resolve;
-      });
-      mockSaveCopilotConfig.mockReturnValue(savePromise);
+      const saveDeferred = createDeferred<void>();
+      mockSaveCopilotConfig.mockReturnValue(saveDeferred.promise);
       mockGetCopilotConfig.mockResolvedValue(FIXTURE_CONFIG);
 
       const store = useConfigInjectorStore();
       const saveTask = store.saveGlobalConfig({});
       expect(store.saving).toBe(true);
 
-      resolveSave?.();
+      saveDeferred.resolve();
       await saveTask;
       expect(store.saving).toBe(false);
     });

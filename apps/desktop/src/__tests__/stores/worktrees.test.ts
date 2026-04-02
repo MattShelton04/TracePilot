@@ -9,6 +9,7 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorktreesStore } from "../../stores/worktrees";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockListWorktrees = vi.fn();
@@ -247,12 +248,9 @@ describe("useWorktreesStore", () => {
 
     it("discards stale response when newer load is in progress", async () => {
       // First call resolves after second call
-      let resolveFirst!: (v: WorktreeInfo[]) => void;
-      const firstPromise = new Promise<WorktreeInfo[]>((resolve) => {
-        resolveFirst = resolve;
-      });
+      const firstDeferred = createDeferred<WorktreeInfo[]>();
       mockListWorktrees
-        .mockReturnValueOnce(firstPromise)
+        .mockReturnValueOnce(firstDeferred.promise)
         .mockResolvedValueOnce([{ ...FIXTURE_STALE_WT }]);
 
       const store = useWorktreesStore();
@@ -267,7 +265,7 @@ describe("useWorktreesStore", () => {
       expect(store.worktrees[0].branch).toBe("feature-b");
 
       // Now resolve first call — should be discarded
-      resolveFirst?.(ALL_WORKTREES.map((w) => ({ ...w })));
+      firstDeferred.resolve(ALL_WORKTREES.map((w) => ({ ...w })));
       await call1;
       await flushPromises();
       // Worktrees should still be from call2 (stale result discarded)
@@ -277,16 +275,13 @@ describe("useWorktreesStore", () => {
 
     it("discards stale disk-hydration when a newer load starts", async () => {
       // Disk usage resolves AFTER a second loadWorktrees call starts
-      let resolveDiskUsage!: (v: number) => void;
-      const diskPromise = new Promise<number>((resolve) => {
-        resolveDiskUsage = resolve;
-      });
+      const diskUsageDeferred = createDeferred<number>();
 
       mockListWorktrees
         .mockResolvedValueOnce([{ ...FIXTURE_FEATURE_WT }])
         .mockResolvedValueOnce([{ ...FIXTURE_STALE_WT }]);
       mockGetWorktreeDiskUsage
-        .mockReturnValueOnce(diskPromise) // first load's hydration — delayed
+        .mockReturnValueOnce(diskUsageDeferred.promise) // first load's hydration — delayed
         .mockResolvedValue(9999); // second load's hydration — immediate
 
       const store = useWorktreesStore();
@@ -299,7 +294,7 @@ describe("useWorktreesStore", () => {
       await flushPromises();
 
       // Now resolve the first load's disk-usage promise
-      resolveDiskUsage?.(42000);
+      diskUsageDeferred.resolve(42000);
       await flushPromises();
 
       // The stale hydration (42000) should be discarded;
@@ -383,16 +378,13 @@ describe("useWorktreesStore", () => {
     });
 
     it("discards results when a newer loadAllWorktrees call starts", async () => {
-      let resolveFirst!: (v: WorktreeInfo[]) => void;
-      const firstPromise = new Promise<WorktreeInfo[]>((resolve) => {
-        resolveFirst = resolve;
-      });
+      const firstDeferred = createDeferred<WorktreeInfo[]>();
 
       const store = useWorktreesStore();
       store.registeredRepos = [FIXTURE_REPO];
 
       mockListWorktrees
-        .mockReturnValueOnce(firstPromise)
+        .mockReturnValueOnce(firstDeferred.promise)
         .mockResolvedValueOnce([{ ...FIXTURE_STALE_WT }]);
 
       const call1 = store.loadAllWorktrees();
@@ -403,7 +395,7 @@ describe("useWorktreesStore", () => {
       expect(store.worktrees).toHaveLength(1);
       expect(store.worktrees[0].branch).toBe("feature-b");
 
-      resolveFirst?.([{ ...FIXTURE_MAIN_WT }, { ...FIXTURE_FEATURE_WT }]);
+      firstDeferred.resolve([{ ...FIXTURE_MAIN_WT }, { ...FIXTURE_FEATURE_WT }]);
       await call1;
       await flushPromises();
       // First call's results should be discarded
@@ -436,7 +428,9 @@ describe("useWorktreesStore", () => {
       // All 3 repos should have started before any resolved (proves parallelism)
       expect(deferreds).toHaveLength(3);
 
-      deferreds.forEach((d) => d.resolve([]));
+      deferreds.forEach((d) => {
+        d.resolve([]);
+      });
       await p;
     });
 
@@ -462,9 +456,7 @@ describe("useWorktreesStore", () => {
       store.registeredRepos = [FIXTURE_REPO, FIXTURE_REPO_2];
 
       // First repo succeeds with 0 worktrees, second repo fails
-      mockListWorktrees
-        .mockResolvedValueOnce([])
-        .mockRejectedValueOnce(new Error("deleted"));
+      mockListWorktrees.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("deleted"));
 
       await store.loadAllWorktrees();
 
@@ -542,7 +534,9 @@ describe("useWorktreesStore", () => {
       expect(maxInFlight).toBe(4);
 
       // Resolve first batch
-      deferreds.forEach((d) => d.resolve(1000));
+      deferreds.forEach((d) => {
+        d.resolve(1000);
+      });
       await flushPromises();
 
       // Second batch of 2 should now be in-flight
@@ -550,7 +544,9 @@ describe("useWorktreesStore", () => {
       expect(maxInFlight).toBe(4); // never exceeded 4
 
       // Resolve second batch
-      deferreds.slice(4).forEach((d) => d.resolve(2000));
+      deferreds.slice(4).forEach((d) => {
+        d.resolve(2000);
+      });
       await p;
       await flushPromises();
 
@@ -615,11 +611,8 @@ describe("useWorktreesStore", () => {
 
     it("uses independent guard from loadWorktrees", async () => {
       // loadBranches should not be invalidated by loadWorktrees
-      let resolveBranches!: (v: string[]) => void;
-      const branchPromise = new Promise<string[]>((resolve) => {
-        resolveBranches = resolve;
-      });
-      mockListBranches.mockReturnValueOnce(branchPromise);
+      const branchesDeferred = createDeferred<string[]>();
+      mockListBranches.mockReturnValueOnce(branchesDeferred.promise);
       mockListWorktrees.mockResolvedValue(ALL_WORKTREES);
 
       const store = useWorktreesStore();
@@ -628,7 +621,7 @@ describe("useWorktreesStore", () => {
       // loadWorktrees starts — this should NOT invalidate branchGuard
       await store.loadWorktrees(REPO_PATH);
 
-      resolveBranches?.(["main", "dev"]);
+      branchesDeferred.resolve(["main", "dev"]);
       await branchCall;
 
       // Branches should still be populated (not discarded)
@@ -1169,11 +1162,8 @@ describe("useWorktreesStore", () => {
       });
 
       it("prevents concurrent toggle for the same path", async () => {
-        let resolveToggle!: (v: boolean) => void;
-        const togglePromise = new Promise<boolean>((resolve) => {
-          resolveToggle = resolve;
-        });
-        mockToggleRepoFavourite.mockReturnValue(togglePromise);
+        const toggleDeferred = createDeferred<boolean>();
+        mockToggleRepoFavourite.mockReturnValue(toggleDeferred.promise);
         const store = useWorktreesStore();
         store.registeredRepos = [{ ...FIXTURE_REPO }];
 
@@ -1184,7 +1174,7 @@ describe("useWorktreesStore", () => {
         // Second toggle for same path should be a no-op
         const call2 = store.toggleFavourite(FIXTURE_REPO.path);
 
-        resolveToggle?.(false);
+        toggleDeferred.resolve(false);
         await call1;
         await call2;
 

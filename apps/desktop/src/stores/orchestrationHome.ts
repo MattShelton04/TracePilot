@@ -15,6 +15,7 @@ import type {
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
 
@@ -45,6 +46,7 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const error = ref<string | null>(null);
   const activityFeed = ref<ActivityEvent[]>([]);
   const lastInitialized = ref(0);
+  const loadGuard = useAsyncGuard();
 
   const isHealthy = computed(() => {
     if (!systemDeps.value) return false;
@@ -60,22 +62,23 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const CACHE_TTL_MS = 5 * 60 * 1000;
 
   async function initialize() {
+    const token = loadGuard.start();
     const now = Date.now();
     const isFresh = lastInitialized.value > 0 && now - lastInitialized.value < CACHE_TTL_MS;
 
     if (isFresh) {
       // Data is fresh — refresh silently in the background
       refreshing.value = true;
-      await doFetch();
-      refreshing.value = false;
+      await doFetch(token);
+      if (loadGuard.isValid(token)) refreshing.value = false;
       return;
     }
 
     if (hasCachedData.value) {
       // Stale cache — show it immediately but refresh in background
       refreshing.value = true;
-      doFetch().finally(() => {
-        refreshing.value = false;
+      doFetch(token).finally(() => {
+        if (loadGuard.isValid(token)) refreshing.value = false;
       });
       return;
     }
@@ -83,17 +86,19 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
     // First load — show loading spinner
     loading.value = true;
     error.value = null;
-    await doFetch();
-    loading.value = false;
+    await doFetch(token);
+    if (loadGuard.isValid(token)) loading.value = false;
   }
 
-  async function doFetch() {
+  async function doFetch(token: AsyncGuardToken) {
     try {
       // Fast path: system deps and version info load first (< 100ms)
       const [depsResult, activeResult] = await Promise.allSettled([
         checkSystemDeps(),
         getActiveCopilotVersion(),
       ]);
+
+      if (!loadGuard.isValid(token)) return;
 
       const deps = depsResult.status === "fulfilled" ? depsResult.value : null;
       const active = activeResult.status === "fulfilled" ? activeResult.value : null;
@@ -108,6 +113,8 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
         listSessions(),
         discoverCopilotVersions(),
       ]);
+
+      if (!loadGuard.isValid(token)) return;
 
       const sessions = sessionsResult.status === "fulfilled" ? sessionsResult.value : [];
       const versionsData = versionsResult.status === "fulfilled" ? versionsResult.value : [];
@@ -130,10 +137,11 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       }));
 
       // Load worktree stats from all registered repos
-      await loadWorktreeStatsFromRegistry();
+      await doLoadWorktreeStatsFromRegistry(token);
 
-      lastInitialized.value = Date.now();
+      if (loadGuard.isValid(token)) lastInitialized.value = Date.now();
     } catch (e) {
+      if (!loadGuard.isValid(token)) return;
       error.value = toErrorMessage(e);
       loading.value = false;
     }
@@ -161,9 +169,10 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
     }
   }
 
-  async function loadWorktreeStatsFromRegistry() {
+  async function doLoadWorktreeStatsFromRegistry(token?: AsyncGuardToken) {
     try {
       const repos = await listRegisteredRepos();
+      if (token != null && !loadGuard.isValid(token)) return;
       registeredRepos.value = repos;
       if (repos.length === 0) return;
 
@@ -172,6 +181,7 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       let totalDisk = 0;
 
       const results = await Promise.allSettled(repos.map((r) => listWorktrees(r.path)));
+      if (token != null && !loadGuard.isValid(token)) return;
       for (const result of results) {
         if (result.status === "fulfilled") {
           const stats = computeWorktreeStats(result.value);
@@ -188,6 +198,10 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       // Non-critical - worktree stats are supplementary UI info
       logWarn("[orchestrationHome] Failed to load worktree stats from registry", e);
     }
+  }
+
+  async function loadWorktreeStatsFromRegistry() {
+    await doLoadWorktreeStatsFromRegistry();
   }
 
   return {
