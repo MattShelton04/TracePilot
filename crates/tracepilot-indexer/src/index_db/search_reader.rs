@@ -93,6 +93,220 @@ pub struct ContextSnippet {
     pub preview: String,
 }
 
+// ── SearchQueryBuilder ──────────────────────────────────────────
+
+/// Builder for constructing SQL search queries with type-safe parameter binding.
+///
+/// Consolidates query construction logic that was previously duplicated across
+/// `query_content`, `query_count`, `facet_dimension`, and `totals_query`.
+///
+/// # Example
+/// ```ignore
+/// let (sql, params) = SearchQueryBuilder::new("SELECT * FROM ...", true)
+///     .with_fts_match("error message")
+///     .with_filters(&filters)
+///     .with_sort(Some("newest"), false)
+///     .with_pagination(50, 0)
+///     .build();
+/// ```
+struct SearchQueryBuilder {
+    base_query: String,
+    from_clause: &'static str,
+    where_clauses: Vec<String>,
+    params: Vec<Box<dyn ToSql>>,
+    order_by: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+impl SearchQueryBuilder {
+    /// Create a new query builder.
+    ///
+    /// # Arguments
+    /// * `base_select` - The SELECT and FROM portion (e.g., "SELECT * FROM ...")
+    /// * `is_fts` - Whether this is an FTS query (affects FROM clause)
+    fn new(base_select: &str, is_fts: bool) -> Self {
+        Self {
+            base_query: base_select.to_string(),
+            from_clause: build_from_clause(is_fts),
+            where_clauses: Vec::new(),
+            params: Vec::new(),
+            order_by: None,
+            limit: None,
+            offset: None,
+        }
+    }
+
+    /// Add FTS MATCH clause if query is provided.
+    fn with_fts_match(mut self, query: &str) -> Self {
+        self.where_clauses.push("search_fts MATCH ?".to_string());
+        self.params.push(Box::new(query.to_string()));
+        self
+    }
+
+    /// Add FTS MATCH clause only if query is Some.
+    fn with_optional_fts_match(mut self, query: Option<&str>) -> Self {
+        if let Some(q) = query {
+            self = self.with_fts_match(q);
+        }
+        self
+    }
+
+    /// Add standard search filters (content types, repositories, tools, dates, session ID).
+    fn with_filters(mut self, filters: &SearchFilters) -> Self {
+        use super::helpers::{
+            build_eq_filter, build_in_filter, build_not_in_filter, build_timestamp_range_filter,
+        };
+
+        let mut sql = String::new();
+        sql.push_str(&build_in_filter(
+            "sc.content_type",
+            &filters.content_types,
+            &mut self.params,
+        ));
+        sql.push_str(&build_not_in_filter(
+            "sc.content_type",
+            &filters.exclude_content_types,
+            &mut self.params,
+        ));
+        sql.push_str(&build_in_filter(
+            "s.repository",
+            &filters.repositories,
+            &mut self.params,
+        ));
+        sql.push_str(&build_in_filter(
+            "sc.tool_name",
+            &filters.tool_names,
+            &mut self.params,
+        ));
+
+        if let Some(ref sid) = filters.session_id {
+            sql.push_str(&build_eq_filter("sc.session_id", sid.clone(), &mut self.params));
+        }
+
+        sql.push_str(&build_timestamp_range_filter(
+            "sc.timestamp_unix",
+            filters.date_from_unix,
+            filters.date_to_unix,
+            &mut self.params,
+        ));
+
+        // The filter helpers return clauses starting with " AND ", so we need to
+        // parse and add them individually. Since they already contain " AND ",
+        // we strip it and add each as a separate where clause.
+        if !sql.is_empty() {
+            // Split by " AND " and filter out empty strings
+            for clause in sql.split(" AND ").filter(|s| !s.is_empty()) {
+                self.where_clauses.push(clause.to_string());
+            }
+        }
+
+        self
+    }
+
+    /// Add a single extra WHERE clause with additional parameters.
+    fn with_extra_where(mut self, clause: &str) -> Self {
+        if !clause.is_empty() {
+            self.where_clauses.push(clause.to_string());
+        }
+        self
+    }
+
+    /// Add ORDER BY clause.
+    ///
+    /// For FTS queries with no explicit sort, applies relevance-weighted ranking.
+    fn with_sort(mut self, sort_by: Option<&str>, is_fts: bool) -> Self {
+        match sort_by {
+            Some("newest") => {
+                self.order_by = Some("ORDER BY sc.timestamp_unix DESC NULLS LAST".to_string());
+            }
+            Some("oldest") => {
+                self.order_by = Some("ORDER BY sc.timestamp_unix ASC NULLS LAST".to_string());
+            }
+            _ if is_fts => {
+                // Relevance-weighted ranking for FTS queries
+                self.order_by = Some(
+                    "ORDER BY CASE sc.content_type \
+                        WHEN 'user_message' THEN rank * 2.0 \
+                        WHEN 'error' THEN rank * 2.0 \
+                        WHEN 'tool_error' THEN rank * 1.8 \
+                        WHEN 'assistant_message' THEN rank * 1.5 \
+                        WHEN 'reasoning' THEN rank * 1.3 \
+                        WHEN 'compaction_summary' THEN rank * 1.1 \
+                        WHEN 'subagent' THEN rank * 1.1 \
+                        WHEN 'system_message' THEN rank * 1.0 \
+                        WHEN 'tool_call' THEN rank * 0.6 \
+                        WHEN 'tool_result' THEN rank * 0.7 \
+                        ELSE rank END"
+                        .to_string(),
+                );
+            }
+            _ => {
+                // Default: newest first
+                self.order_by = Some("ORDER BY sc.timestamp_unix DESC NULLS LAST".to_string());
+            }
+        }
+        self
+    }
+
+    /// Add LIMIT and OFFSET clauses.
+    fn with_pagination(mut self, limit: usize, offset: usize) -> Self {
+        self.limit = Some(limit as i64);
+        self.offset = Some(offset as i64);
+        self
+    }
+
+    /// Add a GROUP BY and optional ORDER BY clause to the query.
+    ///
+    /// This replaces any existing order_by with GROUP BY + optional order.
+    fn with_group_by(mut self, group_by: &str, order_by: Option<&str>) -> Self {
+        let order_part = order_by.unwrap_or("");
+        self.order_by = Some(format!("GROUP BY {} {}", group_by, order_part));
+        self
+    }
+
+    /// Add a LIMIT clause (without pagination - just limit, no offset).
+    fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit as i64);
+        self
+    }
+
+    /// Build the final SQL query and parameter vector.
+    ///
+    /// Returns `(sql_string, params)` ready for execution.
+    fn build(mut self) -> (String, Vec<Box<dyn ToSql>>) {
+        let mut sql = format!("{} {}", self.base_query, self.from_clause);
+
+        // Build WHERE clause
+        if !self.where_clauses.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&self.where_clauses.join(" AND "));
+        } else {
+            sql.push_str(" WHERE 1=1");
+        }
+
+        // Add GROUP BY / ORDER BY
+        if let Some(ref order) = self.order_by {
+            sql.push(' ');
+            sql.push_str(order);
+        }
+
+        // Add LIMIT (and OFFSET if both are set)
+        if let Some(lim) = self.limit {
+            sql.push_str(" LIMIT ?");
+            self.params.push(Box::new(lim));
+
+            // Only add OFFSET if it was set via with_pagination
+            if let Some(off) = self.offset {
+                sql.push_str(" OFFSET ?");
+                self.params.push(Box::new(off));
+            }
+        }
+
+        (sql, self.params)
+    }
+}
+
 impl IndexDb {
     // ── Unified query methods ───────────────────────────────────────
 
@@ -114,50 +328,21 @@ impl IndexDb {
                   ELSE sc.content END"
         };
 
-        let from_clause = build_from_clause(is_fts);
-
-        let mut sql = format!(
+        let base_select = format!(
             "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, \
                     sc.timestamp_unix, sc.tool_name, {snippet_col}, sc.metadata_json, \
-                    s.summary, s.repository, s.branch, s.updated_at \
-             {from_clause}"
+                    s.summary, s.repository, s.branch, s.updated_at"
         );
 
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        if let Some(ref q) = sanitized {
-            sql.push_str(" WHERE search_fts MATCH ?");
-            params.push(Box::new(q.clone()));
-        } else {
-            sql.push_str(" WHERE 1=1");
-        }
+        let limit = filters.limit.unwrap_or(50).min(200);
+        let offset = filters.offset.unwrap_or(0);
 
-        append_filters(&mut sql, &mut params, filters);
-
-        match filters.sort_by.as_deref() {
-            Some("newest") => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
-            Some("oldest") => sql.push_str(" ORDER BY sc.timestamp_unix ASC NULLS LAST"),
-            _ if is_fts => sql.push_str(
-                " ORDER BY CASE sc.content_type \
-                    WHEN 'user_message' THEN rank * 2.0 \
-                    WHEN 'error' THEN rank * 2.0 \
-                    WHEN 'tool_error' THEN rank * 1.8 \
-                    WHEN 'assistant_message' THEN rank * 1.5 \
-                    WHEN 'reasoning' THEN rank * 1.3 \
-                    WHEN 'compaction_summary' THEN rank * 1.1 \
-                    WHEN 'subagent' THEN rank * 1.1 \
-                    WHEN 'system_message' THEN rank * 1.0 \
-                    WHEN 'tool_call' THEN rank * 0.6 \
-                    WHEN 'tool_result' THEN rank * 0.7 \
-                    ELSE rank END",
-            ),
-            _ => sql.push_str(" ORDER BY sc.timestamp_unix DESC NULLS LAST"),
-        }
-
-        let limit = filters.limit.unwrap_or(50).min(200) as i64;
-        let offset = filters.offset.unwrap_or(0) as i64;
-        sql.push_str(" LIMIT ? OFFSET ?");
-        params.push(Box::new(limit));
-        params.push(Box::new(offset));
+        let (sql, params) = SearchQueryBuilder::new(&base_select, is_fts)
+            .with_optional_fts_match(sanitized.as_deref())
+            .with_filters(filters)
+            .with_sort(filters.sort_by.as_deref(), is_fts)
+            .with_pagination(limit, offset)
+            .build();
 
         let mut stmt = self.conn.prepare(&sql)?;
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
@@ -176,19 +361,10 @@ impl IndexDb {
         let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
         let is_fts = sanitized.is_some();
 
-        let from_clause = build_from_clause(is_fts);
-
-        let mut sql = format!("SELECT COUNT(*) {from_clause}");
-
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        if let Some(ref q) = sanitized {
-            sql.push_str(" WHERE search_fts MATCH ?");
-            params.push(Box::new(q.clone()));
-        } else {
-            sql.push_str(" WHERE 1=1");
-        }
-
-        append_filters(&mut sql, &mut params, filters);
+        let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*)", is_fts)
+            .with_optional_fts_match(sanitized.as_deref())
+            .with_filters(filters)
+            .build();
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         let count: i64 = self
@@ -262,28 +438,24 @@ impl IndexDb {
         filters: &SearchFilters,
     ) -> Result<Vec<(String, i64)>> {
         let is_fts = sanitized_query.is_some();
-        let from_clause = build_from_clause(is_fts);
+        let base_select = format!("SELECT {column}, COUNT(*)");
 
-        let mut sql = format!("SELECT {column}, COUNT(*) {from_clause}");
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let mut builder = SearchQueryBuilder::new(&base_select, is_fts)
+            .with_optional_fts_match(sanitized_query);
 
-        if let Some(q) = sanitized_query {
-            sql.push_str(" WHERE search_fts MATCH ?");
-            params.push(Box::new(q.to_string()));
-            if let Some(extra) = extra_where {
-                sql.push_str(&format!(" AND {extra}"));
-            }
-        } else if let Some(extra) = extra_where {
-            sql.push_str(&format!(" WHERE {extra}"));
-        } else {
-            sql.push_str(" WHERE 1=1");
+        if let Some(extra) = extra_where {
+            builder = builder.with_extra_where(extra);
         }
 
-        append_filters(&mut sql, &mut params, filters);
-        sql.push_str(&format!(" GROUP BY {column} ORDER BY COUNT(*) DESC"));
+        builder = builder
+            .with_filters(filters)
+            .with_group_by(column, Some("ORDER BY COUNT(*) DESC"));
+
         if let Some(n) = limit {
-            sql.push_str(&format!(" LIMIT {n}"));
+            builder = builder.with_limit(n);
         }
+
+        let (sql, params) = builder.build();
 
         let mut stmt = self.conn.prepare(&sql)?;
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
@@ -302,19 +474,11 @@ impl IndexDb {
         filters: &SearchFilters,
     ) -> Result<(i64, i64)> {
         let is_fts = sanitized_query.is_some();
-        let from_clause = build_from_clause(is_fts);
 
-        let mut sql = format!("SELECT COUNT(*), COUNT(DISTINCT sc.session_id) {from_clause}");
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-
-        if let Some(q) = sanitized_query {
-            sql.push_str(" WHERE search_fts MATCH ?");
-            params.push(Box::new(q.to_string()));
-        } else {
-            sql.push_str(" WHERE 1=1");
-        }
-
-        append_filters(&mut sql, &mut params, filters);
+        let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
+            .with_optional_fts_match(sanitized_query)
+            .with_filters(filters)
+            .build();
 
         let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
         Ok(self.conn.query_row(&sql, params_from_iter(refs), |row| {
@@ -610,45 +774,6 @@ fn build_from_clause(is_fts: bool) -> &'static str {
         "FROM search_content sc \
          JOIN sessions s ON s.id = sc.session_id"
     }
-}
-
-/// Append all filter WHERE clauses and their param values using anonymous `?` placeholders.
-fn append_filters(sql: &mut String, params: &mut Vec<Box<dyn ToSql>>, filters: &SearchFilters) {
-    use super::helpers::{
-        build_eq_filter, build_in_filter, build_not_in_filter, build_timestamp_range_filter,
-    };
-
-    sql.push_str(&build_in_filter(
-        "sc.content_type",
-        &filters.content_types,
-        params,
-    ));
-    sql.push_str(&build_not_in_filter(
-        "sc.content_type",
-        &filters.exclude_content_types,
-        params,
-    ));
-    sql.push_str(&build_in_filter(
-        "s.repository",
-        &filters.repositories,
-        params,
-    ));
-    sql.push_str(&build_in_filter(
-        "sc.tool_name",
-        &filters.tool_names,
-        params,
-    ));
-
-    if let Some(ref sid) = filters.session_id {
-        sql.push_str(&build_eq_filter("sc.session_id", sid.clone(), params));
-    }
-
-    sql.push_str(&build_timestamp_range_filter(
-        "sc.timestamp_unix",
-        filters.date_from_unix,
-        filters.date_to_unix,
-        params,
-    ));
 }
 
 /// Map a rusqlite row to a `SearchResult`.
