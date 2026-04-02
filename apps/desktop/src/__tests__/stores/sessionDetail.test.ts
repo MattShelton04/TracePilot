@@ -517,11 +517,12 @@ describe("useSessionDetailStore", () => {
       // Load the original session — cache hit
       await store.loadDetail(SESSION_ID);
       // Allow background refreshAll() to settle
-      await vi.dynamicImportSettled?.() ?? new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
 
       // All previously loaded sections should have been refreshed
       expect(mockGetSessionDetail).toHaveBeenCalledWith(SESSION_ID);
       expect(mockCheckSessionFreshness).toHaveBeenCalledWith(SESSION_ID);
+      expect(mockGetSessionTurns).toHaveBeenCalledWith(SESSION_ID);
       expect(mockGetSessionCheckpoints).toHaveBeenCalledWith(SESSION_ID);
       expect(mockGetSessionPlan).toHaveBeenCalledWith(SESSION_ID);
       expect(mockGetShutdownMetrics).toHaveBeenCalledWith(SESSION_ID);
