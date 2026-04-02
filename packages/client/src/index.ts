@@ -165,8 +165,8 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
     fts_integrity_check: "ok",
     fts_optimize: "ok",
     fts_health: {
-      totalContentRows: 0,
-      ftsIndexRows: 0,
+      totalContentRows: 332,
+      ftsIndexRows: 332,
       indexedSessions: 47,
       totalSessions: 47,
       pendingSessions: 0,
