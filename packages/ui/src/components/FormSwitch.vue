@@ -2,6 +2,8 @@
 defineProps<{
   modelValue: boolean;
   label?: string;
+  ariaLabel?: string;
+  ariaLabelledby?: string;
 }>();
 
 const emit = defineEmits<{
@@ -16,7 +18,8 @@ const emit = defineEmits<{
       :class="{ on: modelValue }"
       role="switch"
       :aria-checked="modelValue"
-      :aria-label="label"
+      :aria-label="ariaLabel ?? label"
+      :aria-labelledby="ariaLabelledby"
       @click="emit('update:modelValue', !modelValue)"
     >
       <span class="form-switch-thumb" />

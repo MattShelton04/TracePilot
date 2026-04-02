@@ -4,17 +4,12 @@ import {
   getActiveCopilotVersion,
   listRegisteredRepos,
   listSessions,
-  listWorktrees,
 } from "@tracepilot/client";
-import type {
-  CopilotVersion,
-  RegisteredRepo,
-  SystemDependencies,
-  WorktreeInfo,
-} from "@tracepilot/types";
+import type { CopilotVersion, RegisteredRepo, SystemDependencies } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { useWorktreesStore } from "@/stores/worktrees";
 import { type AsyncGuardToken, useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logWarn } from "@/utils/logger";
 import { aggregateSettledErrors } from "@/utils/settleErrors";
@@ -37,9 +32,6 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const activeSessions = ref(0);
   const activeVersion = ref<CopilotVersion | null>(null);
   const versions = ref<CopilotVersion[]>([]);
-  const worktreeCount = ref(0);
-  const staleWorktreeCount = ref(0);
-  const totalDiskUsage = ref(0);
   const registeredRepos = ref<RegisteredRepo[]>([]);
   const loading = ref(false);
   const refreshing = ref(false);
@@ -47,6 +39,12 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const activityFeed = ref<ActivityEvent[]>([]);
   const lastInitialized = ref(0);
   const loadGuard = useAsyncGuard();
+
+  // Delegate worktree stats to the shared worktrees store (P1 perf fix).
+  const worktreesStore = useWorktreesStore();
+  const worktreeCount = computed(() => worktreesStore.worktreeCount);
+  const staleWorktreeCount = computed(() => worktreesStore.staleCount);
+  const totalDiskUsage = computed(() => worktreesStore.totalDiskUsage);
 
   const isHealthy = computed(() => {
     if (!systemDeps.value) return false;
@@ -147,24 +145,11 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
     }
   }
 
-  /** Compute aggregate stats from a list of worktrees. */
-  function computeWorktreeStats(worktrees: WorktreeInfo[]) {
-    return {
-      total: worktrees.length,
-      stale: worktrees.filter((w) => w.status === "stale").length,
-      diskUsage: worktrees.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
-    };
-  }
-
   async function loadWorktreeStats(repoPath?: string) {
     if (!repoPath) return;
     try {
-      const stats = computeWorktreeStats(await listWorktrees(repoPath));
-      worktreeCount.value = stats.total;
-      staleWorktreeCount.value = stats.stale;
-      totalDiskUsage.value = stats.diskUsage;
+      await worktreesStore.loadWorktrees(repoPath);
     } catch (e) {
-      // Non-critical - worktree stats are supplementary UI info
       logWarn("[orchestrationHome] Failed to load worktree stats", e);
     }
   }
@@ -176,26 +161,11 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       registeredRepos.value = repos;
       if (repos.length === 0) return;
 
-      let totalWt = 0;
-      let staleWt = 0;
-      let totalDisk = 0;
-
-      const results = await Promise.allSettled(repos.map((r) => listWorktrees(r.path)));
+      // Sync repos to the worktrees store so it can load them all at once.
+      worktreesStore.registeredRepos = repos;
       if (token != null && !loadGuard.isValid(token)) return;
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          const stats = computeWorktreeStats(result.value);
-          totalWt += stats.total;
-          staleWt += stats.stale;
-          totalDisk += stats.diskUsage;
-        }
-      }
-
-      worktreeCount.value = totalWt;
-      staleWorktreeCount.value = staleWt;
-      totalDiskUsage.value = totalDisk;
+      await worktreesStore.loadAllWorktrees();
     } catch (e) {
-      // Non-critical - worktree stats are supplementary UI info
       logWarn("[orchestrationHome] Failed to load worktree stats from registry", e);
     }
   }

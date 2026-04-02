@@ -56,6 +56,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   let lastEventsFileSize = 0;
   let turnFingerprints: string[] = [];
 
+  // Background refresh throttle — skip stale-while-revalidate if data was
+  // fetched less than REFRESH_THROTTLE_MS ago (P1 perf fix).
+  const lastFetchTimestamp = new Map<string, number>();
+  const REFRESH_THROTTLE_MS = 5_000;
+
   // Restrict deep fingerprinting to turns likely to change retroactively:
   // any turn with an in-progress subagent, plus the tail turn.
   let deepCompareTurnIndexes = new Set<number>();
@@ -496,12 +501,15 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       todos.value = null;
       loaded.value.delete("todos");
 
-      // Background refresh: update stale cached data via the standard refresh
-      // path.  refreshAll() leverages the section registry so ALL loaded
-      // sections (including checkpoints, metrics, incidents) get refreshed —
-      // not just detail/turns/plan.  It captures sessionGuard.current(), which
-      // is the token we created with start() above — no extra generation bump.
-      void refreshAll();
+      // Background refresh: silently update stale data (throttled).
+      // refreshAll() leverages the section registry so ALL loaded sections
+      // (including checkpoints, metrics, incidents) get refreshed.
+      const lastFetched = lastFetchTimestamp.get(id) ?? 0;
+      const shouldRefresh = Date.now() - lastFetched > REFRESH_THROTTLE_MS;
+      if (shouldRefresh) {
+        lastFetchTimestamp.set(id, Date.now());
+        void refreshAll();
+      }
       return;
     }
 

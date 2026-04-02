@@ -48,6 +48,7 @@ function addModelPrice() {
             step="0.01"
             min="0"
             class="input-cost"
+            aria-label="Cost per premium request in dollars"
           />
         </div>
       </div>
@@ -82,6 +83,7 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  :aria-label="`${price.model} input price per 1M tokens`"
                 />
               </td>
               <td class="text-center">
@@ -92,6 +94,7 @@ function addModelPrice() {
                   step="0.001"
                   min="0"
                   class="pricing-input"
+                  :aria-label="`${price.model} cached input price per 1M tokens`"
                 />
               </td>
               <td class="text-center">
@@ -102,6 +105,7 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  :aria-label="`${price.model} output price per 1M tokens`"
                 />
               </td>
               <td class="text-center">
@@ -112,10 +116,11 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  :aria-label="`${price.model} premium requests`"
                 />
               </td>
               <td class="text-center">
-                <button class="pricing-remove-btn" @click="preferences.removeWholesalePrice(price.model)" title="Remove model">&times;</button>
+                <button class="pricing-remove-btn" @click="preferences.removeWholesalePrice(price.model)" :title="`Remove ${price.model}`" :aria-label="`Remove pricing for ${price.model}`">&times;</button>
               </td>
             </tr>
             <!-- Add new model row -->
@@ -125,6 +130,7 @@ function addModelPrice() {
                   v-model="newModelName"
                   placeholder="model-name"
                   class="pricing-model-input"
+                  aria-label="New model name"
                 />
               </td>
               <td class="text-center">
@@ -134,6 +140,7 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  aria-label="New model input price per 1M tokens"
                 />
               </td>
               <td class="text-center">
@@ -143,6 +150,7 @@ function addModelPrice() {
                   step="0.001"
                   min="0"
                   class="pricing-input"
+                  aria-label="New model cached input price per 1M tokens"
                 />
               </td>
               <td class="text-center">
@@ -152,6 +160,7 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  aria-label="New model output price per 1M tokens"
                 />
               </td>
               <td class="text-center">
@@ -161,10 +170,11 @@ function addModelPrice() {
                   step="0.01"
                   min="0"
                   class="pricing-input"
+                  aria-label="New model premium requests"
                 />
               </td>
               <td class="text-center">
-                <button class="pricing-add-btn" @click="addModelPrice" :disabled="!newModelName.trim()" title="Add model">+</button>
+                <button class="pricing-add-btn" @click="addModelPrice" :disabled="!newModelName.trim()" title="Add model" aria-label="Add model pricing entry">+</button>
               </td>
             </tr>
           </tbody>

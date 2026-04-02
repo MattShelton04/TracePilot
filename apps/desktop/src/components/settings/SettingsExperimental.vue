@@ -49,6 +49,7 @@ const flags = [
         <FormSwitch
           :model-value="preferences.isFeatureEnabled(flag.key)"
           @update:model-value="preferences.toggleFeature(flag.key)"
+          :aria-label="flag.label"
         />
       </div>
     </SectionPanel>

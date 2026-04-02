@@ -180,6 +180,7 @@ function resetScale() {
         <FormSwitch
           :model-value="preferences.isFeatureEnabled('renderMarkdown')"
           @update:model-value="preferences.toggleFeature('renderMarkdown')"
+          aria-label="Markdown rendering"
         />
       </div>
     </SectionPanel>

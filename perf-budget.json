@@ -13,7 +13,15 @@
     "getSessionTurnsMs": 300,
     "searchContentMs": 500,
     "reindexSessionsMs": 30000,
-    "notes": "Measured on a corpus of ~100 sessions. These are P95 targets."
+    "getSearchFacetsMs": 500,
+    "checkSystemDepsMs": 200,
+    "getShutdownMetricsMs": 1000,
+    "getWorktreeDiskUsageMs": 100,
+    "getAnalyticsMs": 300,
+    "getToolAnalysisMs": 300,
+    "getCodeImpactMs": 300,
+    "ftsHealthMs": 200,
+    "notes": "Measured on a corpus of ~100 sessions. These are P95 targets. Cached IPC calls (checkSystemDeps, getWorktreeDiskUsage, getSearchFacets) assume warm cache."
   },
   "rust": {
     "parseEventsJsonl100kbNs": 5000000,

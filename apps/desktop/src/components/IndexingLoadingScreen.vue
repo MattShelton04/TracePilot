@@ -18,7 +18,7 @@
       <div ref="ambientContainerRef" class="ambient-particles" />
 
       <!-- SVG layer: orbital paths + connection lines -->
-      <svg ref="svgLayerRef" class="orbital-svg" />
+      <svg ref="svgLayerRef" class="orbital-svg" role="img" aria-label="Animated orbital network showing indexing progress" />
 
       <!-- Orbiting nodes -->
       <div

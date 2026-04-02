@@ -562,6 +562,8 @@ const colHeaders = ["INPUT SOURCES", "MODELS", "OUTPUT DESTINATIONS"];
           <svg
             :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
             class="sankey-svg"
+            role="img"
+            aria-label="Sankey diagram showing token flow between input and output categories"
             @mouseleave="hideTooltip"
           >
             <defs>
