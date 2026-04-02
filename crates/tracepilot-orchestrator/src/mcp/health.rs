@@ -418,7 +418,22 @@ fn extract_tools_from_json(resp: &serde_json::Value) -> Vec<McpTool> {
         .collect()
 }
 
+/// Serialize a JSON-RPC message and write it as a newline-delimited line.
+fn write_jsonrpc(writer: &mut impl Write, msg: &serde_json::Value) -> Result<(), McpError> {
+    let text = serde_json::to_string(msg)
+        .map_err(|e| McpError::HealthCheck(format!("JSON serialization error: {e}")))?;
+    writeln!(writer, "{text}")
+        .map_err(|e| McpError::HealthCheck(format!("Failed to write to stdin: {e}")))
+}
+
 /// Spawn a stdio MCP server, send initialize + tools/list, return tools.
+///
+/// Takes ownership of stdin/stdout from the child process up-front and uses a
+/// single `BufReader` for the entire handshake.  Previous versions created two
+/// separate `BufReader` instances for the initialize and tools/list read phases.
+/// Because `BufReader` may read ahead into its internal buffer, recreating it
+/// could silently lose already-buffered data when a server responds quickly,
+/// causing the health check to hang until timeout.
 fn spawn_and_initialize(
     command: &str,
     args: &[String],
@@ -445,11 +460,23 @@ fn spawn_and_initialize(
         McpError::HealthCheck(format!("Failed to spawn '{command}': {e}"))
     })?;
 
-    let stdin = child.stdin.as_mut().ok_or_else(|| {
+    // Take ownership of stdin/stdout up-front so the remaining child handle is
+    // only used for kill/wait.  This avoids borrow conflicts and lets us use a
+    // single BufReader across both read phases.
+    let mut stdin = child.stdin.take().ok_or_else(|| {
         McpError::HealthCheck("Failed to open stdin".into())
     })?;
+    let stdout = child.stdout.take().ok_or_else(|| {
+        McpError::HealthCheck("Failed to open stdout".into())
+    })?;
 
-    // Send JSON-RPC initialize request
+    // A single BufReader for the entire handshake — prevents buffered data loss
+    // that occurs when creating separate readers for each phase.
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    let timeout = std::time::Duration::from_secs(10);
+
+    // ── Phase 1: Send initialize request ──────────────────────────────
     let init_req = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -463,24 +490,10 @@ fn spawn_and_initialize(
             }
         }
     });
+    write_jsonrpc(&mut stdin, &init_req)?;
 
-    let msg = serde_json::to_string(&init_req)
-        .map_err(|e| McpError::HealthCheck(format!("JSON error: {e}")))?;
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to write to stdin: {e}"))
-    })?;
-
-    // Read the initialize response
-    let stdout = child.stdout.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("Failed to open stdout".into())
-    })?;
-    let mut reader = BufReader::new(stdout);
-    let mut line = String::new();
-
-    // Set a timeout by using a separate thread
-    let timeout = std::time::Duration::from_secs(10);
+    // Read initialize response
     let deadline = Instant::now() + timeout;
-
     loop {
         if Instant::now() > deadline {
             kill_and_reap(&mut child);
@@ -495,11 +508,11 @@ fn spawn_and_initialize(
             }
             Ok(_) => {
                 // Try parsing as JSON-RPC response
-                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if resp.get("id").and_then(|v| v.as_u64()) == Some(1) {
-                        // Got initialize response, now send tools/list
-                        break;
-                    }
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
+                    && resp.get("id").and_then(|v| v.as_u64()) == Some(1)
+                {
+                    // Got initialize response, proceed to next phase
+                    break;
                 }
             }
             Err(e) => {
@@ -509,39 +522,23 @@ fn spawn_and_initialize(
         }
     }
 
-    // Send initialized notification
-    let stdin = child.stdin.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("stdin closed".into())
-    })?;
+    // ── Phase 2: Send initialized notification + tools/list request ───
     let notif = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized"
     });
-    let msg = serde_json::to_string(&notif).unwrap();
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to send initialized: {e}"))
-    })?;
+    write_jsonrpc(&mut stdin, &notif)?;
 
-    // Send tools/list
     let tools_req = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 2,
         "method": "tools/list",
         "params": {}
     });
-    let msg = serde_json::to_string(&tools_req).unwrap();
-    writeln!(stdin, "{msg}").map_err(|e| {
-        McpError::HealthCheck(format!("Failed to send tools/list: {e}"))
-    })?;
+    write_jsonrpc(&mut stdin, &tools_req)?;
 
-    // Read tools/list response
-    let stdout = child.stdout.as_mut().ok_or_else(|| {
-        McpError::HealthCheck("stdout closed".into())
-    })?;
-    let mut reader = BufReader::new(stdout);
+    // ── Phase 3: Read tools/list response (reuses same BufReader) ─────
     let deadline = Instant::now() + timeout;
-    let mut tools = Vec::new();
-
     loop {
         if Instant::now() > deadline {
             kill_and_reap(&mut child);
@@ -552,29 +549,13 @@ fn spawn_and_initialize(
         match reader.read_line(&mut line) {
             Ok(0) => break,
             Ok(_) => {
-                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if resp.get("id").and_then(|v| v.as_u64()) == Some(2) {
-                        if let Some(result) = resp.get("result") {
-                            if let Some(tool_list) = result.get("tools").and_then(|t| t.as_array())
-                            {
-                                for tool_val in tool_list {
-                                    let name = tool_val
-                                        .get("name")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("unknown")
-                                        .to_string();
-                                    let description = tool_val
-                                        .get("description")
-                                        .and_then(|v| v.as_str())
-                                        .map(|s| s.to_string());
-                                    let input_schema = tool_val.get("inputSchema").cloned();
-
-                                    tools.push(McpTool::new(name, description, input_schema));
-                                }
-                            }
-                        }
-                        break;
-                    }
+                if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&line)
+                    && resp.get("id").and_then(|v| v.as_u64()) == Some(2)
+                {
+                    let tools = extract_tools_from_json(&resp);
+                    let latency_ms = start.elapsed().as_millis() as u64;
+                    kill_and_reap(&mut child);
+                    return Ok((tools, latency_ms));
                 }
             }
             Err(_) => break,
@@ -584,7 +565,7 @@ fn spawn_and_initialize(
     let latency_ms = start.elapsed().as_millis() as u64;
     kill_and_reap(&mut child);
 
-    Ok((tools, latency_ms))
+    Ok((vec![], latency_ms))
 }
 
 fn make_error_result(name: &str, start: Instant, error: &str) -> McpHealthResultCached {
@@ -798,5 +779,131 @@ mod tests {
         assert!(headers.contains_key(reqwest::header::CONTENT_TYPE));
         assert!(headers.contains_key(MCP_SESSION_ID_HEADER));
         assert_eq!(headers.len(), 2);
+    }
+
+    // ── extract_tools_from_json tests ─────────────────────────────────
+
+    #[test]
+    fn extract_tools_from_json_parses_valid_response() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "tools": [
+                    {
+                        "name": "read_file",
+                        "description": "Read a file from disk",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": { "path": { "type": "string" } }
+                        }
+                    },
+                    {
+                        "name": "write_file",
+                        "description": "Write content to a file"
+                    }
+                ]
+            }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert_eq!(tools.len(), 2);
+        assert_eq!(tools[0].name, "read_file");
+        assert_eq!(tools[0].description.as_deref(), Some("Read a file from disk"));
+        assert!(tools[0].input_schema.is_some());
+        assert_eq!(tools[1].name, "write_file");
+        assert_eq!(tools[1].description.as_deref(), Some("Write content to a file"));
+        assert!(tools[1].input_schema.is_none());
+    }
+
+    #[test]
+    fn extract_tools_from_json_handles_empty_tools_array() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": { "tools": [] }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert!(tools.is_empty());
+    }
+
+    #[test]
+    fn extract_tools_from_json_handles_missing_result() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": { "code": -32600, "message": "Invalid Request" }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert!(tools.is_empty());
+    }
+
+    #[test]
+    fn extract_tools_from_json_handles_missing_name() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "tools": [
+                    { "description": "A tool without a name" }
+                ]
+            }
+        });
+
+        let tools = extract_tools_from_json(&resp);
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "unknown");
+    }
+
+    // ── write_jsonrpc tests ───────────────────────────────────────────
+
+    #[test]
+    fn write_jsonrpc_writes_valid_json_line() {
+        let mut buf = Vec::new();
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize"
+        });
+
+        write_jsonrpc(&mut buf, &msg).unwrap();
+
+        let output = String::from_utf8(buf).unwrap();
+        // Must end with a newline (newline-delimited JSON-RPC)
+        assert!(output.ends_with('\n'));
+        // The line (without trailing newline) must be valid JSON
+        let parsed: serde_json::Value =
+            serde_json::from_str(output.trim_end()).unwrap();
+        assert_eq!(parsed["method"], "initialize");
+    }
+
+    #[test]
+    fn write_jsonrpc_returns_error_on_write_failure() {
+        // A writer that always fails
+        struct FailWriter;
+        impl Write for FailWriter {
+            fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "simulated broken pipe",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let msg = serde_json::json!({"jsonrpc": "2.0", "id": 1});
+        let result = write_jsonrpc(&mut FailWriter, &msg);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("Failed to write to stdin"),
+            "unexpected error message: {err_msg}"
+        );
     }
 }
