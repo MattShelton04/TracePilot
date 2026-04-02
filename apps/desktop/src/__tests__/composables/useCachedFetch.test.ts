@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCachedFetch } from "@/composables/useCachedFetch";
+import { createDeferred } from "../helpers/deferred";
 
 describe("useCachedFetch", () => {
   beforeEach(() => {
@@ -35,13 +36,8 @@ describe("useCachedFetch", () => {
     });
 
     it("sets loading state during fetch", async () => {
-      let resolvePromise!: (value: unknown) => void;
-      const fetcher = vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolvePromise = resolve;
-          }),
-      );
+      const deferred = createDeferred<unknown>();
+      const fetcher = vi.fn(() => deferred.promise);
       const { loading, fetch } = useCachedFetch({ fetcher });
 
       expect(loading.value).toBe(false);
@@ -49,7 +45,7 @@ describe("useCachedFetch", () => {
       const fetchPromise = fetch(undefined);
       expect(loading.value).toBe(true);
 
-      resolvePromise?.({ data: "test" });
+      deferred.resolve({ data: "test" });
       await fetchPromise;
 
       expect(loading.value).toBe(false);
@@ -203,13 +199,8 @@ describe("useCachedFetch", () => {
 
   describe("request deduplication", () => {
     it("deduplicates concurrent requests for same parameters", async () => {
-      let resolvePromise!: (value: unknown) => void;
-      const fetcher = vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolvePromise = resolve;
-          }),
-      );
+      const deferred = createDeferred<unknown>();
+      const fetcher = vi.fn(() => deferred.promise);
       const { fetch } = useCachedFetch<unknown, { id: number }>({ fetcher });
 
       const promise1 = fetch({ id: 1 });
@@ -218,7 +209,7 @@ describe("useCachedFetch", () => {
 
       expect(fetcher).toHaveBeenCalledTimes(1);
 
-      resolvePromise?.({ data: "test" });
+      deferred.resolve({ data: "test" });
       await Promise.all([promise1, promise2, promise3]);
 
       expect(fetcher).toHaveBeenCalledTimes(1);
@@ -724,13 +715,8 @@ describe("useCachedFetch", () => {
 
   describe("silent mode", () => {
     it("does not update loading state when silent is true", async () => {
-      let resolvePromise!: (value: unknown) => void;
-      const fetcher = vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolvePromise = resolve;
-          }),
-      );
+      const deferred = createDeferred<unknown>();
+      const fetcher = vi.fn(() => deferred.promise);
       const { loading, fetch } = useCachedFetch({ fetcher, silent: true });
 
       expect(loading.value).toBe(false);
@@ -738,7 +724,7 @@ describe("useCachedFetch", () => {
       const fetchPromise = fetch(undefined);
       expect(loading.value).toBe(false); // Should stay false
 
-      resolvePromise?.({ data: "test" });
+      deferred.resolve({ data: "test" });
       await fetchPromise;
 
       expect(loading.value).toBe(false);

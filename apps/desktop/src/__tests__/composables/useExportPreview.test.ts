@@ -7,6 +7,7 @@ import type {
 } from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mocks ──────────────────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -197,20 +198,12 @@ describe("useExportPreview", () => {
 
   it("discards stale responses when inputs change rapidly", async () => {
     const refs = createRefs();
-    let resolveFirst!: (v: ExportPreviewResult) => void;
-    let resolveSecond!: (v: ExportPreviewResult) => void;
+    const firstDeferred = createDeferred<ExportPreviewResult>();
+    const secondDeferred = createDeferred<ExportPreviewResult>();
 
     mockPreviewExport
-      .mockReturnValueOnce(
-        new Promise<ExportPreviewResult>((resolve) => {
-          resolveFirst = resolve;
-        }),
-      )
-      .mockReturnValueOnce(
-        new Promise<ExportPreviewResult>((resolve) => {
-          resolveSecond = resolve;
-        }),
-      );
+      .mockReturnValueOnce(firstDeferred.promise)
+      .mockReturnValueOnce(secondDeferred.promise);
 
     const { preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
@@ -227,11 +220,11 @@ describe("useExportPreview", () => {
     await nextTick();
 
     // Resolve second first
-    resolveSecond(makePreviewResult("Second"));
+    secondDeferred.resolve(makePreviewResult("Second"));
     await vi.runAllTimersAsync();
 
     // Resolve stale first
-    resolveFirst(makePreviewResult("First"));
+    firstDeferred.resolve(makePreviewResult("First"));
     await vi.runAllTimersAsync();
 
     // Only the latest result should be used
@@ -342,12 +335,8 @@ describe("useExportPreview", () => {
 
   it("invalidates in-flight requests on unmount", async () => {
     const refs = createRefs();
-    let resolvePreview!: (v: ExportPreviewResult) => void;
-    mockPreviewExport.mockReturnValue(
-      new Promise<ExportPreviewResult>((resolve) => {
-        resolvePreview = resolve;
-      }),
-    );
+    const previewDeferred = createDeferred<ExportPreviewResult>();
+    mockPreviewExport.mockReturnValue(previewDeferred.promise);
 
     const { preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
@@ -362,7 +351,7 @@ describe("useExportPreview", () => {
     if (unmountCb) unmountCb();
 
     // Resolve the in-flight request
-    resolvePreview(makePreviewResult("Stale"));
+    previewDeferred.resolve(makePreviewResult("Stale"));
     await vi.runAllTimersAsync();
 
     // Preview should not be updated after unmount
