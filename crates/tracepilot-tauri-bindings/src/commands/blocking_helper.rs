@@ -79,8 +79,21 @@
 //! - Commands with custom caching logic before/after the blocking operation
 //! - Commands that mix async and blocking operations
 //! - Commands that need special error handling beyond the double-?
+//! - **Commands where the operation returns `T` directly (not `Result<T, E>`)**
 //!
 //! In those cases, use the manual pattern for clarity.
+//!
+//! ## Requirements
+//!
+//! The expression passed to `blocking_cmd!` must:
+//! - **Return `Result<T, E>`** where `E` implements `Into<BindingsError>`
+//! - Be `Send + 'static` (can be safely moved to a blocking thread)
+//! - Not contain `.await` (runs in a blocking context, not async)
+//!
+//! ## Panics
+//!
+//! If the expression panics inside the blocking task, the panic is caught and
+//! converted to `JoinError`, which is then converted to `BindingsError::Join`.
 
 /// Execute a blocking operation in a Tokio blocking task.
 ///

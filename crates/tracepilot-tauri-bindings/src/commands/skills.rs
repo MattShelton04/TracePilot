@@ -303,8 +303,9 @@ pub async fn skills_import_github_skill(
 pub async fn skills_discover_repos(
     repos: Vec<(String, String)>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::skills::types::RepoSkillsResult>> {
-    blocking_cmd!({
+    Ok(tokio::task::spawn_blocking(move || {
         let refs: Vec<(&str, &str)> = repos.iter().map(|(p, n)| (p.as_str(), n.as_str())).collect();
         tracepilot_orchestrator::skills::import::discover_repo_skills(&refs)
     })
+    .await?)
 }
