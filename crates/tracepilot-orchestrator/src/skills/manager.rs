@@ -116,22 +116,8 @@ pub fn delete_skill(skill_dir: &Path) -> Result<(), SkillsError> {
 
 /// Validate a skill name for safe filesystem use.
 fn validate_skill_name(name: &str) -> Result<(), SkillsError> {
-    if name.is_empty() {
-        return Err(SkillsError::FrontmatterValidation(
-            "Skill name cannot be empty".into(),
-        ));
-    }
-    if name.contains("..") || name.contains('/') || name.contains('\\') {
-        return Err(SkillsError::FrontmatterValidation(
-            "Skill name contains invalid characters".into(),
-        ));
-    }
-    if Path::new(name).is_absolute() {
-        return Err(SkillsError::FrontmatterValidation(
-            "Skill name cannot be an absolute path".into(),
-        ));
-    }
-    Ok(())
+    crate::validation::validate_identifier(name, crate::validation::SKILL_NAME_RULES, "Skill name")
+        .map_err(SkillsError::FrontmatterValidation)
 }
 
 /// Rename a skill (updates both directory name and frontmatter name).
