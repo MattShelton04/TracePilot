@@ -3,6 +3,21 @@
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+// ---------------------------------------------------------------------------
+// check_system_deps TTL cache (P0 perf fix)
+// ---------------------------------------------------------------------------
+
+struct CachedSystemDeps {
+    cli_cmd: String,
+    checked_at: Instant,
+    value: tracepilot_orchestrator::SystemDependencies,
+}
+
+static SYSTEM_DEPS_CACHE: OnceLock<Mutex<Option<CachedSystemDeps>>> = OnceLock::new();
+const SYSTEM_DEPS_TTL: Duration = Duration::from_secs(60);
 
 #[tauri::command]
 pub async fn check_system_deps(
@@ -10,10 +25,34 @@ pub async fn check_system_deps(
 ) -> CmdResult<tracepilot_orchestrator::SystemDependencies> {
     let config = read_config(&state);
     let cli_cmd = config.general.cli_command.clone();
-    Ok(tokio::task::spawn_blocking(move || {
-        tracepilot_orchestrator::launcher::check_dependencies(Some(&cli_cmd))
+
+    // Check cache first.
+    let cache_mutex = SYSTEM_DEPS_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = cache_mutex.lock() {
+        if let Some(cached) = guard.as_ref() {
+            if cached.cli_cmd == cli_cmd && cached.checked_at.elapsed() < SYSTEM_DEPS_TTL {
+                return Ok(cached.value.clone());
+            }
+        }
+    }
+
+    // Cache miss — spawn blocking process checks.
+    let cli_cmd_clone = cli_cmd.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        tracepilot_orchestrator::launcher::check_dependencies(Some(&cli_cmd_clone))
     })
-    .await?)
+    .await?;
+
+    // Store in cache.
+    if let Ok(mut guard) = cache_mutex.lock() {
+        *guard = Some(CachedSystemDeps {
+            cli_cmd,
+            checked_at: Instant::now(),
+            value: result.clone(),
+        });
+    }
+
+    Ok(result)
 }
 
 // -- Worktree commands --

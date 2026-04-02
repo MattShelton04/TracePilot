@@ -2,7 +2,31 @@
 
 use crate::error::{OrchestratorError, Result};
 use crate::types::{CreateWorktreeRequest, PruneResult, WorktreeDetails, WorktreeInfo, WorktreeStatus};
+use dashmap::DashMap;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+use std::time::{Duration, Instant};
+
+// ---------------------------------------------------------------------------
+// Disk-usage TTL cache (P0 perf fix)
+// ---------------------------------------------------------------------------
+
+static DISK_USAGE_CACHE: LazyLock<DashMap<String, (u64, Instant)>> =
+    LazyLock::new(DashMap::new);
+
+const DISK_USAGE_TTL: Duration = Duration::from_secs(60);
+
+fn disk_usage_cache_key(path: &Path) -> String {
+    std::fs::canonicalize(path)
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .to_lowercase()
+}
+
+/// Invalidate the disk-usage cache entry for a specific path.
+pub fn invalidate_disk_usage_cache(path: &Path) {
+    DISK_USAGE_CACHE.remove(&disk_usage_cache_key(path));
+}
 
 /// Run a git command in the given directory, returning stdout on success.
 /// Uses a 30-second timeout to prevent hanging on network operations or slow repositories.
@@ -119,6 +143,9 @@ pub fn create_worktree(request: &CreateWorktreeRequest) -> Result<WorktreeInfo> 
 
     git(repo, &args)?;
 
+    // Invalidate disk-usage cache for the newly created worktree.
+    invalidate_disk_usage_cache(&target);
+
     // Re-list worktrees to get authoritative info instead of constructing manually
     let all = list_worktrees(repo)?;
     let canonical_target = std::fs::canonicalize(&target)
@@ -153,6 +180,7 @@ pub fn remove_worktree(repo_path: &Path, worktree_path: &Path, force: bool) -> R
     args.push(&wt_str);
 
     git(repo_path, &args)?;
+    invalidate_disk_usage_cache(worktree_path);
     Ok(())
 }
 
@@ -170,7 +198,10 @@ pub fn prune_worktrees(repo_path: &Path) -> Result<PruneResult> {
     let messages: Vec<String> = before
         .iter()
         .filter(|w| !after_paths.contains(&w.path))
-        .map(|w| format!("Pruned: {} (branch: {})", w.path, w.branch))
+        .map(|w| {
+            invalidate_disk_usage_cache(Path::new(&w.path));
+            format!("Pruned: {} (branch: {})", w.path, w.branch)
+        })
         .collect();
     let count = messages.len();
 
@@ -285,8 +316,19 @@ pub fn get_worktree_details(worktree_path: &Path) -> Result<WorktreeDetails> {
     })
 }
 
-/// Get disk usage of a path (fully recursive).
+/// Get disk usage of a path (fully recursive), with a 30-second TTL cache.
 pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
+    let key = disk_usage_cache_key(path);
+
+    // Return cached value if still fresh.
+    if let Some(entry) = DISK_USAGE_CACHE.get(&key) {
+        let (bytes, ts) = *entry;
+        if ts.elapsed() < DISK_USAGE_TTL {
+            return Ok(bytes);
+        }
+    }
+
+    // Cache miss or stale — walk the directory tree.
     let mut total: u64 = 0;
     if path.is_dir() {
         for entry in walkdir::WalkDir::new(path)
@@ -298,6 +340,8 @@ pub fn disk_usage_bytes(path: &Path) -> Result<u64> {
             }
         }
     }
+
+    DISK_USAGE_CACHE.insert(key, (total, Instant::now()));
     Ok(total)
 }
 

@@ -20,6 +20,7 @@ tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["rt", "sync"] }
 uuid = "1"
 lru = "0.12"
+dashmap = { workspace = true }
 reqwest = { workspace = true }
 semver = { workspace = true }
 
