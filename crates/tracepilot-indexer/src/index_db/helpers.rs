@@ -55,23 +55,58 @@ pub(super) fn to_refs(values: &[String]) -> Vec<&dyn ToSql> {
     values.iter().map(|v| v as &dyn ToSql).collect()
 }
 
-pub(super) fn query_day_tokens(
+/// Generic helper for executing SQL queries and mapping rows to a Vec of results.
+///
+/// This consolidates the common pattern of:
+/// 1. Prepare SQL statement
+/// 2. Execute query with parameters
+/// 3. Map each row to a data structure
+/// 4. Collect into Vec
+/// 5. Return Result
+///
+/// # Type Parameters
+/// - `T`: The result type to collect
+/// - `F`: The row mapping function
+///
+/// # Arguments
+/// - `conn`: Database connection
+/// - `sql`: SQL query string
+/// - `params`: Parameters for the query (anything iterable over `&dyn ToSql`)
+/// - `mapper`: Function to map each row to type `T`
+///
+/// # Returns
+/// `Result<Vec<T>>` containing all mapped rows or the first error encountered
+pub(super) fn execute_query_map<T, F, P>(
     conn: &Connection,
     sql: &str,
-    refs: &[&dyn ToSql],
-) -> Result<Vec<DayTokens>> {
+    params: P,
+    mut mapper: F,
+) -> Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+    P: IntoIterator,
+    P::Item: ToSql,
+{
     let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        Ok(DayTokens {
-            date: row.get(0)?,
-            tokens: row.get::<_, i64>(1)? as u64,
-        })
-    })?;
+    let rows = stmt.query_map(params_from_iter(params), |row| mapper(row))?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
     }
     Ok(result)
+}
+
+pub(super) fn query_day_tokens(
+    conn: &Connection,
+    sql: &str,
+    refs: &[&dyn ToSql],
+) -> Result<Vec<DayTokens>> {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(DayTokens {
+            date: row.get(0)?,
+            tokens: row.get::<_, i64>(1)? as u64,
+        })
+    })
 }
 
 pub(super) fn query_day_activity(
@@ -79,18 +114,12 @@ pub(super) fn query_day_activity(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayActivity>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayActivity {
             date: row.get(0)?,
             count: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_day_cost(
@@ -98,18 +127,12 @@ pub(super) fn query_day_cost(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayCost>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayCost {
             date: row.get(0)?,
             cost: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_model_distribution(
@@ -165,15 +188,9 @@ pub(super) fn query_durations(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<u64>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        row.get::<_, i64>(0)
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row? as u64);
-    }
-    Ok(result)
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(row.get::<_, i64>(0)? as u64)
+    })
 }
 
 pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
@@ -574,5 +591,183 @@ mod tests {
         let sql = build_not_in_filter("col", &vec!["tool_call".to_string(), "tool_error".to_string()], &mut params);
         assert_eq!(sql, " AND col NOT IN (?, ?)");
         assert_eq!(params.len(), 2);
+    }
+
+    /// Test the generic `execute_query_map` helper with an empty result set.
+    #[test]
+    fn test_execute_query_map_empty_results() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);",
+        ).expect("setup");
+
+        let result: Vec<i64> = execute_query_map(
+            &conn,
+            "SELECT id FROM test WHERE id > ?",
+            [100],
+            |row| row.get(0),
+        ).expect("query");
+
+        assert_eq!(result.len(), 0);
+    }
+
+    /// Test the generic `execute_query_map` helper with a single row result.
+    #[test]
+    fn test_execute_query_map_single_row() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);
+             INSERT INTO test VALUES (1, 'hello');",
+        ).expect("setup");
+
+        let result: Vec<String> = execute_query_map(
+            &conn,
+            "SELECT value FROM test WHERE id = ?",
+            [1],
+            |row| row.get(0),
+        ).expect("query");
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], "hello");
+    }
+
+    /// Test the generic `execute_query_map` helper with multiple rows.
+    #[test]
+    fn test_execute_query_map_multiple_rows() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER);
+             INSERT INTO test VALUES (1, 100), (2, 200), (3, 300);",
+        ).expect("setup");
+
+        let result: Vec<i64> = execute_query_map(
+            &conn,
+            "SELECT value FROM test ORDER BY id",
+            std::iter::empty::<&dyn ToSql>(),
+            |row| row.get(0),
+        ).expect("query");
+
+        assert_eq!(result, vec![100, 200, 300]);
+    }
+
+    /// Test the generic `execute_query_map` helper with complex mapping.
+    #[test]
+    fn test_execute_query_map_complex_mapping() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER, name TEXT, score REAL);
+             INSERT INTO test VALUES (1, 'Alice', 95.5), (2, 'Bob', 87.3);",
+        ).expect("setup");
+
+        #[derive(Debug, PartialEq)]
+        struct Record {
+            id: i64,
+            name: String,
+            score: f64,
+        }
+
+        let result: Vec<Record> = execute_query_map(
+            &conn,
+            "SELECT id, name, score FROM test ORDER BY id",
+            std::iter::empty::<&dyn ToSql>(),
+            |row| {
+                Ok(Record {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    score: row.get(2)?,
+                })
+            },
+        ).expect("query");
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], Record { id: 1, name: "Alice".to_string(), score: 95.5 });
+        assert_eq!(result[1], Record { id: 2, name: "Bob".to_string(), score: 87.3 });
+    }
+
+    /// Test the generic `execute_query_map` helper with type conversion.
+    #[test]
+    fn test_execute_query_map_type_conversion() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (value INTEGER);
+             INSERT INTO test VALUES (42), (100), (255);",
+        ).expect("setup");
+
+        // Map i64 from DB to u64 in Rust
+        let result: Vec<u64> = execute_query_map(
+            &conn,
+            "SELECT value FROM test ORDER BY value",
+            std::iter::empty::<&dyn ToSql>(),
+            |row| Ok(row.get::<_, i64>(0)? as u64),
+        ).expect("query");
+
+        assert_eq!(result, vec![42u64, 100u64, 255u64]);
+    }
+
+    /// Test the generic `execute_query_map` helper with parameters using `&dyn ToSql`.
+    #[test]
+    fn test_execute_query_map_with_tosql_refs() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (date TEXT, count INTEGER);
+             INSERT INTO test VALUES ('2026-01-01', 10), ('2026-01-02', 20), ('2026-01-03', 30);",
+        ).expect("setup");
+
+        let date_filter = "2026-01-02".to_string();
+        let refs: Vec<&dyn ToSql> = vec![&date_filter];
+
+        let result: Vec<i64> = execute_query_map(
+            &conn,
+            "SELECT count FROM test WHERE date >= ?",
+            refs.iter().copied(),
+            |row| row.get(0),
+        ).expect("query");
+
+        assert_eq!(result, vec![20, 30]);
+    }
+
+    /// Test that `execute_query_map` correctly propagates SQL errors.
+    #[test]
+    fn test_execute_query_map_invalid_sql() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+
+        let result: Result<Vec<i64>> = execute_query_map(
+            &conn,
+            "SELECT * FROM nonexistent_table",
+            std::iter::empty::<&dyn ToSql>(),
+            |row| row.get(0),
+        );
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("no such table") || err_msg.contains("nonexistent_table"));
+    }
+
+    /// Test that `execute_query_map` correctly propagates row mapping errors.
+    #[test]
+    fn test_execute_query_map_type_mismatch() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (value TEXT);
+             INSERT INTO test VALUES ('not_a_number');",
+        ).expect("setup");
+
+        // Try to get a TEXT column as an i64 - should fail
+        let result: Result<Vec<i64>> = execute_query_map(
+            &conn,
+            "SELECT value FROM test",
+            std::iter::empty::<&dyn ToSql>(),
+            |row| row.get(0),
+        );
+
+        assert!(result.is_err());
     }
 }
