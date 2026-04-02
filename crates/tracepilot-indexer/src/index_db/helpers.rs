@@ -70,12 +70,20 @@ pub(super) fn to_refs(values: &[String]) -> Vec<&dyn ToSql> {
 ///
 /// # Arguments
 /// - `conn`: Database connection
-/// - `sql`: SQL query string
+/// - `sql`: SQL query string (should only contain structure from trusted sources)
 /// - `params`: Parameters for the query (anything iterable over `&dyn ToSql`)
 /// - `mapper`: Function to map each row to type `T`
 ///
 /// # Returns
 /// `Result<Vec<T>>` containing all mapped rows or the first error encountered
+///
+/// # Security
+/// - Uses parameterized queries - parameters are NEVER concatenated into SQL strings
+/// - All parameters must implement `ToSql` trait for type safety
+/// - SQL string parameter should only contain structure from trusted sources
+///
+/// # Performance
+/// - Loads all results into memory - ensure queries include appropriate LIMIT clauses for large datasets
 pub(super) fn execute_query_map<T, F, P>(
     conn: &Connection,
     sql: &str,
