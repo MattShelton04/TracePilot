@@ -19,9 +19,9 @@ mod validators;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use types::{SearchSemaphore, TurnCache};
+use types::{SearchSemaphore, SharedTaskDb, TurnCache};
 
-/// Build the Tauri plugin that registers all 78 IPC commands.
+/// Build the Tauri plugin that registers all IPC commands.
 pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
@@ -34,6 +34,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 NonZeroUsize::new(10).expect("cache capacity is non-zero"),
             )));
             app.manage(turn_cache);
+
+            // Task DB: lazily initialized (None until first use via config path).
+            let task_db: SharedTaskDb = Arc::new(Mutex::new(None));
+            app.manage(task_db);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -166,6 +171,23 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::skills::skills_import_github_skill,
             commands::skills::skills_discover_local,
             commands::skills::skills_discover_repos,
+            // Task system commands (16)
+            commands::tasks::task_create,
+            commands::tasks::task_create_batch,
+            commands::tasks::task_get,
+            commands::tasks::task_list,
+            commands::tasks::task_cancel,
+            commands::tasks::task_retry,
+            commands::tasks::task_delete,
+            commands::tasks::task_stats,
+            commands::tasks::task_list_jobs,
+            commands::tasks::task_cancel_job,
+            commands::tasks::task_list_presets,
+            commands::tasks::task_get_preset,
+            commands::tasks::task_save_preset,
+            commands::tasks::task_delete_preset,
+            commands::tasks::task_orchestrator_health,
+            commands::tasks::task_attribution,
         ])
         .build()
 }

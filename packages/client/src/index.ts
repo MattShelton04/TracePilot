@@ -1,5 +1,6 @@
 import type {
   AnalyticsData,
+  AttributionSnapshot,
   CheckpointEntry,
   CodeImpactData,
   EventsResponse,
@@ -9,10 +10,13 @@ import type {
   ExportResult,
   FreshnessResponse,
   GitInfo,
+  HealthCheckResult,
   HealthScoringData,
   ImportConfig,
   ImportPreviewResult,
   ImportResult,
+  Job,
+  NewTask,
   SearchFacetsResponse,
   SearchFilters,
   SearchResultsResponse,
@@ -24,6 +28,10 @@ import type {
   SessionPlan,
   SessionSectionsInfo,
   ShutdownMetrics,
+  Task,
+  TaskFilter,
+  TaskPreset,
+  TaskStats,
   TodosResponse,
   ToolAnalysisData,
   TracePilotConfig,
@@ -225,6 +233,105 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
     } as ImportResult,
     // System info
     get_install_type: "source",
+    // Task system
+    task_create: {
+      id: "mock-task-id",
+      jobId: null,
+      taskType: "session_summary",
+      presetId: "session-summary",
+      status: "pending",
+      priority: "normal",
+      inputParams: {},
+      contextHash: null,
+      attemptCount: 0,
+      maxRetries: 3,
+      orchestratorSessionId: null,
+      resultSummary: null,
+      resultParsed: null,
+      schemaValid: null,
+      errorMessage: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: null,
+    } as Task,
+    task_create_batch: {
+      id: "mock-job-id",
+      name: "mock-batch",
+      presetId: "session-summary",
+      status: "pending",
+      taskCount: 0,
+      tasksCompleted: 0,
+      tasksFailed: 0,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+      orchestratorSessionId: null,
+    } as Job,
+    task_get: {
+      id: "mock-task-id",
+      jobId: null,
+      taskType: "session_summary",
+      presetId: "session-summary",
+      status: "pending",
+      priority: "normal",
+      inputParams: {},
+      contextHash: null,
+      attemptCount: 0,
+      maxRetries: 3,
+      orchestratorSessionId: null,
+      resultSummary: null,
+      resultParsed: null,
+      schemaValid: null,
+      errorMessage: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: null,
+    } as Task,
+    task_list: [] as Task[],
+    task_cancel: undefined,
+    task_retry: undefined,
+    task_delete: undefined,
+    task_stats: {
+      total: 0,
+      pending: 0,
+      claimed: 0,
+      inProgress: 0,
+      done: 0,
+      failed: 0,
+      cancelled: 0,
+      expired: 0,
+      deadLetter: 0,
+    } as TaskStats,
+    task_list_jobs: [] as Job[],
+    task_cancel_job: undefined,
+    task_list_presets: [] as TaskPreset[],
+    task_get_preset: {
+      id: "mock-preset",
+      name: "Mock Preset",
+      version: 1,
+      description: "A mock preset",
+      prompt: { system: "", user: "", variables: [] },
+      context: { sources: [], maxChars: 50000, format: "markdown" },
+      output: { schema: {}, format: "json", validation: "warn" },
+      execution: { modelOverride: null, timeoutSeconds: 300, maxRetries: 3, priority: "normal" },
+      tags: [],
+      enabled: true,
+      builtin: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as TaskPreset,
+    task_save_preset: undefined,
+    task_delete_preset: undefined,
+    task_orchestrator_health: {
+      health: "stopped",
+      heartbeatAgeSecs: null,
+      lastCycle: null,
+      activeTasks: [],
+      needsRestart: false,
+    } as HealthCheckResult,
+    task_attribution: {
+      subagents: [],
+      eventsScanned: 0,
+    } as AttributionSnapshot,
   };
   if (!(cmd in mockMap)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);
@@ -631,6 +738,104 @@ export async function getLogPath(): Promise<string> {
 /** Export all log files to a single destination file. */
 export async function exportLogs(destination: string): Promise<string> {
   return invoke<string>("export_logs", { destination });
+}
+
+// ─── Task System ──────────────────────────────────────────────────
+
+/** Create a new task. */
+export async function taskCreate(
+  taskType: string,
+  presetId: string,
+  inputParams: Record<string, unknown> = {},
+  priority?: string,
+  maxRetries?: number,
+): Promise<Task> {
+  return invoke<Task>("task_create", {
+    taskType,
+    presetId,
+    inputParams,
+    priority,
+    maxRetries,
+  });
+}
+
+/** Create a batch of tasks as a job. */
+export async function taskCreateBatch(
+  tasks: NewTask[],
+  jobName: string,
+  presetId?: string,
+): Promise<Job> {
+  return invoke<Job>("task_create_batch", { tasks, jobName, presetId });
+}
+
+/** Get a single task by ID. */
+export async function taskGet(id: string): Promise<Task> {
+  return invoke<Task>("task_get", { id });
+}
+
+/** List tasks with optional filtering. */
+export async function taskList(filter?: TaskFilter): Promise<Task[]> {
+  return invoke<Task[]>("task_list", { filter });
+}
+
+/** Cancel a task. */
+export async function taskCancel(id: string): Promise<void> {
+  return invoke<void>("task_cancel", { id });
+}
+
+/** Retry a failed task. */
+export async function taskRetry(id: string): Promise<void> {
+  return invoke<void>("task_retry", { id });
+}
+
+/** Delete a task permanently. */
+export async function taskDelete(id: string): Promise<void> {
+  return invoke<void>("task_delete", { id });
+}
+
+/** Get aggregate task statistics. */
+export async function taskStats(): Promise<TaskStats> {
+  return invoke<TaskStats>("task_stats");
+}
+
+/** List jobs with optional limit. */
+export async function taskListJobs(limit?: number): Promise<Job[]> {
+  return invoke<Job[]>("task_list_jobs", { limit });
+}
+
+/** Cancel all pending tasks in a job. */
+export async function taskCancelJob(jobId: string): Promise<void> {
+  return invoke<void>("task_cancel_job", { jobId });
+}
+
+/** List all task presets. */
+export async function taskListPresets(): Promise<TaskPreset[]> {
+  return invoke<TaskPreset[]>("task_list_presets");
+}
+
+/** Get a single task preset by ID. */
+export async function taskGetPreset(id: string): Promise<TaskPreset> {
+  return invoke<TaskPreset>("task_get_preset", { id });
+}
+
+/** Save (create or update) a task preset. */
+export async function taskSavePreset(preset: TaskPreset): Promise<void> {
+  return invoke<void>("task_save_preset", { preset });
+}
+
+/** Delete a task preset. */
+export async function taskDeletePreset(id: string): Promise<void> {
+  return invoke<void>("task_delete_preset", { id });
+}
+
+/** Check orchestrator health status. */
+export async function taskOrchestratorHealth(): Promise<HealthCheckResult> {
+  return invoke<HealthCheckResult>("task_orchestrator_health");
+}
+
+/** Get subagent attribution for an orchestrator session. */
+export async function taskAttribution(sessionPath: string): Promise<AttributionSnapshot> {
+  return invoke<AttributionSnapshot>("task_attribution", { sessionPath });
 }
 
 // Re-export orchestration module

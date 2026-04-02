@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 3;
+export const CONFIG_VERSION = 4;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -26,6 +26,27 @@ export const DEFAULT_CONTENT_MAX_WIDTH = 1600;
 
 /** Default UI scale factor. */
 export const DEFAULT_UI_SCALE = 1.0;
+
+/** Default orchestrator model (cheap for polling loop). */
+export const DEFAULT_ORCHESTRATOR_MODEL = "claude-haiku-4.5";
+
+/** Default subagent model for task execution. */
+export const DEFAULT_SUBAGENT_MODEL = "claude-sonnet-4.6";
+
+/** Default poll interval in seconds. */
+export const DEFAULT_POLL_INTERVAL_SECONDS = 30;
+
+/** Default max concurrent subagent tasks. */
+export const DEFAULT_MAX_CONCURRENT_TASKS = 3;
+
+/** Default heartbeat stale multiplier. */
+export const DEFAULT_HEARTBEAT_STALE_MULTIPLIER = 3;
+
+/** Default max orchestrator restart retries. */
+export const DEFAULT_MAX_RETRIES = 3;
+
+/** Default context budget in tokens per task. */
+export const DEFAULT_CONTEXT_BUDGET_TOKENS = 50_000;
 
 /**
  * Build a default TracePilotConfig, optionally overriding specific fields.
@@ -49,6 +70,7 @@ export function createDefaultConfig(
     toolRendering: Partial<TracePilotConfig["toolRendering"]>;
     features: Partial<TracePilotConfig["features"]>;
     logging: Partial<TracePilotConfig["logging"]>;
+    tasks: Partial<TracePilotConfig["tasks"]>;
   }>,
 ): TracePilotConfig {
   return {
@@ -98,6 +120,18 @@ export function createDefaultConfig(
     logging: {
       level: "info",
       ...overrides?.logging,
+    },
+    tasks: {
+      enabled: false,
+      orchestratorModel: DEFAULT_ORCHESTRATOR_MODEL,
+      defaultSubagentModel: DEFAULT_SUBAGENT_MODEL,
+      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
+      maxConcurrentTasks: DEFAULT_MAX_CONCURRENT_TASKS,
+      heartbeatStaleMultiplier: DEFAULT_HEARTBEAT_STALE_MULTIPLIER,
+      maxRetries: DEFAULT_MAX_RETRIES,
+      autoStartOrchestrator: false,
+      contextBudgetTokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
+      ...overrides?.tasks,
     },
   };
 }

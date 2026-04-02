@@ -249,6 +249,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       },
       features: { ...featureFlags.value } as TracePilotConfig["features"],
       logging: { level: logLevel.value },
+      tasks: base.tasks,
     };
   }
 

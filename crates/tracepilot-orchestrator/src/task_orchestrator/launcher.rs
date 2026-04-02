@@ -1,0 +1,217 @@
+//! Orchestrator launch logic.
+//!
+//! Handles the full launch sequence: prepare jobs directory, assemble context
+//! files, generate manifest, render prompt, and spawn the Copilot CLI session.
+
+use crate::error::{OrchestratorError, Result};
+use crate::task_orchestrator::manifest;
+use crate::task_orchestrator::prompt;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicU32;
+
+/// Configuration for the orchestrator launch.
+#[derive(Debug, Clone)]
+pub struct OrchestratorLaunchConfig {
+    /// Poll interval in seconds.
+    pub poll_interval: u32,
+    /// Maximum concurrent subagent tasks.
+    pub max_parallel: u32,
+    /// Exit after this many empty poll cycles.
+    pub max_empty_polls: u32,
+    /// Exit after this many total cycles.
+    pub max_cycles: u32,
+    /// Model to use for the orchestrator session.
+    pub orchestrator_model: String,
+    /// Copilot CLI command (e.g. "copilot").
+    pub cli_command: String,
+    /// Jobs directory path.
+    pub jobs_dir: PathBuf,
+}
+
+impl Default for OrchestratorLaunchConfig {
+    fn default() -> Self {
+        Self {
+            poll_interval: 30,
+            max_parallel: 3,
+            max_empty_polls: 10,
+            max_cycles: 100,
+            orchestrator_model: "claude-haiku-4.5".to_string(),
+            cli_command: "copilot".to_string(),
+            jobs_dir: PathBuf::new(), // Must be set by caller
+        }
+    }
+}
+
+/// Handle returned after launching the orchestrator.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrchestratorHandle {
+    /// PID of the terminal process (informational only).
+    pub pid: u32,
+    /// Absolute path to the manifest file.
+    pub manifest_path: String,
+    /// Absolute path to the jobs directory.
+    pub jobs_dir: String,
+    /// ISO 8601 timestamp when launched.
+    pub launched_at: String,
+}
+
+/// Shared Tauri state for tracking the active orchestrator.
+pub struct OrchestratorState {
+    pub handle: std::sync::Mutex<Option<OrchestratorHandle>>,
+    pub restart_count: AtomicU32,
+}
+
+impl Default for OrchestratorState {
+    fn default() -> Self {
+        Self {
+            handle: std::sync::Mutex::new(None),
+            restart_count: AtomicU32::new(0),
+        }
+    }
+}
+
+/// Prepare the jobs directory structure for a set of tasks.
+///
+/// Creates `jobs_dir` and per-task subdirectories.
+pub fn prepare_jobs_dir(
+    jobs_dir: &Path,
+    task_ids: &[String],
+) -> Result<()> {
+    std::fs::create_dir_all(jobs_dir)?;
+    for task_id in task_ids {
+        let task_dir = jobs_dir.join(task_id);
+        std::fs::create_dir_all(&task_dir)?;
+    }
+    Ok(())
+}
+
+/// Full orchestrator launch sequence:
+///
+/// 1. Prepare jobs directory
+/// 2. Write context files for each task (caller provides assembled contexts)
+/// 3. Generate and write manifest
+/// 4. Render orchestrator prompt
+/// 5. Launch Copilot CLI session
+/// 6. Return handle
+pub fn launch_orchestrator(
+    pending_tasks: &[crate::task_db::Task],
+    resolved_models: &[String], // per-task model, same order as pending_tasks
+    context_contents: &[(String, String)], // (task_id, context.md content)
+    config: &OrchestratorLaunchConfig,
+) -> Result<OrchestratorHandle> {
+    let jobs_dir = &config.jobs_dir;
+
+    // 1. Prepare directories
+    let task_ids: Vec<String> = pending_tasks.iter().map(|t| t.id.clone()).collect();
+    prepare_jobs_dir(jobs_dir, &task_ids)?;
+
+    // 2. Write context files
+    for (task_id, content) in context_contents {
+        let context_path = jobs_dir.join(task_id).join("context.md");
+        std::fs::write(&context_path, content).map_err(|e| {
+            OrchestratorError::Task(format!(
+                "Failed to write context for task {}: {}",
+                task_id, e
+            ))
+        })?;
+    }
+
+    // 3. Generate and write manifest
+    let manifest_path = prompt::manifest_path(jobs_dir);
+    let inputs: Vec<manifest::ManifestInput<'_>> = pending_tasks
+        .iter()
+        .zip(resolved_models.iter())
+        .map(|(task, model)| manifest::ManifestInput {
+            task,
+            model: model.clone(),
+        })
+        .collect();
+    let task_manifest = manifest::generate_manifest(
+        &inputs,
+        jobs_dir,
+        config.poll_interval,
+        config.max_parallel,
+    );
+    manifest::write_manifest(&task_manifest, &manifest_path)?;
+
+    // 4. Render prompt
+    let prompt_config = prompt::OrchestratorPromptConfig {
+        manifest_path: manifest_path.to_string_lossy().to_string(),
+        poll_interval: config.poll_interval,
+        max_parallel: config.max_parallel,
+        max_empty_polls: config.max_empty_polls,
+        max_cycles: config.max_cycles,
+    };
+    let prompt_text = prompt::render_orchestrator_prompt(&prompt_config);
+
+    // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)
+    let cli = &config.cli_command;
+    if !cli
+        .chars()
+        .all(|c| c.is_alphanumeric() || "-_./\\ :".contains(c))
+    {
+        return Err(OrchestratorError::Launch(
+            "CLI command contains invalid characters".into(),
+        ));
+    }
+
+    // Build the copilot command with model + auto-approve + prompt
+    let copilot_cmd = format!(
+        "{} --model {} --allow-all",
+        cli, config.orchestrator_model
+    );
+
+    #[cfg(windows)]
+    let pid = {
+        let escaped_dir = jobs_dir.display().to_string().replace('\'', "''");
+        let escaped_prompt = prompt_text.replace('\'', "''");
+        let ps_cmd = format!(
+            "$host.UI.RawUI.WindowTitle = 'TracePilot Orchestrator'; \
+             Set-Location -LiteralPath '{}'; \
+             Write-Host 'TracePilot Task Orchestrator starting...' -ForegroundColor Cyan; \
+             Write-Host '  Jobs dir: {}' -ForegroundColor White; \
+             Write-Host '' ; \
+             {} --interactive '{}'",
+            escaped_dir, escaped_dir, copilot_cmd, escaped_prompt
+        );
+        let encoded = crate::process::encode_powershell_command(&ps_cmd);
+        crate::process::spawn_detached_terminal(
+            "powershell",
+            &["-NoExit", "-EncodedCommand", &encoded],
+            jobs_dir,
+            None,
+        )?
+    };
+
+    #[cfg(target_os = "macos")]
+    let pid = {
+        let escaped_prompt = prompt_text.replace('\'', "'\\''");
+        let full_cmd = format!("{} --interactive '{}'", copilot_cmd, escaped_prompt);
+        crate::process::spawn_detached_terminal(&full_cmd, &[], jobs_dir, None)?
+    };
+
+    #[cfg(target_os = "linux")]
+    let pid = {
+        let escaped_prompt = prompt_text.replace('\'', "'\\''");
+        let full_cmd = format!("{} --interactive '{}'", copilot_cmd, escaped_prompt);
+        crate::process::spawn_detached_terminal(&full_cmd, &[], jobs_dir, None)?
+    };
+
+    let handle = OrchestratorHandle {
+        pid,
+        manifest_path: manifest_path.to_string_lossy().to_string(),
+        jobs_dir: jobs_dir.to_string_lossy().to_string(),
+        launched_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    tracing::info!(
+        pid = pid,
+        manifest = %manifest_path.display(),
+        tasks = pending_tasks.len(),
+        "Orchestrator launched"
+    );
+
+    Ok(handle)
+}

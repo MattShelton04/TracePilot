@@ -11,5 +11,6 @@ export * from "./replay.js";
 export * from "./search.js";
 export * from "./session.js";
 export * from "./skills.js";
+export * from "./tasks.js";
 export * from "./tool-rendering.js";
 export * from "./utils/formatters.js";

@@ -11,3 +11,4 @@ pub mod search;
 pub mod session;
 pub mod skills;
 pub mod state;
+pub mod tasks;
