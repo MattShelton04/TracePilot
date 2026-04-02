@@ -441,6 +441,15 @@ fn spawn_and_initialize(
 ) -> Result<(Vec<McpTool>, u64), McpError> {
     use std::process::{Command, Stdio};
 
+    /// RAII guard that ensures the child process is always killed and reaped,
+    /// even on early `?`-returns from `write_jsonrpc` or pipe setup.
+    struct ChildGuard(Child);
+    impl Drop for ChildGuard {
+        fn drop(&mut self) {
+            kill_and_reap(&mut self.0);
+        }
+    }
+
     let start = Instant::now();
 
     let mut cmd = Command::new(command);
@@ -460,15 +469,18 @@ fn spawn_and_initialize(
         McpError::HealthCheck(format!("Failed to spawn '{command}': {e}"))
     })?;
 
-    // Take ownership of stdin/stdout up-front so the remaining child handle is
-    // only used for kill/wait.  This avoids borrow conflicts and lets us use a
-    // single BufReader across both read phases.
+    // Wrap immediately so every subsequent return path reaps the child.
+    // Take ownership of stdin/stdout before wrapping so the guard only
+    // holds the (pipe-less) child handle used for kill/wait.
     let mut stdin = child.stdin.take().ok_or_else(|| {
+        kill_and_reap(&mut child);
         McpError::HealthCheck("Failed to open stdin".into())
     })?;
     let stdout = child.stdout.take().ok_or_else(|| {
+        kill_and_reap(&mut child);
         McpError::HealthCheck("Failed to open stdout".into())
     })?;
+    let guard = ChildGuard(child);
 
     // A single BufReader for the entire handshake — prevents buffered data loss
     // that occurs when creating separate readers for each phase.
@@ -496,14 +508,12 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
-            kill_and_reap(&mut child);
             return Err(McpError::HealthCheck("Initialize timed out".into()));
         }
 
         line.clear();
         match reader.read_line(&mut line) {
             Ok(0) => {
-                kill_and_reap(&mut child);
                 return Err(McpError::HealthCheck("Server closed stdout".into()));
             }
             Ok(_) => {
@@ -516,7 +526,6 @@ fn spawn_and_initialize(
                 }
             }
             Err(e) => {
-                kill_and_reap(&mut child);
                 return Err(McpError::HealthCheck(format!("Read error: {e}")));
             }
         }
@@ -541,7 +550,6 @@ fn spawn_and_initialize(
     let deadline = Instant::now() + timeout;
     loop {
         if Instant::now() > deadline {
-            kill_and_reap(&mut child);
             break; // Return whatever we have
         }
 
@@ -554,7 +562,7 @@ fn spawn_and_initialize(
                 {
                     let tools = extract_tools_from_json(&resp);
                     let latency_ms = start.elapsed().as_millis() as u64;
-                    kill_and_reap(&mut child);
+                    // guard drops here, killing and reaping the child
                     return Ok((tools, latency_ms));
                 }
             }
@@ -563,7 +571,8 @@ fn spawn_and_initialize(
     }
 
     let latency_ms = start.elapsed().as_millis() as u64;
-    kill_and_reap(&mut child);
+    // guard drops here, killing and reaping the child
+    drop(guard);
 
     Ok((vec![], latency_ms))
 }
