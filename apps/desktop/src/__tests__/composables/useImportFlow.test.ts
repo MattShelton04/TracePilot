@@ -1,6 +1,7 @@
 import type { ImportPreviewResult, ImportResult } from "@tracepilot/types";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mocks ──────────────────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
@@ -87,7 +88,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  mountedWrappers.splice(0).forEach((wrapper) => wrapper.unmount());
+  mountedWrappers.splice(0).forEach((wrapper) => {
+    wrapper.unmount();
+  });
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -279,12 +282,8 @@ describe("useImportFlow", () => {
 
     it("invalidates in-flight validation requests", async () => {
       // Set up a validation that will resolve later
-      let resolvePreview!: (v: ImportPreviewResult) => void;
-      mockPreviewImport.mockReturnValue(
-        new Promise<ImportPreviewResult>((resolve) => {
-          resolvePreview = resolve;
-        }),
-      );
+      const previewDeferred = createDeferred<ImportPreviewResult>();
+      mockPreviewImport.mockReturnValue(previewDeferred.promise);
 
       const flow = mountImportFlow();
       flow.filePath.value = "/file.json";
@@ -294,7 +293,7 @@ describe("useImportFlow", () => {
       flow.reset();
 
       // Now resolve the stale validation
-      resolvePreview(makePreviewResult());
+      previewDeferred.resolve(makePreviewResult());
       await validatePromise;
 
       // State should remain at initial (stale response discarded)
@@ -360,20 +359,12 @@ describe("useImportFlow", () => {
     });
 
     it("discards stale responses from rapid file selections", async () => {
-      let resolveFirst!: (v: ImportPreviewResult) => void;
-      let resolveSecond!: (v: ImportPreviewResult) => void;
+      const firstDeferred = createDeferred<ImportPreviewResult>();
+      const secondDeferred = createDeferred<ImportPreviewResult>();
 
       mockPreviewImport
-        .mockReturnValueOnce(
-          new Promise<ImportPreviewResult>((resolve) => {
-            resolveFirst = resolve;
-          }),
-        )
-        .mockReturnValueOnce(
-          new Promise<ImportPreviewResult>((resolve) => {
-            resolveSecond = resolve;
-          }),
-        );
+        .mockReturnValueOnce(firstDeferred.promise)
+        .mockReturnValueOnce(secondDeferred.promise);
 
       const flow = mountImportFlow();
       flow.filePath.value = "/first.json";
@@ -395,11 +386,11 @@ describe("useImportFlow", () => {
           },
         ],
       });
-      resolveSecond(secondResult);
+      secondDeferred.resolve(secondResult);
       await second;
 
       // Now the stale first resolves
-      resolveFirst(makePreviewResult());
+      firstDeferred.resolve(makePreviewResult());
       await first;
 
       // Only the second (latest) result should be applied
@@ -469,12 +460,8 @@ describe("useImportFlow", () => {
     it("simulates progress while waiting for backend", async () => {
       const flow = await setupForImport();
 
-      let resolveImport!: (v: ImportResult) => void;
-      mockImportSessions.mockReturnValue(
-        new Promise<ImportResult>((resolve) => {
-          resolveImport = resolve;
-        }),
-      );
+      const importDeferred = createDeferred<ImportResult>();
+      mockImportSessions.mockReturnValue(importDeferred.promise);
 
       const importPromise = flow.executeImport();
 
@@ -488,7 +475,7 @@ describe("useImportFlow", () => {
       expect(flow.importProgress.value).toBeLessThanOrEqual(90);
 
       // Complete the import
-      resolveImport(makeImportResult());
+      importDeferred.resolve(makeImportResult());
       await importPromise;
 
       expect(flow.importProgress.value).toBe(100);
@@ -582,12 +569,8 @@ describe("useImportFlow", () => {
       flowRef.selectedSessions.value = ["sess-1"];
 
       // Start import with a pending promise to keep the timer running
-      let resolveImport!: (v: ImportResult) => void;
-      mockImportSessions.mockReturnValue(
-        new Promise<ImportResult>((resolve) => {
-          resolveImport = resolve;
-        }),
-      );
+      const importDeferred = createDeferred<ImportResult>();
+      mockImportSessions.mockReturnValue(importDeferred.promise);
 
       const importPromise = flowRef.executeImport();
       await flushPromises();
@@ -607,7 +590,7 @@ describe("useImportFlow", () => {
       expect(clearIntervalSpy).toHaveBeenCalled();
 
       // Clean up
-      resolveImport(makeImportResult());
+      importDeferred.resolve(makeImportResult());
       await importPromise;
       clearIntervalSpy.mockRestore();
       vi.useFakeTimers(); // Restore for afterEach
@@ -631,12 +614,8 @@ describe("useImportFlow", () => {
       const wrapper = mount(Wrapper);
 
       // Start a validation that will resolve after unmount
-      let resolveValidation!: (v: ImportPreviewResult) => void;
-      mockPreviewImport.mockReturnValue(
-        new Promise<ImportPreviewResult>((resolve) => {
-          resolveValidation = resolve;
-        }),
-      );
+      const validationDeferred = createDeferred<ImportPreviewResult>();
+      mockPreviewImport.mockReturnValue(validationDeferred.promise);
 
       flowRef.filePath.value = "/file.json";
       const validatePromise = flowRef.validateFile();
@@ -648,7 +627,7 @@ describe("useImportFlow", () => {
       wrapper.unmount();
 
       // Resolve the validation — result should be discarded (stale request)
-      resolveValidation(makePreviewResult());
+      validationDeferred.resolve(makePreviewResult());
       await validatePromise;
       await flushPromises();
 

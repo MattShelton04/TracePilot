@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import TodosTab from "../../views/tabs/TodosTab.vue";
+import { createDeferred } from "../helpers/deferred";
 
 const mockGetSessionTodos = vi.fn();
 
@@ -40,17 +41,6 @@ const ErrorAlertStub = {
   props: { message: String },
   template: '<div class="error-alert">{{ message }}</div>',
 };
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
 describe("TodosTab", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
