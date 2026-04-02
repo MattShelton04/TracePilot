@@ -11,98 +11,62 @@ import {
 import { DEFAULT_FAVOURITE_MODELS } from "../src/models.js";
 
 describe("createDefaultConfig", () => {
-  it("should return the default configuration when no arguments are provided", () => {
-    const config = createDefaultConfig();
+  const expectedDefaults = {
+    version: CONFIG_VERSION,
+    paths: {
+      sessionStateDir: "",
+      indexDbPath: "",
+    },
+    general: {
+      autoIndexOnLaunch: true,
+      cliCommand: DEFAULT_CLI_COMMAND,
+      setupComplete: false,
+    },
+    ui: {
+      theme: "dark",
+      hideEmptySessions: true,
+      autoRefreshEnabled: false,
+      autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+      checkForUpdates: true,
+      favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
+      recentRepoPaths: [],
+      contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,
+      uiScale: DEFAULT_UI_SCALE,
+    },
+    pricing: {
+      costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
+      models: [],
+    },
+    toolRendering: {
+      enabled: true,
+      toolOverrides: {},
+    },
+    features: {
+      exportView: true,
+      healthScoring: false,
+      sessionReplay: false,
+      renderMarkdown: true,
+      mcpServers: false,
+      skills: false,
+    },
+    logging: {
+      level: "info",
+    },
+  };
 
-    expect(config).toEqual({
-      version: CONFIG_VERSION,
-      paths: {
-        sessionStateDir: "",
-        indexDbPath: "",
-      },
-      general: {
-        autoIndexOnLaunch: true,
-        cliCommand: DEFAULT_CLI_COMMAND,
-        setupComplete: false,
-      },
-      ui: {
-        theme: "dark",
-        hideEmptySessions: true,
-        autoRefreshEnabled: false,
-        autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
-        checkForUpdates: true,
-        favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
-        recentRepoPaths: [],
-        contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,
-        uiScale: DEFAULT_UI_SCALE,
-      },
-      pricing: {
-        costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
-        models: [],
-      },
-      toolRendering: {
-        enabled: true,
-        toolOverrides: {},
-      },
-      features: {
-        exportView: true,
-        healthScoring: false,
-        sessionReplay: false,
-        renderMarkdown: true,
-        mcpServers: false,
-        skills: false,
-      },
-      logging: {
-        level: "info",
-      },
-    });
+  it("should return identical defaults for no args and empty object", () => {
+    expect(createDefaultConfig()).toEqual(expectedDefaults);
+    expect(createDefaultConfig({})).toEqual(expectedDefaults);
   });
 
-  it("should return the default configuration when an empty object is provided", () => {
-    const config = createDefaultConfig({});
+  it("should return a new object each call (mutation isolation)", () => {
+    const a = createDefaultConfig();
+    const b = createDefaultConfig();
+    expect(a).not.toBe(b);
+    expect(a).toEqual(b);
 
-    expect(config).toEqual({
-      version: CONFIG_VERSION,
-      paths: {
-        sessionStateDir: "",
-        indexDbPath: "",
-      },
-      general: {
-        autoIndexOnLaunch: true,
-        cliCommand: DEFAULT_CLI_COMMAND,
-        setupComplete: false,
-      },
-      ui: {
-        theme: "dark",
-        hideEmptySessions: true,
-        autoRefreshEnabled: false,
-        autoRefreshIntervalSeconds: DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
-        checkForUpdates: true,
-        favouriteModels: [...DEFAULT_FAVOURITE_MODELS],
-        recentRepoPaths: [],
-        contentMaxWidth: DEFAULT_CONTENT_MAX_WIDTH,
-        uiScale: DEFAULT_UI_SCALE,
-      },
-      pricing: {
-        costPerPremiumRequest: DEFAULT_COST_PER_PREMIUM_REQUEST,
-        models: [],
-      },
-      toolRendering: {
-        enabled: true,
-        toolOverrides: {},
-      },
-      features: {
-        exportView: true,
-        healthScoring: false,
-        sessionReplay: false,
-        renderMarkdown: true,
-        mcpServers: false,
-        skills: false,
-      },
-      logging: {
-        level: "info",
-      },
-    });
+    a.ui.theme = "light";
+    expect(b.ui.theme).toBe("dark");
   });
 
   it("should handle partial section overrides without overwriting other defaults in the same section", () => {
