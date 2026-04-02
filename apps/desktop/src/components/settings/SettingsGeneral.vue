@@ -43,6 +43,7 @@ const themeOptions = [
         <FormSwitch
           :model-value="preferences.hideEmptySessions"
           @update:model-value="preferences.hideEmptySessions = $event"
+          aria-label="Hide empty sessions"
         />
       </div>
 

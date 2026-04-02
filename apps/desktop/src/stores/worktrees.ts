@@ -76,6 +76,9 @@ export const useWorktreesStore = defineStore("worktrees", () => {
   const activeCount = computed(() => worktrees.value.filter((w) => w.status === "active").length);
   const staleCount = computed(() => worktrees.value.filter((w) => w.status === "stale").length);
   const lockedCount = computed(() => worktrees.value.filter((w) => w.isLocked).length);
+  const totalDiskUsage = computed(() =>
+    worktrees.value.reduce((sum, w) => sum + (w.diskUsageBytes ?? 0), 0),
+  );
 
   // ─── Disk Usage Hydration ─────────────────────────────────────────
   // Shared helper — hydrates diskUsageBytes for each worktree in `items`.
@@ -133,9 +136,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
       // This matches the Promise.allSettled pattern used by orchestrationHome,
       // configInjector, and launcher stores.
       const repos = [...registeredRepos.value];
-      const results = await Promise.allSettled(
-        repos.map((repo) => listWorktrees(repo.path)),
-      );
+      const results = await Promise.allSettled(repos.map((repo) => listWorktrees(repo.path)));
       if (!loadGuard.isValid(token)) return;
 
       const allWorktrees: WorktreeInfo[] = [];
@@ -400,6 +401,7 @@ export const useWorktreesStore = defineStore("worktrees", () => {
     activeCount,
     staleCount,
     lockedCount,
+    totalDiskUsage,
     // Worktree actions
     loadWorktrees,
     loadAllWorktrees,

@@ -46,7 +46,7 @@ function handleOpenRelease() {
             Your IP address and software version will be sent to GitHub.
           </div>
         </div>
-        <FormSwitch v-model="preferences.checkForUpdates" />
+        <FormSwitch v-model="preferences.checkForUpdates" aria-label="Check for updates on startup" />
       </div>
 
       <div class="setting-row">

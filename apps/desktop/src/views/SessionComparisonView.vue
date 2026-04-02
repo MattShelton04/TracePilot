@@ -533,7 +533,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
             <div class="chart-box-body chart-body-center">
               <EmptyState v-if="donutA.length === 0" compact message="No model data" />
               <div v-else class="donut-wrap">
-                <svg width="160" height="160" viewBox="0 0 160 160">
+                <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Donut chart showing model distribution for session A">
                   <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
                   <circle
                     v-for="(seg, i) in donutSegments(donutA)"
@@ -561,7 +561,7 @@ function exitLabel(m: ShutdownMetrics | null): string {
             <div class="chart-box-body chart-body-center">
               <EmptyState v-if="donutB.length === 0" compact message="No model data" />
               <div v-else class="donut-wrap">
-                <svg width="160" height="160" viewBox="0 0 160 160">
+                <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Donut chart showing model distribution for session B">
                   <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20" />
                   <circle
                     v-for="(seg, i) in donutSegments(donutB)"

@@ -208,7 +208,9 @@ onMounted(async () => {
   store.fetchFilterOptions();
   // Fetch initial facets (browse mode gets filter-scoped counts)
   store.fetchFacets();
-  store.fetchHealth();
+  // Defer initial health check — it drives a non-blocking indicator,
+  // so it shouldn't delay search readiness.
+  setTimeout(() => store.fetchHealth(), 0);
   // Refresh health every 5s for live progress during indexing
   healthRefreshInterval = window.setInterval(() => store.fetchHealth(), 5_000);
 
