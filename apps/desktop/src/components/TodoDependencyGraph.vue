@@ -602,6 +602,8 @@ watch(filteredTodos, () => {
             :height="viewBox.height"
             :viewBox="`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`"
             xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="Dependency graph showing todo item relationships"
           >
         <defs>
           <marker

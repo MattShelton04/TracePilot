@@ -288,6 +288,7 @@ const visibleConfigNav = computed(() =>
         <button
           class="theme-toggle"
           :aria-label="`Current theme: ${currentTheme}. Click to switch.`"
+          :aria-pressed="currentTheme === 'dark'"
           @click="toggleTheme"
         >
           <!-- Sun (shown in dark mode) -->

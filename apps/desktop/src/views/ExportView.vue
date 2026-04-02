@@ -408,6 +408,7 @@ function copiedToClipboard() {
                 <FormSwitch
                   :model-value="enabledSections.has(sectionId)"
                   @update:model-value="toggleSection(sectionId)"
+                  :aria-label="`Include ${SECTION_LABELS[sectionId]} section`"
                 />
               </div>
             </div>
@@ -425,6 +426,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="contentDetail.includeSubagentInternals"
                 @update:model-value="updateContentDetail('includeSubagentInternals', $event)"
+                aria-label="Include subagent internals"
               />
             </div>
             <div class="toggle-row">
@@ -436,6 +438,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="contentDetail.includeToolDetails"
                 @update:model-value="updateContentDetail('includeToolDetails', $event)"
+                aria-label="Include tool call details"
               />
             </div>
             <div class="toggle-row">
@@ -447,6 +450,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="contentDetail.includeFullToolResults"
                 @update:model-value="updateContentDetail('includeFullToolResults', $event)"
+                aria-label="Include full tool results"
               />
             </div>
           </section>
@@ -463,6 +467,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="redaction.anonymizePaths"
                 @update:model-value="updateRedaction('anonymizePaths', $event)"
+                aria-label="Anonymize paths"
               />
             </div>
             <div class="toggle-row">
@@ -474,6 +479,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="redaction.stripSecrets"
                 @update:model-value="updateRedaction('stripSecrets', $event)"
+                aria-label="Strip secrets"
               />
             </div>
             <div class="toggle-row">
@@ -485,6 +491,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="redaction.stripPii"
                 @update:model-value="updateRedaction('stripPii', $event)"
+                aria-label="Strip PII"
               />
             </div>
           </section>
@@ -676,6 +683,7 @@ function copiedToClipboard() {
               <FormSwitch
                 :model-value="importFlow.selectedSessions.value.includes(session.id)"
                 @update:model-value="importFlow.toggleSession(session.id)"
+                :aria-label="`Import session ${session.summary ?? session.id.slice(0, 12)}`"
               />
               <div class="import-session-info">
                 <div class="import-session-name">
