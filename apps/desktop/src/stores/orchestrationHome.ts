@@ -137,7 +137,7 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       }));
 
       // Load worktree stats from all registered repos
-      await loadWorktreeStatsFromRegistry(token);
+      await doLoadWorktreeStatsFromRegistry(token);
 
       if (loadGuard.isValid(token)) lastInitialized.value = Date.now();
     } catch (e) {
@@ -169,7 +169,7 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
     }
   }
 
-  async function loadWorktreeStatsFromRegistry(token?: AsyncGuardToken) {
+  async function doLoadWorktreeStatsFromRegistry(token?: AsyncGuardToken) {
     try {
       const repos = await listRegisteredRepos();
       if (token != null && !loadGuard.isValid(token)) return;
@@ -198,6 +198,10 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       // Non-critical - worktree stats are supplementary UI info
       logWarn("[orchestrationHome] Failed to load worktree stats from registry", e);
     }
+  }
+
+  async function loadWorktreeStatsFromRegistry() {
+    await doLoadWorktreeStatsFromRegistry();
   }
 
   return {
