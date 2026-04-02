@@ -11,10 +11,12 @@ describe("utils/errorHandler", () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {}) as unknown as ReturnType<
+      typeof vi.spyOn
+    >;
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${code}`);
-    }) as never);
+    }) as never) as unknown as ReturnType<typeof vi.spyOn>;
   });
 
   afterEach(() => {

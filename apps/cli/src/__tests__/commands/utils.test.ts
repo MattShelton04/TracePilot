@@ -27,7 +27,6 @@ vi.mock("node:readline", () => ({
   createInterface: mocked.createInterface,
 }));
 
-import { CliError } from "../../utils/errorHandler.js";
 import {
   fileExists,
   findSession,
@@ -71,14 +70,19 @@ describe("commands/utils", () => {
 
   it("requireSessionStateDir throws a user-friendly message on ENOENT", async () => {
     mocked.stat.mockRejectedValue(Object.assign(new Error("missing"), { code: "ENOENT" }));
-    await expect(requireSessionStateDir()).rejects.toThrow(CliError);
     await expect(requireSessionStateDir()).rejects.toThrow(/No Copilot session data found/);
   });
 
   it("requireSessionStateDir throws when path exists but is not a directory", async () => {
     mocked.stat.mockResolvedValue({ isDirectory: () => false });
-    await expect(requireSessionStateDir()).rejects.toThrow(CliError);
     await expect(requireSessionStateDir()).rejects.toThrow(/found a file instead/);
+  });
+
+  it("requireSessionStateDir includes reason for non-ENOENT errors", async () => {
+    mocked.stat.mockRejectedValue(new Error("permission denied"));
+    await expect(requireSessionStateDir()).rejects.toThrow(
+      /Unable to read Copilot session directory.*permission denied/,
+    );
   });
 
   it("findSession resolves unambiguous prefix match", async () => {
@@ -153,6 +157,10 @@ updated_at: 2024-01-02T04:05:06.000Z
       { type: "user.message", data: { content: "hi" } },
       { type: "assistant.message", data: { content: "ok" } },
     ]);
+    expect(mocked.createReadStream).toHaveBeenCalledWith("/tmp/events.jsonl");
+    expect(mocked.createInterface).toHaveBeenCalledWith({
+      input: expect.anything(),
+    });
   });
 
   it("fileExists returns true when stat succeeds", async () => {
