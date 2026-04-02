@@ -56,7 +56,7 @@ pub struct SearchResultsResponse {
     pub latency_ms: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchFacetsResponse {
     pub by_content_type: Vec<(String, i64)>,

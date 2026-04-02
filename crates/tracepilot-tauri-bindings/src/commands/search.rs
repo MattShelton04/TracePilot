@@ -9,9 +9,49 @@ use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
     SearchStatsResponse, SessionListItem,
 };
-use std::sync::Arc;
+use dashmap::DashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, LazyLock};
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tokio::sync::Semaphore;
+
+// ---------------------------------------------------------------------------
+// Facets TTL cache (P1 perf fix)
+// ---------------------------------------------------------------------------
+
+static FACETS_CACHE: LazyLock<DashMap<u64, (SearchFacetsResponse, Instant)>> =
+    LazyLock::new(DashMap::new);
+
+const FACETS_TTL: Duration = Duration::from_secs(60);
+
+fn facets_cache_key(
+    query: &Option<String>,
+    content_types: &Option<Vec<String>>,
+    exclude_content_types: &Option<Vec<String>>,
+    repositories: &Option<Vec<String>>,
+    tool_names: &Option<Vec<String>>,
+    session_id: &Option<String>,
+    date_from_unix: &Option<i64>,
+    date_to_unix: &Option<i64>,
+) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    query.hash(&mut hasher);
+    content_types.hash(&mut hasher);
+    exclude_content_types.hash(&mut hasher);
+    repositories.hash(&mut hasher);
+    tool_names.hash(&mut hasher);
+    session_id.hash(&mut hasher);
+    date_from_unix.hash(&mut hasher);
+    date_to_unix.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Clear the facets cache (called after reindex / rebuild operations).
+pub fn invalidate_facets_cache() {
+    FACETS_CACHE.clear();
+}
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%query))]
@@ -113,6 +153,9 @@ pub async fn reindex_sessions(
 
     let _ = app.emit("indexing-finished", ());
 
+    // Invalidate facets cache after reindex.
+    invalidate_facets_cache();
+
     // Phase 2: Kick off search content indexing in background (non-blocking).
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
         let search_permit = search_semaphore.0.clone().try_acquire_owned();
@@ -204,6 +247,9 @@ pub async fn reindex_sessions_full(
     .await;
 
     let _ = app.emit("indexing-finished", ());
+
+    // Invalidate facets cache after full reindex.
+    invalidate_facets_cache();
 
     // Phase 2: search content rebuild
     if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
@@ -342,7 +388,7 @@ pub async fn search_content(
     .await?
 }
 
-/// Get facet counts.
+/// Get facet counts (with 60-second TTL cache).
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn get_search_facets(
@@ -358,10 +404,29 @@ pub async fn get_search_facets(
 ) -> CmdResult<SearchFacetsResponse> {
     crate::validators::validate_optional_session_id(&session_id)?;
 
+    let key = facets_cache_key(
+        &query,
+        &content_types,
+        &exclude_content_types,
+        &repositories,
+        &tool_names,
+        &session_id,
+        &date_from_unix,
+        &date_to_unix,
+    );
+
+    // Return cached value if still fresh.
+    if let Some(entry) = FACETS_CACHE.get(&key) {
+        let (ref response, ts) = *entry;
+        if ts.elapsed() < FACETS_TTL {
+            return Ok(response.clone());
+        }
+    }
+
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
 
         let filters = tracepilot_indexer::SearchFilters {
@@ -386,7 +451,14 @@ pub async fn get_search_facets(
             session_count: facets.session_count,
         })
     })
-    .await?
+    .await?;
+
+    // Cache the result.
+    if let Ok(ref response) = result {
+        FACETS_CACHE.insert(key, (response.clone(), Instant::now()));
+    }
+
+    result
 }
 
 /// Get search index statistics.
@@ -486,6 +558,9 @@ pub async fn rebuild_search_index(
     .await;
 
     let success = result.as_ref().map(|r| r.is_ok()).unwrap_or(false);
+    if success {
+        invalidate_facets_cache();
+    }
     let _ = app.emit(
         "search-indexing-finished",
         serde_json::json!({"success": success}),
