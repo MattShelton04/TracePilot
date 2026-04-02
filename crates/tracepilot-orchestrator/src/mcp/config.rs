@@ -53,9 +53,9 @@ where
     F: FnOnce(&mut McpConfigFile) -> Result<T, McpError>,
 {
     let _lock = CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut config = load_config()?;
+    let mut config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
     let result = f(&mut config)?;
-    save_config_unlocked(&config)?;
+    save_config_unlocked(&config).map_err(|e| McpError::Config(e.to_string()))?;
     Ok(result)
 }
 
@@ -69,7 +69,7 @@ pub fn list_servers() -> crate::error::Result<Vec<(String, McpServerConfig)>> {
 
 /// Get a single server by name.
 pub fn get_server(name: &str) -> Result<McpServerConfig, McpError> {
-    let config = load_config()?;
+    let config = load_config().map_err(|e| McpError::Config(e.to_string()))?;
     config
         .mcp_servers
         .get(name)
