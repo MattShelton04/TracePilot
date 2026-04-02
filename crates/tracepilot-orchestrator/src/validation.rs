@@ -15,8 +15,10 @@ pub struct ValidationRules {
     pub allow_hyphen: bool,
     /// Allow underscore (_) character
     pub allow_underscore: bool,
-    /// Require first character to be alphabetic (not digit or special char)
+    /// Require first character to be alphabetic or underscore
     pub require_alpha_start: bool,
+    /// Skip the character whitelist (only check path-safety)
+    pub skip_char_whitelist: bool,
 }
 
 /// Rules for environment variable names (POSIX-style).
@@ -25,6 +27,7 @@ pub const ENV_VAR_RULES: ValidationRules = ValidationRules {
     allow_hyphen: false,
     allow_underscore: true,
     require_alpha_start: true,
+    skip_char_whitelist: false,
 };
 
 /// Rules for template IDs.
@@ -33,14 +36,17 @@ pub const TEMPLATE_ID_RULES: ValidationRules = ValidationRules {
     allow_hyphen: true,
     allow_underscore: true,
     require_alpha_start: false,
+    skip_char_whitelist: false,
 };
 
 /// Rules for skill names.
-/// Alphanumeric, hyphens, and underscores allowed, but more permissive than env vars.
+/// Only path-safety checks (no character whitelist). Matches original behavior:
+/// non-empty, no `..`, no path separators, not an absolute path.
 pub const SKILL_NAME_RULES: ValidationRules = ValidationRules {
     allow_hyphen: true,
     allow_underscore: true,
     require_alpha_start: false,
+    skip_char_whitelist: true,
 };
 
 /// Validate a string identifier against security and character rules.
@@ -62,22 +68,7 @@ pub const SKILL_NAME_RULES: ValidationRules = ValidationRules {
 /// - Rejects strings containing `..`
 /// - Rejects strings starting with `/` or `\`
 /// - Rejects absolute paths (as determined by `Path::is_absolute()`)
-///
-/// # Examples
-///
-/// ```
-/// use tracepilot_orchestrator::validation::{validate_identifier, TEMPLATE_ID_RULES};
-///
-/// // Valid template ID
-/// assert!(validate_identifier("my-template_123", TEMPLATE_ID_RULES, "Template ID").is_ok());
-///
-/// // Path traversal attempt
-/// assert!(validate_identifier("../secrets", TEMPLATE_ID_RULES, "Template ID").is_err());
-///
-/// // Empty string
-/// assert!(validate_identifier("", TEMPLATE_ID_RULES, "Template ID").is_err());
-/// ```
-pub fn validate_identifier(
+pub(crate) fn validate_identifier(
     value: &str,
     rules: ValidationRules,
     context: &str,
@@ -102,36 +93,39 @@ pub fn validate_identifier(
         return Err(format!("{context} cannot be an absolute path"));
     }
 
-    // Validate first character if required
-    if rules.require_alpha_start {
-        let first = value.bytes().next().unwrap(); // Safe because we checked is_empty
-        if !first.is_ascii_alphabetic() && first != b'_' {
+    // Character whitelist (skipped for permissive rules like skill names)
+    if !rules.skip_char_whitelist {
+        // Validate first character if required
+        if rules.require_alpha_start {
+            let first = value.bytes().next().unwrap(); // Safe because we checked is_empty
+            if !first.is_ascii_alphabetic() && first != b'_' {
+                return Err(format!(
+                    "{context} must start with a letter or underscore, got: {value}"
+                ));
+            }
+        }
+
+        // Validate all characters
+        let valid = value.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || (b == b'_' && rules.allow_underscore)
+                || (b == b'-' && rules.allow_hyphen)
+        });
+
+        if !valid {
+            let allowed_chars = format!(
+                "alphanumeric{}{}",
+                if rules.allow_hyphen { ", hyphen" } else { "" },
+                if rules.allow_underscore {
+                    ", underscore"
+                } else {
+                    ""
+                }
+            );
             return Err(format!(
-                "{context} must start with a letter or underscore, got: {value}"
+                "{context} contains invalid characters (only {allowed_chars} allowed): {value}"
             ));
         }
-    }
-
-    // Validate all characters
-    let valid = value.bytes().all(|b| {
-        b.is_ascii_alphanumeric()
-            || (b == b'_' && rules.allow_underscore)
-            || (b == b'-' && rules.allow_hyphen)
-    });
-
-    if !valid {
-        let allowed_chars = format!(
-            "alphanumeric{}{}",
-            if rules.allow_hyphen { ", hyphen" } else { "" },
-            if rules.allow_underscore {
-                ", underscore"
-            } else {
-                ""
-            }
-        );
-        return Err(format!(
-            "{context} contains invalid characters (only {allowed_chars} allowed): {value}"
-        ));
     }
 
     Ok(())
@@ -235,8 +229,8 @@ mod tests {
     }
 
     #[test]
-    fn test_space_rejected() {
-        let result = validate_identifier("my template", SKILL_NAME_RULES, "Skill name");
+    fn test_space_rejected_in_strict_rules() {
+        let result = validate_identifier("my template", TEMPLATE_ID_RULES, "Template ID");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid characters"));
     }
@@ -336,12 +330,15 @@ mod tests {
 
     #[test]
     fn test_skill_name_rules() {
-        // Valid skill names
+        // Valid skill names (permissive — only path-safety checks)
         assert!(validate_identifier("my-skill", SKILL_NAME_RULES, "Skill").is_ok());
         assert!(validate_identifier("skill_v2", SKILL_NAME_RULES, "Skill").is_ok());
         assert!(validate_identifier("skill123", SKILL_NAME_RULES, "Skill").is_ok());
+        assert!(validate_identifier("my skill", SKILL_NAME_RULES, "Skill").is_ok());
+        assert!(validate_identifier("my.skill", SKILL_NAME_RULES, "Skill").is_ok());
+        assert!(validate_identifier("my@skill", SKILL_NAME_RULES, "Skill").is_ok());
 
-        // Invalid skill names
+        // Invalid skill names (path-safety violations)
         assert!(validate_identifier("../other", SKILL_NAME_RULES, "Skill").is_err());
         assert!(validate_identifier("my/skill", SKILL_NAME_RULES, "Skill").is_err());
     }
@@ -370,9 +367,16 @@ mod tests {
     }
 
     #[test]
-    fn test_single_dot_rejected() {
-        // Single dot should be rejected (contains special char)
+    fn test_single_dot_allowed_in_permissive_rules() {
+        // Single dot is allowed in skill names (permissive)
         let result = validate_identifier(".", SKILL_NAME_RULES, "Skill");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_single_dot_rejected_in_strict_rules() {
+        // Single dot is rejected in template IDs (strict whitelist)
+        let result = validate_identifier(".", TEMPLATE_ID_RULES, "Template");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid characters"));
     }
@@ -410,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_value_in_error_message() {
-        let result = validate_identifier("bad@name", SKILL_NAME_RULES, "Skill name");
+        let result = validate_identifier("bad@name", TEMPLATE_ID_RULES, "Template ID");
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("bad@name"));

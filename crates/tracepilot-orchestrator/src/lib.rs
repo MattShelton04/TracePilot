@@ -15,7 +15,7 @@ pub mod skills;
 pub mod templates;
 pub mod tokens;
 pub mod types;
-pub mod validation;
+pub(crate) mod validation;
 pub mod version_manager;
 pub mod worktrees;
 
