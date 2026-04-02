@@ -46,9 +46,10 @@ displays results in a dedicated dashboard.
 
 ### Key Architecture Decisions
 
-1. **App-managed one-shot sessions** (Phase 1): TracePilot assembles context in Rust, launches
-   a Copilot CLI session with the task prompt injected, the agent delegates to subagents, and
-   the app reads results back. The app owns the entire lifecycle — no dual-writer complexity.
+1. **App-managed one-shot sessions** (Phase 1): TracePilot assembles context in Rust, writes
+   per-task context files and a lightweight manifest, launches a Copilot CLI orchestrator with
+   a fixed task-agnostic prompt, the orchestrator delegates to subagents, and the app reads
+   results via file-based protocol. The app owns the entire lifecycle — no dual-writer complexity.
 
 2. **Separate `tasks.db`**: A dedicated SQLite database for the task queue, isolated from
    `index.db`. Single-writer model (only the Tauri app writes).
@@ -61,6 +62,16 @@ displays results in a dedicated dashboard.
 
 5. **Phased delivery**: Phase 1 (app-managed one-shot) → Phase 2 (local HTTP API + MCP server)
    → Phase 3 (always-on orchestrator with SDK sidecar).
+
+6. **Visible detached terminal** (Phase 1): Orchestrator launches in a visible terminal window
+   using existing `spawn_detached_terminal` infrastructure — zero new process management code.
+   Survives app exit (work continues). Phase 2 adds optional hidden/attached mode.
+
+7. **Always-fresh recovery**: On orchestrator crash, always launch a fresh session with a
+   regenerated manifest (only remaining tasks). Never `--resume` (context rot risk).
+
+8. **Real-time subagent attribution**: Orchestrator uses `name: "tp-{task_id}"` naming for
+   subagents. App parses orchestrator's `events.jsonl` to track which subagent = which task.
 
 ### What TracePilot Already Has
 
@@ -502,35 +513,40 @@ User clicks "Run Tasks" (or auto-trigger fires)
 TracePilot creates job + assigns pending tasks
   │
   ▼
-For each task (or batch):
-  │
   ├── 1. Assemble context in Rust (export pipeline + indexer queries)
-  ├── 2. Write context to temp file: ~/.copilot/tracepilot/task-context/{task_id}.json
-  ├── 3. Build orchestrator prompt with task details + context references
-  ├── 4. Launch Copilot CLI session:
-  │      copilot -p "Process these N tasks. For each task, read the context file
-  │               and delegate to a subagent. Write results to
-  │               ~/.copilot/tracepilot/task-results/{task_id}.json"
-  ├── 5. Monitor session process (alive? exited? crashed?)
-  ├── 6. Watch result directory for output files
-  ├── 7. On result file detected:
-  │      - Read result
-  │      - Validate against preset's output schema
+  ├── 2. Create job directory: ~/.copilot/tracepilot/jobs/{job_id}/
+  │      Write per-task context files: jobs/{job_id}/{task_id}/context.md
+  ├── 3. Write manifest.json to jobs/{job_id}/manifest.json
+  │      (task IDs, types, titles, file paths, models — NO full context)
+  ├── 4. Launch orchestrator session with FIXED task-agnostic prompt:
+  │      copilot --interactive '{ORCHESTRATOR_PROMPT}'
+  │      (only the manifest path is interpolated — see Appendix A)
+  ├── 5. Record orchestrator session UUID + PID in Tauri managed state
+  ├── 6. Monitor orchestrator via:
+  │      - Lock file detection (inuse.*.lock — existing infrastructure)
+  │      - events.jsonl polling (subagent attribution — see §10.2)
+  │      - Result directory watching (status.json + result.json files)
+  ├── 7. On status file detected (jobs/{job_id}/{task_id}/status.json):
+  │      - Read status + result files
+  │      - Validate result against preset's output schema
   │      - Update task in tasks.db (Done/Failed + result)
   │      - Emit Tauri event: "task-completed"
-  ├── 8. On session exit:
-  │      - Mark remaining claimed tasks as Failed (if no result)
-  │      - Update job status
-  │      - Clean up temp context files
+  ├── 8. On orchestrator exit (lock file gone + stale events.jsonl):
+  │      - Check for tasks still in_progress without status files → back to pending
+  │      - Update job status (completed / failed)
+  │      - Trigger recovery if retry budget remains (see §7.5)
   │      - Emit event: "orchestrator-finished"
   └── 9. Dashboard updates via event listener
 ```
 
 **Why this works well:**
-- App assembles context in Rust using the full export pipeline — no bridge needed
-- Single writer to tasks.db (the app) — agent never touches the DB
-- File-based result delivery is simple and debuggable
-- Session process monitoring uses existing OS process APIs
+- **Task-agnostic orchestrator**: The prompt is always the same template — task details live
+  in the manifest and context files. New task types need zero orchestrator changes.
+- **Context isolation**: Orchestrator reads only the lightweight manifest (task IDs, paths).
+  Each subagent reads only its own context file in a fresh context window. No cross-contamination.
+- **Single writer to tasks.db**: Only the app writes — agent communicates entirely via files.
+- **Existing infrastructure**: Lock file detection, events.jsonl parsing, and polling are
+  already implemented in TracePilot. Minimal new code required.
 
 **Accepted limitation:** Tasks cannot be processed when the app is closed. This is inherent
 to the single-writer model and acceptable since context assembly requires the Rust backend.
@@ -573,19 +589,108 @@ Long-running orchestrator using the Copilot SDK (Node.js sidecar process):
 **This is experimental and depends on SDK maturity.** The reliability concerns (context
 compaction, idle timeouts, no native sleep primitive) make this unsuitable for Phase 1.
 
-### 7.4 Orchestrator Recovery
+### 7.4 Orchestrator Lifecycle & Process Model
 
-If an orchestrator crashes or times out:
+#### How It Launches
+
+The orchestrator is a standard Copilot CLI session launched via the existing
+`spawn_detached_terminal` infrastructure. On Windows this means a `PowerShell -NoExit
+-EncodedCommand` window; on macOS, a new Terminal.app window via `osascript`; on Linux, a
+detected terminal emulator. The session is **visible** and **detached** from the app's job
+object (intentionally survives app exit).
 
 ```
-1. App detects: process exited OR no progress update for 2× lease timeout
-2. App marks job as 'failed'
-3. All claimed/in-progress tasks with expired leases → back to 'pending'
-4. If auto_run is enabled: relaunch after cooldown (30s)
-5. New orchestrator picks up remaining tasks from queue
-6. Max auto-restart: 3 per job (prevent infinite crash loops)
-7. After 3 failures: job → 'failed', remaining tasks → 'dead_letter'
+App creates LaunchConfig {
+    prompt:    ORCHESTRATOR_PROMPT (with manifest_path interpolated),
+    model:     config.orchestrator_model,
+    headless:  false,        // Phase 1: visible terminal
+    auto_approve: true,      // --allow-all for unattended operation
+    env_vars:  { "TRACEPILOT_JOB_ID": job_id },
+    ...
+}
+  │
+  └──→ launcher::launch_session(config) → spawn_detached_terminal(...)
+        │
+        └──→ Returns LaunchedSession { pid, ... }
+              App stores: orchestrator_session_uuid + pid in Tauri managed state
 ```
+
+#### Why Visible Terminal (Phase 1)
+
+1. **Zero new code** — uses the exact same launch path as user-initiated sessions
+2. **Debuggable** — user can see the orchestrator working, inspect errors live
+3. **Proven reliability** — the three-tier Windows spawn strategy is battle-tested
+4. The terminal title is set to "Copilot Session" (customisable to "TracePilot Orchestrator")
+
+#### App Attachment & Shutdown Behaviour
+
+| Phase | Behaviour | On App Exit |
+|-------|-----------|-------------|
+| **Phase 1** | Detached (survives app exit) | Orchestrator finishes work. App picks up results on next launch. |
+| **Phase 2** | Optionally attached via process registry | User configurable: "Kill on exit" vs "Let finish" |
+
+Phase 1 detachment is actually a **feature**: if the user restarts the app mid-job, the
+orchestrator keeps writing result files. On app restart, the job recovery logic (§7.5) picks
+up where it left off — reads any result files that appeared while the app was closed.
+
+#### Orchestrator Session Identification
+
+The app identifies the orchestrator session by:
+1. **PID tracking** (immediate): stored in Tauri managed state on launch
+2. **Lock file detection** (robust): `inuse.*.lock` in the session directory
+3. **Session UUID matching**: app records the orchestrator's session UUID for targeted
+   events.jsonl parsing
+4. **Marker file** (Phase 2): write `.tracepilot-orchestrator` in session dir so the indexer
+   can tag it as `session_type = 'orchestrator'`
+
+#### `headless` Field (Phase 2)
+
+`LaunchConfig.headless` exists in `types.rs` but is currently **unused in the launcher**.
+Phase 2 will implement it using `run_hidden` (Windows: `CREATE_NO_WINDOW`, macOS/Linux:
+no-terminal spawn) with a retained `Child` handle for lifecycle management. This enables
+background orchestration without a visible terminal window.
+
+### 7.5 Orchestrator Recovery
+
+**Always start fresh. Never resume.**
+
+| Approach | Context Rot Risk | Complexity | Recommendation |
+|----------|-----------------|------------|----------------|
+| `--resume` | High (full history loaded) | Low (one flag) | ❌ Not for orchestrator |
+| Fresh session | None (clean manifest) | Medium (regenerate manifest) | ✅ Recommended |
+| Hybrid (resume until size limit) | Medium | High (size tracking) | ❌ Over-engineered |
+
+#### Recovery Flow
+
+```
+App detects orchestrator stopped
+  (lock file gone + events.jsonl stale for >60s)
+  │
+  ├── 1. Check: any tasks still PENDING or IN_PROGRESS for this job?
+  │    └── No → Job completed normally. Update status. Done.
+  │
+  ├── 2. Check: tasks IN_PROGRESS without status files?
+  │    └── Yes → Reset to PENDING (crash during processing)
+  │
+  ├── 3. Check retry budget: attempt_count < max_retries (default: 3)?
+  │    ├── Yes → Generate NEW manifest with ONLY remaining tasks
+  │    │         Launch FRESH orchestrator session
+  │    │         Increment job attempt counter
+  │    │
+  │    └── No  → Job → 'failed'
+  │              Remaining tasks → 'dead_letter'
+  │              Emit "job-failed" event
+  │
+  └── 4. Old orchestrator session preserved for debugging/auditing
+```
+
+**Why always fresh?**
+1. A resumed session inherits the entire conversation history — with many completed tasks,
+   this leads to severe context rot for the remaining tasks
+2. Fresh session with a regenerated manifest containing only remaining tasks gives the
+   orchestrator a clean, focused context
+3. No state reconciliation needed — the app is the single source of truth for task status
+4. Old sessions are preserved as audit trail, not discarded
 
 ---
 
@@ -602,32 +707,59 @@ communicate with the running Tauri app:
 
 ### The Solution: File-Based Protocol (Phase 1)
 
-Since the app manages the full lifecycle, communication is file-based:
+Since the app manages the full lifecycle, communication is file-based with a per-job directory
+structure:
 
 ```
-App → Agent:  Context files at ~/.copilot/tracepilot/task-context/{task_id}.json
-Agent → App:  Result files at ~/.copilot/tracepilot/task-results/{task_id}.json
-App → Agent:  Task manifest at ~/.copilot/tracepilot/task-manifest.json (list of tasks)
+~/.copilot/tracepilot/jobs/{job_id}/
+  manifest.json               ← App writes (task list + file paths)
+  {task_id}/
+    context.md                ← App writes (full prompt + context data)
+    result.json               ← Orchestrator writes (task output)
+    status.json               ← Orchestrator writes (completion status)
+```
+
+**Data flow:**
+```
+App → Agent:  manifest.json (lightweight: task IDs, paths, models, titles)
+App → Agent:  Per-task context files (full prompt + exported data)
+Agent → App:  Per-task status files (completion/failure notification)
+Agent → App:  Per-task result files (structured output)
+App reads:    Orchestrator's events.jsonl (subagent attribution — see §10.2)
 ```
 
 **Task manifest** (written by app before launching orchestrator):
 ```json
 {
   "job_id": "job-abc-123",
+  "created_at": "2026-04-02T10:00:00Z",
+  "max_parallel": 3,
   "tasks": [
     {
       "id": "task-001",
       "type": "session_summary",
-      "context_file": "~/.copilot/tracepilot/task-context/task-001.json",
-      "result_file": "~/.copilot/tracepilot/task-results/task-001.json",
-      "output_schema": { ... },
-      "prompt": "Summarise this session focusing on key decisions and outcomes."
+      "title": "Summarise session abc-123",
+      "context_file": "~/.copilot/tracepilot/jobs/job-abc-123/task-001/context.md",
+      "result_file": "~/.copilot/tracepilot/jobs/job-abc-123/task-001/result.json",
+      "status_file": "~/.copilot/tracepilot/jobs/job-abc-123/task-001/status.json",
+      "model": "claude-haiku-4.5",
+      "priority": 1
     }
   ]
 }
 ```
 
-**Result file format** (written by agent/subagent):
+**Status file format** (written by orchestrator after each subagent completes):
+```json
+{
+  "task_id": "task-001",
+  "status": "completed",
+  "summary": "Generated 850-word session summary covering 3 key decisions.",
+  "completed_at": "2026-04-02T10:05:30Z"
+}
+```
+
+**Result file format** (written by orchestrator with subagent output):
 ```json
 {
   "task_id": "task-001",
@@ -635,10 +767,61 @@ App → Agent:  Task manifest at ~/.copilot/tracepilot/task-manifest.json (list 
   "result": { "summary": "...", "key_decisions": [...] },
   "error": null,
   "model_used": "claude-haiku-4.5",
-  "tokens_used": 1234,
-  "completed_at": "2026-04-02T10:30:00Z"
+  "completed_at": "2026-04-02T10:05:30Z"
 }
 ```
+
+### Context Flow: Avoiding Context Rot
+
+The most important design property: **the orchestrator never loads full task context**.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ TracePilot App (Rust)                                            │
+│                                                                  │
+│  Assembles ALL context in Rust (export pipeline + indexer)        │
+│  Writes per-task context files to: jobs/{job_id}/{task_id}/      │
+│  Writes manifest.json (lightweight: IDs, paths, models)          │
+│  Launches orchestrator with FIXED prompt → manifest path only    │
+└──────────────────┬───────────────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Orchestrator (root agent — minimal context)                      │
+│                                                                  │
+│  Context window contains: system prompt + manifest (lightweight) │
+│  Reads manifest.json: task IDs, file paths, models, titles       │
+│  Does NOT read context files itself (avoids context bloat)       │
+│                                                                  │
+│  For each task:                                                  │
+│    Spawns subagent with:                                         │
+│      name: "tp-{task_id}"                                        │
+│      prompt: "Read the context file at {path}. Follow the        │
+│               instructions within it. Return your result as      │
+│               valid JSON matching the output schema."            │
+│    Writes result.json + status.json after subagent returns       │
+│                                                                  │
+│  Accumulates only: task ID + one-line summary per completed task │
+└──────────────────┬───────────────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Subagent (per task — fresh context window)                       │
+│                                                                  │
+│  Receives: instruction to read context file + return JSON        │
+│  Reads its own context.md (full prompt + exported session data)  │
+│  Does the work (summarise, analyse, review, etc.)                │
+│  Returns structured result to orchestrator                       │
+│                                                                  │
+│  Context is ISOLATED: no other task's data, no history           │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Why this prevents context rot:**
+- Orchestrator holds ~2KB per task (ID + title + file path + one-line summary)
+- 50 tasks = ~100KB in orchestrator context — well within limits
+- Each subagent starts fresh with only its own task data
+- No cross-contamination between tasks, no accumulation of prior results
 
 **Atomic file writes:** Subagents MUST write results to `{task_id}.json.tmp` then rename to
 `{task_id}.json`. This prevents the app from reading a half-written file. The orchestrator
@@ -731,17 +914,72 @@ Phase 2 can add `tiktoken-rs` for precise token counting if users report issues.
 
 ### 10.1 Phase 1: Process Monitoring + File Watching
 
-Since the app launches the orchestrator as a child process:
+Since the app launches the orchestrator as a detached terminal:
 
 ```
 App monitors:
-  1. Process alive? (check PID periodically)
-  2. Result files appearing in task-results/ directory
-  3. Time since last result (detect stalls)
+  1. Lock file? (inuse.*.lock in orchestrator session dir — existing infra)
+  2. events.jsonl freshness (existing freshness check infra)
+  3. Status files appearing in jobs/{job_id}/{task_id}/status.json
+  4. Time since last status file (detect stalls)
 ```
 
 **Progress granularity:** Per-task (done/not done). No intra-task progress in Phase 1.
-Dashboard shows: "5 of 12 tasks completed" based on result file count.
+Dashboard shows: "5 of 12 tasks completed" based on status file count.
+
+### 10.2 Subagent-to-Task Attribution (Real-Time)
+
+TracePilot can track which subagent is working on which task **in real time** using existing
+event parsing infrastructure. This is possible because Copilot CLI writes structured events
+to `events.jsonl` for every subagent lifecycle action.
+
+**Event chain when orchestrator delegates a task:**
+
+```
+1. tool.execution_start
+   toolName: "task"
+   toolCallId: "tc_abc123"
+   arguments: {
+     name: "tp-task-001",            ← naming convention links to task ID
+     description: "TracePilot task task-001: Summarise session abc-123",
+     agent_type: "general-purpose",
+     prompt: "Read the context file at ..."
+   }
+
+2. subagent.started
+   toolCallId: "tc_abc123"           ← same toolCallId links them
+   agentName: "tp-task-001"
+   agentDisplayName: "tp-task-001"
+
+3. subagent.completed (or subagent.failed)
+   toolCallId: "tc_abc123"
+   agentName: "tp-task-001"
+```
+
+**How the app tracks this:**
+
+1. App knows the orchestrator's session UUID (stored on launch)
+2. App polls the orchestrator's `events.jsonl` for new events (existing `has_recent_activity`
+   pattern, or tail the file)
+3. Parse `tool.execution_start` events where `toolName == "task"` and `arguments.name` starts
+   with `"tp-"`
+4. Extract task ID: `"tp-task-001"` → `"task-001"`
+5. Map subagent lifecycle events to task progress:
+   - `tool.execution_start` → task RUNNING (subagent spawning)
+   - `subagent.started` → task RUNNING (subagent active)
+   - `subagent.completed` → task COMPLETING (awaiting result file)
+   - `subagent.failed` → task FAILED
+6. Update task status in tasks.db + emit Tauri events for live dashboard updates
+
+**Existing infrastructure used:**
+- `SubagentStartedData`, `SubagentCompletedData`, `SubagentFailedData` structs in
+  `tracepilot-core::models::event_types::agent_data`
+- `ToolExecStartData` with `arguments: serde_json::Value` in `tool_execution_data`
+- Turn reconstructor already links subagents to tool calls via `toolCallId`
+- IPC display uses `arguments.description` for task tool calls
+
+**Critical naming convention:** The orchestrator prompt (Appendix A) MUST instruct it to use
+`name: "tp-{task_id}"` for every subagent. This is the sole attribution mechanism.
 
 ### 10.2 Phase 2: HTTP Heartbeat + Session Tapping
 
@@ -1178,67 +1416,156 @@ Task results (from LLM) are rendered in the Tauri webview. Defences:
 
 ## Appendix A: Orchestrator Prompt Template
 
-This is the most critical contract in the system — how the app instructs the orchestrator
-agent. The app injects this prompt when launching the one-shot session:
+This is the most critical contract in the system — the exact prompt the app injects when
+launching the orchestrator session. It is **task-agnostic** by design: only the manifest path
+changes between invocations. All task-specific details live in the manifest and context files.
+
+The app generates this by interpolating `{{manifest_path}}` and `{{max_parallel}}` into the
+template. The orchestrator never needs to be "told" about specific task types.
 
 ```
-You are a TracePilot task orchestrator. Your job is to process the tasks listed in the
-task manifest file.
+You are the TracePilot Task Orchestrator.
 
-## Task Manifest
+## About TracePilot
 
-Read the task manifest at: {{manifest_path}}
+TracePilot is a desktop application that visualises and analyses GitHub Copilot CLI sessions.
+It indexes session data, provides analytics, and supports automated task processing through
+you — an orchestrator agent that delegates work to independent subagents.
 
-The manifest contains a list of tasks. For each task:
+## Your Role
 
-1. Read the context file specified in the task entry
-2. Delegate the task to a subagent with:
-   - The task's prompt (from the manifest)
-   - The context content (from the context file)
-   - The output schema (from the manifest) — instruct the subagent to return valid JSON
-     matching the schema
-3. Write the result to the result file path specified in the manifest
-4. Move on to the next task
+You process a batch of tasks defined in a task manifest file. Each task has a context file
+containing the full prompt and all necessary data, and designated output files for results.
+You delegate each task to an independent subagent, then write the result and status files.
 
-## Result File Protocol
+You work FULLY AUTONOMOUSLY — do NOT ask for user input. Do NOT modify any source code,
+repository files, or configuration. Your only job is to read the manifest, delegate tasks
+to subagents, and write result/status files.
 
-CRITICAL: For each task, write the result as follows:
-1. First write to: {result_path}.tmp
-2. Then rename to: {result_path}
+## Step 1: Read the Manifest
 
-This atomic write prevents the TracePilot app from reading partial files.
+Read the task manifest file at: {{manifest_path}}
 
-Result file format:
-```json
+The manifest is a JSON file with this structure:
+{
+  "job_id": "job-abc-123",
+  "created_at": "2026-04-02T10:00:00Z",
+  "max_parallel": 3,
+  "tasks": [
+    {
+      "id": "task-001",
+      "type": "session_summary",
+      "title": "Summarise session abc-123",
+      "context_file": "/absolute/path/to/context.md",
+      "result_file": "/absolute/path/to/result.json",
+      "status_file": "/absolute/path/to/status.json",
+      "model": "claude-haiku-4.5",
+      "priority": 1
+    }
+  ]
+}
+
+## Step 2: Process Tasks
+
+For each task, ordered by priority (lowest number = highest priority):
+
+1. Read the task's context_file. It contains EVERYTHING the subagent needs:
+   - A system prompt (role and persona)
+   - A user prompt (the actual task instructions)
+   - All context data (session exports, analytics, etc.)
+   - An output schema (the expected JSON structure for the result)
+
+2. Delegate to a subagent using the task tool:
+   - name: "tp-{task_id}"  ← CRITICAL: use this EXACT naming pattern
+   - description: "TracePilot task {task_id}: {title}"
+   - agent_type: "general-purpose"
+   - model: The model specified in the task entry
+   - prompt: Include the FULL contents of the context_file, PLUS this instruction at the end:
+     "Return your result as valid JSON matching the output schema provided in the context.
+      Do NOT wrap in markdown code blocks. Return raw JSON only."
+
+3. After the subagent completes successfully, write the RESULT FILE:
+   a. Create the content as JSON (see Result File Format below)
+   b. Write to: {result_file}.tmp
+   c. Rename: {result_file}.tmp → {result_file}
+
+4. Write the STATUS FILE:
+   a. Create the content as JSON (see Status File Format below)
+   b. Write to: {status_file}.tmp
+   c. Rename: {status_file}.tmp → {status_file}
+
+5. Continue to the next task.
+
+## Result File Format
+
+On success:
+{
+  "task_id": "<task id from manifest>",
+  "status": "success",
+  "result": <the subagent's JSON output>,
+  "error": null,
+  "model_used": "<model that processed this task>",
+  "completed_at": "<current ISO 8601 timestamp>"
+}
+
+On failure:
+{
+  "task_id": "<task id from manifest>",
+  "status": "error",
+  "result": null,
+  "error": "<description of what went wrong>",
+  "model_used": "<model>",
+  "completed_at": "<current ISO 8601 timestamp>"
+}
+
+## Status File Format
+
+On success:
 {
   "task_id": "<task id>",
-  "status": "success" | "error",
-  "result": { <structured result matching output schema> },
-  "error": "<error message if status is error, null otherwise>",
-  "model_used": "<model that processed this>",
-  "completed_at": "<ISO 8601 timestamp>"
+  "status": "completed",
+  "summary": "<brief one-line summary of the result>"
 }
-```
+
+On failure:
+{
+  "task_id": "<task id>",
+  "status": "failed",
+  "error": "<brief error description>"
+}
+
+## Parallelism
+
+Process up to {{max_parallel}} tasks concurrently using background subagents
+(mode: "background"). Use read_agent to collect results. Do NOT exceed the concurrency limit.
 
 ## Rules
 
-- Process tasks in the order listed in the manifest
-- If a task fails, write an error result (don't skip it silently)
-- Each task gets its own subagent with a fresh context window
-- Respect the output schema — instruct subagents to return valid JSON
-- Do not modify context files or the manifest
-- When all tasks are processed, report a summary and exit
+1. Do NOT modify context files, the manifest, or any repository/source files.
+2. Do NOT ask for user input — work fully autonomously.
+3. If a task fails, write an error result and status file — do NOT skip it silently.
+4. Each task MUST get its own subagent with a fresh context window.
+5. ALWAYS use the naming convention: name "tp-{task_id}" for every subagent.
+   The TracePilot app uses this to track which subagent is working on which task.
+6. ALWAYS write files atomically: write to .tmp first, then rename to final path.
+7. When all tasks are processed, output a summary line and exit.
 
-## Subagent Instructions Template
+## Completion
 
-When delegating to a subagent, provide:
-- System prompt: The preset's system prompt (from context file)
-- User prompt: The preset's user prompt + the context content
-- Final instruction: "Return your result as valid JSON matching this schema: {schema}"
+After all tasks are processed, output:
+"TracePilot job {job_id}: {success_count}/{total} tasks succeeded, {fail_count} failed."
+Then exit.
 ```
 
-**This prompt is generated dynamically** by the Rust backend with `{{manifest_path}}` filled
-in. The manifest file contains all task-specific details (prompts, context paths, schemas).
+### Template Variables
+
+| Variable | Source | Example |
+|----------|--------|---------|
+| `{{manifest_path}}` | Absolute path to manifest.json | `~/.copilot/tracepilot/jobs/job-abc-123/manifest.json` |
+| `{{max_parallel}}` | From `config.toml → orchestrator.max_parallel_tasks` | `3` |
+
+The Rust backend generates this prompt by string-replacing the two template variables.
+Everything else is static — the prompt is **identical** regardless of task types or count.
 
 ---
 
@@ -1286,10 +1613,12 @@ WHERE status = 'failed'
 
 | File Type | Location | Retention |
 |-----------|----------|-----------|
-| Context files | `task-context/` | Deleted after orchestrator session exits |
-| Result files | `task-results/` | Deleted after app reads and stores in DB |
-| Task manifest | `task-manifest.json` | Deleted after orchestrator session exits |
-| Orphan files (crash) | Both dirs | Cleaned on app startup (delete files older than 1 hour) |
+| Context files | `jobs/{job_id}/{task_id}/context.md` | Deleted after job completes or fails |
+| Result files | `jobs/{job_id}/{task_id}/result.json` | Deleted after app reads and stores in DB |
+| Status files | `jobs/{job_id}/{task_id}/status.json` | Deleted after app reads and processes |
+| Task manifest | `jobs/{job_id}/manifest.json` | Deleted after job completes or fails |
+| Job directory | `jobs/{job_id}/` | Deleted entirely after all files processed |
+| Orphan jobs (crash) | `jobs/` | Cleaned on app startup (delete job dirs older than 1 hour with no active orchestrator) |
 
 **DB retention:** Completed/failed tasks kept for 30 days. Dead letter tasks kept for 90 days.
 User can configure retention in settings. Cleanup runs on app startup.
