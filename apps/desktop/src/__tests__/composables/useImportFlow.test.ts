@@ -358,6 +358,26 @@ describe("useImportFlow", () => {
       expect(flow.error.value).toBe("raw string error");
     });
 
+    it("surfaces object-shaped validation errors", async () => {
+      mockPreviewImport.mockRejectedValue({ message: "Serialized validation error" });
+
+      const flow = mountImportFlow();
+      flow.filePath.value = "/file.json";
+      await flow.validateFile();
+
+      expect(flow.error.value).toBe("Serialized validation error");
+    });
+
+    it("falls back for nullish validation errors", async () => {
+      mockPreviewImport.mockRejectedValue(undefined);
+
+      const flow = mountImportFlow();
+      flow.filePath.value = "/file.json";
+      await flow.validateFile();
+
+      expect(flow.error.value).toBe("Unknown error");
+    });
+
     it("discards stale responses from rapid file selections", async () => {
       const firstDeferred = createDeferred<ImportPreviewResult>();
       const secondDeferred = createDeferred<ImportPreviewResult>();
@@ -395,6 +415,32 @@ describe("useImportFlow", () => {
 
       // Only the second (latest) result should be applied
       expect(flow.selectedSessions.value).toEqual(["new"]);
+    });
+
+    it("discards stale validation errors when a newer request succeeds", async () => {
+      const firstDeferred = createDeferred<ImportPreviewResult>();
+      const secondDeferred = createDeferred<ImportPreviewResult>();
+
+      mockPreviewImport
+        .mockReturnValueOnce(firstDeferred.promise)
+        .mockReturnValueOnce(secondDeferred.promise);
+
+      const flow = mountImportFlow();
+      flow.filePath.value = "/first.json";
+      const first = flow.validateFile();
+
+      flow.filePath.value = "/second.json";
+      const second = flow.validateFile();
+
+      secondDeferred.resolve(makePreviewResult());
+      await second;
+
+      firstDeferred.reject(new Error("Stale validation error"));
+      await first;
+
+      expect(flow.step.value).toBe("review");
+      expect(flow.error.value).toBeNull();
+      expect(flow.selectedSessions.value).toEqual(["sess-1", "sess-2"]);
     });
   });
 
@@ -440,6 +486,16 @@ describe("useImportFlow", () => {
       expect(flow.step.value).toBe("review");
       expect(flow.error.value).toBe("Disk full");
       expect(flow.importProgress.value).toBe(0);
+    });
+
+    it("surfaces object-shaped import errors", async () => {
+      const flow = await setupForImport();
+      mockImportSessions.mockRejectedValue({ message: "Serialized import error" });
+
+      await flow.executeImport();
+
+      expect(flow.step.value).toBe("review");
+      expect(flow.error.value).toBe("Serialized import error");
     });
 
     it("passes conflict strategy and selected sessions to backend", async () => {

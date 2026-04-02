@@ -11,7 +11,9 @@ import type {
   RedactionOptions,
   SectionId,
 } from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
 import { type ComputedRef, onUnmounted, type Ref, ref, watch } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError } from "@/utils/logger";
 
 const DEBOUNCE_MS = 400;
@@ -28,17 +30,23 @@ export function useExportPreview(
   const error = ref<string | null>(null);
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let requestId = 0;
+  const guard = useAsyncGuard();
+
+  function clearPreviewState() {
+    guard.invalidate();
+    loading.value = false;
+    preview.value = null;
+    error.value = null;
+  }
 
   async function fetchPreview() {
     const sid = sessionId.value;
     if (!sid) {
-      preview.value = null;
-      error.value = null;
+      clearPreviewState();
       return;
     }
 
-    const thisRequest = ++requestId;
+    const token = guard.start();
     loading.value = true;
     error.value = null;
 
@@ -52,16 +60,16 @@ export function useExportPreview(
       });
 
       // Guard against stale responses
-      if (thisRequest !== requestId) return;
+      if (!guard.isValid(token)) return;
 
       preview.value = result;
     } catch (err) {
-      if (thisRequest !== requestId) return;
+      if (!guard.isValid(token)) return;
       logError("[export] Preview failed:", err);
-      error.value = err instanceof Error ? err.message : String(err);
+      error.value = toErrorMessage(err);
       preview.value = null;
     } finally {
-      if (thisRequest === requestId) {
+      if (guard.isValid(token)) {
         loading.value = false;
       }
     }
@@ -69,6 +77,10 @@ export function useExportPreview(
 
   function scheduleFetch() {
     if (debounceTimer) clearTimeout(debounceTimer);
+    if (!sessionId.value) {
+      clearPreviewState();
+      return;
+    }
     debounceTimer = setTimeout(fetchPreview, DEBOUNCE_MS);
   }
 
@@ -79,7 +91,7 @@ export function useExportPreview(
 
   onUnmounted(() => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    requestId++; // Invalidate any in-flight request
+    guard.invalidate();
   });
 
   return { preview, loading, error, refresh: fetchPreview };

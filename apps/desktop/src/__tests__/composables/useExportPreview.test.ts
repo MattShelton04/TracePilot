@@ -194,6 +194,34 @@ describe("useExportPreview", () => {
     expect(error.value).toBe("string error");
   });
 
+  it("surfaces object-shaped error messages", async () => {
+    const refs = createRefs();
+    mockPreviewExport.mockRejectedValue({ message: "Serialized preview error" });
+
+    const { error } = useExportPreview(refs.sessionId, refs.format, refs.sections);
+
+    refs.sessionId.value = "sess-1";
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+
+    expect(error.value).toBe("Serialized preview error");
+  });
+
+  it("falls back for nullish rejections", async () => {
+    const refs = createRefs();
+    mockPreviewExport.mockRejectedValue(null);
+
+    const { error } = useExportPreview(refs.sessionId, refs.format, refs.sections);
+
+    refs.sessionId.value = "sess-1";
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await vi.runAllTimersAsync();
+
+    expect(error.value).toBe("Unknown error");
+  });
+
   // ── Stale Response Handling ────────────────────────────────
 
   it("discards stale responses when inputs change rapidly", async () => {
@@ -229,6 +257,37 @@ describe("useExportPreview", () => {
 
     // Only the latest result should be used
     expect(preview.value?.content).toBe("Second");
+  });
+
+  it("discards stale errors when a newer request succeeds", async () => {
+    const refs = createRefs();
+    const firstDeferred = createDeferred<ExportPreviewResult>();
+    const secondDeferred = createDeferred<ExportPreviewResult>();
+
+    mockPreviewExport
+      .mockReturnValueOnce(firstDeferred.promise)
+      .mockReturnValueOnce(secondDeferred.promise);
+
+    const { preview, error } = useExportPreview(refs.sessionId, refs.format, refs.sections);
+
+    refs.sessionId.value = "sess-1";
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await nextTick();
+
+    refs.format.value = "markdown";
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await nextTick();
+
+    secondDeferred.resolve(makePreviewResult("Fresh"));
+    await vi.runAllTimersAsync();
+
+    firstDeferred.reject(new Error("Stale failure"));
+    await vi.runAllTimersAsync();
+
+    expect(preview.value?.content).toBe("Fresh");
+    expect(error.value).toBeNull();
   });
 
   // ── Reactivity to Detail/Redaction Changes ──────────────────
@@ -356,5 +415,35 @@ describe("useExportPreview", () => {
 
     // Preview should not be updated after unmount
     expect(preview.value).toBeNull();
+  });
+
+  it("clears preview and invalidates in-flight requests when sessionId is cleared", async () => {
+    const refs = createRefs();
+    const previewDeferred = createDeferred<ExportPreviewResult>();
+    mockPreviewExport.mockReturnValue(previewDeferred.promise);
+
+    const { preview, loading, error } = useExportPreview(
+      refs.sessionId,
+      refs.format,
+      refs.sections,
+    );
+
+    refs.sessionId.value = "sess-1";
+    await nextTick();
+    vi.advanceTimersByTime(400);
+    await nextTick();
+
+    refs.sessionId.value = "";
+    await nextTick();
+
+    expect(preview.value).toBeNull();
+    expect(error.value).toBeNull();
+    expect(loading.value).toBe(false);
+
+    previewDeferred.resolve(makePreviewResult("Stale"));
+    await vi.runAllTimersAsync();
+
+    expect(preview.value).toBeNull();
+    expect(error.value).toBeNull();
   });
 });

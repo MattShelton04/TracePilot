@@ -6,7 +6,9 @@
 
 import { importSessions, previewImport } from "@tracepilot/client";
 import type { ConflictStrategy, ImportPreviewResult, ImportResult } from "@tracepilot/types";
+import { toErrorMessage } from "@tracepilot/ui";
 import { type ComputedRef, computed, onBeforeUnmount, type Ref, ref } from "vue";
+import { useAsyncGuard } from "@/composables/useAsyncGuard";
 import { logError, logInfo } from "@/utils/logger";
 
 // ── Step Type ──────────────────────────────────────────────────
@@ -75,7 +77,7 @@ export function useImportFlow(): ImportFlowState {
 
   // Timer and request tracking
   let activeProgressTimer: ReturnType<typeof setInterval> | null = null;
-  let validateRequestId = 0;
+  const validateGuard = useAsyncGuard();
 
   // ── Computed ──
 
@@ -140,7 +142,7 @@ export function useImportFlow(): ImportFlowState {
   async function validateFile(): Promise<void> {
     if (!filePath.value) return;
 
-    const thisRequest = ++validateRequestId;
+    const token = validateGuard.start();
     step.value = "validating";
     error.value = null;
     preview.value = null;
@@ -149,7 +151,7 @@ export function useImportFlow(): ImportFlowState {
       const result = await previewImport(filePath.value);
 
       // Guard against stale responses from rapid file selections
-      if (thisRequest !== validateRequestId) return;
+      if (!validateGuard.isValid(token)) return;
 
       preview.value = result;
 
@@ -160,8 +162,8 @@ export function useImportFlow(): ImportFlowState {
         `[useImportFlow] Validated ${result.sessions.length} session(s) from ${fileName.value}`,
       );
     } catch (e) {
-      if (thisRequest !== validateRequestId) return;
-      const msg = e instanceof Error ? e.message : String(e);
+      if (!validateGuard.isValid(token)) return;
+      const msg = toErrorMessage(e);
       error.value = msg;
       step.value = "select";
       logError("[useImportFlow] Validation failed:", msg);
@@ -205,7 +207,7 @@ export function useImportFlow(): ImportFlowState {
       );
     } catch (e) {
       clearProgressTimer();
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = toErrorMessage(e);
       error.value = msg;
       importProgress.value = 0;
       step.value = "review";
@@ -215,7 +217,7 @@ export function useImportFlow(): ImportFlowState {
 
   function reset(): void {
     clearProgressTimer();
-    validateRequestId++;
+    validateGuard.invalidate();
     step.value = "select";
     filePath.value = "";
     fileName.value = "";
@@ -242,7 +244,7 @@ export function useImportFlow(): ImportFlowState {
   // Prevent timer leaks when the consuming component unmounts mid-import.
   onBeforeUnmount(() => {
     clearProgressTimer();
-    validateRequestId++; // invalidate any in-flight validation
+    validateGuard.invalidate();
   });
 
   return {
