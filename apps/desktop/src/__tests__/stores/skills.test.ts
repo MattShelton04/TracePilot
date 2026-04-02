@@ -3,6 +3,7 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSkillsStore } from "../../stores/skills";
+import { createDeferred } from "../helpers/deferred";
 
 // ── Mock client functions ──────────────────────────────────────
 const mockSkillsListAll = vi.fn();
@@ -112,7 +113,11 @@ const FIXTURE_IMPORT_RESULT: SkillImportResult = {
   filesCopied: 3,
 };
 
-const ALL_SUMMARIES: SkillSummary[] = [FIXTURE_SUMMARY, FIXTURE_SUMMARY_REPO, FIXTURE_SUMMARY_DISABLED];
+const ALL_SUMMARIES: SkillSummary[] = [
+  FIXTURE_SUMMARY,
+  FIXTURE_SUMMARY_REPO,
+  FIXTURE_SUMMARY_DISABLED,
+];
 
 // ── Helpers ────────────────────────────────────────────────────
 function allMocks() {
@@ -224,12 +229,9 @@ describe("useSkillsStore", () => {
     });
 
     it("discards stale response when newer load is in progress", async () => {
-      let resolveFirst!: (v: SkillSummary[]) => void;
-      const firstPromise = new Promise<SkillSummary[]>((resolve) => {
-        resolveFirst = resolve;
-      });
+      const firstDeferred = createDeferred<SkillSummary[]>();
       mockSkillsListAll
-        .mockReturnValueOnce(firstPromise)
+        .mockReturnValueOnce(firstDeferred.promise)
         .mockResolvedValueOnce([{ ...FIXTURE_SUMMARY_REPO }]);
 
       const store = useSkillsStore();
@@ -243,7 +245,7 @@ describe("useSkillsStore", () => {
       expect(store.skills[0].name).toBe("test-gen");
 
       // Now resolve first call — should be discarded
-      resolveFirst(ALL_SUMMARIES.map((s) => ({ ...s })));
+      firstDeferred.resolve(ALL_SUMMARIES.map((s) => ({ ...s })));
       await call1;
       await flushPromises();
       // Skills should still be from call2 (stale result discarded)
@@ -596,7 +598,14 @@ describe("useSkillsStore", () => {
       const result = await store.importGitHub("owner", "repo", "skills/review", "main");
 
       expect(result).toEqual(FIXTURE_IMPORT_RESULT);
-      expect(mockSkillsImportGitHub).toHaveBeenCalledWith("owner", "repo", "skills/review", "main", undefined, undefined);
+      expect(mockSkillsImportGitHub).toHaveBeenCalledWith(
+        "owner",
+        "repo",
+        "skills/review",
+        "main",
+        undefined,
+        undefined,
+      );
       expect(mockSkillsListAll).toHaveBeenCalled();
     });
 
@@ -752,7 +761,12 @@ describe("useSkillsStore", () => {
           repoPath: "/repos/project-a",
           repoName: "project-a",
           skills: [
-            { path: "/repos/project-a/.github/skills/test", name: "test", description: "Test skill", fileCount: 2 },
+            {
+              path: "/repos/project-a/.github/skills/test",
+              name: "test",
+              description: "Test skill",
+              fileCount: 2,
+            },
           ],
         },
         {

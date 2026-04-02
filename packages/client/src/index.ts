@@ -161,6 +161,70 @@ async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Prom
     get_search_repositories: [] as string[],
     get_search_tool_names: [] as string[],
     rebuild_search_index: [0, 0] as [number, number],
+    // FTS maintenance commands
+    fts_integrity_check: "ok",
+    fts_optimize: "ok",
+    fts_health: {
+      totalContentRows: 332,
+      ftsIndexRows: 332,
+      indexedSessions: 47,
+      totalSessions: 47,
+      pendingSessions: 0,
+      inSync: true,
+      contentTypes: [
+        ["user_message", 120],
+        ["assistant_message", 118],
+        ["tool_result", 94],
+      ] as [string, number][],
+      dbSizeBytes: 44_564_480,
+    } as FtsHealthInfo,
+    get_result_context: [[], []] as [ContextSnippet[], ContextSnippet[]],
+    // Export / Import commands
+    export_sessions: mocks.MOCK_EXPORT_RESULT,
+    preview_export: {
+      content: "# Export Preview\n\nNo content selected.",
+      format: "markdown",
+      estimatedSizeBytes: 42,
+      sectionCount: 0,
+    } as ExportPreviewResult,
+    get_session_sections: {
+      sessionId: mockSessionId,
+      hasConversation: true,
+      hasEvents: true,
+      hasTodos: true,
+      hasPlan: true,
+      hasCheckpoints: true,
+      hasMetrics: true,
+      hasHealth: true,
+      hasIncidents: true,
+      hasRewindSnapshots: false,
+      hasCustomTables: false,
+      eventCount: 240,
+      turnCount: 8,
+    } as SessionSectionsInfo,
+    preview_import: {
+      valid: true,
+      issues: [],
+      sessions: [
+        {
+          id: "sess-imported-1",
+          summary: "Imported session",
+          repository: "tracepilot/app",
+          createdAt: "2026-01-15T10:00:00Z",
+          sectionCount: 5,
+          alreadyExists: false,
+        },
+      ],
+      schemaVersion: "1.0",
+      needsMigration: false,
+    } as ImportPreviewResult,
+    import_sessions: {
+      importedCount: 1,
+      skippedCount: 0,
+      warnings: [],
+    } as ImportResult,
+    // System info
+    get_install_type: "source",
   };
   if (!(cmd in mockMap)) {
     throw new Error(`[STUB] No mock data for command: ${cmd}`);

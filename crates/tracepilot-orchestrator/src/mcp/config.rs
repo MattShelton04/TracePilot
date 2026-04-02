@@ -133,7 +133,7 @@ pub fn get_summary(
     let mut total_tools = 0;
     let mut total_tokens: u32 = 0;
 
-    for (name, _server) in &config.mcp_servers {
+    for name in config.mcp_servers.keys() {
         if let Some(cached) = health_results.get(name) {
             if cached.result.status == super::types::McpHealthStatus::Healthy {
                 healthy_servers += 1;
@@ -145,7 +145,7 @@ pub fn get_summary(
     }
 
     // Estimate tokens from cached tool data (only for servers still in config)
-    for (name, _server) in &config.mcp_servers {
+    for name in config.mcp_servers.keys() {
         if let Some(cached) = health_results.get(name) {
             for tool in &cached.tools {
                 total_tokens += tool.estimate_tokens();

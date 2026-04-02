@@ -493,54 +493,22 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       incidents.value = cached.incidents;
       loaded.value = new Set(cached.loadedSections);
       loading.value = false;
-      // Events & todos intentionally NOT cached (paginated / rarely viewed)
+      // Events & todos intentionally NOT cached (paginated / rarely viewed).
+      // Remove from loaded so they are fetched fresh on-demand rather than
+      // eagerly background-refreshed.
       events.value = null;
+      loaded.value.delete("events");
       todos.value = null;
+      loaded.value.delete("todos");
 
-      // Background refresh: silently update stale data (throttled)
+      // Background refresh: silently update stale data (throttled).
+      // refreshAll() leverages the section registry so ALL loaded sections
+      // (including checkpoints, metrics, incidents) get refreshed.
       const lastFetched = lastFetchTimestamp.get(id) ?? 0;
       const shouldRefresh = Date.now() - lastFetched > REFRESH_THROTTLE_MS;
       if (shouldRefresh) {
         lastFetchTimestamp.set(id, Date.now());
-        void (async () => {
-          try {
-            const result = await getSessionDetail(id);
-            if (!sessionGuard.isValid(token)) return;
-            detail.value = result;
-          } catch (e) {
-            if (!sessionGuard.isValid(token)) return;
-            logWarn("[sessionDetail] Background refresh of session detail failed", {
-              id,
-              error: e,
-            });
-          }
-        })();
-        void (async () => {
-          try {
-            const freshness = await checkSessionFreshness(id);
-            if (!sessionGuard.isValid(token)) return;
-            if (freshness.eventsFileSize === lastEventsFileSize) return;
-            const result = await getSessionTurns(id);
-            if (!sessionGuard.isValid(token)) return;
-            mergeTurns(result.turns);
-            lastEventsFileSize = result.eventsFileSize;
-          } catch (e) {
-            if (!sessionGuard.isValid(token)) return;
-            logWarn("[sessionDetail] Background freshness check failed", { id, error: e });
-          }
-        })();
-        if (loaded.value.has("plan")) {
-          void (async () => {
-            try {
-              const result = await getSessionPlan(id);
-              if (!sessionGuard.isValid(token)) return;
-              plan.value = result;
-            } catch (e) {
-              if (!sessionGuard.isValid(token)) return;
-              logWarn("[sessionDetail] Background refresh of plan failed", { id, error: e });
-            }
-          })();
-        }
+        void refreshAll();
       }
       return;
     }
@@ -554,7 +522,6 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (!sessionGuard.isValid(token)) return;
       detail.value = result;
       loaded.value.add("detail");
-      lastFetchTimestamp.set(id, Date.now());
     } catch (e) {
       if (!sessionGuard.isValid(token)) return;
       detail.value = null;
