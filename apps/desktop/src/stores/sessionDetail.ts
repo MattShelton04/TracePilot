@@ -56,6 +56,11 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   let lastEventsFileSize = 0;
   let turnFingerprints: string[] = [];
 
+  // Background refresh throttle — skip stale-while-revalidate if data was
+  // fetched less than REFRESH_THROTTLE_MS ago (P1 perf fix).
+  const lastFetchTimestamp = new Map<string, number>();
+  const REFRESH_THROTTLE_MS = 5_000;
+
   // Restrict deep fingerprinting to turns likely to change retroactively:
   // any turn with an in-progress subagent, plus the tail turn.
   let deepCompareTurnIndexes = new Set<number>();
@@ -492,45 +497,50 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       events.value = null;
       todos.value = null;
 
-      // Background refresh: silently update stale data
-      void (async () => {
-        try {
-          const result = await getSessionDetail(id);
-          if (!sessionGuard.isValid(token)) return;
-          detail.value = result;
-        } catch (e) {
-          if (!sessionGuard.isValid(token)) return;
-          // Background refresh failed - non-critical
-          logWarn("[sessionDetail] Background refresh of session detail failed", { id, error: e });
-        }
-      })();
-      void (async () => {
-        try {
-          const freshness = await checkSessionFreshness(id);
-          if (!sessionGuard.isValid(token)) return;
-          if (freshness.eventsFileSize === lastEventsFileSize) return;
-          const result = await getSessionTurns(id);
-          if (!sessionGuard.isValid(token)) return;
-          mergeTurns(result.turns);
-          lastEventsFileSize = result.eventsFileSize;
-        } catch (e) {
-          if (!sessionGuard.isValid(token)) return;
-          // Background freshness check failed - non-critical
-          logWarn("[sessionDetail] Background freshness check failed", { id, error: e });
-        }
-      })();
-      if (loaded.value.has("plan")) {
+      // Background refresh: silently update stale data (throttled)
+      const lastFetched = lastFetchTimestamp.get(id) ?? 0;
+      const shouldRefresh = Date.now() - lastFetched > REFRESH_THROTTLE_MS;
+      if (shouldRefresh) {
+        lastFetchTimestamp.set(id, Date.now());
         void (async () => {
           try {
-            const result = await getSessionPlan(id);
+            const result = await getSessionDetail(id);
             if (!sessionGuard.isValid(token)) return;
-            plan.value = result;
+            detail.value = result;
           } catch (e) {
             if (!sessionGuard.isValid(token)) return;
-            // Background plan refresh failed - non-critical
-            logWarn("[sessionDetail] Background refresh of plan failed", { id, error: e });
+            logWarn("[sessionDetail] Background refresh of session detail failed", {
+              id,
+              error: e,
+            });
           }
         })();
+        void (async () => {
+          try {
+            const freshness = await checkSessionFreshness(id);
+            if (!sessionGuard.isValid(token)) return;
+            if (freshness.eventsFileSize === lastEventsFileSize) return;
+            const result = await getSessionTurns(id);
+            if (!sessionGuard.isValid(token)) return;
+            mergeTurns(result.turns);
+            lastEventsFileSize = result.eventsFileSize;
+          } catch (e) {
+            if (!sessionGuard.isValid(token)) return;
+            logWarn("[sessionDetail] Background freshness check failed", { id, error: e });
+          }
+        })();
+        if (loaded.value.has("plan")) {
+          void (async () => {
+            try {
+              const result = await getSessionPlan(id);
+              if (!sessionGuard.isValid(token)) return;
+              plan.value = result;
+            } catch (e) {
+              if (!sessionGuard.isValid(token)) return;
+              logWarn("[sessionDetail] Background refresh of plan failed", { id, error: e });
+            }
+          })();
+        }
       }
       return;
     }
@@ -544,6 +554,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
       if (!sessionGuard.isValid(token)) return;
       detail.value = result;
       loaded.value.add("detail");
+      lastFetchTimestamp.set(id, Date.now());
     } catch (e) {
       if (!sessionGuard.isValid(token)) return;
       detail.value = null;
