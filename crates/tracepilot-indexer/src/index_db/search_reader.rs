@@ -105,13 +105,14 @@ pub struct ContextSnippet {
 /// let (sql, params) = SearchQueryBuilder::new("SELECT * FROM ...", true)
 ///     .with_fts_match("error message")
 ///     .with_filters(&filters)
-///     .with_sort(Some("newest"), false)
+///     .with_sort(Some("newest"))
 ///     .with_pagination(50, 0)
 ///     .build();
 /// ```
 struct SearchQueryBuilder {
     base_query: String,
     from_clause: &'static str,
+    is_fts: bool,
     where_clauses: Vec<String>,
     params: Vec<Box<dyn ToSql>>,
     order_by: Option<String>,
@@ -129,6 +130,7 @@ impl SearchQueryBuilder {
         Self {
             base_query: base_select.to_string(),
             from_clause: build_from_clause(is_fts),
+            is_fts,
             where_clauses: Vec::new(),
             params: Vec::new(),
             order_by: None,
@@ -154,51 +156,56 @@ impl SearchQueryBuilder {
 
     /// Add standard search filters (content types, repositories, tools, dates, session ID).
     fn with_filters(mut self, filters: &SearchFilters) -> Self {
-        use super::helpers::{
-            build_eq_filter, build_in_filter, build_not_in_filter, build_timestamp_range_filter,
-        };
-
-        let mut sql = String::new();
-        sql.push_str(&build_in_filter(
-            "sc.content_type",
-            &filters.content_types,
-            &mut self.params,
-        ));
-        sql.push_str(&build_not_in_filter(
-            "sc.content_type",
-            &filters.exclude_content_types,
-            &mut self.params,
-        ));
-        sql.push_str(&build_in_filter(
-            "s.repository",
-            &filters.repositories,
-            &mut self.params,
-        ));
-        sql.push_str(&build_in_filter(
-            "sc.tool_name",
-            &filters.tool_names,
-            &mut self.params,
-        ));
-
-        if let Some(ref sid) = filters.session_id {
-            sql.push_str(&build_eq_filter("sc.session_id", sid.clone(), &mut self.params));
+        // Build IN filter for content types
+        if !filters.content_types.is_empty() {
+            let placeholders = filters.content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            self.where_clauses.push(format!("sc.content_type IN ({})", placeholders));
+            for val in &filters.content_types {
+                self.params.push(Box::new(val.clone()));
+            }
         }
 
-        sql.push_str(&build_timestamp_range_filter(
-            "sc.timestamp_unix",
-            filters.date_from_unix,
-            filters.date_to_unix,
-            &mut self.params,
-        ));
-
-        // The filter helpers return clauses starting with " AND ", so we need to
-        // parse and add them individually. Since they already contain " AND ",
-        // we strip it and add each as a separate where clause.
-        if !sql.is_empty() {
-            // Split by " AND " and filter out empty strings
-            for clause in sql.split(" AND ").filter(|s| !s.is_empty()) {
-                self.where_clauses.push(clause.to_string());
+        // Build NOT IN filter for excluded content types
+        if !filters.exclude_content_types.is_empty() {
+            let placeholders = filters.exclude_content_types.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            self.where_clauses.push(format!("sc.content_type NOT IN ({})", placeholders));
+            for val in &filters.exclude_content_types {
+                self.params.push(Box::new(val.clone()));
             }
+        }
+
+        // Build IN filter for repositories
+        if !filters.repositories.is_empty() {
+            let placeholders = filters.repositories.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            self.where_clauses.push(format!("s.repository IN ({})", placeholders));
+            for val in &filters.repositories {
+                self.params.push(Box::new(val.clone()));
+            }
+        }
+
+        // Build IN filter for tool names
+        if !filters.tool_names.is_empty() {
+            let placeholders = filters.tool_names.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            self.where_clauses.push(format!("sc.tool_name IN ({})", placeholders));
+            for val in &filters.tool_names {
+                self.params.push(Box::new(val.clone()));
+            }
+        }
+
+        // Build equality filter for session_id
+        if let Some(ref sid) = filters.session_id {
+            self.where_clauses.push("sc.session_id = ?".to_string());
+            self.params.push(Box::new(sid.clone()));
+        }
+
+        // Build timestamp range filters
+        if let Some(from_unix) = filters.date_from_unix {
+            self.where_clauses.push("sc.timestamp_unix >= ?".to_string());
+            self.params.push(Box::new(from_unix));
+        }
+        if let Some(to_unix) = filters.date_to_unix {
+            self.where_clauses.push("sc.timestamp_unix <= ?".to_string());
+            self.params.push(Box::new(to_unix));
         }
 
         self
@@ -215,7 +222,7 @@ impl SearchQueryBuilder {
     /// Add ORDER BY clause.
     ///
     /// For FTS queries with no explicit sort, applies relevance-weighted ranking.
-    fn with_sort(mut self, sort_by: Option<&str>, is_fts: bool) -> Self {
+    fn with_sort(mut self, sort_by: Option<&str>) -> Self {
         match sort_by {
             Some("newest") => {
                 self.order_by = Some("ORDER BY sc.timestamp_unix DESC NULLS LAST".to_string());
@@ -223,7 +230,7 @@ impl SearchQueryBuilder {
             Some("oldest") => {
                 self.order_by = Some("ORDER BY sc.timestamp_unix ASC NULLS LAST".to_string());
             }
-            _ if is_fts => {
+            _ if self.is_fts => {
                 // Relevance-weighted ranking for FTS queries
                 self.order_by = Some(
                     "ORDER BY CASE sc.content_type \
@@ -340,7 +347,7 @@ impl IndexDb {
         let (sql, params) = SearchQueryBuilder::new(&base_select, is_fts)
             .with_optional_fts_match(sanitized.as_deref())
             .with_filters(filters)
-            .with_sort(filters.sort_by.as_deref(), is_fts)
+            .with_sort(filters.sort_by.as_deref())
             .with_pagination(limit, offset)
             .build();
 
@@ -1298,7 +1305,7 @@ mod tests {
     #[test]
     fn test_builder_with_sort_newest() {
         let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
-            .with_sort(Some("newest"), false)
+            .with_sort(Some("newest"))
             .build();
 
         assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
@@ -1307,7 +1314,7 @@ mod tests {
     #[test]
     fn test_builder_with_sort_oldest() {
         let (sql, _) = SearchQueryBuilder::new("SELECT *", false)
-            .with_sort(Some("oldest"), false)
+            .with_sort(Some("oldest"))
             .build();
 
         assert!(sql.contains("ORDER BY sc.timestamp_unix ASC NULLS LAST"));
@@ -1316,7 +1323,7 @@ mod tests {
     #[test]
     fn test_builder_with_sort_relevance_fts() {
         let (sql, _) = SearchQueryBuilder::new("SELECT *", true)
-            .with_sort(None, true)
+            .with_sort(None)
             .build();
 
         assert!(sql.contains("ORDER BY CASE sc.content_type"));
@@ -1380,7 +1387,7 @@ mod tests {
         let (sql, params) = SearchQueryBuilder::new("SELECT sc.id, sc.content", true)
             .with_fts_match("authentication failed")
             .with_filters(&filters)
-            .with_sort(Some("newest"), false)
+            .with_sort(Some("newest"))
             .with_pagination(25, 50)
             .build();
 
@@ -1439,7 +1446,7 @@ mod tests {
         let result = SearchQueryBuilder::new("SELECT *", false)
             .with_optional_fts_match(None)
             .with_filters(&SearchFilters::default())
-            .with_sort(Some("newest"), false)
+            .with_sort(Some("newest"))
             .with_pagination(10, 0)
             .build();
 

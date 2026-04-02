@@ -212,49 +212,6 @@ pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
     }
 }
 
-/// Build an IN clause filter for arrays of values (e.g., `col IN (?, ?, ?)`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If `values` is empty, returns an empty string and adds no parameters.
-/// This is a pure function with no side effects other than appending to `params`.
-pub(super) fn build_in_filter<T: ToSql + Clone + 'static>(
-    column: &str,
-    values: &[T],
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    if values.is_empty() {
-        return String::new();
-    }
-
-    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    for val in values {
-        params.push(Box::new(val.clone()));
-    }
-
-    format!(" AND {} IN ({})", column, placeholders)
-}
-
-/// Build a NOT IN exclusion filter (e.g., `col NOT IN (?, ?, ?)`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If `values` is empty, returns an empty string and adds no parameters.
-pub(super) fn build_not_in_filter<T: ToSql + Clone + 'static>(
-    column: &str,
-    values: &[T],
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    if values.is_empty() {
-        return String::new();
-    }
-
-    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    for val in values {
-        params.push(Box::new(val.clone()));
-    }
-
-    format!(" AND {} NOT IN ({})", column, placeholders)
-}
-
 /// Build an equality filter (e.g., `col = ?`).
 /// Returns the SQL fragment and appends the parameter to the provided vector.
 ///
@@ -268,62 +225,9 @@ pub(super) fn build_eq_filter<T: ToSql + 'static>(
     format!(" AND {} = ?", column)
 }
 
-/// Build a unix timestamp range filter (e.g., `col >= ? AND col <= ?`).
-/// Returns the SQL fragment and appends parameters to the provided vector.
-///
-/// If both `from_unix` and `to_unix` are None, returns an empty string.
-pub(super) fn build_timestamp_range_filter(
-    column: &str,
-    from_unix: Option<i64>,
-    to_unix: Option<i64>,
-    params: &mut Vec<Box<dyn ToSql>>,
-) -> String {
-    let mut parts = Vec::new();
-
-    if let Some(from) = from_unix {
-        params.push(Box::new(from));
-        parts.push(format!("{} >= ?", column));
-    }
-
-    if let Some(to) = to_unix {
-        params.push(Box::new(to));
-        parts.push(format!("{} <= ?", column));
-    }
-
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!(" AND {}", parts.join(" AND "))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_build_in_filter_empty() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &Vec::<String>::new(), &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
-    }
-
-    #[test]
-    fn test_build_in_filter_single_value() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &vec!["value1".to_string()], &mut params);
-        assert_eq!(sql, " AND col IN (?)");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_in_filter_multiple_values() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_in_filter("col", &vec!["a".to_string(), "b".to_string(), "c".to_string()], &mut params);
-        assert_eq!(sql, " AND col IN (?, ?, ?)");
-        assert_eq!(params.len(), 3);
-    }
 
     #[test]
     fn test_build_eq_filter() {
@@ -331,38 +235,6 @@ mod tests {
         let sql = build_eq_filter("repository", "myrepo".to_string(), &mut params);
         assert_eq!(sql, " AND repository = ?");
         assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_both() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), Some(2000), &mut params);
-        assert_eq!(sql, " AND timestamp_unix >= ? AND timestamp_unix <= ?");
-        assert_eq!(params.len(), 2);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_from_only() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", Some(1000), None, &mut params);
-        assert_eq!(sql, " AND timestamp_unix >= ?");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_to_only() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", None, Some(2000), &mut params);
-        assert_eq!(sql, " AND timestamp_unix <= ?");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_timestamp_range_filter_neither() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_timestamp_range_filter("timestamp_unix", None, None, &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
     }
 
     #[test]
@@ -550,29 +422,5 @@ mod tests {
             .query_row(&sql4, params_from_iter(refs4.iter().copied()), |r| r.get(0))
             .expect("query4");
         assert_eq!(count4, 6, "expected all 6 sessions with no filter");
-    }
-
-    #[test]
-    fn test_build_not_in_filter_empty() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &Vec::<String>::new(), &mut params);
-        assert_eq!(sql, "");
-        assert_eq!(params.len(), 0);
-    }
-
-    #[test]
-    fn test_build_not_in_filter_single_value() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &vec!["tool_call".to_string()], &mut params);
-        assert_eq!(sql, " AND col NOT IN (?)");
-        assert_eq!(params.len(), 1);
-    }
-
-    #[test]
-    fn test_build_not_in_filter_multiple_values() {
-        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        let sql = build_not_in_filter("col", &vec!["tool_call".to_string(), "tool_error".to_string()], &mut params);
-        assert_eq!(sql, " AND col NOT IN (?, ?)");
-        assert_eq!(params.len(), 2);
     }
 }
