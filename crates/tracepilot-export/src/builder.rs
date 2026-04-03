@@ -352,7 +352,18 @@ fn build_checkpoints(
     if !options.includes(SectionId::Checkpoints) {
         return None;
     }
-    let index = parse_checkpoints(session_dir).ok()??;
+    let index = match parse_checkpoints(session_dir) {
+        Ok(Some(idx)) => idx,
+        Ok(None) => return None,
+        Err(e) => {
+            tracing::warn!(
+                path = %session_dir.display(),
+                error = %e,
+                "Failed to parse checkpoints, skipping section"
+            );
+            return None;
+        }
+    };
     let exports: Vec<CheckpointExport> = index
         .checkpoints
         .into_iter()
@@ -378,7 +389,18 @@ fn build_rewind_snapshots(
     if !options.includes(SectionId::RewindSnapshots) {
         return None;
     }
-    let index = parse_rewind_index(session_dir).ok()??;
+    let index = match parse_rewind_index(session_dir) {
+        Ok(Some(idx)) => idx,
+        Ok(None) => return None,
+        Err(e) => {
+            tracing::warn!(
+                path = %session_dir.display(),
+                error = %e,
+                "Failed to parse rewind snapshots, skipping section"
+            );
+            return None;
+        }
+    };
     if !index.snapshots.is_empty() {
         available.push(SectionId::RewindSnapshots);
     }
