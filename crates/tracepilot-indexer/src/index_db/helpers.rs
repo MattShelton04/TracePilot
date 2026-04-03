@@ -10,14 +10,9 @@ use tracepilot_core::analytics::types::*;
 /// Returns `(where_clause, bind_values)` where `where_clause` starts with
 /// `" WHERE 1=1"` and may include additional AND conditions.
 ///
-/// Uses anonymous `?` placeholders (consistent with `build_in_filter`,
-/// `build_eq_filter`, and the other helpers in this module).  Callers pass
+/// Uses anonymous `?` placeholders (consistent with the other helpers in this
+/// module). Callers pass
 /// the returned `bind_values` through `to_refs` + `params_from_iter`.
-///
-/// # Future work
-/// The return type `(String, Vec<String>)` differs from the mutable-vector
-/// signature used by the other filter helpers.  Unifying these is tracked
-/// separately and is out of scope here.
 pub(super) fn build_date_repo_filter(
     from_date: Option<&str>,
     to_date: Option<&str>,

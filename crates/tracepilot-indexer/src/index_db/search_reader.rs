@@ -1443,15 +1443,17 @@ mod tests {
     #[test]
     fn test_builder_method_chaining() {
         // Test that builder methods can be chained fluently
-        let result = SearchQueryBuilder::new("SELECT *", false)
+        let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
             .with_optional_fts_match(None)
             .with_filters(&SearchFilters::default())
             .with_sort(Some("newest"))
             .with_pagination(10, 0)
             .build();
 
-        assert!(result.0.len() > 0);
-        // Params vector exists (can be empty or non-empty)
-        assert!(result.1.is_empty() || !result.1.is_empty());
+        assert!(sql.contains("FROM search_content sc"));
+        assert!(sql.contains("ORDER BY sc.timestamp_unix DESC NULLS LAST"));
+        assert!(sql.contains("LIMIT ?"));
+        assert!(sql.contains("OFFSET ?"));
+        assert_eq!(params.len(), 2);
     }
 }
