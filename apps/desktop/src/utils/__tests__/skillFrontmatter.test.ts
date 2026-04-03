@@ -32,6 +32,26 @@ describe("skillFrontmatter", () => {
       expect(parsed.status).toBe("parsed");
     });
 
+    it("decodes quoted scalar escapes emitted by the backend writer", () => {
+      const parsed = parseSkillContent(
+        [
+          "---",
+          "name: quoted-skill",
+          'description: "Line one\\nLine two with \\"quotes\\""',
+          "resource_globs:",
+          '  - "docs\\\\notes.md"',
+          "---",
+          "Body",
+        ].join("\n"),
+      );
+
+      expect(parsed.frontmatter).toEqual({
+        name: "quoted-skill",
+        description: 'Line one\nLine two with "quotes"',
+        resource_globs: ["docs\\notes.md"],
+      });
+    });
+
     it("parses multiline descriptions, resource globs, auto_attach, and trailing multiline flush", () => {
       const parsed = parseSkillContent(
         [
@@ -129,10 +149,31 @@ describe("skillFrontmatter", () => {
           "description: Writes docs",
           "auto_attach: true",
           "resource_globs:",
-          "  - **/*.ts",
+          '  - "**/*.ts"',
           "  - docs/**/*.md",
           "---",
           "Document everything.",
+        ].join("\n"),
+      );
+    });
+
+    it("quotes YAML-sensitive scalar values to stay compatible with backend parsing", () => {
+      const frontmatter: SkillFrontmatter = {
+        name: "quoted-skill",
+        description: "Handles HTTP: GET #1\nLine two",
+        resource_globs: ["docs\\notes.md", "yes"],
+      };
+
+      expect(serializeSkillContent(frontmatter, "Body")).toBe(
+        [
+          "---",
+          "name: quoted-skill",
+          'description: "Handles HTTP: GET #1\\nLine two"',
+          "resource_globs:",
+          "  - docs\\notes.md",
+          '  - "yes"',
+          "---",
+          "Body",
         ].join("\n"),
       );
     });

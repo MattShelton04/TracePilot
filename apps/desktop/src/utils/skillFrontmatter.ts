@@ -49,7 +49,7 @@ export function parseSkillContent(content: string): ParsedSkillContent {
         inMultiline = true;
         multilineValue = "";
       } else {
-        const unquoted = value.replace(/^["']([\s\S]*?)["']$/, "$1");
+        const unquoted = yamlUnescapeScalar(value);
         if (currentKey === "resource_globs") {
           inGlobs = true;
           frontmatter.resource_globs = [];
@@ -66,12 +66,9 @@ export function parseSkillContent(content: string): ParsedSkillContent {
     }
 
     if (line.match(/^\s+-\s+/) && inGlobs) {
-      const glob = line
-        .replace(/^\s+-\s+/, "")
-        .trim()
-        .replace(/^["']([\s\S]*?)["']$/, "$1");
+      const glob = line.replace(/^\s+-\s+/, "").trim();
       if (!frontmatter.resource_globs) frontmatter.resource_globs = [];
-      frontmatter.resource_globs.push(glob);
+      frontmatter.resource_globs.push(yamlUnescapeScalar(glob));
       continue;
     }
 
@@ -98,13 +95,13 @@ export function serializeSkillContent(frontmatter: SkillFrontmatter | null, body
   if (!frontmatter) return body;
 
   let content = "---\n";
-  content += `name: ${frontmatter.name}\n`;
-  content += `description: ${frontmatter.description}\n`;
+  content += `name: ${yamlEscapeScalar(frontmatter.name)}\n`;
+  content += `description: ${yamlEscapeScalar(frontmatter.description)}\n`;
   if (frontmatter.auto_attach) content += "auto_attach: true\n";
   if (frontmatter.resource_globs && frontmatter.resource_globs.length > 0) {
     content += "resource_globs:\n";
     for (const glob of frontmatter.resource_globs) {
-      content += `  - ${glob}\n`;
+      content += `  - ${yamlEscapeScalar(glob)}\n`;
     }
   }
   content += "---\n";
@@ -116,4 +113,71 @@ function assignKnownFrontmatterKey(frontmatter: SkillFrontmatter, key: string, v
   if (key === "name") frontmatter.name = value;
   else if (key === "description") frontmatter.description = value;
   else if (key === "auto_attach") frontmatter.auto_attach = value === "true";
+}
+
+function yamlEscapeScalar(value: string): string {
+  if (!value) return '""';
+
+  const lower = value.toLowerCase();
+  const isYamlKeyword = ["true", "false", "yes", "no", "on", "off", "null", "~"].includes(lower);
+  const needsQuoting =
+    isYamlKeyword ||
+    value.includes(":") ||
+    value.includes("#") ||
+    value.includes("\n") ||
+    value.includes('"') ||
+    value.includes("'") ||
+    value.startsWith("[") ||
+    value.startsWith("{") ||
+    value.startsWith(">") ||
+    value.startsWith("|") ||
+    value.startsWith("&") ||
+    value.startsWith("*") ||
+    value.startsWith("!") ||
+    value.startsWith("%") ||
+    value.startsWith("@") ||
+    value.startsWith("`") ||
+    value.includes("---");
+
+  if (!needsQuoting) return value;
+
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n")}"`;
+}
+
+function yamlUnescapeScalar(value: string): string {
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return decodeDoubleQuotedScalar(value.slice(1, -1));
+  }
+
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+function decodeDoubleQuotedScalar(value: string): string {
+  let decoded = "";
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    if (char !== "\\") {
+      decoded += char;
+      continue;
+    }
+
+    const next = value[i + 1];
+    if (next === undefined) {
+      decoded += "\\";
+      continue;
+    }
+
+    if (next === "n") decoded += "\n";
+    else if (next === '"') decoded += '"';
+    else if (next === "\\") decoded += "\\";
+    else decoded += next;
+    i++;
+  }
+
+  return decoded;
 }
