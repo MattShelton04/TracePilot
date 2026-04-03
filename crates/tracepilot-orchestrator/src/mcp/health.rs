@@ -418,12 +418,12 @@ fn extract_tools_from_json(resp: &serde_json::Value) -> Vec<McpTool> {
         .collect()
 }
 
-/// Serialize a JSON-RPC message and write it as a newline-delimited line.
+/// Serialize a JSON-RPC message and write it as a newline-delimited JSON line.
 fn write_jsonrpc(writer: &mut impl Write, msg: &serde_json::Value) -> Result<(), McpError> {
     let text = serde_json::to_string(msg)
         .map_err(|e| McpError::HealthCheck(format!("JSON serialization error: {e}")))?;
     writeln!(writer, "{text}")
-        .map_err(|e| McpError::HealthCheck(format!("Failed to write to stdin: {e}")))
+        .map_err(|e| McpError::HealthCheck(format!("Failed to write JSON-RPC message: {e}")))
 }
 
 /// Spawn a stdio MCP server, send initialize + tools/list, return tools.
@@ -911,7 +911,7 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.to_string();
         assert!(
-            err_msg.contains("Failed to write to stdin"),
+            err_msg.contains("Failed to write JSON-RPC message"),
             "unexpected error message: {err_msg}"
         );
     }
