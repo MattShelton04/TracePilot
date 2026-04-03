@@ -368,7 +368,7 @@ fn build_checkpoints(
             tracing::warn!(
                 path = %session_dir.join("checkpoints").join("index.md").display(),
                 error = %e,
-                "Failed to parse checkpoints, skipping section"
+                "Failed to read or parse checkpoints, skipping section"
             );
             return None;
         }
@@ -405,7 +405,7 @@ fn build_rewind_snapshots(
             tracing::warn!(
                 path = %session_dir.join("rewind-snapshots").join("index.json").display(),
                 error = %e,
-                "Failed to parse rewind snapshots, skipping section"
+                "Failed to read or parse rewind snapshots, skipping section"
             );
             return None;
         }
