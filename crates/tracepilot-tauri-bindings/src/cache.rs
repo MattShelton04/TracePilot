@@ -54,7 +54,7 @@ where
     ///
     /// let cache: TtlCache<String, i32> = TtlCache::new(Duration::from_secs(300));
     /// ```
-    pub const fn new(ttl: Duration) -> Self {
+    pub fn new(ttl: Duration) -> Self {
         Self {
             data: DashMap::new(),
             ttl,
@@ -214,10 +214,10 @@ mod tests {
     fn test_insert_and_get() {
         let cache = TtlCache::new(Duration::from_secs(60));
         cache.insert("key1", "value1");
-        cache.insert("key2", 42);
+        cache.insert("key2", "value2");
 
         assert_eq!(cache.get(&"key1"), Some("value1"));
-        assert_eq!(cache.get(&"key2"), Some(42));
+        assert_eq!(cache.get(&"key2"), Some("value2"));
         assert_eq!(cache.get(&"key3"), None);
     }
 
