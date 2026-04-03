@@ -193,14 +193,15 @@ pub async fn discover_repos_from_sessions(
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 
-    let cwds = blocking_cmd!({
+    let cwds = tokio::task::spawn_blocking(move || -> CmdResult<Vec<String>> {
         if !index_path.exists() {
             Ok(Vec::new())
         } else {
             let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
             Ok(db.distinct_session_cwds()?)
         }
-    })?;
+    })
+    .await??;
 
     blocking_cmd!(tracepilot_orchestrator::repo_registry::discover_repos_from_sessions(&cwds))
 }
