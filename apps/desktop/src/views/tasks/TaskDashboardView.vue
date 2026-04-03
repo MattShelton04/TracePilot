@@ -202,7 +202,7 @@ const hasActiveFilters = computed(
             </div>
           </div>
           <div v-if="orchestrator.error" class="orch-error">{{ orchestrator.error }}</div>
-          <button class="orch-monitor-link" @click="router.push('/monitor')">
+          <button class="orch-monitor-link" @click="router.push('/tasks/monitor')">
             Open Monitor →
           </button>
         </div>
@@ -211,7 +211,7 @@ const hasActiveFilters = computed(
         <div class="quick-presets-card">
           <div class="quick-presets-header">
             <span class="quick-presets-title">Quick Presets</span>
-            <button class="orch-monitor-link" @click="router.push('/presets')">
+            <button class="orch-monitor-link" @click="router.push('/tasks/presets')">
               Manage →
             </button>
           </div>

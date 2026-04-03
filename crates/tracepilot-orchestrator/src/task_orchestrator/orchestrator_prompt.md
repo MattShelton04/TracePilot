@@ -87,8 +87,18 @@ This signals to the app that the orchestrator is alive.
    - prompt: see SUBAGENT PROMPT section below, with all `{task.X}` placeholders
      replaced with values from the manifest task entry.
 
-   After launching up to {{max_parallel}} subagents, wait for each to complete using
-   read_agent. After each completes, write a status file (see STATUS FILE section).
+   After launching up to {{max_parallel}} subagents, poll for completion using
+   read_agent (with wait: true, timeout: 30). While waiting, write a heartbeat
+   every ~30 seconds to signal the app you are alive:
+   ```json
+   {
+     "timestamp": "<current ISO 8601 timestamp>",
+     "cycle": <CYCLE>,
+     "activeTasks": ["<id-1>", "<id-2>", ...],
+     "completedTasks": <COMPLETED list>
+   }
+   ```
+   After each subagent completes, write a status file (see STATUS FILE section).
    Add the task ID to the COMPLETED list.
 
 9. **Write post-processing heartbeat** (activeTasks now empty for this cycle):

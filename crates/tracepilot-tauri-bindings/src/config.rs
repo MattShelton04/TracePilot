@@ -260,7 +260,7 @@ fn default_max_concurrent_tasks() -> u32 {
     3
 }
 fn default_heartbeat_stale_multiplier() -> u32 {
-    3
+    6
 }
 fn default_max_retries() -> u32 {
     3
