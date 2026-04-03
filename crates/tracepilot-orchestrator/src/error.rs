@@ -31,3 +31,38 @@ pub enum OrchestratorError {
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
+
+impl OrchestratorError {
+    /// Construct a Launch error with context and source error.
+    pub fn launch_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        OrchestratorError::Launch(format!("{context}: {source}"))
+    }
+
+    /// Construct a Config error with context and source error.
+    pub fn config_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        OrchestratorError::Config(format!("{context}: {source}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn launch_ctx_creates_formatted_error() {
+        let err = OrchestratorError::launch_ctx("Failed to spawn git", "permission denied");
+        let msg = err.to_string();
+        assert!(msg.contains("Launch error"));
+        assert!(msg.contains("Failed to spawn git"));
+        assert!(msg.contains("permission denied"));
+    }
+
+    #[test]
+    fn config_ctx_creates_formatted_error() {
+        let err = OrchestratorError::config_ctx("Invalid YAML", "unexpected token");
+        let msg = err.to_string();
+        assert!(msg.contains("Config error"));
+        assert!(msg.contains("Invalid YAML"));
+        assert!(msg.contains("unexpected token"));
+    }
+}

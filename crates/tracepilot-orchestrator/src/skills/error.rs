@@ -51,6 +51,13 @@ impl From<serde_yml::Error> for SkillsError {
     }
 }
 
+impl SkillsError {
+    /// Construct a GitHub error with context and source error.
+    pub fn github_ctx(context: impl std::fmt::Display, source: impl std::fmt::Display) -> Self {
+        SkillsError::GitHub(format!("{context}: {source}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,5 +147,14 @@ mod tests {
         let skills_err: SkillsError = yml_err.into();
         assert!(matches!(skills_err, SkillsError::Yaml(_)));
         assert!(!skills_err.to_string().is_empty());
+    }
+
+    #[test]
+    fn github_ctx_creates_formatted_error() {
+        let err = SkillsError::github_ctx("Failed to fetch SKILL.md", "404 not found");
+        let msg = err.to_string();
+        assert!(msg.contains("GitHub error"));
+        assert!(msg.contains("Failed to fetch SKILL.md"));
+        assert!(msg.contains("404 not found"));
     }
 }

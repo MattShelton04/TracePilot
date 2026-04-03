@@ -46,7 +46,7 @@ pub struct McpImportResult {
 /// - VS Code settings (has `mcp.servers` or `mcpServers` in settings)
 pub fn import_from_file(path: &Path) -> Result<McpImportResult, McpError> {
     let content = std::fs::read_to_string(path)
-        .map_err(|e| McpError::Import(format!("Failed to read {}: {e}", path.display())))?;
+        .map_err(|e| McpError::import_ctx(format!("Failed to read {}", path.display()), e))?;
 
     let filename = path
         .file_name()
@@ -157,7 +157,7 @@ pub fn import_from_github(
     let file_path = path.unwrap_or("mcp.json");
 
     let content = crate::github::gh_get_file(owner, repo, file_path, ref_)
-        .map_err(|e| McpError::Import(format!("GitHub fetch failed: {e}")))?;
+        .map_err(|e| McpError::import_ctx("GitHub fetch failed", e))?;
 
     let source = format!("{owner}/{repo}/{file_path}");
     import_from_json(&content, &source)
