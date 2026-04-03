@@ -244,7 +244,7 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  // ── Frontend session cache (last 5 sessions) ────────────────────────
+  // ── Frontend session cache (last 10 sessions) ───────────────────────
   // Caches all loaded section data so switching between recently viewed
   // sessions restores the UI instantly without any IPC roundtrip.
   interface CachedSession {
@@ -268,9 +268,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
     }
   }
 
-  function buildCachedSessionSnapshot(): CachedSession {
+  function buildCachedSessionSnapshot(currentDetail: SessionDetail): CachedSession {
     return {
-      detail: detail.value,
+      detail: currentDetail,
       turns: turns.value,
       eventsFileSize: lastEventsFileSize,
       checkpoints: checkpoints.value,
@@ -309,8 +309,9 @@ export const useSessionDetailStore = defineStore("sessionDetail", () => {
   }
 
   function saveToCache(id: string) {
-    if (!detail.value) return;
-    setSessionCache(id, buildCachedSessionSnapshot());
+    const currentDetail = detail.value;
+    if (!currentDetail) return;
+    setSessionCache(id, buildCachedSessionSnapshot(currentDetail));
   }
 
   // Guard against stale async responses when user switches sessions quickly
