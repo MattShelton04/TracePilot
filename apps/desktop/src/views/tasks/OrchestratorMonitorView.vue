@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ErrorState, formatDate, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
-import { computed, onMounted, onUnmounted } from "vue";
+import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 
 const orchestrator = useOrchestratorStore();
 const router = useRouter();
+const now = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+const healthExpanded = ref(false);
 
 // ── Derived state ───────────────────────────────────────────
 const stateLabel = computed(() => {
@@ -56,6 +59,33 @@ const heartbeatColor = computed<"success" | "warning" | "danger">(() => {
 const activeTaskCount = computed(() => orchestrator.health?.activeTasks?.length ?? 0);
 const lastCycle = computed(() => orchestrator.health?.lastCycle ?? null);
 
+// Ring fill: full circle (327) when healthy, partial when stale, quarter when stopped/unknown
+const ringDasharray = computed(() => {
+  switch (orchestrator.health?.health) {
+    case "healthy":
+      return "327";
+    case "stale":
+      return "164 163";
+    case "stopped":
+      return "82 245";
+    default:
+      return orchestrator.handle ? "245 82" : "82 245";
+  }
+});
+
+// Uptime since orchestrator was launched
+const uptimeDisplay = computed(() => {
+  const launched = orchestrator.handle?.launchedAt;
+  if (!launched || !orchestrator.isRunning) return null;
+  const diffMs = now.value - new Date(launched).getTime();
+  if (diffMs < 0) return null;
+  const secs = Math.floor(diffMs / 1000);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${secs % 60}s`;
+});
+
 function truncateId(id: string, len = 12): string {
   return id.length > len ? `${id.slice(0, len)}…` : id;
 }
@@ -65,6 +95,27 @@ function truncateError(err: string | null, len = 60): string {
   return err.length > len ? `${err.slice(0, len)}…` : err;
 }
 
+function elapsedSince(isoDate: string | null): string {
+  if (!isoDate) return "—";
+  const diffMs = now.value - new Date(isoDate).getTime();
+  if (diffMs < 0) return "0s";
+  const secs = Math.floor(diffMs / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function durationBetween(start: string | null, end: string | null): string {
+  if (!start || !end) return "—";
+  const diffMs = new Date(end).getTime() - new Date(start).getTime();
+  if (diffMs < 0) return "—";
+  const secs = Math.floor(diffMs / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 function viewSession() {
   const uuid = orchestrator.sessionUuid;
   if (uuid) {
@@ -72,14 +123,22 @@ function viewSession() {
   }
 }
 
+function viewTask(taskId: string) {
+  router.push({ path: `/tasks/${taskId}` });
+}
+
 // ── Lifecycle ───────────────────────────────────────────────
 onMounted(() => {
   orchestrator.refresh();
   orchestrator.startPolling();
+  tickTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
 });
 
 onUnmounted(() => {
   orchestrator.stopPolling();
+  if (tickTimer) clearInterval(tickTimer);
 });
 </script>
 
@@ -170,7 +229,7 @@ onUnmounted(() => {
                 :stroke="stateColor"
                 stroke-width="4"
                 stroke-linecap="round"
-                :stroke-dasharray="orchestrator.isRunning ? '327' : '82 245'"
+                :stroke-dasharray="ringDasharray"
                 stroke-dashoffset="0"
                 class="status-ring-progress"
               />
@@ -188,6 +247,30 @@ onUnmounted(() => {
             <div class="status-label" :style="{ color: stateColor }">{{ stateLabel }}</div>
             <div class="status-heartbeat">
               Last heartbeat: <strong>{{ heartbeatDisplay }}</strong>
+            </div>
+            <div class="hero-meta">
+              <div v-if="orchestrator.handle?.pid" class="hero-meta-item">
+                <span class="hero-meta-label">PID</span>
+                <span class="hero-meta-value">{{ orchestrator.handle.pid }}</span>
+              </div>
+              <div v-if="uptimeDisplay" class="hero-meta-item">
+                <span class="hero-meta-label">Uptime</span>
+                <span class="hero-meta-value">{{ uptimeDisplay }}</span>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <button
+                v-if="orchestrator.sessionUuid"
+                class="session-hero-btn"
+                @click="viewSession"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path
+                    d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z"
+                  />
+                </svg>
+                View Session
+              </button>
             </div>
             <div v-if="orchestrator.needsRestart" class="needs-restart-badge">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -227,19 +310,8 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- Session Link (when orchestrator session is discovered) -->
-        <div v-if="orchestrator.sessionUuid" class="session-link-bar fade-section" style="--stagger: 3">
-          <span class="session-link-label">Orchestrator Session:</span>
-          <button class="session-link-btn" @click="viewSession">
-            <span class="cell-mono">{{ orchestrator.sessionUuid }}</span>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z" />
-            </svg>
-          </button>
-        </div>
-
         <!-- Active Tasks (from heartbeat) -->
-        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 4">
+        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 3">
           <template #actions>
             <span class="subagent-count-badge">{{ activeTaskCount }}</span>
           </template>
@@ -260,20 +332,26 @@ onUnmounted(() => {
             </svg>
             <span>No active tasks</span>
           </div>
-          <div v-else class="task-id-list">
-            <div
+          <div v-else class="active-task-grid">
+            <button
               v-for="taskId in orchestrator.health?.activeTasks ?? []"
               :key="taskId"
-              class="task-id-chip"
+              class="active-task-card"
+              @click="viewTask(taskId)"
             >
-              <TaskStatusBadge status="in_progress" />
-              <span class="cell-mono">{{ truncateId(taskId, 20) }}</span>
-            </div>
+              <div class="active-task-top">
+                <TaskStatusBadge status="in_progress" />
+                <span class="active-task-id cell-mono">{{ truncateId(taskId, 20) }}</span>
+              </div>
+              <div class="active-task-footer">
+                <span class="sa-link">View Task →</span>
+              </div>
+            </button>
           </div>
         </SectionPanel>
 
         <!-- Active Subagents (from attribution) -->
-        <SectionPanel title="Active Subagents" class="fade-section" style="--stagger: 5">
+        <SectionPanel title="Active Subagents" class="fade-section" style="--stagger: 4">
           <template #actions>
             <span class="subagent-count-badge">{{ orchestrator.activeSubagents.length }}</span>
           </template>
@@ -294,35 +372,46 @@ onUnmounted(() => {
             </svg>
             <span>{{ orchestrator.sessionUuid ? "No active subagents" : "Waiting for session discovery…" }}</span>
           </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table" aria-label="Active subagents">
-              <thead>
-                <tr>
-                  <th>Task ID</th>
-                  <th>Agent</th>
-                  <th>Status</th>
-                  <th>Started</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="agent in orchestrator.activeSubagents" :key="agent.taskId">
-                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
-                  <td class="cell-name">{{ agent.agentName }}</td>
-                  <td>
-                    <span class="subagent-badge subagent-running">
-                      <span class="subagent-badge-dot" />
-                      {{ agent.status }}
-                    </span>
-                  </td>
-                  <td class="cell-date">{{ agent.startedAt ? formatDate(agent.startedAt) : "—" }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-else class="subagent-grid">
+            <div
+              v-for="agent in orchestrator.activeSubagents"
+              :key="agent.taskId"
+              class="subagent-card"
+            >
+              <div class="subagent-card-top">
+                <span class="subagent-name cell-mono">{{ truncateId(agent.taskId) }}</span>
+                <span class="subagent-status-badge" :class="agent.status">
+                  <span v-if="agent.status === 'running' || agent.status === 'spawning'" class="spinner-xs" />
+                  <svg
+                    v-else
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                    />
+                  </svg>
+                  {{ agent.status }}
+                </span>
+              </div>
+              <div v-if="agent.agentName" class="subagent-task-title">{{ agent.agentName }}</div>
+              <div class="subagent-card-meta">
+                <span class="subagent-elapsed">⏱ {{ elapsedSince(agent.startedAt) }}</span>
+              </div>
+              <div class="subagent-progress">
+                <div class="subagent-progress-fill" :class="agent.status" />
+              </div>
+              <div class="subagent-card-footer">
+                <button class="sa-link" @click="viewTask(agent.taskId)">View Task →</button>
+              </div>
+            </div>
           </div>
         </SectionPanel>
 
         <!-- Completed Subagents (from attribution) -->
-        <SectionPanel title="Completed Subagents" class="fade-section" style="--stagger: 6">
+        <SectionPanel title="Completed Subagents" class="fade-section" style="--stagger: 5">
           <template #actions>
             <span class="subagent-count-badge">{{ orchestrator.completedSubagents.length }}</span>
           </template>
@@ -343,37 +432,93 @@ onUnmounted(() => {
             </svg>
             <span>No completed subagents yet</span>
           </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table" aria-label="Completed subagents">
-              <thead>
-                <tr>
-                  <th>Task ID</th>
-                  <th>Agent</th>
-                  <th>Status</th>
-                  <th>Completed</th>
-                  <th>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="agent in orchestrator.completedSubagents" :key="agent.taskId">
-                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
-                  <td class="cell-name">{{ agent.agentName }}</td>
-                  <td>
-                    <span class="subagent-badge" :class="`subagent-${agent.status}`">
-                      <span class="subagent-badge-dot" />
-                      {{ agent.status }}
-                    </span>
-                  </td>
-                  <td class="cell-date">{{ agent.completedAt ? formatDate(agent.completedAt) : "—" }}</td>
-                  <td class="cell-error">
-                    <span v-if="agent.error" class="error-text" :title="agent.error">
-                      {{ truncateError(agent.error) }}
-                    </span>
-                    <span v-else class="no-error">—</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-else class="subagent-grid">
+            <div
+              v-for="agent in orchestrator.completedSubagents"
+              :key="agent.taskId"
+              class="subagent-card"
+              :class="{ 'card-failed': agent.status === 'failed' }"
+            >
+              <div class="subagent-card-top">
+                <span class="subagent-name cell-mono">{{ truncateId(agent.taskId) }}</span>
+                <span class="subagent-status-badge" :class="agent.status">
+                  <svg
+                    v-if="agent.status === 'completed'"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                    />
+                  </svg>
+                  <svg
+                    v-else-if="agent.status === 'failed'"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"
+                    />
+                  </svg>
+                  {{ agent.status }}
+                </span>
+              </div>
+              <div v-if="agent.agentName" class="subagent-task-title">{{ agent.agentName }}</div>
+              <div class="subagent-card-meta">
+                <span class="subagent-elapsed">{{ durationBetween(agent.startedAt, agent.completedAt) }}</span>
+              </div>
+              <div v-if="agent.error" class="completed-error" :title="agent.error">
+                {{ truncateError(agent.error, 40) }}
+              </div>
+              <div class="subagent-card-footer">
+                <button class="sa-link" @click="viewTask(agent.taskId)">View Task →</button>
+              </div>
+            </div>
+          </div>
+        </SectionPanel>
+
+        <!-- Health & Recovery -->
+        <SectionPanel title="Health & Recovery" class="fade-section" style="--stagger: 6">
+          <template #actions>
+            <button class="collapse-toggle" @click="healthExpanded = !healthExpanded">
+              {{ healthExpanded ? "Collapse" : "Expand" }}
+            </button>
+          </template>
+          <div class="health-summary">
+            <div class="health-badge" :class="orchestrator.health?.health ?? 'stopped'">
+              <span class="health-dot" />
+              {{ orchestrator.health?.health ?? "unknown" }}
+            </div>
+            <span v-if="orchestrator.error" class="health-error-inline">
+              {{ truncateError(orchestrator.error, 50) }}
+            </span>
+          </div>
+          <div v-if="healthExpanded" class="health-grid">
+            <div class="health-item">
+              <span class="health-item-label">Needs Restart</span>
+              <span class="health-item-value">{{ orchestrator.needsRestart ? "Yes" : "No" }}</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Last Error</span>
+              <span class="health-item-value">{{ orchestrator.error ?? "None" }}</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Poll Interval</span>
+              <span class="health-item-value">5 000 ms</span>
+            </div>
+            <div class="health-item">
+              <span class="health-item-label">Stale Threshold</span>
+              <span class="health-item-value">60 s</span>
+            </div>
+            <div class="health-policy">
+              <strong>Recovery Policy:</strong> The orchestrator always starts a fresh Copilot session on launch —
+              it never resumes a prior session. If the process is detected as stale or crashed, a full restart is
+              triggered with a new session UUID.
+            </div>
           </div>
         </SectionPanel>
       </template>
@@ -576,6 +721,62 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
+/* ── Hero Meta (PID / Model / Uptime) ────────────────────────── */
+.hero-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.hero-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+}
+
+.hero-meta-label {
+  color: var(--text-placeholder);
+  font-weight: 500;
+}
+
+.hero-meta-value {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+
+/* ── Hero Actions ────────────────────────────────────────────── */
+.hero-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.session-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.session-hero-btn:hover {
+  background: var(--canvas-overlay);
+  border-color: var(--accent-fg);
+}
+
 .needs-restart-badge {
   display: inline-flex;
   align-items: center;
@@ -628,188 +829,358 @@ onUnmounted(() => {
   opacity: 0.4;
 }
 
-/* ── Session Link Bar ────────────────────────────────────────── */
-.session-link-bar {
-  display: flex;
-  align-items: center;
+/* ── Active Task Cards ────────────────────────────────────────── */
+.active-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
-  padding: 10px 16px;
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-}
-
-.session-link-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.session-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--accent-fg);
-  font-size: 0.8125rem;
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.session-link-btn:hover {
-  background: var(--canvas-overlay);
-  border-color: var(--accent-fg);
-}
-
-/* ── Task ID List ────────────────────────────────────────────── */
-.task-id-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   padding: 4px 0;
 }
 
-.task-id-chip {
-  display: inline-flex;
-  align-items: center;
+.active-task-card {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 12px 14px;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-}
-
-/* ── Table ───────────────────────────────────────────────────── */
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.data-table th {
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   text-align: left;
-  font-size: 0.6875rem;
+  font-family: inherit;
+  color: inherit;
+}
+
+.active-task-card:hover {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-fg);
+}
+
+.active-task-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.active-task-id {
+  font-size: 0.75rem;
+}
+
+.active-task-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Subagent Card Grid ──────────────────────────────────────── */
+.subagent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.subagent-card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.subagent-card:hover {
+  border-color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--accent-fg);
+}
+
+.subagent-card.card-failed {
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.subagent-card.card-failed:hover {
+  border-color: #f87171;
+  box-shadow: 0 0 0 1px #f87171;
+}
+
+.subagent-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subagent-name {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+}
+
+.subagent-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-default);
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
-.data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-subtle);
+.subagent-status-badge.running {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-fg);
+}
+
+.subagent-status-badge.spawning {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.subagent-status-badge.completed {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+.subagent-status-badge.failed {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.spinner-xs {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border-default);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.subagent-task-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: var(--text-primary);
-  vertical-align: middle;
+  line-height: 1.35;
 }
 
-.data-table tbody tr {
-  transition: background var(--transition-fast);
+.subagent-card-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
-.data-table tbody tr:hover {
+.subagent-elapsed {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.subagent-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-default);
+  overflow: hidden;
+}
+
+.subagent-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-fg);
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+.subagent-progress-fill.spawning {
+  background: #fbbf24;
+}
+
+.subagent-progress-fill.completed,
+.subagent-progress-fill.failed {
+  animation: none;
+  width: 100%;
+}
+
+.subagent-progress-fill.completed {
+  background: #34d399;
+}
+
+.subagent-progress-fill.failed {
+  background: #f87171;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+  50% {
+    transform: translateX(60%);
+    width: 60%;
+  }
+  100% {
+    transform: translateX(200%);
+    width: 40%;
+  }
+}
+
+.subagent-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.sa-link {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity var(--transition-fast);
+}
+
+.sa-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.completed-error {
+  font-size: 0.6875rem;
+  color: #f87171;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Health & Recovery ───────────────────────────────────────── */
+.collapse-toggle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.collapse-toggle:hover {
+  background: var(--canvas-overlay);
+}
+
+.health-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.health-badge.healthy {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+.health-badge.stale {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+.health-badge.stopped,
+.health-badge.unknown {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+}
+
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.health-error-inline {
+  font-size: 0.6875rem;
+  color: #f87171;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.health-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-item-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-placeholder);
+}
+
+.health-item-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.health-policy {
+  grid-column: 1 / -1;
+  padding: 8px 12px;
   background: var(--canvas-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-default);
+  line-height: 1.6;
 }
 
-.data-table tbody tr:last-child td {
-  border-bottom: none;
+.health-policy strong {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .cell-mono {
   font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
   font-size: 0.75rem;
   color: var(--text-secondary);
-}
-
-.cell-name {
-  font-weight: 500;
-}
-
-.cell-date {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.cell-error {
-  max-width: 240px;
-}
-
-.error-text {
-  font-size: 0.75rem;
-  color: #f87171;
-  cursor: help;
-}
-
-.no-error {
-  color: var(--text-placeholder);
-}
-
-/* ── Subagent Status Badges ──────────────────────────────────── */
-.subagent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.subagent-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.subagent-running {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-}
-
-.subagent-running .subagent-badge-dot,
-.subagent-spawning .subagent-badge-dot {
-  background: #34d399;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.subagent-spawning {
-  background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
-}
-
-.subagent-completed {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-}
-
-.subagent-completed .subagent-badge-dot {
-  background: #34d399;
-}
-
-.subagent-failed {
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
-}
-
-.subagent-failed .subagent-badge-dot {
-  background: #f87171;
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */
@@ -833,6 +1204,18 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .subagent-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .active-task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .health-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
