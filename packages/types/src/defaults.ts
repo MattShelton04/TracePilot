@@ -115,6 +115,7 @@ export function createDefaultConfig(
       renderMarkdown: true,
       mcpServers: false,
       skills: false,
+      aiTasks: false,
       ...overrides?.features,
     },
     logging: {

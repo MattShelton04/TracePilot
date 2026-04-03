@@ -56,6 +56,7 @@ export interface TracePilotConfig {
     renderMarkdown: boolean;
     mcpServers: boolean;
     skills: boolean;
+    aiTasks: boolean;
   };
   logging: {
     level: string;

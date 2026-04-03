@@ -30,6 +30,12 @@ const flags = [
     label: "Export",
     description: "Enable the Export view to download sessions in various formats.",
   },
+  {
+    key: "aiTasks",
+    label: "AI Tasks",
+    description:
+      "Enable the AI Tasks system — define tasks with prompts and context, dispatch them to a Copilot CLI orchestrator agent.",
+  },
 ] as const;
 </script>
 
