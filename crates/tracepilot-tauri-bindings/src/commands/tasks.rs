@@ -247,12 +247,31 @@ pub async fn task_orchestrator_health(
 ) -> CmdResult<tracepilot_orchestrator::task_recovery::HealthCheckResult> {
     let cfg = read_config(&config);
     let jobs_dir = cfg.jobs_dir();
+    let session_state_dir = cfg.session_state_dir();
+    let orch_state_clone = std::sync::Arc::clone(&*orch_state);
     let handle = orch_state
         .lock()
         .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?
         .clone();
     let stale_secs = (cfg.tasks.poll_interval_seconds * cfg.tasks.heartbeat_stale_multiplier) as u64;
     tokio::task::spawn_blocking(move || {
+        // Attempt session UUID discovery if handle exists but UUID is unknown
+        if let Some(ref h) = handle {
+            if h.session_uuid.is_none() {
+                if let Some(uuid) = tracepilot_orchestrator::task_orchestrator::discover_session_uuid(
+                    &session_state_dir,
+                    h.pid,
+                ) {
+                    let mut guard = orch_state_clone
+                        .lock()
+                        .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+                    if let Some(ref mut stored) = *guard {
+                        stored.session_uuid = Some(uuid);
+                    }
+                }
+            }
+        }
+
         let result = tracepilot_orchestrator::task_recovery::check_orchestrator_health(
             &jobs_dir,
             handle.as_ref(),
@@ -398,6 +417,23 @@ pub async fn task_orchestrator_start(
             .lock()
             .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
         *guard = Some(handle.clone());
+        drop(guard);
+
+        // Mark all claimed tasks as in_progress in the DB
+        let db_guard = db
+            .lock()
+            .map_err(|_| BindingsError::Validation("mutex poisoned".into()))?;
+        if let Some(task_db) = db_guard.as_ref() {
+            for task in &pending_tasks {
+                if let Err(e) = tracepilot_orchestrator::task_db::operations::update_task_status(
+                    task_db.conn(),
+                    &task.id,
+                    tracepilot_orchestrator::task_db::types::TaskStatus::InProgress,
+                ) {
+                    tracing::warn!(task_id = %task.id, error = %e, "Failed to mark task in_progress");
+                }
+            }
+        }
 
         Ok(handle)
     })

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ErrorState, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
+import { ErrorState, formatDate, LoadingSpinner, SectionPanel, StatCard } from "@tracepilot/ui";
 import { computed, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import TaskStatusBadge from "@/components/tasks/TaskStatusBadge.vue";
 import { useOrchestratorStore } from "@/stores/orchestrator";
 
 const orchestrator = useOrchestratorStore();
+const router = useRouter();
 
 // ── Derived state ───────────────────────────────────────────
 const stateLabel = computed(() => {
@@ -56,6 +58,18 @@ const lastCycle = computed(() => orchestrator.health?.lastCycle ?? null);
 
 function truncateId(id: string, len = 12): string {
   return id.length > len ? `${id.slice(0, len)}…` : id;
+}
+
+function truncateError(err: string | null, len = 60): string {
+  if (!err) return "";
+  return err.length > len ? `${err.slice(0, len)}…` : err;
+}
+
+function viewSession() {
+  const uuid = orchestrator.sessionUuid;
+  if (uuid) {
+    router.push({ path: `/session/${uuid}/overview` });
+  }
 }
 
 // ── Lifecycle ───────────────────────────────────────────────
@@ -213,8 +227,19 @@ onUnmounted(() => {
           />
         </div>
 
+        <!-- Session Link (when orchestrator session is discovered) -->
+        <div v-if="orchestrator.sessionUuid" class="session-link-bar fade-section" style="--stagger: 3">
+          <span class="session-link-label">Orchestrator Session:</span>
+          <button class="session-link-btn" @click="viewSession">
+            <span class="cell-mono">{{ orchestrator.sessionUuid }}</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z" />
+            </svg>
+          </button>
+        </div>
+
         <!-- Active Tasks (from heartbeat) -->
-        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 3">
+        <SectionPanel title="Active Tasks" class="fade-section" style="--stagger: 4">
           <template #actions>
             <span class="subagent-count-badge">{{ activeTaskCount }}</span>
           </template>
@@ -244,6 +269,111 @@ onUnmounted(() => {
               <TaskStatusBadge status="in_progress" />
               <span class="cell-mono">{{ truncateId(taskId, 20) }}</span>
             </div>
+          </div>
+        </SectionPanel>
+
+        <!-- Active Subagents (from attribution) -->
+        <SectionPanel title="Active Subagents" class="fade-section" style="--stagger: 5">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.activeSubagents.length }}</span>
+          </template>
+          <div v-if="orchestrator.activeSubagents.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+            <span>{{ orchestrator.sessionUuid ? "No active subagents" : "Waiting for session discovery…" }}</span>
+          </div>
+          <div v-else class="table-wrapper">
+            <table class="data-table" aria-label="Active subagents">
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Agent</th>
+                  <th>Status</th>
+                  <th>Started</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="agent in orchestrator.activeSubagents" :key="agent.taskId">
+                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
+                  <td class="cell-name">{{ agent.agentName }}</td>
+                  <td>
+                    <span class="subagent-badge subagent-running">
+                      <span class="subagent-badge-dot" />
+                      {{ agent.status }}
+                    </span>
+                  </td>
+                  <td class="cell-date">{{ agent.startedAt ? formatDate(agent.startedAt) : "—" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </SectionPanel>
+
+        <!-- Completed Subagents (from attribution) -->
+        <SectionPanel title="Completed Subagents" class="fade-section" style="--stagger: 6">
+          <template #actions>
+            <span class="subagent-count-badge">{{ orchestrator.completedSubagents.length }}</span>
+          </template>
+          <div v-if="orchestrator.completedSubagents.length === 0" class="empty-state">
+            <svg
+              class="empty-icon"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>No completed subagents yet</span>
+          </div>
+          <div v-else class="table-wrapper">
+            <table class="data-table" aria-label="Completed subagents">
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Agent</th>
+                  <th>Status</th>
+                  <th>Completed</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="agent in orchestrator.completedSubagents" :key="agent.taskId">
+                  <td class="cell-mono">{{ truncateId(agent.taskId) }}</td>
+                  <td class="cell-name">{{ agent.agentName }}</td>
+                  <td>
+                    <span class="subagent-badge" :class="`subagent-${agent.status}`">
+                      <span class="subagent-badge-dot" />
+                      {{ agent.status }}
+                    </span>
+                  </td>
+                  <td class="cell-date">{{ agent.completedAt ? formatDate(agent.completedAt) : "—" }}</td>
+                  <td class="cell-error">
+                    <span v-if="agent.error" class="error-text" :title="agent.error">
+                      {{ truncateError(agent.error) }}
+                    </span>
+                    <span v-else class="no-error">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </SectionPanel>
       </template>
@@ -498,6 +628,45 @@ onUnmounted(() => {
   opacity: 0.4;
 }
 
+/* ── Session Link Bar ────────────────────────────────────────── */
+.session-link-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.session-link-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.session-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--accent-fg);
+  font-size: 0.8125rem;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.session-link-btn:hover {
+  background: var(--canvas-overlay);
+  border-color: var(--accent-fg);
+}
+
 /* ── Task ID List ────────────────────────────────────────────── */
 .task-id-list {
   display: flex;
@@ -515,6 +684,132 @@ onUnmounted(() => {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
+}
+
+/* ── Table ───────────────────────────────────────────────────── */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+  background: var(--canvas-subtle);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cell-mono {
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.cell-name {
+  font-weight: 500;
+}
+
+.cell-date {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.cell-error {
+  max-width: 240px;
+}
+
+.error-text {
+  font-size: 0.75rem;
+  color: #f87171;
+  cursor: help;
+}
+
+.no-error {
+  color: var(--text-placeholder);
+}
+
+/* ── Subagent Status Badges ──────────────────────────────────── */
+.subagent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.subagent-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.subagent-running {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+.subagent-running .subagent-badge-dot,
+.subagent-spawning .subagent-badge-dot {
+  background: #34d399;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.subagent-spawning {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+}
+
+.subagent-completed {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+.subagent-completed .subagent-badge-dot {
+  background: #34d399;
+}
+
+.subagent-failed {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.subagent-failed .subagent-badge-dot {
+  background: #f87171;
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */

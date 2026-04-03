@@ -30,6 +30,19 @@ EMPTY_POLLS = 0
 COMPLETED = []
 ```
 
+**BEFORE LOOP — write initial heartbeat immediately:**
+
+Write this JSON to `{{heartbeat_path}}` (atomic: write `.tmp` then rename):
+```json
+{
+  "timestamp": "<current ISO 8601 timestamp>",
+  "cycle": 0,
+  "activeTasks": [],
+  "completedTasks": []
+}
+```
+This signals to the app that the orchestrator is alive.
+
 **LOOP START:**
 
 1. `CYCLE += 1`
@@ -37,8 +50,9 @@ COMPLETED = []
 2. **Read manifest.** Use the view tool to read: `{{manifest_path}}`
    Parse the JSON content.
 
-3. **Check shutdown.** If `"shutdown": true` in the manifest, write final heartbeat,
-   output "Orchestrator shutting down after {CYCLE} cycles.", and STOP.
+3. **Check shutdown.** If `"shutdown": true` in the manifest, write final heartbeat
+   with `"activeTasks": []`, output "Orchestrator shutting down after {CYCLE}
+   cycles.", and STOP.
 
 4. **Find pending tasks.** For each task in the manifest `tasks` array, check if its
    `status_file` path already exists on disk (use powershell `Test-Path`).
@@ -48,11 +62,22 @@ COMPLETED = []
    - `EMPTY_POLLS += 1`
    - If `EMPTY_POLLS >= {{max_empty_polls}}`, write final heartbeat, output
      "No tasks for {{max_empty_polls}} cycles. Exiting.", and STOP.
-   - Otherwise go to step 8 (skip processing, write heartbeat, sleep).
+   - Otherwise go to step 9 (skip processing, write heartbeat, sleep).
 
 6. **Reset counter.** `EMPTY_POLLS = 0`
 
-7. **Process pending tasks.** For each pending task (up to {{max_parallel}} at a time):
+7. **Write pre-processing heartbeat** with the IDs of tasks about to be processed:
+   ```json
+   {
+     "timestamp": "<current ISO 8601 timestamp>",
+     "cycle": <CYCLE>,
+     "activeTasks": ["<id-1>", "<id-2>", ...],
+     "completedTasks": <COMPLETED list>
+   }
+   ```
+   This tells the app which tasks are actively being worked on.
+
+8. **Process pending tasks.** For each pending task (up to {{max_parallel}} at a time):
    Launch a subagent with these EXACT parameters:
    - name: `tp-{task.id}`
    - description: `TracePilot: {task.title}`
@@ -66,7 +91,7 @@ COMPLETED = []
    read_agent. After each completes, write a status file (see STATUS FILE section).
    Add the task ID to the COMPLETED list.
 
-8. **Write heartbeat.** Write the following JSON to `{{heartbeat_path}}`:
+9. **Write post-processing heartbeat** (activeTasks now empty for this cycle):
    ```json
    {
      "timestamp": "<current ISO 8601 timestamp>",
@@ -75,14 +100,13 @@ COMPLETED = []
      "completedTasks": <COMPLETED list>
    }
    ```
-   Write atomically: write to `.tmp` first, then rename to final path.
 
-9. **Check cycle limit.** If `CYCLE >= {{max_cycles}}`, write final heartbeat, output
-   "Max cycles reached. Exiting for context refresh.", and STOP.
+10. **Check cycle limit.** If `CYCLE >= {{max_cycles}}`, output
+    "Max cycles reached. Exiting for context refresh.", and STOP.
 
-10. **Sleep.** Run this powershell command: `Start-Sleep -Seconds {{poll_interval}}`
+11. **Sleep.** Run this powershell command: `Start-Sleep -Seconds {{poll_interval}}`
 
-11. Go back to **LOOP START** (step 1). Do NOT stop. Continue the loop.
+12. Go back to **LOOP START** (step 1). Do NOT stop. Continue the loop.
 
 ## Subagent Prompt
 

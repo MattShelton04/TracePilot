@@ -150,6 +150,7 @@ mod tests {
             manifest_path: "/tmp/manifest.json".to_string(),
             jobs_dir: "/tmp/jobs".to_string(),
             launched_at: "2026-01-01T00:00:00Z".to_string(),
+            session_uuid: None,
         }
     }
 

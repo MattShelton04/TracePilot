@@ -1,10 +1,12 @@
 import {
+  taskAttribution,
   taskIngestResults,
   taskOrchestratorHealth,
   taskOrchestratorStart,
   taskOrchestratorStop,
 } from "@tracepilot/client";
 import type {
+  AttributionSnapshot,
   HealthCheckResult,
   OrchestratorHandle,
   OrchestratorState,
@@ -19,6 +21,7 @@ const POLL_INTERVAL_MS = 5_000;
 export const useOrchestratorStore = defineStore("orchestrator", () => {
   // ─── State ────────────────────────────────────────────────────────
   const health = ref<HealthCheckResult | null>(null);
+  const attribution = ref<AttributionSnapshot | null>(null);
   const handle = ref<OrchestratorHandle | null>(null);
   const loading = ref(false);
   const starting = ref(false);
@@ -31,7 +34,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
 
   const state = computed<OrchestratorState>(() => {
     if (starting.value) return "running";
-    if (handle.value && !health.value) return "running"; // Awaiting first heartbeat
+    if (handle.value && !health.value) return "running";
     if (!health.value) return "idle";
     switch (health.value.health) {
       case "healthy":
@@ -52,13 +55,52 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   const isStale = computed(() => health.value?.health === "stale");
   const needsRestart = computed(() => health.value?.needsRestart === true);
 
+  /** Session UUID of the orchestrator (discovered via PID lock file). */
+  const sessionUuid = computed(() => handle.value?.sessionUuid ?? null);
+
+  /** Session path for attribution lookups. */
+  const sessionPath = computed(() => {
+    const uuid = sessionUuid.value;
+    if (!uuid) return null;
+    // Standard Copilot CLI session state path
+    const home = typeof process !== "undefined" ? process.env.USERPROFILE : undefined;
+    if (!home) return null;
+    return `${home}\\.copilot\\session-state\\${uuid}`;
+  });
+
+  const activeSubagents = computed(() =>
+    (attribution.value?.subagents ?? []).filter(
+      (s) => s.status === "running" || s.status === "spawning",
+    ),
+  );
+
+  const completedSubagents = computed(() =>
+    (attribution.value?.subagents ?? []).filter(
+      (s) => s.status === "completed" || s.status === "failed",
+    ),
+  );
+
   // ─── Actions ──────────────────────────────────────────────────────
 
   async function checkHealth() {
     try {
-      health.value = await taskOrchestratorHealth();
+      const result = await taskOrchestratorHealth();
+      health.value = result;
+      // Health check also discovers session UUID — update handle if found
+      // The backend updates the shared state, so re-read will get it next cycle
     } catch (e) {
       logWarn("[orchestrator] Health check failed:", e);
+    }
+  }
+
+  /** Refresh subagent attribution from orchestrator session events. */
+  async function refreshAttribution() {
+    const path = sessionPath.value;
+    if (!path) return;
+    try {
+      attribution.value = await taskAttribution(path);
+    } catch (e) {
+      logWarn("[orchestrator] Attribution refresh failed:", e);
     }
   }
 
@@ -74,9 +116,10 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   }
 
-  /** Single poll cycle: check health + ingest results. */
+  /** Single poll cycle: check health + attribution + ingest results. */
   async function pollCycle() {
     await checkHealth();
+    await refreshAttribution();
     await ingestResults();
   }
 
@@ -104,7 +147,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     }
   });
 
-  /** Perform a full refresh: health + ingestion. */
+  /** Perform a full refresh: health + attribution + ingestion. */
   async function refresh() {
     loading.value = true;
     error.value = null;
@@ -137,6 +180,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     try {
       await taskOrchestratorStop();
       handle.value = null;
+      attribution.value = null;
       await checkHealth();
     } catch (e) {
       error.value = toErrorMessage(e);
@@ -149,6 +193,7 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
   return {
     // State
     health,
+    attribution,
     handle,
     loading,
     starting,
@@ -161,8 +206,13 @@ export const useOrchestratorStore = defineStore("orchestrator", () => {
     isStopped,
     isStale,
     needsRestart,
+    sessionUuid,
+    sessionPath,
+    activeSubagents,
+    completedSubagents,
     // Actions
     checkHealth,
+    refreshAttribution,
     ingestResults,
     pollCycle,
     startPolling,

@@ -5852,6 +5852,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracepilot-core",
+ "tracepilot-export",
  "tracing",
  "uuid",
  "walkdir",

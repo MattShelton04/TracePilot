@@ -5,6 +5,7 @@
 
 use crate::error::Result;
 use crate::presets::types::{ContextSource, ContextSourceType};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Assemble context data from a single source definition.
@@ -25,8 +26,81 @@ pub fn assemble_source(
     }
 }
 
-/// Session export: loads session summary and produces a markdown overview.
+/// Default sections for session export context — optimised for AI summarisation.
+/// Includes the high-value sections while skipping raw events and checkpoints
+/// which are verbose but low-signal for summary/review tasks.
+const DEFAULT_EXPORT_SECTIONS: &[tracepilot_export::SectionId] = &[
+    tracepilot_export::SectionId::Conversation,
+    tracepilot_export::SectionId::Plan,
+    tracepilot_export::SectionId::Todos,
+    tracepilot_export::SectionId::Metrics,
+    tracepilot_export::SectionId::Incidents,
+    tracepilot_export::SectionId::Health,
+];
+
+/// Session export: uses the `tracepilot-export` crate for rich, structured
+/// markdown output.  Selects high-value sections (conversation, plan, todos,
+/// metrics, incidents, health) while omitting verbose raw events and checkpoints.
+///
+/// Configurable via `source.config`:
+/// - `sections` — array of section names to include (overrides defaults)
+/// - `max_bytes` — optional byte limit passed to `preview_export`
 fn assemble_session_export(
+    source: &ContextSource,
+    params: &serde_json::Value,
+    data_dir: &Path,
+) -> Result<String> {
+    let session_id = require_session_id(params)?;
+    let session_path =
+        tracepilot_core::session::discovery::resolve_session_path_in(session_id, data_dir)?;
+
+    // ── Build section set ──────────────────────────────────────────────
+    let sections: HashSet<tracepilot_export::SectionId> =
+        if let Some(custom) = source.config.get("sections").and_then(|v| v.as_array()) {
+            custom
+                .iter()
+                .filter_map(|v| v.as_str())
+                .filter_map(parse_section_id)
+                .collect()
+        } else {
+            DEFAULT_EXPORT_SECTIONS.iter().copied().collect()
+        };
+
+    // ── Build export options ───────────────────────────────────────────
+    let options = tracepilot_export::ExportOptions {
+        format: tracepilot_export::ExportFormat::Markdown,
+        sections,
+        output: tracepilot_export::OutputTarget::String,
+        content_detail: tracepilot_export::ContentDetailOptions::default(),
+        redaction: tracepilot_export::RedactionOptions::default(),
+    };
+
+    let max_bytes = source
+        .config
+        .get("max_bytes")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as usize);
+
+    // ── Export ──────────────────────────────────────────────────────────
+    let markdown = tracepilot_export::preview_export(&session_path, &options, max_bytes)
+        .map_err(|e| {
+            tracing::warn!(
+                session = %session_id,
+                error = %e,
+                "Export crate failed, falling back to basic summary"
+            );
+            e
+        });
+
+    match markdown {
+        Ok(content) if !content.is_empty() => Ok(content),
+        _ => assemble_session_export_fallback(source, params, data_dir),
+    }
+}
+
+/// Fallback: basic summary from session metadata when the export crate fails
+/// (e.g. corrupt session data). Produces a minimal markdown overview.
+fn assemble_session_export_fallback(
     source: &ContextSource,
     params: &serde_json::Value,
     data_dir: &Path,
@@ -56,7 +130,6 @@ fn assemble_session_export(
     }
     lines.push(String::new());
 
-    // Include turn content if events were parsed
     if let Some(typed_events) = &load_result.typed_events {
         let max_events = source
             .config
@@ -80,6 +153,24 @@ fn assemble_session_export(
     }
 
     Ok(lines.join("\n"))
+}
+
+/// Parse a section name string into a `SectionId`.
+fn parse_section_id(name: &str) -> Option<tracepilot_export::SectionId> {
+    match name.to_lowercase().as_str() {
+        "conversation" => Some(tracepilot_export::SectionId::Conversation),
+        "events" => Some(tracepilot_export::SectionId::Events),
+        "todos" => Some(tracepilot_export::SectionId::Todos),
+        "plan" => Some(tracepilot_export::SectionId::Plan),
+        "checkpoints" => Some(tracepilot_export::SectionId::Checkpoints),
+        "metrics" => Some(tracepilot_export::SectionId::Metrics),
+        "incidents" => Some(tracepilot_export::SectionId::Incidents),
+        "health" => Some(tracepilot_export::SectionId::Health),
+        _ => {
+            tracing::warn!(section = %name, "Unknown section name in context source config");
+            None
+        }
+    }
 }
 
 /// Session analytics: produces aggregate stats from parsed session data.
@@ -198,12 +289,15 @@ fn require_session_id(params: &serde_json::Value) -> Result<&str> {
         })
 }
 
-/// Truncate a string to max_len, appending "..." if truncated.
+/// Truncate a string to max_len characters, appending "..." if truncated.
+/// Uses char boundaries to avoid panicking on multi-byte UTF-8.
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let char_count = s.chars().count();
+    if char_count <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len])
+        let end: usize = s.char_indices().nth(max_len).map_or(s.len(), |(i, _)| i);
+        format!("{}...", &s[..end])
     }
 }
 

@@ -36,6 +36,8 @@ pub enum OrchestratorError {
     Mcp(#[from] crate::mcp::McpError),
     #[error(transparent)]
     Skills(#[from] crate::skills::SkillsError),
+    #[error("Export error: {0}")]
+    Export(#[from] tracepilot_export::ExportError),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;

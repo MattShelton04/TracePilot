@@ -55,6 +55,8 @@ pub struct OrchestratorHandle {
     pub jobs_dir: String,
     /// ISO 8601 timestamp when launched.
     pub launched_at: String,
+    /// UUID of the orchestrator's Copilot CLI session (discovered via lock file).
+    pub session_uuid: Option<String>,
 }
 
 /// Shared Tauri state for tracking the active orchestrator.
@@ -155,6 +157,18 @@ pub fn launch_orchestrator(
         OrchestratorError::Task(format!("Failed to write orchestrator prompt: {}", e))
     })?;
 
+    // 4c. Write initial heartbeat so the monitor shows "Running" immediately
+    let heartbeat_path = jobs_dir.join("heartbeat.json");
+    let initial_heartbeat = serde_json::json!({
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "cycle": 0,
+        "activeTasks": task_ids,
+        "completedTasks": []
+    });
+    let tmp_heartbeat = heartbeat_path.with_extension("json.tmp");
+    std::fs::write(&tmp_heartbeat, initial_heartbeat.to_string()).ok();
+    std::fs::rename(&tmp_heartbeat, &heartbeat_path).ok();
+
     // 5. Launch via spawn_detached_terminal (reuse existing launcher infra)
     let cli = &config.cli_command;
     if !cli
@@ -220,6 +234,7 @@ pub fn launch_orchestrator(
         manifest_path: manifest_path.to_string_lossy().to_string(),
         jobs_dir: jobs_dir.to_string_lossy().to_string(),
         launched_at: chrono::Utc::now().to_rfc3339(),
+        session_uuid: None, // Populated later via discover_session_uuid
     };
 
     tracing::info!(
@@ -230,4 +245,35 @@ pub fn launch_orchestrator(
     );
 
     Ok(handle)
+}
+
+/// Discover the orchestrator's Copilot CLI session UUID by scanning for
+/// `inuse.{pid}.lock` files in the session state directory.
+///
+/// The Copilot CLI creates `~/.copilot/session-state/{UUID}/inuse.{PID}.lock`
+/// when a session is active. We scan all session directories for a lock file
+/// matching our orchestrator PID.
+pub fn discover_session_uuid(session_state_dir: &Path, pid: u32) -> Option<String> {
+    let entries = match std::fs::read_dir(session_state_dir) {
+        Ok(e) => e,
+        Err(_) => return None,
+    };
+    let lock_name = format!("inuse.{}.lock", pid);
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if path.join(&lock_name).exists() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                tracing::info!(
+                    session_uuid = %name,
+                    pid = pid,
+                    "Discovered orchestrator session"
+                );
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
 }
