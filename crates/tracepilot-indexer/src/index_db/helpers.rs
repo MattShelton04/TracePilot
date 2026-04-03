@@ -50,23 +50,37 @@ pub(super) fn to_refs(values: &[String]) -> Vec<&dyn ToSql> {
     values.iter().map(|v| v as &dyn ToSql).collect()
 }
 
-pub(super) fn query_day_tokens(
+pub(super) fn execute_query_map<T, F, P>(
     conn: &Connection,
     sql: &str,
-    refs: &[&dyn ToSql],
-) -> Result<Vec<DayTokens>> {
+    params: P,
+    mut mapper: F,
+) -> Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+    P: IntoIterator,
+    P::Item: ToSql,
+{
     let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        Ok(DayTokens {
-            date: row.get(0)?,
-            tokens: row.get::<_, i64>(1)? as u64,
-        })
-    })?;
+    let rows = stmt.query_map(params_from_iter(params), |row| mapper(row))?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
     }
     Ok(result)
+}
+
+pub(super) fn query_day_tokens(
+    conn: &Connection,
+    sql: &str,
+    refs: &[&dyn ToSql],
+) -> Result<Vec<DayTokens>> {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(DayTokens {
+            date: row.get(0)?,
+            tokens: row.get::<_, i64>(1)? as u64,
+        })
+    })
 }
 
 pub(super) fn query_day_activity(
@@ -74,18 +88,12 @@ pub(super) fn query_day_activity(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayActivity>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayActivity {
             date: row.get(0)?,
             count: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_day_cost(
@@ -93,18 +101,12 @@ pub(super) fn query_day_cost(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<DayCost>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
         Ok(DayCost {
             date: row.get(0)?,
             cost: row.get(1)?,
         })
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row?);
-    }
-    Ok(result)
+    })
 }
 
 pub(super) fn query_model_distribution(
@@ -160,15 +162,9 @@ pub(super) fn query_durations(
     sql: &str,
     refs: &[&dyn ToSql],
 ) -> Result<Vec<u64>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
-        row.get::<_, i64>(0)
-    })?;
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row? as u64);
-    }
-    Ok(result)
+    execute_query_map(conn, sql, refs.iter().copied(), |row| {
+        Ok(row.get::<_, i64>(0)? as u64)
+    })
 }
 
 pub(super) fn compute_duration_stats(durations: &[u64]) -> ApiDurationStats {
@@ -417,5 +413,43 @@ mod tests {
             .query_row(&sql4, params_from_iter(refs4.iter().copied()), |r| r.get(0))
             .expect("query4");
         assert_eq!(count4, 6, "expected all 6 sessions with no filter");
+    }
+    #[test]
+    fn test_execute_query_map_collects_rows() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER);
+             INSERT INTO test (value) VALUES (10), (20), (30);",
+        )
+        .expect("setup");
+
+        let result: Vec<i64> = execute_query_map(
+            &conn,
+            "SELECT value FROM test WHERE value > ? ORDER BY value",
+            [15],
+            |row| row.get(0),
+        )
+        .expect("query succeeds");
+
+        assert_eq!(result, vec![20, 30]);
+    }
+
+    #[test]
+    fn test_execute_query_map_propagates_mapper_errors() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);
+             INSERT INTO test (value) VALUES ('not a number');",
+        )
+        .expect("setup");
+
+        let result: Result<Vec<i64>> = execute_query_map(
+            &conn,
+            "SELECT value FROM test",
+            std::iter::empty::<i64>(),
+            |row| row.get(0),
+        );
+
+        assert!(result.is_err());
     }
 }
