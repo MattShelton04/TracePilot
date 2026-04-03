@@ -2,6 +2,8 @@
 import {
   ErrorState,
   formatDate,
+  formatDuration,
+  formatRelativeTime,
   LoadingSpinner,
   SectionPanel,
   useConfirmDialog,
@@ -25,9 +27,19 @@ const task = computed(() => store.selectedTask);
 const loading = ref(false);
 const cancelling = ref(false);
 const retrying = ref(false);
-const activeTab = ref<"result" | "context" | "timeline" | "raw">("result");
-const copiedSection = ref<string | null>(null);
 
+// ─── Tabs ─────────────────────────────────────────────────────────
+type TabId = "result" | "context" | "timeline" | "subagent" | "raw";
+const activeTab = ref<TabId>("result");
+const tabDefs: Array<{ id: TabId; label: string; icon: string }> = [
+  { id: "result", label: "Result", icon: "✦" },
+  { id: "context", label: "Context", icon: "◎" },
+  { id: "timeline", label: "Timeline", icon: "⏱" },
+  { id: "subagent", label: "Subagent", icon: "🤖" },
+  { id: "raw", label: "Raw", icon: "{ }" },
+];
+
+// ─── Computed Helpers ─────────────────────────────────────────────
 const canCancel = computed(() => {
   const s = task.value?.status;
   return s === "pending" || s === "claimed" || s === "in_progress";
@@ -38,60 +50,194 @@ const canRetry = computed(() => {
   return s === "failed" || s === "expired" || s === "dead_letter";
 });
 
-const duration = computed(() => {
-  const t = task.value;
-  if (!t?.completedAt) return null;
-  const ms = new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime();
-  if (ms < 1000) return `${ms}ms`;
-  const secs = Math.round(ms / 1000);
-  if (secs < 60) return `${secs}s`;
-  const mins = Math.floor(secs / 60);
-  const rem = secs % 60;
-  return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
+const truncatedId = computed(() => {
+  const id = task.value?.id;
+  if (!id) return "";
+  return id.length > 12 ? `${id.slice(0, 12)}…` : id;
 });
 
-const timelineEvents = computed(() => {
+const duration = computed(() => {
+  const t = task.value;
+  if (!t?.completedAt || !t.createdAt) return null;
+  const start = new Date(t.createdAt).getTime();
+  const end = new Date(t.completedAt).getTime();
+  return formatDuration(end - start);
+});
+
+const inputEntries = computed(() => {
+  const params = task.value?.inputParams;
+  if (!params || typeof params !== "object") return [];
+  return Object.entries(params);
+});
+
+const resultEntries = computed(() => {
+  const parsed = task.value?.resultParsed;
+  if (!parsed || typeof parsed !== "object") return [];
+  return Object.entries(parsed);
+});
+
+// ─── Timeline ─────────────────────────────────────────────────────
+interface TimelineEvent {
+  label: string;
+  timestamp: string | null;
+  state: "done" | "active" | "pending";
+  variant: "default" | "success" | "danger" | "warning";
+}
+
+const POST_CLAIMED = new Set([
+  "in_progress",
+  "done",
+  "failed",
+  "cancelled",
+  "expired",
+  "dead_letter",
+]);
+
+const timelineEvents = computed<TimelineEvent[]>(() => {
   const t = task.value;
   if (!t) return [];
-  const events: { label: string; time: string | null; icon: string; color: string }[] = [
-    { label: "Created", time: t.createdAt, icon: "●", color: "var(--text-tertiary)" },
-  ];
-  if (t.status === "in_progress") {
-    events.push({ label: "In Progress", time: t.updatedAt, icon: "▶", color: "#60a5fa" });
+
+  const s = t.status;
+  const events: TimelineEvent[] = [];
+
+  events.push({
+    label: "Created",
+    timestamp: t.createdAt,
+    state: "done",
+    variant: "default",
+  });
+
+  if (s === "claimed") {
+    events.push({
+      label: "Claimed",
+      timestamp: null,
+      state: "active",
+      variant: "default",
+    });
+  } else if (POST_CLAIMED.has(s)) {
+    events.push({
+      label: "Claimed",
+      timestamp: null,
+      state: "done",
+      variant: "default",
+    });
+  } else {
+    events.push({
+      label: "Claimed",
+      timestamp: null,
+      state: "pending",
+      variant: "default",
+    });
   }
-  if (t.completedAt && t.status === "done") {
-    events.push({ label: "Completed", time: t.completedAt, icon: "✓", color: "#34d399" });
-  } else if (t.completedAt && t.status === "failed") {
-    events.push({ label: "Failed", time: t.completedAt, icon: "✗", color: "#f87171" });
-  } else if (t.completedAt && t.status === "cancelled") {
-    events.push({ label: "Cancelled", time: t.completedAt, icon: "⊘", color: "#fbbf24" });
+
+  if (s === "in_progress") {
+    events.push({
+      label: "In Progress",
+      timestamp: null,
+      state: "active",
+      variant: "default",
+    });
+  } else if (s === "done" || s === "failed") {
+    events.push({
+      label: "In Progress",
+      timestamp: null,
+      state: "done",
+      variant: "default",
+    });
+  } else {
+    events.push({
+      label: "In Progress",
+      timestamp: null,
+      state: "pending",
+      variant: "default",
+    });
   }
+
+  if (s === "done") {
+    events.push({
+      label: "Completed",
+      timestamp: t.completedAt,
+      state: "done",
+      variant: "success",
+    });
+  } else if (s === "failed") {
+    events.push({
+      label: "Failed",
+      timestamp: t.completedAt ?? t.updatedAt,
+      state: "done",
+      variant: "danger",
+    });
+  } else if (s === "cancelled") {
+    events.push({
+      label: "Cancelled",
+      timestamp: t.updatedAt,
+      state: "done",
+      variant: "warning",
+    });
+  } else if (s === "expired") {
+    events.push({
+      label: "Expired",
+      timestamp: t.updatedAt,
+      state: "done",
+      variant: "warning",
+    });
+  } else if (s === "dead_letter") {
+    events.push({
+      label: "Dead Letter",
+      timestamp: t.updatedAt,
+      state: "done",
+      variant: "danger",
+    });
+  } else {
+    events.push({
+      label: "Completed",
+      timestamp: null,
+      state: "pending",
+      variant: "default",
+    });
+  }
+
   return events;
 });
 
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+// ─── Clipboard ────────────────────────────────────────────────────
+const copiedSection = ref<string | null>(null);
+let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
-async function copyJson(label: string, data: unknown) {
+async function copyText(text: string, section: string) {
   try {
-    await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    copiedSection.value = label;
-    setTimeout(() => {
+    await navigator.clipboard.writeText(text);
+    if (copiedTimer) clearTimeout(copiedTimer);
+    copiedSection.value = section;
+    copiedTimer = setTimeout(() => {
       copiedSection.value = null;
     }, 2000);
   } catch {
-    toast.error("Failed to copy");
+    toast.error("Failed to copy to clipboard");
   }
 }
 
+// ─── Display Helpers ──────────────────────────────────────────────
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function isSimpleValue(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+// ─── Actions ──────────────────────────────────────────────────────
 async function loadTask(id: string) {
   loading.value = true;
   await store.getTask(id);
@@ -128,7 +274,8 @@ async function handleDelete() {
   if (!task.value) return;
   const { confirmed } = await confirm({
     title: "Delete Task",
-    message: "Are you sure you want to permanently delete this task? This action cannot be undone.",
+    message:
+      "Are you sure you want to permanently delete this task?" + " This action cannot be undone.",
     variant: "danger",
     confirmLabel: "Yes, Delete",
   });
@@ -194,26 +341,36 @@ watch(taskId, (newId) => {
       <!-- Not found -->
       <div v-else-if="!task && !loading" class="not-found">
         <p>Task "{{ taskId }}" was not found.</p>
-        <button class="btn btn-secondary" @click="goBack">Back to Tasks</button>
+        <button class="btn btn-secondary" @click="goBack">
+          Back to Tasks
+        </button>
       </div>
 
-      <!-- Task detail -->
+      <!-- ═══════════════ Task Detail ═══════════════ -->
       <template v-if="task">
         <!-- Header -->
         <div class="detail-header">
           <div class="detail-header-left">
             <h1 class="detail-title">{{ taskTitle(task) }}</h1>
-            <div class="detail-meta-row">
+            <div class="detail-badges">
               <TaskStatusBadge :status="task.status" />
               <TaskTypeBadge :task-type="task.taskType" />
               <PriorityBadge :priority="task.priority" />
-              <span class="detail-id">{{ task.id.slice(0, 12) }}…</span>
-              <span class="detail-sep">·</span>
-              <span class="detail-date">{{ formatDate(task.createdAt) }}</span>
-              <template v-if="duration">
-                <span class="detail-sep">·</span>
-                <span class="detail-duration">⏱ {{ duration }}</span>
-              </template>
+            </div>
+            <div class="detail-meta">
+              <button
+                class="meta-chip meta-chip-id"
+                :title="`Copy ID: ${task.id}`"
+                @click="copyText(task.id, 'id')"
+              >
+                {{ copiedSection === "id" ? "Copied ✓" : `ID: ${truncatedId}` }}
+              </button>
+              <span class="meta-chip">
+                {{ formatDate(task.createdAt) }}
+              </span>
+              <span v-if="duration" class="meta-chip meta-chip-accent">
+                ⏱ {{ duration }}
+              </span>
             </div>
           </div>
           <div class="detail-actions">
@@ -237,262 +394,351 @@ watch(taskId, (newId) => {
           </div>
         </div>
 
-        <!-- Tab Bar -->
-        <div class="tab-bar">
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'result' }"
-            @click="activeTab = 'result'"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M5.5 8l2 2 3.5-4" stroke-linecap="round" stroke-linejoin="round" />
-              <rect x="2" y="2" width="12" height="12" rx="2" />
-            </svg>
-            Result
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'context' }"
-            @click="activeTab = 'context'"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="2" y="2" width="12" height="12" rx="1" />
-              <path d="M5 5h6M5 8h4M5 11h5" stroke-linecap="round" />
-            </svg>
-            Context
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'timeline' }"
-            @click="activeTab = 'timeline'"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="8" cy="8" r="6" />
-              <path d="M8 4v4l3 2" stroke-linecap="round" />
-            </svg>
-            Timeline
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'raw' }"
-            @click="activeTab = 'raw'"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M5 3L2 8l3 5M11 3l3 5-3 5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            Raw
-          </button>
+        <!-- Error banner (persistent across tabs) -->
+        <div v-if="task.errorMessage" class="error-banner">
+          <span class="error-banner-icon">✗</span>
+          <span class="error-banner-text">{{ task.errorMessage }}</span>
         </div>
 
-        <!-- ─── Result Tab ─── -->
-        <div v-if="activeTab === 'result'" class="tab-panel">
-          <!-- Pending/in-progress empty state -->
-          <div
-            v-if="task.status === 'pending' || task.status === 'claimed' || task.status === 'in_progress'"
-            class="result-empty"
+        <!-- Tab bar -->
+        <nav class="tab-bar" role="tablist" aria-label="Task detail tabs">
+          <button
+            v-for="tab in tabDefs"
+            :key="tab.id"
+            role="tab"
+            :aria-selected="activeTab === tab.id"
+            class="tab-item"
+            :class="{ active: activeTab === tab.id }"
+            @click="activeTab = tab.id"
           >
-            <div class="result-empty-icon">⏳</div>
-            <h3 class="result-empty-title">No results yet</h3>
-            <p class="result-empty-desc">
-              This task is {{ task.status === "in_progress" ? "currently being processed" : "waiting to be processed" }}.
-            </p>
-          </div>
+            <span class="tab-icon">{{ tab.icon }}</span>
+            {{ tab.label }}
+          </button>
+        </nav>
 
-          <!-- Error state -->
-          <div v-else-if="task.errorMessage" class="result-section">
-            <div class="error-block">
-              <span class="error-icon">✗</span>
-              <div class="error-content">
-                <span class="error-label">Task Failed</span>
-                <span class="error-text">{{ task.errorMessage }}</span>
+        <!-- ─── Tab Panels ─── -->
+        <div class="tab-panel">
+          <!-- ═══ Result ═══ -->
+          <div v-if="activeTab === 'result'" class="panel-content">
+            <div v-if="task.resultSummary" class="result-card">
+              <div class="card-label">Summary</div>
+              <div class="result-summary-text">
+                {{ task.resultSummary }}
               </div>
             </div>
-          </div>
 
-          <!-- Result content -->
-          <template v-else>
-            <div v-if="task.resultSummary" class="result-section">
-              <h3 class="section-heading">Summary</h3>
-              <div class="result-summary">{{ task.resultSummary }}</div>
-            </div>
-
-            <div v-if="task.resultParsed" class="result-section">
-              <h3 class="section-heading">Parsed Result</h3>
-              <div class="json-block-wrapper">
-                <pre class="json-block">{{ JSON.stringify(task.resultParsed, null, 2) }}</pre>
+            <div v-if="resultEntries.length > 0" class="result-card">
+              <div class="card-label">Parsed Result</div>
+              <div class="kv-table">
+                <div
+                  v-for="[key, val] in resultEntries"
+                  :key="key"
+                  class="kv-row"
+                >
+                  <span class="kv-key">{{ key }}</span>
+                  <span v-if="isSimpleValue(val)" class="kv-val">
+                    {{ formatValue(val) }}
+                  </span>
+                  <pre v-else class="kv-val-block">{{ formatValue(val) }}</pre>
+                </div>
               </div>
             </div>
 
             <div
-              v-if="!task.resultSummary && !task.resultParsed && !task.errorMessage"
-              class="result-empty"
+              v-if="task.schemaValid != null && task.status === 'done'"
+              class="schema-badge-row"
             >
-              <div class="result-empty-icon">📋</div>
-              <h3 class="result-empty-title">No result data</h3>
-              <p class="result-empty-desc">
-                This task completed but no result data was recorded.
-              </p>
-            </div>
-          </template>
-
-          <!-- Metadata summary at bottom -->
-          <div class="meta-summary">
-            <div class="meta-chip">
-              <span class="meta-chip-label">Attempts</span>
-              <span class="meta-chip-value">{{ task.attemptCount }} / {{ task.maxRetries }}</span>
-            </div>
-            <div v-if="task.schemaValid != null" class="meta-chip">
-              <span class="meta-chip-label">Schema</span>
-              <span class="meta-chip-value" :class="task.schemaValid ? 'valid-check' : 'invalid-cross'">
-                {{ task.schemaValid ? "✓ Valid" : "✗ Invalid" }}
+              <span :class="task.schemaValid ? 'schema-pass' : 'schema-fail'">
+                {{ task.schemaValid ? "✓ Schema Valid" : "✗ Schema Invalid" }}
               </span>
             </div>
-            <div v-if="task.contextHash" class="meta-chip">
-              <span class="meta-chip-label">Context</span>
-              <span class="meta-chip-value mono">{{ task.contextHash.slice(0, 10) }}…</span>
-            </div>
-          </div>
-        </div>
 
-        <!-- ─── Context Tab ─── -->
-        <div v-if="activeTab === 'context'" class="tab-panel">
-          <div class="context-section">
-            <h3 class="section-heading">Preset</h3>
-            <div class="context-card">
-              <div class="context-row">
-                <span class="context-label">Preset ID</span>
-                <span class="context-value mono">{{ task.presetId }}</span>
-              </div>
-              <div class="context-row">
-                <span class="context-label">Task Type</span>
-                <span class="context-value"><TaskTypeBadge :task-type="task.taskType" /></span>
-              </div>
-              <div class="context-row">
-                <span class="context-label">Priority</span>
-                <span class="context-value"><PriorityBadge :priority="task.priority" /></span>
-              </div>
-            </div>
-          </div>
-
-          <div class="context-section">
-            <h3 class="section-heading">Input Parameters</h3>
-            <div v-if="task.inputParams && Object.keys(task.inputParams).length > 0" class="context-card">
-              <div
-                v-for="(val, key) in task.inputParams"
-                :key="String(key)"
-                class="context-row"
-              >
-                <span class="context-label">{{ String(key) }}</span>
-                <span class="context-value mono">
-                  {{ typeof val === "string" ? val : JSON.stringify(val) }}
-                </span>
-              </div>
-            </div>
-            <div v-else class="empty-placeholder">No input parameters</div>
-          </div>
-
-          <div v-if="task.jobId" class="context-section">
-            <h3 class="section-heading">Execution</h3>
-            <div class="context-card">
-              <div class="context-row">
-                <span class="context-label">Job ID</span>
-                <span class="context-value mono">{{ task.jobId }}</span>
-              </div>
-              <div v-if="task.orchestratorSessionId" class="context-row">
-                <span class="context-label">Orchestrator Session</span>
-                <span class="context-value mono truncate">{{ task.orchestratorSessionId }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─── Timeline Tab ─── -->
-        <div v-if="activeTab === 'timeline'" class="tab-panel">
-          <div class="timeline-stats">
-            <div class="timeline-stat">
-              <span class="timeline-stat-value">{{ task.attemptCount }}</span>
-              <span class="timeline-stat-label">Attempts</span>
-            </div>
-            <div v-if="duration" class="timeline-stat">
-              <span class="timeline-stat-value">{{ duration }}</span>
-              <span class="timeline-stat-label">Duration</span>
-            </div>
-            <div class="timeline-stat">
-              <span class="timeline-stat-value">{{ task.maxRetries }}</span>
-              <span class="timeline-stat-label">Max Retries</span>
-            </div>
-          </div>
-
-          <div class="timeline">
+            <!-- Empty: pending / in_progress -->
             <div
-              v-for="(evt, idx) in timelineEvents"
-              :key="idx"
-              class="timeline-item"
+              v-if="
+                !task.resultSummary &&
+                resultEntries.length === 0 &&
+                task.status !== 'done' &&
+                task.status !== 'failed'
+              "
+              class="empty-state"
             >
-              <div class="timeline-track">
-                <span class="timeline-dot" :style="{ color: evt.color }">{{ evt.icon }}</span>
-                <div v-if="idx < timelineEvents.length - 1" class="timeline-line" />
+              <div class="empty-icon">✦</div>
+              <div class="empty-heading">No results yet</div>
+              <div class="empty-desc">
+                This task is
+                {{ task.status === "in_progress" ? "currently running" : "waiting to be processed" }}.
+                Results will appear here once complete.
               </div>
-              <div class="timeline-content">
-                <span class="timeline-label">{{ evt.label }}</span>
-                <span v-if="evt.time" class="timeline-time">
-                  {{ formatDate(evt.time) }}
-                  <span class="timeline-relative">{{ relativeTime(evt.time) }}</span>
+            </div>
+
+            <!-- Empty: done with no data -->
+            <div
+              v-if="
+                !task.resultSummary &&
+                resultEntries.length === 0 &&
+                task.status === 'done'
+              "
+              class="empty-state"
+            >
+              <div class="empty-icon">○</div>
+              <div class="empty-heading">No result data</div>
+              <div class="empty-desc">
+                The task completed but did not produce result data.
+              </div>
+            </div>
+
+            <!-- Empty: failed -->
+            <div
+              v-if="
+                !task.resultSummary &&
+                resultEntries.length === 0 &&
+                task.status === 'failed'
+              "
+              class="empty-state"
+            >
+              <div class="empty-icon empty-icon-danger">✗</div>
+              <div class="empty-heading">Task failed</div>
+              <div class="empty-desc">
+                See the error banner above for details.
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ Context ═══ -->
+          <div v-if="activeTab === 'context'" class="panel-content">
+            <SectionPanel title="Input Parameters">
+              <div v-if="inputEntries.length > 0" class="kv-table">
+                <div
+                  v-for="[key, val] in inputEntries"
+                  :key="key"
+                  class="kv-row"
+                >
+                  <span class="kv-key">{{ key }}</span>
+                  <span v-if="isSimpleValue(val)" class="kv-val">
+                    {{ formatValue(val) }}
+                  </span>
+                  <pre v-else class="kv-val-block">{{ formatValue(val) }}</pre>
+                </div>
+              </div>
+              <div v-else class="empty-placeholder">No input parameters.</div>
+            </SectionPanel>
+
+            <SectionPanel title="Preset">
+              <div class="kv-table">
+                <div class="kv-row">
+                  <span class="kv-key">Preset ID</span>
+                  <span class="kv-val mono">{{ task.presetId }}</span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">Task Type</span>
+                  <span class="kv-val">
+                    <TaskTypeBadge :task-type="task.taskType" />
+                  </span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">Priority</span>
+                  <span class="kv-val">
+                    <PriorityBadge :priority="task.priority" />
+                  </span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">Max Retries</span>
+                  <span class="kv-val mono">{{ task.maxRetries }}</span>
+                </div>
+              </div>
+            </SectionPanel>
+
+            <SectionPanel title="Context Source">
+              <div
+                v-if="task.contextHash || task.orchestratorSessionId || task.jobId"
+                class="kv-table"
+              >
+                <div v-if="task.contextHash" class="kv-row">
+                  <span class="kv-key">Context Hash</span>
+                  <span class="kv-val mono truncate">
+                    {{ task.contextHash }}
+                  </span>
+                </div>
+                <div v-if="task.orchestratorSessionId" class="kv-row">
+                  <span class="kv-key">Session</span>
+                  <span class="kv-val mono truncate">
+                    {{ task.orchestratorSessionId }}
+                  </span>
+                </div>
+                <div v-if="task.jobId" class="kv-row">
+                  <span class="kv-key">Job ID</span>
+                  <span class="kv-val mono">{{ task.jobId }}</span>
+                </div>
+              </div>
+              <div v-else class="empty-placeholder">
+                No context source information available.
+              </div>
+            </SectionPanel>
+          </div>
+
+          <!-- ═══ Timeline ═══ -->
+          <div v-if="activeTab === 'timeline'" class="panel-content">
+            <div class="timeline">
+              <div
+                v-for="(evt, idx) in timelineEvents"
+                :key="idx"
+                class="tl-item"
+                :class="[`tl-${evt.state}`, `tl-v-${evt.variant}`]"
+              >
+                <div class="tl-rail">
+                  <div class="tl-dot" />
+                  <div v-if="idx < timelineEvents.length - 1" class="tl-line" />
+                </div>
+                <div class="tl-body">
+                  <div class="tl-label">{{ evt.label }}</div>
+                  <div v-if="evt.timestamp" class="tl-time">
+                    {{ formatDate(evt.timestamp) }}
+                    <span class="tl-relative">
+                      · {{ formatRelativeTime(evt.timestamp) }}
+                    </span>
+                  </div>
+                  <div
+                    v-else-if="evt.state === 'active'"
+                    class="tl-time tl-active-text"
+                  >
+                    In progress…
+                  </div>
+                  <div
+                    v-else-if="evt.state === 'pending'"
+                    class="tl-time tl-pending-text"
+                  >
+                    Waiting
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tl-summary-grid">
+              <div v-if="duration" class="tl-summary-item">
+                <span class="tl-summary-label">Total Duration</span>
+                <span class="tl-summary-value">{{ duration }}</span>
+              </div>
+              <div
+                v-if="task.attemptCount > 1 || task.maxRetries > 1"
+                class="tl-summary-item"
+              >
+                <span class="tl-summary-label">Attempts</span>
+                <span class="tl-summary-value">
+                  {{ task.attemptCount }} / {{ task.maxRetries }}
+                </span>
+              </div>
+              <div class="tl-summary-item">
+                <span class="tl-summary-label">Last Updated</span>
+                <span class="tl-summary-value">
+                  {{ formatRelativeTime(task.updatedAt) }}
                 </span>
               </div>
             </div>
           </div>
 
-          <div v-if="timelineEvents.length <= 1" class="empty-placeholder">
-            No lifecycle events beyond creation.
-          </div>
-        </div>
+          <!-- ═══ Subagent ═══ -->
+          <div v-if="activeTab === 'subagent'" class="panel-content">
+            <template v-if="task.orchestratorSessionId">
+              <SectionPanel title="Orchestrator Attribution">
+                <div class="kv-table">
+                  <div class="kv-row">
+                    <span class="kv-key">Session ID</span>
+                    <span class="kv-val mono truncate">
+                      {{ task.orchestratorSessionId }}
+                    </span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-key">Task Status</span>
+                    <span class="kv-val">
+                      <TaskStatusBadge :status="task.status" />
+                    </span>
+                  </div>
+                  <div v-if="task.jobId" class="kv-row">
+                    <span class="kv-key">Job ID</span>
+                    <span class="kv-val mono">{{ task.jobId }}</span>
+                  </div>
+                  <div v-if="task.schemaValid != null" class="kv-row">
+                    <span class="kv-key">Schema Valid</span>
+                    <span class="kv-val">
+                      <span
+                        :class="task.schemaValid ? 'valid-check' : 'invalid-cross'"
+                      >
+                        {{ task.schemaValid ? "✓ Yes" : "✗ No" }}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </SectionPanel>
+            </template>
 
-        <!-- ─── Raw Tab ─── -->
-        <div v-if="activeTab === 'raw'" class="tab-panel">
-          <div class="raw-section">
-            <div class="raw-header">
-              <h3 class="section-heading">Task Record</h3>
-              <button
-                class="copy-btn"
-                @click="copyJson('task', task)"
-              >
-                {{ copiedSection === 'task' ? '✓ Copied' : 'Copy' }}
-              </button>
-            </div>
-            <div class="json-block-wrapper">
-              <pre class="json-block">{{ JSON.stringify(task, null, 2) }}</pre>
+            <div v-else class="empty-state">
+              <div class="empty-icon">🤖</div>
+              <div class="empty-heading">No subagent data</div>
+              <div class="empty-desc">
+                This task does not have orchestrator or subagent attribution
+                information.
+              </div>
             </div>
           </div>
 
-          <div v-if="task.resultParsed" class="raw-section">
-            <div class="raw-header">
-              <h3 class="section-heading">Result (Parsed)</h3>
-              <button
-                class="copy-btn"
-                @click="copyJson('result', task.resultParsed)"
-              >
-                {{ copiedSection === 'result' ? '✓ Copied' : 'Copy' }}
-              </button>
-            </div>
-            <div class="json-block-wrapper">
-              <pre class="json-block">{{ JSON.stringify(task.resultParsed, null, 2) }}</pre>
-            </div>
-          </div>
+          <!-- ═══ Raw ═══ -->
+          <div v-if="activeTab === 'raw'" class="panel-content">
+            <SectionPanel title="Task Object">
+              <template #actions>
+                <button
+                  class="copy-btn"
+                  @click="copyText(JSON.stringify(task, null, 2), 'raw-task')"
+                >
+                  {{ copiedSection === "raw-task" ? "Copied ✓" : "Copy" }}
+                </button>
+              </template>
+              <div class="json-block-wrapper">
+                <pre class="json-block">{{ JSON.stringify(task, null, 2) }}</pre>
+              </div>
+            </SectionPanel>
 
-          <div v-if="task.inputParams" class="raw-section">
-            <div class="raw-header">
-              <h3 class="section-heading">Input Parameters</h3>
-              <button
-                class="copy-btn"
-                @click="copyJson('input', task.inputParams)"
-              >
-                {{ copiedSection === 'input' ? '✓ Copied' : 'Copy' }}
-              </button>
-            </div>
-            <div class="json-block-wrapper">
-              <pre class="json-block">{{ JSON.stringify(task.inputParams, null, 2) }}</pre>
-            </div>
+            <SectionPanel v-if="task.resultParsed" title="Result Parsed">
+              <template #actions>
+                <button
+                  class="copy-btn"
+                  @click="
+                    copyText(
+                      JSON.stringify(task.resultParsed, null, 2),
+                      'raw-result',
+                    )
+                  "
+                >
+                  {{ copiedSection === "raw-result" ? "Copied ✓" : "Copy" }}
+                </button>
+              </template>
+              <div class="json-block-wrapper">
+                <pre class="json-block">{{
+                  JSON.stringify(task.resultParsed, null, 2)
+                }}</pre>
+              </div>
+            </SectionPanel>
+
+            <SectionPanel title="Input Parameters">
+              <template #actions>
+                <button
+                  class="copy-btn"
+                  @click="
+                    copyText(
+                      JSON.stringify(task.inputParams, null, 2),
+                      'raw-input',
+                    )
+                  "
+                >
+                  {{ copiedSection === "raw-input" ? "Copied ✓" : "Copy" }}
+                </button>
+              </template>
+              <div class="json-block-wrapper">
+                <pre class="json-block">{{
+                  JSON.stringify(task.inputParams, null, 2)
+                }}</pre>
+              </div>
+            </SectionPanel>
           </div>
         </div>
       </template>
@@ -529,7 +775,7 @@ watch(taskId, (newId) => {
   background: var(--neutral-subtle);
 }
 
-/* ─── Loading / Not Found ─── */
+/* ─── Loading ─── */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -544,6 +790,7 @@ watch(taskId, (newId) => {
   color: var(--text-tertiary);
 }
 
+/* ─── Not Found ─── */
 .not-found {
   display: flex;
   flex-direction: column;
@@ -560,7 +807,7 @@ watch(taskId, (newId) => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
@@ -574,36 +821,53 @@ watch(taskId, (newId) => {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.3;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
 }
 
-.detail-meta-row {
+.detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.detail-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
-.detail-id {
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.meta-chip-id {
+  cursor: pointer;
   font-family: "JetBrains Mono", var(--font-mono, monospace);
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
 }
 
-.detail-sep {
-  color: var(--text-placeholder);
-  font-size: 0.75rem;
+.meta-chip-id:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: var(--neutral-subtle);
 }
 
-.detail-date {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.detail-duration {
-  font-size: 0.6875rem;
-  color: #34d399;
-  font-weight: 500;
+.meta-chip-accent {
+  color: var(--accent-fg, #818cf8);
+  border-color: rgba(129, 140, 248, 0.2);
+  background: rgba(129, 140, 248, 0.06);
 }
 
 .detail-actions {
@@ -611,6 +875,98 @@ watch(taskId, (newId) => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* ─── Error Banner ─── */
+.error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: var(--radius-lg);
+}
+
+.error-banner-icon {
+  color: #f87171;
+  font-weight: 700;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  line-height: 1.55;
+}
+
+.error-banner-text {
+  font-size: 0.8125rem;
+  color: #f87171;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* ─── Tab Bar ─── */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.tab-item:hover {
+  color: var(--text-secondary);
+  background: var(--neutral-subtle);
+}
+
+.tab-item.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-fg, #818cf8);
+}
+
+.tab-icon {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.tab-item.active .tab-icon {
+  opacity: 1;
+}
+
+/* ─── Tab Panel ─── */
+.tab-panel {
+  min-height: 200px;
+}
+
+.panel-content {
+  animation: panel-in 0.15s ease-out;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─── Buttons ─── */
@@ -630,220 +986,101 @@ watch(taskId, (newId) => {
   white-space: nowrap;
 }
 
-.btn:hover { color: var(--text-primary); border-color: var(--border-accent); background: var(--neutral-subtle); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: var(--canvas-subtle); color: var(--text-secondary); border-color: var(--border-default); }
-.btn-warning { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); }
-.btn-warning:hover { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.5); }
-.btn-accent { color: #818cf8; border-color: rgba(129, 140, 248, 0.3); }
-.btn-accent:hover { background: rgba(129, 140, 248, 0.1); border-color: rgba(129, 140, 248, 0.5); }
-.btn-danger { color: var(--danger-fg, #f87171); border-color: rgba(248, 113, 113, 0.3); }
-.btn-danger:hover { background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.5); }
-
-/* ─── Tab Bar ─── */
-.tab-bar {
-  display: flex;
-  gap: 2px;
-  border-bottom: 1px solid var(--border-default);
-  margin-bottom: 24px;
-  margin-top: 20px;
+.btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+  background: var(--neutral-subtle);
 }
 
-.tab-btn {
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.btn-warning {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.btn-warning:hover {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.btn-accent {
+  color: #818cf8;
+  border-color: rgba(129, 140, 248, 0.3);
+}
+
+.btn-accent:hover {
+  background: rgba(129, 140, 248, 0.1);
+  border-color: rgba(129, 140, 248, 0.5);
+}
+
+.btn-danger {
+  color: var(--danger-fg, #f87171);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+/* ─── Copy Button ─── */
+.copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  font-size: 0.8125rem;
+  padding: 3px 10px;
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-bottom: -1px;
-}
-
-.tab-btn:hover {
-  color: var(--text-secondary);
-}
-
-.tab-btn.active {
-  color: var(--accent-fg);
-  border-bottom-color: var(--accent-fg);
-}
-
-.tab-btn svg {
-  opacity: 0.6;
-}
-
-.tab-btn.active svg {
-  opacity: 1;
-}
-
-/* ─── Tab Panels ─── */
-.tab-panel {
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ─── Result Tab ─── */
-.result-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 48px 0;
-  text-align: center;
-}
-
-.result-empty-icon {
-  font-size: 2rem;
-  margin-bottom: 4px;
-}
-
-.result-empty-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.result-empty-desc {
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.result-section {
-  margin-bottom: 20px;
-}
-
-.section-heading {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 10px 0;
-}
-
-.result-summary {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  line-height: 1.6;
-  padding: 14px 16px;
-  background: rgba(52, 211, 153, 0.06);
-  border: 1px solid rgba(52, 211, 153, 0.15);
-  border-radius: var(--radius-md);
-  white-space: pre-wrap;
-}
-
-.meta-summary {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.meta-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
-.meta-chip-label {
-  color: var(--text-tertiary);
+.copy-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
 }
 
-.meta-chip-value {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-/* ─── Error Block ─── */
-.error-block {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  background: rgba(248, 113, 113, 0.06);
-  border: 1px solid rgba(248, 113, 113, 0.15);
-  border-radius: var(--radius-md);
-}
-
-.error-icon {
-  color: #f87171;
-  font-weight: 700;
-  font-size: 1rem;
-  flex-shrink: 0;
-  line-height: 1.55;
-}
-
-.error-content {
+/* ─── Key-Value Table ─── */
+.kv-table {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
-.error-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #f87171;
-}
-
-.error-text {
-  font-size: 0.8125rem;
-  color: #fca5a5;
-  line-height: 1.55;
-  word-break: break-word;
-}
-
-/* ─── Context Tab ─── */
-.context-section {
-  margin-bottom: 24px;
-}
-
-.context-card {
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.context-row {
+.kv-row {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 9px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.context-row:last-child {
+.kv-row:last-child {
   border-bottom: none;
 }
 
-.context-label {
+.kv-key {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-tertiary);
-  min-width: 130px;
+  min-width: 140px;
   flex-shrink: 0;
 }
 
-.context-value {
+.kv-val {
   flex: 1;
   min-width: 0;
   font-size: 0.8125rem;
@@ -851,118 +1088,140 @@ watch(taskId, (newId) => {
   word-break: break-word;
 }
 
-/* ─── Timeline Tab ─── */
-.timeline-stats {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 28px;
-}
-
-.timeline-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.timeline-stat-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.timeline-stat-label {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.timeline {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-item {
-  display: flex;
-  gap: 14px;
-  min-height: 56px;
-}
-
-.timeline-track {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 20px;
-  flex-shrink: 0;
-}
-
-.timeline-dot {
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1;
-  z-index: 1;
-}
-
-.timeline-line {
-  width: 1px;
+.kv-val-block {
   flex: 1;
-  background: var(--border-default);
-  margin: 4px 0;
-}
-
-.timeline-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-bottom: 16px;
-}
-
-.timeline-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.timeline-time {
+  min-width: 0;
+  font-family: "JetBrains Mono", var(--font-mono, monospace);
   font-size: 0.75rem;
+  line-height: 1.6;
   color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: 4px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 200px;
 }
 
-.timeline-relative {
-  color: var(--text-tertiary);
-  margin-left: 6px;
+.mono {
+  font-family: "JetBrains Mono", var(--font-mono, monospace);
 }
 
-/* ─── Raw Tab ─── */
-.raw-section {
-  margin-bottom: 20px;
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.raw-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  font-size: 0.6875rem;
+.valid-check {
+  color: #34d399;
   font-weight: 500;
-  color: var(--text-secondary);
+}
+
+.invalid-cross {
+  color: #f87171;
+  font-weight: 500;
+}
+
+/* ─── Result Card ─── */
+.result-card {
   background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
 }
 
-.copy-btn:hover {
+.card-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.result-summary-text {
+  font-size: 0.875rem;
   color: var(--text-primary);
-  border-color: var(--accent-fg);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.schema-badge-row {
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.schema-pass {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+.schema-fail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+}
+
+/* ─── Empty State ─── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 1.75rem;
+  opacity: 0.4;
+  margin-bottom: 4px;
+}
+
+.empty-icon-danger {
+  color: #f87171;
+  opacity: 0.6;
+}
+
+.empty-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.empty-desc {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.empty-placeholder {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  padding: 16px 0;
+  text-align: center;
 }
 
 /* ─── JSON Block ─── */
@@ -985,32 +1244,157 @@ watch(taskId, (newId) => {
   word-break: break-word;
 }
 
-/* ─── Utility ─── */
-.mono {
-  font-family: "JetBrains Mono", var(--font-mono, monospace);
+/* ─── Timeline ─── */
+.timeline {
+  padding: 8px 0 24px;
 }
 
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tl-item {
+  display: flex;
+  gap: 16px;
+  min-height: 56px;
 }
 
-.valid-check {
-  color: #34d399;
-  font-weight: 500;
+.tl-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20px;
+  flex-shrink: 0;
 }
 
-.invalid-cross {
-  color: #f87171;
-  font-weight: 500;
+.tl-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-default);
+  background: var(--canvas-default);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.empty-placeholder {
+.tl-done .tl-dot {
+  border-color: var(--text-secondary);
+  background: var(--text-secondary);
+}
+
+.tl-active .tl-dot {
+  border-color: var(--accent-fg, #818cf8);
+  background: var(--accent-fg, #818cf8);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  animation: tl-pulse 1.5s ease-in-out infinite;
+}
+
+.tl-pending .tl-dot {
+  border-color: var(--border-subtle);
+  background: transparent;
+}
+
+/* Terminal variant overrides */
+.tl-v-success.tl-done .tl-dot {
+  border-color: #34d399;
+  background: #34d399;
+}
+
+.tl-v-danger.tl-done .tl-dot {
+  border-color: #f87171;
+  background: #f87171;
+}
+
+.tl-v-warning.tl-done .tl-dot {
+  border-color: #fbbf24;
+  background: #fbbf24;
+}
+
+@keyframes tl-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(129, 140, 248, 0.08);
+  }
+}
+
+.tl-line {
+  flex: 1;
+  width: 2px;
+  background: var(--border-default);
+  min-height: 20px;
+}
+
+.tl-pending .tl-line {
+  background: var(--border-subtle);
+  opacity: 0.5;
+}
+
+.tl-body {
+  padding-bottom: 16px;
+}
+
+.tl-label {
   font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.tl-pending .tl-label {
   color: var(--text-tertiary);
-  padding: 16px 0;
-  text-align: center;
+}
+
+.tl-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.tl-relative {
+  color: var(--text-tertiary);
+}
+
+.tl-active-text {
+  color: var(--accent-fg, #818cf8);
+  font-weight: 500;
+}
+
+.tl-pending-text {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.tl-summary-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tl-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  min-width: 120px;
+}
+
+.tl-summary-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.tl-summary-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 /* ─── Responsive ─── */
@@ -1024,8 +1408,12 @@ watch(taskId, (newId) => {
     justify-content: flex-start;
   }
 
-  .context-label {
-    min-width: 90px;
+  .kv-key {
+    min-width: 100px;
+  }
+
+  .tl-summary-grid {
+    flex-direction: column;
   }
 }
 </style>
