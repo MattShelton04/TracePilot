@@ -1,5 +1,6 @@
 //! Search and indexing Tauri commands (9 commands).
 
+use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
@@ -9,11 +10,10 @@ use crate::types::{
     SearchFacetsResponse, SearchResultItem, SearchResultsResponse, SearchSemaphore,
     SearchStatsResponse, SessionListItem,
 };
-use dashmap::DashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::Emitter;
 use tokio::sync::Semaphore;
 
@@ -21,10 +21,8 @@ use tokio::sync::Semaphore;
 // Facets TTL cache (P1 perf fix)
 // ---------------------------------------------------------------------------
 
-static FACETS_CACHE: LazyLock<DashMap<u64, (SearchFacetsResponse, Instant)>> =
-    LazyLock::new(DashMap::new);
-
-const FACETS_TTL: Duration = Duration::from_secs(60);
+static FACETS_CACHE: LazyLock<TtlCache<u64, SearchFacetsResponse>> =
+    LazyLock::new(|| TtlCache::new(Duration::from_secs(60)));
 
 fn facets_cache_key(
     query: &Option<String>,
@@ -416,11 +414,8 @@ pub async fn get_search_facets(
     );
 
     // Return cached value if still fresh.
-    if let Some(entry) = FACETS_CACHE.get(&key) {
-        let (ref response, ts) = *entry;
-        if ts.elapsed() < FACETS_TTL {
-            return Ok(response.clone());
-        }
+    if let Some(response) = FACETS_CACHE.get(&key) {
+        return Ok(response);
     }
 
     let cfg = read_config(&state);
@@ -455,7 +450,7 @@ pub async fn get_search_facets(
 
     // Cache the result.
     if let Ok(ref response) = result {
-        FACETS_CACHE.insert(key, (response.clone(), Instant::now()));
+        FACETS_CACHE.insert(key, response.clone());
     }
 
     result

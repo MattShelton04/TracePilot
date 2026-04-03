@@ -9,6 +9,7 @@
 //!   - `commands::state`         - DB size, session count, updates, git info
 //!   - `commands::logging`       - log path, export
 
+pub mod cache;
 pub mod config;
 mod commands;
 pub mod error;

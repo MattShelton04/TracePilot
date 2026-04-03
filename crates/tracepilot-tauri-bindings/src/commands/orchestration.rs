@@ -1,24 +1,19 @@
 //! Orchestration Tauri commands (22 commands).
 
 use crate::blocking_cmd;
+use crate::cache::TtlCache;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::sync::LazyLock;
+use std::time::Duration;
 
 // ---------------------------------------------------------------------------
 // check_system_deps TTL cache (P0 perf fix)
 // ---------------------------------------------------------------------------
 
-struct CachedSystemDeps {
-    cli_cmd: String,
-    checked_at: Instant,
-    value: tracepilot_orchestrator::SystemDependencies,
-}
-
-static SYSTEM_DEPS_CACHE: OnceLock<Mutex<Option<CachedSystemDeps>>> = OnceLock::new();
-const SYSTEM_DEPS_TTL: Duration = Duration::from_secs(60);
+static SYSTEM_DEPS_CACHE: LazyLock<TtlCache<String, tracepilot_orchestrator::SystemDependencies>> =
+    LazyLock::new(|| TtlCache::new(Duration::from_secs(60)));
 
 #[tauri::command]
 pub async fn check_system_deps(
@@ -28,13 +23,8 @@ pub async fn check_system_deps(
     let cli_cmd = config.general.cli_command.clone();
 
     // Check cache first.
-    let cache_mutex = SYSTEM_DEPS_CACHE.get_or_init(|| Mutex::new(None));
-    if let Ok(guard) = cache_mutex.lock() {
-        if let Some(cached) = guard.as_ref() {
-            if cached.cli_cmd == cli_cmd && cached.checked_at.elapsed() < SYSTEM_DEPS_TTL {
-                return Ok(cached.value.clone());
-            }
-        }
+    if let Some(cached) = SYSTEM_DEPS_CACHE.get(&cli_cmd) {
+        return Ok(cached);
     }
 
     // Cache miss — spawn blocking process checks.
@@ -45,13 +35,7 @@ pub async fn check_system_deps(
     .await?;
 
     // Store in cache.
-    if let Ok(mut guard) = cache_mutex.lock() {
-        *guard = Some(CachedSystemDeps {
-            cli_cmd,
-            checked_at: Instant::now(),
-            value: result.clone(),
-        });
-    }
+    SYSTEM_DEPS_CACHE.insert(cli_cmd, result.clone());
 
     Ok(result)
 }
